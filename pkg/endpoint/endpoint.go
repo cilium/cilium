@@ -337,8 +337,9 @@ func (e *Endpoint) HasIpvlanDataPath() bool {
 	return false
 }
 
-// MustGraft returns whether we need full replacement or grafting of object file.
-func (e *Endpoint) MustGraft() bool {
+// MustGraftDatapathMap returns whether we need full replacement or grafting of
+// object file.
+func (e *Endpoint) MustGraftDatapathMap() bool {
 	return e.HasIpvlanDataPath()
 }
 
@@ -1599,7 +1600,7 @@ func (e *Endpoint) GetDockerNetworkID() string {
 // SetDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
 func (e *Endpoint) SetDatapathMapIDAndPinMapLocked(id int) error {
 	e.DataPathMapID = id
-	return e.MapPinLocked()
+	return e.PinDatapathMap()
 }
 
 // IsDatapathMapPinnedLocked returns whether the endpoint's datapath map has been pinned
@@ -2254,9 +2255,9 @@ func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
 
-// MapPinLocked retrieves a file descriptor from the map ID from the API call
+// PinDatapathMap retrieves a file descriptor from the map ID from the API call
 // and pins the corresponding map into the BPF file system.
-func (e *Endpoint) MapPinLocked() error {
+func (e *Endpoint) PinDatapathMap() error {
 	if e.DataPathMapID == 0 {
 		return nil
 	}
