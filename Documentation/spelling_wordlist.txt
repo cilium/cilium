@@ -100,6 +100,7 @@ cpumap
 cqlsh
 createtopic
 CreationDate
+crd
 cri
 crio
 daemonset
@@ -137,6 +138,7 @@ DoorManager
 dports
 droid
 dryRun
+dst
 DTrace
 DWARF
 dwarfris
@@ -478,6 +480,7 @@ Sith
 skb
 sockmap
 Spectre
+src
 Stacktrace
 stacktrace
 stap

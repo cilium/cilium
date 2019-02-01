@@ -10,7 +10,8 @@ Verifies if the source is allowed to consume
 destination. Source / destination can be provided as endpoint ID, security ID, Kubernetes Pod, YAML file, set of LABELs. LABEL is represented as
 SOURCE:KEY[=VALUE].
 dports can be can be for example: 80/tcp, 53 or 23/udp.
-If multiple sources and / or destinations are provided, each source is tested whether there is a policy allowing traffic between it and each destination
+If multiple sources and / or destinations are provided, each source is tested whether there is a policy allowing traffic between it and each destination.
+--src-k8s-pod and --dst-k8s-pod requires cilium-agent to be running with disable-endpoint-crd option set to "false".
 
 ```
 cilium policy trace ( -s <label context> | --src-identity <security identity> | --src-endpoint <endpoint ID> | --src-k8s-pod <namespace:pod-name> | --src-k8s-yaml <path to YAML file> ) ( -d <label context> | --dst-identity <security identity> | --dst-endpoint <endpoint ID> | --dst-k8s-pod <namespace:pod-name> | --dst-k8s-yaml <path to YAML file>) [--dport <port>[/<protocol>] [flags]
