@@ -60,6 +60,12 @@ spec:
               key: cluster-id
               name: cilium-config
               optional: true
+        - name: CILIUM_DISABLE_ENDPOINT_CRD
+          valueFrom:
+            configMapKeyRef:
+              key: disable-endpoint-crd
+              name: cilium-config
+              optional: true
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
