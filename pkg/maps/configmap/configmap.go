@@ -135,7 +135,7 @@ type endpoint interface {
 
 // EndpointConfigMap is a map type for interfacing with endpoint BPF config.
 type EndpointConfigMap struct {
-	Map  *bpf.Map
+	*bpf.Map
 	path string
 	Fd   int
 }
