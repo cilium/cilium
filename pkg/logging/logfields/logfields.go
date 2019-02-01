@@ -195,6 +195,9 @@ const (
 	// Device is the device name
 	Device = "device"
 
+	// IpvlanMasterDevice is the ipvlan master device name
+	IpvlanMasterDevice = "ipvlanMasterDevice"
+
 	// DatapathMode is the datapath mode name
 	DatapathMode = "datapathMode"
 
