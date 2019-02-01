@@ -1098,6 +1098,24 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 	return NewSSHMetaError(err.Error(), callback)
 }
 
+// WaitForCEPIdentity waits for a particular CEP to have an identity present.
+func (kub *Kubectl) WaitForCEPIdentity(ns, podName string) error {
+	body := func(ctx context.Context) (bool, error) {
+		ep := kub.CepGet(ns, podName)
+		if ep == nil {
+			return false, nil
+		}
+		if ep.Identity == nil {
+			return false, nil
+		}
+		return ep.Identity.ID != 0, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	defer cancel()
+	return WithContext(ctx, body, 1*time.Second)
+}
+
 // CiliumExecContext runs cmd in the specified Cilium pod with the given context.
 func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd string) *CmdRes {
 	limitTimes := 5
