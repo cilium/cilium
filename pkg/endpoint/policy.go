@@ -466,7 +466,7 @@ func (e *Endpoint) runIdentityToK8sPodSync() {
 				id := ""
 
 				if err := e.RLockAlive(); err != nil {
-					return err
+					return controller.NewExitReason("Endpoint disappeared")
 				}
 				if e.SecurityIdentity != nil {
 					id = e.SecurityIdentity.ID.StringID()
@@ -520,16 +520,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
 			DoFunc: func() error {
-
-				// NOTE: this Lock is Unconditional because this controller
-				// handles disconnecting endpoint state properly
-				e.UnconditionalRLock()
-
-				if e.state == StateDisconnected || e.state == StateDisconnecting {
-					log.WithFields(logrus.Fields{logfields.EndpointState: e.state}).
-						Debugf("not synchronizing endpoint IP with kvstore due to endpoint state")
-					e.RUnlock()
-					return nil
+				if err := e.RLockAlive(); err != nil {
+					return controller.NewExitReason("Endpoint disappeared")
 				}
 
 				if e.SecurityIdentity == nil {
