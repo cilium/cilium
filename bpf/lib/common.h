@@ -557,7 +557,22 @@ static inline void relax_verifier(void)
 	csum_diff(0, 0, &foo, 1, 0);
 }
 
-static inline int datapath_redirect(int ifindex, uint32_t flags)
+static inline int redirect_self(struct __sk_buff *skb)
+{
+	/* Looping back the packet into the originating netns. In
+	 * case of veth, it's xmit'ing into the hosts' veth device
+	 * such that we end up on ingress in the peer. For ipvlan
+	 * slave it's redirect to ingress as we are attached on the
+	 * slave in netns already.
+	 */
+#ifdef ENABLE_HOST_REDIRECT
+	return redirect(skb->ifindex, 0);
+#else
+	return redirect(skb->ifindex, BPF_F_INGRESS);
+#endif
+}
+
+static inline int redirect_peer(int ifindex, uint32_t flags)
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting
