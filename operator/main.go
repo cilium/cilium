@@ -100,6 +100,14 @@ func init() {
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
+	// We need to obtain from Cilium ConfigMap if the CiliumEndpointCRD option
+	// is enabled or disabled. This option is marked as hidden because the
+	// Cilium Endpoint CRD controller is not in this program and by having it
+	// being printed by operator --help could confuse users.
+	flags.Bool(option.DisableCiliumEndpointCRDName, false, "")
+	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
+	option.BindEnv(option.DisableCiliumEndpointCRDName)
+
 	viper.BindPFlags(flags)
 }
 
@@ -112,6 +120,7 @@ func initConfig() {
 
 	option.Config.ClusterName = viper.GetString(option.ClusterName)
 	option.Config.ClusterID = viper.GetInt(option.ClusterIDName)
+	option.Config.DisableCiliumEndpointCRD = viper.GetBool(option.DisableCiliumEndpointCRDName)
 
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName("cilium-operator")
@@ -152,7 +161,11 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	enableUnmanagedKubeDNSController()
+	if option.Config.DisableCiliumEndpointCRD {
+		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
+	} else {
+		enableUnmanagedKubeDNSController()
+	}
 
 	err = enableCNPWatcher()
 	if err != nil {
