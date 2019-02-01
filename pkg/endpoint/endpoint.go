@@ -272,7 +272,7 @@ type Endpoint struct {
 	realizedRedirects map[string]uint16
 
 	// BPFConfigMap provides access to the endpoint's BPF configuration.
-	bpfConfigMap *bpfconfig.EndpointConfigMap
+	ConfigMap *bpfconfig.EndpointConfigMap
 
 	// desiredBPFConfig is the BPF Configuration computed from the endpoint.
 	desiredBPFConfig *bpfconfig.EndpointConfig
@@ -1444,6 +1444,12 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	if e.PolicyMap != nil {
 		if err := e.PolicyMap.Close(); err != nil {
 			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyGlobalMapPathLocked(), err))
+		}
+	}
+
+	if e.ConfigMap != nil {
+		if err := e.ConfigMap.Close(); err != nil {
+			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.BPFConfigMapPath(), err))
 		}
 	}
 

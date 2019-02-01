@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+
+	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-config")
@@ -159,6 +161,32 @@ func GetConfig(e endpoint) *EndpointConfig {
 func (m *EndpointConfigMap) Update(value *EndpointConfig) error {
 	configKey := &Key{Bits: 0}
 	return m.Map.Update(configKey, value)
+}
+
+// Close closes the FD of the given CofigMap. Returns an error if the close
+// operation failed. If the close operation succeeds, pm's file descriptor
+// is set to zero.
+func (m *EndpointConfigMap) Close() error {
+	log.WithFields(logrus.Fields{
+		logfields.BPFMapPath: m.path,
+		logfields.BPFMapFD:   m.Fd,
+	}).Debug("closing ConfigMap")
+	err := bpf.ObjClose(m.Fd)
+
+	// Unconditionally set file descriptor to zero so that if accesses are
+	// attempted on this ConfigMap even after this call to Close, the accesses
+	// aren't to a file descriptor that has been reassigned elsewhere. Even
+	// if the close fails, per close(2) manpages:
+	//
+	// "on Linux and many other implementations, where, as with other errors that
+	// may be reported by close(), the file descriptor is guaranteed to be
+	// closed".
+	//
+	// We are relying upon this behavior, so we can safely zero out the file
+	// descriptor in the PolicyMap.
+	m.Fd = 0
+
+	return err
 }
 
 // OpenMapWithName attempts to open or create a BPF config map at the specified

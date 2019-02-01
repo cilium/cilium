@@ -745,8 +745,8 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		e.realizedPolicy.PolicyMapState = make(policy.MapState)
 	}
 
-	if e.bpfConfigMap == nil {
-		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPath(), e.BPFConfigMapName())
+	if e.ConfigMap == nil {
+		e.ConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPath(), e.BPFConfigMapName())
 		if err != nil {
 			return err
 		}
@@ -789,13 +789,13 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		// inconsistency issues as above if there is a failure. Long
 		// term the solution to this is to templatize this map in the
 		// ELF file, but there's no solution to this just yet.
-		if err = e.bpfConfigMap.Update(e.desiredBPFConfig); err != nil {
+		if err = e.ConfigMap.Update(e.desiredBPFConfig); err != nil {
 			e.getLogger().WithError(err).Error("unable to update BPF config map")
 			return err
 		}
 
 		datapathRegenCtxt.revertStack.Push(func() error {
-			return e.bpfConfigMap.Update(e.realizedBPFConfig)
+			return e.ConfigMap.Update(e.realizedBPFConfig)
 		})
 
 		// Configure the new network policy with the proxies.
