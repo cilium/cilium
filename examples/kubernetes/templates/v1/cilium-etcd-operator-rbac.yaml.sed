@@ -3,7 +3,6 @@ apiVersion: __RBAC_API_VERSION__
 kind: ClusterRole
 metadata:
   name: cilium-etcd-operator
-  namespace: kube-system
 rules:
 - apiGroups:
   - etcd.database.coreos.com
@@ -73,7 +72,6 @@ apiVersion: __RBAC_API_VERSION__
 kind: ClusterRoleBinding
 metadata:
   name: cilium-etcd-operator
-  namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -87,7 +85,6 @@ apiVersion: __RBAC_API_VERSION__
 kind: ClusterRole
 metadata:
   name: etcd-operator
-  namespace: kube-system
 rules:
 - apiGroups:
   - etcd.database.coreos.com
@@ -141,7 +138,6 @@ apiVersion: __RBAC_API_VERSION__
 kind: ClusterRoleBinding
 metadata:
   name: etcd-operator
-  namespace: kube-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

@@ -1,6 +1,6 @@
 ---
-kind: ServiceAccount
 apiVersion: v1
+kind: ServiceAccount
 metadata:
   name: cilium-etcd-operator
   namespace: kube-system
