@@ -232,13 +232,4 @@ static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map, void *ke
 #endif
 #endif
 
-unsigned long long load_byte(void *skb, unsigned long long off)
-	asm ("llvm.bpf.load.byte");
-
-unsigned long long load_half(void *skb, unsigned long long off)
-	asm ("llvm.bpf.load.half");
-
-unsigned long long load_word(void *skb, unsigned long long off)
-	asm ("llvm.bpf.load.word");
-
 #endif /* __BPF_API__ */
