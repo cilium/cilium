@@ -1551,7 +1551,7 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
-        "data-path-map-id": {
+        "datapath-map-id": {
           "description": "ID of datapath tail call map",
           "type": "integer"
         },

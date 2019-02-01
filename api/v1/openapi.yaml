@@ -913,7 +913,7 @@ definitions:
       k8s-namespace:
         description: Kubernetes namespace name
         type: string
-      data-path-map-id:
+      datapath-map-id:
         description: ID of datapath tail call map
         type: integer
       policy-enabled:
