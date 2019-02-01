@@ -44,7 +44,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 )
 
@@ -127,22 +126,6 @@ var cToGO = map[reflect.Type]valueToCheck{
 	reflect.TypeOf(C.struct_metrics_value{}): {
 		sizeOfC:  C.sizeof_struct_metrics_value,
 		goStruct: reflect.TypeOf(metricsmap.Value{}),
-	},
-	reflect.TypeOf(C.struct_proxy4_tbl_key{}): {
-		sizeOfC:  C.sizeof_struct_proxy4_tbl_key,
-		goStruct: reflect.TypeOf(proxymap.Proxy4Key{}),
-	},
-	reflect.TypeOf(C.struct_proxy4_tbl_value{}): {
-		sizeOfC:  C.sizeof_struct_proxy4_tbl_value,
-		goStruct: reflect.TypeOf(proxymap.Proxy4Value{}),
-	},
-	reflect.TypeOf(C.struct_proxy6_tbl_key{}): {
-		sizeOfC:  C.sizeof_struct_proxy6_tbl_key,
-		goStruct: reflect.TypeOf(proxymap.Proxy6Key{}),
-	},
-	reflect.TypeOf(C.struct_proxy6_tbl_value{}): {
-		sizeOfC:  C.sizeof_struct_proxy6_tbl_value,
-		goStruct: reflect.TypeOf(proxymap.Proxy6Value{}),
 	},
 	reflect.TypeOf(C.struct_sock_key{}): {
 		sizeOfC:  C.sizeof_struct_sock_key,

@@ -2,12 +2,12 @@
 
 ## cilium bpf proxy flush
 
-Flush all proxy entries
+Flush all proxy entries (deprecated)
 
 ### Synopsis
 
 
-Flush all proxy entries
+Flush all proxy entries (deprecated)
 
 ```
 cilium bpf proxy flush

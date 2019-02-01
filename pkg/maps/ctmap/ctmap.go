@@ -22,13 +22,16 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -180,6 +183,102 @@ type GCFilter struct {
 
 	// MatchIPs is the list of IPs to remove from the conntrack table
 	MatchIPs map[string]struct{}
+}
+
+func CreateCtKey(remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (CtKey, error) {
+	ip, port, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid remote address '%s': %s", remoteAddr, err)
+	}
+
+	sIP := net.ParseIP(ip)
+	if sIP == nil {
+		return nil, fmt.Errorf("unable to parse IP %s", ip)
+	}
+
+	sport, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse port string: %s", err)
+	}
+
+	local_ip, local_port, err := net.SplitHostPort(localAddr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid local address '%s': %s", localAddr, err)
+	}
+
+	dIP := net.ParseIP(local_ip)
+	if dIP == nil {
+		return nil, fmt.Errorf("unable to parse IP %s", local_ip)
+	}
+
+	dport, err := strconv.ParseUint(local_port, 10, 16)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse port string: %s", err)
+	}
+
+	if sIP.To4() != nil {
+		// CTmap has the ports in the reverse order w.r.t. the original direction
+		key := &CtKey4{
+			SourcePort: byteorder.HostToNetwork(uint16(dport)).(uint16),
+			DestPort:   byteorder.HostToNetwork(uint16(sport)).(uint16),
+			NextHeader: proto,
+			Flags:      TUPLE_F_OUT,
+		}
+		// CTmap has the addresses in the reverse order w.r.t. the original direction
+		copy(key.SourceAddr[:], dIP.To4())
+		copy(key.DestAddr[:], sIP.To4())
+		if ingress {
+			key.Flags = TUPLE_F_IN
+		}
+		return key, nil
+	}
+
+	key := &CtKey6{
+		// CTmap has the ports in the reverse order w.r.t. the original direction
+		SourcePort: byteorder.HostToNetwork(uint16(dport)).(uint16),
+		DestPort:   byteorder.HostToNetwork(uint16(sport)).(uint16),
+		NextHeader: proto,
+		Flags:      TUPLE_F_OUT,
+	}
+	// CTmap has the addresses in the reverse order w.r.t. the original direction
+	copy(key.SourceAddr[:], dIP.To16())
+	copy(key.DestAddr[:], sIP.To16())
+	if ingress {
+		key.Flags = TUPLE_F_IN
+	}
+	return key, nil
+}
+
+func Lookup(remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (*CtEntry, error) {
+	var mapname string
+	key, err := CreateCtKey(remoteAddr, localAddr, proto, ingress)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := key.(CtKey); ok {
+		if proto == u8proto.TCP {
+			mapname = MapNameTCP4Global
+		} else {
+			mapname = MapNameAny4Global
+		}
+	} else {
+		if proto == u8proto.TCP {
+			mapname = MapNameTCP6Global
+		} else {
+			mapname = MapNameAny6Global
+		}
+	}
+	m := bpf.GetMap(mapname)
+	if m == nil {
+		// TODO: Figure out if the global maps ever need to be closed/reopened.
+		m, err = bpf.OpenMap(mapname)
+		if err != nil {
+			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
+		}
+	}
+
+	v, err := m.Lookup(key)
+	return v.(*CtEntry), err
 }
 
 // ToString iterates through Map m and writes the values of the ct entries in m
@@ -436,7 +535,7 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 
 // GlobalMaps returns a slice of CT maps that are used globally by all
 // endpoints that are not otherwise configured to use their own local maps.
-// If ipv6 or ipv6 are false, the maps for that protocol will not be returned.
+// If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
 //
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {

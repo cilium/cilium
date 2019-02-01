@@ -25,7 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-//CtKey4 represents the key for IPv4 entries in the local BPF conntrack map.
+// CtKey4 represents the key for IPv4 entries in the BPF conntrack maps.
+// Field names are correct for return traffic, i.e., they are reversed
+// compared to the original direction traffic.
 type CtKey4 struct {
 	DestAddr   types.IPv4
 	SourceAddr types.IPv4
