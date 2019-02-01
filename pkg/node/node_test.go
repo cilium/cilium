@@ -39,7 +39,6 @@ var _ = Suite(&NodeSuite{})
 
 func (s *NodeSuite) SetUpTest(c *C) {
 	option.Config.Populate()
-	option.Config.EnableIPv4 = defaults.EnableIPv4
 }
 
 func (s *NodeSuite) TestGetNodeIP(c *C) {

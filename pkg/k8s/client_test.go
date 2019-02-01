@@ -35,9 +35,6 @@ import (
 )
 
 func (s *K8sSuite) TestUseNodeCIDR(c *C) {
-	option.Config.EnableIPv4 = true
-	option.Config.EnableIPv6 = true
-
 	// Test IPv4
 	node1 := v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
