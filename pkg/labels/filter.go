@@ -166,8 +166,6 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 		"!pod-template-generation",                                   // ignore pod-template-generation
 		"!pod-template-hash",                                         // ignore pod-template-hash
 		"!controller-revision-hash",                                  // ignore controller-revision-hash
-		"!annotation." + k8sConst.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
-		"!annotation." + k8sConst.CiliumIdentityAnnotationDeprecated, // ignore all cilium annotations
 		"!annotation.sidecar.istio.io",                               // ignore all istio sidecar annotation labels
 		"!annotation.etcd.version",                                   // ignore all etcd.version annotations
 		"!etcd_node",                                                 // ignore etcd_node label
