@@ -1884,6 +1884,12 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		}
 	}
 
+	if e.bpfConfigMap != nil {
+		if err := e.bpfConfigMap.Close(); err != nil {
+			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.BPFConfigMapPath(), err))
+		}
+	}
+
 	if e.SecurityIdentity != nil {
 		err := e.SecurityIdentity.Release()
 		if err != nil {
