@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,11 +55,15 @@ func enableUnmanagedKubeDNSController() {
 				}
 
 				for _, pod := range pods.Items {
-					id, podHasIdentity := pod.Annotations[ciliumio.CiliumK8sAnnotationPrefix+"identity"]
+					if !pod.Spec.HostNetwork {
+						continue
+					}
+					cep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(pod.Namespace).Get(pod.Name, metav1.GetOptions{})
 					podID := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
-					if podHasIdentity {
-						log.Debugf("Found kube-dns pod %s with identity %s", podID, id)
-					} else if !pod.Spec.HostNetwork {
+					switch {
+					case err == nil:
+						log.Debugf("Found kube-dns pod %s with identity %d", podID, cep.Status.ID)
+					case errors.IsNotFound(err):
 						log.Debugf("Found unmanaged kube-dns pod %s", podID)
 						if startTime := pod.Status.StartTime; startTime != nil {
 							if age := time.Since((*startTime).Time); age > unmanagedKubeDnsMinimalAge {
@@ -79,6 +83,8 @@ func enableUnmanagedKubeDNSController() {
 
 							}
 						}
+					default:
+						return err
 					}
 				}
 
