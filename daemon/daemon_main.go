@@ -1191,9 +1191,13 @@ func runDaemon() {
 
 	select {
 	case err := <-metricsErrs:
-		log.WithError(err).Fatal("Cannot start metrics server")
+		if err != nil {
+			log.WithError(err).Fatal("Cannot start metrics server")
+		}
 	case err := <-errs:
-		log.WithError(err).Fatal("Error returned from non-returning Serve() call")
+		if err != nil {
+			log.WithError(err).Fatal("Error returned from non-returning Serve() call")
+		}
 	}
 }
 
