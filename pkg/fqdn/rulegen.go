@@ -526,5 +526,9 @@ func (gen *RuleGen) updateIPsForName(lookupTime time.Time, dnsName string, newIP
 
 	gen.cache.Update(lookupTime, dnsName, newIPs, ttl)
 	sortedNewIPs := gen.cache.Lookup(dnsName) // DNSCache returns IPs sorted
-	return !sortedIPsAreEqual(sortedNewIPs, cacheIPs)
+
+	// The 0 checks below account for an unlike race condition where this
+	// function is called with already expired data and if other cache data
+	// from before also expired.
+	return (len(cacheIPs) == 0 && len(sortedNewIPs) == 0) || !sortedIPsAreEqual(sortedNewIPs, cacheIPs)
 }
