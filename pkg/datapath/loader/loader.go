@@ -41,7 +41,7 @@ type endpoint interface {
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
 	MapPath() string
-	MustGraft() bool
+	MustGraftDatapathMap() bool
 }
 
 // compileDatapath invokes the compiler and linker to create all state files for
@@ -85,7 +85,7 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
-	if ep.MustGraft() {
+	if ep.MustGraftDatapathMap() {
 		if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
