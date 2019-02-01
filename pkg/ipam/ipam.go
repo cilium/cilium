@@ -15,15 +15,12 @@
 package ipam
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -128,75 +125,4 @@ func (ipam *IPAM) ReserveLocalRoutes() {
 	if ipam.IPv4Allocator != nil {
 		ipam.reserveLocalRoutes()
 	}
-}
-
-// AllocateInternalIPs allocates all non endpoint IPs in the CIDR required for
-// operation. This mustbe called *after* endpoints have been restored to avoid
-// allocation conflicts
-func (ipam *IPAM) AllocateInternalIPs() error {
-	if ipam.IPv4Allocator != nil {
-		// Reserve the IPv4 router IP if it is part of the IPv4
-		// allocation range to ensure that we do not hand out the
-		// router IP to a container.
-		allocRange := ipam.nodeAddressing.IPv4().AllocationCIDR()
-		nodeIP := ipam.nodeAddressing.IPv4().PrimaryExternal()
-		if allocRange.Contains(nodeIP) {
-			err := ipam.IPv4Allocator.Allocate(nodeIP)
-			if err != nil {
-				return fmt.Errorf("Unable to allocate external IPv4 node IP %s from allocation range %s: %s", nodeIP, allocRange, err)
-			}
-		}
-
-		internalIP := ipam.nodeAddressing.IPv4().Router()
-		if internalIP == nil {
-			internalIP = ip.GetNextIP(ipam.nodeAddressing.IPv4().AllocationCIDR().IP)
-		}
-		err := ipam.IPv4Allocator.Allocate(internalIP)
-		if err != nil {
-			// If the allocation fails here it is likely that, in a kubernetes
-			// environment, cilium was not able to retrieve the node's pod-cidr
-			// which will cause cilium to start with a default IPv4 allocation range
-			// different from the previous running instance.
-			// Since defaults.HostDevice IP is always automatically derived from the
-			// IPv4 allocation range it is safe to assume defaults.HostDevice IP
-			// will always belong to the IPv4AllocationRange.
-			// Unless of course the user manually specifies a different IPv4range
-			// between restarts which he can only solve by deleting the IPv4
-			// address from defaults.HostDevice as well deleting the node_config.h.
-			return ErrAllocation(fmt.Errorf("Unable to allocate internal IPv4 node IP %s: %s.",
-				internalIP, err))
-		}
-		node.SetInternalIPv4(internalIP)
-	}
-
-	if ipam.IPv6Allocator != nil {
-		// Reserve the IPv6 router and node IP if it is part of the IPv6
-		// allocation range to ensure that we do not hand out the router IP to
-		// a container.
-		allocRange := ipam.nodeAddressing.IPv6().AllocationCIDR()
-		nodeIP := ipam.nodeAddressing.IPv6().PrimaryExternal()
-		for _, ip6 := range []net.IP{nodeIP} {
-			if allocRange.Contains(ip6) {
-				err := ipam.IPv6Allocator.Allocate(ip6)
-				if err != nil {
-					return fmt.Errorf("Unable to allocate external IPv6 node IP %s from allocation range %s: %s", ip6, allocRange, err)
-				}
-			}
-
-			routerIP := ipam.nodeAddressing.IPv6().Router()
-			if routerIP == nil {
-				routerIP = ip.GetNextIP(ipam.nodeAddressing.IPv6().AllocationCIDR().IP)
-			}
-			if !routerIP.Equal(nodeIP) {
-				err := ipam.IPv6Allocator.Allocate(routerIP)
-				if err != nil {
-					return ErrAllocation(fmt.Errorf("Unable to allocate internal IPv6 router IP %s: %s.",
-						routerIP, err))
-				}
-				node.SetIPv6Router(routerIP)
-			}
-		}
-	}
-
-	return nil
 }
