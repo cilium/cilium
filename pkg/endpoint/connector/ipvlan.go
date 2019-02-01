@@ -324,7 +324,7 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 		return 0, fmt.Errorf("unable to setup ipvlan slave in remote netns: %s", err)
 	}
 
-	ep.DataPathMapID = int64(mapID)
+	ep.DatapathMapID = int64(mapID)
 
 	return mapFD, nil
 }
