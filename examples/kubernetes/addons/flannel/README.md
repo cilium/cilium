@@ -7,9 +7,9 @@ Flannel cluster.
 If you have your cluster already set up with Flannel you will not need to
 install Flannel again.
 
-This Cilium integration with Flannel was performed with Flannel 0.10.0. If you
-find any issues with previous Flannel versions please feel free to reach us out
-to help you.
+This Cilium integration with Flannel was performed with Flannel 0.10.0 and
+Kubernetes >= 1.9. If you find any issues with previous Flannel versions please
+feel free to reach us out to help you.
 
 Flannel installation
 --------------------
@@ -18,7 +18,7 @@ NOTE: If `kubeadm` is used, then pass `--pod-network-cidr=10.244.0.0/16` to
 `kubeadm init` to ensure that the `podCIDR` is set.
 
 ```bash
-kubectl -f https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/addons/flannel/flannel.yaml
+kubectl -f https://raw.githubusercontent.com/cilium/cilium/v1.4.0/examples/kubernetes/addons/flannel/flannel.yaml
 ```
 
 Wait until all pods to be in ready state before preceding to the next step.
@@ -29,7 +29,7 @@ Cilium installation
 Download Cilium k8s descriptor
 
 ```bash
-curl https://raw.githubusercontent.com/cilium/cilium/master/examples/kubernetes/1.8/cilium.yaml
+curl https://raw.githubusercontent.com/cilium/cilium/v1.4.0/examples/kubernetes/1.9/cilium.yaml
 ```
 
 Edit the ConfigMap in that file and set the option `flannel-master-device` with "cni0".
