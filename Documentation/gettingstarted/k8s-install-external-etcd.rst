@@ -93,13 +93,13 @@ Kubernetes you are using:
     # In case you want to use TLS in etcd, uncomment the 'ca-file' line
     # and create a kubernetes secret by following the tutorial in
     # https://cilium.link/etcd-config
-    #ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
+    #ca-file: '/var/lib/etcd-secrets/etcd-ca'
     #
     # In case you want client to server authentication, uncomment the following
     # lines and create a kubernetes secret by following the tutorial in
     # https://cilium.link/etcd-config
-    #key-file: '/var/lib/etcd-secrets/etcd-client.key'
-    #cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
+    #key-file: '/var/lib/etcd-secrets/etcd-client-key'
+    #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
 
 Deploy Cilium
 =============
@@ -111,7 +111,7 @@ Deploy Cilium
 Validate the Installation
 =========================
 
-Verify that a cilium pod was started on each of your worker nodes
+Verify that Cilium pods were started on each of your worker nodes
 
 .. code:: bash
 
@@ -119,3 +119,6 @@ Verify that a cilium pod was started on each of your worker nodes
     NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
     cilium          4         4         4         <none>          2m
 
+    kubectl -n kube-system get deployments cilium-operator
+    NAME              READY   UP-TO-DATE   AVAILABLE   AGE
+    cilium-operator   1/1     1            1           5m25s
