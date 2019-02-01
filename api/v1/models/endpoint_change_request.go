@@ -28,7 +28,7 @@ type EndpointChangeRequest struct {
 	ContainerName string `json:"container-name,omitempty"`
 
 	// ID of datapath tail call map
-	DataPathMapID int64 `json:"data-path-map-id,omitempty"`
+	DatapathMapID int64 `json:"datapath-map-id,omitempty"`
 
 	// Docker endpoint ID
 	DockerEndpointID string `json:"docker-endpoint-id,omitempty"`
@@ -81,7 +81,7 @@ type EndpointChangeRequest struct {
 
 /* polymorph EndpointChangeRequest container-name false */
 
-/* polymorph EndpointChangeRequest data-path-map-id false */
+/* polymorph EndpointChangeRequest datapath-map-id false */
 
 /* polymorph EndpointChangeRequest docker-endpoint-id false */
 
