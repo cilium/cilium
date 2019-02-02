@@ -339,10 +339,10 @@ case "${MODE}" in
 		# If the host does not have an IPv6 address assigned, assign our generated host
 		# IP to make the host accessible to endpoints
 		if [ "$IP6_HOST" != "<nil>" ]; then
-			[ -n "$(ip -6 addr show to $IP6_HOST)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
+			[ -n "$(ip -6 addr show to $IP6_HOST dev $HOST_DEV1)" ] || ip -6 addr add $IP6_HOST dev $HOST_DEV1
 		fi
 		if [ "$IP4_HOST" != "<nil>" ]; then
-			[ -n "$(ip -4 addr show to $IP4_HOST)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
+			[ -n "$(ip -4 addr show to $IP4_HOST dev $HOST_DEV1)" ] || ip -4 addr add $IP4_HOST dev $HOST_DEV1 scope link
 		fi
         ;;
 esac
