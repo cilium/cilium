@@ -243,7 +243,11 @@ func AutoComplete() error {
 	}
 
 	if option.Config.EnableIPv6 && ipv6AllocRange == nil {
-		return fmt.Errorf("IPv6 per node allocation prefix is not configured. Please specificy --ipv6-range")
+		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specificy --ipv6-range")
+	}
+
+	if option.Config.EnableIPv4 && ipv4AllocRange == nil {
+		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specificy --ipv4-range")
 	}
 
 	return nil
