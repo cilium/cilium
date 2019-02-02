@@ -143,7 +143,7 @@ func (ipam *IPAM) AllocateInternalIPs() error {
 		if allocRange.Contains(nodeIP) {
 			err := ipam.IPv4Allocator.Allocate(nodeIP)
 			if err != nil {
-				log.WithError(err).WithField(logfields.IPAddr, nodeIP).Debug("Unable to reserve IPv4 router address")
+				return fmt.Errorf("Unable to allocate external IPv4 node IP %s from allocation range %s: %s", nodeIP, allocRange, err)
 			}
 		}
 
@@ -179,7 +179,7 @@ func (ipam *IPAM) AllocateInternalIPs() error {
 			if allocRange.Contains(ip6) {
 				err := ipam.IPv6Allocator.Allocate(ip6)
 				if err != nil {
-					log.WithError(err).WithField(logfields.IPAddr, ip6).Debug("Unable to reserve IPv6 address")
+					return fmt.Errorf("Unable to allocate external IPv6 node IP %s from allocation range %s: %s", ip6, allocRange, err)
 				}
 			}
 
