@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -35,9 +34,6 @@ import (
 )
 
 func (s *K8sSuite) TestUseNodeCIDR(c *C) {
-	option.Config.EnableIPv4 = true
-	option.Config.EnableIPv6 = true
-
 	// Test IPv4
 	node1 := v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
