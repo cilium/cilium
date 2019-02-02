@@ -220,7 +220,8 @@ func init() {
 	}
 }
 
-func findProxyPort(l7ParserType policy.L7ParserType, ingress bool) (uint16, string, error) {
+// FindProxyPort() returns the fixed listen port for a proxy
+func FindProxyPort(l7ParserType policy.L7ParserType, ingress bool) (uint16, string, error) {
 	// ProxyPorts is small enough to not bother indexing it.
 	for _, v := range ProxyPorts {
 		if v.L7ParserType == l7ParserType && v.Ingress == ingress {
@@ -293,7 +294,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		revertStack.Push(removeRevertFunc)
 	}
 
-	to, listenerName, err := findProxyPort(l4.L7Parser, l4.Ingress)
+	to, listenerName, err := FindProxyPort(l4.L7Parser, l4.Ingress)
 	if err != nil {
 		return
 	}

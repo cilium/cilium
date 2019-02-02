@@ -1369,7 +1369,11 @@ func (d *Daemon) bootstrapFQDN() (err error) {
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(proxy.DNSProxyPort),
+	port, _, err := proxy.FindProxyPort(policy.ParserTypeDNS, false)
+	if err != nil {
+		return err
+	}
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
 			e := endpointmanager.LookupIP(endpointIP)
