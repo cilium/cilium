@@ -145,7 +145,7 @@ spec:
               key: flannel-manage-existing-containers
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.0-rc5
+        image: docker.io/cilium/cilium:v1.4.0-rc6
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
