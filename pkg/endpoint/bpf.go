@@ -1158,7 +1158,7 @@ func (e *Endpoint) syncPolicyMapController() {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we
 				// should exit gracefully.
-				if err := e.RLockAlive(); err != nil {
+				if err := e.LockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 				defer e.Unlock()
