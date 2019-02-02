@@ -263,7 +263,7 @@ type Endpoint struct {
 
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
-	controllers controller.Manager
+	controllers *controller.Manager
 
 	// realizedRedirects maps the ID of each proxy redirect that has been
 	// successfully added into a proxy for this endpoint, to the redirect's
@@ -418,6 +418,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		DNSHistory:    fqdn.NewDNSCache(),
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
+		controllers:   controller.NewManager(),
 	}
 	ep.UpdateLogger(nil)
 	return ep
@@ -447,6 +448,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		hasBPFProgram:    make(chan struct{}, 0),
 		desiredPolicy:    &policy.EndpointPolicy{},
 		realizedPolicy:   &policy.EndpointPolicy{},
+		controllers:      controller.NewManager(),
 	}
 	ep.UpdateLogger(nil)
 
@@ -1198,6 +1200,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.hasBPFProgram = make(chan struct{}, 0)
 	ep.desiredPolicy = &policy.EndpointPolicy{}
 	ep.realizedPolicy = &policy.EndpointPolicy{}
+	ep.controllers = controller.NewManager()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
