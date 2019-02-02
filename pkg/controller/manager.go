@@ -235,8 +235,8 @@ func (m *Manager) GetStatusModel() models.ControllerStatuses {
 // FakeManager returns a fake controller manager with the specified number of
 // failing controllers. The returned manager is identical in any regard except
 // for internal pointers.
-func FakeManager(failingControllers int) Manager {
-	m := Manager{
+func FakeManager(failingControllers int) *Manager {
+	m := &Manager{
 		controllers: controllerMap{},
 	}
 
