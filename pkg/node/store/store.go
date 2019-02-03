@@ -45,6 +45,10 @@ type NodeObserver struct {
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
+		if n == nil {
+			return
+		}
+
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = node.FromKVStore
 		o.manager.NodeUpdated(*nodeCopy)
