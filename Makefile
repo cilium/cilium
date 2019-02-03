@@ -10,10 +10,8 @@ GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
-DOCKER=$(QUIET)docker
-
 SWAGGER_VERSION = 0.12.0
-SWAGGER = $(DOCKER) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+SWAGGER = $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG ?= ./...
 GOTEST_BASE = -test.v -check.vv -timeout 360s
@@ -59,8 +57,8 @@ tests-privileged:
 
 start-kvstores:
 	@echo Starting key-value store containers...
-	-$(DOCKER) rm -f "cilium-etcd-test-container" 2> /dev/null
-	$(DOCKER) run -d \
+	-$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container" 2> /dev/null
+	$(CONTAINER_ENGINE_FULL) run -d \
 		--name "cilium-etcd-test-container" \
 		-p 4002:4001 \
 		quay.io/coreos/etcd:v3.2.17 \
@@ -70,12 +68,12 @@ start-kvstores:
 		-listen-peer-urls http://0.0.0.0:2380 \
 		-initial-cluster-token etcd-cluster-1 \
 		-initial-cluster-state new
-	-$(DOCKER) rm -f "cilium-consul-test-container" 2> /dev/null
+	-$(CONTAINER_ENGINE_FULL) rm -f "cilium-consul-test-container" 2> /dev/null
 	rm -rf /tmp/cilium-consul-certs
 	mkdir /tmp/cilium-consul-certs
 	cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
 	chmod -R a+rX /tmp/cilium-consul-certs
-	$(DOCKER) run -d \
+	$(CONTAINER_ENGINE_FULL) run -d \
 		--name "cilium-consul-test-container" \
 		-p 8501:8443 \
 		-e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
@@ -84,8 +82,8 @@ start-kvstores:
 		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 
 stop-kvstores:
-	$(DOCKER) rm -f "cilium-etcd-test-container"
-	$(DOCKER) rm -f "cilium-consul-test-container"
+	$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container"
+	$(CONTAINER_ENGINE_FULL) rm -f "cilium-consul-test-container"
 	rm -rf /tmp/cilium-consul-certs
 
 tests: force
@@ -140,23 +138,23 @@ GIT_VERSION: .git
 docker-image: clean docker-image-no-clean
 
 docker-image-no-clean: GIT_VERSION
-	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "docker push cilium/cilium:$(DOCKER_IMAGE_TAG)"
+	$(QUIET)echo "${CONTAINER_ENGINE_FULL} push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
 dev-docker-image: GIT_VERSION
-	$(DOCKER) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
+	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "docker push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
+	$(QUIET)echo "${CONTAINER_ENGINE_FULL} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
 
 docker-image-init:
-	$(QUIET)cd contrib/packaging/docker && docker build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
+	$(QUIET)cd contrib/packaging/docker && ${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
 
 docker-image-runtime:
-	cd contrib/packaging/docker && docker build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
+	cd contrib/packaging/docker && ${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 
 docker-image-builder:
-	docker build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
+	${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
 
 build-deb:
 	$(MAKE) -C ./contrib/packaging/deb
@@ -296,16 +294,16 @@ update-authors:
 
 docs-container:
 	$(QUIET)cp -r ./api ./Documentation/_api
-	$(DOCKER) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
+	$(CONTAINER_ENGINE_FULL) image build -t cilium/docs-builder -f Documentation/Dockerfile ./Documentation; \
 	  (ret=$$?; rm -r ./Documentation/_api && exit $$ret)
 
 render-docs: test-docs
-	$(DOCKER) container run --rm -dit --name docs-cilium -p 9080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
+	$(CONTAINER_ENGINE_FULL) container run --rm -dit --name docs-cilium -p 9080:80 -v $$(pwd)/Documentation/_build/html/:/usr/local/apache2/htdocs/ httpd:2.4
 	@echo "$$(tput setaf 2)Running at http://localhost:9080$$(tput sgr0)"
 
 test-docs: docs-container
-	-$(DOCKER) container rm -f docs-cilium >/dev/null 2>&1 || true
-	$(DOCKER) container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
+	-$(CONTAINER_ENGINE_FULL) container rm -f docs-cilium >/dev/null 2>&1 || true
+	$(CONTAINER_ENGINE_FULL) container run --rm -v $$(pwd):/srv/ cilium/docs-builder /bin/bash -c 'make html'
 
 manpages:
 	-rm -r man
