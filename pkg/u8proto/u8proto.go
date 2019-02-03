@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,14 +27,16 @@ const (
 	TCP    U8proto = 6
 	UDP    U8proto = 17
 	ICMPv6 U8proto = 58
+	SCTP   U8proto = 132
 )
 
 var protoNames = map[U8proto]string{
-	0:  "all",
-	1:  "ICMP",
-	6:  "TCP",
-	17: "UDP",
-	58: "ICMPv6",
+	0:   "all",
+	1:   "ICMP",
+	6:   "TCP",
+	17:  "UDP",
+	58:  "ICMPv6",
+	132: "SCTP",
 }
 
 var ProtoIDs = map[string]U8proto{
@@ -43,6 +45,7 @@ var ProtoIDs = map[string]U8proto{
 	"tcp":    6,
 	"udp":    17,
 	"icmpv6": 58,
+	"sctp":   132,
 }
 
 type U8proto uint8
