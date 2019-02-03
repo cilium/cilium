@@ -18,9 +18,10 @@ package api
 type L4Proto string
 
 const (
-	ProtoTCP L4Proto = "TCP"
-	ProtoUDP L4Proto = "UDP"
-	ProtoAny L4Proto = "ANY"
+	ProtoTCP  L4Proto = "TCP"
+	ProtoUDP  L4Proto = "UDP"
+	ProtoSCTP L4Proto = "SCTP"
+	ProtoAny  L4Proto = "ANY"
 )
 
 // PortProtocol specifies an L4 port with an optional transport protocol

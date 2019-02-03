@@ -220,6 +220,12 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 					return found, err
 				}
 				found += cnt
+
+				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoSCTP, ruleLabels, resMap)
+				if err != nil {
+					return found, err
+				}
+				found += cnt
 			}
 		}
 	}
@@ -501,6 +507,12 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 				found += cnt
 
 				cnt, err = mergeL4EgressPort(ctx, toEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap)
+				if err != nil {
+					return found, err
+				}
+				found += cnt
+
+				cnt, err = mergeL4EgressPort(ctx, toEndpoints, r, p, api.ProtoSCTP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
