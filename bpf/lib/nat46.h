@@ -44,6 +44,9 @@ static inline int get_csum_offset(__u8 protocol)
 	case IPPROTO_UDP:
 		csum_off = UDP_CSUM_OFF;
 		break;
+	case IPPROTO_SCTP:
+		csum_off = SCTP_CSUM_OFF;
+		break;
 	case IPPROTO_ICMP:
 		csum_off = (offsetof(struct icmphdr, checksum));
 		break;

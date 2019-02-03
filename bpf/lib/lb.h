@@ -209,6 +209,7 @@ static inline int __inline__ extract_l4_port(struct __sk_buff *skb, __u8 nexthdr
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+	case IPPROTO_SCTP:
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_load_port(skb, l4_off + TCP_DPORT_OFF, port);
 		if (IS_ERR(ret))
@@ -234,6 +235,7 @@ static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nex
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+	case IPPROTO_SCTP:
 		if (port) {
 			__be16 old_port;
 			int ret;
@@ -422,11 +424,11 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
-	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
+	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP || nexthdr == IPPROTO_SCTP)) {
 		__be16 tmp = svc->port;
 		int ret;
 
-		/* Port offsets for UDP and TCP are the same */
+		/* Port offsets for UDP, TCP, and SCTP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;
@@ -706,9 +708,9 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
-	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
+	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP || nexthdr == IPPROTO_SCTP)) {
 		__be16 tmp = svc->port;
-		/* Port offsets for UDP and TCP are the same */
+		/* Port offsets for UDP, TCP, and SCTP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))
 			return ret;

@@ -25,6 +25,7 @@
 
 #define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
 #define UDP_CSUM_OFF (offsetof(struct udphdr, check))
+#define SCTP_CSUM_OFF 8
 
 struct csum_offset
 {
@@ -52,6 +53,10 @@ static inline void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *of
 	case IPPROTO_UDP:
 		off->offset = UDP_CSUM_OFF;
 		off->flags = BPF_F_MARK_MANGLED_0;
+		break;
+
+	case IPPROTO_SCTP:
+		off->offset = SCTP_CSUM_OFF;
 		break;
 
 	case IPPROTO_ICMPV6:

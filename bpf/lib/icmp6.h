@@ -289,8 +289,10 @@ static inline int __icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off)
 			return DROP_WRITE_ERROR;
 		if (ipv6_store_paylen(skb, nh_off, &payload_len) < 0)
 			return DROP_WRITE_ERROR;
-
                 break;
+
+	/* FIXME: Add IPPROTO_SCTP support */
+
         default:
                 return DROP_UNKNOWN_L4;
         }

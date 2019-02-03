@@ -113,6 +113,7 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 	switch (nh) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+	case IPPROTO_SCTP:
 		/* load sport + dport in reverse order, sport=dport, dport=sport */
 		if (skb_load_bytes(skb, l4_off, &key.dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -300,6 +301,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 	switch (nh) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+	case IPPROTO_SCTP:
 		/* load sport + dport in reverse order, sport=dport, dport=sport */
 		if (skb_load_bytes(skb, l4_off, &key.dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;

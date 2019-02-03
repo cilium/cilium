@@ -382,6 +382,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		break;
 
 	case IPPROTO_UDP:
+	case IPPROTO_SCTP:
 		/* load sport + dport into tuple */
 		if (skb_load_bytes(skb, l4_off, &tuple->dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -538,6 +539,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		break;
 
 	case IPPROTO_UDP:
+	case IPPROTO_SCTP:
 		/* load sport + dport into tuple */
 		if (skb_load_bytes(skb, off, &tuple->dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;
