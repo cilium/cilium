@@ -43,3 +43,7 @@ GOBUILD = -ldflags '$(GOLDFLAGS)'
 ifneq ($(LOCKDEBUG),)
     GOBUILD += -tags lockdebug
 endif
+
+# Container engine
+CONTAINER_ENGINE?=docker
+CONTAINER_ENGINE_FULL=$(QUIET)$(CONTAINER_ENGINE)
