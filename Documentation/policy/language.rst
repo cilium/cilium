@@ -1191,6 +1191,24 @@ resources.
 
         .. literalinclude:: ../../examples/policies/kubernetes/serviceaccount/serviceaccount-policy.json
 
+Multi-Cluster
+-------------
+
+When operating multiple cluster with cluster mesh, the cluster name is exposed
+via the label ``io.cilium.k8s.policy.cluster`` and can be used to restrict
+policies to a particular cluster.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clustermesh/cross-cluster-policy.yaml
+
 Well-known Identities
 ---------------------
 
