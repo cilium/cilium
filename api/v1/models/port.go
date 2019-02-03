@@ -50,7 +50,7 @@ var portTypeProtocolPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["TCP","UDP","ANY"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","ANY"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -63,6 +63,8 @@ const (
 	PortProtocolTCP string = "TCP"
 	// PortProtocolUDP captures enum value "UDP"
 	PortProtocolUDP string = "UDP"
+	// PortProtocolSCTP captures enum value "SCTP"
+	PortProtocolSCTP string = "SCTP"
 	// PortProtocolANY captures enum value "ANY"
 	PortProtocolANY string = "ANY"
 )

@@ -2304,6 +2304,7 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "SCTP",
             "ANY"
           ]
         }
