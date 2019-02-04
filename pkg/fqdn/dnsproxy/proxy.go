@@ -407,12 +407,12 @@ func (p *DNSProxy) SetRejectReply(opt string) {
 	}
 }
 
-// ExtractMsgDetails extracts a canonical query name, any IPs in a response and
-// the lowest applicable TTL. When a CNAME is returned the chain is collapsed
-// down, keeping the lowest TTL, and CNAME targets are returned.
-func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL uint32, CNAMEs []string, err error) {
+// ExtractMsgDetails extracts a canonical query name, any IPs in a response,
+// the lowest applicable TTL and message type. When a CNAME is returned the
+// chain is collapsed down, keeping the lowest TTL, and CNAME targets are returned.
+func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL uint32, CNAMEs []string, msgType int, err error) {
 	if len(msg.Question) == 0 {
-		return "", nil, 0, nil, errors.New("Invalid DNS message")
+		return "", nil, 0, nil, 0, errors.New("Invalid DNS message")
 	}
 	qname = strings.ToLower(string(msg.Question[0].Name))
 
@@ -425,7 +425,7 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 	for _, ans := range msg.Answer {
 		// Ensure we have records for DNS names we expect
 		if strings.ToLower(ans.Header().Name) != rrName {
-			return qname, nil, 0, nil, fmt.Errorf("Unexpected name (%s) in RRs for %s (query for %s)", ans, rrName, qname)
+			return qname, nil, 0, nil, 0, fmt.Errorf("Unexpected name (%s) in RRs for %s (query for %s)", ans, rrName, qname)
 		}
 
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
@@ -451,7 +451,14 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 		}
 	}
 
-	return qname, responseIPs, TTL, CNAMEs, nil
+	var dnsType int
+	if msg.Response {
+		dnsType = msg.Rcode
+	} else {
+		dnsType = msg.Opcode
+	}
+
+	return qname, responseIPs, TTL, CNAMEs, dnsType, nil
 }
 
 // bindToAddr attempts to bind to address and port for both UDP and TCP. If

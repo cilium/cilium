@@ -230,7 +230,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 				return err
 			}
 
-			qname, responseIPs, TTL, CNAMEs, err := dnsproxy.ExtractMsgDetails(msg)
+			qname, responseIPs, TTL, CNAMEs, dnsMsgType, err := dnsproxy.ExtractMsgDetails(msg)
 			if err != nil {
 				// This error is ok because all these values are used for reporting, or filling in the cache.
 				log.WithError(err).Error("cannot extract DNS message details")
@@ -251,6 +251,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 					TTL:               TTL,
 					CNAMEs:            CNAMEs,
 					ObservationSource: accesslog.DNSSourceProxy,
+					DNSMsgType:        dnsMsgType,
 				}),
 			)
 			record.Log()

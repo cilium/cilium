@@ -282,6 +282,10 @@ type LogRecordDNS struct {
 	// Empty or undefined may indicate older cilium versions, as it is expected
 	// to be filled in.
 	ObservationSource DNSDataSource `json:"ObservationSource,omitempty"`
+
+	// DNSMsgType is an int representing DNS message Opcode (for requests) or Rcode (for responses)
+	// defined as per https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-5
+	DNSMsgType int
 }
 
 // LogRecordL7 contains the generic L7 portion of a log record
