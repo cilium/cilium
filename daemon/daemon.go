@@ -1136,15 +1136,35 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		EnableIPv6: option.Config.EnableIPv6,
 	})
 
-	// Workloads must be initialized after IPAM has started as it requires
-	// to allocate IPs.
-	wOpts := map[workloads.WorkloadRuntimeType]map[string]string{
-		workloads.Docker:     {workloads.DatapathModeOpt: option.Config.DatapathMode},
-		workloads.ContainerD: make(map[string]string),
-		workloads.CRIO:       make(map[string]string),
-	}
-	if err := workloads.Setup(d.ipam, option.Config.Workloads, wOpts); err != nil {
-		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
+	if option.Config.WorkloadsEnabled() {
+		// workaround for to use the values of the deprecated dockerEndpoint
+		// variable if it is set with a different value than defaults.
+		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
+		if defaultDockerEndpoint != option.Config.DockerEndpoint {
+			option.Config.ContainerRuntimeEndpoint[string(workloads.Docker)] = option.Config.DockerEndpoint
+			log.Warn(`"docker" flag is deprecated.` +
+				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
+		}
+
+		opts := make(map[workloads.WorkloadRuntimeType]map[string]string)
+		for _, rt := range option.Config.Workloads {
+			opts[workloads.WorkloadRuntimeType(rt)] = make(map[string]string)
+		}
+		for rt, ep := range option.Config.ContainerRuntimeEndpoint {
+			opts[workloads.WorkloadRuntimeType(rt)][workloads.EpOpt] = ep
+		}
+		if opts[workloads.Docker] == nil {
+			opts[workloads.Docker] = make(map[string]string)
+		}
+		opts[workloads.Docker][workloads.DatapathModeOpt] = option.Config.DatapathMode
+
+		// Workloads must be initialized after IPAM has started as it requires
+		// to allocate IPs.
+		if err := workloads.Setup(d.ipam, option.Config.Workloads, opts); err != nil {
+			return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
+		}
+
+		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 	}
 	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 

@@ -989,23 +989,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	if option.Config.WorkloadsEnabled() {
-		// workaround for to use the values of the deprecated dockerEndpoint
-		// variable if it is set with a different value than defaults.
-		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
-		if defaultDockerEndpoint != option.Config.DockerEndpoint {
-			option.Config.ContainerRuntimeEndpoint[string(workloads.Docker)] = option.Config.DockerEndpoint
-			log.Warn(`"docker" flag is deprecated.` +
-				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
-		}
-
-		err = workloads.ParseConfigEndpoint(option.Config.Workloads, option.Config.ContainerRuntimeEndpoint)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize policy container runtimes")
-			return
-		}
-	}
-
 	if option.Config.SidecarHTTPProxy {
 		log.Warn(`"sidecar-http-proxy" flag is deprecated and has no effect`)
 	}

@@ -62,7 +62,7 @@ const (
 var (
 	dockerInstance = &dockerModule{
 		opts: workloadRuntimeOpts{
-			epOpt: &workloadRuntimeOpt{
+			EpOpt: &workloadRuntimeOpt{
 				description: "Addresses of docker endpoint",
 				value:       "unix:///var/run/docker.sock",
 			},
@@ -108,7 +108,7 @@ type dockerClient struct {
 
 func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
-	ep := opts[epOpt]
+	ep := opts[EpOpt]
 	c, err := client.NewClient(ep.value, "v1.21", nil, defaultHeaders)
 	if err != nil {
 		return nil, err
