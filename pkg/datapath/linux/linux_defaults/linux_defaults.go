@@ -35,4 +35,7 @@ const (
 
 	// TunnelDeviceName the default name of the tunnel device when using vxlan
 	TunnelDeviceName = "cilium_vxlan"
+
+	// IPSec SPI value for node rules
+	IPSecNodeSPI = 2
 )
