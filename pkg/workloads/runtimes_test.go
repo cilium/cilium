@@ -18,6 +18,7 @@ package workloads
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -32,7 +33,7 @@ type WorkloadsTestSuite struct{}
 
 var _ = Suite(&WorkloadsTestSuite{})
 
-func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
+func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 	// backup registered workload since None will unregister them all
 	bakRegisteredWorkloads := map[WorkloadRuntimeType]workloadModule{}
 	for k, v := range registeredWorkloads {
@@ -42,17 +43,14 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 		registeredWorkloads = bakRegisteredWorkloads
 	}()
 
-	containerDOpts := map[string]string{
-		epOpt: "unix:///foo.sock",
-	}
 	dockerOpts := map[string]string{
-		epOpt:           "unix:///docker.sock",
-		DatapathModeOpt: "veth",
+		EpOpt:           "unix:///docker.sock",
+		DatapathModeOpt: "ipvlan",
 	}
 
 	type args struct {
-		containerRuntimes       []string
-		containerRuntimesEPOpts map[string]string
+		containerRuntimes     []string
+		containerRuntimesOpts map[WorkloadRuntimeType]map[string]string
 	}
 	tests := []struct {
 		name    string
@@ -60,28 +58,25 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 		wantErr bool
 	}{
 		{
-			name: "Do not use any container runtime",
+			name: "Use Docker container runtime",
 			args: args{
-				containerRuntimes: []string{string(ContainerD), string(Docker)},
-				containerRuntimesEPOpts: map[string]string{
-					string(ContainerD): containerDOpts[epOpt],
-					string(Docker):     dockerOpts[epOpt],
+				containerRuntimes: []string{string(Docker)},
+				containerRuntimesOpts: map[WorkloadRuntimeType]map[string]string{
+					Docker: dockerOpts,
 				},
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
-		if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
-			c.Errorf("ParseConfigEndpoint() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
+		if err := setup(nil, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
+			c.Errorf("setup() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}
+		setupOnce = sync.Once{}
 	}
 
-	if !reflect.DeepEqual(getWorkload(ContainerD).getConfig(), containerDOpts) {
-		c.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(ContainerD).getConfig(), containerDOpts)
-	}
 	if !reflect.DeepEqual(getWorkload(Docker).getConfig(), dockerOpts) {
-		c.Errorf("ParseConfigEndpoint() = %v, want %v", getWorkload(Docker).getConfig(), dockerOpts)
+		c.Errorf("setup() = %v, want %v", getWorkload(Docker).getConfig(), dockerOpts)
 	}
 
 	// Since None will unregister the backends we need to execute it on a
@@ -95,14 +90,14 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 			name: "Do not use any container runtime",
 			args: args{
 				containerRuntimes: []string{string(ContainerD), string(None)},
-				containerRuntimesEPOpts: map[string]string{
-					string(ContainerD): epOpt + "=unix:///foo.sock",
+				containerRuntimesOpts: map[WorkloadRuntimeType]map[string]string{
+					Docker: {EpOpt: "unix:///foo.sock"},
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "Do not use any container runtime",
+			name: "Do not use any container runtime (error)",
 			args: args{
 				containerRuntimes: []string{"does-not-exist", string(None)},
 			},
@@ -110,9 +105,10 @@ func (s *WorkloadsTestSuite) TestParseConfigEndpoint(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if err := ParseConfigEndpoint(tt.args.containerRuntimes, tt.args.containerRuntimesEPOpts); (err != nil) != tt.wantErr {
-			c.Errorf("ParseConfigEndpoint() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
+		if err := setup(nil, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
+			c.Errorf("setup() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}
+		setupOnce = sync.Once{}
 	}
 }
 
@@ -244,14 +240,14 @@ func (s *WorkloadsTestSuite) TestGetRuntimeDefaultOpt(c *C) {
 			name: "containerd",
 			args: args{
 				crt: ContainerD,
-				opt: epOpt + "=" + containerDInstance.opts[epOpt].value,
+				opt: EpOpt + "=" + containerDInstance.opts[EpOpt].value,
 			},
 		},
 		{
 			name: "docker",
 			args: args{
 				crt: Docker,
-				opt: epOpt + "=" + dockerInstance.opts[epOpt].value,
+				opt: EpOpt + "=" + dockerInstance.opts[EpOpt].value,
 			},
 		},
 	}
@@ -269,10 +265,10 @@ func (s *WorkloadsTestSuite) TestGetRuntimeOptions(c *C) {
 	}{
 		{
 			name: "default options",
-			want: epOpt + "=" + containerDInstance.opts[epOpt].value + "," +
-				epOpt + "=" + criOInstance.opts[epOpt].value + "," +
+			want: EpOpt + "=" + containerDInstance.opts[EpOpt].value + "," +
+				EpOpt + "=" + criOInstance.opts[EpOpt].value + "," +
 				DatapathModeOpt + "=" + dockerInstance.opts[DatapathModeOpt].value + "," +
-				epOpt + "=" + dockerInstance.opts[epOpt].value,
+				EpOpt + "=" + dockerInstance.opts[EpOpt].value,
 		},
 	}
 	for _, tt := range tests {
@@ -296,9 +292,9 @@ func (s *WorkloadsTestSuite) TestGetDefaultEPOptsStringWithPrefix(c *C) {
 			args: args{
 				prefix: "--container-runtime-endpoint=",
 			},
-			want: `--container-runtime-endpoint=` + string(ContainerD) + "=" + containerDInstance.opts[epOpt].value + ", " +
-				`--container-runtime-endpoint=` + string(CRIO) + "=" + criOInstance.opts[epOpt].value + ", " +
-				`--container-runtime-endpoint=` + string(Docker) + "=" + dockerInstance.opts[epOpt].value,
+			want: `--container-runtime-endpoint=` + string(ContainerD) + "=" + containerDInstance.opts[EpOpt].value + ", " +
+				`--container-runtime-endpoint=` + string(CRIO) + "=" + criOInstance.opts[EpOpt].value + ", " +
+				`--container-runtime-endpoint=` + string(Docker) + "=" + dockerInstance.opts[EpOpt].value,
 		},
 	}
 	for _, tt := range tests {
