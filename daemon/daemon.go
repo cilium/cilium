@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -916,6 +917,59 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter
 }
 
+func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
+	// Reserve the IPv4 external node IP within the allocation range if
+	// required.
+	allocRange := family.AllocationCIDR()
+	nodeIP := family.PrimaryExternal()
+	if allocRange.Contains(nodeIP) {
+		err = d.ipam.AllocateIP(nodeIP)
+		if err != nil {
+			err = fmt.Errorf("Unable to allocate external IPv4 node IP %s from allocation range %s: %s",
+				nodeIP, allocRange, err)
+			return
+		}
+	}
+
+	routerIP = family.Router()
+	if routerIP != nil && !allocRange.Contains(routerIP) {
+		log.Warningf("Detected allocation CIDR change to %s, previous router IP %s", allocRange, routerIP)
+
+		// The restored router IP is not part of the allocation range.
+		// This indicates that the allocation range has changed.
+		if !option.Config.IsFlannelMasterDeviceSet() {
+			// Remove the old host device and
+			var link netlink.Link
+			link, err = netlink.LinkByName(option.Config.HostDevice)
+			if err != nil {
+				err = fmt.Errorf("unable to lookup host device %s: %s", option.Config.HostDevice, err)
+				return
+			}
+			if err = netlink.LinkDel(link); err != nil {
+				err = fmt.Errorf("unable to delete host device %s to change allocation CIDR: %s",
+					option.Config.HostDevice, err)
+				return
+			}
+		}
+
+		// force re-allocation of the router IP
+		routerIP = nil
+	}
+
+	if routerIP == nil {
+		routerIP = ip.GetNextIP(family.AllocationCIDR().IP)
+	}
+
+	err = d.ipam.AllocateIP(routerIP)
+	if err != nil {
+		err = fmt.Errorf("Unable to allocate IPv4 router IP %s from allocation range %s: %s",
+			routerIP, allocRange, err)
+		return
+	}
+
+	return
+}
+
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon-specific global options.
@@ -1095,27 +1149,24 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
 
-	switch err := d.ipam.AllocateInternalIPs(); err.(type) {
-	case ipam.ErrAllocation:
-		if option.Config.IPv4Range == AutoCIDR || option.Config.IPv6ServiceRange == AutoCIDR {
-			log.WithError(err).Fatalf(
-				"The allocation CIDR is different from the previous cilium instance. " +
-					"This error is most likely caused by a temporary network disruption to the kube-apiserver " +
-					"that prevent Cilium from retrieve the node's IPv4/IPv6 allocation range. " +
-					"If you believe the allocation range is supposed to be different you need to clean " +
-					"up all Cilium state with the `cilium cleanup` command on this node. Be aware " +
-					"this will cause network disruption for all existing containers managed by Cilium " +
-					"running on this node and you will have to restart them.")
-		} else {
-			log.WithError(err).Fatalf(
-				"The allocation CIDR is different from the previous cilium instance. " +
-					"If you believe the allocation range is supposed to be different you need to clean " +
-					"up all Cilium state with the `cilium cleanup` command on this node. Be aware " +
-					"this will cause network disruption for all existing containers managed by Cilium " +
-					"running on this node and you will have to restart them.")
+	if option.Config.EnableIPv4 {
+		routerIP, err := d.prepareAllocationCIDR(dp.LocalNodeAddressing().IPv4())
+		if err != nil {
+			return nil, nil, err
 		}
-	case error:
-		log.WithError(err).Fatal("IPAM init failed")
+		if routerIP != nil {
+			node.SetInternalIPv4(routerIP)
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		routerIP, err := d.prepareAllocationCIDR(dp.LocalNodeAddressing().IPv6())
+		if err != nil {
+			return nil, nil, err
+		}
+		if routerIP != nil {
+			node.SetIPv6Router(routerIP)
+		}
 	}
 
 	log.Info("Addressing information:")
