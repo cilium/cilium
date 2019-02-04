@@ -772,6 +772,8 @@ var (
 		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
 		EnableHostIPRestore:      defaults.EnableHostIPRestore,
 		EnableHealthChecking:     defaults.EnableHealthChecking,
+		EnableIPv4:               defaults.EnableIPv4,
+		EnableIPv6:               defaults.EnableIPv6,
 		ContainerRuntimeEndpoint: make(map[string]string),
 		FixedIdentityMapping:     make(map[string]string),
 		KVStoreOpt:               make(map[string]string),
