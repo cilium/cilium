@@ -1085,6 +1085,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	if err := workloads.Setup(d.ipam, option.Config.Workloads, wOpts); err != nil {
 		return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
 	}
+	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
