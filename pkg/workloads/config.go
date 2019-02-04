@@ -78,7 +78,7 @@ var (
 	allocator allocatorInterface
 )
 
-func setup(workloadRuntime WorkloadRuntimeType, opts map[string]string) error {
+func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string) error {
 	workloadMod := getWorkload(workloadRuntime)
 	if workloadMod == nil {
 		return fmt.Errorf("unknown workloadRuntime runtime type %s", workloadRuntime)
@@ -98,7 +98,18 @@ type allocatorInterface interface {
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
 func Setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
-	var err error
+	return setup(a, workloadRuntimes, opts, false)
+}
+
+func setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
+	var (
+		st  *models.Status
+		err error
+	)
+
+	if bypassStatusCheck {
+		st = &models.Status{State: models.StatusStateOk}
+	}
 
 	setupOnce.Do(
 		func() {
@@ -112,6 +123,7 @@ func Setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRun
 				}
 				switch crt {
 				case None:
+					unregisterWorkloads()
 					err = nil
 					return
 				}
@@ -124,25 +136,20 @@ func Setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRun
 				}
 				switch crt {
 				case Auto:
-					err1 := setup(Docker, opts[Docker])
-					st := Status()
-					if err1 == nil && st.State == models.StatusStateOk {
-						return
+					var setupErr error
+					for _, rt := range []WorkloadRuntimeType{Docker, ContainerD, CRIO} {
+						setupErr = setupWorkload(rt, opts[rt])
+						if !bypassStatusCheck {
+							st = Status()
+						}
+						if setupErr == nil && st.State == models.StatusStateOk {
+							return
+						}
 					}
-					err2 := setup(ContainerD, opts[ContainerD])
-					st = Status()
-					if err2 == nil && st.State == models.StatusStateOk {
-						return
-					}
-					err3 := setup(CRIO, opts[CRIO])
-					st = Status()
-					if err3 == nil && st.State == models.StatusStateOk {
-						return
-					}
-					err = err1
+					err = setupErr
 					return
 				default:
-					err = setup(crt, opts[crt])
+					err = setupWorkload(crt, opts[crt])
 					return
 				}
 			}

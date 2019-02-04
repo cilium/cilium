@@ -52,7 +52,8 @@ const (
 )
 
 const (
-	epOpt = "endpoint"
+	// EpOpt is the option name for path to endpoint
+	EpOpt = "endpoint"
 	// DatapathModeOpt is the option name for datapath mode
 	DatapathModeOpt = "datapath-mode"
 )
@@ -102,39 +103,6 @@ var (
 
 func unregisterWorkloads() {
 	registeredWorkloads = map[WorkloadRuntimeType]workloadModule{}
-}
-
-// ParseConfigEndpoint parses the containerRuntimes and the containerRuntime
-// options and adds them to the internal containerRuntime maps.
-// In case any containeRuntime does not exist an error is returned.
-// If `auto` is set in containerRuntimes, the default options of each container
-// runtime will be set. The user defined options of each particular runtime
-// will overwrite defaults.
-// If `none` is set, all containerRuntimes will be ignored.
-func ParseConfigEndpoint(containerRuntimes []string, containerRuntimesEPOpts map[string]string) error {
-	for _, runtime := range containerRuntimes {
-		crt, err := parseRuntimeType(runtime)
-		if err != nil {
-			return err
-		}
-		switch crt {
-		case None:
-			unregisterWorkloads()
-			return nil
-		}
-	}
-
-	for runtime, epOpts := range containerRuntimesEPOpts {
-		crt, _ := parseRuntimeType(runtime)
-		switch crt {
-		case None, Auto:
-		default:
-			registeredWorkloads[crt].setConfig(map[string]string{
-				epOpt: epOpts,
-			})
-		}
-	}
-	return nil
 }
 
 func parseRuntimeType(str string) (WorkloadRuntimeType, error) {
@@ -217,7 +185,7 @@ func GetDefaultEPOptsStringWithPrefix(prefix string) string {
 
 	for _, cr := range crs {
 		v := registeredWorkloads[WorkloadRuntimeType(cr)].getConfig()
-		strs = append(strs, fmt.Sprintf("%s%s=%s", prefix, cr, v[epOpt]))
+		strs = append(strs, fmt.Sprintf("%s%s=%s", prefix, cr, v[EpOpt]))
 	}
 
 	return strings.Join(strs, ", ")

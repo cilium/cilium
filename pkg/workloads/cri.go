@@ -40,7 +40,7 @@ import (
 )
 
 func getGRPCCLient(ctx context.Context) (*grpc.ClientConn, error) {
-	ep, ok := ctx.Value(epOpt).(string)
+	ep, ok := ctx.Value(EpOpt).(string)
 	if !ok {
 		return nil, fmt.Errorf("unknown runtime endpoint")
 	}

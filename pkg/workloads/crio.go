@@ -33,7 +33,7 @@ const (
 var (
 	criOInstance = &criOModule{
 		opts: workloadRuntimeOpts{
-			epOpt: &workloadRuntimeOpt{
+			EpOpt: &workloadRuntimeOpt{
 				description: "Address of cri-o endpoint",
 				value:       criOEndpoint,
 			},
@@ -73,7 +73,7 @@ type criOClient struct {
 }
 
 func newCRIOClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
-	ep := string(opts[epOpt].value)
+	ep := string(opts[EpOpt].value)
 	p, err := url.Parse(ep)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func newCRIOClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 	if p.Scheme == "" {
 		ep = "unix://" + ep
 	}
-	rsc, err := newCRIClient(context.WithValue(context.Background(), epOpt, ep))
+	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep))
 	return &criOClient{rsc}, err
 }
 

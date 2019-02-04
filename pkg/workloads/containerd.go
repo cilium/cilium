@@ -54,7 +54,7 @@ const (
 var (
 	containerDInstance = &containerDModule{
 		opts: workloadRuntimeOpts{
-			epOpt: &workloadRuntimeOpt{
+			EpOpt: &workloadRuntimeOpt{
 				description: "Address of containerD endpoint",
 				value:       containerDEndpoint,
 			},
@@ -95,7 +95,7 @@ type containerDClient struct {
 }
 
 func newContainerDClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
-	ep := string(opts[epOpt].value)
+	ep := string(opts[EpOpt].value)
 	c, err := containerd.New(ep)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func newContainerDClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 	if p.Scheme == "" {
 		ep = "unix://" + ep
 	}
-	rsc, err := newCRIClient(context.WithValue(context.Background(), epOpt, ep))
+	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep))
 	return &containerDClient{c, rsc}, err
 }
 
