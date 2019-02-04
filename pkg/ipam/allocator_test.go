@@ -19,16 +19,28 @@ package ipam
 import (
 	"net"
 
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
-	ipam := NewIPAM(fake.NewNodeAddressing(), Configuration{EnableIPv4: true, EnableIPv6: true})
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
 
-	err := ipam.AllocateInternalIPs()
-	c.Assert(err, IsNil)
+	ipv4 := fakeAddressing.IPv4().AllocationCIDR().IP
+	ipv6 := fakeAddressing.IPv6().AllocationCIDR().IP
+
+	for i := 0; i < 10; i++ {
+		_, err := addressing.NewCiliumIPv4(ipv4.String())
+		c.Assert(err, IsNil)
+		nextIP(ipv4)
+
+		_, err = addressing.NewCiliumIPv6(ipv6.String())
+		c.Assert(err, IsNil)
+		nextIP(ipv6)
+	}
 
 	allocv4, allocv6 := ipam.Dump()
 	// Test the format of the dumped ip addresses
