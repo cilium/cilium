@@ -30,7 +30,8 @@ The contents can look different than the above. The specific configuration that
 matters is to make sure that ``in-addr.arpa`` and ``ip6.arpa`` are listed as
 wildcards next to ``cluster.local``.
 
-You can validate this by looking up a pod IP with the ``host`` utility:
+You can validate this by looking up a pod IP with the ``host`` utility from any
+pod:
 
 ::
 
