@@ -156,9 +156,9 @@ available to all clusters that wish to connect.
    file:
 
    .. code:: bash
-   
-        git clone https://github.com/cilium/clustermesh-tools.git
-        cd clustermesh-tools
+
+      git clone https://github.com/cilium/clustermesh-tools.git
+      cd clustermesh-tools
 
 2. Ensure that the kubectl context is pointing to the cluster you want to
    extract the secret from.
@@ -167,7 +167,7 @@ available to all clusters that wish to connect.
 
    .. code:: bash
 
-        ./extract-etcd-secrets.sh
+      ./extract-etcd-secrets.sh
 
    This will extract the keys that Cilium is using to connect to the etcd in
    the local cluster. The key files are written to
@@ -182,7 +182,7 @@ available to all clusters that wish to connect.
 
    .. code:: bash
 
-        ./generate-secret-yaml.sh > clustermesh.yaml
+      ./generate-secret-yaml.sh > clustermesh.yaml
 
 .. note::
 
@@ -278,20 +278,20 @@ Kubernetes service with identical name and namespace in each cluster and adding
 the annotation ``io.cilium/global-service: "true"``` to declare it global.
 Cilium will automatically perform load-balancing to pods in both clusters.
 
-.. code:: bash
+.. code-block:: yaml
 
-    apiVersion: v1
-    kind: Service
-    metadata:
-      name: rebel-base
-      annotations:
-        io.cilium/global-service: "true"
-    spec:
-      type: ClusterIP
-      ports:
-      - port: 80
-      selector:
-        name: rebel-base
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: rebel-base
+     annotations:
+       io.cilium/global-service: "true"
+   spec:
+     type: ClusterIP
+     ports:
+     - port: 80
+     selector:
+       name: rebel-base
 
 Deploying a simple example service
 ==================================
@@ -314,7 +314,7 @@ Deploying a simple example service
 
       kubectl exec -ti xwing-xxx -- curl rebel-base
 
-   You will see replies from pods in both clusters
+   You will see replies from pods in both clusters.
 
 
 Security Policies
@@ -332,7 +332,7 @@ The following policy illustrates how to allow particular pods to allow
 communicate between two clusters. The cluster name refers to the name given via
 the ``--cluster-name`` agent option or ``cluster-name`` ConfigMap option.
 
-::
+.. code-block:: yaml
 
     apiVersion: "cilium.io/v2"
     kind: CiliumNetworkPolicy
