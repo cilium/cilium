@@ -105,7 +105,7 @@ func NewDriver(url string) (Driver, error) {
 			}
 			time.Sleep(time.Duration(tries) * time.Second)
 		} else {
-			if res.Status.Addressing == nil || res.Status.Addressing.IPV6 == nil {
+			if res.Status.Addressing == nil || (res.Status.Addressing.IPV4 == nil && res.Status.Addressing.IPV6 == nil) {
 				scopedLog.Fatal("Invalid addressing information from daemon")
 			}
 
