@@ -60,8 +60,8 @@
 
 #ifdef CONNTRACK
 
-#define TUPLE_F_OUT		0	/* Outgoing flow */
-#define TUPLE_F_IN		1	/* Incoming flow */
+#define TUPLE_F_OUT		0	/* Return flow for an ingress to a container */
+#define TUPLE_F_IN		1	/* Return flow for an egress from a container */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */
 #define TUPLE_F_SERVICE		4	/* Flow represents service/slave map */
 
@@ -289,8 +289,6 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	ipv6_addr_copy(&tuple->saddr, &tuple->daddr);
 	ipv6_addr_copy(&tuple->daddr, &tmp_addr);
 
-	/* The meaning of .addr switches without requiring to copy bits
-	 * around, we only have to swap the ports */
 	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
@@ -316,12 +314,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * or REPLY state takes precedence over ESTABLISHED due to
 	 * policy requirements.
 	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
+	 * tuple->flags separates entries that could otherwise be overlapping.
 	 */
 	if (dir == CT_INGRESS)
 		tuple->flags = TUPLE_F_OUT;
@@ -473,12 +466,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	 * or REPLY state takes precedence over ESTABLISHED due to
 	 * policy requirements.
 	 *
-	 * Depending on direction, either source or destination address
-	 * is assumed to be the address of the container. Therefore,
-	 * the source address for incoming respectively the destination
-	 * address for outgoing packets is stored in a single field in
-	 * the tuple. The TUPLE_F_OUT and TUPLE_F_IN flags indicate which
-	 * address the field currently represents.
+	 * tuple->flags separates entries that could otherwise be overlapping.
 	 */
 	if (dir == CT_INGRESS)
 		tuple->flags = TUPLE_F_OUT;

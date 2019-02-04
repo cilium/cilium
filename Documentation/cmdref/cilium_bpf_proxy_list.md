@@ -2,12 +2,12 @@
 
 ## cilium bpf proxy list
 
-List proxy configuration
+List proxy configuration (deprecated)
 
 ### Synopsis
 
 
-List proxy configuration
+List proxy configuration (deprecated)
 
 ```
 cilium bpf proxy list

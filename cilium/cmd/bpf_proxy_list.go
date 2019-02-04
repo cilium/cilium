@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/spf13/cobra"
 )
 
@@ -32,17 +31,11 @@ const (
 var bpfProxyListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
-	Short:   "List proxy configuration",
+	Short:   "List proxy configuration (deprecated)",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf proxy list")
 
 		proxyList := make(map[string][]string)
-		if err := proxymap.Proxy4Map.Dump(proxyList); err != nil {
-			os.Exit(1)
-		}
-		if err := proxymap.Proxy6Map.Dump(proxyList); err != nil {
-			os.Exit(1)
-		}
 
 		if command.OutputJSON() {
 			if err := command.PrintOutput(proxyList); err != nil {

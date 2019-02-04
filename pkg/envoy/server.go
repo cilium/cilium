@@ -45,6 +45,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 var (
@@ -167,6 +168,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 				},
 			},
 		},
+		Transparent: &wrappers.BoolValue{Value: true},
 		// FilterChains: []*envoy_api_v2_listener.FilterChain
 		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",

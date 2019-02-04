@@ -15,14 +15,11 @@
 package proxy
 
 import (
-	"fmt"
 	"github.com/cilium/cilium/pkg/revert"
-	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
@@ -90,15 +87,4 @@ func (r *Redirect) updateRules(l4 *policy.L4Filter) revert.RevertFunc {
 		r.mutex.Unlock()
 		return nil
 	}
-}
-
-// removeProxyMapEntryOnClose is called after the proxy has closed a connection
-// and will remove the proxymap entry for that connection
-func (r *Redirect) removeProxyMapEntryOnClose(c net.Conn) error {
-	key, err := getProxyMapKey(c, r.ProxyPort)
-	if err != nil {
-		return fmt.Errorf("unable to extract proxymap key: %s", err)
-	}
-
-	return proxymap.Delete(key)
 }

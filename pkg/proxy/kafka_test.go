@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -178,6 +179,8 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	defer log.Logger.SetLevel(oldLevel)
 	log.Logger.SetLevel(logrus.DebugLevel)
 
+	flowdebug.Enable()
+
 	server := NewServer()
 	server.Start()
 	defer server.Close()
@@ -197,11 +200,11 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
 	// the EP ID by the IP.
 	ep := &endpoint.Endpoint{}
-	ep.UpdateLogger(nil)
 	ep.ID = uint16(localEndpointMock.GetID())
 	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
 	c.Assert(err, IsNil)
 	ep.IPv4 = ipv4
+	ep.UpdateLogger(nil)
 	endpointmanager.Insert(ep)
 	defer endpointmanager.Remove(ep)
 
@@ -222,11 +225,11 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	}
 
 	redir, err := createKafkaRedirect(r, kafkaConfiguration{
-		lookupNewDest: func(remoteAddr string, dport uint16) (uint32, string, error) {
-			return uint32(1000), server.Address(), nil
+		lookupSrcID: func(remoteAddr, localAddr string, ingress bool) (uint32, error) {
+			return uint32(1000), nil
 		},
-		// Disable use of SO_MARK
-		noMarker: true,
+		// Disable use of SO_MARK, IP_TRANSPARENT for tests
+		testMode: true,
 	}, DefaultEndpointInfoRegistry)
 	c.Assert(err, IsNil)
 	defer redir.Close(nil)
