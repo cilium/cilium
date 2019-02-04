@@ -13,7 +13,7 @@ Standard Installation
 This guides takes you through the steps required to set up Cilium on Kubernetes
 using the cilium-etcd-operator. The cilium-etcd-operator replaces the
 requirement for an external kvstore. You can learn more about it in the section
-:ref:`k8s_what_is_the_cilium_etcd_operator`. It is suitable for small and
+:ref:`k8s_what_is_the_cilium_etcd_operator` It is suitable for small and
 medium scale deployments where etcd performance is not absolutely essential.
 Please refer to the  :ref:`k8s_etcd_operator_limitations` section below to
 learn about the exact limitations of this deployment method.
@@ -60,8 +60,8 @@ should be healthy and ready:
 What is the cilium-etcd-operator?
 =================================
 
-The cilium-etcd-operator uses and extend the etcd-operator to guarantee quorum,
-auto-create certificates and manage compaction:
+The cilium-etcd-operator uses and extends the etcd-operator to guarantee quorum,
+auto-create certificates, and manage compaction:
 
  * Automatic re-creation of the etcd cluster when the cluster loses quorum. The
    standard etcd-operator will refuse to bring up new etcd nodes and the etcd
@@ -89,7 +89,7 @@ disadvantages which can become of relevance as you scale up your clusters:
   re-created by the cilium-etcd-operator. Cilium will automatically recover and
   re-create all state in etcd. This operation can take can couple of seconds
   and may cause minor disruptions as ongoing distributed locks are invalidated
-  and security identities have have to be re-allocated.
+  and security identities have to be re-allocated.
 
 * etcd is very sensitive to disk IO latency and requires fast disk access at a
   certain scale. The cilium-etcd-operator will not take any measures to provide
