@@ -1001,8 +1001,6 @@ func initEnv(cmd *cobra.Command) {
 			log.WithError(err).Fatal("Unable to initialize policy container runtimes")
 			return
 		}
-
-		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 	}
 
 	if option.Config.SidecarHTTPProxy {
