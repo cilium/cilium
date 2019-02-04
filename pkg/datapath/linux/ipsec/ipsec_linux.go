@@ -85,13 +85,14 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Reqid = keys.ReqID
 }
 
-func ipSecReplaceState(remoteIP, localIP net.IP) error {
+func ipSecReplaceState(remoteIP, localIP net.IP, spi int) error {
 	state := ipSecNewState()
 
 	key := getIPSecKeys(localIP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
+	key.Spi = spi
 	ipSecJoinState(state, key)
 	state.Src = localIP
 	state.Dst = remoteIP
@@ -204,7 +205,7 @@ func ipSecDeletePolicy(src, local net.IP) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPSecEndpoint(local, remote *net.IPNet) error {
+func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int) error {
 	/* TODO: state reference ID is (dip,spi) which can be duplicated in the current global
 	 * mode. The duplication is on _all_ ingress states because dst_ip == host_ip in this
 	 * case and only a single spi entry is in use. Currently no check is done to avoid
@@ -217,12 +218,12 @@ func UpsertIPSecEndpoint(local, remote *net.IPNet) error {
 	 * transparent mode ciliumIP == nil case must also be handled.
 	 */
 	if !local.IP.Equal(remote.IP) {
-		if err := ipSecReplaceState(local.IP, remote.IP); err != nil {
+		if err := ipSecReplaceState(local.IP, remote.IP, spi); err != nil {
 			if !os.IsExist(err) {
 				return err
 			}
 		}
-		if err := ipSecReplaceState(remote.IP, local.IP); err != nil {
+		if err := ipSecReplaceState(remote.IP, local.IP, spi); err != nil {
 			if !os.IsExist(err) {
 				return err
 			}
