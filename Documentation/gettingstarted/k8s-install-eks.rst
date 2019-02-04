@@ -39,8 +39,8 @@ Create the cluster
 ------------------
 
 Create an EKS cluster with ``eksctl`` see the `eksctl Documentation
-<https://github.com/weaveworks/eksctl>`_ for details on how to change region,
-VPC, cluster size, ...
+<https://github.com/weaveworks/eksctl>`_ for details on how to set credentials,
+change region, VPC, cluster size, etc.
 
    .. code:: bash
 
@@ -99,12 +99,34 @@ You can monitor as Cilium and all required components are being installed:
 
     kubectl -n kube-system get pods --watch
     NAME                                    READY   STATUS              RESTARTS   AGE
-    cilium-etcd-operator-6ffbd46df9-pn6cf   1/1     Running             0          7s
-    cilium-operator-cb4578bc5-q52qk         0/1     Pending             0          8s
-    cilium-s8w5m                            0/1     PodInitializing     0          7s
-    coredns-86c58d9df4-4g7dd                0/1     ContainerCreating   0          8m57s
-    coredns-86c58d9df4-4l6b2                0/1     ContainerCreating   0          8m57s
+    aws-node-vgc7n                          1/1     Running             0          2m55s
+    aws-node-x6sjm                          1/1     Running             0          3m35s
+    cilium-cvp8q                            0/1     Init:0/1            0          53s
+    cilium-etcd-operator-6d9975f5df-2vflw   0/1     ContainerCreating   0          54s
+    cilium-operator-788c55554-gkpbf         0/1     ContainerCreating   0          54s
+    cilium-tdzcx                            0/1     Init:0/1            0          53s
+    coredns-77b578f78d-km6r4                1/1     Running             0          11m
+    coredns-77b578f78d-qr6gq                1/1     Running             0          11m
+    kube-proxy-l47rx                        1/1     Running             0          6m28s
+    kube-proxy-zj6v5                        1/1     Running             0          6m28s
 
 It may take a couple of minutes for the etcd-operator to bring up the necessary
 number of etcd pods to achieve quorum. Once it reaches quorum, all components
 should be healthy and ready:
+
+.. parsed-literal::
+
+   kubectl -n=kube-system get pods
+   NAME                                    READY   STATUS    RESTARTS   AGE
+   aws-node-vgc7n                          1/1     Running   0          2m
+   aws-node-x6sjm                          1/1     Running   0          3m
+   cilium-cvp8q                            1/1     Running   0          42s
+   cilium-etcd-operator-6d9975f5df-2vflw   1/1     Running   0          43s
+   cilium-etcd-p2ggsb22nc                  1/1     Running   0          28s
+   cilium-operator-788c55554-gkpbf         1/1     Running   2          43s
+   cilium-tdzcx                            1/1     Running   0          42s
+   coredns-77b578f78d-2khwp                1/1     Running   0          13s
+   coredns-77b578f78d-bs6rp                1/1     Running   0          13s
+   etcd-operator-7b9768bc99-294wf          1/1     Running   0          37s
+   kube-proxy-l47rx                        1/1     Running   0          6m
+   kube-proxy-zj6v5                        1/1     Running   0          6m
