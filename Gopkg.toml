@@ -268,7 +268,7 @@ required = [
 
 [[constraint]]
   name = "github.com/cilium/dns"
-  revision = "91dc6ea60a7e280ad5dd4d1780a2210b07171150"
+  revision = "ed9daeeec163fced32ec67d40d993badf9991f06"
 
   # main-usage = "pkg/fqdn"
   # on-revision = ""

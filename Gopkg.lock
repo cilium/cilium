@@ -56,7 +56,7 @@
 [[projects]]
   name = "github.com/cilium/dns"
   packages = ["."]
-  revision = "91dc6ea60a7e280ad5dd4d1780a2210b07171150"
+  revision = "ed9daeeec163fced32ec67d40d993badf9991f06"
 
 [[projects]]
   name = "github.com/cilium/proxy"
