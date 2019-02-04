@@ -56,7 +56,7 @@
 [[projects]]
   name = "github.com/cilium/dns"
   packages = ["."]
-  revision = "91dc6ea60a7e280ad5dd4d1780a2210b07171150"
+  revision = "ed9daeeec163fced32ec67d40d993badf9991f06"
 
 [[projects]]
   name = "github.com/cilium/proxy"
@@ -839,6 +839,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "587b3701298f16f02d85d18e56a361d87739e167e5436a2bc3ae1bc890439f19"
+  inputs-digest = "9ca931cd69ed46f03a09c081a28820c5190fddbd96cba0afc877ad1ba94db9ec"
   solver-name = "gps-cdcl"
   solver-version = 1
