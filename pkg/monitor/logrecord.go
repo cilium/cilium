@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/miekg/dns"
 )
 
 // LogRecordNotify is a proxy access log notification
@@ -89,7 +90,9 @@ func (l *LogRecordNotify) DumpInfo() {
 			if l.DNS.ObservationSource == accesslog.DNSSourceAgentPoller {
 				sourceType = "Poll"
 			}
-			fmt.Printf(" DNS %s: %s", sourceType, l.DNS.Query)
+			t, _ := dns.TypeToString[l.DNS.QTypes[0]]
+
+			fmt.Printf(" DNS %s: %s %s", sourceType, l.DNS.Query, t)
 
 			ips := make([]string, 0, len(l.DNS.IPs))
 			for _, ip := range l.DNS.IPs {
