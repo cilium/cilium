@@ -21,9 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
@@ -36,11 +34,6 @@ func Test(t *testing.T) {
 type NodeSuite struct{}
 
 var _ = Suite(&NodeSuite{})
-
-func (s *NodeSuite) SetUpTest(c *C) {
-	option.Config.Populate()
-	option.Config.EnableIPv4 = defaults.EnableIPv4
-}
 
 func (s *NodeSuite) TestGetNodeIP(c *C) {
 	n := Node{
