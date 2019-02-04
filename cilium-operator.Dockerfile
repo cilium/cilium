@@ -11,4 +11,4 @@ FROM scratch
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium/operator/cilium-operator /usr/bin/cilium-operator
 WORKDIR /
-CMD ["/usr/bin/cilium-etcd-operator"]
+CMD ["/usr/bin/cilium-operator"]
