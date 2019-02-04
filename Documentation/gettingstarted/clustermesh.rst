@@ -298,13 +298,13 @@ Deploying a simple example service
 
 1. In cluster 1, deploy:
 
-   .. code:: bash
+   .. parsed-literal::
 
        kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/cluster1.yaml
 
 2. In cluster 2, deploy:
 
-   .. code:: bash
+   .. parsed-literal::
 
        kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/cluster2.yaml
 
