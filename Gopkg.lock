@@ -1200,7 +1200,7 @@
     "storage/v1beta1"
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.2"
+  revision = "kubernetes-1.13.3"
 
 [[projects]]
   name = "k8s.io/apiextensions-apiserver"
@@ -1213,7 +1213,7 @@
     "pkg/features"
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.2"
+  revision = "kubernetes-1.13.3"
 
 [[projects]]
   name = "k8s.io/apimachinery"
@@ -1263,7 +1263,7 @@
     "third_party/forked/golang/reflect"
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.2"
+  revision = "kubernetes-1.13.3"
 
 [[projects]]
   name = "k8s.io/apiserver"
@@ -1272,11 +1272,9 @@
     "pkg/util/feature"
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.2"
+  revision = "kubernetes-1.13.3"
 
 [[projects]]
-  digest = "1:e00a2f6e9516b21e01cf2878e2926fee4cf8ec1be1b4b36f201d7c31ccc1ce4d"
->>>>>>> vendor: bump k8s version to v1.13.2
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1377,7 +1375,7 @@
     "util/retry"
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.13.2"
+  revision = "kubernetes-1.13.3"
 
 [[projects]]
   name = "k8s.io/code-generator"
@@ -1393,7 +1391,7 @@
     "pkg/util"
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.13.2"
+  revision = "kubernetes-1.13.3"
 
 [[projects]]
   name = "k8s.io/gengo"
@@ -1435,7 +1433,7 @@
     "pkg/registry/core/service/ipallocator"
   ]
   pruneopts = "NUT"
-  revision = "v1.13.2"
+  revision = "v1.13.3"
 
 [[projects]]
   name = "sigs.k8s.io/yaml"
