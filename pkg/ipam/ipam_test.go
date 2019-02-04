@@ -37,9 +37,6 @@ func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
 
-	err := ipam.AllocateInternalIPs()
-	c.Assert(err, IsNil)
-
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
 	// manually on the endpoint based on the alloc range.
