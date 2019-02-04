@@ -284,26 +284,12 @@ skip_service_lookup:
 
 	if (redirect_to_proxy(verdict, forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		union v6addr host_ip = {};
 
-		BPF_V6(host_ip, HOST_IP);
+		ipv6_redirect_to_proxy(skb, ip6, CT_EGRESS, verdict,
+				       forwarding_reason, monitor);
 
-		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
-						 verdict, tuple->dport,
-						 orig_dip, tuple, &host_ip,
-						 SECLABEL, forwarding_reason,
-						 monitor);
-		if (IS_ERR(ret))
-			return ret;
-
-		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
-
-		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_EGRESS);
-		if (ret != TC_ACT_OK)
-			return ret;
-
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-		return redirect(HOST_IFINDEX, 0);
+		// TC_ACT_OK if OK, falling through to the stack.
+		return ipv6_l3(skb, l3_off, (__u8 *) NULL, (__u8 *) &host_mac.addr, METRIC_EGRESS);
 	}
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
@@ -598,30 +584,16 @@ skip_service_lookup:
 	if (redirect_to_proxy(verdict, forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
-		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 verdict, tuple.dport,
-						 orig_dip, &tuple, SECLABEL,
-						 forwarding_reason, monitor);
-		if (IS_ERR(ret))
-			return ret;
+		ipv4_redirect_to_proxy(skb, ip4, CT_EGRESS, verdict,
+				       forwarding_reason, monitor);
 
-		/* After L4 write in port mapping: revalidate for direct packet access */
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
 		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
 
-		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
-		if (ret != TC_ACT_OK)
-			return ret;
-
-		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
-
-#ifdef HOST_REDIRECT_TO_INGRESS
-		return redirect(HOST_IFINDEX, BPF_F_INGRESS);
-#else
-		return redirect(HOST_IFINDEX, 0);
-#endif
+		// TC_ACT_OK if OK, falling through to the stack.
+		return ipv4_l3(skb, l3_off, (__u8 *) NULL, (__u8 *) &host_mac.addr, ip4);
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
@@ -824,8 +796,8 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
 
-	/* If packet is coming from the egress proxy we have to skip
-	 * redirection to the egress proxy as we would loop forever. */
+	/* If packet is coming from the ingress proxy we have to skip
+	 * redirection to the ingress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
 	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
@@ -901,19 +873,17 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		/* NOTE: tuple has been invalidated after this */
 	}
 
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
 	if (redirect_to_proxy(verdict, *forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
-		union v6addr host_ip = {};
 
-		BPF_V6(host_ip, HOST_IP);
+		ipv6_redirect_to_proxy(skb, ip6, CT_INGRESS, verdict,
+				       *forwarding_reason, monitor);
 
-		ret = ipv6_redirect_to_host_port(skb, &csum_off, l4_off,
-						 verdict, tuple.dport,
-						 orig_dip, &tuple, &host_ip, src_label,
-						 *forwarding_reason, monitor);
-		if (IS_ERR(ret))
-			return ret;
+		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		if (eth_store_saddr(skb, (__u8 *) &router_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
@@ -923,6 +893,9 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 		skb->cb[CB_IFINDEX] = HOST_IFINDEX;
 	} else { // Not redirected to host / proxy.
+		// Clear DSCP to avoid going to the proxy accidentally
+		ipv6_set_dscp(skb, ip6, 0);
+
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);
 	}
@@ -964,7 +937,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct csum_offset csum_off = {};
-	int ret, verdict, l4_off;
+	int ret, verdict, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
 	bool skip_proxy = false;
@@ -978,8 +951,8 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	policy_clear_mark(skb);
 	tuple.nexthdr = ip4->protocol;
 
-	/* If packet is coming from the egress proxy we have to skip
-	 * redirection to the egress proxy as we would loop forever. */
+	/* If packet is coming from the ingress proxy we have to skip
+	 * redirection to the inggress proxy as we would loop forever. */
 	skip_proxy = tc_index_skip_proxy(skb);
 
 	tuple.daddr = ip4->daddr;
@@ -987,7 +960,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	orig_dip = ip4->daddr;
 	orig_sip = ip4->saddr;
 
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	l4_off = l3_off + ipv4_hdrlen(ip4);
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 	is_fragment = ipv4_is_fragment(ip4);
 
@@ -1009,7 +982,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		     !ct_state.loopback)) {
 		int ret2;
 
-		ret2 = lb4_rev_nat(skb, ETH_HLEN, l4_off, &csum_off,
+		ret2 = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
 				   REV_NAT_F_TUPLE_SADDR);
 		if (IS_ERR(ret2))
@@ -1048,16 +1021,15 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		/* NOTE: tuple has been invalidated after this */
 	}
 
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
 	if (redirect_to_proxy(verdict, *forwarding_reason)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 
-		ret = ipv4_redirect_to_host_port(skb, &csum_off, l4_off,
-						 verdict, tuple.dport,
-						 orig_dip, &tuple, src_label,
-						 *forwarding_reason, monitor);
-		if (IS_ERR(ret))
-			return ret;
+		ipv4_redirect_to_proxy(skb, ip4, CT_INGRESS, verdict,
+				       *forwarding_reason, monitor);
 
 		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
@@ -1075,6 +1047,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		return redirect(HOST_IFINDEX, 0);
 #endif
 	} else { // Not redirected to host / proxy.
+		// Clear DSCP to avoid going to the proxy accidentally
+		ipv4_set_dscp(skb, ip4, 0);
+
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);
 	}

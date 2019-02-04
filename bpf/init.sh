@@ -31,6 +31,7 @@ ID_WORLD=2
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
 PROXY_RT_TABLE=2005
+TO_PROXY_RT_TABLE=2004
 
 set -e
 set -x
@@ -154,20 +155,34 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	# Any packet from a local process uses a separate routing table
-	rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	# Any packet from an ingress proxy uses a separate routing table that routes
+	# the packet back to the cilium host device.
+	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+
+	# Any packet to an ingress or egress proxy uses a separate routing table
+	# that routes the packet to the loopback device regardless of the destination
+	# address in the packet. For this to work the skb must have a socket set
+	# (e.g., via TPROXY).
+	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE"
 
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		if [ -n "$(ip -4 rule list)" ]; then
-			if [ -z "$(ip -4 rule list $rulespec)" ]; then
-				ip -4 rule add $rulespec
+			if [ -z "$(ip -4 rule list $to_proxy_rulespec)" ]; then
+				ip -4 rule add $to_proxy_rulespec
+			fi
+			if [ -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
+				ip -4 rule add $from_ingress_rulespec
 			fi
 		fi
 
+		# Traffic to the host proxy is local
+		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
+		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
 		ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
 		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
 	else
-		ip -4 rule del $rulespec 2> /dev/null || true
+		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
+		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
 	fi
 
 	# flannel might not have an IPv6 address
@@ -177,18 +192,25 @@ function setup_proxy_rules()
 		*)
 			if [ "$IP6_HOST" != "<nil>" ]; then
 				if [ -n "$(ip -6 rule list)" ]; then
-					if [ -z "$(ip -6 rule list $rulespec)" ]; then
-						ip -6 rule add $rulespec
+					if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
+						ip -6 rule add $to_proxy_rulespec
+					fi
+					if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
+						ip -6 rule add $from_ingress_rulespec
 					fi
 				fi
 	
 				IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 				if [ -n "$IP6_LLADDR" ]; then
+					# Traffic to the host proxy is local
+					ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
+					# Traffic from ingress proxy goes to Cilium address space via the cilium host device
 					ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
 					ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
 				fi
 			else
-				ip -6 rule del $rulespec 2> /dev/null || true
+				ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
+				ip -6 rule del $from_ingress_rulespec 2> /dev/null || true
 			fi
 			;;
 	esac

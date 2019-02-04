@@ -253,7 +253,7 @@ enum {
 #define DROP_CT_INVALID_HDR	-135
 #define DROP_CT_MISSING_ACK	-136
 #define DROP_CT_UNKNOWN_PROTO	-137
-#define DROP_CT_CANT_CREATE	-138 /* unused */
+#define DROP_PROXY_INVALID	-138
 #define DROP_UNKNOWN_L3		-139
 #define DROP_MISSED_TAIL_CALL	-140
 #define DROP_WRITE_ERROR	-141
@@ -276,7 +276,7 @@ enum {
 #define DROP_NO_SERVICE		-158
 #define DROP_POLICY_L4		-159
 #define DROP_NO_TUNNEL_ENDPOINT -160
-#define DROP_PROXYMAP_CREATE_FAILED	-161
+#define DROP_PROXYMAP_CREATE_FAILED_	-161 /* unused */
 #define DROP_POLICY_CIDR		-162
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
@@ -308,6 +308,7 @@ enum {
 #define MARK_MAGIC_HOST			0xC00
 #define MARK_MAGIC_DECRYPT		0xD00
 #define MARK_MAGIC_ENCRYPT		0xE00
+#define MARK_MAGIC_TO_PROXY		0x200
 
 /**
  * get_identity - returns source identity from the mark field
@@ -423,7 +424,7 @@ struct ct_entry {
 	__u8  tx_flags_seen;
 	__u8  rx_flags_seen;
 
-	__u32 src_sec_id;
+	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
 
 	/* last_*x_report is a timestamp of the last time a monitor
 	 * notification was sent for the transmit/receive direction. */
@@ -485,53 +486,6 @@ struct ct_state {
 	__u32 src_sec_id;
 	__u16 slave;
 };
-
-/* Lifetime of a proxy redirection entry. All proxies should be using TCP
- * keepalive to force some traffic over the connection periodically to keep
- * these entries alive. Cross-reference with ProxyKeepAlivePeriod. */
-#define PROXY_DEFAULT_LIFETIME 720
-
-/* The proxy key is written from the perspective of the source of the
- * connection, so the "destination" port reperesents the local host port which
- * the proxy is listening on, while the "source" address/port represents the
- * non-proxy side of the connection. This applies for both ingress and egress
- * proxies.
- *
- * The value provides the original destination's address/port which was
- * replaced in the initiating connection's packet when the packet was
- * redirected to the proxy.
- */
-struct proxy4_tbl_key {
-	__be32 saddr;
-	__be16 dport; /* dport must be in front of sport, loaded with 4 bytes read */
-	__be16 sport;
-	__u8 nexthdr;
-	__u8 pad;
-} __attribute__((packed));
-
-struct proxy4_tbl_value {
-	__be32 orig_daddr;
-	__be16 orig_dport;
-	__u16 pad;
-	__u32 identity;
-	__u32 lifetime;
-} __attribute__((packed));
-
-struct proxy6_tbl_key {
-	union v6addr saddr;
-	__be16 dport;
-	__be16 sport;
-	__u8 nexthdr;
-	__u8 pad;
-} __attribute__((packed));
-
-struct proxy6_tbl_value {
-	union v6addr orig_daddr;
-	__be16 orig_dport;
-	__u16 pad;
-	__u32 identity;
-	__u32 lifetime;
-} __attribute__((packed));
 
 /* ep_config corresponds to the EndpointConfig object in pkg/maps/configmap. */
 struct ep_config {

@@ -35,6 +35,7 @@ const (
 	ciliumOutputChain     = "CILIUM_OUTPUT"
 	ciliumPostNatChain    = "CILIUM_POST"
 	ciliumPostMangleChain = "CILIUM_POST_mangle"
+	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
 	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
 )
@@ -44,6 +45,7 @@ type customChain struct {
 	table      string
 	hook       string
 	feederArgs []string
+	ipv6       bool
 }
 
 func runProg(prog string, args []string, quiet bool) error {
@@ -64,7 +66,11 @@ func getFeedRule(name, args string) []string {
 }
 
 func (c *customChain) add() error {
-	return runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
+	err := runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
+	if err == nil && c.ipv6 == true {
+		err = runProg("ip6tables", []string{"-t", c.table, "-N", c.name}, false)
+	}
+	return err
 }
 
 func reverseRule(rule string) ([]string, error) {
@@ -83,8 +89,7 @@ func reverseRule(rule string) ([]string, error) {
 	return []string{}, nil
 }
 
-func removeCiliumRules(table string) {
-	prog := "iptables"
+func removeCiliumRules(table, prog string) {
 	args := []string{"-t", table, "-S"}
 
 	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, true)
@@ -95,7 +100,7 @@ func removeCiliumRules(table string) {
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		log.WithField(logfields.Object, logfields.Repr(rule)).Debug("Considering removing iptables rule")
+		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering removing %s rule", prog)
 
 		// All rules installed by cilium either belong to a chain with
 		// the name CILIUM_ or call a chain with the name CILIUM_:
@@ -104,16 +109,16 @@ func removeCiliumRules(table string) {
 		if strings.Contains(rule, "CILIUM_") {
 			reversedRule, err := reverseRule(rule)
 			if err != nil {
-				log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to parse iptables rule into slice. Leaving rule behind.")
+				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
 				continue
 			}
 
 			if len(reversedRule) > 0 {
 				deleteRule := append([]string{"-t", table}, reversedRule...)
-				log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debug("Removing iptables rule")
-				err = runProg("iptables", deleteRule, true)
+				log.WithField(logfields.Object, logfields.Repr(deleteRule)).Debugf("Removing %s rule", prog)
+				err = runProg(prog, deleteRule, true)
 				if err != nil {
-					log.WithError(err).WithField(logfields.Object, rule).Warn("Unable to delete Cilium iptables rule")
+					log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to delete Cilium %s rule", prog)
 				}
 			}
 		}
@@ -128,6 +133,15 @@ func (c *customChain) remove() {
 	runProg("iptables", []string{
 		"-t", c.table,
 		"-X", c.name}, true)
+	if c.ipv6 == true {
+		runProg("ip6tables", []string{
+			"-t", c.table,
+			"-F", c.name}, true)
+
+		runProg("ip6tables", []string{
+			"-t", c.table,
+			"-X", c.name}, true)
+	}
 }
 
 func (c *customChain) installFeeder() error {
@@ -138,6 +152,10 @@ func (c *customChain) installFeeder() error {
 
 	for _, feedArgs := range c.feederArgs {
 		err := runProg("iptables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
+		if err == nil && c.ipv6 == true {
+			err = runProg("ip6tables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
+		}
+
 		if err != nil {
 			return err
 		}
@@ -171,6 +189,13 @@ var ciliumChains = []customChain{
 		feederArgs: []string{""},
 	},
 	{
+		name:       ciliumPreMangleChain,
+		table:      "mangle",
+		hook:       "PREROUTING",
+		feederArgs: []string{""},
+		ipv6:       true,
+	},
+	{
 		name:       ciliumForwardChain,
 		table:      "filter",
 		hook:       "FORWARD",
@@ -182,12 +207,103 @@ var ciliumChains = []customChain{
 func RemoveRules() {
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		removeCiliumRules(t)
+		removeCiliumRules(t, "iptables")
+		removeCiliumRules(t, "ip6tables")
 	}
 
 	for _, c := range ciliumChains {
 		c.remove()
 	}
+}
+
+func installIngressProxyRule(l4proto string, proxyPort uint16) error {
+	// Match
+	dscp := proxyPort & 0x3F
+	ingressDSCPMatch := fmt.Sprintf("%d", dscp)
+	// TPROXY params
+	ingressProxyMark := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkIsToProxy, proxy.MagicMarkHostMask)
+	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
+
+	err := runProg("iptables", []string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", defaults.HostDevice,
+		"-d", node.GetIPv4AllocRange().String(),
+		"-p", l4proto,
+		"-m", "dscp", "--dscp", ingressDSCPMatch,
+		"-m", "comment", "--comment", "cilium: TPROXY to host ingress proxy on " + defaults.HostDevice,
+		"-j", "TPROXY",
+		"--tproxy-mark", ingressProxyMark,
+		"--on-port", ingressProxyPort}, false)
+	if err == nil {
+		err = runProg("ip6tables", []string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", defaults.HostDevice,
+			"-d", node.GetIPv6AllocRange().String(),
+			"-p", l4proto,
+			"-m", "dscp", "--dscp", ingressDSCPMatch,
+			"-m", "comment", "--comment", "cilium: TPROXY to host ingress proxy on " + defaults.HostDevice,
+			"-j", "TPROXY",
+			"--tproxy-mark", ingressProxyMark,
+			"--on-port", ingressProxyPort}, false)
+	}
+	return err
+}
+
+func installEgressProxyRule(l4proto string, proxyPort uint16) error {
+	// Match
+	dscp := int(proxyPort & 0x3F)
+	egressMarkMatch := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkIsToProxy|dscp, proxy.MagicMarkHostMask|0xFF)
+	// TPROXY params
+	egressProxyMark := fmt.Sprintf("%#08x/%#08x", proxy.MagicMarkIsToProxy, proxy.MagicMarkHostMask|0xFF)
+	egressProxyPort := fmt.Sprintf("%d", proxyPort)
+	err := runProg("iptables", []string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "lxc+",
+		"-p", l4proto,
+		"-m", "mark", "--mark", egressMarkMatch,
+		"-m", "comment", "--comment", "cilium: TPROXY to host egress proxy on lxc+",
+		"-j", "TPROXY",
+		"--tproxy-mark", egressProxyMark,
+		"--on-port", egressProxyPort}, false)
+	if err == nil {
+		err = runProg("ip6tables", []string{
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-i", "lxc+",
+			"-p", l4proto,
+			"-m", "mark", "--mark", egressMarkMatch,
+			"-m", "comment", "--comment", "cilium: TPROXY to host egress proxy on lxc+",
+			"-j", "TPROXY",
+			"--tproxy-mark", egressProxyMark,
+			"--on-port", egressProxyPort}, false)
+	}
+	return err
+}
+
+func installProxyRules() error {
+	for _, v := range proxy.ProxyPorts {
+		// Redirect packets to the host proxy via TPROXY, as directed by the Cilium
+		// datapath bpf programs via skb marks (egress) or DSCP (ingress).
+		if v.Ingress {
+			if err := installIngressProxyRule("tcp", v.ProxyPort); err != nil {
+				return err
+			}
+			if err := installIngressProxyRule("udp", v.ProxyPort); err != nil {
+				return err
+			}
+		} else {
+			if err := installEgressProxyRule("tcp", v.ProxyPort); err != nil {
+				return err
+			}
+			if err := installEgressProxyRule("udp", v.ProxyPort); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
@@ -197,6 +313,10 @@ func InstallRules(ifName string) error {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
 		}
+	}
+
+	if err := installProxyRules(); err != nil {
+		return fmt.Errorf("cannot add proxy rules: %s", err)
 	}
 
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
@@ -332,6 +452,7 @@ func InstallRules(ifName string) error {
 			"-s", node.GetIPv4AllocRange().String(),
 			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+			"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 			"-o", ifName,
 			"-m", "comment", "--comment", "cilium hostport loopback masquerade",
 			"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {

@@ -277,4 +277,10 @@ static inline int ipv6_addr_is_mapped(union v6addr *addr)
 {
 	return addr->p1 == 0 && addr->p2 == 0 && addr->p3 == 0xFFFF0000;
 }
+
+static inline void ipv6_set_dscp(struct __sk_buff *skb, struct ipv6hdr *ip6, __u8 dscp)
+{
+	ip6->priority = dscp >> 2;
+	ip6->flow_lbl[0] = (ip6->flow_lbl[0] & 0x3F) | (dscp << 6);
+}
 #endif /* __LIB_IPV6__ */

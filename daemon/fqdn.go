@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -42,7 +43,7 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 const (
@@ -130,10 +131,14 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
+	port, _, err := proxy.FindProxyPort(policy.ParserTypeDNS, false)
+	if err != nil {
+		return err
+	}
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
-			e := endpointmanager.LookupIP(endpointIP.String())
+			e := endpointmanager.LookupIP(endpointIP)
 			if e == nil {
 				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 			}
@@ -210,9 +215,16 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			}
 
 			var ep *endpoint.Endpoint
-			epIP, _, err := net.SplitHostPort(epAddr)
+			epIPStr, _, err := net.SplitHostPort(epAddr)
 			if err != nil {
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
+				endMetric()
+				return err
+			}
+			epIP := net.ParseIP(epIPStr)
+			if epIP == nil {
+				log.WithError(err).Error("cannot parse endpoint IP from DNS request")
 				ep.UpdateProxyStatistics("dns", uint16(serverPort), ingress, !ingress, accesslog.VerdictError)
 				endMetric()
 				return err
