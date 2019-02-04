@@ -451,14 +451,18 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
 				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
 				n.replaceNodeIPSecOutRoute(new4Net)
-				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
 			}
 
 			if ciliumInternalIPv6 != nil {
 				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
 				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv6, Mask: newNode.IPv6AllocCIDR.Mask}
+				ipsecHost := &net.IPNet{IP: n.nodeAddressing.IPv6().PrimaryExternal(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
 				n.replaceNodeIPSecOutRoute(new6Net)
-				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote)
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
+				if !ipsecHost.IP.Equal(ipsecLocal.IP) {
+					ipsec.UpsertIPSecEndpoint(ipsecHost, ipsecRemote, linux_defaults.IPSecNodeSPI)
+				}
 			}
 		}
 	}
