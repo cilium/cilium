@@ -18,18 +18,27 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/groups"
+	"github.com/cilium/cilium/pkg/versioned"
 
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
 	reSyncPeriod = 5 * time.Minute
 )
+
+func init() {
+	runtime.ErrorHandlers = []func(error){
+		k8s.K8sErrorHandler,
+	}
+}
 
 func enableCNPWatcher() error {
 	watcher := k8sUtils.ResourceEventHandlerFactory(
@@ -56,7 +65,9 @@ func enableCNPWatcher() error {
 				return nil
 			}
 		},
-		nil,
+		func(m versioned.Map) versioned.Map {
+			return m
+		},
 		&cilium_v2.CiliumNetworkPolicy{},
 		ciliumK8sClient,
 		reSyncPeriod,
