@@ -543,7 +543,11 @@ int from_netdev(struct __sk_buff *skb)
 			tunnel_endpoint = skb->cb[4];
 			skb->mark = 123;
 			bpf_clear_cb(skb);
+#ifdef ENCAP_IFINDEX
 			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+#else
+			return TC_ACT_OK;
+#endif
 		}
 	}
 #endif

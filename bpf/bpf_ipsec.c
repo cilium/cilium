@@ -18,6 +18,7 @@
 #include <node_config.h>
 #include <netdev_config.h>
 #include <bpf/api.h>
+#include <linux/if_packet.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -30,6 +31,7 @@ int from_netdev(struct __sk_buff *skb)
 	if (skb->cb[0] == MARK_MAGIC_ENCRYPT) {
 		skb->mark = MARK_MAGIC_ENCRYPT;
 		set_identity(skb, skb->cb[1]);
+		skb_change_type(skb, PACKET_HOST);
 	}
 	return TC_ACT_OK;
 }

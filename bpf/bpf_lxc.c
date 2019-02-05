@@ -728,7 +728,9 @@ pass_to_stack:
 
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
 			  forwarding_reason, monitor);
-
+#ifdef ENABLE_IPSEC
+	skb->mark = MARK_MAGIC_ENCRYPT;
+#endif
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }
