@@ -279,6 +279,12 @@ Changes that may require action
    reduced binary size. If you want to continue using the option, please use an
    older version of the cilium-bugtool binary.
 
+ * The DaemonSet now uses ``dnsPolicy: ClusterFirstWithHostNet`` in order for
+   Cilium to look up Kubernetes service names via DNS. This in turn requires
+   the cluster to run kube-dns. If you are not running kube-dns, remove the
+   ``dnsPolicy`` field. This will mean that you cannot use the etcd-operator.
+   More details can be found in the :ref:`k8s_req_kubedns` section.
+
 .. _1.4_new_options:
 
 New ConfigMap Options
