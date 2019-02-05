@@ -45,6 +45,13 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 }
 
+// ExpectCiliumOperatorReady is a wrapper around helpers/WaitForPods. It asserts that
+// the error returned by that function is nil.
+func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
+	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l name=cilium-operator", longTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
+}
+
 // ExpectCiliumRunning is a wrapper around helpers/WaitForPodsRunning. It
 // asserts the cilium pods are running on all nodes.
 func ExpectCiliumRunning(vm *helpers.Kubectl) {
@@ -111,6 +118,10 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
+	By("Installing Cilium-Operator")
+	err = vm.CiliumOperatorInstall("head")
+	Expect(err).To(BeNil(), "Cannot install Cilium Operator")
+
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
 		ExpectCiliumRunning(vm)
@@ -121,6 +132,7 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	ExpectETCDOperatorReady(vm)
 	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
 	ExpectCiliumReady(vm)
+	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
 }
 

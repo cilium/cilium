@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/asaskevich/govalidator"
+	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
@@ -891,6 +892,59 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		return err
 	}
 	return nil
+}
+
+// CiliumOperatorInstall install Cilium operator based on the version that it's
+// needed.
+func (kub *Kubectl) CiliumOperatorInstall(versionTag string) error {
+	var (
+		err                        error
+		ciliumOperatorSampleFile   string
+		ciliumOperatorPatchFile    string
+		ciliumOperatorSaSampleFile string
+
+		ciliumOperatorYamlName   = "cilium-operator.yaml"
+		ciliumOperatorSAYamlName = "cilium-operator-sa.yaml"
+	)
+
+	getFileFromOlderVersion := func(filename string) string {
+		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s",
+			versionTag, GetCurrentK8SEnv(), filename)
+	}
+
+	cst, _ := go_version.NewVersion("0")
+
+	if versionTag != "head" {
+		cst, err = go_version.NewVersion(versionTag)
+		if err != nil {
+			return fmt.Errorf("Not a valid version: %s", err)
+		}
+	}
+
+	switch {
+	case CiliumV1_0.Check(cst):
+		return nil
+	case CiliumV1_1.Check(cst):
+		return nil
+	case CiliumV1_2.Check(cst):
+		return nil
+	case CiliumV1_3.Check(cst):
+		return nil
+	case CiliumV1_4.Check(cst):
+		ciliumOperatorSampleFile = getFileFromOlderVersion(ciliumOperatorYamlName)
+		ciliumOperatorPatchFile = ""
+		ciliumOperatorSaSampleFile = getFileFromOlderVersion(ciliumOperatorSAYamlName)
+	default:
+		ciliumOperatorSampleFile = GetK8sDescriptor(ciliumOperatorYamlName)
+		ciliumOperatorPatchFile = ManifestGet("cilium-operator-patch.yaml")
+		ciliumOperatorSaSampleFile = GetK8sDescriptor(ciliumOperatorSAYamlName)
+	}
+
+	_ = kub.Apply(ciliumOperatorSaSampleFile)
+	if ciliumOperatorPatchFile != "" {
+		return kub.DeployPatch(ciliumOperatorSampleFile, ciliumOperatorPatchFile)
+	}
+	return kub.Apply(ciliumOperatorSampleFile).GetErr("Cannot install cilium operator")
 }
 
 // CiliumInstall installs all Cilium descriptors into kubernetes.
