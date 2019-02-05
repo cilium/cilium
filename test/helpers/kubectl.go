@@ -33,6 +33,7 @@ import (
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
+	go_version "github.com/hashicorp/go-version"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/sirupsen/logrus"
@@ -890,6 +891,50 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		return err
 	}
 	return nil
+}
+
+// CiliumOperatorInstall install Cilium operator based on the version that it's
+// needed.
+func (kub *Kubectl) CiliumOperatorInstall(versionTag string) error {
+	var err error
+	cst, _ := go_version.NewVersion("0")
+	ciliumOperatorYamlName := "cilium-operator.yaml"
+	ciliumOperatorSAYamlName := "cilium-operator-sa.yaml"
+
+	ciliumOperatorSampleFile := GetK8sDescriptor(ciliumOperatorYamlName)
+	ciliumOperatorPatchFile := ManifestGet("cilium-operator-patch.yaml")
+	ciliumOperatorSaSampleFile := GetK8sDescriptor(ciliumOperatorSAYamlName)
+
+	getFileFromOlderVersion := func(filename string) string {
+		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s",
+			versionTag, GetCurrentK8SEnv(), filename)
+	}
+
+	if versionTag != "head" {
+		cst, err = go_version.NewVersion(versionTag)
+		if err != nil {
+			return fmt.Errorf("Not a valid version: %s", err)
+		}
+	}
+	// These versions are not valid Cilium versions
+	switch {
+	case CiliumV1_0.Check(cst):
+		return nil
+	case CiliumV1_1.Check(cst):
+		return nil
+	case CiliumV1_2.Check(cst):
+		return nil
+	case CiliumV1_3.Check(cst):
+		return nil
+	case CiliumV1_4.Check(cst):
+		ciliumOperatorSampleFile = getFileFromOlderVersion("cilium-operator.yaml")
+		ciliumOperatorPatchFile = "/dev/null"
+		ciliumOperatorSaSampleFile = getFileFromOlderVersion("cilium-operator-sa.yaml")
+		return nil
+	}
+
+	_ = kub.Apply(ciliumOperatorSaSampleFile)
+	return kub.DeployPatch(ciliumOperatorSampleFile, ciliumOperatorPatchFile)
 }
 
 // CiliumInstall installs all Cilium descriptors into kubernetes.
