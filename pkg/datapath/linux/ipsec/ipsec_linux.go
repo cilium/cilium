@@ -19,6 +19,7 @@ package ipsec
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -267,11 +268,14 @@ func DeleteIPSecEndpoint(src, local net.IP) error {
 func LoadIPSecKeysFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("failed to load IPSec Keys File %s: %v", path, err)
+		return err
 	}
 	defer file.Close()
+	return loadIPSecKeys(file)
+}
 
-	scanner := bufio.NewScanner(file)
+func loadIPSecKeys(r io.Reader) error {
+	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		ipSecKey := &ipSecKey{
