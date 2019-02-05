@@ -1165,7 +1165,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
-	cache.InitIdentityAllocator(&d)
+	go cache.InitIdentityAllocator(&d)
 
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {
