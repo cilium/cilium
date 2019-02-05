@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,34 @@
 
 package kvstore
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 var (
 	// defaultClient is the default client initialized by initClient
 	defaultClient BackendOperations
+	once          sync.Once
+	// defaultClientSet is a channel that is closed whenever the defaultClient
+	// is set.
+	defaultClientSet = make(chan struct{})
 )
 
 func initClient(module backendModule) error {
 	c, errChan := module.newClient()
 	if c == nil {
 		err := <-errChan
-		log.WithError(err).Fatalf("Unable to connect to kvstore")
+		log.WithError(err).Fatalf("Unable to create etcd client")
 	}
 
 	defaultClient = c
+	select {
+	case <-defaultClientSet:
+		// avoid closing channel already closed.
+	default:
+		close(defaultClientSet)
+	}
 
 	go func() {
 		err, isErr := <-errChan
@@ -43,6 +56,9 @@ func initClient(module backendModule) error {
 
 // Client returns the global kvstore client or nil if the client is not configured yet
 func Client() BackendOperations {
+	once.Do(func() {
+		<-defaultClientSet
+	})
 	return defaultClient
 }
 

@@ -54,6 +54,9 @@ var (
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
+	// identityAllocatorInitialized is closed whenever the identity allocator is
+	// initialized
+	identityAllocatorInitialized = make(chan struct{})
 
 	localIdentities *localIdentityCache
 
@@ -112,6 +115,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	}
 
 	IdentityAllocator = a
+	close(identityAllocatorInitialized)
 	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
 
 }
@@ -122,19 +126,26 @@ func Close() {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
 
-	if IdentityAllocator == nil {
-		log.Panic("Close() called without calling InitIdentityAllocator() first")
+	select {
+	case <-identityAllocatorInitialized:
+		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
+	default:
+		if IdentityAllocator == nil {
+			log.Panic("Close() called without calling InitIdentityAllocator() first")
+		}
 	}
 
 	IdentityAllocator.Delete()
 	watcher.stop()
 	IdentityAllocator = nil
+	identityAllocatorInitialized = make(chan struct{})
 	localIdentities = nil
 }
 
 // WaitForInitialIdentities waits for the initial set of security identities to
 // have been received and populated into the allocator cache
 func WaitForInitialIdentities() {
+	<-identityAllocatorInitialized
 	IdentityAllocator.WaitForInitialSync()
 }
 
@@ -173,7 +184,7 @@ func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 	if !identity.RequiresGlobalIdentity(lbls) && localIdentities != nil {
 		return localIdentities.lookupOrCreate(lbls)
 	}
-
+	<-identityAllocatorInitialized
 	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
@@ -205,7 +216,7 @@ func Release(id *identity.Identity) (bool, error) {
 		released := localIdentities.release(id)
 		return released, nil
 	}
-
+	<-identityAllocatorInitialized
 	if IdentityAllocator == nil {
 		return false, fmt.Errorf("allocator not initialized")
 	}
@@ -236,5 +247,6 @@ func ReleaseSlice(identities []*identity.Identity) error {
 // WatchRemoteIdentities starts watching for identities in another kvstore and
 // syncs all identities to the local identity cache.
 func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
+	<-identityAllocatorInitialized
 	return IdentityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
 }

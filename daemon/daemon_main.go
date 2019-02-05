@@ -891,15 +891,17 @@ func initEnv(cmd *cobra.Command) {
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
-	if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt); err != nil {
-		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
-		addr := option.Config.KVStoreOpt[addrkey]
+	go func() {
+		if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt); err != nil {
+			addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
+			addr := option.Config.KVStoreOpt[addrkey]
 
-		log.WithError(err).WithFields(logrus.Fields{
-			"kvstore": option.Config.KVStore,
-			"address": addr,
-		}).Fatal("Unable to setup kvstore")
-	}
+			log.WithError(err).WithFields(logrus.Fields{
+				"kvstore": option.Config.KVStore,
+				"address": addr,
+			}).Fatal("Unable to setup kvstore")
+		}
+	}()
 
 	if err := labels.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")

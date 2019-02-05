@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package kvstore
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -136,15 +137,22 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 		}
 	}
 
-	// connectEtcdClient will close errChan when the connection attempt has
-	// been successful
-	backend, err := connectEtcdClient(e.config, configPath, errChan)
-	if err != nil {
-		errChan <- err
-		close(errChan)
+	for {
+		// connectEtcdClient will close errChan when the connection attempt has
+		// been successful
+		backend, err := connectEtcdClient(e.config, configPath, errChan)
+		switch {
+		case os.IsNotExist(err):
+			log.WithError(err).Info("Waiting for all etcd configuration files to be available")
+			time.Sleep(5 * time.Second)
+		case err != nil:
+			errChan <- err
+			close(errChan)
+			return backend, errChan
+		default:
+			return backend, errChan
+		}
 	}
-
-	return backend, errChan
 }
 
 func init() {

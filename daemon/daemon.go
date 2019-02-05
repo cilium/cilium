@@ -1245,7 +1245,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
-	cache.InitIdentityAllocator(&d)
+	go cache.InitIdentityAllocator(&d)
 
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {
@@ -1275,7 +1275,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	ipcache.InitIPIdentityWatcher()
+	go ipcache.InitIPIdentityWatcher()
 
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
