@@ -349,6 +349,9 @@ var _ = Describe("NightlyExamples", func() {
 			// from master instead of create the new ones.
 			_ = kubectl.Delete(helpers.DNSDeployment())
 
+			_ = kubectl.DeleteResource(
+				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.KubeSystemNamespace))
+
 			// Delete etcd operator because sometimes when install from
 			// clean-state the quorum is lost.
 			// ETCD operator maybe is not installed at all, so no assert here.
