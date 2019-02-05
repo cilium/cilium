@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -67,27 +66,17 @@ func (e *Endpoint) PolicyMapPathLocked() string {
 
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) CallsMapPathLocked() string {
-	return bpf.MapPath(CallsMapName + strconv.Itoa(int(e.ID)))
+	return e.mapPath(CallsMapName)
 }
 
 // BPFConfigMapPath returns the path to the BPF config map of endpoint.
 func (e *Endpoint) BPFConfigMapPath() string {
-	return bpf.MapPath(e.BPFConfigMapName())
-}
-
-// BPFConfigMapName returns the name of the config map for endpoint.
-func (e *Endpoint) BPFConfigMapName() string {
-	return bpfconfig.MapNamePrefix + strconv.Itoa(int(e.ID))
+	return e.mapPath(bpfconfig.MapNamePrefix)
 }
 
 // BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
 func (e *Endpoint) BPFIpvlanMapPath() string {
-	return bpf.MapPath(e.BPFIpvlanMapName())
-}
-
-// BPFIpvlanMapName returns the name of the ipvlan tail call map of an endpoint.
-func (e *Endpoint) BPFIpvlanMapName() string {
-	return IpvlanMapName + strconv.Itoa(int(e.ID))
+	return e.mapPath(IpvlanMapName)
 }
 
 // writeInformationalComments writes annotations to the specified writer,
@@ -671,7 +660,7 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	}
 
 	if e.bpfConfigMap == nil {
-		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPath(), e.BPFConfigMapName())
+		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPath())
 		if err != nil {
 			return err
 		}
