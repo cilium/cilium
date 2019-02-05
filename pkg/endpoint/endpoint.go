@@ -1750,6 +1750,12 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 		// state.
 		case StateRegenerating:
 			goto OKState
+		// Transition to ReadyState is not supported, but is
+		// attempted when a regeneration is competed, and another
+		// regeneration has been queued in the meanwhile. So this
+		// is expected and will not be logged as an error or warning.
+		case StateReady:
+			return false
 		}
 	case StateRegenerating:
 		switch toState {
@@ -1761,7 +1767,8 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 		// queued. In this case the endpoint has been
 		// transitioned to waiting-to-regenerate state
 		// already, and the transition to ready state is
-		// skipped.
+		// skipped (but not worth logging for, as this is
+		// normal, see above).
 		case StateReady:
 			goto OKState
 		}
