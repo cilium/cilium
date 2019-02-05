@@ -209,9 +209,14 @@ func Remove(ep *endpoint.Endpoint) {
 	if err := endpointid.Release(ep.ID); err != nil {
 		// While restoring, endpoint IDs may not have been reused yet.
 		// Failure to release means that the endpoint ID was not reused
-		// yet. Avoid irritating warning messages.
-		if ep.GetStateLocked() != endpoint.StateRestoring {
-			log.WithError(err).Warning("Unable to release endpoint ID")
+		// yet.
+		//
+		// While endpoint is disconnecting, ID is already available in ID cache.
+		//
+		// Avoid irritating warning messages.
+		state := ep.GetStateLocked()
+		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
+			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 		}
 	}
 
