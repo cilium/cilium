@@ -301,6 +301,12 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			}
 			ep.SetIdentity(identity)
 
+			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
+				ep.Unlock()
+				// EP is already waiting to regenerate. This is no error so no logging.
+				epRegenerated <- false
+				return
+			}
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
 
