@@ -164,8 +164,9 @@ func KillEndpoint() {
 // This is expected to be called after the process is killed and the endpoint
 // is removed from the endpointmanager.
 func CleanupEndpoint() {
-	switch option.Config.DatapathMode {
-	case option.DatapathModeVeth:
+	// In the case of ipvlan, the ipvlan slave device is removed by removal
+	// of the endpoint netns in "cleanup" of spawn_netns.sh
+	if option.Config.DatapathMode == option.DatapathModeVeth {
 		scopedLog := log.WithField(logfields.Veth, vethName)
 		if link, err := netlink.LinkByName(vethName); err == nil {
 			err = netlink.LinkDel(link)
@@ -174,11 +175,6 @@ func CleanupEndpoint() {
 			}
 		} else {
 			scopedLog.WithError(err).Debug("Didn't find existing device")
-		}
-	case option.DatapathModeIpvlan:
-		if err := netns.RemoveIfFromNetNSWithNameIfBothExist(netNSName, epIfaceName); err != nil {
-			log.WithError(err).WithField(logfields.Ipvlan, epIfaceName).
-				Info("Couldn't delete cilium-health ipvlan slave device")
 		}
 	}
 }

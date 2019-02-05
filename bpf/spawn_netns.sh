@@ -59,8 +59,10 @@ cleanup()
 	if [ "${IP4}" != "" ]; then
 		ip netns exec ${NETNS} ip addr del dev ${NETNSDEV} ${IP4}
 	fi
-	ip netns exec ${NETNS} ip li set dev ${NETNSDEV} netns 1
-	ip netns del ${NETNS}
+    if [ -z "${SKIP_NETNS_INIT}" ]; then
+        ip netns exec ${NETNS} ip li set dev ${NETNSDEV} netns 1
+    fi
+    ip netns del ${NETNS}
 }
 
 netns_exists()
