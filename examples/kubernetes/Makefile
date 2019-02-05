@@ -17,6 +17,7 @@ CILIUM_DEFAULT= \
   cilium-cm.yaml \
   cilium-ds.yaml \
   cilium-operator.yaml \
+  cilium-operator-sa.yaml \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
@@ -24,6 +25,7 @@ CILIUM_NODE_INIT= \
   cilium-cm.yaml \
   cilium-ds.yaml \
   cilium-operator.yaml \
+  cilium-operator-sa.yaml \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
@@ -31,6 +33,7 @@ CILIUM_EXTERNAL_ETCD= \
   cilium-cm.yaml \
   cilium-ds.yaml \
   cilium-operator.yaml \
+  cilium-operator-sa.yaml \
   cilium-rbac.yaml
 
 CILIUM_MINIKUBE= \
@@ -42,6 +45,7 @@ CILIUM_CRIO= \
   cilium-cm.yaml \
   cilium-crio-ds.yaml \
   cilium-operator.yaml \
+  cilium-operator-sa.yaml \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
@@ -49,6 +53,7 @@ CILIUM_CONTAINERD= \
   cilium-cm.yaml \
   cilium-containerd-ds.yaml \
   cilium-operator.yaml \
+  cilium-operator-sa.yaml \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
