@@ -296,10 +296,6 @@ const (
 	// ClusterName is the name of the ClusterName option
 	ClusterName = "cluster-name"
 
-	// ClusterNameEnv is the name of the environment variable of the
-	// ClusterName option
-	ClusterNameEnv = "CILIUM_CLUSTER_NAME"
-
 	// ClusterIDName is the name of the ClusterID option
 	ClusterIDName = "cluster-id"
 
