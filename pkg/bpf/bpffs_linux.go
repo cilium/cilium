@@ -104,6 +104,16 @@ func MapPath(name string) string {
 	return mapPathFromMountInfo(name)
 }
 
+// LocalMapName returns the name for a BPF map that is local to the specified ID.
+func LocalMapName(name string, id uint16) string {
+	return fmt.Sprintf("%s%d", name, id)
+}
+
+// LocalMapPath returns the path for a BPF map that is local to the specified ID.
+func LocalMapPath(name string, id uint16) string {
+	return MapPath(LocalMapName(name, id))
+}
+
 // Environment returns a list of environment variables which are needed to make
 // BPF programs and tc aware of the actual BPFFS mount path.
 func Environment() []string {

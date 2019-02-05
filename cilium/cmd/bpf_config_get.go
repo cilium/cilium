@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ func listEndpointConfigMap(args []string) {
 	}
 	defer bpf.ObjClose(fd)
 
-	m, _, err := configmap.OpenMapWithName(file, configmap.MapNamePrefix+lbl)
+	m, _, err := configmap.OpenMapWithName(file)
 	if err != nil {
 		fmt.Printf("error opening map %s: %s\n", file, err)
 		os.Exit(1)
