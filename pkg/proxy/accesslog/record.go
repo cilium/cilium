@@ -286,6 +286,9 @@ type LogRecordDNS struct {
 	// DNSMsgType is an int representing DNS message Opcode (for requests) or Rcode (for responses)
 	// defined as per https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-5
 	DNSMsgType int
+
+	// DNSRecordTypes are record types in the message
+	DNSRecordTypes []uint16
 }
 
 // LogRecordL7 contains the generic L7 portion of a log record
