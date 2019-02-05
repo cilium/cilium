@@ -16,17 +16,18 @@ using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_.
 
 .. code:: bash
 
-    gcloud beta container clusters create my-cluster [...]
+    gcloud container --project gke-clusters clusters create cluster1 \
+       --username "admin" --image-type COS --num-nodes 2
 
 When done, you should be able to access your cluster like this:
 
 .. code:: bash
 
     kubectl get nodes
-    NAME                                             STATUS   ROLES    AGE   VERSION
-    gke-default-cluster-default-pool-c1b66ca9-7n7r   Ready    <none>   1h    v1.11.6-gke.3
-    gke-default-cluster-default-pool-c1b66ca9-8g3q   Ready    <none>   1h    v1.11.6-gke.3
-    gke-default-cluster-default-pool-c1b66ca9-tqs3   Ready    <none>   1h    v1.11.6-gke.3
+    NAME                                      STATUS   ROLES    AGE   VERSION
+    gke-cluster1-default-pool-c1b66ca9-7n7r   Ready    <none>   1h    v1.11.6-gke.3
+    gke-cluster1-default-pool-c1b66ca9-8g3q   Ready    <none>   1h    v1.11.6-gke.3
+    gke-cluster1-default-pool-c1b66ca9-tqs3   Ready    <none>   1h    v1.11.6-gke.3
 
 Create a cluster-admin-binding
 ==============================
