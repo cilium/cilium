@@ -57,7 +57,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Cilium'
-copyright = u'2017-2018, Cilium Authors'
+copyright = u'2017-2019, Cilium Authors'
 author = u'Cilium Authors'
 
 # The version info for the project you're documenting, acts as replacement for
