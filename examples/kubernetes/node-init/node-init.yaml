@@ -70,5 +70,16 @@ spec:
                   "type": "cilium-cni"
               }
               EOF
+
+              if ip link show cbr0; then
+                      echo "Detected cbr0 bridge. Deleting interface..."
+                      ip link del cbr0
+              fi
+
+              echo "Link information:"
+              ip link
+
+              echo "Routing table:"
+              ip route
               
               echo "Node initialization complete"
