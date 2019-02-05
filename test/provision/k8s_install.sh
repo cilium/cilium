@@ -259,7 +259,7 @@ else
     kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
         ${KUBEADM_SLAVE_OPTIONS}
     sudo systemctl stop etcd
-    docker pull k8s1:5000/cilium/cilium-dev:latest
+    docker pull docker.io/cilium/cilium:latest
     # We need this workaround since kube-proxy is not aware of multiple network
     # interfaces. If we send a packet to a service IP that packet is sent
     # to the default route, because the service IP is unknown by the linux routing

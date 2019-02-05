@@ -17,11 +17,6 @@ if echo $(hostname) | grep "k8s" -q;
 then
     if [[ "$(hostname)" == "k8s1" ]]; then
         echo "building cilium/cilium container image..."
-        make LOCKDEBUG=1 docker-image-no-clean
-        echo "pushing container image to k8s1:5000/cilium/cilium-dev..."
-        docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
-        docker rmi cilium/cilium:latest
-        docker push k8s1:5000/cilium/cilium-dev
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
         $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
     else

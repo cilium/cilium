@@ -5,7 +5,7 @@ spec:
   template:
     spec:
       containers:
-      - image: k8s1:5000/cilium/cilium-dev:latest
+      - image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         name: cilium-agent
         args:
