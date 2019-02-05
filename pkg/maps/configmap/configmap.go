@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -165,9 +165,9 @@ func (m *EndpointConfigMap) Update(value *EndpointConfig) error {
 // path with the specified name.
 // On success, it returns a map and whether the map was newly created, or
 // otherwise an error.
-func OpenMapWithName(path, name string) (*EndpointConfigMap, bool, error) {
+func OpenMapWithName(path string) (*EndpointConfigMap, bool, error) {
 
-	newMap := bpf.NewMap(name,
+	newMap := bpf.NewMap(path,
 		bpf.BPF_MAP_TYPE_ARRAY,
 		int(unsafe.Sizeof(uint32(0))),
 		int(unsafe.Sizeof(EndpointConfig{})),
