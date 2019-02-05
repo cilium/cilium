@@ -33,6 +33,11 @@ Install kubectl & minikube
 
      minikube start --network-plugin=cni --memory=4096
 
+Note that in case of installing Cilium for a specific Kubernetes version, the
+``--kubernetes-version vx.y.z`` parameter can be appended to the ``minikube start``
+command for bootstrapping the local cluster. By default, minikube will install
+the most recent version of Kubernetes.
+
 Install Cilium
 ==============
 
