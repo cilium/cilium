@@ -52,7 +52,7 @@ Advanced Networking
 
    kube-router
    clustermesh
-
+   ipvlan
 
 Istio
 -----
