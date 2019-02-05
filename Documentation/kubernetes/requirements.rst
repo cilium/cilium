@@ -72,6 +72,18 @@ filesystem to be automatically mounted when the node boots.
 If you are using systemd to manage the kubelet, see the section
 :ref:`bpffs_systemd`.
 
+.. _k8s_req_kubedns:
+
+kube-dns
+========
+
+The :ref:`k8s_install_etcd_operator` relies on the etcd-operator to manage an
+etcd cluster. In order for the etcd cluster to be available, the Cilium pod is
+being run with ``dnsPolicy: ClusterFirstWithHostNet`` in order for Cilium to be
+able to look up Kubernetes service names via DNS. This creates a dependency on
+kube-dns. If you would like to avoid running kube-dns, choose a different
+installation method and remove the ``dnsPolicy`` field from the ``DaemonSet``.
+
 Enable automatic node CIDR allocation (Recommended)
 ===================================================
 
