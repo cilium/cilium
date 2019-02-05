@@ -1666,10 +1666,19 @@ func (kub *Kubectl) GatherLogs() {
 		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
-		"kubectl get all,cnp,cep --all-namespaces -o wide":           "kubernetes_summary.txt",
 	}
 
 	kub.GeneratePodLogGatheringCommands(reportCmds)
+
+	res := kub.Exec(fmt.Sprintf(`%s api-resources | grep -v "^NAME" | awk '{print $1}'`, KubectlCmd))
+	if res.WasSuccessful() {
+		for _, line := range res.ByLines() {
+			key := fmt.Sprintf("%s get %s --all-namespaces -o wide", KubectlCmd, line)
+			reportCmds[key] = fmt.Sprintf("api-resource-%s.txt", line)
+		}
+	} else {
+		kub.logger.Errorf("Cannot get api-resoureces: %s", res.GetDebugMessage())
+	}
 
 	testPath, err := CreateReportDirectory()
 	if err != nil {
