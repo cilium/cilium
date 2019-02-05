@@ -18,9 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"path"
 	"reflect"
-	"strconv"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -165,10 +163,6 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 	return fw.Flush()
 }
 
-func mapPath(mapname string, e datapath.EndpointConfiguration) string {
-	return path.Base(bpf.MapPath(mapname + strconv.Itoa(int(e.GetID()))))
-}
-
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
 func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
@@ -191,9 +185,10 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 	fmt.Fprintf(fw, "#define SECLABEL %s\n", secID.StringID())
 	fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(secID.Uint32()))
 
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", mapPath(policymap.MapName, e))
-	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", mapPath("cilium_calls_", e))
-	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", mapPath(bpfconfig.MapNamePrefix, e))
+	epID := uint16(e.GetID())
+	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
+	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName("cilium_calls_", epID))
+	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", bpf.LocalMapName(bpfconfig.MapNamePrefix, epID))
 
 	if e.ConntrackLocalLocked() {
 		ctmap.WriteBPFMacros(fw, e)
