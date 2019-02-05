@@ -18,10 +18,16 @@ then
     if [[ "$(hostname)" == "k8s1" ]]; then
         echo "building cilium/cilium container image..."
         make LOCKDEBUG=1 docker-image-no-clean
+        make LOCKDEBUG=1 docker-operator-image&
+        export OPERATORPID=$!
         echo "pushing container image to k8s1:5000/cilium/cilium-dev..."
         docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
         docker rmi cilium/cilium:latest
         docker push k8s1:5000/cilium/cilium-dev
+
+        wait $OPERATORPID
+        docker tag cilium/operator k8s1:5000/cilium/operator
+        docker push k8s1:5000/cilium/operator
         echo "Executing: $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG"
         $KUBECTL delete pods -n $KUBE_SYSTEM_NAMESPACE -l $CILIUM_DS_TAG
     else

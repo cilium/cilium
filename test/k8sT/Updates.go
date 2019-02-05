@@ -158,7 +158,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Cilium %q is installed and running", oldVersion)
 		ExpectCiliumReady(kubectl)
 
+		By("Installing Cilium-Operator")
+		err = kubectl.CiliumOperatorInstall(oldVersion)
+		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
+
 		ExpectETCDOperatorReady(kubectl)
+		ExpectCiliumOperatorReady(kubectl)
 
 		By("Installing Microscope")
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
@@ -259,6 +264,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
+		By("Installing Cilium-Operator")
+		err = kubectl.CiliumOperatorInstall("head")
+		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
+
 		err = helpers.WithTimeout(
 			waitForUpdateImage(newVersion),
 			"Cilium Pods are not updating correctly",
@@ -271,6 +280,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		validatedImage(newVersion)
 
+		ExpectCiliumOperatorReady(kubectl)
+
 		validateEndpointsConnection()
 
 		By("Downgrading cilium to %s image", oldVersion)
@@ -281,6 +292,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			oldVersion,
 		)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
+
+		By("Installing Cilium-Operator")
+		err = kubectl.CiliumOperatorInstall(oldVersion)
+		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
 
 		err = helpers.WithTimeout(
 			waitForUpdateImage(oldVersion),
@@ -293,6 +308,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(oldVersion)
+		ExpectCiliumOperatorReady(kubectl)
 
 		validateEndpointsConnection()
 
