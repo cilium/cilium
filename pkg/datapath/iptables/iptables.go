@@ -40,6 +40,8 @@ const (
 	feederDescription     = "cilium-feeder:"
 )
 
+var useIp6tables bool
+
 type customChain struct {
 	name       string
 	table      string
@@ -69,6 +71,13 @@ func (c *customChain) add() error {
 	err := runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
 	if err == nil && c.ipv6 == true {
 		err = runProg("ip6tables", []string{"-t", c.table, "-N", c.name}, false)
+		if err == nil {
+			useIp6tables = true
+		} else {
+			useIp6tables = false
+			log.WithError(err).Info("No ip6tables support, IPv6 redirects will not work.")
+			err = nil
+		}
 	}
 	return err
 }
@@ -152,7 +161,7 @@ func (c *customChain) installFeeder() error {
 
 	for _, feedArgs := range c.feederArgs {
 		err := runProg("iptables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
-		if err == nil && c.ipv6 == true {
+		if err == nil && useIp6tables && c.ipv6 == true {
 			err = runProg("ip6tables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
 		}
 
@@ -235,7 +244,7 @@ func installIngressProxyRule(l4proto string, proxyPort uint16) error {
 		"-j", "TPROXY",
 		"--tproxy-mark", ingressProxyMark,
 		"--on-port", ingressProxyPort}, false)
-	if err == nil {
+	if err == nil && useIp6tables {
 		err = runProg("ip6tables", []string{
 			"-t", "mangle",
 			"-A", ciliumPreMangleChain,
@@ -268,7 +277,7 @@ func installEgressProxyRule(l4proto string, proxyPort uint16) error {
 		"-j", "TPROXY",
 		"--tproxy-mark", egressProxyMark,
 		"--on-port", egressProxyPort}, false)
-	if err == nil {
+	if err == nil && useIp6tables {
 		err = runProg("ip6tables", []string{
 			"-t", "mangle",
 			"-A", ciliumPreMangleChain,
