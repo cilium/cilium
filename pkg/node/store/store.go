@@ -43,6 +43,12 @@ type NodeObserver struct {
 	manager NodeManager
 }
 
+// NewNodeObserver returns a new NodeObserver associated with the specified
+// node manager
+func NewNodeObserver(manager NodeManager) *NodeObserver {
+	return &NodeObserver{manager: manager}
+}
+
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
 		nodeCopy := n.DeepCopy()
@@ -82,7 +88,7 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 		Prefix:                  NodeStorePrefix,
 		KeyCreator:              KeyCreator,
 		SynchronizationInterval: time.Minute,
-		Observer:                &NodeObserver{manager: manager},
+		Observer:                NewNodeObserver(manager),
 	})
 
 	if err != nil {
