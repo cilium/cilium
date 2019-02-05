@@ -1250,6 +1250,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 				ConfigDirectory: path,
 				NodeKeyCreator:  nodeStore.KeyCreator,
 				ServiceMerger:   &d.k8sSvcCache,
+				NodeManager:     nodeMngr,
 			})
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")

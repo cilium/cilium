@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -49,6 +50,10 @@ type Configuration struct {
 	// endpoints into an existing cache
 	ServiceMerger ServiceMerger
 
+	// NodeManager is the node manager to manage all discovered remote
+	// nodes
+	NodeManager *nodemanager.Manager
+
 	nodeObserver store.Observer
 }
 
@@ -58,7 +63,7 @@ func (c *Configuration) NodeObserver() store.Observer {
 		return c.nodeObserver
 	}
 
-	return &nodeStore.NodeObserver{}
+	return nodeStore.NewNodeObserver(c.NodeManager)
 }
 
 // ClusterMesh is a cache of multiple remote clusters
