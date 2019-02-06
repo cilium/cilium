@@ -299,6 +299,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 					time.Sleep(defaults.IdentityChangeGracePeriod)
 				}
 			}
+			// The identity of a freshly restored endpoint is incomplete due to some
+			// parts of the identity not being marshaled to JSON. Hence we must set
+			// the identity even if has not changed.
 			ep.SetIdentity(identity)
 
 			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
