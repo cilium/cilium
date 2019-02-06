@@ -2,6 +2,9 @@ include Makefile.defs
 include daemon/bpf.sha
 
 SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf daemon cilium-health bugtool
+ifdef LIBNETWORK_PLUGIN
+SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
+endif
 SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
@@ -138,12 +141,20 @@ GIT_VERSION: .git
 docker-image: clean docker-image-no-clean
 
 docker-image-no-clean: GIT_VERSION
-	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
+	$(CONTAINER_ENGINE_FULL) build \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg V=${V} \
+		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+		-t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE_FULL} push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
 dev-docker-image: GIT_VERSION
-	$(CONTAINER_ENGINE_FULL) build --build-arg LOCKDEBUG=${LOCKDEBUG} --build-arg V=${V} -t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
+	$(CONTAINER_ENGINE_FULL) build \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg V=${V} \
+		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+		-t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE_FULL} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
 
