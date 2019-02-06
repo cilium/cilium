@@ -53,3 +53,8 @@ func (f *fakeDatapath) WriteNodeConfig(io.Writer, *datapath.LocalNodeConfigurati
 func (f *fakeDatapath) WriteNetdevConfig(io.Writer, datapath.DeviceConfiguration) error {
 	return nil
 }
+
+// WriteEndpointConfig pretends to write the endpoint configuration to a writer.
+func (f *fakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfiguration) error {
+	return nil
+}

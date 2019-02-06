@@ -38,4 +38,8 @@ type Datapath interface {
 	// here will apply to base programs and not to endpoints, though
 	// endpoints may have equivalent configurable options.
 	WriteNetdevConfig(io.Writer, DeviceConfiguration) error
+
+	// WriteEndpointConfig writes the implementation-specific configuration
+	// of configurable options to the specified writer.
+	WriteEndpointConfig(io.Writer, EndpointConfiguration) error
 }
