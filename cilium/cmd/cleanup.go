@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/netns"
 
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
@@ -44,12 +45,13 @@ var cleanupCmd = &cobra.Command{
 var force bool
 
 const (
-	ciliumLinkPrefix = "cilium_"
-	hostLinkPrefix   = "lxc"
-	hostLinkLen      = len(hostLinkPrefix + "XXXXX")
-	cniConfigV1      = "/etc/cni/net.d/10-cilium-cni.conf"
-	cniConfigV2      = "/etc/cni/net.d/00-cilium-cni.conf"
-	cniConfigV3      = "/etc/cni/net.d/05-cilium-cni.conf"
+	ciliumLinkPrefix  = "cilium_"
+	ciliumNetNSPrefix = "cilium-"
+	hostLinkPrefix    = "lxc"
+	hostLinkLen       = len(hostLinkPrefix + "XXXXX")
+	cniConfigV1       = "/etc/cni/net.d/10-cilium-cni.conf"
+	cniConfigV2       = "/etc/cni/net.d/00-cilium-cni.conf"
+	cniConfigV3       = "/etc/cni/net.d/05-cilium-cni.conf"
 )
 
 func init() {
@@ -70,7 +72,12 @@ func runCleanup() {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 	}
 
-	showWhatWillBeRemoved(routes, links)
+	netNSs, err := netns.ListNamedNetNSWithPrefix(ciliumNetNSPrefix)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	}
+
+	showWhatWillBeRemoved(routes, links, netNSs)
 	if !force && !confirmCleanup() {
 		return
 	}
@@ -89,9 +96,13 @@ func runCleanup() {
 	if err := removeRoutesAndLinks(routes, links); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 	}
+
+	if err := removeNamedNetNSs(netNSs); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	}
 }
 
-func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.Link) {
+func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.Link, netNSs []string) {
 	fmt.Printf("Warning: Destructive operation. You are about to remove:\n"+
 		"- all BPF maps in %s containing '%s' and '%s'\n"+
 		"- mounted bpffs at %s\n"+
@@ -114,6 +125,13 @@ func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.L
 		fmt.Println("- links")
 		for _, v := range links {
 			fmt.Printf("%v\n", v)
+		}
+	}
+
+	if len(netNSs) > 0 {
+		fmt.Println("- network namespaces")
+		for _, n := range netNSs {
+			fmt.Printf("%s\n", n)
 		}
 	}
 }
@@ -250,6 +268,19 @@ func removeRoutesAndLinks(routes map[int]netlink.Route, links map[int]netlink.Li
 			return err
 		}
 		fmt.Printf("removed link %s\n", link.Attrs().Name)
+	}
+	return nil
+}
+
+func removeNamedNetNSs(netNSs []string) error {
+	for _, n := range netNSs {
+		if err := netns.RemoveNetNSWithName(n); err != nil {
+			if strings.Contains(err.Error(), "No such file") {
+				continue
+			}
+			return err
+		}
+		fmt.Printf("removed network namespace %s\n", n)
 	}
 	return nil
 }
