@@ -1147,7 +1147,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		}
 
 		opts := make(map[workloads.WorkloadRuntimeType]map[string]string)
-		for _, rt := range option.Config.Workloads {
+		for rt := range option.Config.ContainerRuntimeEndpoint {
 			opts[workloads.WorkloadRuntimeType(rt)] = make(map[string]string)
 		}
 		for rt, ep := range option.Config.ContainerRuntimeEndpoint {
