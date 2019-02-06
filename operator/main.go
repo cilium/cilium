@@ -131,13 +131,6 @@ func runOperator(cmd *cobra.Command) {
 
 	log.Infof("Cilium Operator %s", version.Version)
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			"kvstore": kvStore,
-			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
-		}).Fatal("Unable to setup kvstore")
-	}
-
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
 	if err := k8s.Init(); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
@@ -153,18 +146,25 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Unable to create cilium network policy client")
 	}
 
+	if option.Config.DisableCiliumEndpointCRD {
+		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
+	} else {
+		enableUnmanagedKubeDNSController()
+	}
+
+	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			"kvstore": kvStore,
+			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
+		}).Fatal("Unable to setup kvstore")
+	}
+
 	if synchronizeServices {
 		startSynchronizingServices()
 	}
 
 	if enableCepGC {
 		enableCiliumEndpointSyncGC()
-	}
-
-	if option.Config.DisableCiliumEndpointCRD {
-		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
-	} else {
-		enableUnmanagedKubeDNSController()
 	}
 
 	err = enableCNPWatcher()
