@@ -32,7 +32,7 @@ ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
 endif
 
-GOBUILD = -ldflags '$(GOLDFLAGS)'
+GOBUILD = -ldflags '$(GOLDFLAGS)' $(EXTRA_GOBUILD_FLAGS)
 
 # Uncomment to enable race detection
 #GOBUILD += -race
