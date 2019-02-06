@@ -350,6 +350,58 @@ the ``--cluster-name`` agent option or ``cluster-name`` ConfigMap option.
             name: rebel-base
             io.cilium.k8s.policy.cluster: cluster2
 
+Troubleshooting
+###############
+
+ * Check the Cilium pod logs for ``level=error`` and ``level=warning`` messages.
+ * Look for the following message to ensure that ClusterMesh is initialized:
+
+   .. code:: bash
+
+       level=info msg="Initializing ClusterMesh routing" path=/var/lib/cilium/clustermesh/ subsys=daemon
+
+   As remote clusters are discovered an info log message ``New remote cluster
+   discovered`` along with the remote cluster name is logged.
+
+ * Run a ``kubectl exec -ti [...] bash`` in one of the Cilium pods and check
+   the contents of the directory ``/var/lib/cilium/clustermesh/``. It must
+   contain a configuration file for each remote cluster along with all the
+   required SSL certificates and keys. The filenames must match the cluster
+   names as provided by the ``--cluster-name`` argument or ``cluster-name``
+   ConfigMap option. If the directory is empty or incomplete, regenerate the
+   secret again and ensure that the secret is correctly mounted into the
+   DaemonSet.
+
+ * Run ``cilium node list`` in one of the Cilium pods and validate that all
+   nodes are discovered correctly. If the node discovery is not working, run
+
+   .. code:: bash
+
+      cilium kvstore get --recursive cilium/state/nodes/v1/
+
+   and check if an entry exists for each node.
+
+ * When using global services, ensure that the ``cilium-operator`` deployment
+   is running and healthy. It is responsible to propagate Kubernetes services
+   into the kvstore. You can validate the correct functionality of the operator
+   by running:
+
+   .. code:: bash
+
+      cilium kvstore get --recursive cilium/state/services/v1/
+
+   An entry must exist for each global service
+
+   You can confirm the correct propagation of service backend endpoints by
+   running ``cilium service list`` and ``cilium bpf lb list`` to see the
+   complete mapping of service IPs to backend/pod IPs.
+
+ * Run ``cilium debuginfo`` and look for the section "k8s-service-cache". In
+   that section, you will find the contents of the service correlation cache.
+   it will list the Kubernetes services and endpoints of the local cluster.  It
+   will also have a section ``externalEndpoints`` which must list all endpoints
+   of remote clusters.
+
 Limitations
 ###########
 
