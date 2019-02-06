@@ -20,56 +20,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-type orderEPModel func(e1, e2 *models.Endpoint) bool
-
 // OrderEndpointModelAsc orders the slice of Endpoint in ascending ID order.
 func OrderEndpointModelAsc(eps []*models.Endpoint) {
-	ascPriority := func(e1, e2 *models.Endpoint) bool {
-		return e1.ID < e2.ID
-	}
-	orderEPModel(ascPriority).sort(eps)
-}
-
-func (by orderEPModel) sort(eps []*models.Endpoint) {
-	dS := &epModelSorter{
-		eps: eps,
-		by:  by,
-	}
-	sort.Sort(dS)
-}
-
-type epModelSorter struct {
-	eps []*models.Endpoint
-	by  func(e1, e2 *models.Endpoint) bool
-}
-
-func (epS *epModelSorter) Len() int {
-	return len(epS.eps)
-}
-
-func (epS *epModelSorter) Swap(i, j int) {
-	epS.eps[i], epS.eps[j] = epS.eps[j], epS.eps[i]
-}
-
-func (epS *epModelSorter) Less(i, j int) bool {
-	return epS.by(epS.eps[i], epS.eps[j])
-}
-
-type endpointSlice []*Endpoint
-
-func (es endpointSlice) Len() int {
-	return len(es)
-}
-
-func (es endpointSlice) Swap(i, j int) {
-	es[i], es[j] = es[j], es[i]
-}
-
-func (es endpointSlice) Less(i, j int) bool {
-	return es[i].ID < es[j].ID
+	sort.Slice(eps, func(i, j int) bool { return eps[i].ID < eps[j].ID })
 }
 
 // OrderEndpointAsc orders the slice of Endpoint in ascending ID order.
 func OrderEndpointAsc(eps []*Endpoint) {
-	sort.Sort(endpointSlice(eps))
+	sort.Slice(eps, func(i, j int) bool { return eps[i].ID < eps[j].ID })
 }
