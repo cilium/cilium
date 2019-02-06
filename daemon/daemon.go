@@ -924,6 +924,18 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter
 }
 
+func deleteHostDevice() {
+	link, err := netlink.LinkByName(option.Config.HostDevice)
+	if err != nil {
+		log.WithError(err).Warningf("Unable to lookup host device %s. No old cilium_host interface exists", option.Config.HostDevice)
+		return
+	}
+
+	if err := netlink.LinkDel(link); err != nil {
+		log.WithError(err).Errorf("Unable to delete host device %s to change allocation CIDR", option.Config.HostDevice)
+	}
+}
+
 func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Reserve the IPv4 external node IP within the allocation range if
 	// required.
@@ -945,18 +957,7 @@ func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (ro
 		// The restored router IP is not part of the allocation range.
 		// This indicates that the allocation range has changed.
 		if !option.Config.IsFlannelMasterDeviceSet() {
-			// Remove the old host device and
-			var link netlink.Link
-			link, err = netlink.LinkByName(option.Config.HostDevice)
-			if err != nil {
-				err = fmt.Errorf("unable to lookup host device %s: %s", option.Config.HostDevice, err)
-				return
-			}
-			if err = netlink.LinkDel(link); err != nil {
-				err = fmt.Errorf("unable to delete host device %s to change allocation CIDR: %s",
-					option.Config.HostDevice, err)
-				return
-			}
+			deleteHostDevice()
 		}
 
 		// force re-allocation of the router IP
