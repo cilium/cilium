@@ -209,6 +209,7 @@ hashtables
 hexData
 hoc
 Holzheu
+hostPID
 hostPort
 hq
 http
