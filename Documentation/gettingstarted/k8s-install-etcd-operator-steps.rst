@@ -45,6 +45,9 @@ Deploy Cilium + cilium-etcd-operator
 The following all-in-one YAML will deploy all required components to bring up
 Cilium including an etcd cluster managed by the cilium-etcd-operator.
 
+For Docker as container runtime:
+--------------------------------
+
 .. tabs::
   .. group-tab:: K8s 1.13
 
@@ -81,3 +84,43 @@ Cilium including an etcd cluster managed by the cilium-etcd-operator.
     .. parsed-literal::
 
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
+
+For CRI-O as container runtime:
+-------------------------------
+
+.. tabs::
+  .. group-tab:: K8s 1.13
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-crio.yaml
+
+  .. group-tab:: K8s 1.12
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-crio.yaml
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-crio.yaml
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
+
+  .. group-tab:: K8s 1.9
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-crio.yaml
+
+  .. group-tab:: K8s 1.8
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-crio.yaml
