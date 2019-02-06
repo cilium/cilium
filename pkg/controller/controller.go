@@ -259,6 +259,15 @@ func (c *Controller) runController() {
 			goto shutdown
 
 		case <-c.update:
+			// If we receive a signal on both channels c.stop and c.update,
+			// golang will pick either c.stop or c.update randomly.
+			// This select will make sure we don't execute the controller
+			// while we are shutting down.
+			select {
+			case <-c.stop:
+				goto shutdown
+			default:
+			}
 			// Pick up any changes to the parameters in case the controller has
 			// been updated.
 			c.mutex.RLock()
