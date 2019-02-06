@@ -383,6 +383,7 @@ func RegenerateEndpointSet(owner endpoint.Owner, regenMetadata *endpoint.Externa
 				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 			} else {
+				ep.Logger("endpointmanager").Info("RegenerateEndpointSet: regenerating endpoint")
 				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
 				ep.Unlock()
 				if regen {

@@ -325,7 +325,7 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	}
 	e.QueueEvent(epBumpEvent)
 	_ = <-epBumpEvent.EventResults
-	e.getLogger().Info("bumped endpoint revision to %d", rev)
+	e.getLogger().Infof("bumped endpoint revision to %d", rev)
 
 }
 

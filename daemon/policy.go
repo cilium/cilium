@@ -257,13 +257,6 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	d.policy.Mutex.Unlock()
 
-	// 1. Iterate over all added rules.
-	// 2. If an endpoint is detected as needing regeneration, remove it from
-	// set which need to be analyzed, and emit via a channel, its ID. This ID
-	// will be used to index into the endpointmanager to regenerate it.
-
-	log.Infof("endpoints that need to be regenerated: %v", endpointsToRegen)
-
 	// remove prefixes of replaced rules above. This potentially blocks on the
 	// kvstore and should happen without holding the policy lock. Refcounts have
 	// been incremented above, so any decrements here will be no-ops for CIDRs
@@ -313,6 +306,9 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps map[uint16]*ident
 	epsToRegen.Mutex.RLock()
 	defer epsToRegen.Mutex.RUnlock()
 
+	// If an endpoint is not in the list of endpoints to regenerate, then the
+	// policy revision for the endpoint needs to be bumped so we can reflect that
+	// said endpoint realizes the state of the policy repository at revision rev.
 	endpointsToBumpRevision := map[uint16]struct{}{}
 	for ep := range allEps {
 		if _, ok := epsToRegen.Eps[ep]; !ok {
@@ -321,17 +317,19 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps map[uint16]*ident
 	}
 
 	log.Infof("ReactToRuleUpdates: endpoints that do not need to be regenerated: %v", endpointsToBumpRevision)
-
 	// Launch async so we don't block on endpoint lock being held.
-	go func(epsToBumpRev map[uint16]struct{}) {
-		for epID := range epsToBumpRev {
-			if ep := endpointmanager.LookupCiliumID(epID); ep != nil {
-				go ep.PolicyRevisionBumpEvent(rev)
-			}
-		}
-	}(endpointsToBumpRevision)
+	go bumpEndpointRevisions(endpointsToBumpRevision, rev)
 
+	log.Infof("ReactToRuleUpdates: endpoints that do need to be regenerated: %v", epsToRegen.Eps)
 	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.Eps)
+}
+
+func bumpEndpointRevisions(epsToBumpRev map[uint16]struct{}, rev uint64) {
+	for epID := range epsToBumpRev {
+		if ep := endpointmanager.LookupCiliumID(epID); ep != nil {
+			go ep.PolicyRevisionBumpEvent(rev)
+		}
+	}
 }
 
 // PolicyDelete deletes the policy set in the given path from the policy tree.
@@ -474,7 +472,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 	defer d.policy.Mutex.RUnlock()
 
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
-	ruleList := d.policy.SearchRLocked(lbls)
+	ruleList := d.policy.SearchRLockedIan(lbls)
 
 	// Error if labels have been specified but no entries found, otherwise,
 	// return empty list
@@ -484,7 +482,7 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 
 	policy := &models.Policy{
 		Revision: int64(d.policy.GetRevision()),
-		Policy:   policy.JSONMarshalRules(ruleList),
+		Policy:   policy.JSONMarshalRulesIan(ruleList),
 	}
 	return NewGetPolicyOK().WithPayload(policy)
 }

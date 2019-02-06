@@ -155,7 +155,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// policy needs to be enforced for either ingress or egress.
 	e.prevIdentityCache = labelsMap
 
-	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity.LabelArray, e, *labelsMap)
+	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity, e, *labelsMap)
 	if err != nil {
 		return err
 	}

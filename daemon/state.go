@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	identity2 "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -222,7 +223,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 		}
 	}
 
-	d.policy.UpdateLocalConsumers(endpointmanager.EndpointIdentityMapping())
+	_ = d.policy.UpdateLocalConsumers(endpointmanager.EndpointIdentityMapping())
 
 	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
@@ -302,6 +303,13 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				}
 			}
 			ep.SetIdentity(identity)
+
+			// TODO (ianvernon): need to RLock the policy repository here?? Cache
+			// within rules is being modified, except not by endpoints!
+			wg := d.policy.UpdateLocalConsumers(map[uint16]*identity2.Identity{ep.ID: ep.SecurityIdentity})
+			ep.Logger("daemon").Info("waiting for rules to update consumers for endpoint")
+			wg.Wait()
+			ep.Logger("daemon").Info("done waiting for rules to update consumers for endpoint")
 
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
