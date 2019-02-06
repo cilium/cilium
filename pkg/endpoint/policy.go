@@ -543,12 +543,13 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	e.runIPIdentitySync(e.IPv4)
 	e.runIPIdentitySync(e.IPv6)
 
-	e.getLogger().WithFields(logrus.Fields{
-		logfields.Identity:       identity.StringID(),
-		logfields.OldIdentity:    oldIdentity,
-		logfields.IdentityLabels: identity.Labels.String(),
-	}).Info("Identity of endpoint changed")
-
+	if oldIdentity != identity.StringID() {
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.Identity:       identity.StringID(),
+			logfields.OldIdentity:    oldIdentity,
+			logfields.IdentityLabels: identity.Labels.String(),
+		}).Info("Identity of endpoint changed")
+	}
 	e.UpdateLogger(map[string]interface{}{
 		logfields.Identity: identity.StringID(),
 	})
