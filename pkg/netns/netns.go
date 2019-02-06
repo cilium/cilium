@@ -16,6 +16,7 @@ package netns
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -71,13 +72,35 @@ func ReplaceNetNSWithName(netNSName string) (ns.NetNS, error) {
 //
 // FIXME: replace "ip-netns" invocations with native Go code
 func RemoveNetNSWithName(netNSName string) error {
-	if err := exec.Command("ip", "netns", "del", netNSName).Run(); err != nil {
-		return fmt.Errorf("Unable to delete named netns %s: %s", netNSName, err)
+	if out, err := exec.Command("ip", "netns", "del", netNSName).CombinedOutput(); err != nil {
+		return fmt.Errorf("Unable to delete named netns %s: %s %s", netNSName, out, err)
 	}
 
 	return nil
 }
 
+// ListNamedNetNSWithPrefix returns list of named network namespaces which name
+// starts with the given prefix.
+func ListNamedNetNSWithPrefix(prefix string) ([]string, error) {
+	entries, err := ioutil.ReadDir(netNSRootDir())
+	if err != nil {
+		return nil, err
+	}
+
+	ns := make([]string, 0)
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasPrefix(e.Name(), prefix) {
+			ns = append(ns, e.Name())
+		}
+	}
+
+	return ns, nil
+}
+
 func netNSPath(name string) string {
-	return filepath.Join("/", "var", "run", "netns", name)
+	return filepath.Join(netNSRootDir(), name)
+}
+
+func netNSRootDir() string {
+	return filepath.Join("/", "var", "run", "netns")
 }
