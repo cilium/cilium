@@ -4,6 +4,8 @@ include $(ROOT_DIR)/Makefile.quiet
 
 PREFIX?=/usr
 BINDIR?=$(PREFIX)/bin
+CNIBINDIR?=/opt/cni/bin
+CNICONFDIR?=/etc/cni/net.d
 LIBDIR?=$(PREFIX)/lib
 RUNDIR?=/var/run
 CONFDIR?=/etc

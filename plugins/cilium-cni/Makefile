@@ -17,7 +17,7 @@ $(TARGET): $(SOURCES)
 	$(QUIET)CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET) ./cilium-cni.go
 
 install:
-	$(INSTALL) -m 0755 -d $(DESTDIR)/etc/cni/net.d
-	$(INSTALL) -m 0644 05-cilium-cni.conf $(DESTDIR)/etc/cni/net.d
-	$(INSTALL) -m 0755 -d $(DESTDIR)/opt/cni/bin
-	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)/opt/cni/bin
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(CNICONFDIR)
+	$(INSTALL) -m 0644 05-cilium-cni.conf $(DESTDIR)$(CNICONFDIR)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(CNIBINDIR)
+	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(CNIBINDIR)
