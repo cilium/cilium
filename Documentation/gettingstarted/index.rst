@@ -52,6 +52,7 @@ Advanced Networking
 
    kube-router
    clustermesh
+   flannel-integration
    ipvlan
 
 Istio
