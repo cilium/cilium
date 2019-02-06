@@ -52,6 +52,16 @@ DaemonSet will:
      kubectl create namespace cilium
      kubectl -n cilium apply -f \ |SCM_WEB|\/examples/kubernetes/node-init/node-init.yaml
 
+Restart kube-dns
+================
+
+kube-dns is already running but is still managed by the original GKE network
+plugin. Restart kube-dns to ensure it is managed by Cilium.
+
+.. code:: bash
+
+     kubectl -n kube-system delete pod -l k8s-app: kube-dns
+
 
 Deploy Cilium + cilium-etcd-operator
 ====================================
