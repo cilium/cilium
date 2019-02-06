@@ -15,6 +15,9 @@
 package datapath
 
 import (
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -30,4 +33,25 @@ type DeviceConfiguration interface {
 
 	// GetOptions fetches the configurable datapath options from the owner.
 	GetOptions() *option.IntOptions
+}
+
+// EndpointConfiguration provides datapath implementations a clean interface
+// to access endpoint-specific configuration when configuring the datapath.
+type EndpointConfiguration interface {
+	DeviceConfiguration
+
+	// GetID returns a locally-significant endpoint identification number.
+	GetID() uint64
+	// StringID returns the string-formatted version of the ID from GetID().
+	StringID() string
+	// GetIdentity returns a globally-significant numeric security identity.
+	GetIdentity() identity.NumericIdentity
+
+	IPv4Address() addressing.CiliumIPv4
+	IPv6Address() addressing.CiliumIPv6
+	GetNodeMAC() mac.MAC
+
+	// TODO: Move this detail into the datapath
+	HasIpvlanDataPath() bool
+	ConntrackLocalLocked() bool
 }
