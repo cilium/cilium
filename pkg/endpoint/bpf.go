@@ -25,18 +25,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -103,7 +100,6 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	defer f.Close()
 
 	fw := bufio.NewWriter(f)
-
 	fmt.Fprint(fw, "/*\n")
 
 	epStr64, err := e.base64()
@@ -150,53 +146,10 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	fw.WriteString(" */\n\n")
 
-	if e.IPv6 != nil {
-		fw.WriteString(common.FmtDefineComma("LXC_IP", e.IPv6))
+	if err = fw.Flush(); err != nil {
+		return err
 	}
-
-	if e.IPv4 != nil {
-		fmt.Fprintf(fw, "#define LXC_IPV4 %#x\n", byteorder.HostSliceToNetwork(e.IPv4, reflect.Uint32))
-	}
-
-	switch {
-	case !e.HasIpvlanDataPath():
-		fw.WriteString("#define ENABLE_ARP_RESPONDER 1\n")
-		fw.WriteString("#define ENABLE_HOST_REDIRECT 1\n")
-		if option.Config.IsFlannelMasterDeviceSet() {
-			fw.WriteString("#define HOST_REDIRECT_TO_INGRESS 1\n")
-		}
-	}
-
-	fw.WriteString(common.FmtDefineAddress("NODE_MAC", e.NodeMAC))
-	fmt.Fprintf(fw, "#define LXC_ID %#x\n", e.ID)
-	if e.SecurityIdentity != nil {
-		fmt.Fprintf(fw, "#define SECLABEL %s\n", e.SecurityIdentity.ID.StringID())
-		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(e.SecurityIdentity.ID.Uint32()))
-	} else {
-		invalid := identity.InvalidIdentity
-		fmt.Fprintf(fw, "#define SECLABEL %s\n", invalid.StringID())
-		fmt.Fprintf(fw, "#define SECLABEL_NB %#x\n", byteorder.HostToNetwork(invalid.Uint32()))
-	}
-	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", path.Base(e.PolicyMapPathLocked()))
-	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", path.Base(e.CallsMapPathLocked()))
-	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", path.Base(e.BPFConfigMapPath()))
-	if e.ConntrackLocalLocked() {
-		ctmap.WriteBPFMacros(fw, e)
-	} else {
-		ctmap.WriteBPFMacros(fw, nil)
-	}
-
-	// Always enable L4 and L3 load balancer for now
-	fw.WriteString("#define LB_L3 1\n")
-	fw.WriteString("#define LB_L4 1\n")
-
-	// Local delivery metrics should always be set for endpoint programs.
-	fw.WriteString("#define LOCAL_DELIVERY_METRICS\n")
-
-	// Endpoint options
-	owner.Datapath().WriteNetdevConfig(fw, e)
-
-	return fw.Flush()
+	return owner.Datapath().WriteEndpointConfig(f, e)
 }
 
 // hashEndpointHeaderFiles returns the MD5 hash of any header files that are
