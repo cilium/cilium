@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,6 +34,11 @@ func (e *Endpoint) DirectoryPath() string {
 // failed builds.
 func (e *Endpoint) FailedDirectoryPath() string {
 	return filepath.Join(".", fmt.Sprintf("%d%s", e.ID, "_next_fail"))
+}
+
+// GetDirectoryPath returns the directory name for this endpoint bpf program.
+func (e *Endpoint) GetDirectoryPath() string {
+	return filepath.Join(option.Config.StateDir, e.StringID())
 }
 
 // NextDirectoryPath returns the directory name for this endpoint bpf program
