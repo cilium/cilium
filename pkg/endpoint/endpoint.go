@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
@@ -205,6 +206,10 @@ type Endpoint struct {
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
 	DNSHistory *fqdn.DNSCache
+
+	// dnsHistoryTrigger is the trigger to write down the lxc_config.h to make
+	// sure that restores when DNS policy is in there are correct
+	dnsHistoryTrigger *trigger.Trigger
 
 	// state is the state the endpoint is in. See SetStateLocked()
 	state string
@@ -1473,6 +1478,10 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
+	if e.dnsHistoryTrigger != nil {
+		e.dnsHistoryTrigger.Shutdown()
+	}
+
 	if !e.ConntrackLocalLocked() {
 		e.scrubIPsInConntrackTableLocked()
 	}
@@ -2294,4 +2303,44 @@ func (e *Endpoint) PinDatapathMap() error {
 	}
 
 	return err
+}
+
+func (e *Endpoint) syncEndpointHeaderFile(owner Owner) {
+	e.BuildMutex.Lock()
+	defer e.BuildMutex.Unlock()
+
+	if err := e.LockAlive(); err != nil {
+		// endpoint was removed in the meanwhile, return
+		return
+	}
+	defer e.Unlock()
+
+	e.writeHeaderfile(e.StateDirectoryPath(), owner)
+}
+
+// SyncEndpointHeaderFile it bumps the current DNS History information for the
+// endpoint in the lxc_config.h file.
+func (e *Endpoint) SyncEndpointHeaderFile(owner Owner) error {
+	if err := e.LockAlive(); err != nil {
+		// endpoint was removed in the meanwhile, return
+		return nil
+	}
+	defer e.Unlock()
+
+	if e.dnsHistoryTrigger == nil {
+		t, err := trigger.NewTrigger(trigger.Parameters{
+			Name:              "sync_endpoint_header_file",
+			PrometheusMetrics: false,
+			MinInterval:       5 * time.Second,
+			TriggerFunc:       func(reasons []string) { e.syncEndpointHeaderFile(owner) },
+		})
+		if err != nil {
+			return fmt.Errorf(
+				"Sync Endpoint header file trigger for endpoint cannot be activated: %s",
+				err)
+		}
+		e.dnsHistoryTrigger = t
+	}
+	e.dnsHistoryTrigger.Trigger()
+	return nil
 }
