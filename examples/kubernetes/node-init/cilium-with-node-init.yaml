@@ -3,25 +3,25 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cilium-config
-  namespace: kube-system
+  namespace: cilium
 data:
   # This etcd-config contains the etcd endpoints of your cluster. If you use
   # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
   etcd-config: |-
     ---
     endpoints:
-      - http://EDIT-ME-ETCD-ADDRESS:2379
+      - https://cilium-etcd-client.cilium.svc:2379
     #
     # In case you want to use TLS in etcd, uncomment the 'ca-file' line
     # and create a kubernetes secret by following the tutorial in
     # https://cilium.link/etcd-config
-    # ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
+    ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
     #
     # In case you want client to server authentication, uncomment the following
     # lines and create a kubernetes secret by following the tutorial in
     # https://cilium.link/etcd-config
-    # key-file: '/var/lib/etcd-secrets/etcd-client.key'
-    # cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
+    key-file: '/var/lib/etcd-secrets/etcd-client.key'
+    cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
 
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
@@ -138,14 +138,14 @@ data:
   # false to true. Can be found under the path `spec.spec.hostPID`
   flannel-manage-existing-containers: "false"
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
     k8s-app: cilium
     kubernetes.io/cluster-service: "true"
   name: cilium
-  namespace: kube-system
+  namespace: cilium
 spec:
   selector:
     matchLabels:
@@ -283,38 +283,8 @@ spec:
               key: flannel-manage-existing-containers
               name: cilium-config
               optional: true
-        - name: CILIUM_DATAPATH_MODE
-          valueFrom:
-            configMapKeyRef:
-              key: datapath-mode
-              name: cilium-config
-              optional: true
-        - name: CILIUM_IPVLAN_MASTER_DEVICE
-          valueFrom:
-            configMapKeyRef:
-              key: ipvlan-master-device
-              name: cilium-config
-              optional: true
-        - name: CILIUM_INSTALL_IPTABLES_RULES
-          valueFrom:
-            configMapKeyRef:
-              key: install-iptables-rules
-              name: cilium-config
-              optional: true
-        - name: CILIUM_MASQUERADE
-          valueFrom:
-            configMapKeyRef:
-              key: masquerade
-              name: cilium-config
-              optional: true
-        - name: CILIUM_AUTO_DIRECT_NODE_ROUTES
-          valueFrom:
-            configMapKeyRef:
-              key: auto-direct-node-routes
-              name: cilium-config
-              optional: true
-        image: docker.io/cilium/cilium:v1.4.0-rc7
-        imagePullPolicy: IfNotPresent
+        image: docker.io/cilium/cilium:latest
+        imagePullPolicy: Always
         lifecycle:
           postStart:
             exec:
@@ -435,7 +405,7 @@ spec:
         name: docker-socket
         # To install cilium cni plugin in the host
       - hostPath:
-          path: /opt/cni/bin
+          path: /home/kubernetes/bin
           type: DirectoryOrCreate
         name: cni-path
         # To install cilium cni configuration in the host
@@ -469,14 +439,14 @@ spec:
       maxUnavailable: 2
     type: RollingUpdate
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     io.cilium/app: operator
     name: cilium-operator
   name: cilium-operator
-  namespace: kube-system
+  namespace: cilium
 spec:
   replicas: 1
   selector:
@@ -554,8 +524,8 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:v1.4.0-rc7
-        imagePullPolicy: IfNotPresent
+        image: docker.io/tgraf/operator:init-fix
+        imagePullPolicy: Always
         name: cilium-operator
         volumeMounts:
         - mountPath: /var/lib/etcd-config
@@ -588,9 +558,9 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cilium-operator
-  namespace: kube-system
+  namespace: cilium
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium-operator
@@ -622,7 +592,7 @@ rules:
   verbs:
   - '*'
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cilium-operator
@@ -633,9 +603,228 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cilium-operator
-  namespace: kube-system
+  namespace: cilium
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium-etcd-operator
+rules:
+- apiGroups:
+  - etcd.database.coreos.com
+  resources:
+  - etcdclusters
+  verbs:
+  - get
+  - delete
+  - create
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - delete
+  - get
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - deployments
+  verbs:
+  - delete
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - delete
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - componentstatuses
+  verbs:
+  - get
+- apiGroups:
+  - extensions
+  resources:
+  - deployments
+  verbs:
+  - delete
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - create
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium-etcd-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium-etcd-operator
+subjects:
+- kind: ServiceAccount
+  name: cilium-etcd-operator
+  namespace: cilium
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: etcd-operator
+rules:
+- apiGroups:
+  - etcd.database.coreos.com
+  resources:
+  - etcdclusters
+  - etcdbackups
+  - etcdrestores
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - deployments
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - '*'
+- apiGroups:
+  - extensions
+  resources:
+  - deployments
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-operator
+subjects:
+- kind: ServiceAccount
+  name: cilium-etcd-sa
+  namespace: cilium
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-etcd-operator
+  namespace: cilium
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-etcd-sa
+  namespace: cilium
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.cilium/app: etcd-operator
+    name: cilium-etcd-operator
+  name: cilium-etcd-operator
+  namespace: cilium
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.cilium/app: etcd-operator
+      name: cilium-etcd-operator
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        io.cilium/app: etcd-operator
+        name: cilium-etcd-operator
+    spec:
+      containers:
+      - command:
+        - /usr/bin/cilium-etcd-operator
+        env:
+        - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
+          value: cluster.local
+        - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
+          value: "3"
+        - name: CILIUM_ETCD_OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: CILIUM_ETCD_OPERATOR_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: CILIUM_ETCD_OPERATOR_POD_UID
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.uid
+        image: docker.io/cilium/cilium-etcd-operator:v2.0.5
+        imagePullPolicy: IfNotPresent
+        name: cilium-etcd-operator
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      restartPolicy: Always
+      serviceAccount: cilium-etcd-operator
+      serviceAccountName: cilium-etcd-operator
+      tolerations:
+      - operator: Exists
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: cilium
@@ -646,12 +835,12 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cilium
-  namespace: kube-system
+  namespace: cilium
 - apiGroup: rbac.authorization.k8s.io
   kind: Group
   name: system:nodes
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium
@@ -719,4 +908,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cilium
-  namespace: kube-system
+  namespace: cilium
