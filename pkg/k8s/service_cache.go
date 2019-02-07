@@ -364,10 +364,35 @@ func (s *ServiceCache) ListMissingIngresses(required versioned.Map, host net.IP)
 	return missing
 }
 
-// UniqueServiceFrontends returns all services known to the service cache as a map, indexed by
-// the string representation of a loadbalancer.L3n4Addr
-func (s *ServiceCache) UniqueServiceFrontends() map[string]struct{} {
-	uniqueFrontends := make(map[string]struct{})
+// FrontendList is the list of all k8s service frontends
+type FrontendList map[string]struct{}
+
+// LooseMatch returns true if the provided frontend is found in the
+// FrontendList. If the frontend has a protocol value set, it only matches a
+// k8s service with a matching protocol. If no protocol is set, any k8s service
+// matching frontend IP and port is considered a match, regardless of protocol.
+func (l FrontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
+	switch frontend.Protocol {
+	case loadbalancer.NONE:
+		for _, protocol := range loadbalancer.AllProtocols {
+			frontend.Protocol = protocol
+			_, exists = l[frontend.StringWithProtocol()]
+			if exists {
+				return
+			}
+		}
+
+	// If the protocol is set, perform an exact match
+	default:
+		_, exists = l[frontend.StringWithProtocol()]
+	}
+	return
+}
+
+// UniqueServiceFrontends returns all services known to the service cache as a
+// map, indexed by the string representation of a loadbalancer.L3n4Addr
+func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
+	uniqueFrontends := FrontendList{}
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
