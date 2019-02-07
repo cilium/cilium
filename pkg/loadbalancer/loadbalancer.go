@@ -396,9 +396,13 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("Missing IP address")
 	}
 
-	proto, err := NewL4Type(base.Protocol)
-	if err != nil {
-		return nil, err
+	proto := NONE
+	if base.Protocol != "" {
+		p, err := NewL4Type(base.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		proto = p
 	}
 
 	l4addr, err := NewL4Addr(proto, base.Port)
@@ -475,9 +479,8 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 	}
 
 	return &models.FrontendAddress{
-		IP:       a.IP.String(),
-		Protocol: string(a.Protocol),
-		Port:     a.Port,
+		IP:   a.IP.String(),
+		Port: a.Port,
 	}
 }
 
