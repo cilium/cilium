@@ -38,6 +38,7 @@ pipeline {
         K8S_VERSION="1.12"
         SERVER_BOX = "cilium/ubuntu"
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
+	IPSEC_ENABLED=setIfLabel("ingtegration/ipsec", "IPSEC_ENABLED", "")
     }
 
     options {

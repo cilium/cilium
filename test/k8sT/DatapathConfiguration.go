@@ -36,6 +36,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 
+		ipsecKeysPath := helpers.ManifestGet("cilium-ipsec-keys.yaml")
+		kubectl.Exec(fmt.Sprintf("kubectl -n kube-system create -f %s", ipsecKeysPath))
+
 		waitToDeleteCilium(kubectl, logger)
 	})
 
