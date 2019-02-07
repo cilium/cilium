@@ -36,16 +36,20 @@ var DefaultDNSCache = NewDNSCache()
 // returned.
 // cacheEntry objects are immutable once created; the address of an instance is
 // a unique identifier.
+// Note: the JSON names are intended to correlate to field names from
+// api/v1/models.DNSLookup to allow dumping the json from
+// `cilium fqdn cache list` to a file that can be unmarshalled via
+// `--tofqdns-per-cache`
 type cacheEntry struct {
 	// Name is a DNS name, it my be not fully qualified (e.g. myservice.namespace)
-	Name string `json:"name,omitempty"`
+	Name string `json:"fqdn,omitempty"`
 
 	// LookupTime is when the data begins being valid
-	LookupTime time.Time `json:"lookuptime,omitempty"`
+	LookupTime time.Time `json:"lookup-time,omitempty"`
 
 	// ExpirationTime is a calcutated time when the DNS data stops being valid.
 	// It is simply LookupTime + TTL
-	ExpirationTime time.Time `json:"expirationtime,omitempty"`
+	ExpirationTime time.Time `json:"expiration-time,omitempty"`
 
 	// TTL represents the number of seconds past LookupTime that this data is
 	// valid.
