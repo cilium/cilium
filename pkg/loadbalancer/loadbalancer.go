@@ -45,6 +45,11 @@ const (
 	UDP = L4Type("UDP")
 )
 
+var (
+	// AllProtocols is the list of all supported L4 protocols
+	AllProtocols = []L4Type{TCP, UDP}
+)
+
 // L4Type name.
 type L4Type string
 
