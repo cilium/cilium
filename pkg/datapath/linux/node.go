@@ -401,7 +401,7 @@ func (n *linuxNodeHandler) NodeAdd(newNode node.Node) error {
 	n.nodes[newNode.Identity()] = &newNode
 
 	if n.isInitialized {
-		return n.nodeUpdate(nil, &newNode)
+		return n.nodeUpdate(nil, &newNode, true)
 	}
 
 	return nil
@@ -414,19 +414,18 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
 	n.nodes[newNode.Identity()] = &newNode
 
 	if n.isInitialized {
-		return n.nodeUpdate(&oldNode, &newNode)
+		return n.nodeUpdate(&oldNode, &newNode, false)
 	}
 
 	return nil
 }
 
-func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
+func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition bool) error {
 	var (
 		oldIP4Cidr, oldIP6Cidr *cidr.CIDR
 		oldIP4, oldIP6         net.IP
 		newIP4                 = newNode.GetNodeIP(false)
 		newIP6                 = newNode.GetNodeIP(true)
-		firstAddition          = oldNode == nil
 	)
 
 	if oldNode != nil {
@@ -479,12 +478,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 		n.updateDirectRoute(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4)
 		n.updateDirectRoute(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6)
 		return nil
-	} else if oldNode == nil {
-		// When direct routing is disabled, then the initial node
-		// addition triggers a removal of eventual old tunnel map
-		// entries.
-		n.deleteDirectRoute(newNode.IPv4AllocCIDR, newIP4)
-		n.deleteDirectRoute(newNode.IPv6AllocCIDR, newIP6)
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
@@ -501,7 +494,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node) error {
 		}
 
 		return nil
-	} else if oldNode == nil {
+	} else if firstAddition {
 		// When encapsulation is disabled, then the initial node addition
 		// triggers a removal of eventual old tunnel map entries.
 		deleteTunnelMapping(newNode.IPv4AllocCIDR, true)
@@ -680,7 +673,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		n.isInitialized = true
 		if !n.nodeConfig.UseSingleClusterRoute {
 			for _, unlinkedNode := range n.nodes {
-				n.nodeUpdate(nil, unlinkedNode)
+				n.nodeUpdate(nil, unlinkedNode, true)
 			}
 		}
 	}
@@ -691,5 +684,5 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 // NodeValidateImplementation is called to validate the implementation of the
 // node in the datapath
 func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate node.Node) error {
-	return n.nodeUpdate(nil, &nodeToValidate)
+	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
