@@ -1304,7 +1304,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, err
 	}
 
-	err = d.bootstrapFQDN(restoredEndpoints)
+	err = d.bootstrapFQDN(restoredEndpoints, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		return nil, restoredEndpoints, err
 	}

@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"regexp"
 	"strconv"
@@ -63,7 +64,7 @@ const (
 // dnsRuleGen and DNSPoller will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err error) {
+func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
 	cfg := fqdn.Config{
 		MinTTL:         option.Config.ToFQDNsMinTTL,
 		Cache:          fqdn.DefaultDNSCache,
@@ -158,6 +159,20 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState) (err err
 			return d.dnsRuleGen.ForceGenerateDNS(namesToClean)
 		},
 	})
+
+	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
+	if preCachePath != "" {
+		log.WithField(logfields.Path, preCachePath).Info("Reading toFQDNs pre-cache data")
+		precache, err := readPreCache(preCachePath)
+		if err != nil {
+			// FIXME: add a link to the "documented format"
+			log.WithError(err).WithField(logfields.Path, preCachePath).Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format")
+			// We do not stop the agent here. It is safer to continue with best effort
+			// than to enter crash backoffs when this file is broken.
+		} else {
+			fqdn.DefaultDNSCache.UpdateFromCache(precache, nil)
+		}
+	}
 
 	// Prefill the cache with DNS lookups from restored endpoints. This is needed
 	// to maintain continuity of which IPs are allowed.
@@ -524,4 +539,19 @@ func deleteDNSLookups(endpoints []*endpoint.Endpoint, expireLookupsBefore time.T
 	}
 
 	return namesToRegen, nil
+}
+
+// readPreCache returns a fqdn.DNSCache object created from the json data at
+// preCachePath
+func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
+	data, err := ioutil.ReadFile(preCachePath)
+	if err != nil {
+		return nil, err
+	}
+
+	cache = fqdn.NewDNSCache() // no per-host limit here
+	if err = cache.UnmarshalJSON(data); err != nil {
+		return nil, err
+	}
+	return cache, nil
 }
