@@ -224,7 +224,7 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.StartTime: time.Now(),
 		logfields.Reason:    context.Reason,
-	}).Info("Regenerating endpoint")
+	}).Debug("Regenerating endpoint")
 
 	defer func() {
 		e.updateRegenerationStatistics(context, retErr)
