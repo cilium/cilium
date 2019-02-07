@@ -15,7 +15,10 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// FrontendAddress Layer 4 address
+// FrontendAddress Layer 4 address. The protocol is currently ignored, all services will
+// behave as if protocol any is specified. To restrict to a particular
+// protocol, use policy.
+//
 // swagger:model FrontendAddress
 
 type FrontendAddress struct {
