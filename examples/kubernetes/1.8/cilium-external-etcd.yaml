@@ -307,6 +307,12 @@ spec:
               key: masquerade
               name: cilium-config
               optional: true
+        - name: CILIUM_AUTO_DIRECT_NODE_ROUTES
+          valueFrom:
+            configMapKeyRef:
+              key: auto-direct-node-routes
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
