@@ -264,6 +264,11 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = "tofqdns-endpoint-max-ip-per-hostname"
 
+	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
+	// global cache on startup.
+	// The file is not re-read after agent start.
+	ToFQDNsPreCache = "tofqdns-pre-cache"
+
 	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
 	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 
@@ -742,6 +747,9 @@ type DaemonConfig struct {
 	// FQDNRejectResponse is the dns-proxy response for invalid dns-proxy request
 	FQDNRejectResponse string
 
+	// Path to a file with DNS cache data to preload on startup
+	ToFQDNsPreCache string
+
 	// HostDevice will be device used by Cilium to connect to the outside world.
 	HostDevice string
 
@@ -779,6 +787,7 @@ var (
 		EnableIPv4:               defaults.EnableIPv4,
 		EnableIPv6:               defaults.EnableIPv6,
 		ToFQDNsMaxIPsPerHost:     defaults.ToFQDNsMaxIPsPerHost,
+		ToFQDNsPreCache:          defaults.ToFQDNsPreCache,
 		ContainerRuntimeEndpoint: make(map[string]string),
 		FixedIdentityMapping:     make(map[string]string),
 		KVStoreOpt:               make(map[string]string),
