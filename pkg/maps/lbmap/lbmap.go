@@ -497,7 +497,7 @@ func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
 		feIP = svc4Key.Address.IP()
 		fePort = svc4Key.Port
 	}
-	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, feIP, fePort)
+	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, feIP, fePort)
 }
 
 // serviceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
@@ -530,7 +530,7 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 	}
 
 	feL3n4Addr := serviceKey2L3n4Addr(svcKey)
-	beLBBackEnd := loadbalancer.NewLBBackEnd(loadbalancer.TCP, beIP, bePort, beWeight)
+	beLBBackEnd := loadbalancer.NewLBBackEnd(loadbalancer.NONE, beIP, bePort, beWeight)
 
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
@@ -542,12 +542,12 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 
 // RevNat6Value2L3n4Addr converts the given RevNat6Value to a L3n4Addr.
 func revNat6Value2L3n4Addr(revNATV *RevNat6Value) *loadbalancer.L3n4Addr {
-	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
+	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, revNATV.Address.IP(), revNATV.Port)
 }
 
 // revNat4Value2L3n4Addr converts the given RevNat4Value to a L3n4Addr.
 func revNat4Value2L3n4Addr(revNATV *RevNat4Value) *loadbalancer.L3n4Addr {
-	return loadbalancer.NewL3n4Addr(loadbalancer.TCP, revNATV.Address.IP(), revNATV.Port)
+	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, revNATV.Address.IP(), revNATV.Port)
 }
 
 // revNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
