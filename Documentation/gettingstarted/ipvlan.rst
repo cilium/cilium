@@ -73,6 +73,10 @@ The ipvlan datapath only supports direct routing mode right now,
 therefore tunneling must be disabled through setting ``tunnel`` to
 ``"disabled"``.
 
+To make ipvlan work between hosts, routes on each host have to be installed
+either manually or automatically by Cilium. The latter can be enabled
+through setting ``auto-direct-node-routes`` to ``"true"``.
+
 The ``--install-iptables-rules`` parameter is optional and if set to
 ``"false"`` then Cilium will not install any iptables rules which are
 mainly for interaction with kube-proxy, and additionally it will trigger
@@ -94,6 +98,7 @@ Example ConfigMap extract for ipvlan in pure L3 mode:
   ipvlan-master-device: "bond0"
   tunnel: "disabled"
   install-iptables-rules: "false"
+  auto-direct-node-routes: "true"
 
 Example ConfigMap extract for ipvlan in L3S mode with masquerading
 all traffic leaving the node:
@@ -104,6 +109,7 @@ all traffic leaving the node:
   ipvlan-master-device: "bond0"
   tunnel: "disabled"
   masquerade: "true"
+  auto-direct-node-routes: "true"
 
 Apply the DaemonSet file to deploy Cilium and verify that it has
 come up correctly:
