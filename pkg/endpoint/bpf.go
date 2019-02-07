@@ -127,7 +127,7 @@ func WriteIPCachePrefixes(fw *bufio.Writer, getBPFData getBPFDataCallback) {
 	}
 }
 
-func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
+func (e *Endpoint) writeHeaderfile(prefix string) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
 	f, err := os.Create(headerPath)
 	if err != nil {
@@ -720,7 +720,7 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 			return err
 		}
 
-		if err = e.writeHeaderfile(nextDir, owner); err != nil {
+		if err = e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("Unable to write header file: %s", err)
 		}
 
@@ -841,7 +841,7 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 
 	// Generate header file specific to this endpoint for use in compiling
 	// BPF programs for this endpoint.
-	if err = e.writeHeaderfile(nextDir, owner); err != nil {
+	if err = e.writeHeaderfile(nextDir); err != nil {
 		return fmt.Errorf("unable to write header file: %s", err)
 	}
 
