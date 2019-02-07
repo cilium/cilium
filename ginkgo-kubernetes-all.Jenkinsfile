@@ -39,6 +39,7 @@ pipeline {
         SERVER_BOX = "cilium/ubuntu"
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
+	IPSEC_ENABLED=setIfLabel("integration/ipsec", "IPSEC_ENABLED", "")
     }
 
     options {

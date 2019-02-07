@@ -276,14 +276,16 @@ func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
 // returns the global manifest file.
 func ManifestGet(manifestFilename string) string {
 	// try dependent integration file
-	fullPath := filepath.Join(manifestsPath, GetCurrentIntegration(), manifestFilename)
+	fullPath := filepath.Join(manifestsPath, GetCurrentIntegration(), GetCurrentIPSec(), manifestFilename)
+	fmt.Printf("manifest GetCurrentIPSec()=%s get %s\n", GetCurrentIPSec(), fullPath)
 	_, err := os.Stat(fullPath)
 	if err == nil {
 		return filepath.Join(BasePath, fullPath)
 	}
 
 	// try dependent k8s version and integration file
-	fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), GetCurrentIntegration(), manifestFilename)
+	fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), GetCurrentIntegration(), GetCurrentIPSec(), manifestFilename)
+	fmt.Printf("manifest k8s get %s\n", fullPath)
 	_, err = os.Stat(fullPath)
 	if err == nil {
 		return filepath.Join(BasePath, fullPath)
