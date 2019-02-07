@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -257,7 +256,7 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 	e.Unlock()
 
 	stats.prepareBuild.Start()
-	origDir := filepath.Join(option.Config.StateDir, e.StringID())
+	origDir := e.StateDirectoryPath()
 	context.datapathRegenerationContext.currentDir = origDir
 
 	// This is the temporary directory to store the generated headers,
