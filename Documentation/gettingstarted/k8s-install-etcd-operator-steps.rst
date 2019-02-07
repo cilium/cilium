@@ -45,6 +45,14 @@ Deploy Cilium + cilium-etcd-operator
 The following all-in-one YAML will deploy all required components to bring up
 Cilium including an etcd cluster managed by the cilium-etcd-operator.
 
+.. note::
+
+   It is important to always deploy Cilium and the cilium-etcd-operator
+   together. The cilium-etcd-operator is not able to bootstrap without running
+   Cilium instances. It requires a CNI plugin to provide networking between the
+   etcd pods forming the cluster. Cilium has special logic built in that allows
+   etcd pods to communicate during the bootstrapping phase of Cilium.
+
 For Docker as container runtime:
 --------------------------------
 
