@@ -55,6 +55,39 @@ should be healthy and ready:
     coredns-86c58d9df4-4l6b2                1/1     Running   0          13m
     etcd-operator-5cf67779fd-hd9j7          1/1     Running   0          2m42s
 
+
+Troubleshooting
+===============
+
+ * Make sure that ``kube-dns`` or ``coredns`` is running and healthy in the
+   ``kube-system`` namespace. A functioning Kubernetes DNS is strictly required
+   in order for Cilium to resolve the ClusterIP of the etcd cluster. If either
+   ``kube-dns`` or ``coredns`` were already running before Cilium was deployed,
+   the pods may be managed by a former CNI plugin. ``cilium-operator`` will
+   automatically restart the pods to ensure that they are being managed by the
+   Cilium CNI plugin. You can manually restart the pods as well if required and
+   validate that Cilium is managing ``kube-dns`` or ``coredns`` by running:
+
+   .. code:: bash
+
+        kubectl -n kube-system get cep
+
+   You should see ``kube-dns-xxx`` or ``coredns-xxx`` pods.
+
+ * In order for the entire system to come up, the following components have to
+   be running at the same time:
+
+   * ``kube-dns`` or ``coredns``
+   * ``cilium-xxx``
+   * ``cilium-etcd-operator``
+   * ``etcd-operator``
+   * ``etcd-xxx``
+
+   All timeouts are configured that this will typically work out smoothly even
+   if some of the pods restart once or twice. In case any of the above pods get
+   into a long ``CrashLoopBackoff``, bootstrapping can be expedited  by
+   restarting the pods to reset the ``CrashLoopBackoff`` time.
+
 .. _k8s_what_is_the_cilium_etcd_operator:
 
 What is the cilium-etcd-operator?
