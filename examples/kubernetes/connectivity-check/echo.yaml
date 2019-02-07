@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: echo-stream
+spec:
+  replicas: 5
+  template:
+    metadata:
+      labels:
+        name: echo-stream
+    spec:
+      containers:
+      - name: echo-stream
+        image: docker.io/tgraf/echo-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-stream
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo-stream
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: curl
+spec:
+  replicas: 5
+  template:
+    metadata:
+      labels:
+        name: curl
+    spec:
+      containers:
+      - name: echo-container
+        image: docker.io/cilium/json-mock

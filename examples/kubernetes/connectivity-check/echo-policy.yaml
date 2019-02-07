@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "curl-to-echo-stream"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: echo-stream
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        name: curl
