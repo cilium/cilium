@@ -86,11 +86,31 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	}
 
 	frontends := cache.UniqueServiceFrontends()
-	c.Assert(frontends, checker.DeepEquals, map[string]struct{}{
+	c.Assert(frontends, checker.DeepEquals, FrontendList{
 		"1.1.1.1:10/TCP": {},
 		"1.1.1.1:20/TCP": {},
 		"2.2.2.2:20/UDP": {},
 	})
+
+	// Validate all frontends as exact matches
+	frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 10)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 20)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, net.ParseIP("2.2.2.2"), 20)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
+
+	// Validate protocol mismatch on exact match
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("2.2.2.2"), 20)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, false)
+
+	// Validate protocol wildcard matching
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("2.2.2.2"), 20)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 10)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 20)
+	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
 }
 
 func (s *K8sSuite) TestServiceCache(c *check.C) {
