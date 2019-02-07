@@ -126,11 +126,18 @@ cilium-minikube.yaml:
         (cd $$k8s_version && \
             rm -f ./$@ && \
             for f in $(CILIUM_MINIKUBE); do (cat "$${f}") >> $@; done; \
-	sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://127.0.0.1:2379+' cilium-minikube.yaml; \
-	sed -i 's+/var/lib/etcd-secrets/etcd-client-ca.crt+/var/lib/etcd-secrets/etcd/ca.crt+' cilium-minikube.yaml; \
-	sed -i 's+/var/lib/etcd-secrets/etcd-client.key+/var/lib/etcd-secrets/apiserver-etcd-client.key+' cilium-minikube.yaml; \
-	sed -i 's+/var/lib/etcd-secrets/etcd-client.crt+/var/lib/etcd-secrets/apiserver-etcd-client.crt+' cilium-minikube.yaml); \
-	done
+            if [[ "$$k8s_version" == "1.8" || "$$k8s_version" == "1.9" ]]; then \
+            sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+http://127.0.0.1:2379+' cilium-minikube.yaml; \
+            sed -i 's+ca-file:+# ca-file:+' cilium-minikube.yaml; \
+            sed -i 's+key-file:+# key-file:+' cilium-minikube.yaml; \
+            sed -i 's+cert-file:+# cert-file:+' cilium-minikube.yaml; \
+            else \
+            sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://127.0.0.1:2379+' cilium-minikube.yaml; \
+            sed -i 's+/var/lib/etcd-secrets/etcd-client-ca.crt+/var/lib/etcd-secrets/etcd/ca.crt+' cilium-minikube.yaml; \
+            sed -i 's+/var/lib/etcd-secrets/etcd-client.key+/var/lib/etcd-secrets/apiserver-etcd-client.key+' cilium-minikube.yaml; \
+            sed -i 's+/var/lib/etcd-secrets/etcd-client.crt+/var/lib/etcd-secrets/apiserver-etcd-client.crt+' cilium-minikube.yaml; \
+            fi); \
+            done
 
 clean:
 	for k8s_version in $(K8S_VERSIONS); do \
