@@ -98,6 +98,11 @@ const (
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost = 50
 
+	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
+	// global cache on startup.
+	// The file is not re-read after agent start.
+	ToFQDNsPreCache = ""
+
 	// IdentityChangeGracePeriod is the grace period that needs to pass
 	// before an endpoint that has changed its identity will start using
 	// that new identity. During the grace period, the new identity has
