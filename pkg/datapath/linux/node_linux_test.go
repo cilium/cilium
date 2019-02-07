@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -845,6 +846,84 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 
 	err = linuxNodeHandler.NodeDelete(nodev1)
 	c.Assert(err, check.IsNil)
+}
+
+func insertFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) {
+	nodeRoute, err := n.createNodeRoute(prefix)
+	c.Assert(err, check.IsNil)
+
+	nodeRoute.Device = dummyExternalDeviceName
+
+	_, err = route.Upsert(nodeRoute, n.nodeConfig.MtuConfig)
+	c.Assert(err, check.IsNil)
+}
+
+func lookupFakeRoute(c *check.C, n *linuxNodeHandler, prefix *cidr.CIDR) bool {
+	routeSpec, err := n.createNodeRoute(prefix)
+	c.Assert(err, check.IsNil)
+
+	routeSpec.Device = dummyExternalDeviceName
+	rt, err := route.Lookup(routeSpec)
+	c.Assert(err, check.IsNil)
+	return rt != nil
+}
+
+func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(c *check.C) {
+	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
+	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
+
+	if s.enableIPv4 {
+		insertFakeRoute(c, linuxNodeHandler, ip4Alloc1)
+	}
+
+	if s.enableIPv6 {
+		insertFakeRoute(c, linuxNodeHandler, ip6Alloc1)
+	}
+
+	err := linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
+		EnableEncapsulation: false,
+		EnableIPv4:          s.enableIPv4,
+		EnableIPv6:          s.enableIPv6,
+	})
+	c.Assert(err, check.IsNil)
+
+	nodev1 := node.Node{
+		Name:        "node1",
+		IPAddresses: []node.Address{},
+	}
+
+	if s.enableIPv4 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv4().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+
+	if s.enableIPv6 {
+		nodev1.IPAddresses = append(nodev1.IPAddresses, node.Address{
+			IP:   s.nodeAddressing.IPv6().PrimaryExternal(),
+			Type: nodeaddressing.NodeInternalIP,
+		})
+		nodev1.IPv6AllocCIDR = ip6Alloc1
+	}
+
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+
+	err = linuxNodeHandler.NodeValidateImplementation(nodev1)
+	c.Assert(err, check.IsNil)
+
+	if s.enableIPv4 {
+		c.Assert(lookupFakeRoute(c, linuxNodeHandler, ip4Alloc1), check.Equals, true)
+	}
+
+	if s.enableIPv6 {
+		c.Assert(lookupFakeRoute(c, linuxNodeHandler, ip6Alloc1), check.Equals, true)
+	}
 }
 
 func (s *linuxPrivilegedBaseTestSuite) benchmarkNodeUpdate(c *check.C, config datapath.LocalNodeConfiguration) {
