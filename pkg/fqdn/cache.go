@@ -169,7 +169,7 @@ func NewDNSCacheWithLimit(limit int) *DNSCache {
 // name is used as is and may be an unqualified name (e.g. myservice.namespace).
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
-func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl int) {
+func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl int) bool {
 	entry := &cacheEntry{
 		Name:           name,
 		LookupTime:     lookupTime,
@@ -181,27 +181,35 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl i
 	c.Lock()
 	defer c.Unlock()
 
-	c.updateWithEntry(entry)
+	return c.updateWithEntry(entry)
 }
 
 // updateWithEntry implements the insertion of a cacheEntry. It is used by
 // DNSCache.Update and DNSCache.UpdateWithEntry.
 // This needs a write lock
-func (c *DNSCache) updateWithEntry(entry *cacheEntry) {
+func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
+	changed := false
 	entries, exists := c.forward[entry.Name]
 	if !exists {
+		changed = true
 		entries = make(map[string]*cacheEntry)
 		c.forward[entry.Name] = entries
 	}
-	c.updateWithEntryIPs(entries, entry)
+
+	if c.updateWithEntryIPs(entries, entry) {
+		changed = true
+	}
 
 	// When lookupTime is much earlier than time.Now(), we may not expire all
 	// entries that should be expired, leaving more work for .Lookup.
-	c.removeExpired(entries, time.Now(), time.Time{})
+	if c.removeExpired(entries, time.Now(), time.Time{}) {
+		changed = true
+	}
 
 	if c.perHostLimit > 0 && len(entries) > c.perHostLimit {
 		c.overLimit[entry.Name] = true
 	}
+	return changed
 }
 
 // AddNameToCleanup adds the IP with the given TTL to the the cleanup map to
@@ -416,7 +424,8 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip net.IP) (names []string) {
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
 // This needs a write lock
-func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
+func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool {
+	added := false
 	for _, ip := range entry.IPs {
 		ipStr := ip.String()
 		old, exists := entries[ipStr]
@@ -424,8 +433,10 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) {
 			entries[ipStr] = entry
 			c.upsertReverse(ipStr, entry)
 			c.addNameToCleanup(entry)
+			added = true
 		}
 	}
+	return added
 
 }
 

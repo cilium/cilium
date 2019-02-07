@@ -343,7 +343,11 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				if effectiveTTL < option.Config.ToFQDNsMinTTL {
 					effectiveTTL = option.Config.ToFQDNsMinTTL
 				}
-				ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL)
+
+				if ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL) {
+					ep.SyncEndpointHeaderFile(d)
+				}
+
 				log.Debug("Updating DNS name in cache from response to to query")
 				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 					qname: {
