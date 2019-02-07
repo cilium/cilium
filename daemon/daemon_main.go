@@ -670,6 +670,9 @@ func init() {
 	flags.Int(option.ToFQDNsMaxIPsPerHost, defaults.ToFQDNsMaxIPsPerHost, "Maximum number of IPs to maintain per FQDN name for each endpoint")
 	option.BindEnv(option.ToFQDNsMaxIPsPerHost)
 
+	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
+	option.BindEnv(option.ToFQDNsPreCache)
+
 	viper.BindPFlags(flags)
 }
 
