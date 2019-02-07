@@ -1911,7 +1911,7 @@ func init() {
       "type": "string"
     },
     "FrontendAddress": {
-      "description": "Layer 4 address",
+      "description": "Layer 4 address. The protocol is currently ignored, all services will\nbehave as if protocol any is specified. To restrict to a particular\nprotocol, use policy.\n",
       "type": "object",
       "properties": {
         "ip": {

@@ -673,6 +673,7 @@ func (d *Daemon) SyncLBMap() error {
 // or deleting entries from BPF maps.
 func (d *Daemon) syncLBMapsWithK8s() error {
 	k8sDeletedServices := map[string]loadbalancer.L3n4AddrID{}
+	alreadyChecked := map[string]struct{}{}
 
 	// Maps service IDs to whether they are IPv6 (true) or IPv4 (false).
 	k8sDeletedRevNATS := make(map[loadbalancer.ServiceID]bool)
@@ -705,16 +706,24 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	// Check whether services in service and revNAT BPF maps exist in the
 	// in-memory K8s service maps. If not, mark them for deletion.
 	for _, svc := range newSVCList {
+		id := svc.FE.L3n4Addr.StringWithProtocol()
+		if _, ok := alreadyChecked[id]; ok {
+			continue
+		}
+
+		alreadyChecked[id] = struct{}{}
+
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.FE.ID,
 			logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)})
-		frontendAddress := svc.FE.L3n4Addr.StringWithProtocol()
-		if _, ok := k8sServicesFrontendAddresses[frontendAddress]; !ok {
-			scopedLog.Debug("service in BPF maps is not managed by K8s; will delete it from BPF maps")
-			k8sDeletedServices[frontendAddress] = svc.FE
+
+		if !k8sServicesFrontendAddresses.LooseMatch(svc.FE.L3n4Addr) {
+			scopedLog.Warning("Deleting no longer present service in datapath")
+			k8sDeletedServices[id] = svc.FE
 			continue
 		}
-		scopedLog.Debug("service from BPF maps is managed by K8s; will not delete it from BPF maps")
+
+		scopedLog.Debug("Found matching k8s service for service in BPF map")
 	}
 
 	for serviceID, serviceInfo := range newRevNATMap {
