@@ -28,7 +28,7 @@ function addCopyButtonToCodeCells() {
     return;
   }
   var codeCells = document.querySelectorAll("pre");
-  codeCells.forEach((codeCell, index) => {
+  codeCells.forEach(function(codeCell, index) {
     var wrapper = document.createElement("div");
     wrapper.className = "code-wrapper";
     codeCell.parentNode.insertBefore(wrapper, codeCell);
@@ -37,7 +37,7 @@ function addCopyButtonToCodeCells() {
     codeCell.setAttribute("id", id);
     function clipboardButton(id) {
       var linesCount = codeCell.textContent.trim().split("\n").length;
-      let buttonHtml = [];
+      var buttonHtml = [];
       buttonHtml.push('<div class="copybutton-wrapper">');
       buttonHtml.push(
         '<img class="copy-icon" src="../_static/copy-icon.png" alt="" />'
