@@ -120,6 +120,12 @@ spec:
               key: ct-global-max-entries-other
               name: cilium-config
               optional: true
+        - name: CILIUM_PREALLOCATE_BPF_MAPS
+          valueFrom:
+            configMapKeyRef:
+              key: preallocate-bpf-maps
+              name: cilium-config
+              optional: true
         - name: CILIUM_FLANNEL_MASTER_DEVICE
           valueFrom:
             configMapKeyRef:
@@ -130,6 +136,12 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: flannel-uninstall-on-exit
+              name: cilium-config
+              optional: true
+        - name: CILIUM_FLANNEL_MANAGE_EXISTING_CONTAINERS
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-manage-existing-containers
               name: cilium-config
               optional: true
         - name: CILIUM_DATAPATH_MODE
@@ -230,6 +242,7 @@ spec:
           readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
+      hostPID: false
       initContainers:
       - command:
         - /init-container.sh
