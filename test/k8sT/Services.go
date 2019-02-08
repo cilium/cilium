@@ -450,6 +450,9 @@ var _ = Describe("K8sServicesTest", func() {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
+			err = kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
+
 			By("Waiting for services to be ready")
 			for _, service := range []string{details, ratings, reviews, productPage} {
 				err = kubectl.WaitForServiceEndpoints(
