@@ -47,34 +47,6 @@ func (s *StatusTestSuite) SetUpTest(c *C) {
 	}
 }
 
-func (s *StatusTestSuite) TestCollectorStaleWarning(c *C) {
-	var ok uint64
-
-	p := []Probe{
-		{
-			Probe: func(ctx context.Context) (interface{}, error) {
-				time.Sleep(s.config.WarningThreshold * 2)
-				return nil, nil
-			},
-			OnStatusUpdate: func(status Status) {
-				if status.StaleWarning && status.Data == nil && status.Err != nil {
-					atomic.AddUint64(&ok, 1)
-
-				}
-			},
-		},
-	}
-
-	collector := NewCollector(p, s.config)
-	defer collector.Close()
-
-	// wait for the warning timeout to be reached twice
-	c.Assert(testutils.WaitUntil(func() bool {
-		return atomic.LoadUint64(&ok) >= 2
-	}, 1*time.Second), IsNil)
-	c.Assert(collector.GetStaleProbes(), HasLen, 1)
-}
-
 func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 	var ok uint64
 
@@ -168,7 +140,7 @@ func (s *StatusTestSuite) TestCollectorSuccessAfterTimeout(c *C) {
 
 	// wait for the probe to timeout (warning and failure) and then to succeed
 	c.Assert(testutils.WaitUntil(func() bool {
-		return atomic.LoadUint64(&timeout) == 2 && atomic.LoadUint64(&ok) > 0
+		return atomic.LoadUint64(&timeout) == 1 && atomic.LoadUint64(&ok) > 0
 	}, 1*time.Second), IsNil)
 	c.Assert(collector.GetStaleProbes(), HasLen, 0)
 }
