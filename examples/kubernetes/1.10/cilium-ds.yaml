@@ -180,6 +180,12 @@ spec:
               key: tofqdns-enable-poller
               name: cilium-config
               optional: true
+        - name: CILIUM_TOFQDNS_PRE_CACHE
+          valueFrom:
+            configMapKeyRef:
+              key: tofqdns-pre-cache
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
