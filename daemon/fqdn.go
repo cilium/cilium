@@ -150,6 +150,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			for _, ep := range endpoints {
 				cfg.Cache.UpdateFromCache(ep.DNSHistory, namesToClean)
 			}
+
+			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
 				"FQDN garbage collector work deleted %d name entries", len(namesToClean))
 			return d.dnsRuleGen.ForceGenerateDNS(namesToClean)

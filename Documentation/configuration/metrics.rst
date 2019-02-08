@@ -136,7 +136,6 @@ IPAM
 * ``ipam_events_total``: Number of IPAM events received labeled by action and
   datapath family type
 
-
 KVstore
 -------
 
@@ -151,6 +150,13 @@ Agent
   * Labels: ``scope``, ``outcome``
 * ``api_process_time_seconds``: Processing time of all the API calls made to the
   cilium-agent, labeled by API method, API path and returned HTTP code.
+
+FQDN
+-----
+
+* ``fqdn_gc_deletions_total``: Number of FQDNs that have been cleaned on FQDN
+  Garbage collector job
+
 
 Cilium as a Kubernetes pod
 ==========================
