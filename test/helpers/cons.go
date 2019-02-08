@@ -105,6 +105,9 @@ const (
 	// DNSSECContainerImage is the image used for starting a DNSSec client.
 	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.1"
 
+	// BindContainerImage is the image used for DNS binding testing.
+	BindContainerImage = "docker.io/cilium/docker-bind:v0.3"
+
 	// Names of commonly used containers in tests.
 	Httpd1 = "httpd1"
 	Httpd2 = "httpd2"
