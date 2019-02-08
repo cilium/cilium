@@ -126,6 +126,12 @@ IPAM
 * ``ipam_events_total``: Number of IPAM events received labeled by action and
   datapath family type
 
+FQDN
+-----
+
+* ``fqdn_garbage_collector"``: Number of FQDN that has been cleaned on FQDN
+  Garbage collector job
+
 Cilium as a Kubernetes pod
 ==========================
 The Cilium Prometheus reference configuration configures jobs that automatically
