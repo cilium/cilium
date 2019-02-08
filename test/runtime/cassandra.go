@@ -32,8 +32,8 @@ var _ = Describe("RuntimeCassandra", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"cass-server": "cassandra",
-			"cass-client": "cassandra",
+			"cass-server": helpers.CassandraImage,
+			"cass-client": helpers.CassandraImage,
 		}
 		cmds := map[string][]string{
 			"cass-client": {"sleep", "10000"},

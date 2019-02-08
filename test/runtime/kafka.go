@@ -41,8 +41,8 @@ var _ = Describe("RuntimeKafka", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"zook":   "docker.io/digitalwonderland/zookeeper:latest",
-			"client": "docker.io/cilium/kafkaclient2:latest",
+			"zook":   helpers.ZookeeperImage,
+			"client": helpers.KafkaClientImage,
 		}
 
 		switch mode {
