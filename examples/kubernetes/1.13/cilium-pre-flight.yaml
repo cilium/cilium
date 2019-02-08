@@ -39,7 +39,7 @@ spec:
           command: ["/bin/sh"]
           args:
           - -c
-          - touch /tmp/ready; sleep 1h
+          - "cilium preflight fqdn-poller --tofqdns-pre-cache /var/run/cilium/dns-precache-upgrade.json && touch /tmp/ready; sleep 1h"
           livenessProbe:
             exec:
               command:
@@ -54,6 +54,9 @@ spec:
               - /tmp/ready
             initialDelaySeconds: 5
             periodSeconds: 5
+          volumeMounts:
+          - mountPath: /var/run/cilium
+            name: cilium-run
       hostNetwork: true
       priorityClassName: system-node-critical
       restartPolicy: Always
@@ -67,3 +70,9 @@ spec:
           value: "true"
         - key: CriticalAddonsOnly
           operator: "Exists"
+      volumes:
+        # To keep state between restarts / upgrades
+      - hostPath:
+          path: /var/run/cilium
+          type: DirectoryOrCreate
+        name: cilium-run
