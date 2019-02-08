@@ -60,17 +60,24 @@ required = [
 
 [[constraint]]
   name = "github.com/containerd/containerd"
-  revision = "v1.1.0"
+  revision = "v1.2.1"
 
   # main-usage = "pkg/workloads"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/containerd/cri"
-  revision = "v1.0.5"
+  revision = "v1.11.1"
 
   # main-usage = "pkg/workloads"
   # on-revision = ""
+
+[[override]]
+  name = "github.com/docker/distribution"
+  revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
+
+  # main-usage = "github.com/containerd/cri"
+  # on-revision = "it is the same version used by cri"
 
 [[constraint]]
   name = "github.com/containerd/typeurl"

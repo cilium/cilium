@@ -22,8 +22,8 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// Default returns the default specifier for the platform.
-func Default() string {
+// DefaultString returns the default string specifier for the platform.
+func DefaultString() string {
 	return Format(DefaultSpec())
 }
 

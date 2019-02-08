@@ -26,6 +26,7 @@ import (
 
 	"github.com/containerd/containerd/errdefs"
 	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 )
 
@@ -45,8 +46,8 @@ func NewReader(ra ReaderAt) io.Reader {
 // ReadBlob retrieves the entire contents of the blob from the provider.
 //
 // Avoid using this for large blobs, such as layers.
-func ReadBlob(ctx context.Context, provider Provider, dgst digest.Digest) ([]byte, error) {
-	ra, err := provider.ReaderAt(ctx, dgst)
+func ReadBlob(ctx context.Context, provider Provider, desc ocispec.Descriptor) ([]byte, error) {
+	ra, err := provider.ReaderAt(ctx, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -65,30 +66,30 @@ func ReadBlob(ctx context.Context, provider Provider, dgst digest.Digest) ([]byt
 // This is useful when the digest and size are known beforehand.
 //
 // Copy is buffered, so no need to wrap reader in buffered io.
-func WriteBlob(ctx context.Context, cs Ingester, ref string, r io.Reader, size int64, expected digest.Digest, opts ...Opt) error {
-	cw, err := OpenWriter(ctx, cs, ref, size, expected)
+func WriteBlob(ctx context.Context, cs Ingester, ref string, r io.Reader, desc ocispec.Descriptor, opts ...Opt) error {
+	cw, err := OpenWriter(ctx, cs, WithRef(ref), WithDescriptor(desc))
 	if err != nil {
 		if !errdefs.IsAlreadyExists(err) {
-			return err
+			return errors.Wrap(err, "failed to open writer")
 		}
 
 		return nil // all ready present
 	}
 	defer cw.Close()
 
-	return Copy(ctx, cw, r, size, expected, opts...)
+	return Copy(ctx, cw, r, desc.Size, desc.Digest, opts...)
 }
 
 // OpenWriter opens a new writer for the given reference, retrying if the writer
 // is locked until the reference is available or returns an error.
-func OpenWriter(ctx context.Context, cs Ingester, ref string, size int64, expected digest.Digest) (Writer, error) {
+func OpenWriter(ctx context.Context, cs Ingester, opts ...WriterOpt) (Writer, error) {
 	var (
 		cw    Writer
 		err   error
 		retry = 16
 	)
 	for {
-		cw, err = cs.Writer(ctx, ref, size, expected)
+		cw, err = cs.Writer(ctx, opts...)
 		if err != nil {
 			if !errdefs.IsUnavailable(err) {
 				return nil, err
@@ -126,7 +127,7 @@ func OpenWriter(ctx context.Context, cs Ingester, ref string, size int64, expect
 func Copy(ctx context.Context, cw Writer, r io.Reader, size int64, expected digest.Digest, opts ...Opt) error {
 	ws, err := cw.Status()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get status")
 	}
 
 	if ws.Offset > 0 {
@@ -137,7 +138,7 @@ func Copy(ctx context.Context, cw Writer, r io.Reader, size int64, expected dige
 	}
 
 	if _, err := copyWithBuffer(cw, r); err != nil {
-		return err
+		return errors.Wrap(err, "failed to copy")
 	}
 
 	if err := cw.Commit(ctx, size, expected, opts...); err != nil {
