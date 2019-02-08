@@ -62,7 +62,7 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Boot VMs'){
+        stage('Boot VMs 1.9-1.10'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -100,7 +100,7 @@ pipeline {
                 }
             }
         }
-        stage('Boot VMs k8s-next'){
+        stage('Boot VMs 1.{11,12}'){
 
             options {
                 timeout(time: 30, unit: 'MINUTES')
@@ -145,6 +145,41 @@ pipeline {
                 }
             }
         }
+
+        stage('Boot VMs 1.14'){
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant up --no-provision'
+            }
+        }
+        stage('BDD-Test-k8s-1.14') {
+            environment {
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+            }
+            options {
+                timeout(time: 100, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    parallel(
+                        "K8s-1.14":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
+                        failFast: "${FAILFAST}".toBoolean()
+                    )
+                }
+            }
+            post {
+                always {
+                    sh 'cd test/; ./archive_test_results.sh || true'
+                    archiveArtifacts artifacts: '*.zip'
+                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
+                    sh 'cd test/; ./post_build_agent.sh || true'
+                }
+            }
+        }
     }
     post {
         always {
@@ -152,6 +187,7 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.14 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
         }
