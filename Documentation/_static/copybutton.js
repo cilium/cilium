@@ -42,22 +42,22 @@ function addCopyButtonToCodeCells() {
       buttonHtml.push(
         '<img class="copy-icon" src="../_static/copy-icon.png" alt="" />'
       );
-      if (linesCount > 1) {
-        buttonHtml.push(
-          '<a class="copybutton" data-clipboard-mode="first-line" data-clipboard-target="#' +
-            id +
-            '">'
-        );
-        buttonHtml.push("Copy First Line");
-        buttonHtml.push("</a>");
-      }
       buttonHtml.push(
-        '<a class="copybutton" data-clipboard-mode="all"  data-clipboard-target="#' +
+        '<a class="copybutton" data-clipboard-mode="first-line" data-clipboard-target="#' +
           id +
           '">'
       );
-      buttonHtml.push("Copy All");
+      buttonHtml.push(linesCount > 1 ? "Copy First Line" : "Copy Line");
       buttonHtml.push("</a>");
+      if (linesCount > 1) {
+        buttonHtml.push(
+          '<a class="copybutton" data-clipboard-mode="all"  data-clipboard-target="#' +
+            id +
+            '">'
+        );
+        buttonHtml.push("Copy All");
+        buttonHtml.push("</a>");
+      }
       buttonHtml.push("</div>");
       return buttonHtml.join("\n");
     }
