@@ -128,11 +128,22 @@ type Section struct {
 	values values
 }
 
+// Has will return whether or not an entry exists in a given section
+func (t Section) Has(k string) bool {
+	_, ok := t.values[k]
+	return ok
+}
+
 // ValueType will returned what type the union is set to. If
 // k was not found, the NoneType will be returned.
 func (t Section) ValueType(k string) (ValueType, bool) {
 	v, ok := t.values[k]
 	return v.Type, ok
+}
+
+// Bool returns a bool value at k
+func (t Section) Bool(k string) bool {
+	return t.values[k].BoolValue()
 }
 
 // Int returns an integer value at k

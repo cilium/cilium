@@ -62,7 +62,7 @@
   revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
 
 [[projects]]
-  digest = "1:9599c5a2887d907b5f87339fd3ecfd95403fc6b7b5bbfd14d0bca9692e53407f"
+  digest = "1:abb9e396a89827531b69f68252a5d92e7a6b3ae865cd5c8c259d9401cef36376"
   name = "github.com/aws/aws-sdk-go-v2"
   packages = [
     "aws",
@@ -88,8 +88,7 @@
     "service/sts",
   ]
   pruneopts = "NUT"
-  revision = "d52522b5f4b95591ff6528d7c54923951aadf099"
-  version = "v2.0.0-preview.5"
+  revision = "v0.7.0"
 
 [[projects]]
   branch = "master"
@@ -717,11 +716,11 @@
   revision = "4e64e4a4e2552194cf594243e23aa9baf3b4297e"
 
 [[projects]]
-  digest = "1:ac6d01547ec4f7f673311b4663909269bfb8249952de3279799289467837c3cc"
+  digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "0b12d6b5"
+  revision = "c2b33e84"
 
 [[projects]]
   digest = "1:8e36686e8b139f8fe240c1d5cf3a145bc675c22ff8e707857cdd3ae17b00d728"

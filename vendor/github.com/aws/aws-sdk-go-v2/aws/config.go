@@ -80,6 +80,13 @@ type Config struct {
 	//
 	// TODO need better way of representing support for this concept. Not on Config.
 	DisableRestProtocolURICleaning bool
+
+	// DisableEndpointHostPrefix will disable the SDK's behavior of prefixing
+	// request endpoint hosts with modeled information.
+	//
+	// Disabling this feature is useful when you want to use local endpoints
+	// for testing that do not support the modeled host prefix pattern.
+	DisableEndpointHostPrefix bool
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder

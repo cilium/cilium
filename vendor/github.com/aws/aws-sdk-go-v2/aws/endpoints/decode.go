@@ -94,7 +94,12 @@ func custAddS3DualStack(p *partition) {
 		return
 	}
 
-	s, ok := p.Services["s3"]
+	custAddDualstack(p, "s3")
+	custAddDualstack(p, "s3-control")
+}
+
+func custAddDualstack(p *partition, svcName string) {
+	s, ok := p.Services[svcName]
 	if !ok {
 		return
 	}
@@ -102,7 +107,7 @@ func custAddS3DualStack(p *partition) {
 	s.Defaults.HasDualStack = boxedTrue
 	s.Defaults.DualStackHostname = "{service}.dualstack.{region}.{dnsSuffix}"
 
-	p.Services["s3"] = s
+	p.Services[svcName] = s
 }
 
 func custAddEC2Metadata(p *partition) {
