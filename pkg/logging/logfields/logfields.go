@@ -344,4 +344,7 @@ const (
 
 	// PIDFile is a string value for the path to a file containing a PID.
 	PIDFile = "pidfile"
+
+	// Probe is the name of a status probe.
+	Probe = "probe"
 )
