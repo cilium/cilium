@@ -130,7 +130,7 @@
   revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
 
 [[projects]]
-  digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
+  digest = "1:ea815dc90fad9c1c0a304ae67e120faa7592eb7a8f39c9cf3b483cd2c7c9e892"
   name = "github.com/containerd/containerd"
   packages = [
     ".",
@@ -148,11 +148,13 @@
     "api/services/version/v1",
     "api/types",
     "api/types/task",
+    "archive",
+    "archive/compression",
     "cio",
     "containers",
     "content",
+    "content/proxy",
     "defaults",
-    "dialer",
     "diff",
     "errdefs",
     "events",
@@ -160,12 +162,14 @@
     "filters",
     "identifiers",
     "images",
+    "images/archive",
     "leases",
-    "linux/runctypes",
+    "leases/proxy",
     "log",
     "mount",
     "namespaces",
     "oci",
+    "pkg/dialer",
     "platforms",
     "plugin",
     "reference",
@@ -173,10 +177,13 @@
     "remotes/docker",
     "remotes/docker/schema1",
     "rootfs",
+    "runtime/linux/runctypes",
     "snapshots",
+    "snapshots/proxy",
+    "sys",
   ]
   pruneopts = "NUT"
-  revision = "v1.1.0"
+  revision = "v1.2.1"
 
 [[projects]]
   branch = "master"
@@ -191,11 +198,14 @@
   revision = "7f53d412b9eb1cbf744c2063185d703a0ee34700"
 
 [[projects]]
-  digest = "1:be4d4d147d2bb077ba21edbcceca7582d94e58709dcf38e8fc7c753fcead5648"
+  digest = "1:aaa747fa5beb008dd935c5e27123371453afa0bdadb722c33adcc55637803eb3"
   name = "github.com/containerd/cri"
-  packages = ["pkg/store"]
+  packages = [
+    "pkg/store",
+    "pkg/util",
+  ]
   pruneopts = "NUT"
-  revision = "v1.0.5"
+  revision = "v1.11.1"
 
 [[projects]]
   branch = "master"
@@ -265,15 +275,25 @@
   revision = "v1.1.1"
 
 [[projects]]
-  digest = "1:3cabbabc9e0e4aa7e12b882bdc213f41cf8bd2b2ce2a7b5e0aceaf8a6a78049b"
+  digest = "1:767be9f40efeaa89519a1b7d04bcc1e841760466bdd481b4b4cca63a00a1eef8"
   name = "github.com/docker/distribution"
   packages = [
-    "digest",
+    "digestset",
     "reference",
   ]
   pruneopts = "NUT"
-  revision = "48294d928ced5dd9b378f7fd7c6f5da3ff3f2c89"
-  version = "v2.6.2"
+  revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
+
+[[projects]]
+  digest = "1:8526812c8798f0b7920d2cbd97b6c0dbdd61816b548d53ac68a728ab4b815c18"
+  name = "github.com/docker/docker"
+  packages = [
+    "pkg/random",
+    "pkg/stringid",
+  ]
+  pruneopts = "NUT"
+  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
+  version = "v1.13.1"
 
 [[projects]]
   digest = "1:bdda594d1f922e89568b121116a27cb3114b58fbfca1d1f91aeac9de1af2c041"
@@ -912,9 +932,12 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:918dbd46ad099418ce9760291bb156ebf23d441aad4cb682dd9bf09e2d3c0c7b"
+  digest = "1:ea8780346eba74e5eb3e8b6bded2ec46c1c81cd745bc00e9964b730955bf4252"
   name = "github.com/opencontainers/runc"
-  packages = ["libcontainer/user"]
+  packages = [
+    "libcontainer/system",
+    "libcontainer/user",
+  ]
   pruneopts = "NUT"
   revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
   version = "v0.1.1"

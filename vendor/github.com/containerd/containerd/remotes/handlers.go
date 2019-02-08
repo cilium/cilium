@@ -27,6 +27,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ func FetchHandler(ingester content.Ingester, fetcher Fetcher) images.HandlerFunc
 func fetch(ctx context.Context, ingester content.Ingester, fetcher Fetcher, desc ocispec.Descriptor) error {
 	log.G(ctx).Debug("fetch")
 
-	cw, err := content.OpenWriter(ctx, ingester, MakeRefKey(ctx, desc), desc.Size, desc.Digest)
+	cw, err := content.OpenWriter(ctx, ingester, content.WithRef(MakeRefKey(ctx, desc)), content.WithDescriptor(desc))
 	if err != nil {
 		if errdefs.IsAlreadyExists(err) {
 			return nil
@@ -141,7 +142,7 @@ func push(ctx context.Context, provider content.Provider, pusher Pusher, desc oc
 	}
 	defer cw.Close()
 
-	ra, err := provider.ReaderAt(ctx, desc.Digest)
+	ra, err := provider.ReaderAt(ctx, desc)
 	if err != nil {
 		return err
 	}
@@ -155,7 +156,7 @@ func push(ctx context.Context, provider content.Provider, pusher Pusher, desc oc
 //
 // Base handlers can be provided which will be called before any push specific
 // handlers.
-func PushContent(ctx context.Context, pusher Pusher, desc ocispec.Descriptor, provider content.Provider, platforms []string, baseHandlers ...images.Handler) error {
+func PushContent(ctx context.Context, pusher Pusher, desc ocispec.Descriptor, provider content.Provider, platform platforms.MatchComparer, baseHandlers ...images.Handler) error {
 	var m sync.Mutex
 	manifestStack := []ocispec.Descriptor{}
 
@@ -175,7 +176,7 @@ func PushContent(ctx context.Context, pusher Pusher, desc ocispec.Descriptor, pr
 	pushHandler := PushHandler(pusher, provider)
 
 	handlers := append(baseHandlers,
-		images.FilterPlatforms(images.ChildrenHandler(provider), platforms...),
+		images.FilterPlatforms(images.ChildrenHandler(provider), platform),
 		filterHandler,
 		pushHandler,
 	)

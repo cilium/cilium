@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var tempMountLocation = os.TempDir()
+var tempMountLocation = getTempDir()
 
 // WithTempMount mounts the provided mounts to a temp dir, and pass the temp dir to f.
 // The mounts are valid during the call to the f.
@@ -63,4 +63,11 @@ func WithTempMount(ctx context.Context, mounts []Mount, f func(root string) erro
 		return errors.Wrapf(uerr, "failed to mount %s", root)
 	}
 	return errors.Wrapf(f(root), "mount callback failed on %s", root)
+}
+
+func getTempDir() string {
+	if xdg := os.Getenv("XDG_RUNTIME_DIR"); xdg != "" {
+		return xdg
+	}
+	return os.TempDir()
 }
