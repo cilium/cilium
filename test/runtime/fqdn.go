@@ -124,15 +124,14 @@ zone "dnssec.test" {
 
 var _ = Describe("RuntimeFQDNPolicies", func() {
 	const (
-		bindContainerImage = "docker.io/cilium/docker-bind:v0.3"
-		bindContainerName  = "bind"
-		worldNetwork       = "world"
-		WorldHttpd1        = "WorldHttpd1"
-		WorldHttpd2        = "WorldHttpd2"
-		WorldHttpd3        = "WorldHttpd3"
-		OutsideHttpd1      = "OutsideHttpd1"
-		OutsideHttpd2      = "OutsideHttpd2"
-		OutsideHttpd3      = "OutsideHttpd3"
+		bindContainerName = "bind"
+		worldNetwork      = "world"
+		WorldHttpd1       = "WorldHttpd1"
+		WorldHttpd2       = "WorldHttpd2"
+		WorldHttpd3       = "WorldHttpd3"
+		OutsideHttpd1     = "OutsideHttpd1"
+		OutsideHttpd2     = "OutsideHttpd2"
+		OutsideHttpd3     = "OutsideHttpd3"
 
 		bindDBCilium     = "db.cilium.test"
 		bindDBOutside    = "db.outside.test"
@@ -225,7 +224,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		// place.
 		res := vm.ContainerCreate(
 			bindContainerName,
-			bindContainerImage,
+			helpers.BindContainerImage,
 			"bridge",
 			fmt.Sprintf("-p 53:53/udp -p 53:53/tcp -v /data:/data -l id.bind -e DNSSEC_DOMAIN=%s", DNSSECDomain))
 		res.ExpectSuccess("Cannot start bind container")
