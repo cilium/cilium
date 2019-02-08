@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -111,6 +113,8 @@ func (c *Collector) Close() {
 
 // GetStaleProbes returns a map of stale probes which key is a probe name and
 // value is a time when the last instance of the probe has been started.
+//
+// A probe is declared stale if it hasn't returned in FailureThreshold.
 func (c *Collector) GetStaleProbes() map[string]time.Time {
 	c.RLock()
 	defer c.RUnlock()
@@ -183,10 +187,10 @@ func (c *Collector) runProbe(p *Probe) {
 			return
 
 		case <-warningThreshold:
-			// Publish warning and continue waiting for probe
-			staleErr := fmt.Errorf("No response from %s probe within %v seconds",
-				p.Name, c.config.WarningThreshold.Seconds())
-			c.updateProbeStatus(p, nil, true, staleErr)
+			// Just warn and continue waiting for probe
+			log.WithField(logfields.Probe, p.Name).
+				Warnf("No response from probe within %v seconds",
+					c.config.WarningThreshold.Seconds())
 
 		case <-probeReturned:
 			// The probe completed and we can return from runProbe
@@ -214,22 +218,24 @@ func (c *Collector) runProbe(p *Probe) {
 	}
 }
 
-func (c *Collector) updateProbeStatus(p *Probe, data interface{}, staleWarning bool, err error) {
+func (c *Collector) updateProbeStatus(p *Probe, data interface{}, stale bool, err error) {
 	// Update stale status of the probe
 	c.Lock()
 	startTime := c.probeStartTime[p.Name]
-	if staleWarning {
+	if stale {
 		c.staleProbes[p.Name] = struct{}{}
 	} else {
 		delete(c.staleProbes, p.Name)
 	}
 	c.Unlock()
 
-	if staleWarning {
-		log.WithField(logfields.StartTime, startTime).
-			Warn(fmt.Sprintf("Timeout while waiting for %q probe", p.Name))
+	if stale {
+		log.WithFields(logrus.Fields{
+			logfields.StartTime: startTime,
+			logfields.Probe:     p.Name,
+		}).Warn("Timeout while waiting probe")
 	}
 
 	// Notify the probe about status update
-	p.OnStatusUpdate(Status{Err: err, Data: data, StaleWarning: staleWarning})
+	p.OnStatusUpdate(Status{Err: err, Data: data, StaleWarning: stale})
 }
