@@ -416,11 +416,13 @@ Podcast
 podcast
 Podcasts
 podcasts
+poller
 Polytechnique
 Pre
 pre
 preflight
 prefilter
+preflight
 priori
 productpage
 Profiler
@@ -542,6 +544,7 @@ tlsconfig
 toCIDR
 toCIDRSet
 toFQDNs
+tofqdns
 Toolchain
 toolchain
 tracepoint
