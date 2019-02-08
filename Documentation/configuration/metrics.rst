@@ -136,7 +136,6 @@ IPAM
 * ``ipam_events_total``: Number of IPAM events received labeled by action and
   datapath family type
 
-
 KVstore
 -------
 
@@ -149,6 +148,13 @@ Agent
 
 * ``agent_bootstrap_seconds``: Duration of various bootstrap phases
   * Labels: ``scope``, ``outcome``
+
+FQDN
+-----
+
+* ``fqdn_gc_deletions_total``: Number of FQDNs that have been cleaned on FQDN
+  Garbage collector job
+
 
 Cilium as a Kubernetes pod
 ==========================
