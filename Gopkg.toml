@@ -102,7 +102,7 @@ required = [
 
 [[constraint]]
   name = "github.com/coreos/etcd"
-  revision = "v3.3.11"
+  revision = "v3.3.12"
 
   # main-usage = "pkg/kvstore"
   # on-revision = ""
