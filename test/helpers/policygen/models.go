@@ -449,7 +449,7 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: app-frontend
-    image: docker.io/byrnedo/alpine-curl:0.1.7
+    image: %[4]s
     imagePullPolicy: IfNotPresent
     command: [ "sleep" ]
     args:
@@ -467,14 +467,14 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: web
-    image: docker.io/cilium/demo-httpd:latest
+    image: %[5]s
     imagePullPolicy: IfNotPresent
     ports:
       - containerPort: 80`
 
 	err := helpers.RenderTemplateToFile(
 		t.GetManifestName(),
-		fmt.Sprintf(manifest, t.Prefix, t.SrcPod, t.DestPod),
+		fmt.Sprintf(manifest, t.Prefix, t.SrcPod, t.DestPod, helpers.AlpineCurlImage, helpers.HttpdImage),
 		os.ModePerm)
 	if err != nil {
 		return err
