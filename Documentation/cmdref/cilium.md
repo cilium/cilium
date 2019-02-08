@@ -34,6 +34,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium node](../cilium_node)	 - Manage cluster nodes
 * [cilium policy](../cilium_policy)	 - Manage security policies
 * [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
+* [cilium preflight](../cilium_preflight)	 - cilium upgrade helper
 * [cilium service](../cilium_service)	 - Manage services & loadbalancers
 * [cilium status](../cilium_status)	 - Display status of daemon
 * [cilium version](../cilium_version)	 - Print version information
