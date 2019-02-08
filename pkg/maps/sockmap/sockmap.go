@@ -89,7 +89,7 @@ func NewSockmapKey(dip, sip net.IP, sport, dport uint32) SockmapKey {
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockmap")
 
 const (
-	mapName = "cilium_sock_ops_map"
+	mapName = "cilium_sock_ops"
 
 	// MaxEntries represents the maximum number of endpoints in the map
 	MaxEntries = 65535
