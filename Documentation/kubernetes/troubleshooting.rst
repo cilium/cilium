@@ -120,3 +120,12 @@ Now if you try to create a CNP as a TPR, you will get an error:
 .. code:: bash
 
        $ Error from server (BadRequest): error when creating "cilium-tpr.yaml": the API version in the data (cilium.io/v1) does not match the expected API version (cilium.io/v2)
+
+Apiserver outside of cluster
+==============================
+
+If you are running Kubernetes Apiserver outside of your cluster for some reason (like keeping master nodes behind a firewall), make sure that you run Cilium on master nodes too.
+Otherwise Kubernetes pod proxies created by Apiserver will not be able to route to pod IPs and you may encounter errors when trying to proxy traffic to pods.
+
+You may run Cilium as a `static pod <https://kubernetes.io/docs/tasks/administer-cluster/static-pod/>`_ or set `tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_ for Cilium DaemonSet to ensure
+that Cilium pods will be scheduled on your master nodes. The exact way to do it depends on your setup.
