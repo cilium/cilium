@@ -210,7 +210,7 @@ case $CONTAINER_RUNTIME in
     "docker")
         ;;
     "containerd")
-        KUBEADM_CRI_SOCKET="unix:///var/run/cri-containerd.sock"
+        KUBEADM_CRI_SOCKET="unix:///run/containerd/containerd.sock"
         ;;
     *)
         echo "Invalid container runtime '${CONTAINER_RUNTIME}'"
