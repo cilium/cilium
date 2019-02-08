@@ -15,6 +15,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -128,6 +129,11 @@ func initConfig() {
 
 func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
+
+	// Make sure glog (used by the client-go dependency) logs to stderr, as it
+	// will try to log to directories that may not exist in the cilium-operator
+	// container and cause the cilium-operator to exit.
+	flag.Set("logtostderr", "true")
 
 	log.Infof("Cilium Operator %s", version.Version)
 
