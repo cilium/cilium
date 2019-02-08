@@ -108,6 +108,27 @@ const (
 	// BindContainerImage is the image used for DNS binding testing.
 	BindContainerImage = "docker.io/cilium/docker-bind:v0.3"
 
+	// KafkaClientImage is the image used for Kafka clients.
+	KafkaClientImage = "docker.io/cilium/kafkaclient2:latest"
+
+	// Zookeeper image is the image used for running Zookeeper.
+	ZookeeperImage = "docker.io/digitalwonderland/zookeeper:latest"
+
+	// BuxyboxImage is a space efficient-image used for basic testing.
+	BusyboxImage = "docker.io/library/busybox:1.28.0"
+
+	// AlpineCurlImage is the image used for invoking curl with a small base image.
+	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.7"
+
+	// MemcachedImage is the image used to test memcached in the runtime tests.
+	MemcacheDImage = "docker.io/library/memcached:1.5.11"
+
+	// MemcacheBinClient is the image used during binary memcached parser tests.
+	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.1"
+
+	// AlpineImage is used during the memcached tests as the text client.
+	AlpineImage = "docker.io/library/alpine:3.9"
+
 	// Names of commonly used containers in tests.
 	Httpd1 = "httpd1"
 	Httpd2 = "httpd2"
