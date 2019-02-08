@@ -329,11 +329,11 @@ func WriteOrAppendToFile(filename string, data []byte, perm os.FileMode) error {
 
 // DNSDeployment returns the manifest to install dns engine on the server.
 func DNSDeployment() string {
-	var DNSEngine = "kubedns"
+	var DNSEngine = "coredns"
 	k8sVersion := GetCurrentK8SEnv()
 	switch k8sVersion {
-	case "1.11", "1.12", "1.13":
-		DNSEngine = "coredns"
+	case "1.7", "1.8", "1.9", "1.10":
+		DNSEngine = "kubedns"
 	}
 	fullPath := filepath.Join("provision", "manifest", k8sVersion, DNSEngine+"_deployment.yaml")
 	_, err := os.Stat(fullPath)
@@ -374,7 +374,7 @@ func getK8sSupportedConstraints(ciliumVersion string) (go_version.Constraints, e
 	case CiliumV1_4.Check(cst):
 		return versioncheck.MustCompile(">= 1.8, <1.14"), nil
 	case CiliumV1_5.Check(cst):
-		return versioncheck.MustCompile(">= 1.8, <1.14"), nil
+		return versioncheck.MustCompile(">= 1.8, <1.15"), nil
 	default:
 		return nil, fmt.Errorf("unrecognized version '%s'", ciliumVersion)
 	}
