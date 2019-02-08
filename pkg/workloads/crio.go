@@ -27,7 +27,7 @@ const (
 	CRIO WorkloadRuntimeType = "crio"
 
 	// criOEndpoint is the default value for the crio socket
-	criOEndpoint = "/var/run/crio.sock"
+	criOEndpoint = "/var/run/crio/crio.sock"
 )
 
 var (

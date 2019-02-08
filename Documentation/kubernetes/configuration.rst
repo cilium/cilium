@@ -365,7 +365,7 @@ After that you can restart CRI-O:
     minikube ssh -- sudo systemctl restart crio
 
 Finally, you need to restart the Cilium pod so it can re-mount
-``/var/run/crio.sock`` which was recreated by CRI-O
+``/var/run/crio/crio.sock`` which was recreated by CRI-O
 
 ::
 

@@ -368,7 +368,7 @@ spec:
           name: cni-path
         - mountPath: /host/etc/cni/net.d
           name: etc-cni-netd
-        - mountPath: /var/run/crio.sock
+        - mountPath: /var/run/crio/crio.sock
           name: crio-socket
           readOnly: true
         - mountPath: /var/lib/etcd-config
