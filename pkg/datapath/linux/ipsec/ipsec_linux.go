@@ -33,6 +33,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type IPSecDir string
+
+const (
+	IPSecDirIn   IPSecDir = "IPSEC_IN"
+	IPSecDirOut  IPSecDir = "IPSEC_OUT"
+	IPSecDirBoth IPSecDir = "IPSEC_BOTH"
+)
+
 type ipSecKey struct {
 	Spi   int
 	ReqID int
@@ -206,7 +214,7 @@ func ipSecDeletePolicy(src, local net.IP) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int) error {
+func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int, dir IPSecDir) error {
 	/* TODO: state reference ID is (dip,spi) which can be duplicated in the current global
 	 * mode. The duplication is on _all_ ingress states because dst_ip == host_ip in this
 	 * case and only a single spi entry is in use. Currently no check is done to avoid
@@ -219,24 +227,30 @@ func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int) error {
 	 * transparent mode ciliumIP == nil case must also be handled.
 	 */
 	if !local.IP.Equal(remote.IP) {
-		if err := ipSecReplaceState(local.IP, remote.IP, spi); err != nil {
-			if !os.IsExist(err) {
-				return fmt.Errorf("unable to replace local state: %s", err)
+		if dir == IPSecDirIn || dir == IPSecDirBoth {
+			if err := ipSecReplaceState(local.IP, remote.IP, spi); err != nil {
+				if !os.IsExist(err) {
+					return fmt.Errorf("unable to replace local state: %s", err)
+				}
+			}
+			if err := ipSecReplacePolicyIn(remote, local); err != nil {
+				if !os.IsExist(err) {
+					return fmt.Errorf("unable to replace policy in: %s", err)
+				}
 			}
 		}
-		if err := ipSecReplaceState(remote.IP, local.IP, spi); err != nil {
-			if !os.IsExist(err) {
-				return fmt.Errorf("unable to replace remote state: %s", err)
+
+		if dir == IPSecDirOut || dir == IPSecDirBoth {
+			if err := ipSecReplaceState(remote.IP, local.IP, spi); err != nil {
+				if !os.IsExist(err) {
+					return fmt.Errorf("unable to replace remote state: %s", err)
+				}
 			}
-		}
-		if err := ipSecReplacePolicyOut(local, remote); err != nil {
-			if !os.IsExist(err) {
-				return fmt.Errorf("unable to replace policy out: %s", err)
-			}
-		}
-		if err := ipSecReplacePolicyIn(remote, local); err != nil {
-			if !os.IsExist(err) {
-				return fmt.Errorf("unable to replace policy in: %s", err)
+
+			if err := ipSecReplacePolicyOut(local, remote); err != nil {
+				if !os.IsExist(err) {
+					return fmt.Errorf("unable to replace policy out: %s", err)
+				}
 			}
 		}
 	}
