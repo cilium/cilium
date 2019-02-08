@@ -28,12 +28,53 @@ EOF
 }
 
 function install_containerd() {
-   download_to "${cache_dir}/containerd" "cri-containerd-1.1.0.linux-amd64.tar.gz" \
-       "https://storage.googleapis.com/cri-containerd-release/cri-containerd-1.1.0.linux-amd64.tar.gz"
+    sudo service docker stop
+    sudo apt remove containerd* -y
+    download_to "${cache_dir}/containerd" "containerd-1.2.1.linux-amd64.tar.gz" \
+       "https://github.com/containerd/containerd/releases/download/v1.2.1/containerd-1.2.1.linux-amd64.tar.gz"
 
-   cp "${cache_dir}/containerd/cri-containerd-1.1.0.linux-amd64.tar.gz" .
+    cp "${cache_dir}/containerd/containerd-1.2.1.linux-amd64.tar.gz" .
 
-   sudo tar -xvf cri-containerd-1.1.0.linux-amd64.tar.gz -C / --no-same-owner
+    sudo apt-get install runc -y
+    sudo tar -xvf containerd-1.2.1.linux-amd64.tar.gz -C / --no-same-owner
+
+    sudo rm -f /etc/systemd/system/containerd.service
+    sudo ln -s /bin/containerd /usr/local/bin/containerd
+    cat << EOF | sudo tee /etc/systemd/system/containerd.service
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target
+
+[Service]
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/bin/containerd
+
+Delegate=yes
+KillMode=process
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=infinity
+# Comment TasksMax if your systemd version does not supports it.
+# Only systemd 226 and above support this version.
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    cat << EOF | sudo tee /etc/containerd/config.toml
+[plugins]
+  [plugins.cri.containerd]
+    snapshotter = "overlayfs"
+    [plugins.cri.containerd.default_runtime]
+      runtime_type = "io.containerd.runtime.v1.linux"
+      runtime_engine = "/usr/sbin/runc"
+      runtime_root = ""
+EOF
+    sudo systemctl daemon-reload
 }
 
 log "Installing kubernetes worker components..."
@@ -63,6 +104,7 @@ if [ -n "${INSTALL}" ]; then
 
     case "${RUNTIME}" in
     "containerd" | "containerD")
+        install_containerd
         cat <<EOF > /etc/crictl.yaml
 runtime-endpoint: unix:///var/run/containerd/containerd.sock
 EOF
@@ -263,7 +305,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/bin/kube-proxy \\
-  --cluster-cidr=10.0.0.0/10 \\
+  --cluster-cidr=${k8s_cluster_cidr} \\
   --kubeconfig=/var/lib/kube-proxy/kube-proxy.kubeconfig \\
   --proxy-mode=iptables \\
   --v=2
