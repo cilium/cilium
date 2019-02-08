@@ -473,6 +473,13 @@ var (
 		Name: "kvstore_operations_total",
 		Help: "Number of interactions with the Key-Value Store, labeled by subsystem, kind of action and action",
 	}, []string{LabelScope, LabelKind, LabelAction})
+
+	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
+	// GC job.
+	FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "fqdn_gc_deletions_total",
+		Help: "Number of FQDNs that has been cleaned on FQDN Garbage collector job",
+	})
 )
 
 func init() {
@@ -535,6 +542,8 @@ func init() {
 	MustRegister(IpamEvent)
 
 	MustRegister(KVStoreOperationsTotal)
+
+	MustRegister(FQDNGarbageCollectorCleanedTotal)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
