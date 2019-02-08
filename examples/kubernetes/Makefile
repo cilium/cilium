@@ -45,7 +45,14 @@ CILIUM_CRIO= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
-all: transform cilium.yaml cilium-crio.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml
+CILIUM_CONTAINERD= \
+  cilium-cm.yaml \
+  cilium-containerd-ds.yaml \
+  cilium-operator.yaml \
+  $(ETCD_OPERATOR) \
+  cilium-rbac.yaml
+
+all: transform cilium.yaml cilium-crio.yaml cilium-containerd.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml
 
 %.sed:
 	for k8s_version in $(K8S_VERSIONS); do \
@@ -73,6 +80,17 @@ cilium-crio-ds.yaml.sed:
 	        sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g | \
 	        sed s+__CILIUM_ETCD_OPERATOR_VERSION__+$(CILIUM_ETCD_OPERATOR_VERSION)+g > "cilium-crio-ds.yaml"; \
 	    fi); \
+	done
+
+cilium-containerd-ds.yaml.sed:
+	for k8s_version in $(K8S_VERSIONS); do \
+	    (mkdir -p $$k8s_version && \
+	    cd $$k8s_version && \
+	        sed -f transforms2sed.sed ../templates/v1/$@ | \
+	        sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g | \
+	        sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g | \
+	        sed s+__CILIUM_ETCD_OPERATOR_VERSION__+$(CILIUM_ETCD_OPERATOR_VERSION)+g > "cilium-containerd-ds.yaml"; \
+	    ); \
 	done
 
 %.yaml:
@@ -118,6 +136,13 @@ cilium-crio.yaml:
         (cd $$k8s_version && \
             rm -f ./$@ && \
             for f in $(CILIUM_CRIO); do (cat "$${f}") >> $@; done); \
+	done
+
+cilium-containerd.yaml:
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_CONTAINERD); do (cat "$${f}") >> $@; done); \
 	done
 
 cilium-minikube.yaml:
