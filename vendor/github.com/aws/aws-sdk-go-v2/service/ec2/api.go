@@ -63,6 +63,60 @@ func (c *EC2) AcceptReservedInstancesExchangeQuoteRequest(input *AcceptReservedI
 	return AcceptReservedInstancesExchangeQuoteRequest{Request: req, Input: input, Copy: c.AcceptReservedInstancesExchangeQuoteRequest}
 }
 
+const opAcceptTransitGatewayVpcAttachment = "AcceptTransitGatewayVpcAttachment"
+
+// AcceptTransitGatewayVpcAttachmentRequest is a API request type for the AcceptTransitGatewayVpcAttachment API operation.
+type AcceptTransitGatewayVpcAttachmentRequest struct {
+	*aws.Request
+	Input *AcceptTransitGatewayVpcAttachmentInput
+	Copy  func(*AcceptTransitGatewayVpcAttachmentInput) AcceptTransitGatewayVpcAttachmentRequest
+}
+
+// Send marshals and sends the AcceptTransitGatewayVpcAttachment API request.
+func (r AcceptTransitGatewayVpcAttachmentRequest) Send() (*AcceptTransitGatewayVpcAttachmentOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*AcceptTransitGatewayVpcAttachmentOutput), nil
+}
+
+// AcceptTransitGatewayVpcAttachmentRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Accepts a request to attach a VPC to a transit gateway.
+//
+// The VPC attachment must be in the pendingAcceptance state. Use DescribeTransitGatewayVpcAttachments
+// to view your pending VPC attachment requests. Use RejectTransitGatewayVpcAttachment
+// to reject a VPC attachment request.
+//
+//    // Example sending a request using the AcceptTransitGatewayVpcAttachmentRequest method.
+//    req := client.AcceptTransitGatewayVpcAttachmentRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AcceptTransitGatewayVpcAttachment
+func (c *EC2) AcceptTransitGatewayVpcAttachmentRequest(input *AcceptTransitGatewayVpcAttachmentInput) AcceptTransitGatewayVpcAttachmentRequest {
+	op := &aws.Operation{
+		Name:       opAcceptTransitGatewayVpcAttachment,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &AcceptTransitGatewayVpcAttachmentInput{}
+	}
+
+	output := &AcceptTransitGatewayVpcAttachmentOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return AcceptTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.AcceptTransitGatewayVpcAttachmentRequest}
+}
+
 const opAcceptVpcEndpointConnections = "AcceptVpcEndpointConnections"
 
 // AcceptVpcEndpointConnectionsRequest is a API request type for the AcceptVpcEndpointConnections API operation.
@@ -170,6 +224,71 @@ func (c *EC2) AcceptVpcPeeringConnectionRequest(input *AcceptVpcPeeringConnectio
 	return AcceptVpcPeeringConnectionRequest{Request: req, Input: input, Copy: c.AcceptVpcPeeringConnectionRequest}
 }
 
+const opAdvertiseByoipCidr = "AdvertiseByoipCidr"
+
+// AdvertiseByoipCidrRequest is a API request type for the AdvertiseByoipCidr API operation.
+type AdvertiseByoipCidrRequest struct {
+	*aws.Request
+	Input *AdvertiseByoipCidrInput
+	Copy  func(*AdvertiseByoipCidrInput) AdvertiseByoipCidrRequest
+}
+
+// Send marshals and sends the AdvertiseByoipCidr API request.
+func (r AdvertiseByoipCidrRequest) Send() (*AdvertiseByoipCidrOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*AdvertiseByoipCidrOutput), nil
+}
+
+// AdvertiseByoipCidrRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Advertises an IPv4 address range that is provisioned for use with your AWS
+// resources through bring your own IP addresses (BYOIP).
+//
+// You can perform this operation at most once every 10 seconds, even if you
+// specify different address ranges each time.
+//
+// We recommend that you stop advertising the BYOIP CIDR from other locations
+// when you advertise it from AWS. To minimize down time, you can configure
+// your AWS resources to use an address from a BYOIP CIDR before it is advertised,
+// and then simultaneously stop advertising it from the current location and
+// start advertising it through AWS.
+//
+// It can take a few minutes before traffic to the specified addresses starts
+// routing to AWS because of BGP propagation delays.
+//
+// To stop advertising the BYOIP CIDR, use WithdrawByoipCidr.
+//
+//    // Example sending a request using the AdvertiseByoipCidrRequest method.
+//    req := client.AdvertiseByoipCidrRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AdvertiseByoipCidr
+func (c *EC2) AdvertiseByoipCidrRequest(input *AdvertiseByoipCidrInput) AdvertiseByoipCidrRequest {
+	op := &aws.Operation{
+		Name:       opAdvertiseByoipCidr,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &AdvertiseByoipCidrInput{}
+	}
+
+	output := &AdvertiseByoipCidrOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return AdvertiseByoipCidrRequest{Request: req, Input: input, Copy: c.AdvertiseByoipCidrRequest}
+}
+
 const opAllocateAddress = "AllocateAddress"
 
 // AllocateAddressRequest is a API request type for the AllocateAddress API operation.
@@ -196,6 +315,13 @@ func (r AllocateAddressRequest) Send() (*AllocateAddressOutput, error) {
 // Elastic IP address you can associate it with an instance or network interface.
 // After you release an Elastic IP address, it is released to the IP address
 // pool and can be allocated to a different AWS account.
+//
+// You can allocate an Elastic IP address from an address pool owned by AWS
+// or from an address pool created from a public IPv4 address range that you
+// have brought to AWS for use with your AWS resources using bring your own
+// IP addresses (BYOIP). For more information, see Bring Your Own IP Addresses
+// (BYOIP) (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 //
 // [EC2-VPC] If you release an Elastic IP address, you might be able to recover
 // it. You cannot recover an Elastic IP address that you released after it is
@@ -287,6 +413,58 @@ func (c *EC2) AllocateHostsRequest(input *AllocateHostsInput) AllocateHostsReque
 	return AllocateHostsRequest{Request: req, Input: input, Copy: c.AllocateHostsRequest}
 }
 
+const opApplySecurityGroupsToClientVpnTargetNetwork = "ApplySecurityGroupsToClientVpnTargetNetwork"
+
+// ApplySecurityGroupsToClientVpnTargetNetworkRequest is a API request type for the ApplySecurityGroupsToClientVpnTargetNetwork API operation.
+type ApplySecurityGroupsToClientVpnTargetNetworkRequest struct {
+	*aws.Request
+	Input *ApplySecurityGroupsToClientVpnTargetNetworkInput
+	Copy  func(*ApplySecurityGroupsToClientVpnTargetNetworkInput) ApplySecurityGroupsToClientVpnTargetNetworkRequest
+}
+
+// Send marshals and sends the ApplySecurityGroupsToClientVpnTargetNetwork API request.
+func (r ApplySecurityGroupsToClientVpnTargetNetworkRequest) Send() (*ApplySecurityGroupsToClientVpnTargetNetworkOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ApplySecurityGroupsToClientVpnTargetNetworkOutput), nil
+}
+
+// ApplySecurityGroupsToClientVpnTargetNetworkRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Applies a security group to the association between the target network and
+// the Client VPN endpoint. This action replaces the existing security groups
+// with the specified security groups.
+//
+//    // Example sending a request using the ApplySecurityGroupsToClientVpnTargetNetworkRequest method.
+//    req := client.ApplySecurityGroupsToClientVpnTargetNetworkRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ApplySecurityGroupsToClientVpnTargetNetwork
+func (c *EC2) ApplySecurityGroupsToClientVpnTargetNetworkRequest(input *ApplySecurityGroupsToClientVpnTargetNetworkInput) ApplySecurityGroupsToClientVpnTargetNetworkRequest {
+	op := &aws.Operation{
+		Name:       opApplySecurityGroupsToClientVpnTargetNetwork,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ApplySecurityGroupsToClientVpnTargetNetworkInput{}
+	}
+
+	output := &ApplySecurityGroupsToClientVpnTargetNetworkOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ApplySecurityGroupsToClientVpnTargetNetworkRequest{Request: req, Input: input, Copy: c.ApplySecurityGroupsToClientVpnTargetNetworkRequest}
+}
+
 const opAssignIpv6Addresses = "AssignIpv6Addresses"
 
 // AssignIpv6AddressesRequest is a API request type for the AssignIpv6Addresses API operation.
@@ -367,16 +545,23 @@ func (r AssignPrivateIpAddressesRequest) Send() (*AssignPrivateIpAddressesOutput
 // Amazon Elastic Compute Cloud.
 //
 // Assigns one or more secondary private IP addresses to the specified network
-// interface. You can specify one or more specific secondary IP addresses, or
-// you can specify the number of secondary IP addresses to be automatically
-// assigned within the subnet's CIDR block range. The number of secondary IP
-// addresses that you can assign to an instance varies by instance type. For
-// information about instance types, see Instance Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+// interface.
+//
+// You can specify one or more specific secondary IP addresses, or you can specify
+// the number of secondary IP addresses to be automatically assigned within
+// the subnet's CIDR block range. The number of secondary IP addresses that
+// you can assign to an instance varies by instance type. For information about
+// instance types, see Instance Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
 // in the Amazon Elastic Compute Cloud User Guide. For more information about
 // Elastic IP addresses, see Elastic IP Addresses (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
-// AssignPrivateIpAddresses is available only in EC2-VPC.
+// When you move a secondary private IP address to another network interface,
+// any Elastic IP address that is associated with the IP address is also moved.
+//
+// Remapping an IP address is an asynchronous operation. When you move an IP
+// address from one network interface to another, check network/interfaces/macs/mac/local-ipv4s
+// in the instance metadata to confirm that the remapping is complete.
 //
 //    // Example sending a request using the AssignPrivateIpAddressesRequest method.
 //    req := client.AssignPrivateIpAddressesRequest(params)
@@ -478,6 +663,60 @@ func (c *EC2) AssociateAddressRequest(input *AssociateAddressInput) AssociateAdd
 	output.responseMetadata = aws.Response{Request: req}
 
 	return AssociateAddressRequest{Request: req, Input: input, Copy: c.AssociateAddressRequest}
+}
+
+const opAssociateClientVpnTargetNetwork = "AssociateClientVpnTargetNetwork"
+
+// AssociateClientVpnTargetNetworkRequest is a API request type for the AssociateClientVpnTargetNetwork API operation.
+type AssociateClientVpnTargetNetworkRequest struct {
+	*aws.Request
+	Input *AssociateClientVpnTargetNetworkInput
+	Copy  func(*AssociateClientVpnTargetNetworkInput) AssociateClientVpnTargetNetworkRequest
+}
+
+// Send marshals and sends the AssociateClientVpnTargetNetwork API request.
+func (r AssociateClientVpnTargetNetworkRequest) Send() (*AssociateClientVpnTargetNetworkOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*AssociateClientVpnTargetNetworkOutput), nil
+}
+
+// AssociateClientVpnTargetNetworkRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Associates a target network with a Client VPN endpoint. A target network
+// is a subnet in a VPC. You can associate multiple subnets from the same VPC
+// with a Client VPN endpoint. You can associate only one subnet in each Availability
+// Zone. We recommend that you associate at least two subnets to provide Availability
+// Zone redundancy.
+//
+//    // Example sending a request using the AssociateClientVpnTargetNetworkRequest method.
+//    req := client.AssociateClientVpnTargetNetworkRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateClientVpnTargetNetwork
+func (c *EC2) AssociateClientVpnTargetNetworkRequest(input *AssociateClientVpnTargetNetworkInput) AssociateClientVpnTargetNetworkRequest {
+	op := &aws.Operation{
+		Name:       opAssociateClientVpnTargetNetwork,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &AssociateClientVpnTargetNetworkInput{}
+	}
+
+	output := &AssociateClientVpnTargetNetworkOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return AssociateClientVpnTargetNetworkRequest{Request: req, Input: input, Copy: c.AssociateClientVpnTargetNetworkRequest}
 }
 
 const opAssociateDhcpOptions = "AssociateDhcpOptions"
@@ -701,6 +940,57 @@ func (c *EC2) AssociateSubnetCidrBlockRequest(input *AssociateSubnetCidrBlockInp
 	output.responseMetadata = aws.Response{Request: req}
 
 	return AssociateSubnetCidrBlockRequest{Request: req, Input: input, Copy: c.AssociateSubnetCidrBlockRequest}
+}
+
+const opAssociateTransitGatewayRouteTable = "AssociateTransitGatewayRouteTable"
+
+// AssociateTransitGatewayRouteTableRequest is a API request type for the AssociateTransitGatewayRouteTable API operation.
+type AssociateTransitGatewayRouteTableRequest struct {
+	*aws.Request
+	Input *AssociateTransitGatewayRouteTableInput
+	Copy  func(*AssociateTransitGatewayRouteTableInput) AssociateTransitGatewayRouteTableRequest
+}
+
+// Send marshals and sends the AssociateTransitGatewayRouteTable API request.
+func (r AssociateTransitGatewayRouteTableRequest) Send() (*AssociateTransitGatewayRouteTableOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*AssociateTransitGatewayRouteTableOutput), nil
+}
+
+// AssociateTransitGatewayRouteTableRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Associates the specified attachment with the specified transit gateway route
+// table. You can associate only one route table with an attachment.
+//
+//    // Example sending a request using the AssociateTransitGatewayRouteTableRequest method.
+//    req := client.AssociateTransitGatewayRouteTableRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateTransitGatewayRouteTable
+func (c *EC2) AssociateTransitGatewayRouteTableRequest(input *AssociateTransitGatewayRouteTableInput) AssociateTransitGatewayRouteTableRequest {
+	op := &aws.Operation{
+		Name:       opAssociateTransitGatewayRouteTable,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &AssociateTransitGatewayRouteTableInput{}
+	}
+
+	output := &AssociateTransitGatewayRouteTableOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return AssociateTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.AssociateTransitGatewayRouteTableRequest}
 }
 
 const opAssociateVpcCidrBlock = "AssociateVpcCidrBlock"
@@ -1055,6 +1345,59 @@ func (c *EC2) AttachVpnGatewayRequest(input *AttachVpnGatewayInput) AttachVpnGat
 	return AttachVpnGatewayRequest{Request: req, Input: input, Copy: c.AttachVpnGatewayRequest}
 }
 
+const opAuthorizeClientVpnIngress = "AuthorizeClientVpnIngress"
+
+// AuthorizeClientVpnIngressRequest is a API request type for the AuthorizeClientVpnIngress API operation.
+type AuthorizeClientVpnIngressRequest struct {
+	*aws.Request
+	Input *AuthorizeClientVpnIngressInput
+	Copy  func(*AuthorizeClientVpnIngressInput) AuthorizeClientVpnIngressRequest
+}
+
+// Send marshals and sends the AuthorizeClientVpnIngress API request.
+func (r AuthorizeClientVpnIngressRequest) Send() (*AuthorizeClientVpnIngressOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*AuthorizeClientVpnIngressOutput), nil
+}
+
+// AuthorizeClientVpnIngressRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Adds an ingress authorization rule to a Client VPN endpoint. Ingress authorization
+// rules act as firewall rules that grant access to networks. You must configure
+// ingress authorization rules to enable clients to access resources in AWS
+// or on-premises networks.
+//
+//    // Example sending a request using the AuthorizeClientVpnIngressRequest method.
+//    req := client.AuthorizeClientVpnIngressRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AuthorizeClientVpnIngress
+func (c *EC2) AuthorizeClientVpnIngressRequest(input *AuthorizeClientVpnIngressInput) AuthorizeClientVpnIngressRequest {
+	op := &aws.Operation{
+		Name:       opAuthorizeClientVpnIngress,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &AuthorizeClientVpnIngressInput{}
+	}
+
+	output := &AuthorizeClientVpnIngressOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return AuthorizeClientVpnIngressRequest{Request: req, Input: input, Copy: c.AuthorizeClientVpnIngressRequest}
+}
+
 const opAuthorizeSecurityGroupEgress = "AuthorizeSecurityGroupEgress"
 
 // AuthorizeSecurityGroupEgressRequest is a API request type for the AuthorizeSecurityGroupEgress API operation.
@@ -1298,6 +1641,63 @@ func (c *EC2) CancelBundleTaskRequest(input *CancelBundleTaskInput) CancelBundle
 	output.responseMetadata = aws.Response{Request: req}
 
 	return CancelBundleTaskRequest{Request: req, Input: input, Copy: c.CancelBundleTaskRequest}
+}
+
+const opCancelCapacityReservation = "CancelCapacityReservation"
+
+// CancelCapacityReservationRequest is a API request type for the CancelCapacityReservation API operation.
+type CancelCapacityReservationRequest struct {
+	*aws.Request
+	Input *CancelCapacityReservationInput
+	Copy  func(*CancelCapacityReservationInput) CancelCapacityReservationRequest
+}
+
+// Send marshals and sends the CancelCapacityReservation API request.
+func (r CancelCapacityReservationRequest) Send() (*CancelCapacityReservationOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CancelCapacityReservationOutput), nil
+}
+
+// CancelCapacityReservationRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Cancels the specified Capacity Reservation, releases the reserved capacity,
+// and changes the Capacity Reservation's state to cancelled.
+//
+// Instances running in the reserved capacity continue running until you stop
+// them. Stopped instances that target the Capacity Reservation can no longer
+// launch. Modify these instances to either target a different Capacity Reservation,
+// launch On-Demand Instance capacity, or run in any open Capacity Reservation
+// that has matching attributes and sufficient capacity.
+//
+//    // Example sending a request using the CancelCapacityReservationRequest method.
+//    req := client.CancelCapacityReservationRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CancelCapacityReservation
+func (c *EC2) CancelCapacityReservationRequest(input *CancelCapacityReservationInput) CancelCapacityReservationRequest {
+	op := &aws.Operation{
+		Name:       opCancelCapacityReservation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CancelCapacityReservationInput{}
+	}
+
+	output := &CancelCapacityReservationOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CancelCapacityReservationRequest{Request: req, Input: input, Copy: c.CancelCapacityReservationRequest}
 }
 
 const opCancelConversionTask = "CancelConversionTask"
@@ -1858,6 +2258,184 @@ func (c *EC2) CopySnapshotRequest(input *CopySnapshotInput) CopySnapshotRequest 
 	output.responseMetadata = aws.Response{Request: req}
 
 	return CopySnapshotRequest{Request: req, Input: input, Copy: c.CopySnapshotRequest}
+}
+
+const opCreateCapacityReservation = "CreateCapacityReservation"
+
+// CreateCapacityReservationRequest is a API request type for the CreateCapacityReservation API operation.
+type CreateCapacityReservationRequest struct {
+	*aws.Request
+	Input *CreateCapacityReservationInput
+	Copy  func(*CreateCapacityReservationInput) CreateCapacityReservationRequest
+}
+
+// Send marshals and sends the CreateCapacityReservation API request.
+func (r CreateCapacityReservationRequest) Send() (*CreateCapacityReservationOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateCapacityReservationOutput), nil
+}
+
+// CreateCapacityReservationRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Creates a new Capacity Reservation with the specified attributes.
+//
+// Capacity Reservations enable you to reserve capacity for your Amazon EC2
+// instances in a specific Availability Zone for any duration. This gives you
+// the flexibility to selectively add capacity reservations and still get the
+// Regional RI discounts for that usage. By creating Capacity Reservations,
+// you ensure that you always have access to Amazon EC2 capacity when you need
+// it, for as long as you need it. For more information, see Capacity Reservations
+// (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+//
+// Your request to create a Capacity Reservation could fail if Amazon EC2 does
+// not have sufficient capacity to fulfill the request. If your request fails
+// due to Amazon EC2 capacity constraints, either try again at a later time,
+// try in a different Availability Zone, or request a smaller capacity reservation.
+// If your application is flexible across instance types and sizes, try to create
+// a Capacity Reservation with different instance attributes.
+//
+// Your request could also fail if the requested quantity exceeds your On-Demand
+// Instance limit for the selected instance type. If your request fails due
+// to limit constraints, increase your On-Demand Instance limit for the required
+// instance type and try again. For more information about increasing your instance
+// limits, see Amazon EC2 Service Limits (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+//
+//    // Example sending a request using the CreateCapacityReservationRequest method.
+//    req := client.CreateCapacityReservationRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateCapacityReservation
+func (c *EC2) CreateCapacityReservationRequest(input *CreateCapacityReservationInput) CreateCapacityReservationRequest {
+	op := &aws.Operation{
+		Name:       opCreateCapacityReservation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateCapacityReservationInput{}
+	}
+
+	output := &CreateCapacityReservationOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateCapacityReservationRequest{Request: req, Input: input, Copy: c.CreateCapacityReservationRequest}
+}
+
+const opCreateClientVpnEndpoint = "CreateClientVpnEndpoint"
+
+// CreateClientVpnEndpointRequest is a API request type for the CreateClientVpnEndpoint API operation.
+type CreateClientVpnEndpointRequest struct {
+	*aws.Request
+	Input *CreateClientVpnEndpointInput
+	Copy  func(*CreateClientVpnEndpointInput) CreateClientVpnEndpointRequest
+}
+
+// Send marshals and sends the CreateClientVpnEndpoint API request.
+func (r CreateClientVpnEndpointRequest) Send() (*CreateClientVpnEndpointOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateClientVpnEndpointOutput), nil
+}
+
+// CreateClientVpnEndpointRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Creates a Client VPN endpoint. A Client VPN endpoint is the resource you
+// create and configure to enable and manage client VPN sessions. It is the
+// destination endpoint at which all client VPN sessions are terminated.
+//
+//    // Example sending a request using the CreateClientVpnEndpointRequest method.
+//    req := client.CreateClientVpnEndpointRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateClientVpnEndpoint
+func (c *EC2) CreateClientVpnEndpointRequest(input *CreateClientVpnEndpointInput) CreateClientVpnEndpointRequest {
+	op := &aws.Operation{
+		Name:       opCreateClientVpnEndpoint,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateClientVpnEndpointInput{}
+	}
+
+	output := &CreateClientVpnEndpointOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateClientVpnEndpointRequest{Request: req, Input: input, Copy: c.CreateClientVpnEndpointRequest}
+}
+
+const opCreateClientVpnRoute = "CreateClientVpnRoute"
+
+// CreateClientVpnRouteRequest is a API request type for the CreateClientVpnRoute API operation.
+type CreateClientVpnRouteRequest struct {
+	*aws.Request
+	Input *CreateClientVpnRouteInput
+	Copy  func(*CreateClientVpnRouteInput) CreateClientVpnRouteRequest
+}
+
+// Send marshals and sends the CreateClientVpnRoute API request.
+func (r CreateClientVpnRouteRequest) Send() (*CreateClientVpnRouteOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateClientVpnRouteOutput), nil
+}
+
+// CreateClientVpnRouteRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Adds a route to a network to a Client VPN endpoint. Each Client VPN endpoint
+// has a route table that describes the available destination network routes.
+// Each route in the route table specifies the path for traﬃc to speciﬁc resources
+// or networks.
+//
+//    // Example sending a request using the CreateClientVpnRouteRequest method.
+//    req := client.CreateClientVpnRouteRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateClientVpnRoute
+func (c *EC2) CreateClientVpnRouteRequest(input *CreateClientVpnRouteInput) CreateClientVpnRouteRequest {
+	op := &aws.Operation{
+		Name:       opCreateClientVpnRoute,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateClientVpnRouteInput{}
+	}
+
+	output := &CreateClientVpnRouteOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateClientVpnRouteRequest{Request: req, Input: input, Copy: c.CreateClientVpnRouteRequest}
 }
 
 const opCreateCustomerGateway = "CreateCustomerGateway"
@@ -3018,7 +3596,10 @@ func (r CreatePlacementGroupRequest) Send() (*CreatePlacementGroupOutput, error)
 //
 // A cluster placement group is a logical grouping of instances within a single
 // Availability Zone that benefit from low network latency, high network throughput.
-// A spread placement group places instances on distinct hardware.
+// A spread placement group places instances on distinct hardware. A partition
+// placement group places groups of instances in different partitions, where
+// instances in one partition do not share the same hardware with instances
+// in another partition.
 //
 // For more information, see Placement Groups (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
 // in the Amazon Elastic Compute Cloud User Guide.
@@ -3593,6 +4174,232 @@ func (c *EC2) CreateTagsRequest(input *CreateTagsInput) CreateTagsRequest {
 	return CreateTagsRequest{Request: req, Input: input, Copy: c.CreateTagsRequest}
 }
 
+const opCreateTransitGateway = "CreateTransitGateway"
+
+// CreateTransitGatewayRequest is a API request type for the CreateTransitGateway API operation.
+type CreateTransitGatewayRequest struct {
+	*aws.Request
+	Input *CreateTransitGatewayInput
+	Copy  func(*CreateTransitGatewayInput) CreateTransitGatewayRequest
+}
+
+// Send marshals and sends the CreateTransitGateway API request.
+func (r CreateTransitGatewayRequest) Send() (*CreateTransitGatewayOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateTransitGatewayOutput), nil
+}
+
+// CreateTransitGatewayRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Creates a transit gateway.
+//
+// You can use a transit gateway to interconnect your virtual private clouds
+// (VPC) and on-premises networks. After the transit gateway enters the available
+// state, you can attach your VPCs and VPN connections to the transit gateway.
+//
+// To attach your VPCs, use CreateTransitGatewayVpcAttachment.
+//
+// To attach a VPN connection, use CreateCustomerGateway to create a customer
+// gateway and specify the ID of the customer gateway and the ID of the transit
+// gateway in a call to CreateVpnConnection.
+//
+// When you create a transit gateway, we create a default transit gateway route
+// table and use it as the default association route table and the default propagation
+// route table. You can use CreateTransitGatewayRouteTable to create additional
+// transit gateway route tables. If you disable automatic route propagation,
+// we do not create a default transit gateway route table. You can use EnableTransitGatewayRouteTablePropagation
+// to propagate routes from a resource attachment to a transit gateway route
+// table. If you disable automatic associations, you can use AssociateTransitGatewayRouteTable
+// to associate a resource attachment with a transit gateway route table.
+//
+//    // Example sending a request using the CreateTransitGatewayRequest method.
+//    req := client.CreateTransitGatewayRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGateway
+func (c *EC2) CreateTransitGatewayRequest(input *CreateTransitGatewayInput) CreateTransitGatewayRequest {
+	op := &aws.Operation{
+		Name:       opCreateTransitGateway,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateTransitGatewayInput{}
+	}
+
+	output := &CreateTransitGatewayOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateTransitGatewayRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayRequest}
+}
+
+const opCreateTransitGatewayRoute = "CreateTransitGatewayRoute"
+
+// CreateTransitGatewayRouteRequest is a API request type for the CreateTransitGatewayRoute API operation.
+type CreateTransitGatewayRouteRequest struct {
+	*aws.Request
+	Input *CreateTransitGatewayRouteInput
+	Copy  func(*CreateTransitGatewayRouteInput) CreateTransitGatewayRouteRequest
+}
+
+// Send marshals and sends the CreateTransitGatewayRoute API request.
+func (r CreateTransitGatewayRouteRequest) Send() (*CreateTransitGatewayRouteOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateTransitGatewayRouteOutput), nil
+}
+
+// CreateTransitGatewayRouteRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Creates a static route for the specified transit gateway route table.
+//
+//    // Example sending a request using the CreateTransitGatewayRouteRequest method.
+//    req := client.CreateTransitGatewayRouteRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRoute
+func (c *EC2) CreateTransitGatewayRouteRequest(input *CreateTransitGatewayRouteInput) CreateTransitGatewayRouteRequest {
+	op := &aws.Operation{
+		Name:       opCreateTransitGatewayRoute,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateTransitGatewayRouteInput{}
+	}
+
+	output := &CreateTransitGatewayRouteOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateTransitGatewayRouteRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayRouteRequest}
+}
+
+const opCreateTransitGatewayRouteTable = "CreateTransitGatewayRouteTable"
+
+// CreateTransitGatewayRouteTableRequest is a API request type for the CreateTransitGatewayRouteTable API operation.
+type CreateTransitGatewayRouteTableRequest struct {
+	*aws.Request
+	Input *CreateTransitGatewayRouteTableInput
+	Copy  func(*CreateTransitGatewayRouteTableInput) CreateTransitGatewayRouteTableRequest
+}
+
+// Send marshals and sends the CreateTransitGatewayRouteTable API request.
+func (r CreateTransitGatewayRouteTableRequest) Send() (*CreateTransitGatewayRouteTableOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateTransitGatewayRouteTableOutput), nil
+}
+
+// CreateTransitGatewayRouteTableRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Creates a route table for the specified transit gateway.
+//
+//    // Example sending a request using the CreateTransitGatewayRouteTableRequest method.
+//    req := client.CreateTransitGatewayRouteTableRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRouteTable
+func (c *EC2) CreateTransitGatewayRouteTableRequest(input *CreateTransitGatewayRouteTableInput) CreateTransitGatewayRouteTableRequest {
+	op := &aws.Operation{
+		Name:       opCreateTransitGatewayRouteTable,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateTransitGatewayRouteTableInput{}
+	}
+
+	output := &CreateTransitGatewayRouteTableOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayRouteTableRequest}
+}
+
+const opCreateTransitGatewayVpcAttachment = "CreateTransitGatewayVpcAttachment"
+
+// CreateTransitGatewayVpcAttachmentRequest is a API request type for the CreateTransitGatewayVpcAttachment API operation.
+type CreateTransitGatewayVpcAttachmentRequest struct {
+	*aws.Request
+	Input *CreateTransitGatewayVpcAttachmentInput
+	Copy  func(*CreateTransitGatewayVpcAttachmentInput) CreateTransitGatewayVpcAttachmentRequest
+}
+
+// Send marshals and sends the CreateTransitGatewayVpcAttachment API request.
+func (r CreateTransitGatewayVpcAttachmentRequest) Send() (*CreateTransitGatewayVpcAttachmentOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*CreateTransitGatewayVpcAttachmentOutput), nil
+}
+
+// CreateTransitGatewayVpcAttachmentRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Attaches the specified VPC to the specified transit gateway.
+//
+// If you attach a VPC with a CIDR range that overlaps the CIDR range of a VPC
+// that is already attached, the new VPC CIDR range is not propagated to the
+// default propagation route table.
+//
+// To send VPC traffic to an attached transit gateway, add a route to the VPC
+// route table using CreateRoute.
+//
+//    // Example sending a request using the CreateTransitGatewayVpcAttachmentRequest method.
+//    req := client.CreateTransitGatewayVpcAttachmentRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayVpcAttachment
+func (c *EC2) CreateTransitGatewayVpcAttachmentRequest(input *CreateTransitGatewayVpcAttachmentInput) CreateTransitGatewayVpcAttachmentRequest {
+	op := &aws.Operation{
+		Name:       opCreateTransitGatewayVpcAttachment,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CreateTransitGatewayVpcAttachmentInput{}
+	}
+
+	output := &CreateTransitGatewayVpcAttachmentOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return CreateTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayVpcAttachmentRequest}
+}
+
 const opCreateVolume = "CreateVolume"
 
 // CreateVolumeRequest is a API request type for the CreateVolume API operation.
@@ -4155,6 +4962,111 @@ func (c *EC2) CreateVpnGatewayRequest(input *CreateVpnGatewayInput) CreateVpnGat
 	output.responseMetadata = aws.Response{Request: req}
 
 	return CreateVpnGatewayRequest{Request: req, Input: input, Copy: c.CreateVpnGatewayRequest}
+}
+
+const opDeleteClientVpnEndpoint = "DeleteClientVpnEndpoint"
+
+// DeleteClientVpnEndpointRequest is a API request type for the DeleteClientVpnEndpoint API operation.
+type DeleteClientVpnEndpointRequest struct {
+	*aws.Request
+	Input *DeleteClientVpnEndpointInput
+	Copy  func(*DeleteClientVpnEndpointInput) DeleteClientVpnEndpointRequest
+}
+
+// Send marshals and sends the DeleteClientVpnEndpoint API request.
+func (r DeleteClientVpnEndpointRequest) Send() (*DeleteClientVpnEndpointOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeleteClientVpnEndpointOutput), nil
+}
+
+// DeleteClientVpnEndpointRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Deletes the specified Client VPN endpoint. You must disassociate all target
+// networks before you can delete a Client VPN endpoint.
+//
+//    // Example sending a request using the DeleteClientVpnEndpointRequest method.
+//    req := client.DeleteClientVpnEndpointRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteClientVpnEndpoint
+func (c *EC2) DeleteClientVpnEndpointRequest(input *DeleteClientVpnEndpointInput) DeleteClientVpnEndpointRequest {
+	op := &aws.Operation{
+		Name:       opDeleteClientVpnEndpoint,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteClientVpnEndpointInput{}
+	}
+
+	output := &DeleteClientVpnEndpointOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeleteClientVpnEndpointRequest{Request: req, Input: input, Copy: c.DeleteClientVpnEndpointRequest}
+}
+
+const opDeleteClientVpnRoute = "DeleteClientVpnRoute"
+
+// DeleteClientVpnRouteRequest is a API request type for the DeleteClientVpnRoute API operation.
+type DeleteClientVpnRouteRequest struct {
+	*aws.Request
+	Input *DeleteClientVpnRouteInput
+	Copy  func(*DeleteClientVpnRouteInput) DeleteClientVpnRouteRequest
+}
+
+// Send marshals and sends the DeleteClientVpnRoute API request.
+func (r DeleteClientVpnRouteRequest) Send() (*DeleteClientVpnRouteOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeleteClientVpnRouteOutput), nil
+}
+
+// DeleteClientVpnRouteRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Deletes a route from a Client VPN endpoint. You can only delete routes that
+// you manually added using the CreateClientVpnRoute action. You cannot delete
+// routes that were automatically added when associating a subnet. To remove
+// routes that have been automatically added, disassociate the target subnet
+// from the Client VPN endpoint.
+//
+//    // Example sending a request using the DeleteClientVpnRouteRequest method.
+//    req := client.DeleteClientVpnRouteRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteClientVpnRoute
+func (c *EC2) DeleteClientVpnRouteRequest(input *DeleteClientVpnRouteInput) DeleteClientVpnRouteRequest {
+	op := &aws.Operation{
+		Name:       opDeleteClientVpnRoute,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteClientVpnRouteInput{}
+	}
+
+	output := &DeleteClientVpnRouteOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeleteClientVpnRouteRequest{Request: req, Input: input, Copy: c.DeleteClientVpnRouteRequest}
 }
 
 const opDeleteCustomerGateway = "DeleteCustomerGateway"
@@ -5388,6 +6300,208 @@ func (c *EC2) DeleteTagsRequest(input *DeleteTagsInput) DeleteTagsRequest {
 	return DeleteTagsRequest{Request: req, Input: input, Copy: c.DeleteTagsRequest}
 }
 
+const opDeleteTransitGateway = "DeleteTransitGateway"
+
+// DeleteTransitGatewayRequest is a API request type for the DeleteTransitGateway API operation.
+type DeleteTransitGatewayRequest struct {
+	*aws.Request
+	Input *DeleteTransitGatewayInput
+	Copy  func(*DeleteTransitGatewayInput) DeleteTransitGatewayRequest
+}
+
+// Send marshals and sends the DeleteTransitGateway API request.
+func (r DeleteTransitGatewayRequest) Send() (*DeleteTransitGatewayOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeleteTransitGatewayOutput), nil
+}
+
+// DeleteTransitGatewayRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Deletes the specified transit gateway.
+//
+//    // Example sending a request using the DeleteTransitGatewayRequest method.
+//    req := client.DeleteTransitGatewayRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGateway
+func (c *EC2) DeleteTransitGatewayRequest(input *DeleteTransitGatewayInput) DeleteTransitGatewayRequest {
+	op := &aws.Operation{
+		Name:       opDeleteTransitGateway,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteTransitGatewayInput{}
+	}
+
+	output := &DeleteTransitGatewayOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeleteTransitGatewayRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayRequest}
+}
+
+const opDeleteTransitGatewayRoute = "DeleteTransitGatewayRoute"
+
+// DeleteTransitGatewayRouteRequest is a API request type for the DeleteTransitGatewayRoute API operation.
+type DeleteTransitGatewayRouteRequest struct {
+	*aws.Request
+	Input *DeleteTransitGatewayRouteInput
+	Copy  func(*DeleteTransitGatewayRouteInput) DeleteTransitGatewayRouteRequest
+}
+
+// Send marshals and sends the DeleteTransitGatewayRoute API request.
+func (r DeleteTransitGatewayRouteRequest) Send() (*DeleteTransitGatewayRouteOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeleteTransitGatewayRouteOutput), nil
+}
+
+// DeleteTransitGatewayRouteRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Deletes the specified route from the specified transit gateway route table.
+//
+//    // Example sending a request using the DeleteTransitGatewayRouteRequest method.
+//    req := client.DeleteTransitGatewayRouteRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRoute
+func (c *EC2) DeleteTransitGatewayRouteRequest(input *DeleteTransitGatewayRouteInput) DeleteTransitGatewayRouteRequest {
+	op := &aws.Operation{
+		Name:       opDeleteTransitGatewayRoute,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteTransitGatewayRouteInput{}
+	}
+
+	output := &DeleteTransitGatewayRouteOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeleteTransitGatewayRouteRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayRouteRequest}
+}
+
+const opDeleteTransitGatewayRouteTable = "DeleteTransitGatewayRouteTable"
+
+// DeleteTransitGatewayRouteTableRequest is a API request type for the DeleteTransitGatewayRouteTable API operation.
+type DeleteTransitGatewayRouteTableRequest struct {
+	*aws.Request
+	Input *DeleteTransitGatewayRouteTableInput
+	Copy  func(*DeleteTransitGatewayRouteTableInput) DeleteTransitGatewayRouteTableRequest
+}
+
+// Send marshals and sends the DeleteTransitGatewayRouteTable API request.
+func (r DeleteTransitGatewayRouteTableRequest) Send() (*DeleteTransitGatewayRouteTableOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeleteTransitGatewayRouteTableOutput), nil
+}
+
+// DeleteTransitGatewayRouteTableRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Deletes the specified transit gateway route table. You must disassociate
+// the route table from any transit gateway route tables before you can delete
+// it.
+//
+//    // Example sending a request using the DeleteTransitGatewayRouteTableRequest method.
+//    req := client.DeleteTransitGatewayRouteTableRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRouteTable
+func (c *EC2) DeleteTransitGatewayRouteTableRequest(input *DeleteTransitGatewayRouteTableInput) DeleteTransitGatewayRouteTableRequest {
+	op := &aws.Operation{
+		Name:       opDeleteTransitGatewayRouteTable,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteTransitGatewayRouteTableInput{}
+	}
+
+	output := &DeleteTransitGatewayRouteTableOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeleteTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayRouteTableRequest}
+}
+
+const opDeleteTransitGatewayVpcAttachment = "DeleteTransitGatewayVpcAttachment"
+
+// DeleteTransitGatewayVpcAttachmentRequest is a API request type for the DeleteTransitGatewayVpcAttachment API operation.
+type DeleteTransitGatewayVpcAttachmentRequest struct {
+	*aws.Request
+	Input *DeleteTransitGatewayVpcAttachmentInput
+	Copy  func(*DeleteTransitGatewayVpcAttachmentInput) DeleteTransitGatewayVpcAttachmentRequest
+}
+
+// Send marshals and sends the DeleteTransitGatewayVpcAttachment API request.
+func (r DeleteTransitGatewayVpcAttachmentRequest) Send() (*DeleteTransitGatewayVpcAttachmentOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeleteTransitGatewayVpcAttachmentOutput), nil
+}
+
+// DeleteTransitGatewayVpcAttachmentRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Deletes the specified VPC attachment.
+//
+//    // Example sending a request using the DeleteTransitGatewayVpcAttachmentRequest method.
+//    req := client.DeleteTransitGatewayVpcAttachmentRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayVpcAttachment
+func (c *EC2) DeleteTransitGatewayVpcAttachmentRequest(input *DeleteTransitGatewayVpcAttachmentInput) DeleteTransitGatewayVpcAttachmentRequest {
+	op := &aws.Operation{
+		Name:       opDeleteTransitGatewayVpcAttachment,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeleteTransitGatewayVpcAttachmentInput{}
+	}
+
+	output := &DeleteTransitGatewayVpcAttachmentOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeleteTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayVpcAttachmentRequest}
+}
+
 const opDeleteVolume = "DeleteVolume"
 
 // DeleteVolumeRequest is a API request type for the DeleteVolume API operation.
@@ -5884,6 +6998,62 @@ func (c *EC2) DeleteVpnGatewayRequest(input *DeleteVpnGatewayInput) DeleteVpnGat
 	return DeleteVpnGatewayRequest{Request: req, Input: input, Copy: c.DeleteVpnGatewayRequest}
 }
 
+const opDeprovisionByoipCidr = "DeprovisionByoipCidr"
+
+// DeprovisionByoipCidrRequest is a API request type for the DeprovisionByoipCidr API operation.
+type DeprovisionByoipCidrRequest struct {
+	*aws.Request
+	Input *DeprovisionByoipCidrInput
+	Copy  func(*DeprovisionByoipCidrInput) DeprovisionByoipCidrRequest
+}
+
+// Send marshals and sends the DeprovisionByoipCidr API request.
+func (r DeprovisionByoipCidrRequest) Send() (*DeprovisionByoipCidrOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DeprovisionByoipCidrOutput), nil
+}
+
+// DeprovisionByoipCidrRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Releases the specified address range that you provisioned for use with your
+// AWS resources through bring your own IP addresses (BYOIP) and deletes the
+// corresponding address pool.
+//
+// Before you can release an address range, you must stop advertising it using
+// WithdrawByoipCidr and you must not have any IP addresses allocated from its
+// address range.
+//
+//    // Example sending a request using the DeprovisionByoipCidrRequest method.
+//    req := client.DeprovisionByoipCidrRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeprovisionByoipCidr
+func (c *EC2) DeprovisionByoipCidrRequest(input *DeprovisionByoipCidrInput) DeprovisionByoipCidrRequest {
+	op := &aws.Operation{
+		Name:       opDeprovisionByoipCidr,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DeprovisionByoipCidrInput{}
+	}
+
+	output := &DeprovisionByoipCidrOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DeprovisionByoipCidrRequest{Request: req, Input: input, Copy: c.DeprovisionByoipCidrRequest}
+}
+
 const opDeregisterImage = "DeregisterImage"
 
 // DeregisterImageRequest is a API request type for the DeregisterImage API operation.
@@ -6241,6 +7411,110 @@ func (c *EC2) DescribeBundleTasksRequest(input *DescribeBundleTasksInput) Descri
 	return DescribeBundleTasksRequest{Request: req, Input: input, Copy: c.DescribeBundleTasksRequest}
 }
 
+const opDescribeByoipCidrs = "DescribeByoipCidrs"
+
+// DescribeByoipCidrsRequest is a API request type for the DescribeByoipCidrs API operation.
+type DescribeByoipCidrsRequest struct {
+	*aws.Request
+	Input *DescribeByoipCidrsInput
+	Copy  func(*DescribeByoipCidrsInput) DescribeByoipCidrsRequest
+}
+
+// Send marshals and sends the DescribeByoipCidrs API request.
+func (r DescribeByoipCidrsRequest) Send() (*DescribeByoipCidrsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeByoipCidrsOutput), nil
+}
+
+// DescribeByoipCidrsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes the IP address ranges that were specified in calls to ProvisionByoipCidr.
+//
+// To describe the address pools that were created when you provisioned the
+// address ranges, use DescribePublicIpv4Pools.
+//
+//    // Example sending a request using the DescribeByoipCidrsRequest method.
+//    req := client.DescribeByoipCidrsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeByoipCidrs
+func (c *EC2) DescribeByoipCidrsRequest(input *DescribeByoipCidrsInput) DescribeByoipCidrsRequest {
+	op := &aws.Operation{
+		Name:       opDescribeByoipCidrs,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeByoipCidrsInput{}
+	}
+
+	output := &DescribeByoipCidrsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeByoipCidrsRequest{Request: req, Input: input, Copy: c.DescribeByoipCidrsRequest}
+}
+
+const opDescribeCapacityReservations = "DescribeCapacityReservations"
+
+// DescribeCapacityReservationsRequest is a API request type for the DescribeCapacityReservations API operation.
+type DescribeCapacityReservationsRequest struct {
+	*aws.Request
+	Input *DescribeCapacityReservationsInput
+	Copy  func(*DescribeCapacityReservationsInput) DescribeCapacityReservationsRequest
+}
+
+// Send marshals and sends the DescribeCapacityReservations API request.
+func (r DescribeCapacityReservationsRequest) Send() (*DescribeCapacityReservationsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeCapacityReservationsOutput), nil
+}
+
+// DescribeCapacityReservationsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes one or more of your Capacity Reservations. The results describe
+// only the Capacity Reservations in the AWS Region that you're currently using.
+//
+//    // Example sending a request using the DescribeCapacityReservationsRequest method.
+//    req := client.DescribeCapacityReservationsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeCapacityReservations
+func (c *EC2) DescribeCapacityReservationsRequest(input *DescribeCapacityReservationsInput) DescribeCapacityReservationsRequest {
+	op := &aws.Operation{
+		Name:       opDescribeCapacityReservations,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeCapacityReservationsInput{}
+	}
+
+	output := &DescribeCapacityReservationsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeCapacityReservationsRequest{Request: req, Input: input, Copy: c.DescribeCapacityReservationsRequest}
+}
+
 const opDescribeClassicLinkInstances = "DescribeClassicLinkInstances"
 
 // DescribeClassicLinkInstancesRequest is a API request type for the DescribeClassicLinkInstances API operation.
@@ -6292,6 +7566,257 @@ func (c *EC2) DescribeClassicLinkInstancesRequest(input *DescribeClassicLinkInst
 	output.responseMetadata = aws.Response{Request: req}
 
 	return DescribeClassicLinkInstancesRequest{Request: req, Input: input, Copy: c.DescribeClassicLinkInstancesRequest}
+}
+
+const opDescribeClientVpnAuthorizationRules = "DescribeClientVpnAuthorizationRules"
+
+// DescribeClientVpnAuthorizationRulesRequest is a API request type for the DescribeClientVpnAuthorizationRules API operation.
+type DescribeClientVpnAuthorizationRulesRequest struct {
+	*aws.Request
+	Input *DescribeClientVpnAuthorizationRulesInput
+	Copy  func(*DescribeClientVpnAuthorizationRulesInput) DescribeClientVpnAuthorizationRulesRequest
+}
+
+// Send marshals and sends the DescribeClientVpnAuthorizationRules API request.
+func (r DescribeClientVpnAuthorizationRulesRequest) Send() (*DescribeClientVpnAuthorizationRulesOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeClientVpnAuthorizationRulesOutput), nil
+}
+
+// DescribeClientVpnAuthorizationRulesRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes the authorization rules for a specified Client VPN endpoint.
+//
+//    // Example sending a request using the DescribeClientVpnAuthorizationRulesRequest method.
+//    req := client.DescribeClientVpnAuthorizationRulesRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnAuthorizationRules
+func (c *EC2) DescribeClientVpnAuthorizationRulesRequest(input *DescribeClientVpnAuthorizationRulesInput) DescribeClientVpnAuthorizationRulesRequest {
+	op := &aws.Operation{
+		Name:       opDescribeClientVpnAuthorizationRules,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeClientVpnAuthorizationRulesInput{}
+	}
+
+	output := &DescribeClientVpnAuthorizationRulesOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeClientVpnAuthorizationRulesRequest{Request: req, Input: input, Copy: c.DescribeClientVpnAuthorizationRulesRequest}
+}
+
+const opDescribeClientVpnConnections = "DescribeClientVpnConnections"
+
+// DescribeClientVpnConnectionsRequest is a API request type for the DescribeClientVpnConnections API operation.
+type DescribeClientVpnConnectionsRequest struct {
+	*aws.Request
+	Input *DescribeClientVpnConnectionsInput
+	Copy  func(*DescribeClientVpnConnectionsInput) DescribeClientVpnConnectionsRequest
+}
+
+// Send marshals and sends the DescribeClientVpnConnections API request.
+func (r DescribeClientVpnConnectionsRequest) Send() (*DescribeClientVpnConnectionsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeClientVpnConnectionsOutput), nil
+}
+
+// DescribeClientVpnConnectionsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes active client connections and connections that have been terminated
+// within the last 60 minutes for the specified Client VPN endpoint.
+//
+//    // Example sending a request using the DescribeClientVpnConnectionsRequest method.
+//    req := client.DescribeClientVpnConnectionsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnConnections
+func (c *EC2) DescribeClientVpnConnectionsRequest(input *DescribeClientVpnConnectionsInput) DescribeClientVpnConnectionsRequest {
+	op := &aws.Operation{
+		Name:       opDescribeClientVpnConnections,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeClientVpnConnectionsInput{}
+	}
+
+	output := &DescribeClientVpnConnectionsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeClientVpnConnectionsRequest{Request: req, Input: input, Copy: c.DescribeClientVpnConnectionsRequest}
+}
+
+const opDescribeClientVpnEndpoints = "DescribeClientVpnEndpoints"
+
+// DescribeClientVpnEndpointsRequest is a API request type for the DescribeClientVpnEndpoints API operation.
+type DescribeClientVpnEndpointsRequest struct {
+	*aws.Request
+	Input *DescribeClientVpnEndpointsInput
+	Copy  func(*DescribeClientVpnEndpointsInput) DescribeClientVpnEndpointsRequest
+}
+
+// Send marshals and sends the DescribeClientVpnEndpoints API request.
+func (r DescribeClientVpnEndpointsRequest) Send() (*DescribeClientVpnEndpointsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeClientVpnEndpointsOutput), nil
+}
+
+// DescribeClientVpnEndpointsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes one or more Client VPN endpoints in the account.
+//
+//    // Example sending a request using the DescribeClientVpnEndpointsRequest method.
+//    req := client.DescribeClientVpnEndpointsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnEndpoints
+func (c *EC2) DescribeClientVpnEndpointsRequest(input *DescribeClientVpnEndpointsInput) DescribeClientVpnEndpointsRequest {
+	op := &aws.Operation{
+		Name:       opDescribeClientVpnEndpoints,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeClientVpnEndpointsInput{}
+	}
+
+	output := &DescribeClientVpnEndpointsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeClientVpnEndpointsRequest{Request: req, Input: input, Copy: c.DescribeClientVpnEndpointsRequest}
+}
+
+const opDescribeClientVpnRoutes = "DescribeClientVpnRoutes"
+
+// DescribeClientVpnRoutesRequest is a API request type for the DescribeClientVpnRoutes API operation.
+type DescribeClientVpnRoutesRequest struct {
+	*aws.Request
+	Input *DescribeClientVpnRoutesInput
+	Copy  func(*DescribeClientVpnRoutesInput) DescribeClientVpnRoutesRequest
+}
+
+// Send marshals and sends the DescribeClientVpnRoutes API request.
+func (r DescribeClientVpnRoutesRequest) Send() (*DescribeClientVpnRoutesOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeClientVpnRoutesOutput), nil
+}
+
+// DescribeClientVpnRoutesRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes the routes for the specified Client VPN endpoint.
+//
+//    // Example sending a request using the DescribeClientVpnRoutesRequest method.
+//    req := client.DescribeClientVpnRoutesRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnRoutes
+func (c *EC2) DescribeClientVpnRoutesRequest(input *DescribeClientVpnRoutesInput) DescribeClientVpnRoutesRequest {
+	op := &aws.Operation{
+		Name:       opDescribeClientVpnRoutes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeClientVpnRoutesInput{}
+	}
+
+	output := &DescribeClientVpnRoutesOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeClientVpnRoutesRequest{Request: req, Input: input, Copy: c.DescribeClientVpnRoutesRequest}
+}
+
+const opDescribeClientVpnTargetNetworks = "DescribeClientVpnTargetNetworks"
+
+// DescribeClientVpnTargetNetworksRequest is a API request type for the DescribeClientVpnTargetNetworks API operation.
+type DescribeClientVpnTargetNetworksRequest struct {
+	*aws.Request
+	Input *DescribeClientVpnTargetNetworksInput
+	Copy  func(*DescribeClientVpnTargetNetworksInput) DescribeClientVpnTargetNetworksRequest
+}
+
+// Send marshals and sends the DescribeClientVpnTargetNetworks API request.
+func (r DescribeClientVpnTargetNetworksRequest) Send() (*DescribeClientVpnTargetNetworksOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeClientVpnTargetNetworksOutput), nil
+}
+
+// DescribeClientVpnTargetNetworksRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes the target networks associated with the specified Client VPN endpoint.
+//
+//    // Example sending a request using the DescribeClientVpnTargetNetworksRequest method.
+//    req := client.DescribeClientVpnTargetNetworksRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnTargetNetworks
+func (c *EC2) DescribeClientVpnTargetNetworksRequest(input *DescribeClientVpnTargetNetworksInput) DescribeClientVpnTargetNetworksRequest {
+	op := &aws.Operation{
+		Name:       opDescribeClientVpnTargetNetworks,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeClientVpnTargetNetworksInput{}
+	}
+
+	output := &DescribeClientVpnTargetNetworksOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeClientVpnTargetNetworksRequest{Request: req, Input: input, Copy: c.DescribeClientVpnTargetNetworksRequest}
 }
 
 const opDescribeConversionTasks = "DescribeConversionTasks"
@@ -6527,8 +8052,9 @@ func (r DescribeElasticGpusRequest) Send() (*DescribeElasticGpusOutput, error) {
 // DescribeElasticGpusRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the Elastic GPUs associated with your instances. For more information
-// about Elastic GPUs, see Amazon EC2 Elastic GPUs (http://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-gpus.html).
+// Describes the Elastic Graphics accelerator associated with your instances.
+// For more information about Elastic Graphics, see Amazon Elastic Graphics
+// (http://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html).
 //
 //    // Example sending a request using the DescribeElasticGpusRequest method.
 //    req := client.DescribeElasticGpusRequest(params)
@@ -6728,7 +8254,7 @@ func (r DescribeFleetsRequest) Send() (*DescribeFleetsOutput, error) {
 // DescribeFleetsRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes one or more of your EC2 Fleet.
+// Describes one or more of your EC2 Fleets.
 //
 //    // Example sending a request using the DescribeFleetsRequest method.
 //    req := client.DescribeFleetsRequest(params)
@@ -6935,7 +8461,7 @@ func (r DescribeHostReservationOfferingsRequest) Send() (*DescribeHostReservatio
 // Describes the Dedicated Host reservations that are available to purchase.
 //
 // The results describe all the Dedicated Host reservation offerings, including
-// offerings that may not match the instance family and region of your Dedicated
+// offerings that may not match the instance family and Region of your Dedicated
 // Hosts. When purchasing an offering, ensure that the instance family and Region
 // of the offering matches that of the Dedicated Hosts with which it is to be
 // associated. For more information about supported instance types, see Dedicated
@@ -7042,7 +8568,7 @@ func (r DescribeHostsRequest) Send() (*DescribeHostsOutput, error) {
 //
 // Describes one or more of your Dedicated Hosts.
 //
-// The results describe only the Dedicated Hosts in the region you're currently
+// The results describe only the Dedicated Hosts in the Region you're currently
 // using. All listed instances consume capacity on your Dedicated Host. Dedicated
 // Hosts that have recently been released are listed with the state released.
 //
@@ -8616,6 +10142,56 @@ func (c *EC2) DescribePrincipalIdFormatRequest(input *DescribePrincipalIdFormatI
 	return DescribePrincipalIdFormatRequest{Request: req, Input: input, Copy: c.DescribePrincipalIdFormatRequest}
 }
 
+const opDescribePublicIpv4Pools = "DescribePublicIpv4Pools"
+
+// DescribePublicIpv4PoolsRequest is a API request type for the DescribePublicIpv4Pools API operation.
+type DescribePublicIpv4PoolsRequest struct {
+	*aws.Request
+	Input *DescribePublicIpv4PoolsInput
+	Copy  func(*DescribePublicIpv4PoolsInput) DescribePublicIpv4PoolsRequest
+}
+
+// Send marshals and sends the DescribePublicIpv4Pools API request.
+func (r DescribePublicIpv4PoolsRequest) Send() (*DescribePublicIpv4PoolsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribePublicIpv4PoolsOutput), nil
+}
+
+// DescribePublicIpv4PoolsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes the specified IPv4 address pools.
+//
+//    // Example sending a request using the DescribePublicIpv4PoolsRequest method.
+//    req := client.DescribePublicIpv4PoolsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribePublicIpv4Pools
+func (c *EC2) DescribePublicIpv4PoolsRequest(input *DescribePublicIpv4PoolsInput) DescribePublicIpv4PoolsRequest {
+	op := &aws.Operation{
+		Name:       opDescribePublicIpv4Pools,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribePublicIpv4PoolsInput{}
+	}
+
+	output := &DescribePublicIpv4PoolsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribePublicIpv4PoolsRequest{Request: req, Input: input, Copy: c.DescribePublicIpv4PoolsRequest}
+}
+
 const opDescribeRegions = "DescribeRegions"
 
 // DescribeRegionsRequest is a API request type for the DescribeRegions API operation.
@@ -9059,6 +10635,12 @@ func (c *EC2) DescribeRouteTablesRequest(input *DescribeRouteTablesInput) Descri
 		Name:       opDescribeRouteTables,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -9070,6 +10652,52 @@ func (c *EC2) DescribeRouteTablesRequest(input *DescribeRouteTablesInput) Descri
 	output.responseMetadata = aws.Response{Request: req}
 
 	return DescribeRouteTablesRequest{Request: req, Input: input, Copy: c.DescribeRouteTablesRequest}
+}
+
+// Paginate pages iterates over the pages of a DescribeRouteTablesRequest operation,
+// calling the Next method for each page. Using the paginators Next
+// method will depict whether or not there are more pages.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a DescribeRouteTables operation.
+//		req := client.DescribeRouteTablesRequest(input)
+//		p := req.Paginate()
+//		for p.Next() {
+//			page := p.CurrentPage()
+//		}
+//
+//		if err := p.Err(); err != nil {
+//			return err
+//		}
+//
+func (p *DescribeRouteTablesRequest) Paginate(opts ...aws.Option) DescribeRouteTablesPager {
+	return DescribeRouteTablesPager{
+		Pager: aws.Pager{
+			NewRequest: func() (*aws.Request, error) {
+				var inCpy *DescribeRouteTablesInput
+				if p.Input != nil {
+					tmp := *p.Input
+					inCpy = &tmp
+				}
+
+				req := p.Copy(inCpy)
+				req.ApplyOptions(opts...)
+
+				return req.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeRouteTablesPager is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeRouteTablesPager struct {
+	aws.Pager
+}
+
+func (p *DescribeRouteTablesPager) CurrentPage() *DescribeRouteTablesOutput {
+	return p.Pager.CurrentPage().(*DescribeRouteTablesOutput)
 }
 
 const opDescribeScheduledInstanceAvailability = "DescribeScheduledInstanceAvailability"
@@ -9275,6 +10903,12 @@ func (c *EC2) DescribeSecurityGroupsRequest(input *DescribeSecurityGroupsInput) 
 		Name:       opDescribeSecurityGroups,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -9286,6 +10920,52 @@ func (c *EC2) DescribeSecurityGroupsRequest(input *DescribeSecurityGroupsInput) 
 	output.responseMetadata = aws.Response{Request: req}
 
 	return DescribeSecurityGroupsRequest{Request: req, Input: input, Copy: c.DescribeSecurityGroupsRequest}
+}
+
+// Paginate pages iterates over the pages of a DescribeSecurityGroupsRequest operation,
+// calling the Next method for each page. Using the paginators Next
+// method will depict whether or not there are more pages.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//    // Example iterating over at most 3 pages of a DescribeSecurityGroups operation.
+//		req := client.DescribeSecurityGroupsRequest(input)
+//		p := req.Paginate()
+//		for p.Next() {
+//			page := p.CurrentPage()
+//		}
+//
+//		if err := p.Err(); err != nil {
+//			return err
+//		}
+//
+func (p *DescribeSecurityGroupsRequest) Paginate(opts ...aws.Option) DescribeSecurityGroupsPager {
+	return DescribeSecurityGroupsPager{
+		Pager: aws.Pager{
+			NewRequest: func() (*aws.Request, error) {
+				var inCpy *DescribeSecurityGroupsInput
+				if p.Input != nil {
+					tmp := *p.Input
+					inCpy = &tmp
+				}
+
+				req := p.Copy(inCpy)
+				req.ApplyOptions(opts...)
+
+				return req.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeSecurityGroupsPager is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeSecurityGroupsPager struct {
+	aws.Pager
+}
+
+func (p *DescribeSecurityGroupsPager) CurrentPage() *DescribeSecurityGroupsOutput {
+	return p.Pager.CurrentPage().(*DescribeSecurityGroupsOutput)
 }
 
 const opDescribeSnapshotAttribute = "DescribeSnapshotAttribute"
@@ -9618,7 +11298,7 @@ func (r DescribeSpotFleetRequestHistoryRequest) Send() (*DescribeSpotFleetReques
 //
 // Spot Fleet events are delayed by up to 30 seconds before they can be described.
 // This ensures that you can query by the last evaluated time and not miss a
-// recorded event.
+// recorded event. Spot Fleet events are available for 48 hours.
 //
 //    // Example sending a request using the DescribeSpotFleetRequestHistoryRequest method.
 //    req := client.DescribeSpotFleetRequestHistoryRequest(params)
@@ -10128,6 +11808,212 @@ type DescribeTagsPager struct {
 
 func (p *DescribeTagsPager) CurrentPage() *DescribeTagsOutput {
 	return p.Pager.CurrentPage().(*DescribeTagsOutput)
+}
+
+const opDescribeTransitGatewayAttachments = "DescribeTransitGatewayAttachments"
+
+// DescribeTransitGatewayAttachmentsRequest is a API request type for the DescribeTransitGatewayAttachments API operation.
+type DescribeTransitGatewayAttachmentsRequest struct {
+	*aws.Request
+	Input *DescribeTransitGatewayAttachmentsInput
+	Copy  func(*DescribeTransitGatewayAttachmentsInput) DescribeTransitGatewayAttachmentsRequest
+}
+
+// Send marshals and sends the DescribeTransitGatewayAttachments API request.
+func (r DescribeTransitGatewayAttachmentsRequest) Send() (*DescribeTransitGatewayAttachmentsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeTransitGatewayAttachmentsOutput), nil
+}
+
+// DescribeTransitGatewayAttachmentsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes one or more attachments between resources and transit gateways.
+// By default, all attachments are described. Alternatively, you can filter
+// the results by attachment ID, attachment state, resource ID, or resource
+// owner.
+//
+//    // Example sending a request using the DescribeTransitGatewayAttachmentsRequest method.
+//    req := client.DescribeTransitGatewayAttachmentsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayAttachments
+func (c *EC2) DescribeTransitGatewayAttachmentsRequest(input *DescribeTransitGatewayAttachmentsInput) DescribeTransitGatewayAttachmentsRequest {
+	op := &aws.Operation{
+		Name:       opDescribeTransitGatewayAttachments,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeTransitGatewayAttachmentsInput{}
+	}
+
+	output := &DescribeTransitGatewayAttachmentsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeTransitGatewayAttachmentsRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayAttachmentsRequest}
+}
+
+const opDescribeTransitGatewayRouteTables = "DescribeTransitGatewayRouteTables"
+
+// DescribeTransitGatewayRouteTablesRequest is a API request type for the DescribeTransitGatewayRouteTables API operation.
+type DescribeTransitGatewayRouteTablesRequest struct {
+	*aws.Request
+	Input *DescribeTransitGatewayRouteTablesInput
+	Copy  func(*DescribeTransitGatewayRouteTablesInput) DescribeTransitGatewayRouteTablesRequest
+}
+
+// Send marshals and sends the DescribeTransitGatewayRouteTables API request.
+func (r DescribeTransitGatewayRouteTablesRequest) Send() (*DescribeTransitGatewayRouteTablesOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeTransitGatewayRouteTablesOutput), nil
+}
+
+// DescribeTransitGatewayRouteTablesRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes one or more transit gateway route tables. By default, all transit
+// gateway route tables are described. Alternatively, you can filter the results.
+//
+//    // Example sending a request using the DescribeTransitGatewayRouteTablesRequest method.
+//    req := client.DescribeTransitGatewayRouteTablesRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayRouteTables
+func (c *EC2) DescribeTransitGatewayRouteTablesRequest(input *DescribeTransitGatewayRouteTablesInput) DescribeTransitGatewayRouteTablesRequest {
+	op := &aws.Operation{
+		Name:       opDescribeTransitGatewayRouteTables,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeTransitGatewayRouteTablesInput{}
+	}
+
+	output := &DescribeTransitGatewayRouteTablesOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeTransitGatewayRouteTablesRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayRouteTablesRequest}
+}
+
+const opDescribeTransitGatewayVpcAttachments = "DescribeTransitGatewayVpcAttachments"
+
+// DescribeTransitGatewayVpcAttachmentsRequest is a API request type for the DescribeTransitGatewayVpcAttachments API operation.
+type DescribeTransitGatewayVpcAttachmentsRequest struct {
+	*aws.Request
+	Input *DescribeTransitGatewayVpcAttachmentsInput
+	Copy  func(*DescribeTransitGatewayVpcAttachmentsInput) DescribeTransitGatewayVpcAttachmentsRequest
+}
+
+// Send marshals and sends the DescribeTransitGatewayVpcAttachments API request.
+func (r DescribeTransitGatewayVpcAttachmentsRequest) Send() (*DescribeTransitGatewayVpcAttachmentsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeTransitGatewayVpcAttachmentsOutput), nil
+}
+
+// DescribeTransitGatewayVpcAttachmentsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes one or more VPC attachments. By default, all VPC attachments are
+// described. Alternatively, you can filter the results.
+//
+//    // Example sending a request using the DescribeTransitGatewayVpcAttachmentsRequest method.
+//    req := client.DescribeTransitGatewayVpcAttachmentsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayVpcAttachments
+func (c *EC2) DescribeTransitGatewayVpcAttachmentsRequest(input *DescribeTransitGatewayVpcAttachmentsInput) DescribeTransitGatewayVpcAttachmentsRequest {
+	op := &aws.Operation{
+		Name:       opDescribeTransitGatewayVpcAttachments,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeTransitGatewayVpcAttachmentsInput{}
+	}
+
+	output := &DescribeTransitGatewayVpcAttachmentsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeTransitGatewayVpcAttachmentsRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayVpcAttachmentsRequest}
+}
+
+const opDescribeTransitGateways = "DescribeTransitGateways"
+
+// DescribeTransitGatewaysRequest is a API request type for the DescribeTransitGateways API operation.
+type DescribeTransitGatewaysRequest struct {
+	*aws.Request
+	Input *DescribeTransitGatewaysInput
+	Copy  func(*DescribeTransitGatewaysInput) DescribeTransitGatewaysRequest
+}
+
+// Send marshals and sends the DescribeTransitGateways API request.
+func (r DescribeTransitGatewaysRequest) Send() (*DescribeTransitGatewaysOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DescribeTransitGatewaysOutput), nil
+}
+
+// DescribeTransitGatewaysRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Describes one or more transit gateways. By default, all transit gateways
+// are described. Alternatively, you can filter the results.
+//
+//    // Example sending a request using the DescribeTransitGatewaysRequest method.
+//    req := client.DescribeTransitGatewaysRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGateways
+func (c *EC2) DescribeTransitGatewaysRequest(input *DescribeTransitGatewaysInput) DescribeTransitGatewaysRequest {
+	op := &aws.Operation{
+		Name:       opDescribeTransitGateways,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DescribeTransitGatewaysInput{}
+	}
+
+	output := &DescribeTransitGatewaysOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DescribeTransitGatewaysRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewaysRequest}
 }
 
 const opDescribeVolumeAttribute = "DescribeVolumeAttribute"
@@ -11444,6 +13330,57 @@ func (c *EC2) DetachVpnGatewayRequest(input *DetachVpnGatewayInput) DetachVpnGat
 	return DetachVpnGatewayRequest{Request: req, Input: input, Copy: c.DetachVpnGatewayRequest}
 }
 
+const opDisableTransitGatewayRouteTablePropagation = "DisableTransitGatewayRouteTablePropagation"
+
+// DisableTransitGatewayRouteTablePropagationRequest is a API request type for the DisableTransitGatewayRouteTablePropagation API operation.
+type DisableTransitGatewayRouteTablePropagationRequest struct {
+	*aws.Request
+	Input *DisableTransitGatewayRouteTablePropagationInput
+	Copy  func(*DisableTransitGatewayRouteTablePropagationInput) DisableTransitGatewayRouteTablePropagationRequest
+}
+
+// Send marshals and sends the DisableTransitGatewayRouteTablePropagation API request.
+func (r DisableTransitGatewayRouteTablePropagationRequest) Send() (*DisableTransitGatewayRouteTablePropagationOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DisableTransitGatewayRouteTablePropagationOutput), nil
+}
+
+// DisableTransitGatewayRouteTablePropagationRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Disables the specified resource attachment from propagating routes to the
+// specified propagation route table.
+//
+//    // Example sending a request using the DisableTransitGatewayRouteTablePropagationRequest method.
+//    req := client.DisableTransitGatewayRouteTablePropagationRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisableTransitGatewayRouteTablePropagation
+func (c *EC2) DisableTransitGatewayRouteTablePropagationRequest(input *DisableTransitGatewayRouteTablePropagationInput) DisableTransitGatewayRouteTablePropagationRequest {
+	op := &aws.Operation{
+		Name:       opDisableTransitGatewayRouteTablePropagation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DisableTransitGatewayRouteTablePropagationInput{}
+	}
+
+	output := &DisableTransitGatewayRouteTablePropagationOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DisableTransitGatewayRouteTablePropagationRequest{Request: req, Input: input, Copy: c.DisableTransitGatewayRouteTablePropagationRequest}
+}
+
 const opDisableVgwRoutePropagation = "DisableVgwRoutePropagation"
 
 // DisableVgwRoutePropagationRequest is a API request type for the DisableVgwRoutePropagation API operation.
@@ -11662,6 +13599,66 @@ func (c *EC2) DisassociateAddressRequest(input *DisassociateAddressInput) Disass
 	return DisassociateAddressRequest{Request: req, Input: input, Copy: c.DisassociateAddressRequest}
 }
 
+const opDisassociateClientVpnTargetNetwork = "DisassociateClientVpnTargetNetwork"
+
+// DisassociateClientVpnTargetNetworkRequest is a API request type for the DisassociateClientVpnTargetNetwork API operation.
+type DisassociateClientVpnTargetNetworkRequest struct {
+	*aws.Request
+	Input *DisassociateClientVpnTargetNetworkInput
+	Copy  func(*DisassociateClientVpnTargetNetworkInput) DisassociateClientVpnTargetNetworkRequest
+}
+
+// Send marshals and sends the DisassociateClientVpnTargetNetwork API request.
+func (r DisassociateClientVpnTargetNetworkRequest) Send() (*DisassociateClientVpnTargetNetworkOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DisassociateClientVpnTargetNetworkOutput), nil
+}
+
+// DisassociateClientVpnTargetNetworkRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Disassociates a target network from the specified Client VPN endpoint. When
+// you disassociate the last target network from a Client VPN, the following
+// happens:
+//
+//    * The route that was automatically added for the VPC is deleted
+//
+//    * All active client connections are terminated
+//
+//    * New client connections are disallowed
+//
+//    * The Client VPN endpoint's status changes to pending-associate
+//
+//    // Example sending a request using the DisassociateClientVpnTargetNetworkRequest method.
+//    req := client.DisassociateClientVpnTargetNetworkRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateClientVpnTargetNetwork
+func (c *EC2) DisassociateClientVpnTargetNetworkRequest(input *DisassociateClientVpnTargetNetworkInput) DisassociateClientVpnTargetNetworkRequest {
+	op := &aws.Operation{
+		Name:       opDisassociateClientVpnTargetNetwork,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DisassociateClientVpnTargetNetworkInput{}
+	}
+
+	output := &DisassociateClientVpnTargetNetworkOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DisassociateClientVpnTargetNetworkRequest{Request: req, Input: input, Copy: c.DisassociateClientVpnTargetNetworkRequest}
+}
+
 const opDisassociateIamInstanceProfile = "DisassociateIamInstanceProfile"
 
 // DisassociateIamInstanceProfileRequest is a API request type for the DisassociateIamInstanceProfile API operation.
@@ -11823,6 +13820,56 @@ func (c *EC2) DisassociateSubnetCidrBlockRequest(input *DisassociateSubnetCidrBl
 	return DisassociateSubnetCidrBlockRequest{Request: req, Input: input, Copy: c.DisassociateSubnetCidrBlockRequest}
 }
 
+const opDisassociateTransitGatewayRouteTable = "DisassociateTransitGatewayRouteTable"
+
+// DisassociateTransitGatewayRouteTableRequest is a API request type for the DisassociateTransitGatewayRouteTable API operation.
+type DisassociateTransitGatewayRouteTableRequest struct {
+	*aws.Request
+	Input *DisassociateTransitGatewayRouteTableInput
+	Copy  func(*DisassociateTransitGatewayRouteTableInput) DisassociateTransitGatewayRouteTableRequest
+}
+
+// Send marshals and sends the DisassociateTransitGatewayRouteTable API request.
+func (r DisassociateTransitGatewayRouteTableRequest) Send() (*DisassociateTransitGatewayRouteTableOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*DisassociateTransitGatewayRouteTableOutput), nil
+}
+
+// DisassociateTransitGatewayRouteTableRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Disassociates a resource attachment from a transit gateway route table.
+//
+//    // Example sending a request using the DisassociateTransitGatewayRouteTableRequest method.
+//    req := client.DisassociateTransitGatewayRouteTableRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateTransitGatewayRouteTable
+func (c *EC2) DisassociateTransitGatewayRouteTableRequest(input *DisassociateTransitGatewayRouteTableInput) DisassociateTransitGatewayRouteTableRequest {
+	op := &aws.Operation{
+		Name:       opDisassociateTransitGatewayRouteTable,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &DisassociateTransitGatewayRouteTableInput{}
+	}
+
+	output := &DisassociateTransitGatewayRouteTableOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return DisassociateTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.DisassociateTransitGatewayRouteTableRequest}
+}
+
 const opDisassociateVpcCidrBlock = "DisassociateVpcCidrBlock"
 
 // DisassociateVpcCidrBlockRequest is a API request type for the DisassociateVpcCidrBlock API operation.
@@ -11877,6 +13924,57 @@ func (c *EC2) DisassociateVpcCidrBlockRequest(input *DisassociateVpcCidrBlockInp
 	output.responseMetadata = aws.Response{Request: req}
 
 	return DisassociateVpcCidrBlockRequest{Request: req, Input: input, Copy: c.DisassociateVpcCidrBlockRequest}
+}
+
+const opEnableTransitGatewayRouteTablePropagation = "EnableTransitGatewayRouteTablePropagation"
+
+// EnableTransitGatewayRouteTablePropagationRequest is a API request type for the EnableTransitGatewayRouteTablePropagation API operation.
+type EnableTransitGatewayRouteTablePropagationRequest struct {
+	*aws.Request
+	Input *EnableTransitGatewayRouteTablePropagationInput
+	Copy  func(*EnableTransitGatewayRouteTablePropagationInput) EnableTransitGatewayRouteTablePropagationRequest
+}
+
+// Send marshals and sends the EnableTransitGatewayRouteTablePropagation API request.
+func (r EnableTransitGatewayRouteTablePropagationRequest) Send() (*EnableTransitGatewayRouteTablePropagationOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*EnableTransitGatewayRouteTablePropagationOutput), nil
+}
+
+// EnableTransitGatewayRouteTablePropagationRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Enables the specified attachment to propagate routes to the specified propagation
+// route table.
+//
+//    // Example sending a request using the EnableTransitGatewayRouteTablePropagationRequest method.
+//    req := client.EnableTransitGatewayRouteTablePropagationRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/EnableTransitGatewayRouteTablePropagation
+func (c *EC2) EnableTransitGatewayRouteTablePropagationRequest(input *EnableTransitGatewayRouteTablePropagationInput) EnableTransitGatewayRouteTablePropagationRequest {
+	op := &aws.Operation{
+		Name:       opEnableTransitGatewayRouteTablePropagation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &EnableTransitGatewayRouteTablePropagationInput{}
+	}
+
+	output := &EnableTransitGatewayRouteTablePropagationOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return EnableTransitGatewayRouteTablePropagationRequest{Request: req, Input: input, Copy: c.EnableTransitGatewayRouteTablePropagationRequest}
 }
 
 const opEnableVgwRoutePropagation = "EnableVgwRoutePropagation"
@@ -12095,6 +14193,162 @@ func (c *EC2) EnableVpcClassicLinkDnsSupportRequest(input *EnableVpcClassicLinkD
 	output.responseMetadata = aws.Response{Request: req}
 
 	return EnableVpcClassicLinkDnsSupportRequest{Request: req, Input: input, Copy: c.EnableVpcClassicLinkDnsSupportRequest}
+}
+
+const opExportClientVpnClientCertificateRevocationList = "ExportClientVpnClientCertificateRevocationList"
+
+// ExportClientVpnClientCertificateRevocationListRequest is a API request type for the ExportClientVpnClientCertificateRevocationList API operation.
+type ExportClientVpnClientCertificateRevocationListRequest struct {
+	*aws.Request
+	Input *ExportClientVpnClientCertificateRevocationListInput
+	Copy  func(*ExportClientVpnClientCertificateRevocationListInput) ExportClientVpnClientCertificateRevocationListRequest
+}
+
+// Send marshals and sends the ExportClientVpnClientCertificateRevocationList API request.
+func (r ExportClientVpnClientCertificateRevocationListRequest) Send() (*ExportClientVpnClientCertificateRevocationListOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ExportClientVpnClientCertificateRevocationListOutput), nil
+}
+
+// ExportClientVpnClientCertificateRevocationListRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Downloads the client certificate revocation list for the specified Client
+// VPN endpoint.
+//
+//    // Example sending a request using the ExportClientVpnClientCertificateRevocationListRequest method.
+//    req := client.ExportClientVpnClientCertificateRevocationListRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportClientVpnClientCertificateRevocationList
+func (c *EC2) ExportClientVpnClientCertificateRevocationListRequest(input *ExportClientVpnClientCertificateRevocationListInput) ExportClientVpnClientCertificateRevocationListRequest {
+	op := &aws.Operation{
+		Name:       opExportClientVpnClientCertificateRevocationList,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ExportClientVpnClientCertificateRevocationListInput{}
+	}
+
+	output := &ExportClientVpnClientCertificateRevocationListOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ExportClientVpnClientCertificateRevocationListRequest{Request: req, Input: input, Copy: c.ExportClientVpnClientCertificateRevocationListRequest}
+}
+
+const opExportClientVpnClientConfiguration = "ExportClientVpnClientConfiguration"
+
+// ExportClientVpnClientConfigurationRequest is a API request type for the ExportClientVpnClientConfiguration API operation.
+type ExportClientVpnClientConfigurationRequest struct {
+	*aws.Request
+	Input *ExportClientVpnClientConfigurationInput
+	Copy  func(*ExportClientVpnClientConfigurationInput) ExportClientVpnClientConfigurationRequest
+}
+
+// Send marshals and sends the ExportClientVpnClientConfiguration API request.
+func (r ExportClientVpnClientConfigurationRequest) Send() (*ExportClientVpnClientConfigurationOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ExportClientVpnClientConfigurationOutput), nil
+}
+
+// ExportClientVpnClientConfigurationRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Downloads the contents of the Client VPN endpoint configuration file for
+// the specified Client VPN endpoint. The Client VPN endpoint configuration
+// file includes the Client VPN endpoint and certificate information clients
+// need to establish a connection with the Client VPN endpoint.
+//
+//    // Example sending a request using the ExportClientVpnClientConfigurationRequest method.
+//    req := client.ExportClientVpnClientConfigurationRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportClientVpnClientConfiguration
+func (c *EC2) ExportClientVpnClientConfigurationRequest(input *ExportClientVpnClientConfigurationInput) ExportClientVpnClientConfigurationRequest {
+	op := &aws.Operation{
+		Name:       opExportClientVpnClientConfiguration,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ExportClientVpnClientConfigurationInput{}
+	}
+
+	output := &ExportClientVpnClientConfigurationOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ExportClientVpnClientConfigurationRequest{Request: req, Input: input, Copy: c.ExportClientVpnClientConfigurationRequest}
+}
+
+const opExportTransitGatewayRoutes = "ExportTransitGatewayRoutes"
+
+// ExportTransitGatewayRoutesRequest is a API request type for the ExportTransitGatewayRoutes API operation.
+type ExportTransitGatewayRoutesRequest struct {
+	*aws.Request
+	Input *ExportTransitGatewayRoutesInput
+	Copy  func(*ExportTransitGatewayRoutesInput) ExportTransitGatewayRoutesRequest
+}
+
+// Send marshals and sends the ExportTransitGatewayRoutes API request.
+func (r ExportTransitGatewayRoutesRequest) Send() (*ExportTransitGatewayRoutesOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ExportTransitGatewayRoutesOutput), nil
+}
+
+// ExportTransitGatewayRoutesRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Exports routes from the specified transit gateway route table to the specified
+// S3 bucket. By default, all routes are exported. Alternatively, you can filter
+// by CIDR range.
+//
+//    // Example sending a request using the ExportTransitGatewayRoutesRequest method.
+//    req := client.ExportTransitGatewayRoutesRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportTransitGatewayRoutes
+func (c *EC2) ExportTransitGatewayRoutesRequest(input *ExportTransitGatewayRoutesInput) ExportTransitGatewayRoutesRequest {
+	op := &aws.Operation{
+		Name:       opExportTransitGatewayRoutes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ExportTransitGatewayRoutesInput{}
+	}
+
+	output := &ExportTransitGatewayRoutesOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ExportTransitGatewayRoutesRequest{Request: req, Input: input, Copy: c.ExportTransitGatewayRoutesRequest}
 }
 
 const opGetConsoleOutput = "GetConsoleOutput"
@@ -12441,6 +14695,213 @@ func (c *EC2) GetReservedInstancesExchangeQuoteRequest(input *GetReservedInstanc
 	return GetReservedInstancesExchangeQuoteRequest{Request: req, Input: input, Copy: c.GetReservedInstancesExchangeQuoteRequest}
 }
 
+const opGetTransitGatewayAttachmentPropagations = "GetTransitGatewayAttachmentPropagations"
+
+// GetTransitGatewayAttachmentPropagationsRequest is a API request type for the GetTransitGatewayAttachmentPropagations API operation.
+type GetTransitGatewayAttachmentPropagationsRequest struct {
+	*aws.Request
+	Input *GetTransitGatewayAttachmentPropagationsInput
+	Copy  func(*GetTransitGatewayAttachmentPropagationsInput) GetTransitGatewayAttachmentPropagationsRequest
+}
+
+// Send marshals and sends the GetTransitGatewayAttachmentPropagations API request.
+func (r GetTransitGatewayAttachmentPropagationsRequest) Send() (*GetTransitGatewayAttachmentPropagationsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*GetTransitGatewayAttachmentPropagationsOutput), nil
+}
+
+// GetTransitGatewayAttachmentPropagationsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Lists the route tables to which the specified resource attachment propagates
+// routes.
+//
+//    // Example sending a request using the GetTransitGatewayAttachmentPropagationsRequest method.
+//    req := client.GetTransitGatewayAttachmentPropagationsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayAttachmentPropagations
+func (c *EC2) GetTransitGatewayAttachmentPropagationsRequest(input *GetTransitGatewayAttachmentPropagationsInput) GetTransitGatewayAttachmentPropagationsRequest {
+	op := &aws.Operation{
+		Name:       opGetTransitGatewayAttachmentPropagations,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &GetTransitGatewayAttachmentPropagationsInput{}
+	}
+
+	output := &GetTransitGatewayAttachmentPropagationsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return GetTransitGatewayAttachmentPropagationsRequest{Request: req, Input: input, Copy: c.GetTransitGatewayAttachmentPropagationsRequest}
+}
+
+const opGetTransitGatewayRouteTableAssociations = "GetTransitGatewayRouteTableAssociations"
+
+// GetTransitGatewayRouteTableAssociationsRequest is a API request type for the GetTransitGatewayRouteTableAssociations API operation.
+type GetTransitGatewayRouteTableAssociationsRequest struct {
+	*aws.Request
+	Input *GetTransitGatewayRouteTableAssociationsInput
+	Copy  func(*GetTransitGatewayRouteTableAssociationsInput) GetTransitGatewayRouteTableAssociationsRequest
+}
+
+// Send marshals and sends the GetTransitGatewayRouteTableAssociations API request.
+func (r GetTransitGatewayRouteTableAssociationsRequest) Send() (*GetTransitGatewayRouteTableAssociationsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*GetTransitGatewayRouteTableAssociationsOutput), nil
+}
+
+// GetTransitGatewayRouteTableAssociationsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Gets information about the associations for the specified transit gateway
+// route table.
+//
+//    // Example sending a request using the GetTransitGatewayRouteTableAssociationsRequest method.
+//    req := client.GetTransitGatewayRouteTableAssociationsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayRouteTableAssociations
+func (c *EC2) GetTransitGatewayRouteTableAssociationsRequest(input *GetTransitGatewayRouteTableAssociationsInput) GetTransitGatewayRouteTableAssociationsRequest {
+	op := &aws.Operation{
+		Name:       opGetTransitGatewayRouteTableAssociations,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &GetTransitGatewayRouteTableAssociationsInput{}
+	}
+
+	output := &GetTransitGatewayRouteTableAssociationsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return GetTransitGatewayRouteTableAssociationsRequest{Request: req, Input: input, Copy: c.GetTransitGatewayRouteTableAssociationsRequest}
+}
+
+const opGetTransitGatewayRouteTablePropagations = "GetTransitGatewayRouteTablePropagations"
+
+// GetTransitGatewayRouteTablePropagationsRequest is a API request type for the GetTransitGatewayRouteTablePropagations API operation.
+type GetTransitGatewayRouteTablePropagationsRequest struct {
+	*aws.Request
+	Input *GetTransitGatewayRouteTablePropagationsInput
+	Copy  func(*GetTransitGatewayRouteTablePropagationsInput) GetTransitGatewayRouteTablePropagationsRequest
+}
+
+// Send marshals and sends the GetTransitGatewayRouteTablePropagations API request.
+func (r GetTransitGatewayRouteTablePropagationsRequest) Send() (*GetTransitGatewayRouteTablePropagationsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*GetTransitGatewayRouteTablePropagationsOutput), nil
+}
+
+// GetTransitGatewayRouteTablePropagationsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Gets information about the route table propagations for the specified transit
+// gateway route table.
+//
+//    // Example sending a request using the GetTransitGatewayRouteTablePropagationsRequest method.
+//    req := client.GetTransitGatewayRouteTablePropagationsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayRouteTablePropagations
+func (c *EC2) GetTransitGatewayRouteTablePropagationsRequest(input *GetTransitGatewayRouteTablePropagationsInput) GetTransitGatewayRouteTablePropagationsRequest {
+	op := &aws.Operation{
+		Name:       opGetTransitGatewayRouteTablePropagations,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &GetTransitGatewayRouteTablePropagationsInput{}
+	}
+
+	output := &GetTransitGatewayRouteTablePropagationsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return GetTransitGatewayRouteTablePropagationsRequest{Request: req, Input: input, Copy: c.GetTransitGatewayRouteTablePropagationsRequest}
+}
+
+const opImportClientVpnClientCertificateRevocationList = "ImportClientVpnClientCertificateRevocationList"
+
+// ImportClientVpnClientCertificateRevocationListRequest is a API request type for the ImportClientVpnClientCertificateRevocationList API operation.
+type ImportClientVpnClientCertificateRevocationListRequest struct {
+	*aws.Request
+	Input *ImportClientVpnClientCertificateRevocationListInput
+	Copy  func(*ImportClientVpnClientCertificateRevocationListInput) ImportClientVpnClientCertificateRevocationListRequest
+}
+
+// Send marshals and sends the ImportClientVpnClientCertificateRevocationList API request.
+func (r ImportClientVpnClientCertificateRevocationListRequest) Send() (*ImportClientVpnClientCertificateRevocationListOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ImportClientVpnClientCertificateRevocationListOutput), nil
+}
+
+// ImportClientVpnClientCertificateRevocationListRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Uploads a client certificate revocation list to the specified Client VPN
+// endpoint. Uploading a client certificate revocation list overwrites the existing
+// client certificate revocation list.
+//
+// Uploading a client certificate revocation list resets existing client connections.
+//
+//    // Example sending a request using the ImportClientVpnClientCertificateRevocationListRequest method.
+//    req := client.ImportClientVpnClientCertificateRevocationListRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ImportClientVpnClientCertificateRevocationList
+func (c *EC2) ImportClientVpnClientCertificateRevocationListRequest(input *ImportClientVpnClientCertificateRevocationListInput) ImportClientVpnClientCertificateRevocationListRequest {
+	op := &aws.Operation{
+		Name:       opImportClientVpnClientCertificateRevocationList,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ImportClientVpnClientCertificateRevocationListInput{}
+	}
+
+	output := &ImportClientVpnClientCertificateRevocationListOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ImportClientVpnClientCertificateRevocationListRequest{Request: req, Input: input, Copy: c.ImportClientVpnClientCertificateRevocationListRequest}
+}
+
 const opImportImage = "ImportImage"
 
 // ImportImageRequest is a API request type for the ImportImage API operation.
@@ -12709,6 +15170,114 @@ func (c *EC2) ImportVolumeRequest(input *ImportVolumeInput) ImportVolumeRequest 
 	output.responseMetadata = aws.Response{Request: req}
 
 	return ImportVolumeRequest{Request: req, Input: input, Copy: c.ImportVolumeRequest}
+}
+
+const opModifyCapacityReservation = "ModifyCapacityReservation"
+
+// ModifyCapacityReservationRequest is a API request type for the ModifyCapacityReservation API operation.
+type ModifyCapacityReservationRequest struct {
+	*aws.Request
+	Input *ModifyCapacityReservationInput
+	Copy  func(*ModifyCapacityReservationInput) ModifyCapacityReservationRequest
+}
+
+// Send marshals and sends the ModifyCapacityReservation API request.
+func (r ModifyCapacityReservationRequest) Send() (*ModifyCapacityReservationOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ModifyCapacityReservationOutput), nil
+}
+
+// ModifyCapacityReservationRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Modifies a Capacity Reservation's capacity and the conditions under which
+// it is to be released. You cannot change a Capacity Reservation's instance
+// type, EBS optimization, instance store settings, platform, Availability Zone,
+// or instance eligibility. If you need to modify any of these attributes, we
+// recommend that you cancel the Capacity Reservation, and then create a new
+// one with the required attributes.
+//
+//    // Example sending a request using the ModifyCapacityReservationRequest method.
+//    req := client.ModifyCapacityReservationRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyCapacityReservation
+func (c *EC2) ModifyCapacityReservationRequest(input *ModifyCapacityReservationInput) ModifyCapacityReservationRequest {
+	op := &aws.Operation{
+		Name:       opModifyCapacityReservation,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ModifyCapacityReservationInput{}
+	}
+
+	output := &ModifyCapacityReservationOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ModifyCapacityReservationRequest{Request: req, Input: input, Copy: c.ModifyCapacityReservationRequest}
+}
+
+const opModifyClientVpnEndpoint = "ModifyClientVpnEndpoint"
+
+// ModifyClientVpnEndpointRequest is a API request type for the ModifyClientVpnEndpoint API operation.
+type ModifyClientVpnEndpointRequest struct {
+	*aws.Request
+	Input *ModifyClientVpnEndpointInput
+	Copy  func(*ModifyClientVpnEndpointInput) ModifyClientVpnEndpointRequest
+}
+
+// Send marshals and sends the ModifyClientVpnEndpoint API request.
+func (r ModifyClientVpnEndpointRequest) Send() (*ModifyClientVpnEndpointOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ModifyClientVpnEndpointOutput), nil
+}
+
+// ModifyClientVpnEndpointRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Modifies the specified Client VPN endpoint. You can only modify an endpoint's
+// server certificate information, client connection logging information, DNS
+// server, and description. Modifying the DNS server resets existing client
+// connections.
+//
+//    // Example sending a request using the ModifyClientVpnEndpointRequest method.
+//    req := client.ModifyClientVpnEndpointRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyClientVpnEndpoint
+func (c *EC2) ModifyClientVpnEndpointRequest(input *ModifyClientVpnEndpointInput) ModifyClientVpnEndpointRequest {
+	op := &aws.Operation{
+		Name:       opModifyClientVpnEndpoint,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ModifyClientVpnEndpointInput{}
+	}
+
+	output := &ModifyClientVpnEndpointOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ModifyClientVpnEndpointRequest{Request: req, Input: input, Copy: c.ModifyClientVpnEndpointRequest}
 }
 
 const opModifyFleet = "ModifyFleet"
@@ -13141,6 +15710,59 @@ func (c *EC2) ModifyInstanceAttributeRequest(input *ModifyInstanceAttributeInput
 	return ModifyInstanceAttributeRequest{Request: req, Input: input, Copy: c.ModifyInstanceAttributeRequest}
 }
 
+const opModifyInstanceCapacityReservationAttributes = "ModifyInstanceCapacityReservationAttributes"
+
+// ModifyInstanceCapacityReservationAttributesRequest is a API request type for the ModifyInstanceCapacityReservationAttributes API operation.
+type ModifyInstanceCapacityReservationAttributesRequest struct {
+	*aws.Request
+	Input *ModifyInstanceCapacityReservationAttributesInput
+	Copy  func(*ModifyInstanceCapacityReservationAttributesInput) ModifyInstanceCapacityReservationAttributesRequest
+}
+
+// Send marshals and sends the ModifyInstanceCapacityReservationAttributes API request.
+func (r ModifyInstanceCapacityReservationAttributesRequest) Send() (*ModifyInstanceCapacityReservationAttributesOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ModifyInstanceCapacityReservationAttributesOutput), nil
+}
+
+// ModifyInstanceCapacityReservationAttributesRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Modifies the Capacity Reservation settings for a stopped instance. Use this
+// action to configure an instance to target a specific Capacity Reservation,
+// run in any open Capacity Reservation with matching attributes, or run On-Demand
+// Instance capacity.
+//
+//    // Example sending a request using the ModifyInstanceCapacityReservationAttributesRequest method.
+//    req := client.ModifyInstanceCapacityReservationAttributesRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyInstanceCapacityReservationAttributes
+func (c *EC2) ModifyInstanceCapacityReservationAttributesRequest(input *ModifyInstanceCapacityReservationAttributesInput) ModifyInstanceCapacityReservationAttributesRequest {
+	op := &aws.Operation{
+		Name:       opModifyInstanceCapacityReservationAttributes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ModifyInstanceCapacityReservationAttributesInput{}
+	}
+
+	output := &ModifyInstanceCapacityReservationAttributesOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ModifyInstanceCapacityReservationAttributesRequest{Request: req, Input: input, Copy: c.ModifyInstanceCapacityReservationAttributesRequest}
+}
+
 const opModifyInstanceCreditSpecification = "ModifyInstanceCreditSpecification"
 
 // ModifyInstanceCreditSpecificationRequest is a API request type for the ModifyInstanceCreditSpecification API operation.
@@ -13237,8 +15859,8 @@ func (r ModifyInstancePlacementRequest) Send() (*ModifyInstancePlacementOutput, 
 // name must be specified in the request. Affinity and tenancy can be modified
 // in the same request.
 //
-// To modify the host ID, tenancy, or placement group for an instance, the instance
-// must be in the stopped state.
+// To modify the host ID, tenancy, placement group, or partition for an instance,
+// the instance must be in the stopped state.
 //
 //    // Example sending a request using the ModifyInstancePlacementRequest method.
 //    req := client.ModifyInstancePlacementRequest(params)
@@ -13613,6 +16235,56 @@ func (c *EC2) ModifySubnetAttributeRequest(input *ModifySubnetAttributeInput) Mo
 	output.responseMetadata = aws.Response{Request: req}
 
 	return ModifySubnetAttributeRequest{Request: req, Input: input, Copy: c.ModifySubnetAttributeRequest}
+}
+
+const opModifyTransitGatewayVpcAttachment = "ModifyTransitGatewayVpcAttachment"
+
+// ModifyTransitGatewayVpcAttachmentRequest is a API request type for the ModifyTransitGatewayVpcAttachment API operation.
+type ModifyTransitGatewayVpcAttachmentRequest struct {
+	*aws.Request
+	Input *ModifyTransitGatewayVpcAttachmentInput
+	Copy  func(*ModifyTransitGatewayVpcAttachmentInput) ModifyTransitGatewayVpcAttachmentRequest
+}
+
+// Send marshals and sends the ModifyTransitGatewayVpcAttachment API request.
+func (r ModifyTransitGatewayVpcAttachmentRequest) Send() (*ModifyTransitGatewayVpcAttachmentOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ModifyTransitGatewayVpcAttachmentOutput), nil
+}
+
+// ModifyTransitGatewayVpcAttachmentRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Modifies the specified VPC attachment.
+//
+//    // Example sending a request using the ModifyTransitGatewayVpcAttachmentRequest method.
+//    req := client.ModifyTransitGatewayVpcAttachmentRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyTransitGatewayVpcAttachment
+func (c *EC2) ModifyTransitGatewayVpcAttachmentRequest(input *ModifyTransitGatewayVpcAttachmentInput) ModifyTransitGatewayVpcAttachmentRequest {
+	op := &aws.Operation{
+		Name:       opModifyTransitGatewayVpcAttachment,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ModifyTransitGatewayVpcAttachmentInput{}
+	}
+
+	output := &ModifyTransitGatewayVpcAttachmentOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ModifyTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.ModifyTransitGatewayVpcAttachmentRequest}
 }
 
 const opModifyVolume = "ModifyVolume"
@@ -14059,12 +16731,16 @@ func (r ModifyVpcPeeringConnectionOptionsRequest) Send() (*ModifyVpcPeeringConne
 //    * Enable/disable the ability to resolve public DNS hostnames to private
 //    IP addresses when queried from instances in the peer VPC.
 //
-// If the peered VPCs are in different accounts, each owner must initiate a
-// separate request to modify the peering connection options, depending on whether
-// their VPC was the requester or accepter for the VPC peering connection. If
-// the peered VPCs are in the same account, you can modify the requester and
-// accepter options in the same request. To confirm which VPC is the accepter
-// and requester for a VPC peering connection, use the DescribeVpcPeeringConnections
+// If the peered VPCs are in the same AWS account, you can enable DNS resolution
+// for queries from the local VPC. This ensures that queries from the local
+// VPC resolve to private IP addresses in the peer VPC. This option is not available
+// if the peered VPCs are in different AWS accounts or different regions. For
+// peered VPCs in different AWS accounts, each AWS account owner must initiate
+// a separate request to modify the peering connection options. For inter-region
+// peering connections, you must use the region for the requester VPC to modify
+// the requester VPC peering options and the region for the accepter VPC to
+// modify the accepter VPC peering options. To verify which VPCs are the accepter
+// and the requester for a VPC peering connection, use the DescribeVpcPeeringConnections
 // command.
 //
 //    // Example sending a request using the ModifyVpcPeeringConnectionOptionsRequest method.
@@ -14261,6 +16937,72 @@ func (c *EC2) MoveAddressToVpcRequest(input *MoveAddressToVpcInput) MoveAddressT
 	output.responseMetadata = aws.Response{Request: req}
 
 	return MoveAddressToVpcRequest{Request: req, Input: input, Copy: c.MoveAddressToVpcRequest}
+}
+
+const opProvisionByoipCidr = "ProvisionByoipCidr"
+
+// ProvisionByoipCidrRequest is a API request type for the ProvisionByoipCidr API operation.
+type ProvisionByoipCidrRequest struct {
+	*aws.Request
+	Input *ProvisionByoipCidrInput
+	Copy  func(*ProvisionByoipCidrInput) ProvisionByoipCidrRequest
+}
+
+// Send marshals and sends the ProvisionByoipCidr API request.
+func (r ProvisionByoipCidrRequest) Send() (*ProvisionByoipCidrOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ProvisionByoipCidrOutput), nil
+}
+
+// ProvisionByoipCidrRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Provisions an address range for use with your AWS resources through bring
+// your own IP addresses (BYOIP) and creates a corresponding address pool. After
+// the address range is provisioned, it is ready to be advertised using AdvertiseByoipCidr.
+//
+// AWS verifies that you own the address range and are authorized to advertise
+// it. You must ensure that the address range is registered to you and that
+// you created an RPKI ROA to authorize Amazon ASNs 16509 and 14618 to advertise
+// the address range. For more information, see Bring Your Own IP Addresses
+// (BYOIP) (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+//
+// Provisioning an address range is an asynchronous operation, so the call returns
+// immediately, but the address range is not ready to use until its status changes
+// from pending-provision to provisioned. To monitor the status of an address
+// range, use DescribeByoipCidrs. To allocate an Elastic IP address from your
+// address pool, use AllocateAddress with either the specific address from the
+// address pool or the ID of the address pool.
+//
+//    // Example sending a request using the ProvisionByoipCidrRequest method.
+//    req := client.ProvisionByoipCidrRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ProvisionByoipCidr
+func (c *EC2) ProvisionByoipCidrRequest(input *ProvisionByoipCidrInput) ProvisionByoipCidrRequest {
+	op := &aws.Operation{
+		Name:       opProvisionByoipCidr,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ProvisionByoipCidrInput{}
+	}
+
+	output := &ProvisionByoipCidrOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ProvisionByoipCidrRequest{Request: req, Input: input, Copy: c.ProvisionByoipCidrRequest}
 }
 
 const opPurchaseHostReservation = "PurchaseHostReservation"
@@ -14575,6 +17317,60 @@ func (c *EC2) RegisterImageRequest(input *RegisterImageInput) RegisterImageReque
 	output.responseMetadata = aws.Response{Request: req}
 
 	return RegisterImageRequest{Request: req, Input: input, Copy: c.RegisterImageRequest}
+}
+
+const opRejectTransitGatewayVpcAttachment = "RejectTransitGatewayVpcAttachment"
+
+// RejectTransitGatewayVpcAttachmentRequest is a API request type for the RejectTransitGatewayVpcAttachment API operation.
+type RejectTransitGatewayVpcAttachmentRequest struct {
+	*aws.Request
+	Input *RejectTransitGatewayVpcAttachmentInput
+	Copy  func(*RejectTransitGatewayVpcAttachmentInput) RejectTransitGatewayVpcAttachmentRequest
+}
+
+// Send marshals and sends the RejectTransitGatewayVpcAttachment API request.
+func (r RejectTransitGatewayVpcAttachmentRequest) Send() (*RejectTransitGatewayVpcAttachmentOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*RejectTransitGatewayVpcAttachmentOutput), nil
+}
+
+// RejectTransitGatewayVpcAttachmentRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Rejects a request to attach a VPC to a transit gateway.
+//
+// The VPC attachment must be in the pendingAcceptance state. Use DescribeTransitGatewayVpcAttachments
+// to view your pending VPC attachment requests. Use AcceptTransitGatewayVpcAttachment
+// to accept a VPC attachment request.
+//
+//    // Example sending a request using the RejectTransitGatewayVpcAttachmentRequest method.
+//    req := client.RejectTransitGatewayVpcAttachmentRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RejectTransitGatewayVpcAttachment
+func (c *EC2) RejectTransitGatewayVpcAttachmentRequest(input *RejectTransitGatewayVpcAttachmentInput) RejectTransitGatewayVpcAttachmentRequest {
+	op := &aws.Operation{
+		Name:       opRejectTransitGatewayVpcAttachment,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &RejectTransitGatewayVpcAttachmentInput{}
+	}
+
+	output := &RejectTransitGatewayVpcAttachmentOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return RejectTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.RejectTransitGatewayVpcAttachmentRequest}
 }
 
 const opRejectVpcEndpointConnections = "RejectVpcEndpointConnections"
@@ -15091,6 +17887,56 @@ func (c *EC2) ReplaceRouteTableAssociationRequest(input *ReplaceRouteTableAssoci
 	return ReplaceRouteTableAssociationRequest{Request: req, Input: input, Copy: c.ReplaceRouteTableAssociationRequest}
 }
 
+const opReplaceTransitGatewayRoute = "ReplaceTransitGatewayRoute"
+
+// ReplaceTransitGatewayRouteRequest is a API request type for the ReplaceTransitGatewayRoute API operation.
+type ReplaceTransitGatewayRouteRequest struct {
+	*aws.Request
+	Input *ReplaceTransitGatewayRouteInput
+	Copy  func(*ReplaceTransitGatewayRouteInput) ReplaceTransitGatewayRouteRequest
+}
+
+// Send marshals and sends the ReplaceTransitGatewayRoute API request.
+func (r ReplaceTransitGatewayRouteRequest) Send() (*ReplaceTransitGatewayRouteOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*ReplaceTransitGatewayRouteOutput), nil
+}
+
+// ReplaceTransitGatewayRouteRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Replaces the specified route in the specified transit gateway route table.
+//
+//    // Example sending a request using the ReplaceTransitGatewayRouteRequest method.
+//    req := client.ReplaceTransitGatewayRouteRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ReplaceTransitGatewayRoute
+func (c *EC2) ReplaceTransitGatewayRouteRequest(input *ReplaceTransitGatewayRouteInput) ReplaceTransitGatewayRouteRequest {
+	op := &aws.Operation{
+		Name:       opReplaceTransitGatewayRoute,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ReplaceTransitGatewayRouteInput{}
+	}
+
+	output := &ReplaceTransitGatewayRouteOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return ReplaceTransitGatewayRouteRequest{Request: req, Input: input, Copy: c.ReplaceTransitGatewayRouteRequest}
+}
+
 const opReportInstanceStatus = "ReportInstanceStatus"
 
 // ReportInstanceStatusRequest is a API request type for the ReportInstanceStatus API operation.
@@ -15603,6 +18449,56 @@ func (c *EC2) RestoreAddressToClassicRequest(input *RestoreAddressToClassicInput
 	return RestoreAddressToClassicRequest{Request: req, Input: input, Copy: c.RestoreAddressToClassicRequest}
 }
 
+const opRevokeClientVpnIngress = "RevokeClientVpnIngress"
+
+// RevokeClientVpnIngressRequest is a API request type for the RevokeClientVpnIngress API operation.
+type RevokeClientVpnIngressRequest struct {
+	*aws.Request
+	Input *RevokeClientVpnIngressInput
+	Copy  func(*RevokeClientVpnIngressInput) RevokeClientVpnIngressRequest
+}
+
+// Send marshals and sends the RevokeClientVpnIngress API request.
+func (r RevokeClientVpnIngressRequest) Send() (*RevokeClientVpnIngressOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*RevokeClientVpnIngressOutput), nil
+}
+
+// RevokeClientVpnIngressRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Removes an ingress authorization rule from a Client VPN endpoint.
+//
+//    // Example sending a request using the RevokeClientVpnIngressRequest method.
+//    req := client.RevokeClientVpnIngressRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RevokeClientVpnIngress
+func (c *EC2) RevokeClientVpnIngressRequest(input *RevokeClientVpnIngressInput) RevokeClientVpnIngressRequest {
+	op := &aws.Operation{
+		Name:       opRevokeClientVpnIngress,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &RevokeClientVpnIngressInput{}
+	}
+
+	output := &RevokeClientVpnIngressOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return RevokeClientVpnIngressRequest{Request: req, Input: input, Copy: c.RevokeClientVpnIngressRequest}
+}
+
 const opRevokeSecurityGroupEgress = "RevokeSecurityGroupEgress"
 
 // RevokeSecurityGroupEgressRequest is a API request type for the RevokeSecurityGroupEgress API operation.
@@ -15897,6 +18793,56 @@ func (c *EC2) RunScheduledInstancesRequest(input *RunScheduledInstancesInput) Ru
 	return RunScheduledInstancesRequest{Request: req, Input: input, Copy: c.RunScheduledInstancesRequest}
 }
 
+const opSearchTransitGatewayRoutes = "SearchTransitGatewayRoutes"
+
+// SearchTransitGatewayRoutesRequest is a API request type for the SearchTransitGatewayRoutes API operation.
+type SearchTransitGatewayRoutesRequest struct {
+	*aws.Request
+	Input *SearchTransitGatewayRoutesInput
+	Copy  func(*SearchTransitGatewayRoutesInput) SearchTransitGatewayRoutesRequest
+}
+
+// Send marshals and sends the SearchTransitGatewayRoutes API request.
+func (r SearchTransitGatewayRoutesRequest) Send() (*SearchTransitGatewayRoutesOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*SearchTransitGatewayRoutesOutput), nil
+}
+
+// SearchTransitGatewayRoutesRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Searches for routes in the specified transit gateway route table.
+//
+//    // Example sending a request using the SearchTransitGatewayRoutesRequest method.
+//    req := client.SearchTransitGatewayRoutesRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/SearchTransitGatewayRoutes
+func (c *EC2) SearchTransitGatewayRoutesRequest(input *SearchTransitGatewayRoutesInput) SearchTransitGatewayRoutesRequest {
+	op := &aws.Operation{
+		Name:       opSearchTransitGatewayRoutes,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &SearchTransitGatewayRoutesInput{}
+	}
+
+	output := &SearchTransitGatewayRoutesOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return SearchTransitGatewayRoutesRequest{Request: req, Input: input, Copy: c.SearchTransitGatewayRoutesRequest}
+}
+
 const opStartInstances = "StartInstances"
 
 // StartInstancesRequest is a API request type for the StartInstances API operation.
@@ -15993,6 +18939,12 @@ func (r StopInstancesRequest) Send() (*StopInstancesOutput, error) {
 //
 // Stops an Amazon EBS-backed instance.
 //
+// You can use the Stop action to hibernate an instance if the instance is enabled
+// for hibernation (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#enabling-hibernation)
+// and it meets the hibernation prerequisites (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
+// For more information, see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+//
 // We don't charge usage for a stopped instance, or data transfer fees; however,
 // your root partition Amazon EBS volume remains and continues to persist your
 // data, and you are charged for Amazon EBS volume usage. Every time you start
@@ -16003,20 +18955,25 @@ func (r StopInstancesRequest) Send() (*StopInstancesOutput, error) {
 // your Linux instance, Amazon EC2 charges a one-minute minimum for instance
 // usage, and thereafter charges per second for instance usage.
 //
-// You can't start or stop Spot Instances, and you can't stop instance store-backed
-// instances.
+// You can't start, stop, or hibernate Spot Instances, and you can't stop or
+// hibernate instance store-backed instances. For information about using hibernation
+// for Spot Instances, see Hibernating Interrupted Spot Instances (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html#hibernate-spot-instances)
+// in the Amazon Elastic Compute Cloud User Guide.
 //
-// When you stop an instance, we shut it down. You can restart your instance
-// at any time. Before stopping an instance, make sure it is in a state from
-// which it can be restarted. Stopping an instance does not preserve data stored
-// in RAM.
+// When you stop or hibernate an instance, we shut it down. You can restart
+// your instance at any time. Before stopping or hibernating an instance, make
+// sure it is in a state from which it can be restarted. Stopping an instance
+// does not preserve data stored in RAM, but hibernating an instance does preserve
+// data stored in RAM. If an instance cannot hibernate successfully, a normal
+// shutdown occurs.
 //
-// Stopping an instance is different to rebooting or terminating it. For example,
-// when you stop an instance, the root device and any other devices attached
-// to the instance persist. When you terminate an instance, the root device
-// and any other devices attached during the instance launch are automatically
-// deleted. For more information about the differences between rebooting, stopping,
-// and terminating instances, see Instance Lifecycle (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
+// Stopping and hibernating an instance is different to rebooting or terminating
+// it. For example, when you stop or hibernate an instance, the root device
+// and any other devices attached to the instance persist. When you terminate
+// an instance, the root device and any other devices attached during the instance
+// launch are automatically deleted. For more information about the differences
+// between rebooting, stopping, hibernating, and terminating instances, see
+// Instance Lifecycle (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 // When you stop an instance, we attempt to shut it down forcibly after a short
@@ -16049,6 +19006,58 @@ func (c *EC2) StopInstancesRequest(input *StopInstancesInput) StopInstancesReque
 	output.responseMetadata = aws.Response{Request: req}
 
 	return StopInstancesRequest{Request: req, Input: input, Copy: c.StopInstancesRequest}
+}
+
+const opTerminateClientVpnConnections = "TerminateClientVpnConnections"
+
+// TerminateClientVpnConnectionsRequest is a API request type for the TerminateClientVpnConnections API operation.
+type TerminateClientVpnConnectionsRequest struct {
+	*aws.Request
+	Input *TerminateClientVpnConnectionsInput
+	Copy  func(*TerminateClientVpnConnectionsInput) TerminateClientVpnConnectionsRequest
+}
+
+// Send marshals and sends the TerminateClientVpnConnections API request.
+func (r TerminateClientVpnConnectionsRequest) Send() (*TerminateClientVpnConnectionsOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*TerminateClientVpnConnectionsOutput), nil
+}
+
+// TerminateClientVpnConnectionsRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Terminates active Client VPN endpoint connections. This action can be used
+// to terminate a specific client connection, or up to five connections established
+// by a specific user.
+//
+//    // Example sending a request using the TerminateClientVpnConnectionsRequest method.
+//    req := client.TerminateClientVpnConnectionsRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TerminateClientVpnConnections
+func (c *EC2) TerminateClientVpnConnectionsRequest(input *TerminateClientVpnConnectionsInput) TerminateClientVpnConnectionsRequest {
+	op := &aws.Operation{
+		Name:       opTerminateClientVpnConnections,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &TerminateClientVpnConnectionsInput{}
+	}
+
+	output := &TerminateClientVpnConnectionsOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return TerminateClientVpnConnectionsRequest{Request: req, Input: input, Copy: c.TerminateClientVpnConnectionsRequest}
 }
 
 const opTerminateInstances = "TerminateInstances"
@@ -16391,6 +19400,63 @@ func (c *EC2) UpdateSecurityGroupRuleDescriptionsIngressRequest(input *UpdateSec
 	return UpdateSecurityGroupRuleDescriptionsIngressRequest{Request: req, Input: input, Copy: c.UpdateSecurityGroupRuleDescriptionsIngressRequest}
 }
 
+const opWithdrawByoipCidr = "WithdrawByoipCidr"
+
+// WithdrawByoipCidrRequest is a API request type for the WithdrawByoipCidr API operation.
+type WithdrawByoipCidrRequest struct {
+	*aws.Request
+	Input *WithdrawByoipCidrInput
+	Copy  func(*WithdrawByoipCidrInput) WithdrawByoipCidrRequest
+}
+
+// Send marshals and sends the WithdrawByoipCidr API request.
+func (r WithdrawByoipCidrRequest) Send() (*WithdrawByoipCidrOutput, error) {
+	err := r.Request.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.Request.Data.(*WithdrawByoipCidrOutput), nil
+}
+
+// WithdrawByoipCidrRequest returns a request value for making API operation for
+// Amazon Elastic Compute Cloud.
+//
+// Stops advertising an IPv4 address range that is provisioned as an address
+// pool.
+//
+// You can perform this operation at most once every 10 seconds, even if you
+// specify different address ranges each time.
+//
+// It can take a few minutes before traffic to the specified addresses stops
+// routing to AWS because of BGP propagation delays.
+//
+//    // Example sending a request using the WithdrawByoipCidrRequest method.
+//    req := client.WithdrawByoipCidrRequest(params)
+//    resp, err := req.Send()
+//    if err == nil {
+//        fmt.Println(resp)
+//    }
+//
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/WithdrawByoipCidr
+func (c *EC2) WithdrawByoipCidrRequest(input *WithdrawByoipCidrInput) WithdrawByoipCidrRequest {
+	op := &aws.Operation{
+		Name:       opWithdrawByoipCidr,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &WithdrawByoipCidrInput{}
+	}
+
+	output := &WithdrawByoipCidrOutput{}
+	req := c.newRequest(op, input, output)
+	output.responseMetadata = aws.Response{Request: req}
+
+	return WithdrawByoipCidrRequest{Request: req, Input: input, Copy: c.WithdrawByoipCidrRequest}
+}
+
 // Contains the parameters for accepting the quote.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AcceptReservedInstancesExchangeQuoteRequest
 type AcceptReservedInstancesExchangeQuoteInput struct {
@@ -16467,6 +19533,71 @@ func (s AcceptReservedInstancesExchangeQuoteOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s AcceptReservedInstancesExchangeQuoteOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AcceptTransitGatewayVpcAttachmentRequest
+type AcceptTransitGatewayVpcAttachmentInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s AcceptTransitGatewayVpcAttachmentInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AcceptTransitGatewayVpcAttachmentInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AcceptTransitGatewayVpcAttachmentInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "AcceptTransitGatewayVpcAttachmentInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AcceptTransitGatewayVpcAttachmentResult
+type AcceptTransitGatewayVpcAttachmentOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The VPC attachment.
+	TransitGatewayVpcAttachment *TransitGatewayVpcAttachment `locationName:"transitGatewayVpcAttachment" type:"structure"`
+}
+
+// String returns the string representation
+func (s AcceptTransitGatewayVpcAttachmentOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AcceptTransitGatewayVpcAttachmentOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s AcceptTransitGatewayVpcAttachmentOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -16696,6 +19827,9 @@ type Address struct {
 	// The Elastic IP address.
 	PublicIp *string `locationName:"publicIp" type:"string"`
 
+	// The ID of an address pool.
+	PublicIpv4Pool *string `locationName:"publicIpv4Pool" type:"string"`
+
 	// Any tags assigned to the Elastic IP address.
 	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
@@ -16710,12 +19844,77 @@ func (s Address) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for AllocateAddress.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AdvertiseByoipCidrRequest
+type AdvertiseByoipCidrInput struct {
+	_ struct{} `type:"structure"`
+
+	// The IPv4 address range, in CIDR notation.
+	//
+	// Cidr is a required field
+	Cidr *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s AdvertiseByoipCidrInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AdvertiseByoipCidrInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AdvertiseByoipCidrInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "AdvertiseByoipCidrInput"}
+
+	if s.Cidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Cidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AdvertiseByoipCidrResult
+type AdvertiseByoipCidrOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the address range.
+	ByoipCidr *ByoipCidr `locationName:"byoipCidr" type:"structure"`
+}
+
+// String returns the string representation
+func (s AdvertiseByoipCidrOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AdvertiseByoipCidrOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s AdvertiseByoipCidrOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AllocateAddressRequest
 type AllocateAddressInput struct {
 	_ struct{} `type:"structure"`
 
-	// [EC2-VPC] The Elastic IP address to recover.
+	// [EC2-VPC] The Elastic IP address to recover or an IPv4 address from an address
+	// pool.
 	Address *string `type:"string"`
 
 	// Set to vpc to allocate the address for use with instances in a VPC.
@@ -16728,6 +19927,11 @@ type AllocateAddressInput struct {
 	// the required permissions, the error response is DryRunOperation. Otherwise,
 	// it is UnauthorizedOperation.
 	DryRun *bool `locationName:"dryRun" type:"boolean"`
+
+	// The ID of an address pool that you own. Use this parameter to let Amazon
+	// EC2 select an address from the address pool. To specify a specific address
+	// from the address pool, use the Address parameter instead.
+	PublicIpv4Pool *string `type:"string"`
 }
 
 // String returns the string representation
@@ -16740,7 +19944,6 @@ func (s AllocateAddressInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of AllocateAddress.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AllocateAddressResult
 type AllocateAddressOutput struct {
 	_ struct{} `type:"structure"`
@@ -16757,6 +19960,9 @@ type AllocateAddressOutput struct {
 
 	// The Elastic IP address.
 	PublicIp *string `locationName:"publicIp" type:"string"`
+
+	// The ID of an address pool.
+	PublicIpv4Pool *string `locationName:"publicIpv4Pool" type:"string"`
 }
 
 // String returns the string representation
@@ -16890,6 +20096,90 @@ func (s AllowedPrincipal) String() string {
 // GoString returns the string representation
 func (s AllowedPrincipal) GoString() string {
 	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ApplySecurityGroupsToClientVpnTargetNetworkRequest
+type ApplySecurityGroupsToClientVpnTargetNetworkInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The IDs of the security groups to apply to the associated target network.
+	// Up to 5 security groups can be applied to an associated target network.
+	//
+	// SecurityGroupIds is a required field
+	SecurityGroupIds []string `locationName:"SecurityGroupId" locationNameList:"item" type:"list" required:"true"`
+
+	// The ID of the VPC in which the associated target network is located.
+	//
+	// VpcId is a required field
+	VpcId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ApplySecurityGroupsToClientVpnTargetNetworkInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ApplySecurityGroupsToClientVpnTargetNetworkInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ApplySecurityGroupsToClientVpnTargetNetworkInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ApplySecurityGroupsToClientVpnTargetNetworkInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if s.SecurityGroupIds == nil {
+		invalidParams.Add(aws.NewErrParamRequired("SecurityGroupIds"))
+	}
+
+	if s.VpcId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("VpcId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ApplySecurityGroupsToClientVpnTargetNetworkResult
+type ApplySecurityGroupsToClientVpnTargetNetworkOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The IDs of the applied security groups.
+	SecurityGroupIds []string `locationName:"securityGroupIds" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s ApplySecurityGroupsToClientVpnTargetNetworkOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ApplySecurityGroupsToClientVpnTargetNetworkOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ApplySecurityGroupsToClientVpnTargetNetworkOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssignIpv6AddressesRequest
@@ -17036,7 +20326,6 @@ func (s AssignPrivateIpAddressesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for AssociateAddress.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateAddressRequest
 type AssociateAddressInput struct {
 	_ struct{} `type:"structure"`
@@ -17087,7 +20376,6 @@ func (s AssociateAddressInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of AssociateAddress.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateAddressResult
 type AssociateAddressOutput struct {
 	_ struct{} `type:"structure"`
@@ -17111,6 +20399,83 @@ func (s AssociateAddressOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s AssociateAddressOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateClientVpnTargetNetworkRequest
+type AssociateClientVpnTargetNetworkInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the subnet to associate with the Client VPN endpoint.
+	//
+	// SubnetId is a required field
+	SubnetId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s AssociateClientVpnTargetNetworkInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AssociateClientVpnTargetNetworkInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AssociateClientVpnTargetNetworkInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "AssociateClientVpnTargetNetworkInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if s.SubnetId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("SubnetId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateClientVpnTargetNetworkResult
+type AssociateClientVpnTargetNetworkOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The unique ID of the target network association.
+	AssociationId *string `locationName:"associationId" type:"string"`
+
+	// The current state of the target network association.
+	Status *AssociationStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s AssociateClientVpnTargetNetworkOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AssociateClientVpnTargetNetworkOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s AssociateClientVpnTargetNetworkOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -17400,6 +20765,80 @@ func (s AssociateSubnetCidrBlockOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateTransitGatewayRouteTableRequest
+type AssociateTransitGatewayRouteTableInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s AssociateTransitGatewayRouteTableInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AssociateTransitGatewayRouteTableInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AssociateTransitGatewayRouteTableInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "AssociateTransitGatewayRouteTableInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateTransitGatewayRouteTableResult
+type AssociateTransitGatewayRouteTableOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The ID of the association.
+	Association *TransitGatewayAssociation `locationName:"association" type:"structure"`
+}
+
+// String returns the string representation
+func (s AssociateTransitGatewayRouteTableOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AssociateTransitGatewayRouteTableOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s AssociateTransitGatewayRouteTableOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociateVpcCidrBlockRequest
 type AssociateVpcCidrBlockInput struct {
 	_ struct{} `type:"structure"`
@@ -17471,6 +20910,51 @@ func (s AssociateVpcCidrBlockOutput) GoString() string {
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s AssociateVpcCidrBlockOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
+}
+
+// Describes a target network that is associated with a Client VPN endpoint.
+// A target network is a subnet in a VPC.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociatedTargetNetwork
+type AssociatedTargetNetwork struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the subnet.
+	NetworkId *string `locationName:"networkId" type:"string"`
+
+	// The target network type.
+	NetworkType AssociatedNetworkType `locationName:"networkType" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s AssociatedTargetNetwork) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AssociatedTargetNetwork) GoString() string {
+	return s.String()
+}
+
+// Describes the state of a target network association.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AssociationStatus
+type AssociationStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the target network association.
+	Code AssociationStatusCode `locationName:"code" type:"string" enum:"true"`
+
+	// A message about the status of the target network association, if applicable.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s AssociationStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AssociationStatus) GoString() string {
+	return s.String()
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AttachClassicLinkVpcRequest
@@ -17887,6 +21371,127 @@ func (s AttributeValue) GoString() string {
 	return s.String()
 }
 
+// Information about an authorization rule.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AuthorizationRule
+type AuthorizationRule struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether the authorization rule grants access to all clients.
+	AccessAll *bool `locationName:"accessAll" type:"boolean"`
+
+	// The ID of the Client VPN endpoint with which the authorization rule is associated.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// A brief description of the authorization rule.
+	Description *string `locationName:"description" type:"string"`
+
+	// The IPv4 address range, in CIDR notation, of the network to which the authorization
+	// rule applies.
+	DestinationCidr *string `locationName:"destinationCidr" type:"string"`
+
+	// The ID of the Active Directory group to which the authorization rule grants
+	// access.
+	GroupId *string `locationName:"groupId" type:"string"`
+
+	// The current state of the authorization rule.
+	Status *ClientVpnAuthorizationRuleStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s AuthorizationRule) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AuthorizationRule) GoString() string {
+	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AuthorizeClientVpnIngressRequest
+type AuthorizeClientVpnIngressInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Active Directory group to grant access.
+	AccessGroupId *string `type:"string"`
+
+	// Indicates whether to grant access to all clients. Use true to grant all clients
+	// who successfully establish a VPN connection access to the network.
+	AuthorizeAllGroups *bool `type:"boolean"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// A brief description of the authorization rule.
+	Description *string `type:"string"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The IPv4 address range, in CIDR notation, of the network for which access
+	// is being authorized.
+	//
+	// TargetNetworkCidr is a required field
+	TargetNetworkCidr *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s AuthorizeClientVpnIngressInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AuthorizeClientVpnIngressInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AuthorizeClientVpnIngressInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "AuthorizeClientVpnIngressInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if s.TargetNetworkCidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TargetNetworkCidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AuthorizeClientVpnIngressResult
+type AuthorizeClientVpnIngressOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The current state of the authorization rule.
+	Status *ClientVpnAuthorizationRuleStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s AuthorizeClientVpnIngressOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AuthorizeClientVpnIngressOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s AuthorizeClientVpnIngressOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/AuthorizeSecurityGroupEgressRequest
 type AuthorizeSecurityGroupEgressInput struct {
 	_ struct{} `type:"structure"`
@@ -18082,6 +21687,9 @@ type AvailabilityZone struct {
 
 	// The state of the Availability Zone.
 	State AvailabilityZoneState `locationName:"zoneState" type:"string" enum:"true"`
+
+	// The ID of the Availability Zone.
+	ZoneId *string `locationName:"zoneId" type:"string"`
 
 	// The name of the Availability Zone.
 	ZoneName *string `locationName:"zoneName" type:"string"`
@@ -18344,6 +21952,36 @@ func (s BundleTaskError) GoString() string {
 	return s.String()
 }
 
+// Information about an address range that is provisioned for use with your
+// AWS resources through bring your own IP addresses (BYOIP).
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ByoipCidr
+type ByoipCidr struct {
+	_ struct{} `type:"structure"`
+
+	// The public IPv4 address range, in CIDR notation.
+	Cidr *string `locationName:"cidr" type:"string"`
+
+	// The description of the address range.
+	Description *string `locationName:"description" type:"string"`
+
+	// The state of the address pool.
+	State ByoipCidrState `locationName:"state" type:"string" enum:"true"`
+
+	// Upon success, contains the ID of the address pool. Otherwise, contains an
+	// error message.
+	StatusMessage *string `locationName:"statusMessage" type:"string"`
+}
+
+// String returns the string representation
+func (s ByoipCidr) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ByoipCidr) GoString() string {
+	return s.String()
+}
+
 // Contains the parameters for CancelBundleTask.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CancelBundleTaskRequest
 type CancelBundleTaskInput struct {
@@ -18408,6 +22046,71 @@ func (s CancelBundleTaskOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s CancelBundleTaskOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CancelCapacityReservationRequest
+type CancelCapacityReservationInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Capacity Reservation to be cancelled.
+	//
+	// CapacityReservationId is a required field
+	CapacityReservationId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s CancelCapacityReservationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CancelCapacityReservationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CancelCapacityReservationInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CancelCapacityReservationInput"}
+
+	if s.CapacityReservationId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("CapacityReservationId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CancelCapacityReservationResult
+type CancelCapacityReservationOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool `locationName:"return" type:"boolean"`
+}
+
+// String returns the string representation
+func (s CancelCapacityReservationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CancelCapacityReservationOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CancelCapacityReservationOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -18661,14 +22364,10 @@ type CancelSpotFleetRequestsError struct {
 	_ struct{} `type:"structure"`
 
 	// The error code.
-	//
-	// Code is a required field
-	Code CancelBatchErrorCode `locationName:"code" type:"string" required:"true" enum:"true"`
+	Code CancelBatchErrorCode `locationName:"code" type:"string" enum:"true"`
 
 	// The description for the error code.
-	//
-	// Message is a required field
-	Message *string `locationName:"message" type:"string" required:"true"`
+	Message *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -18687,14 +22386,10 @@ type CancelSpotFleetRequestsErrorItem struct {
 	_ struct{} `type:"structure"`
 
 	// The error.
-	//
-	// Error is a required field
-	Error *CancelSpotFleetRequestsError `locationName:"error" type:"structure" required:"true"`
+	Error *CancelSpotFleetRequestsError `locationName:"error" type:"structure"`
 
 	// The ID of the Spot Fleet request.
-	//
-	// SpotFleetRequestId is a required field
-	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string" required:"true"`
+	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string"`
 }
 
 // String returns the string representation
@@ -18793,19 +22488,13 @@ type CancelSpotFleetRequestsSuccessItem struct {
 	_ struct{} `type:"structure"`
 
 	// The current state of the Spot Fleet request.
-	//
-	// CurrentSpotFleetRequestState is a required field
-	CurrentSpotFleetRequestState BatchState `locationName:"currentSpotFleetRequestState" type:"string" required:"true" enum:"true"`
+	CurrentSpotFleetRequestState BatchState `locationName:"currentSpotFleetRequestState" type:"string" enum:"true"`
 
 	// The previous state of the Spot Fleet request.
-	//
-	// PreviousSpotFleetRequestState is a required field
-	PreviousSpotFleetRequestState BatchState `locationName:"previousSpotFleetRequestState" type:"string" required:"true" enum:"true"`
+	PreviousSpotFleetRequestState BatchState `locationName:"previousSpotFleetRequestState" type:"string" enum:"true"`
 
 	// The ID of the Spot Fleet request.
-	//
-	// SpotFleetRequestId is a required field
-	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string" required:"true"`
+	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string"`
 }
 
 // String returns the string representation
@@ -18907,6 +22596,310 @@ func (s CancelledSpotInstanceRequest) GoString() string {
 	return s.String()
 }
 
+// Describes a Capacity Reservation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CapacityReservation
+type CapacityReservation struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone in which the capacity is reserved.
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
+
+	// The remaining capacity. Indicates the number of instances that can be launched
+	// in the Capacity Reservation.
+	AvailableInstanceCount *int64 `locationName:"availableInstanceCount" type:"integer"`
+
+	// The ID of the Capacity Reservation.
+	CapacityReservationId *string `locationName:"capacityReservationId" type:"string"`
+
+	// The date and time at which the Capacity Reservation was created.
+	CreateDate *time.Time `locationName:"createDate" type:"timestamp" timestampFormat:"iso8601"`
+
+	// Indicates whether the Capacity Reservation supports EBS-optimized instances.
+	// This optimization provides dedicated throughput to Amazon EBS and an optimized
+	// configuration stack to provide optimal I/O performance. This optimization
+	// isn't available with all instance types. Additional usage charges apply when
+	// using an EBS- optimized instance.
+	EbsOptimized *bool `locationName:"ebsOptimized" type:"boolean"`
+
+	// The date and time at which the Capacity Reservation expires. When a Capacity
+	// Reservation expires, the reserved capacity is released and you can no longer
+	// launch instances into it. The Capacity Reservation's state changes to expired
+	// when it reaches its end date and time.
+	EndDate *time.Time `locationName:"endDate" type:"timestamp" timestampFormat:"iso8601"`
+
+	// Indicates the way in which the Capacity Reservation ends. A Capacity Reservation
+	// can have one of the following end types:
+	//
+	//    * unlimited - The Capacity Reservation remains active until you explicitly
+	//    cancel it.
+	//
+	//    * limited - The Capacity Reservation expires automatically at a specified
+	//    date and time.
+	EndDateType EndDateType `locationName:"endDateType" type:"string" enum:"true"`
+
+	// Indicates whether the Capacity Reservation supports instances with temporary,
+	// block-level storage.
+	EphemeralStorage *bool `locationName:"ephemeralStorage" type:"boolean"`
+
+	// Indicates the type of instance launches that the Capacity Reservation accepts.
+	// The options include:
+	//
+	//    * open - The Capacity Reservation accepts all instances that have matching
+	//    attributes (instance type, platform, and Availability Zone). Instances
+	//    that have matching attributes launch into the Capacity Reservation automatically
+	//    without specifying any additional parameters.
+	//
+	//    * targeted - The Capacity Reservation only accepts instances that have
+	//    matching attributes (instance type, platform, and Availability Zone),
+	//    and explicitly target the Capacity Reservation. This ensures that only
+	//    permitted instances can use the reserved capacity.
+	InstanceMatchCriteria InstanceMatchCriteria `locationName:"instanceMatchCriteria" type:"string" enum:"true"`
+
+	// The type of operating system for which the Capacity Reservation reserves
+	// capacity.
+	InstancePlatform CapacityReservationInstancePlatform `locationName:"instancePlatform" type:"string" enum:"true"`
+
+	// The type of instance for which the Capacity Reservation reserves capacity.
+	InstanceType *string `locationName:"instanceType" type:"string"`
+
+	// The current state of the Capacity Reservation. A Capacity Reservation can
+	// be in one of the following states:
+	//
+	//    * active - The Capacity Reservation is active and the capacity is available
+	//    for your use.
+	//
+	//    * cancelled - The Capacity Reservation expired automatically at the date
+	//    and time specified in your request. The reserved capacity is no longer
+	//    available for your use.
+	//
+	//    * expired - The Capacity Reservation was manually cancelled. The reserved
+	//    capacity is no longer available for your use.
+	//
+	//    * pending - The Capacity Reservation request was successful but the capacity
+	//    provisioning is still pending.
+	//
+	//    * failed - The Capacity Reservation request has failed. A request might
+	//    fail due to invalid request parameters, capacity constraints, or instance
+	//    limit constraints. Failed requests are retained for 60 minutes.
+	State CapacityReservationState `locationName:"state" type:"string" enum:"true"`
+
+	// Any tags assigned to the Capacity Reservation.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// Indicates the tenancy of the Capacity Reservation. A Capacity Reservation
+	// can have one of the following tenancy settings:
+	//
+	//    * default - The Capacity Reservation is created on hardware that is shared
+	//    with other AWS accounts.
+	//
+	//    * dedicated - The Capacity Reservation is created on single-tenant hardware
+	//    that is dedicated to a single AWS account.
+	Tenancy CapacityReservationTenancy `locationName:"tenancy" type:"string" enum:"true"`
+
+	// The number of instances for which the Capacity Reservation reserves capacity.
+	TotalInstanceCount *int64 `locationName:"totalInstanceCount" type:"integer"`
+}
+
+// String returns the string representation
+func (s CapacityReservation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CapacityReservation) GoString() string {
+	return s.String()
+}
+
+// Describes an instance's Capacity Reservation targeting option. You can specify
+// only one option at a time. Use the CapacityReservationPreference parameter
+// to configure the instance to run as an On-Demand Instance or to run in any
+// open Capacity Reservation that has matching attributes (instance type, platform,
+// Availability Zone). Use the CapacityReservationTarget parameter to explicitly
+// target a specific Capacity Reservation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CapacityReservationSpecification
+type CapacityReservationSpecification struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates the instance's Capacity Reservation preferences. Possible preferences
+	// include:
+	//
+	//    * open - The instance can run in any open Capacity Reservation that has
+	//    matching attributes (instance type, platform, Availability Zone).
+	//
+	//    * none - The instance avoids running in a Capacity Reservation even if
+	//    one is available. The instance runs as an On-Demand Instance.
+	CapacityReservationPreference CapacityReservationPreference `type:"string" enum:"true"`
+
+	// Information about the target Capacity Reservation.
+	CapacityReservationTarget *CapacityReservationTarget `type:"structure"`
+}
+
+// String returns the string representation
+func (s CapacityReservationSpecification) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CapacityReservationSpecification) GoString() string {
+	return s.String()
+}
+
+// Describes the instance's Capacity Reservation targeting preferences. The
+// action returns the capacityReservationPreference response element if the
+// instance is configured to run in On-Demand capacity, or if it is configured
+// in run in any open Capacity Reservation that has matching attributes (instance
+// type, platform, Availability Zone). The action returns the capacityReservationTarget
+// response element if the instance explicily targets a specific Capacity Reservation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CapacityReservationSpecificationResponse
+type CapacityReservationSpecificationResponse struct {
+	_ struct{} `type:"structure"`
+
+	// Describes the instance's Capacity Reservation preferences. Possible preferences
+	// include:
+	//
+	//    * open - The instance can run in any open Capacity Reservation that has
+	//    matching attributes (instance type, platform, Availability Zone).
+	//
+	//    * none - The instance avoids running in a Capacity Reservation even if
+	//    one is available. The instance runs in On-Demand capacity.
+	CapacityReservationPreference CapacityReservationPreference `locationName:"capacityReservationPreference" type:"string" enum:"true"`
+
+	// Information about the targeted Capacity Reservation.
+	CapacityReservationTarget *CapacityReservationTargetResponse `locationName:"capacityReservationTarget" type:"structure"`
+}
+
+// String returns the string representation
+func (s CapacityReservationSpecificationResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CapacityReservationSpecificationResponse) GoString() string {
+	return s.String()
+}
+
+// Describes a target Capacity Reservation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CapacityReservationTarget
+type CapacityReservationTarget struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Capacity Reservation.
+	CapacityReservationId *string `type:"string"`
+}
+
+// String returns the string representation
+func (s CapacityReservationTarget) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CapacityReservationTarget) GoString() string {
+	return s.String()
+}
+
+// Describes a target Capacity Reservation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CapacityReservationTargetResponse
+type CapacityReservationTargetResponse struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Capacity Reservation.
+	CapacityReservationId *string `locationName:"capacityReservationId" type:"string"`
+}
+
+// String returns the string representation
+func (s CapacityReservationTargetResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CapacityReservationTargetResponse) GoString() string {
+	return s.String()
+}
+
+// Information about the client certificate used for authentication.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CertificateAuthentication
+type CertificateAuthentication struct {
+	_ struct{} `type:"structure"`
+
+	// The ARN of the client certificate.
+	ClientRootCertificateChain *string `locationName:"clientRootCertificateChain" type:"string"`
+}
+
+// String returns the string representation
+func (s CertificateAuthentication) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CertificateAuthentication) GoString() string {
+	return s.String()
+}
+
+// Information about the client certificate to be used for authentication.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CertificateAuthenticationRequest
+type CertificateAuthenticationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// The ARN of the client certificate. The certificate must be signed by a certificate
+	// authority (CA) and it must be provisioned in AWS Certificate Manager (ACM).
+	ClientRootCertificateChainArn *string `type:"string"`
+}
+
+// String returns the string representation
+func (s CertificateAuthenticationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CertificateAuthenticationRequest) GoString() string {
+	return s.String()
+}
+
+// Provides authorization for Amazon to bring a specific IP address range to
+// a specific AWS account using bring your own IP addresses (BYOIP).
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CidrAuthorizationContext
+type CidrAuthorizationContext struct {
+	_ struct{} `type:"structure"`
+
+	// The plain-text authorization message for the prefix and account.
+	//
+	// Message is a required field
+	Message *string `type:"string" required:"true"`
+
+	// The signed authorization message for the prefix and account.
+	//
+	// Signature is a required field
+	Signature *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s CidrAuthorizationContext) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CidrAuthorizationContext) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CidrAuthorizationContext) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CidrAuthorizationContext"}
+
+	if s.Message == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Message"))
+	}
+
+	if s.Signature == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Signature"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 // Describes an IPv4 CIDR block.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CidrBlock
 type CidrBlock struct {
@@ -18982,9 +22975,7 @@ type ClassicLoadBalancer struct {
 	_ struct{} `type:"structure"`
 
 	// The name of the load balancer.
-	//
-	// Name is a required field
-	Name *string `locationName:"name" type:"string" required:"true"`
+	Name *string `locationName:"name" type:"string"`
 }
 
 // String returns the string representation
@@ -18997,20 +22988,6 @@ func (s ClassicLoadBalancer) GoString() string {
 	return s.String()
 }
 
-// Validate inspects the fields of the type to determine if they are valid.
-func (s *ClassicLoadBalancer) Validate() error {
-	invalidParams := aws.ErrInvalidParams{Context: "ClassicLoadBalancer"}
-
-	if s.Name == nil {
-		invalidParams.Add(aws.NewErrParamRequired("Name"))
-	}
-
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	}
-	return nil
-}
-
 // Describes the Classic Load Balancers to attach to a Spot Fleet. Spot Fleet
 // registers the running Spot Instances with these Classic Load Balancers.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClassicLoadBalancersConfig
@@ -19018,9 +22995,7 @@ type ClassicLoadBalancersConfig struct {
 	_ struct{} `type:"structure"`
 
 	// One or more Classic Load Balancers.
-	//
-	// ClassicLoadBalancers is a required field
-	ClassicLoadBalancers []ClassicLoadBalancer `locationName:"classicLoadBalancers" locationNameList:"item" min:"1" type:"list" required:"true"`
+	ClassicLoadBalancers []ClassicLoadBalancer `locationName:"classicLoadBalancers" locationNameList:"item" min:"1" type:"list"`
 }
 
 // String returns the string representation
@@ -19036,25 +23011,37 @@ func (s ClassicLoadBalancersConfig) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *ClassicLoadBalancersConfig) Validate() error {
 	invalidParams := aws.ErrInvalidParams{Context: "ClassicLoadBalancersConfig"}
-
-	if s.ClassicLoadBalancers == nil {
-		invalidParams.Add(aws.NewErrParamRequired("ClassicLoadBalancers"))
-	}
 	if s.ClassicLoadBalancers != nil && len(s.ClassicLoadBalancers) < 1 {
 		invalidParams.Add(aws.NewErrParamMinLen("ClassicLoadBalancers", 1))
-	}
-	if s.ClassicLoadBalancers != nil {
-		for i, v := range s.ClassicLoadBalancers {
-			if err := v.Validate(); err != nil {
-				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ClassicLoadBalancers", i), err.(aws.ErrInvalidParams))
-			}
-		}
 	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	}
 	return nil
+}
+
+// Describes the state of a client certificate revocation list.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientCertificateRevocationListStatus
+type ClientCertificateRevocationListStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the client certificate revocation list.
+	Code ClientCertificateRevocationListStatusCode `locationName:"code" type:"string" enum:"true"`
+
+	// A message about the status of the client certificate revocation list, if
+	// applicable.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientCertificateRevocationListStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientCertificateRevocationListStatus) GoString() string {
+	return s.String()
 }
 
 // Describes the client-specific data.
@@ -19085,7 +23072,327 @@ func (s ClientData) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for ConfirmProductInstance.
+// Describes the authentication methods used by a Client VPN endpoint. Client
+// VPN supports Active Directory and mutual authentication. For more information,
+// see Authentication (vpn/latest/clientvpn-admin/authentication-authrization.html#client-authentication)
+// in the AWS Client VPN Admin Guide.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnAuthentication
+type ClientVpnAuthentication struct {
+	_ struct{} `type:"structure"`
+
+	// Information about the Active Directory, if applicable.
+	ActiveDirectory *DirectoryServiceAuthentication `locationName:"activeDirectory" type:"structure"`
+
+	// Information about the authentication certificates, if applicable.
+	MutualAuthentication *CertificateAuthentication `locationName:"mutualAuthentication" type:"structure"`
+
+	// The authentication type used.
+	Type ClientVpnAuthenticationType `locationName:"type" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s ClientVpnAuthentication) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnAuthentication) GoString() string {
+	return s.String()
+}
+
+// Describes the authentication method to be used by a Client VPN endpoint.
+// Client VPN supports Active Directory and mutual authentication. For more
+// information, see Authentication (vpn/latest/clientvpn-admin/authentication-authrization.html#client-authentication)
+// in the AWS Client VPN Admin Guide.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnAuthenticationRequest
+type ClientVpnAuthenticationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// Information about the Active Directory to be used, if applicable. You must
+	// provide this information if Type is directory-service-authentication.
+	ActiveDirectory *DirectoryServiceAuthenticationRequest `type:"structure"`
+
+	// Information about the authentication certificates to be used, if applicable.
+	// You must provide this information if Type is certificate-authentication.
+	MutualAuthentication *CertificateAuthenticationRequest `type:"structure"`
+
+	// The type of client authentication to be used. Specify certificate-authentication
+	// to use certificate-based authentication, or directory-service-authentication
+	// to use Active Directory authentication.
+	Type ClientVpnAuthenticationType `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s ClientVpnAuthenticationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnAuthenticationRequest) GoString() string {
+	return s.String()
+}
+
+// Describes the state of an authorization rule.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnAuthorizationRuleStatus
+type ClientVpnAuthorizationRuleStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the authorization rule.
+	Code ClientVpnAuthorizationRuleStatusCode `locationName:"code" type:"string" enum:"true"`
+
+	// A message about the status of the authorization rule, if applicable.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientVpnAuthorizationRuleStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnAuthorizationRuleStatus) GoString() string {
+	return s.String()
+}
+
+// Describes a client connection.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnConnection
+type ClientVpnConnection struct {
+	_ struct{} `type:"structure"`
+
+	// The IP address of the client.
+	ClientIp *string `locationName:"clientIp" type:"string"`
+
+	// The ID of the Client VPN endpoint to which the client is connected.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// The common name associated with the client. This is either the name of the
+	// client certificate, or the Active Directory user name.
+	CommonName *string `locationName:"commonName" type:"string"`
+
+	// The date and time the client connection was terminated.
+	ConnectionEndTime *string `locationName:"connectionEndTime" type:"string"`
+
+	// The date and time the client connection was established.
+	ConnectionEstablishedTime *string `locationName:"connectionEstablishedTime" type:"string"`
+
+	// The ID of the client connection.
+	ConnectionId *string `locationName:"connectionId" type:"string"`
+
+	// The number of bytes received by the client.
+	EgressBytes *string `locationName:"egressBytes" type:"string"`
+
+	// The number of packets received by the client.
+	EgressPackets *string `locationName:"egressPackets" type:"string"`
+
+	// The number of bytes sent by the client.
+	IngressBytes *string `locationName:"ingressBytes" type:"string"`
+
+	// The number of packets sent by the client.
+	IngressPackets *string `locationName:"ingressPackets" type:"string"`
+
+	// The current state of the client connection.
+	Status *ClientVpnConnectionStatus `locationName:"status" type:"structure"`
+
+	// The current date and time.
+	Timestamp *string `locationName:"timestamp" type:"string"`
+
+	// The username of the client who established the client connection. This information
+	// is only provided if Active Directory client authentication is used.
+	Username *string `locationName:"username" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientVpnConnection) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnConnection) GoString() string {
+	return s.String()
+}
+
+// Describes the status of a client connection.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnConnectionStatus
+type ClientVpnConnectionStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the client connection.
+	Code ClientVpnConnectionStatusCode `locationName:"code" type:"string" enum:"true"`
+
+	// A message about the status of the client connection, if applicable.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientVpnConnectionStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnConnectionStatus) GoString() string {
+	return s.String()
+}
+
+// Describes a Client VPN endpoint.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnEndpoint
+type ClientVpnEndpoint struct {
+	_ struct{} `type:"structure"`
+
+	// Information about the associated target networks. A target network is a subnet
+	// in a VPC.
+	AssociatedTargetNetworks []AssociatedTargetNetwork `locationName:"associatedTargetNetwork" locationNameList:"item" type:"list"`
+
+	// Information about the authentication method used by the Client VPN endpoint.
+	AuthenticationOptions []ClientVpnAuthentication `locationName:"authenticationOptions" locationNameList:"item" type:"list"`
+
+	// The IPv4 address range, in CIDR notation, from which client IP addresses
+	// are assigned.
+	ClientCidrBlock *string `locationName:"clientCidrBlock" type:"string"`
+
+	// The ID of the Client VPN endpoint.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// Information about the client connection logging options for the Client VPN
+	// endpoint.
+	ConnectionLogOptions *ConnectionLogResponseOptions `locationName:"connectionLogOptions" type:"structure"`
+
+	// The date and time the Client VPN endpoint was created.
+	CreationTime *string `locationName:"creationTime" type:"string"`
+
+	// The date and time the Client VPN endpoint was deleted, if applicable. Information
+	// about deleted Client VPN endpoints is retained for 24 hours, unless a new
+	// Client VPN is created with the same name.
+	DeletionTime *string `locationName:"deletionTime" type:"string"`
+
+	// A brief description of the endpoint.
+	Description *string `locationName:"description" type:"string"`
+
+	// The DNS name to be used by clients when establishing a connection.
+	DnsName *string `locationName:"dnsName" type:"string"`
+
+	// The ARN of the server certificate.
+	ServerCertificateArn *string `locationName:"serverCertificateArn" type:"string"`
+
+	// Indicates whether VPN split tunneling is supported.
+	SplitTunnel *bool `locationName:"splitTunnel" type:"boolean"`
+
+	// The current state of the Client VPN endpoint.
+	Status *ClientVpnEndpointStatus `locationName:"status" type:"structure"`
+
+	// The transport protocol used by the Client VPN endpoint.
+	TransportProtocol TransportProtocol `locationName:"transportProtocol" type:"string" enum:"true"`
+
+	// The protocol used by the VPN session.
+	VpnProtocol VpnProtocol `locationName:"vpnProtocol" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s ClientVpnEndpoint) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnEndpoint) GoString() string {
+	return s.String()
+}
+
+// Describes the state of a Client VPN endpoint.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnEndpointStatus
+type ClientVpnEndpointStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the Client VPN endpoint. Possible states include:
+	//
+	//    * pending-associate - The Client VPN endpoint has been created but no
+	//    target networks have been associated. The Client VPN endpoint cannot accept
+	//    connections.
+	//
+	//    * available - The Client VPN endpoint has been created and a target network
+	//    has been associated. The Client VPN endpoint can accept connections.
+	//
+	//    * deleting - The Client VPN endpoint is being deleted. The Client VPN
+	//    endpoint cannot accept connections.
+	//
+	//    * deleted - The Client VPN endpoint has been deleted. The Client VPN endpoint
+	//    cannot accept connections.
+	Code ClientVpnEndpointStatusCode `locationName:"code" type:"string" enum:"true"`
+
+	// A message about the status of the Client VPN endpoint.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientVpnEndpointStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnEndpointStatus) GoString() string {
+	return s.String()
+}
+
+// Information about a Client VPN endpoint route.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnRoute
+type ClientVpnRoute struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint with which the route is associated.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// A brief description of the route.
+	Description *string `locationName:"description" type:"string"`
+
+	// The IPv4 address range, in CIDR notation, of the route destination.
+	DestinationCidr *string `locationName:"destinationCidr" type:"string"`
+
+	// Indicates how the route was associated with the Client VPN endpoint. associate
+	// indicates that the route was automatically added when the target network
+	// was associated with the Client VPN endpoint. add-route indicates that the
+	// route was manually added using the CreateClientVpnRoute action.
+	Origin *string `locationName:"origin" type:"string"`
+
+	// The current state of the route.
+	Status *ClientVpnRouteStatus `locationName:"status" type:"structure"`
+
+	// The ID of the subnet through which traffic is routed.
+	TargetSubnet *string `locationName:"targetSubnet" type:"string"`
+
+	// The route type.
+	Type *string `locationName:"type" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientVpnRoute) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnRoute) GoString() string {
+	return s.String()
+}
+
+// Describes the state of a Client VPN endpoint route.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ClientVpnRouteStatus
+type ClientVpnRouteStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the Client VPN endpoint route.
+	Code ClientVpnRouteStatusCode `locationName:"code" type:"string" enum:"true"`
+
+	// A message about the status of the Client VPN endpoint route, if applicable.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ClientVpnRouteStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ClientVpnRouteStatus) GoString() string {
+	return s.String()
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ConfirmProductInstanceRequest
 type ConfirmProductInstanceInput struct {
 	_ struct{} `type:"structure"`
@@ -19135,7 +23442,6 @@ func (s *ConfirmProductInstanceInput) Validate() error {
 	return nil
 }
 
-// Contains the output of ConfirmProductInstance.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ConfirmProductInstanceResult
 type ConfirmProductInstanceOutput struct {
 	_ struct{} `type:"structure"`
@@ -19164,6 +23470,61 @@ func (s ConfirmProductInstanceOutput) GoString() string {
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s ConfirmProductInstanceOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
+}
+
+// Describes the client connection logging options for the Client VPN endpoint.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ConnectionLogOptions
+type ConnectionLogOptions struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the CloudWatch Logs log group.
+	CloudwatchLogGroup *string `type:"string"`
+
+	// The name of the CloudWatch Logs log stream to which the connection data is
+	// published.
+	CloudwatchLogStream *string `type:"string"`
+
+	// Indicates whether connection logging is enabled.
+	Enabled *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s ConnectionLogOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ConnectionLogOptions) GoString() string {
+	return s.String()
+}
+
+// Information about the client connection logging options for a Client VPN
+// endpoint.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ConnectionLogResponseOptions
+type ConnectionLogResponseOptions struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the Amazon CloudWatch Logs log group to which connection logging
+	// data is published.
+	CloudwatchLogGroup *string `type:"string"`
+
+	// The name of the Amazon CloudWatch Logs log stream to which connection logging
+	// data is published.
+	CloudwatchLogStream *string `type:"string"`
+
+	// Indicates whether client connection logging is enabled for the Client VPN
+	// endpoint.
+	Enabled *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s ConnectionLogResponseOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ConnectionLogResponseOptions) GoString() string {
+	return s.String()
 }
 
 // Describes a connection notification for a VPC endpoint or VPC endpoint service.
@@ -19646,6 +24007,399 @@ func (s CpuOptionsRequest) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateCapacityReservationRequest
+type CreateCapacityReservationInput struct {
+	_ struct{} `type:"structure"`
+
+	// The Availability Zone in which to create the Capacity Reservation.
+	//
+	// AvailabilityZone is a required field
+	AvailabilityZone *string `type:"string" required:"true"`
+
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request. For more information, see How to Ensure Idempotency (http://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	//
+	// Constraint: Maximum 64 ASCII characters.
+	ClientToken *string `type:"string"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// Indicates whether the Capacity Reservation supports EBS-optimized instances.
+	// This optimization provides dedicated throughput to Amazon EBS and an optimized
+	// configuration stack to provide optimal I/O performance. This optimization
+	// isn't available with all instance types. Additional usage charges apply when
+	// using an EBS- optimized instance.
+	EbsOptimized *bool `type:"boolean"`
+
+	// The date and time at which the Capacity Reservation expires. When a Capacity
+	// Reservation expires, the reserved capacity is released and you can no longer
+	// launch instances into it. The Capacity Reservation's state changes to expired
+	// when it reaches its end date and time.
+	//
+	// You must provide an EndDate value if EndDateType is limited. Omit EndDate
+	// if EndDateType is unlimited.
+	//
+	// If the EndDateType is limited, the Capacity Reservation is cancelled within
+	// an hour from the specified time. For example, if you specify 5/31/2019, 13:30:55,
+	// the Capacity Reservation is guaranteed to end between 13:30:55 and 14:30:55
+	// on 5/31/2019.
+	EndDate *time.Time `type:"timestamp" timestampFormat:"iso8601"`
+
+	// Indicates the way in which the Capacity Reservation ends. A Capacity Reservation
+	// can have one of the following end types:
+	//
+	//    * unlimited - The Capacity Reservation remains active until you explicitly
+	//    cancel it. Do not provide an EndDate if the EndDateType is unlimited.
+	//
+	//    * limited - The Capacity Reservation expires automatically at a specified
+	//    date and time. You must provide an EndDate value if the EndDateType value
+	//    is limited.
+	EndDateType EndDateType `type:"string" enum:"true"`
+
+	// Indicates whether the Capacity Reservation supports instances with temporary,
+	// block-level storage.
+	EphemeralStorage *bool `type:"boolean"`
+
+	// The number of instances for which to reserve capacity.
+	//
+	// InstanceCount is a required field
+	InstanceCount *int64 `type:"integer" required:"true"`
+
+	// Indicates the type of instance launches that the Capacity Reservation accepts.
+	// The options include:
+	//
+	//    * open - The Capacity Reservation automatically matches all instances
+	//    that have matching attributes (instance type, platform, and Availability
+	//    Zone). Instances that have matching attributes run in the Capacity Reservation
+	//    automatically without specifying any additional parameters.
+	//
+	//    * targeted - The Capacity Reservation only accepts instances that have
+	//    matching attributes (instance type, platform, and Availability Zone),
+	//    and explicitly target the Capacity Reservation. This ensures that only
+	//    permitted instances can use the reserved capacity.
+	//
+	// Default: open
+	InstanceMatchCriteria InstanceMatchCriteria `type:"string" enum:"true"`
+
+	// The type of operating system for which to reserve capacity.
+	//
+	// InstancePlatform is a required field
+	InstancePlatform CapacityReservationInstancePlatform `type:"string" required:"true" enum:"true"`
+
+	// The instance type for which to reserve capacity. For more information, see
+	// Instance Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	//
+	// InstanceType is a required field
+	InstanceType *string `type:"string" required:"true"`
+
+	// The tags to apply to the Capacity Reservation during launch.
+	TagSpecifications []TagSpecification `locationNameList:"item" type:"list"`
+
+	// Indicates the tenancy of the Capacity Reservation. A Capacity Reservation
+	// can have one of the following tenancy settings:
+	//
+	//    * default - The Capacity Reservation is created on hardware that is shared
+	//    with other AWS accounts.
+	//
+	//    * dedicated - The Capacity Reservation is created on single-tenant hardware
+	//    that is dedicated to a single AWS account.
+	Tenancy CapacityReservationTenancy `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CreateCapacityReservationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateCapacityReservationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateCapacityReservationInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CreateCapacityReservationInput"}
+
+	if s.AvailabilityZone == nil {
+		invalidParams.Add(aws.NewErrParamRequired("AvailabilityZone"))
+	}
+
+	if s.InstanceCount == nil {
+		invalidParams.Add(aws.NewErrParamRequired("InstanceCount"))
+	}
+	if len(s.InstancePlatform) == 0 {
+		invalidParams.Add(aws.NewErrParamRequired("InstancePlatform"))
+	}
+
+	if s.InstanceType == nil {
+		invalidParams.Add(aws.NewErrParamRequired("InstanceType"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateCapacityReservationResult
+type CreateCapacityReservationOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the Capacity Reservation.
+	CapacityReservation *CapacityReservation `locationName:"capacityReservation" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateCapacityReservationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateCapacityReservationOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateCapacityReservationOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateClientVpnEndpointRequest
+type CreateClientVpnEndpointInput struct {
+	_ struct{} `type:"structure"`
+
+	// Information about the authentication method to be used to authenticate clients.
+	//
+	// AuthenticationOptions is a required field
+	AuthenticationOptions []ClientVpnAuthenticationRequest `locationName:"Authentication" type:"list" required:"true"`
+
+	// The IPv4 address range, in CIDR notation, from which to assign client IP
+	// addresses. The address range cannot overlap with the local CIDR of the VPC
+	// in which the associated subnet is located, or the routes that you add manually.
+	// The address range cannot be changed after the Client VPN endpoint has been
+	// created. The CIDR block should be /22 or greater.
+	//
+	// ClientCidrBlock is a required field
+	ClientCidrBlock *string `type:"string" required:"true"`
+
+	// Unique, case-sensitive identifier you provide to ensure the idempotency of
+	// the request. For more information, see  How to Ensure Idempotency (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
+	ClientToken *string `type:"string" idempotencyToken:"true"`
+
+	// Information about the client connection logging options.
+	//
+	// If you enable client connection logging, data about client connections is
+	// sent to a Cloudwatch Logs log stream. The following information is logged:
+	//
+	//    * Client connection requests
+	//
+	//    * Client connection results (successful and unsuccessful)
+	//
+	//    * Reasons for unsuccessful client connection requests
+	//
+	//    * Client connection termination time
+	//
+	// ConnectionLogOptions is a required field
+	ConnectionLogOptions *ConnectionLogOptions `type:"structure" required:"true"`
+
+	// A brief description of the Client VPN endpoint.
+	Description *string `type:"string"`
+
+	// Information about the DNS servers to be used for DNS resolution. A Client
+	// VPN endpoint can have up to two DNS servers. If no DNS server is specified,
+	// the DNS address of the VPC that is to be associated with Client VPN endpoint
+	// is used as the DNS server.
+	DnsServers []string `locationNameList:"item" type:"list"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ARN of the server certificate. For more information, see the AWS Certificate
+	// Manager User Guide (acm/latest/userguide/acm-overview.html) .
+	//
+	// ServerCertificateArn is a required field
+	ServerCertificateArn *string `type:"string" required:"true"`
+
+	// The transport protocol to be used by the VPN session.
+	//
+	// Default value: udp
+	TransportProtocol TransportProtocol `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CreateClientVpnEndpointInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateClientVpnEndpointInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateClientVpnEndpointInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CreateClientVpnEndpointInput"}
+
+	if s.AuthenticationOptions == nil {
+		invalidParams.Add(aws.NewErrParamRequired("AuthenticationOptions"))
+	}
+
+	if s.ClientCidrBlock == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientCidrBlock"))
+	}
+
+	if s.ConnectionLogOptions == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ConnectionLogOptions"))
+	}
+
+	if s.ServerCertificateArn == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ServerCertificateArn"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateClientVpnEndpointResult
+type CreateClientVpnEndpointOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The ID of the Client VPN endpoint.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// The DNS name to be used by clients when establishing their VPN session.
+	DnsName *string `locationName:"dnsName" type:"string"`
+
+	// The current state of the Client VPN endpoint.
+	Status *ClientVpnEndpointStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateClientVpnEndpointOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateClientVpnEndpointOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateClientVpnEndpointOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateClientVpnRouteRequest
+type CreateClientVpnRouteInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint to which to add the route.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// A brief description of the route.
+	Description *string `type:"string"`
+
+	// The IPv4 address range, in CIDR notation, of the route destination. For example:
+	//
+	//    * To add a route for Internet access, enter 0.0.0.0/0
+	//
+	//    * To add a route for a peered VPC, enter the peered VPC's IPv4 CIDR range
+	//
+	//    * To add a route for an on-premises network, enter the AWS Site-to-Site
+	//    VPN connection's IPv4 CIDR range
+	//
+	// Route address ranges cannot overlap with the CIDR range specified for client
+	// allocation.
+	//
+	// DestinationCidrBlock is a required field
+	DestinationCidrBlock *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the subnet through which you want to route traffic. The specified
+	// subnet must be an existing target network of the Client VPN endpoint.
+	//
+	// TargetVpcSubnetId is a required field
+	TargetVpcSubnetId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s CreateClientVpnRouteInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateClientVpnRouteInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateClientVpnRouteInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CreateClientVpnRouteInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if s.DestinationCidrBlock == nil {
+		invalidParams.Add(aws.NewErrParamRequired("DestinationCidrBlock"))
+	}
+
+	if s.TargetVpcSubnetId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TargetVpcSubnetId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateClientVpnRouteResult
+type CreateClientVpnRouteOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The current state of the route.
+	Status *ClientVpnRouteStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateClientVpnRouteOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateClientVpnRouteOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateClientVpnRouteOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Contains the parameters for CreateCustomerGateway.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateCustomerGatewayRequest
 type CreateCustomerGatewayInput struct {
@@ -19982,6 +24736,39 @@ func (s CreateEgressOnlyInternetGatewayOutput) SDKResponseMetadata() aws.Respons
 	return s.responseMetadata
 }
 
+// Describes the instances that could not be launched by the fleet.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateFleetError
+type CreateFleetError struct {
+	_ struct{} `type:"structure"`
+
+	// The error code that indicates why the instance could not be launched. For
+	// more information about error codes, see Error Codes (http://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	ErrorCode *string `locationName:"errorCode" type:"string"`
+
+	// The error message that describes why the instance could not be launched.
+	// For more information about error messages, see ee Error Codes (http://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	ErrorMessage *string `locationName:"errorMessage" type:"string"`
+
+	// The launch templates and overrides that were used for launching the instances.
+	// Any parameters that you specify in the Overrides override the same parameters
+	// in the launch template.
+	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
+
+	// Indicates if the instance that could not be launched was a Spot Instance
+	// or On-Demand Instance.
+	Lifecycle InstanceLifecycle `locationName:"lifecycle" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CreateFleetError) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateFleetError) GoString() string {
+	return s.String()
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateFleetRequest
 type CreateFleetInput struct {
 	_ struct{} `type:"structure"`
@@ -20031,14 +24818,14 @@ type CreateFleetInput struct {
 	// expires.
 	TerminateInstancesWithExpiration *bool `type:"boolean"`
 
-	// The type of request. Indicates whether the EC2 Fleet only requests the target
-	// capacity, or also attempts to maintain it. If you request a certain target
-	// capacity, EC2 Fleet only places the required requests. It does not attempt
-	// to replenish instances if capacity is diminished, and does not submit requests
-	// in alternative capacity pools if capacity is unavailable. To maintain a certain
-	// target capacity, EC2 Fleet places the required requests to meet this target
-	// capacity. It also automatically replenishes any interrupted Spot Instances.
-	// Default: maintain.
+	// The type of the request. By default, the EC2 Fleet places an asynchronous
+	// request for your desired capacity, and maintains it by replenishing interrupted
+	// Spot Instances (maintain). A value of instant places a synchronous one-time
+	// request, and returns errors for any instances that could not be launched.
+	// A value of request places an asynchronous one-time request without maintaining
+	// capacity or submitting requests in alternative capacity pools if capacity
+	// is unavailable. For more information, see EC2 Fleet Request Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-configuration-strategies.html#ec2-fleet-request-type)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	Type FleetType `type:"string" enum:"true"`
 
 	// The start date and time of the request, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
@@ -20091,14 +24878,56 @@ func (s *CreateFleetInput) Validate() error {
 	return nil
 }
 
+// Describes the instances that were launched by the fleet.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateFleetInstance
+type CreateFleetInstance struct {
+	_ struct{} `type:"structure"`
+
+	// The IDs of the instances.
+	InstanceIds []string `locationName:"instanceIds" locationNameList:"item" type:"list"`
+
+	// The instance type.
+	InstanceType InstanceType `locationName:"instanceType" type:"string" enum:"true"`
+
+	// The launch templates and overrides that were used for launching the instances.
+	// Any parameters that you specify in the Overrides override the same parameters
+	// in the launch template.
+	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
+
+	// Indicates if the instance that was launched is a Spot Instance or On-Demand
+	// Instance.
+	Lifecycle InstanceLifecycle `locationName:"lifecycle" type:"string" enum:"true"`
+
+	// The value is Windows for Windows instances; otherwise blank.
+	Platform PlatformValues `locationName:"platform" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CreateFleetInstance) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateFleetInstance) GoString() string {
+	return s.String()
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateFleetResult
 type CreateFleetOutput struct {
 	_ struct{} `type:"structure"`
 
 	responseMetadata aws.Response
 
+	// Information about the instances that could not be launched by the fleet.
+	// Valid only when Type is set to instant.
+	Errors []CreateFleetError `locationName:"errorSet" locationNameList:"item" type:"list"`
+
 	// The ID of the EC2 Fleet.
 	FleetId *string `locationName:"fleetId" type:"string"`
+
+	// Information about the instances that were launched by the fleet. Valid only
+	// when Type is set to instant.
+	Instances []CreateFleetInstance `locationName:"fleetInstanceSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -20888,8 +25717,8 @@ type CreateNetworkAclEntryInput struct {
 	// Egress is a required field
 	Egress *bool `locationName:"egress" type:"boolean" required:"true"`
 
-	// ICMP protocol: The ICMP or ICMPv6 type and code. Required if specifying the
-	// ICMP protocol, or protocol 58 (ICMPv6) with an IPv6 CIDR block.
+	// ICMP protocol: The ICMP or ICMPv6 type and code. Required if specifying protocol
+	// 1 (ICMP) or protocol 58 (ICMPv6) with an IPv6 CIDR block.
 	IcmpTypeCode *IcmpTypeCode `locationName:"Icmp" type:"structure"`
 
 	// The IPv6 network range to allow or deny, in CIDR notation (for example 2001:db8:1234:1a00::/64).
@@ -20900,16 +25729,17 @@ type CreateNetworkAclEntryInput struct {
 	// NetworkAclId is a required field
 	NetworkAclId *string `locationName:"networkAclId" type:"string" required:"true"`
 
-	// TCP or UDP protocols: The range of ports the rule applies to.
+	// TCP or UDP protocols: The range of ports the rule applies to. Required if
+	// specifying protocol 6 (TCP) or 17 (UDP).
 	PortRange *PortRange `locationName:"portRange" type:"structure"`
 
-	// The protocol. A value of -1 or all means all protocols. If you specify all,
-	// -1, or a protocol number other than 6 (tcp), 17 (udp), or 1 (icmp), traffic
-	// on all ports is allowed, regardless of any ports or ICMP types or codes that
-	// you specify. If you specify protocol 58 (ICMPv6) and specify an IPv4 CIDR
-	// block, traffic for all ICMP types and codes allowed, regardless of any that
-	// you specify. If you specify protocol 58 (ICMPv6) and specify an IPv6 CIDR
-	// block, you must specify an ICMP type and code.
+	// The protocol number. A value of "-1" means all protocols. If you specify
+	// "-1" or a protocol number other than "6" (TCP), "17" (UDP), or "1" (ICMP),
+	// traffic on all ports is allowed, regardless of any ports or ICMP types or
+	// codes that you specify. If you specify protocol "58" (ICMPv6) and specify
+	// an IPv4 CIDR block, traffic for all ICMP types and codes allowed, regardless
+	// of any that you specify. If you specify protocol "58" (ICMPv6) and specify
+	// an IPv6 CIDR block, you must specify an ICMP type and code.
 	//
 	// Protocol is a required field
 	Protocol *string `locationName:"protocol" type:"string" required:"true"`
@@ -21241,7 +26071,6 @@ func (s CreateNetworkInterfacePermissionOutput) SDKResponseMetadata() aws.Respon
 	return s.responseMetadata
 }
 
-// Contains the parameters for CreatePlacementGroup.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreatePlacementGroupRequest
 type CreatePlacementGroupInput struct {
 	_ struct{} `type:"structure"`
@@ -21253,17 +26082,16 @@ type CreatePlacementGroupInput struct {
 	DryRun *bool `locationName:"dryRun" type:"boolean"`
 
 	// A name for the placement group. Must be unique within the scope of your account
-	// for the region.
+	// for the Region.
 	//
 	// Constraints: Up to 255 ASCII characters
-	//
-	// GroupName is a required field
-	GroupName *string `locationName:"groupName" type:"string" required:"true"`
+	GroupName *string `locationName:"groupName" type:"string"`
+
+	// The number of partitions. Valid only when Strategy is set to partition.
+	PartitionCount *int64 `type:"integer"`
 
 	// The placement strategy.
-	//
-	// Strategy is a required field
-	Strategy PlacementStrategy `locationName:"strategy" type:"string" required:"true" enum:"true"`
+	Strategy PlacementStrategy `locationName:"strategy" type:"string" enum:"true"`
 }
 
 // String returns the string representation
@@ -21274,23 +26102,6 @@ func (s CreatePlacementGroupInput) String() string {
 // GoString returns the string representation
 func (s CreatePlacementGroupInput) GoString() string {
 	return s.String()
-}
-
-// Validate inspects the fields of the type to determine if they are valid.
-func (s *CreatePlacementGroupInput) Validate() error {
-	invalidParams := aws.ErrInvalidParams{Context: "CreatePlacementGroupInput"}
-
-	if s.GroupName == nil {
-		invalidParams.Add(aws.NewErrParamRequired("GroupName"))
-	}
-	if len(s.Strategy) == 0 {
-		invalidParams.Add(aws.NewErrParamRequired("Strategy"))
-	}
-
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	}
-	return nil
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreatePlacementGroupOutput
@@ -21448,6 +26259,9 @@ type CreateRouteInput struct {
 	//
 	// RouteTableId is a required field
 	RouteTableId *string `locationName:"routeTableId" type:"string" required:"true"`
+
+	// The ID of a transit gateway.
+	TransitGatewayId *string `type:"string"`
 
 	// The ID of a VPC peering connection.
 	VpcPeeringConnectionId *string `locationName:"vpcPeeringConnectionId" type:"string"`
@@ -21864,6 +26678,9 @@ type CreateSubnetInput struct {
 	// VPC, we may not necessarily select a different zone for each subnet.
 	AvailabilityZone *string `type:"string"`
 
+	// The AZ ID of the subnet.
+	AvailabilityZoneId *string `type:"string"`
+
 	// The IPv4 network range for the subnet, in CIDR notation. For example, 10.0.0.0/24.
 	//
 	// CidrBlock is a required field
@@ -21948,7 +26765,10 @@ type CreateTagsInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `locationName:"dryRun" type:"boolean"`
 
-	// The IDs of one or more resources to tag. For example, ami-1a2b3c4d.
+	// The IDs of one or more resources, separated by spaces.
+	//
+	// Constraints: Up to 1000 resource IDs. We recommend breaking up this request
+	// into smaller batches.
 	//
 	// Resources is a required field
 	Resources []string `locationName:"ResourceId" type:"list" required:"true"`
@@ -22011,6 +26831,324 @@ func (s CreateTagsOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRequest
+type CreateTransitGatewayInput struct {
+	_ struct{} `type:"structure"`
+
+	// A description of the transit gateway.
+	Description *string `type:"string"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The transit gateway options.
+	Options *TransitGatewayRequestOptions `type:"structure"`
+
+	// The tags to apply to the transit gateway.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayInput) GoString() string {
+	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayResult
+type CreateTransitGatewayOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the transit gateway.
+	TransitGateway *TransitGateway `locationName:"transitGateway" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateTransitGatewayOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRouteRequest
+type CreateTransitGatewayRouteInput struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether traffic matching this route is to be dropped.
+	Blackhole *bool `type:"boolean"`
+
+	// The CIDR range used for destination matches. Routing decisions are based
+	// on the most specific match.
+	//
+	// DestinationCidrBlock is a required field
+	DestinationCidrBlock *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `type:"string"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayRouteInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayRouteInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateTransitGatewayRouteInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CreateTransitGatewayRouteInput"}
+
+	if s.DestinationCidrBlock == nil {
+		invalidParams.Add(aws.NewErrParamRequired("DestinationCidrBlock"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRouteResult
+type CreateTransitGatewayRouteOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the route.
+	Route *TransitGatewayRoute `locationName:"route" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayRouteOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayRouteOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateTransitGatewayRouteOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRouteTableRequest
+type CreateTransitGatewayRouteTableInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The tags to apply to the transit gateway route table.
+	TagSpecifications []TagSpecification `locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway.
+	//
+	// TransitGatewayId is a required field
+	TransitGatewayId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayRouteTableInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayRouteTableInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateTransitGatewayRouteTableInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CreateTransitGatewayRouteTableInput"}
+
+	if s.TransitGatewayId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayRouteTableResult
+type CreateTransitGatewayRouteTableOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the transit gateway route table.
+	TransitGatewayRouteTable *TransitGatewayRouteTable `locationName:"transitGatewayRouteTable" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayRouteTableOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayRouteTableOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateTransitGatewayRouteTableOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayVpcAttachmentRequest
+type CreateTransitGatewayVpcAttachmentInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The VPC attachment options.
+	Options *CreateTransitGatewayVpcAttachmentRequestOptions `type:"structure"`
+
+	// The IDs of one or more subnets. You can specify only one subnet per Availability
+	// Zone. You must specify at least one subnet, but we recommend that you specify
+	// two subnets for better availability. The transit gateway uses one IP address
+	// from each specified subnet.
+	//
+	// SubnetIds is a required field
+	SubnetIds []string `locationNameList:"item" type:"list" required:"true"`
+
+	// The tags to apply to the VPC attachment.
+	TagSpecifications []TagSpecification `locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway.
+	//
+	// TransitGatewayId is a required field
+	TransitGatewayId *string `type:"string" required:"true"`
+
+	// The ID of the VPC.
+	//
+	// VpcId is a required field
+	VpcId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayVpcAttachmentInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayVpcAttachmentInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CreateTransitGatewayVpcAttachmentInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "CreateTransitGatewayVpcAttachmentInput"}
+
+	if s.SubnetIds == nil {
+		invalidParams.Add(aws.NewErrParamRequired("SubnetIds"))
+	}
+
+	if s.TransitGatewayId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayId"))
+	}
+
+	if s.VpcId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("VpcId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayVpcAttachmentResult
+type CreateTransitGatewayVpcAttachmentOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the VPC attachment.
+	TransitGatewayVpcAttachment *TransitGatewayVpcAttachment `locationName:"transitGatewayVpcAttachment" type:"structure"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayVpcAttachmentOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayVpcAttachmentOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s CreateTransitGatewayVpcAttachmentOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Describes the options for a VPC attachment.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateTransitGatewayVpcAttachmentRequestOptions
+type CreateTransitGatewayVpcAttachmentRequestOptions struct {
+	_ struct{} `type:"structure"`
+
+	// Enable or disable DNS support. The default is enable.
+	DnsSupport DnsSupportValue `type:"string" enum:"true"`
+
+	// Enable or disable IPv6 support. The default is enable.
+	Ipv6Support Ipv6SupportValue `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CreateTransitGatewayVpcAttachmentRequestOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CreateTransitGatewayVpcAttachmentRequestOptions) GoString() string {
+	return s.String()
+}
+
 // Contains the parameters for CreateVolume.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/CreateVolumeRequest
 type CreateVolumeInput struct {
@@ -22038,8 +27176,11 @@ type CreateVolumeInput struct {
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
 	// The number of I/O operations per second (IOPS) to provision for the volume,
-	// with a maximum ratio of 50 IOPS/GiB. Range is 100 to 32000 IOPS for volumes
-	// in most regions. For exceptions, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+	// with a maximum ratio of 50 IOPS/GiB. Range is 100 to 64,000 IOPS for volumes
+	// in most regions. Maximum IOPS of 64,000 is guaranteed only on Nitro-based
+	// instances (AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
+	// Other instance families guarantee performance up to 32,000 IOPS. For more
+	// information, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
 	// This parameter is valid only for Provisioned IOPS SSD (io1) volumes.
@@ -22074,9 +27215,9 @@ type CreateVolumeInput struct {
 
 	// The size of the volume, in GiBs.
 	//
-	// Constraints: 1-16384 for gp2, 4-16384 for io1, 500-16384 for st1, 500-16384
-	// for sc1, and 1-1024 for standard. If you specify a snapshot, the volume size
-	// must be equal to or larger than the snapshot size.
+	// Constraints: 1-16,384 for gp2, 4-16,384 for io1, 500-16,384 for st1, 500-16,384
+	// for sc1, and 1-1,024 for standard. If you specify a snapshot, the volume
+	// size must be equal to or larger than the snapshot size.
 	//
 	// Default: If you're creating the volume from a snapshot and don't specify
 	// a volume size, the default is the snapshot size.
@@ -22151,8 +27292,12 @@ type CreateVolumeOutput struct {
 	// (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
-	// Constraint: Range is 100-32000 IOPS for io1 volumes and 100-10000 IOPS for
-	// gp2 volumes.
+	// Constraints: Range is 100-16,000 IOPS for gp2 volumes and 100 to 64,000IOPS
+	// for io1 volumes in most regions. Maximum io1IOPS of 64,000 is guaranteed
+	// only on Nitro-based instances (AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
+	// Other instance families guarantee performance up to 32,000 IOPS. For more
+	// information, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	//
 	// Condition: This parameter is required for requests to create io1 volumes;
 	// it is not used in requests to create gp2, st1, sc1, or standard volumes.
@@ -22701,15 +27846,18 @@ type CreateVpnConnectionInput struct {
 	// The options for the VPN connection.
 	Options *VpnConnectionOptionsSpecification `locationName:"options" type:"structure"`
 
+	// The ID of the transit gateway. If you specify a transit gateway, you cannot
+	// specify a virtual private gateway.
+	TransitGatewayId *string `type:"string"`
+
 	// The type of VPN connection (ipsec.1).
 	//
 	// Type is a required field
 	Type *string `type:"string" required:"true"`
 
-	// The ID of the virtual private gateway.
-	//
-	// VpnGatewayId is a required field
-	VpnGatewayId *string `type:"string" required:"true"`
+	// The ID of the virtual private gateway. If you specify a virtual private gateway,
+	// you cannot specify a transit gateway.
+	VpnGatewayId *string `type:"string"`
 }
 
 // String returns the string representation
@@ -22732,10 +27880,6 @@ func (s *CreateVpnConnectionInput) Validate() error {
 
 	if s.Type == nil {
 		invalidParams.Add(aws.NewErrParamRequired("Type"))
-	}
-
-	if s.VpnGatewayId == nil {
-		invalidParams.Add(aws.NewErrParamRequired("VpnGatewayId"))
 	}
 
 	if invalidParams.Len() > 0 {
@@ -23002,6 +28146,148 @@ func (s CustomerGateway) String() string {
 // GoString returns the string representation
 func (s CustomerGateway) GoString() string {
 	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteClientVpnEndpointRequest
+type DeleteClientVpnEndpointInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN to be deleted.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s DeleteClientVpnEndpointInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteClientVpnEndpointInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteClientVpnEndpointInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeleteClientVpnEndpointInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteClientVpnEndpointResult
+type DeleteClientVpnEndpointOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The current state of the Client VPN endpoint.
+	Status *ClientVpnEndpointStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteClientVpnEndpointOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteClientVpnEndpointOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeleteClientVpnEndpointOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteClientVpnRouteRequest
+type DeleteClientVpnRouteInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint from which the route is to be deleted.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// The IPv4 address range, in CIDR notation, of the route to be deleted.
+	//
+	// DestinationCidrBlock is a required field
+	DestinationCidrBlock *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the target subnet used by the route.
+	TargetVpcSubnetId *string `type:"string"`
+}
+
+// String returns the string representation
+func (s DeleteClientVpnRouteInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteClientVpnRouteInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteClientVpnRouteInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeleteClientVpnRouteInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if s.DestinationCidrBlock == nil {
+		invalidParams.Add(aws.NewErrParamRequired("DestinationCidrBlock"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteClientVpnRouteResult
+type DeleteClientVpnRouteOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The current state of the route.
+	Status *ClientVpnRouteStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteClientVpnRouteOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteClientVpnRouteOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeleteClientVpnRouteOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
 }
 
 // Contains the parameters for DeleteCustomerGateway.
@@ -24129,7 +29415,6 @@ func (s DeleteNetworkInterfacePermissionOutput) SDKResponseMetadata() aws.Respon
 	return s.responseMetadata
 }
 
-// Contains the parameters for DeletePlacementGroup.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeletePlacementGroupRequest
 type DeletePlacementGroupInput struct {
 	_ struct{} `type:"structure"`
@@ -24553,7 +29838,10 @@ type DeleteTagsInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `locationName:"dryRun" type:"boolean"`
 
-	// The IDs of one or more resources.
+	// The IDs of one or more resources, separated by spaces.
+	//
+	// Constraints: Up to 1000 resource IDs. We recommend breaking up this request
+	// into smaller batches.
 	//
 	// Resources is a required field
 	Resources []string `locationName:"resourceId" type:"list" required:"true"`
@@ -24612,6 +29900,275 @@ func (s DeleteTagsOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s DeleteTagsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRequest
+type DeleteTransitGatewayInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the transit gateway.
+	//
+	// TransitGatewayId is a required field
+	TransitGatewayId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteTransitGatewayInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeleteTransitGatewayInput"}
+
+	if s.TransitGatewayId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayResult
+type DeleteTransitGatewayOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the deleted transit gateway.
+	TransitGateway *TransitGateway `locationName:"transitGateway" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeleteTransitGatewayOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRouteRequest
+type DeleteTransitGatewayRouteInput struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR range for the route. This must match the CIDR for the route exactly.
+	//
+	// DestinationCidrBlock is a required field
+	DestinationCidrBlock *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayRouteInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayRouteInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteTransitGatewayRouteInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeleteTransitGatewayRouteInput"}
+
+	if s.DestinationCidrBlock == nil {
+		invalidParams.Add(aws.NewErrParamRequired("DestinationCidrBlock"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRouteResult
+type DeleteTransitGatewayRouteOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the route.
+	Route *TransitGatewayRoute `locationName:"route" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayRouteOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayRouteOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeleteTransitGatewayRouteOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRouteTableRequest
+type DeleteTransitGatewayRouteTableInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayRouteTableInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayRouteTableInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteTransitGatewayRouteTableInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeleteTransitGatewayRouteTableInput"}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayRouteTableResult
+type DeleteTransitGatewayRouteTableOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the deleted transit gateway route table.
+	TransitGatewayRouteTable *TransitGatewayRouteTable `locationName:"transitGatewayRouteTable" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayRouteTableOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayRouteTableOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeleteTransitGatewayRouteTableOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayVpcAttachmentRequest
+type DeleteTransitGatewayVpcAttachmentInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayVpcAttachmentInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayVpcAttachmentInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeleteTransitGatewayVpcAttachmentInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeleteTransitGatewayVpcAttachmentInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeleteTransitGatewayVpcAttachmentResult
+type DeleteTransitGatewayVpcAttachmentOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the deleted VPC attachment.
+	TransitGatewayVpcAttachment *TransitGatewayVpcAttachment `locationName:"transitGatewayVpcAttachment" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeleteTransitGatewayVpcAttachmentOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeleteTransitGatewayVpcAttachmentOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeleteTransitGatewayVpcAttachmentOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -25194,6 +30751,72 @@ func (s DeleteVpnGatewayOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeprovisionByoipCidrRequest
+type DeprovisionByoipCidrInput struct {
+	_ struct{} `type:"structure"`
+
+	// The public IPv4 address range, in CIDR notation. The prefix must be the same
+	// prefix that you specified when you provisioned the address range.
+	//
+	// Cidr is a required field
+	Cidr *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s DeprovisionByoipCidrInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeprovisionByoipCidrInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DeprovisionByoipCidrInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DeprovisionByoipCidrInput"}
+
+	if s.Cidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Cidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeprovisionByoipCidrResult
+type DeprovisionByoipCidrOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the address range.
+	ByoipCidr *ByoipCidr `locationName:"byoipCidr" type:"structure"`
+}
+
+// String returns the string representation
+func (s DeprovisionByoipCidrOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DeprovisionByoipCidrOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DeprovisionByoipCidrOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Contains the parameters for DeregisterImage.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DeregisterImageRequest
 type DeregisterImageInput struct {
@@ -25257,7 +30880,6 @@ func (s DeregisterImageOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeAccountAttributes.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeAccountAttributesRequest
 type DescribeAccountAttributesInput struct {
 	_ struct{} `type:"structure"`
@@ -25282,7 +30904,6 @@ func (s DescribeAccountAttributesInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeAccountAttributes.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeAccountAttributesResult
 type DescribeAccountAttributesOutput struct {
 	_ struct{} `type:"structure"`
@@ -25308,7 +30929,6 @@ func (s DescribeAccountAttributesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeAddresses.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeAddressesRequest
 type DescribeAddressesInput struct {
 	_ struct{} `type:"structure"`
@@ -25373,7 +30993,6 @@ func (s DescribeAddressesInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeAddresses.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeAddressesResult
 type DescribeAddressesOutput struct {
 	_ struct{} `type:"structure"`
@@ -25450,7 +31069,6 @@ func (s DescribeAggregateIdFormatOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeAvailabilityZones.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeAvailabilityZonesRequest
 type DescribeAvailabilityZonesInput struct {
 	_ struct{} `type:"structure"`
@@ -25471,8 +31089,13 @@ type DescribeAvailabilityZonesInput struct {
 	//    * state - The state of the Availability Zone (available | information
 	//    | impaired | unavailable).
 	//
+	//    * zone-id - The ID of the Availability Zone (for example, use1-az1).
+	//
 	//    * zone-name - The name of the Availability Zone (for example, us-east-1a).
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The IDs of one or more Availability Zones.
+	ZoneIds []string `locationName:"ZoneId" locationNameList:"ZoneId" type:"list"`
 
 	// The names of one or more Availability Zones.
 	ZoneNames []string `locationName:"ZoneName" locationNameList:"ZoneName" type:"list"`
@@ -25488,7 +31111,6 @@ func (s DescribeAvailabilityZonesInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeAvailabiltyZones.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeAvailabilityZonesResult
 type DescribeAvailabilityZonesOutput struct {
 	_ struct{} `type:"structure"`
@@ -25592,6 +31214,149 @@ func (s DescribeBundleTasksOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeByoipCidrsRequest
+type DescribeByoipCidrsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	//
+	// MaxResults is a required field
+	MaxResults *int64 `min:"5" type:"integer" required:"true"`
+
+	// The token for the next page of results.
+	NextToken *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeByoipCidrsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeByoipCidrsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeByoipCidrsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeByoipCidrsInput"}
+
+	if s.MaxResults == nil {
+		invalidParams.Add(aws.NewErrParamRequired("MaxResults"))
+	}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeByoipCidrsResult
+type DescribeByoipCidrsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about your address ranges.
+	ByoipCidrs []ByoipCidr `locationName:"byoipCidrSet" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeByoipCidrsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeByoipCidrsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeByoipCidrsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeCapacityReservationsRequest
+type DescribeCapacityReservationsInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Capacity Reservation.
+	CapacityReservationIds []string `locationName:"CapacityReservationId" locationNameList:"item" type:"list"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return for the request in a single page.
+	// The remaining results can be seen by sending another request with the returned
+	// nextToken value.
+	MaxResults *int64 `type:"integer"`
+
+	// The token to retrieve the next page of results.
+	NextToken *string `type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeCapacityReservationsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeCapacityReservationsInput) GoString() string {
+	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeCapacityReservationsResult
+type DescribeCapacityReservationsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the Capacity Reservations.
+	CapacityReservations []CapacityReservation `locationName:"capacityReservationSet" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeCapacityReservationsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeCapacityReservationsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeCapacityReservationsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClassicLinkInstancesRequest
 type DescribeClassicLinkInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -25677,6 +31442,433 @@ func (s DescribeClassicLinkInstancesOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s DescribeClassicLinkInstancesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnAuthorizationRulesRequest
+type DescribeClientVpnAuthorizationRulesInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. Filter names and values are case-sensitive.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return for the request in a single page.
+	// The remaining results can be seen by sending another request with the nextToken
+	// value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token to retrieve the next page of results.
+	NextToken *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnAuthorizationRulesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnAuthorizationRulesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeClientVpnAuthorizationRulesInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeClientVpnAuthorizationRulesInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnAuthorizationRulesResult
+type DescribeClientVpnAuthorizationRulesOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the authorization rules.
+	AuthorizationRules []AuthorizationRule `locationName:"authorizationRule" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnAuthorizationRulesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnAuthorizationRulesOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeClientVpnAuthorizationRulesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnConnectionsRequest
+type DescribeClientVpnConnectionsInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. Filter names and values are case-sensitive.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return for the request in a single page.
+	// The remaining results can be seen by sending another request with the nextToken
+	// value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token to retrieve the next page of results.
+	NextToken *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnConnectionsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnConnectionsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeClientVpnConnectionsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeClientVpnConnectionsInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnConnectionsResult
+type DescribeClientVpnConnectionsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the active and terminated client connections.
+	Connections []ClientVpnConnection `locationName:"connections" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnConnectionsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnConnectionsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeClientVpnConnectionsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnEndpointsRequest
+type DescribeClientVpnEndpointsInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	ClientVpnEndpointIds []string `locationName:"ClientVpnEndpointId" locationNameList:"item" type:"list"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. Filter names and values are case-sensitive.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return for the request in a single page.
+	// The remaining results can be seen by sending another request with the nextToken
+	// value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token to retrieve the next page of results.
+	NextToken *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnEndpointsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnEndpointsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeClientVpnEndpointsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeClientVpnEndpointsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnEndpointsResult
+type DescribeClientVpnEndpointsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the Client VPN endpoints.
+	ClientVpnEndpoints []ClientVpnEndpoint `locationName:"clientVpnEndpoint" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnEndpointsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnEndpointsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeClientVpnEndpointsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnRoutesRequest
+type DescribeClientVpnRoutesInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. Filter names and values are case-sensitive.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return for the request in a single page.
+	// The remaining results can be seen by sending another request with the nextToken
+	// value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token to retrieve the next page of results.
+	NextToken *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnRoutesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnRoutesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeClientVpnRoutesInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeClientVpnRoutesInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnRoutesResult
+type DescribeClientVpnRoutesOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" min:"1" type:"string"`
+
+	// Information about the Client VPN endpoint routes.
+	Routes []ClientVpnRoute `locationName:"routes" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnRoutesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnRoutesOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeClientVpnRoutesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnTargetNetworksRequest
+type DescribeClientVpnTargetNetworksInput struct {
+	_ struct{} `type:"structure"`
+
+	// The IDs of the target network associations.
+	AssociationIds []string `locationNameList:"item" type:"list"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. Filter names and values are case-sensitive.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return for the request in a single page.
+	// The remaining results can be seen by sending another request with the nextToken
+	// value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token to retrieve the next page of results.
+	NextToken *string `min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnTargetNetworksInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnTargetNetworksInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeClientVpnTargetNetworksInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeClientVpnTargetNetworksInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeClientVpnTargetNetworksResult
+type DescribeClientVpnTargetNetworksOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the associated target networks.
+	ClientVpnTargetNetworks []TargetNetwork `locationName:"clientVpnTargetNetworks" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s DescribeClientVpnTargetNetworksOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeClientVpnTargetNetworksOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeClientVpnTargetNetworksOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -25828,11 +32020,13 @@ type DescribeDhcpOptionsInput struct {
 
 	// One or more filters.
 	//
-	//    * dhcp-options-id - The ID of a set of DHCP options.
+	//    * dhcp-options-id - The ID of a DHCP options set.
 	//
 	//    * key - The key for one of the options (for example, domain-name).
 	//
 	//    * value - The value for one of the options.
+	//
+	//    * owner-id - The ID of the AWS account that owns the DHCP options set.
 	//
 	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
 	//    Use the tag key in the filter name and the tag value as the filter value.
@@ -25952,20 +32146,24 @@ type DescribeElasticGpusInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
-	// One or more Elastic GPU IDs.
+	// One or more Elastic Graphics accelerator IDs.
 	ElasticGpuIds []string `locationName:"ElasticGpuId" locationNameList:"item" type:"list"`
 
 	// One or more filters.
 	//
-	//    * availability-zone - The Availability Zone in which the Elastic GPU resides.
+	//    * availability-zone - The Availability Zone in which the Elastic Graphics
+	//    accelerator resides.
 	//
-	//    * elastic-gpu-health - The status of the Elastic GPU (OK | IMPAIRED).
+	//    * elastic-gpu-health - The status of the Elastic Graphics accelerator
+	//    (OK | IMPAIRED).
 	//
-	//    * elastic-gpu-state - The state of the Elastic GPU (ATTACHED).
+	//    * elastic-gpu-state - The state of the Elastic Graphics accelerator (ATTACHED).
 	//
-	//    * elastic-gpu-type - The type of Elastic GPU; for example, eg1.medium.
+	//    * elastic-gpu-type - The type of Elastic Graphics accelerator; for example,
+	//    eg1.medium.
 	//
-	//    * instance-id - The ID of the instance to which the Elastic GPU is associated.
+	//    * instance-id - The ID of the instance to which the Elastic Graphics accelerator
+	//    is associated.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -25993,7 +32191,7 @@ type DescribeElasticGpusOutput struct {
 
 	responseMetadata aws.Response
 
-	// Information about the Elastic GPUs.
+	// Information about the Elastic Graphics accelerators.
 	ElasticGpuSet []ElasticGpus `locationName:"elasticGpuSet" locationNameList:"item" type:"list"`
 
 	// The total number of items to return. If the total number of items available
@@ -26064,6 +32262,39 @@ func (s DescribeExportTasksOutput) GoString() string {
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s DescribeExportTasksOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
+}
+
+// Describes the instances that could not be launched by the fleet.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeFleetError
+type DescribeFleetError struct {
+	_ struct{} `type:"structure"`
+
+	// The error code that indicates why the instance could not be launched. For
+	// more information about error codes, see Error Codes (http://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	ErrorCode *string `locationName:"errorCode" type:"string"`
+
+	// The error message that describes why the instance could not be launched.
+	// For more information about error messages, see ee Error Codes (http://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	ErrorMessage *string `locationName:"errorMessage" type:"string"`
+
+	// The launch templates and overrides that were used for launching the instances.
+	// Any parameters that you specify in the Overrides override the same parameters
+	// in the launch template.
+	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
+
+	// Indicates if the instance that could not be launched was a Spot Instance
+	// or On-Demand Instance.
+	Lifecycle InstanceLifecycle `locationName:"lifecycle" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s DescribeFleetError) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeFleetError) GoString() string {
+	return s.String()
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeFleetHistoryRequest
@@ -26276,7 +32507,7 @@ type DescribeFleetsInput struct {
 	//    * replace-unhealthy-instances - Indicates whether EC2 Fleet should replace
 	//    unhealthy instances (true | false).
 	//
-	//    * type - The type of request (request | maintain).
+	//    * type - The type of request (instant | request | maintain).
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The ID of the EC2 Fleets.
@@ -26298,6 +32529,40 @@ func (s DescribeFleetsInput) String() string {
 
 // GoString returns the string representation
 func (s DescribeFleetsInput) GoString() string {
+	return s.String()
+}
+
+// Describes the instances that were launched by the fleet.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeFleetsInstances
+type DescribeFleetsInstances struct {
+	_ struct{} `type:"structure"`
+
+	// The IDs of the instances.
+	InstanceIds []string `locationName:"instanceIds" locationNameList:"item" type:"list"`
+
+	// The instance type.
+	InstanceType InstanceType `locationName:"instanceType" type:"string" enum:"true"`
+
+	// The launch templates and overrides that were used for launching the instances.
+	// Any parameters that you specify in the Overrides override the same parameters
+	// in the launch template.
+	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
+
+	// Indicates if the instance that was launched is a Spot Instance or On-Demand
+	// Instance.
+	Lifecycle InstanceLifecycle `locationName:"lifecycle" type:"string" enum:"true"`
+
+	// The value is Windows for Windows instances; otherwise blank.
+	Platform PlatformValues `locationName:"platform" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s DescribeFleetsInstances) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeFleetsInstances) GoString() string {
 	return s.String()
 }
 
@@ -26895,7 +33160,6 @@ func (s DescribeIamInstanceProfileAssociationsOutput) SDKResponseMetadata() aws.
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeIdFormat.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeIdFormatRequest
 type DescribeIdFormatInput struct {
 	_ struct{} `type:"structure"`
@@ -26920,7 +33184,6 @@ func (s DescribeIdFormatInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeIdFormat.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeIdFormatResult
 type DescribeIdFormatOutput struct {
 	_ struct{} `type:"structure"`
@@ -26946,7 +33209,6 @@ func (s DescribeIdFormatOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeIdentityIdFormat.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeIdentityIdFormatRequest
 type DescribeIdentityIdFormatInput struct {
 	_ struct{} `type:"structure"`
@@ -26991,7 +33253,6 @@ func (s *DescribeIdentityIdFormatInput) Validate() error {
 	return nil
 }
 
-// Contains the output of DescribeIdentityIdFormat.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeIdentityIdFormatResult
 type DescribeIdentityIdFormatOutput struct {
 	_ struct{} `type:"structure"`
@@ -27393,7 +33654,6 @@ func (s DescribeImportSnapshotTasksOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeInstanceAttribute.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeInstanceAttributeRequest
 type DescribeInstanceAttributeInput struct {
 	_ struct{} `type:"structure"`
@@ -27588,7 +33848,6 @@ func (s DescribeInstanceCreditSpecificationsOutput) SDKResponseMetadata() aws.Re
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeInstanceStatus.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeInstanceStatusRequest
 type DescribeInstanceStatusInput struct {
 	_ struct{} `type:"structure"`
@@ -27669,7 +33928,6 @@ func (s DescribeInstanceStatusInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeInstanceStatus.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeInstanceStatusResult
 type DescribeInstanceStatusOutput struct {
 	_ struct{} `type:"structure"`
@@ -27699,7 +33957,6 @@ func (s DescribeInstanceStatusOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeInstancesRequest
 type DescribeInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -27743,6 +34000,10 @@ type DescribeInstancesInput struct {
 	//
 	//    * group-name - The name of the security group for the instance. EC2-Classic
 	//    only.
+	//
+	//    * hibernation-options.configured - A Boolean that indicates whether the
+	//    instance is enabled for hibernation. A value of true means that the instance
+	//    is enabled for hibernation.
 	//
 	//    * host-id - The ID of the Dedicated Host on which the instance is running,
 	//    if applicable.
@@ -27878,6 +34139,8 @@ type DescribeInstancesInput struct {
 	//
 	//    * owner-id - The AWS account ID of the instance owner.
 	//
+	//    * partition-number - The partition in which the instance is located.
+	//
 	//    * placement-group-name - The name of the placement group for the instance.
 	//
 	//    * platform - The platform. Use windows if you have Windows instances;
@@ -27970,7 +34233,6 @@ func (s DescribeInstancesInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeInstancesResult
 type DescribeInstancesOutput struct {
 	_ struct{} `type:"structure"`
@@ -28018,6 +34280,8 @@ type DescribeInternetGatewaysInput struct {
 	//    * attachment.vpc-id - The ID of an attached VPC.
 	//
 	//    * internet-gateway-id - The ID of the Internet gateway.
+	//
+	//    * owner-id - The ID of the AWS account that owns the internet gateway.
 	//
 	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
 	//    Use the tag key in the filter name and the tag value as the filter value.
@@ -28273,7 +34537,7 @@ type DescribeLaunchTemplatesInput struct {
 
 	// The maximum number of results to return in a single call. To retrieve the
 	// remaining results, make another call with the returned NextToken value. This
-	// value can be between 5 and 1000.
+	// value can be between 1 and 200.
 	MaxResults *int64 `type:"integer"`
 
 	// The token to request the next page of results.
@@ -28319,7 +34583,6 @@ func (s DescribeLaunchTemplatesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeMovingAddresses.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeMovingAddressesRequest
 type DescribeMovingAddressesInput struct {
 	_ struct{} `type:"structure"`
@@ -28344,7 +34607,7 @@ type DescribeMovingAddressesInput struct {
 	// Default: If no value is provided, the default is 1000.
 	MaxResults *int64 `locationName:"maxResults" type:"integer"`
 
-	// The token to use to retrieve the next page of results.
+	// The token for the next page of results.
 	NextToken *string `locationName:"nextToken" type:"string"`
 
 	// One or more Elastic IP addresses.
@@ -28361,7 +34624,6 @@ func (s DescribeMovingAddressesInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeMovingAddresses.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeMovingAddressesResult
 type DescribeMovingAddressesOutput struct {
 	_ struct{} `type:"structure"`
@@ -28516,6 +34778,8 @@ type DescribeNetworkAclsInput struct {
 	//    the set of ACL entries.
 	//
 	//    * network-acl-id - The ID of the network ACL.
+	//
+	//    * owner-id - The ID of the AWS account that owns the network ACL.
 	//
 	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
 	//    Use the tag key in the filter name and the tag value as the filter value.
@@ -28897,7 +35161,6 @@ func (s DescribeNetworkInterfacesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribePlacementGroups.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribePlacementGroupsRequest
 type DescribePlacementGroupsInput struct {
 	_ struct{} `type:"structure"`
@@ -28915,7 +35178,7 @@ type DescribePlacementGroupsInput struct {
 	//    * state - The state of the placement group (pending | available | deleting
 	//    | deleted).
 	//
-	//    * strategy - The strategy of the placement group (cluster | spread).
+	//    * strategy - The strategy of the placement group (cluster | spread | partition).
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// One or more placement group names.
@@ -28934,7 +35197,6 @@ func (s DescribePlacementGroupsInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribePlacementGroups.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribePlacementGroupsResult
 type DescribePlacementGroupsOutput struct {
 	_ struct{} `type:"structure"`
@@ -29098,7 +35360,76 @@ func (s DescribePrincipalIdFormatOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DescribeRegions.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribePublicIpv4PoolsRequest
+type DescribePublicIpv4PoolsInput struct {
+	_ struct{} `type:"structure"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"1" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `min:"1" type:"string"`
+
+	// The IDs of the address pools.
+	PoolIds []string `locationName:"PoolId" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribePublicIpv4PoolsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribePublicIpv4PoolsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribePublicIpv4PoolsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribePublicIpv4PoolsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 1 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 1))
+	}
+	if s.NextToken != nil && len(*s.NextToken) < 1 {
+		invalidParams.Add(aws.NewErrParamMinLen("NextToken", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribePublicIpv4PoolsResult
+type DescribePublicIpv4PoolsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the address pools.
+	PublicIpv4Pools []PublicIpv4Pool `locationName:"publicIpv4PoolSet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribePublicIpv4PoolsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribePublicIpv4PoolsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribePublicIpv4PoolsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeRegionsRequest
 type DescribeRegionsInput struct {
 	_ struct{} `type:"structure"`
@@ -29130,7 +35461,6 @@ func (s DescribeRegionsInput) GoString() string {
 	return s.String()
 }
 
-// Contains the output of DescribeRegions.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeRegionsResult
 type DescribeRegionsOutput struct {
 	_ struct{} `type:"structure"`
@@ -29588,6 +35918,8 @@ type DescribeRouteTablesInput struct {
 	//    table for the VPC (true | false). Route tables that do not have an association
 	//    ID are not returned in the response.
 	//
+	//    * owner-id - The ID of the AWS account that owns the route table.
+	//
 	//    * route-table-id - The ID of the route table.
 	//
 	//    * route.destination-cidr-block - The IPv4 CIDR range specified in a route
@@ -29608,6 +35940,8 @@ type DescribeRouteTablesInput struct {
 	//    table.
 	//
 	//    * route.nat-gateway-id - The ID of a NAT gateway.
+	//
+	//    * route.transit-gateway-id - The ID of a transit gateway.
 	//
 	//    * route.origin - Describes how the route was created. CreateRouteTable
 	//    indicates that the route was automatically created when the route table
@@ -29632,6 +35966,8 @@ type DescribeRouteTablesInput struct {
 	//    * tag-key - The key of a tag assigned to the resource. Use this filter
 	//    to find all resources assigned a tag with a specific key, regardless of
 	//    the tag value.
+	//
+	//    * transit-gateway-id - The ID of a transit gateway.
 	//
 	//    * vpc-id - The ID of the VPC for the route table.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
@@ -30403,18 +36739,14 @@ type DescribeSpotFleetInstancesOutput struct {
 
 	// The running instances. This list is refreshed periodically and might be out
 	// of date.
-	//
-	// ActiveInstances is a required field
-	ActiveInstances []ActiveInstance `locationName:"activeInstanceSet" locationNameList:"item" type:"list" required:"true"`
+	ActiveInstances []ActiveInstance `locationName:"activeInstanceSet" locationNameList:"item" type:"list"`
 
 	// The token required to retrieve the next set of results. This value is null
 	// when there are no more results to return.
 	NextToken *string `locationName:"nextToken" type:"string"`
 
 	// The ID of the Spot Fleet request.
-	//
-	// SpotFleetRequestId is a required field
-	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string" required:"true"`
+	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string"`
 }
 
 // String returns the string representation
@@ -30501,31 +36833,23 @@ type DescribeSpotFleetRequestHistoryOutput struct {
 	responseMetadata aws.Response
 
 	// Information about the events in the history of the Spot Fleet request.
-	//
-	// HistoryRecords is a required field
-	HistoryRecords []HistoryRecord `locationName:"historyRecordSet" locationNameList:"item" type:"list" required:"true"`
+	HistoryRecords []HistoryRecord `locationName:"historyRecordSet" locationNameList:"item" type:"list"`
 
 	// The last date and time for the events, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
 	// All records up to this time were retrieved.
 	//
 	// If nextToken indicates that there are more results, this value is not present.
-	//
-	// LastEvaluatedTime is a required field
-	LastEvaluatedTime *time.Time `locationName:"lastEvaluatedTime" type:"timestamp" timestampFormat:"iso8601" required:"true"`
+	LastEvaluatedTime *time.Time `locationName:"lastEvaluatedTime" type:"timestamp" timestampFormat:"iso8601"`
 
 	// The token required to retrieve the next set of results. This value is null
 	// when there are no more results to return.
 	NextToken *string `locationName:"nextToken" type:"string"`
 
 	// The ID of the Spot Fleet request.
-	//
-	// SpotFleetRequestId is a required field
-	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string" required:"true"`
+	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string"`
 
 	// The starting date and time for the events, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
-	//
-	// StartTime is a required field
-	StartTime *time.Time `locationName:"startTime" type:"timestamp" timestampFormat:"iso8601" required:"true"`
+	StartTime *time.Time `locationName:"startTime" type:"timestamp" timestampFormat:"iso8601"`
 }
 
 // String returns the string representation
@@ -30588,9 +36912,7 @@ type DescribeSpotFleetRequestsOutput struct {
 	NextToken *string `locationName:"nextToken" type:"string"`
 
 	// Information about the configuration of your Spot Fleet.
-	//
-	// SpotFleetRequestConfigs is a required field
-	SpotFleetRequestConfigs []SpotFleetRequestConfig `locationName:"spotFleetRequestConfigSet" locationNameList:"item" type:"list" required:"true"`
+	SpotFleetRequestConfigs []SpotFleetRequestConfig `locationName:"spotFleetRequestConfigSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -30959,18 +37281,21 @@ type DescribeSubnetsInput struct {
 
 	// One or more filters.
 	//
-	//    * availabilityZone - The Availability Zone for the subnet. You can also
-	//    use availability-zone as the filter name.
+	//    * availability-zone - The Availability Zone for the subnet. You can also
+	//    use availabilityZone as the filter name.
+	//
+	//    * availability-zone-id - The ID of the Availability Zone for the subnet.
+	//    You can also use availabilityZoneId as the filter name.
 	//
 	//    * available-ip-address-count - The number of IPv4 addresses in the subnet
 	//    that are available.
 	//
-	//    * cidrBlock - The IPv4 CIDR block of the subnet. The CIDR block you specify
+	//    * cidr-block - The IPv4 CIDR block of the subnet. The CIDR block you specify
 	//    must exactly match the subnet's CIDR block for information to be returned
-	//    for the subnet. You can also use cidr or cidr-block as the filter names.
+	//    for the subnet. You can also use cidr or cidrBlock as the filter names.
 	//
-	//    * defaultForAz - Indicates whether this is the default subnet for the
-	//    Availability Zone. You can also use default-for-az as the filter name.
+	//    * default-for-az - Indicates whether this is the default subnet for the
+	//    Availability Zone. You can also use defaultForAz as the filter name.
 	//
 	//    * ipv6-cidr-block-association.ipv6-cidr-block - An IPv6 CIDR block associated
 	//    with the subnet.
@@ -30981,7 +37306,11 @@ type DescribeSubnetsInput struct {
 	//    * ipv6-cidr-block-association.state - The state of an IPv6 CIDR block
 	//    associated with the subnet.
 	//
+	//    * owner-id - The ID of the AWS account that owns the subnet.
+	//
 	//    * state - The state of the subnet (pending | available).
+	//
+	//    * subnet-arn - The Amazon Resource Name (ARN) of the subnet.
 	//
 	//    * subnet-id - The ID of the subnet.
 	//
@@ -31113,6 +37442,378 @@ func (s DescribeTagsOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s DescribeTagsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayAttachmentsRequest
+type DescribeTransitGatewayAttachmentsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * association-id - The ID of the association.
+	//
+	//    * association-route-table-id - The ID of the route table for the transit
+	//    gateway.
+	//
+	//    * associate-state - The state of the association (associating | associated
+	//    | disassociating).
+	//
+	//    * resource-id - The ID of the resource.
+	//
+	//    * resource-type - The resource type (vpc | vpn).
+	//
+	//    * state - The state of the attachment (pendingAcceptance | pending | available
+	//    | modifying | deleting | deleted | failed | rejected).
+	//
+	//    * transit-gateway-attachment-id - The ID of the attachment.
+	//
+	//    * transit-gateway-id - The ID of the transit gateway.
+	//
+	//    * transit-gateway-owner - The ID of the AWS account that owns the transit
+	//    gateway.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The IDs of the attachments.
+	TransitGatewayAttachmentIds []string `type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewayAttachmentsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewayAttachmentsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeTransitGatewayAttachmentsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeTransitGatewayAttachmentsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayAttachmentsResult
+type DescribeTransitGatewayAttachmentsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the attachments.
+	TransitGatewayAttachments []TransitGatewayAttachment `locationName:"transitGatewayAttachments" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewayAttachmentsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewayAttachmentsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeTransitGatewayAttachmentsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayRouteTablesRequest
+type DescribeTransitGatewayRouteTablesInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * default-association-route-table - Indicates whether this is the default
+	//    association route table for the transit gateway (true | false).
+	//
+	//    * default-propagation-route-table - Indicates whether this is the default
+	//    propagation route table for the transit gateway (true | false).
+	//
+	//    * transit-gateway-id - The ID of the transit gateway.
+	//
+	//    * transit-gateway-route-table-id - The ID of the transit gateway route
+	//    table.
+	//
+	//    * transit-gateway-route-table-state - The state (pending | available |
+	//    deleting | deleted).
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The IDs of the transit gateway route tables.
+	TransitGatewayRouteTableIds []string `locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewayRouteTablesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewayRouteTablesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeTransitGatewayRouteTablesInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeTransitGatewayRouteTablesInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayRouteTablesResult
+type DescribeTransitGatewayRouteTablesOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the transit gateway route tables.
+	TransitGatewayRouteTables []TransitGatewayRouteTable `locationName:"transitGatewayRouteTables" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewayRouteTablesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewayRouteTablesOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeTransitGatewayRouteTablesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayVpcAttachmentsRequest
+type DescribeTransitGatewayVpcAttachmentsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * transit-gateway-attachment-id - The ID of the attachment.
+	//
+	//    * transit-gateway-attachment-state - The state of the attachment (pendingAcceptance
+	//    | pending | available | modifying | deleting | deleted | failed | rejected).
+	//
+	//    * transit-gateway-id - The ID of the transit gateway.
+	//
+	//    * vpc-id - The ID of the VPC.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The IDs of the attachments.
+	TransitGatewayAttachmentIds []string `type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewayVpcAttachmentsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewayVpcAttachmentsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeTransitGatewayVpcAttachmentsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeTransitGatewayVpcAttachmentsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewayVpcAttachmentsResult
+type DescribeTransitGatewayVpcAttachmentsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the VPC attachments.
+	TransitGatewayVpcAttachments []TransitGatewayVpcAttachment `locationName:"transitGatewayVpcAttachments" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewayVpcAttachmentsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewayVpcAttachmentsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeTransitGatewayVpcAttachmentsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewaysRequest
+type DescribeTransitGatewaysInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * amazon-side-asn - The private ASN for the Amazon side of a BGP session.
+	//
+	//    * association-default-route-table-id - The ID of the default association
+	//    route table.
+	//
+	//    * default-route-table-association - Indicates whether resource attachments
+	//    are automatically associated with the default association route table
+	//    (enable | disable).
+	//
+	//    * default-route-table-propagation - Indicates whether resource attachments
+	//    automatically propagate routes to the default propagation route table
+	//    (enable | disable).
+	//
+	//    * owner-account-id - The ID of the AWS account that owns the transit gateway.
+	//
+	//    * propagation-default-route-table-id - The ID of the default propagation
+	//    route table.
+	//
+	//    * transit-gateway-id - The ID of the transit gateway.
+	//
+	//    * transit-gateway-state - The state of the transit gateway (pending |
+	//    available | deleting | deleted).
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The IDs of the transit gateways.
+	TransitGatewayIds []string `locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewaysInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewaysInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DescribeTransitGatewaysInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DescribeTransitGatewaysInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DescribeTransitGatewaysResult
+type DescribeTransitGatewaysOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the transit gateways.
+	TransitGateways []TransitGateway `locationName:"transitGatewaySet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DescribeTransitGatewaysOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DescribeTransitGatewaysOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DescribeTransitGatewaysOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -32293,6 +38994,8 @@ type DescribeVpcsInput struct {
 	//
 	//    * isDefault - Indicates whether the VPC is the default VPC.
 	//
+	//    * owner-id - The ID of the AWS account that owns the VPC.
+	//
 	//    * state - The state of the VPC (pending | available).
 	//
 	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
@@ -32940,6 +39643,9 @@ type DhcpOptions struct {
 	// The ID of the set of DHCP options.
 	DhcpOptionsId *string `locationName:"dhcpOptionsId" type:"string"`
 
+	// The ID of the AWS account that owns the DHCP options set.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
 	// Any tags assigned to the DHCP options set.
 	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
@@ -32952,6 +39658,118 @@ func (s DhcpOptions) String() string {
 // GoString returns the string representation
 func (s DhcpOptions) GoString() string {
 	return s.String()
+}
+
+// Describes an Active Directory.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DirectoryServiceAuthentication
+type DirectoryServiceAuthentication struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Active Directory used for authentication.
+	DirectoryId *string `locationName:"directoryId" type:"string"`
+}
+
+// String returns the string representation
+func (s DirectoryServiceAuthentication) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DirectoryServiceAuthentication) GoString() string {
+	return s.String()
+}
+
+// Describes the Active Directory to be used for client authentication.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DirectoryServiceAuthenticationRequest
+type DirectoryServiceAuthenticationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Active Directory to be used for authentication.
+	DirectoryId *string `type:"string"`
+}
+
+// String returns the string representation
+func (s DirectoryServiceAuthenticationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DirectoryServiceAuthenticationRequest) GoString() string {
+	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisableTransitGatewayRouteTablePropagationRequest
+type DisableTransitGatewayRouteTablePropagationInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+
+	// The ID of the propagation route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DisableTransitGatewayRouteTablePropagationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DisableTransitGatewayRouteTablePropagationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DisableTransitGatewayRouteTablePropagationInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DisableTransitGatewayRouteTablePropagationInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisableTransitGatewayRouteTablePropagationResult
+type DisableTransitGatewayRouteTablePropagationOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about route propagation.
+	Propagation *TransitGatewayPropagation `locationName:"propagation" type:"structure"`
+}
+
+// String returns the string representation
+func (s DisableTransitGatewayRouteTablePropagationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DisableTransitGatewayRouteTablePropagationOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DisableTransitGatewayRouteTablePropagationOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
 }
 
 // Contains the parameters for DisableVgwRoutePropagation.
@@ -33128,7 +39946,6 @@ func (s DisableVpcClassicLinkOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for DisassociateAddress.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateAddressRequest
 type DisassociateAddressInput struct {
 	_ struct{} `type:"structure"`
@@ -33175,6 +39992,83 @@ func (s DisassociateAddressOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s DisassociateAddressOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateClientVpnTargetNetworkRequest
+type DisassociateClientVpnTargetNetworkInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the target network association.
+	//
+	// AssociationId is a required field
+	AssociationId *string `type:"string" required:"true"`
+
+	// The ID of the Client VPN endpoint from which to disassociate the target network.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s DisassociateClientVpnTargetNetworkInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DisassociateClientVpnTargetNetworkInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DisassociateClientVpnTargetNetworkInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DisassociateClientVpnTargetNetworkInput"}
+
+	if s.AssociationId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("AssociationId"))
+	}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateClientVpnTargetNetworkResult
+type DisassociateClientVpnTargetNetworkOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The ID of the target network association.
+	AssociationId *string `locationName:"associationId" type:"string"`
+
+	// The current state of the target network association.
+	Status *AssociationStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s DisassociateClientVpnTargetNetworkOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DisassociateClientVpnTargetNetworkOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DisassociateClientVpnTargetNetworkOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -33359,6 +40253,80 @@ func (s DisassociateSubnetCidrBlockOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s DisassociateSubnetCidrBlockOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateTransitGatewayRouteTableRequest
+type DisassociateTransitGatewayRouteTableInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s DisassociateTransitGatewayRouteTableInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DisassociateTransitGatewayRouteTableInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *DisassociateTransitGatewayRouteTableInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "DisassociateTransitGatewayRouteTableInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DisassociateTransitGatewayRouteTableResult
+type DisassociateTransitGatewayRouteTableOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the association.
+	Association *TransitGatewayAssociation `locationName:"association" type:"structure"`
+}
+
+// String returns the string representation
+func (s DisassociateTransitGatewayRouteTableOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DisassociateTransitGatewayRouteTableOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s DisassociateTransitGatewayRouteTableOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -33610,6 +40578,31 @@ func (s DnsEntry) GoString() string {
 	return s.String()
 }
 
+// Information about the DNS server to be used.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/DnsServersOptionsModifyStructure
+type DnsServersOptionsModifyStructure struct {
+	_ struct{} `type:"structure"`
+
+	// The IPv4 address range, in CIDR notation, of the DNS servers to be used.
+	// You can specify up to two DNS servers. Ensure that the DNS servers can be
+	// reached by the clients. The specified values overwrite the existing values.
+	CustomDnsServers []string `locationNameList:"item" type:"list"`
+
+	// Indicates whether DNS servers should be used. Specify False to delete the
+	// existing DNS servers.
+	Enabled *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s DnsServersOptionsModifyStructure) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DnsServersOptionsModifyStructure) GoString() string {
+	return s.String()
+}
+
 // Describes a block device for an EBS volume.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/EbsBlockDevice
 type EbsBlockDevice struct {
@@ -33637,8 +40630,12 @@ type EbsBlockDevice struct {
 	// and bursting, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
-	// Constraint: Range is 100-20000 IOPS for io1 volumes and 100-10000 IOPS for
-	// gp2 volumes.
+	// Constraints: Range is 100-16,000 IOPS for gp2 volumes and 100 to 64,000IOPS
+	// for io1 volumes in most Regions. Maximum io1IOPS of 64,000 is guaranteed
+	// only on Nitro-based instances (AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances).
+	// Other instance families guarantee performance up to 32,000 IOPS. For more
+	// information, see Amazon EBS Volume Types (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
 	//
 	// Condition: This parameter is required for requests to create io1 volumes;
 	// it is not used in requests to create gp2, st1, sc1, or standard volumes.
@@ -33757,7 +40754,7 @@ func (s EgressOnlyInternetGateway) GoString() string {
 	return s.String()
 }
 
-// Describes the association between an instance and an Elastic GPU.
+// Describes the association between an instance and an Elastic Graphics accelerator.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ElasticGpuAssociation
 type ElasticGpuAssociation struct {
 	_ struct{} `type:"structure"`
@@ -33765,13 +40762,14 @@ type ElasticGpuAssociation struct {
 	// The ID of the association.
 	ElasticGpuAssociationId *string `locationName:"elasticGpuAssociationId" type:"string"`
 
-	// The state of the association between the instance and the Elastic GPU.
+	// The state of the association between the instance and the Elastic Graphics
+	// accelerator.
 	ElasticGpuAssociationState *string `locationName:"elasticGpuAssociationState" type:"string"`
 
-	// The time the Elastic GPU was associated with the instance.
+	// The time the Elastic Graphics accelerator was associated with the instance.
 	ElasticGpuAssociationTime *string `locationName:"elasticGpuAssociationTime" type:"string"`
 
-	// The ID of the Elastic GPU.
+	// The ID of the Elastic Graphics accelerator.
 	ElasticGpuId *string `locationName:"elasticGpuId" type:"string"`
 }
 
@@ -33785,7 +40783,7 @@ func (s ElasticGpuAssociation) GoString() string {
 	return s.String()
 }
 
-// Describes the status of an Elastic GPU.
+// Describes the status of an Elastic Graphics accelerator.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ElasticGpuHealth
 type ElasticGpuHealth struct {
 	_ struct{} `type:"structure"`
@@ -33804,12 +40802,12 @@ func (s ElasticGpuHealth) GoString() string {
 	return s.String()
 }
 
-// A specification for an Elastic GPU.
+// A specification for an Elastic Graphics accelerator.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ElasticGpuSpecification
 type ElasticGpuSpecification struct {
 	_ struct{} `type:"structure"`
 
-	// The type of Elastic GPU.
+	// The type of Elastic Graphics accelerator.
 	//
 	// Type is a required field
 	Type *string `type:"string" required:"true"`
@@ -33858,27 +40856,27 @@ func (s ElasticGpuSpecificationResponse) GoString() string {
 	return s.String()
 }
 
-// Describes an Elastic GPU.
+// Describes an Elastic Graphics accelerator.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ElasticGpus
 type ElasticGpus struct {
 	_ struct{} `type:"structure"`
 
-	// The Availability Zone in the which the Elastic GPU resides.
+	// The Availability Zone in the which the Elastic Graphics accelerator resides.
 	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
 
-	// The status of the Elastic GPU.
+	// The status of the Elastic Graphics accelerator.
 	ElasticGpuHealth *ElasticGpuHealth `locationName:"elasticGpuHealth" type:"structure"`
 
-	// The ID of the Elastic GPU.
+	// The ID of the Elastic Graphics accelerator.
 	ElasticGpuId *string `locationName:"elasticGpuId" type:"string"`
 
-	// The state of the Elastic GPU.
+	// The state of the Elastic Graphics accelerator.
 	ElasticGpuState ElasticGpuState `locationName:"elasticGpuState" type:"string" enum:"true"`
 
-	// The type of Elastic GPU.
+	// The type of Elastic Graphics accelerator.
 	ElasticGpuType *string `locationName:"elasticGpuType" type:"string"`
 
-	// The ID of the instance to which the Elastic GPU is attached.
+	// The ID of the instance to which the Elastic Graphics accelerator is attached.
 	InstanceId *string `locationName:"instanceId" type:"string"`
 }
 
@@ -33890,6 +40888,145 @@ func (s ElasticGpus) String() string {
 // GoString returns the string representation
 func (s ElasticGpus) GoString() string {
 	return s.String()
+}
+
+// Describes an elastic inference accelerator.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ElasticInferenceAccelerator
+type ElasticInferenceAccelerator struct {
+	_ struct{} `type:"structure"`
+
+	// The type of elastic inference accelerator. The possible values are eia1.small,
+	// eia1.medium, and eia1.large.
+	//
+	// Type is a required field
+	Type *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ElasticInferenceAccelerator) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ElasticInferenceAccelerator) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ElasticInferenceAccelerator) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ElasticInferenceAccelerator"}
+
+	if s.Type == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Type"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Describes the association between an instance and an elastic inference accelerator.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ElasticInferenceAcceleratorAssociation
+type ElasticInferenceAcceleratorAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the elastic inference accelerator.
+	ElasticInferenceAcceleratorArn *string `locationName:"elasticInferenceAcceleratorArn" type:"string"`
+
+	// The ID of the association.
+	ElasticInferenceAcceleratorAssociationId *string `locationName:"elasticInferenceAcceleratorAssociationId" type:"string"`
+
+	// The state of the elastic inference accelerator.
+	ElasticInferenceAcceleratorAssociationState *string `locationName:"elasticInferenceAcceleratorAssociationState" type:"string"`
+
+	// The time at which the elastic inference accelerator is associated with an
+	// instance.
+	ElasticInferenceAcceleratorAssociationTime *time.Time `locationName:"elasticInferenceAcceleratorAssociationTime" type:"timestamp" timestampFormat:"iso8601"`
+}
+
+// String returns the string representation
+func (s ElasticInferenceAcceleratorAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ElasticInferenceAcceleratorAssociation) GoString() string {
+	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/EnableTransitGatewayRouteTablePropagationRequest
+type EnableTransitGatewayRouteTablePropagationInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+
+	// The ID of the propagation route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s EnableTransitGatewayRouteTablePropagationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EnableTransitGatewayRouteTablePropagationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *EnableTransitGatewayRouteTablePropagationInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "EnableTransitGatewayRouteTablePropagationInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/EnableTransitGatewayRouteTablePropagationResult
+type EnableTransitGatewayRouteTablePropagationOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about route propagation.
+	Propagation *TransitGatewayPropagation `locationName:"propagation" type:"structure"`
+}
+
+// String returns the string representation
+func (s EnableTransitGatewayRouteTablePropagationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EnableTransitGatewayRouteTablePropagationOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s EnableTransitGatewayRouteTablePropagationOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
 }
 
 // Contains the parameters for EnableVgwRoutePropagation.
@@ -34215,6 +41352,139 @@ func (s EventInformation) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportClientVpnClientCertificateRevocationListRequest
+type ExportClientVpnClientCertificateRevocationListInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s ExportClientVpnClientCertificateRevocationListInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ExportClientVpnClientCertificateRevocationListInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ExportClientVpnClientCertificateRevocationListInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ExportClientVpnClientCertificateRevocationListInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportClientVpnClientCertificateRevocationListResult
+type ExportClientVpnClientCertificateRevocationListOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the client certificate revocation list.
+	CertificateRevocationList *string `locationName:"certificateRevocationList" type:"string"`
+
+	// The current state of the client certificate revocation list.
+	Status *ClientCertificateRevocationListStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s ExportClientVpnClientCertificateRevocationListOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ExportClientVpnClientCertificateRevocationListOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ExportClientVpnClientCertificateRevocationListOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportClientVpnClientConfigurationRequest
+type ExportClientVpnClientConfigurationInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s ExportClientVpnClientConfigurationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ExportClientVpnClientConfigurationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ExportClientVpnClientConfigurationInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ExportClientVpnClientConfigurationInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportClientVpnClientConfigurationResult
+type ExportClientVpnClientConfigurationOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The contents of the Client VPN endpoint configuration file.
+	ClientConfiguration *string `locationName:"clientConfiguration" type:"string"`
+}
+
+// String returns the string representation
+func (s ExportClientVpnClientConfigurationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ExportClientVpnClientConfigurationOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ExportClientVpnClientConfigurationOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Describes an instance export task.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportTask
 type ExportTask struct {
@@ -34310,6 +41580,94 @@ func (s ExportToS3TaskSpecification) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportTransitGatewayRoutesRequest
+type ExportTransitGatewayRoutesInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * transit-gateway-route-destination-cidr-block - The CIDR range.
+	//
+	//    * transit-gateway-route-state - The state of the route (active | blackhole).
+	//
+	//    * transit-gateway-route-transit-gateway-attachment-id - The ID of the
+	//    attachment.
+	//
+	//    * transit-gateway-route-type - The route type (static | propagated).
+	//
+	//    * transit-gateway-route-vpn-connection-id - The ID of the VPN connection.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The name of the S3 bucket.
+	//
+	// S3Bucket is a required field
+	S3Bucket *string `type:"string" required:"true"`
+
+	// The ID of the route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ExportTransitGatewayRoutesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ExportTransitGatewayRoutesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ExportTransitGatewayRoutesInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ExportTransitGatewayRoutesInput"}
+
+	if s.S3Bucket == nil {
+		invalidParams.Add(aws.NewErrParamRequired("S3Bucket"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ExportTransitGatewayRoutesResult
+type ExportTransitGatewayRoutesOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The URL of the exported file in Amazon S3. For example, s3://bucket_name/VPCTransitGateway/TransitGatewayRouteTables/file_name.
+	S3Location *string `locationName:"s3Location" type:"string"`
+}
+
+// String returns the string representation
+func (s ExportTransitGatewayRoutesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ExportTransitGatewayRoutesOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ExportTransitGatewayRoutesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // A filter name and value pair that is used to return a more specific list
 // of results from a describe operation. Filters can be used to match a set
 // of resources by specific criteria, such as tags, attributes, or IDs. The
@@ -34377,6 +41735,10 @@ type FleetData struct {
 	// The creation date and time of the EC2 Fleet.
 	CreateTime *time.Time `locationName:"createTime" type:"timestamp" timestampFormat:"iso8601"`
 
+	// Information about the instances that could not be launched by the fleet.
+	// Valid only when Type is set to instant.
+	Errors []DescribeFleetError `locationName:"errorSet" locationNameList:"item" type:"list"`
+
 	// Indicates whether running instances should be terminated if the target capacity
 	// of the EC2 Fleet is decreased below the current size of the EC2 Fleet.
 	ExcessCapacityTerminationPolicy FleetExcessCapacityTerminationPolicy `locationName:"excessCapacityTerminationPolicy" type:"string" enum:"true"`
@@ -34394,6 +41756,10 @@ type FleetData struct {
 	// The number of units fulfilled by this request compared to the set target
 	// On-Demand capacity.
 	FulfilledOnDemandCapacity *float64 `locationName:"fulfilledOnDemandCapacity" type:"double"`
+
+	// Information about the instances that were launched by the fleet. Valid only
+	// when Type is set to instant.
+	Instances []DescribeFleetsInstances `locationName:"fleetInstanceSet" locationNameList:"item" type:"list"`
 
 	// The launch template and overrides.
 	LaunchTemplateConfigs []FleetLaunchTemplateConfig `locationName:"launchTemplateConfigs" locationNameList:"item" type:"list"`
@@ -34527,6 +41893,9 @@ type FleetLaunchTemplateOverrides struct {
 	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
 	MaxPrice *string `locationName:"maxPrice" type:"string"`
 
+	// The location where the instance launched, if applicable.
+	Placement *PlacementResponse `locationName:"placement" type:"structure"`
+
 	// The priority for the launch template override. If AllocationStrategy is set
 	// to prioritized, EC2 Fleet uses priority to determine which launch template
 	// override to use first in fulfilling On-Demand capacity. The highest priority
@@ -34565,6 +41934,9 @@ type FleetLaunchTemplateOverridesRequest struct {
 
 	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
 	MaxPrice *string `type:"string"`
+
+	// The location where the instance launched, if applicable.
+	Placement *Placement `type:"structure"`
 
 	// The priority for the launch template override. If AllocationStrategy is set
 	// to prioritized, EC2 Fleet uses priority to determine which launch template
@@ -34850,7 +42222,6 @@ func (s FpgaImageState) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for GetConsoleOutput.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetConsoleOutputRequest
 type GetConsoleOutputInput struct {
 	_ struct{} `type:"structure"`
@@ -34896,7 +42267,6 @@ func (s *GetConsoleOutputInput) Validate() error {
 	return nil
 }
 
-// Contains the output of GetConsoleOutput.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetConsoleOutputResult
 type GetConsoleOutputOutput struct {
 	_ struct{} `type:"structure"`
@@ -34929,7 +42299,6 @@ func (s GetConsoleOutputOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for the request.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetConsoleScreenshotRequest
 type GetConsoleScreenshotInput struct {
 	_ struct{} `type:"structure"`
@@ -34974,7 +42343,6 @@ func (s *GetConsoleScreenshotInput) Validate() error {
 	return nil
 }
 
-// Contains the output of the request.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetConsoleScreenshotResult
 type GetConsoleScreenshotOutput struct {
 	_ struct{} `type:"structure"`
@@ -35147,7 +42515,6 @@ func (s GetLaunchTemplateDataOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for GetPasswordData.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetPasswordDataRequest
 type GetPasswordDataInput struct {
 	_ struct{} `type:"structure"`
@@ -35188,7 +42555,6 @@ func (s *GetPasswordDataInput) Validate() error {
 	return nil
 }
 
-// Contains the output of GetPasswordData.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetPasswordDataResult
 type GetPasswordDataOutput struct {
 	_ struct{} `type:"structure"`
@@ -35323,6 +42689,269 @@ func (s GetReservedInstancesExchangeQuoteOutput) SDKResponseMetadata() aws.Respo
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayAttachmentPropagationsRequest
+type GetTransitGatewayAttachmentPropagationsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * transit-gateway-route-table-id - The ID of the transit gateway route
+	//    table.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s GetTransitGatewayAttachmentPropagationsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetTransitGatewayAttachmentPropagationsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *GetTransitGatewayAttachmentPropagationsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "GetTransitGatewayAttachmentPropagationsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayAttachmentPropagationsResult
+type GetTransitGatewayAttachmentPropagationsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the propagation route tables.
+	TransitGatewayAttachmentPropagations []TransitGatewayAttachmentPropagation `locationName:"transitGatewayAttachmentPropagations" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s GetTransitGatewayAttachmentPropagationsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetTransitGatewayAttachmentPropagationsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s GetTransitGatewayAttachmentPropagationsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayRouteTableAssociationsRequest
+type GetTransitGatewayRouteTableAssociationsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * association-id - The ID of the association.
+	//
+	//    * resource-id - The ID of the resource.
+	//
+	//    * resource-type - The resource type (vpc | vpn).
+	//
+	//    * transit-gateway-attachment-id - The ID of the attachment.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s GetTransitGatewayRouteTableAssociationsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetTransitGatewayRouteTableAssociationsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *GetTransitGatewayRouteTableAssociationsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "GetTransitGatewayRouteTableAssociationsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayRouteTableAssociationsResult
+type GetTransitGatewayRouteTableAssociationsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the associations.
+	Associations []TransitGatewayRouteTableAssociation `locationName:"associations" locationNameList:"item" type:"list"`
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+}
+
+// String returns the string representation
+func (s GetTransitGatewayRouteTableAssociationsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetTransitGatewayRouteTableAssociationsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s GetTransitGatewayRouteTableAssociationsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayRouteTablePropagationsRequest
+type GetTransitGatewayRouteTablePropagationsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * resource-id - The ID of the resource.
+	//
+	//    * resource-type - The resource type (vpc | vpn).
+	//
+	//    * transit-gateway-attachment-id - The ID of the attachment.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
+	// The maximum number of results to return with a single call. To retrieve the
+	// remaining results, make another call with the returned nextToken value.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The token for the next page of results.
+	NextToken *string `type:"string"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s GetTransitGatewayRouteTablePropagationsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetTransitGatewayRouteTablePropagationsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *GetTransitGatewayRouteTablePropagationsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "GetTransitGatewayRouteTablePropagationsInput"}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GetTransitGatewayRouteTablePropagationsResult
+type GetTransitGatewayRouteTablePropagationsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The token to use to retrieve the next page of results. This value is null
+	// when there are no more results to return.
+	NextToken *string `locationName:"nextToken" type:"string"`
+
+	// Information about the route table propagations.
+	TransitGatewayRouteTablePropagations []TransitGatewayRouteTablePropagation `locationName:"transitGatewayRouteTablePropagations" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s GetTransitGatewayRouteTablePropagationsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s GetTransitGatewayRouteTablePropagationsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s GetTransitGatewayRouteTablePropagationsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Describes a security group.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/GroupIdentifier
 type GroupIdentifier struct {
@@ -35345,15 +42974,62 @@ func (s GroupIdentifier) GoString() string {
 	return s.String()
 }
 
+// Indicates whether your instance is configured for hibernation. This parameter
+// is valid only if the instance meets the hibernation prerequisites (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
+// Hibernation is currently supported only for Amazon Linux. For more information,
+// see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/HibernationOptions
+type HibernationOptions struct {
+	_ struct{} `type:"structure"`
+
+	// If this parameter is set to true, your instance is enabled for hibernation;
+	// otherwise, it is not enabled for hibernation.
+	Configured *bool `locationName:"configured" type:"boolean"`
+}
+
+// String returns the string representation
+func (s HibernationOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s HibernationOptions) GoString() string {
+	return s.String()
+}
+
+// Indicates whether your instance is configured for hibernation. This parameter
+// is valid only if the instance meets the hibernation prerequisites (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
+// Hibernation is currently supported only for Amazon Linux. For more information,
+// see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/HibernationOptionsRequest
+type HibernationOptionsRequest struct {
+	_ struct{} `type:"structure"`
+
+	// If you set this parameter to true, your instance is enabled for hibernation.
+	//
+	// Default: false
+	Configured *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s HibernationOptionsRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s HibernationOptionsRequest) GoString() string {
+	return s.String()
+}
+
 // Describes an event in the history of the Spot Fleet request.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/HistoryRecord
 type HistoryRecord struct {
 	_ struct{} `type:"structure"`
 
 	// Information about the event.
-	//
-	// EventInformation is a required field
-	EventInformation *EventInformation `locationName:"eventInformation" type:"structure" required:"true"`
+	EventInformation *EventInformation `locationName:"eventInformation" type:"structure"`
 
 	// The event type.
 	//
@@ -35365,14 +43041,10 @@ type HistoryRecord struct {
 	//    * instanceChange - An instance was launched or terminated.
 	//
 	//    * Information - An informational event.
-	//
-	// EventType is a required field
-	EventType EventType `locationName:"eventType" type:"string" required:"true" enum:"true"`
+	EventType EventType `locationName:"eventType" type:"string" enum:"true"`
 
 	// The date and time of the event, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
-	//
-	// Timestamp is a required field
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp" timestampFormat:"iso8601" required:"true"`
+	Timestamp *time.Time `locationName:"timestamp" type:"timestamp" timestampFormat:"iso8601"`
 }
 
 // String returns the string representation
@@ -35869,6 +43541,83 @@ func (s ImageDiskContainer) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ImportClientVpnClientCertificateRevocationListRequest
+type ImportClientVpnClientCertificateRevocationListInput struct {
+	_ struct{} `type:"structure"`
+
+	// The client certificate revocation list file. For more information, see Generate
+	// a Client Certificate Revocation List (vpn/latest/clientvpn-admin/cvpn-working-certificates.html#cvpn-working-certificates-generate)
+	// in the AWS Client VPN Admin Guide.
+	//
+	// CertificateRevocationList is a required field
+	CertificateRevocationList *string `type:"string" required:"true"`
+
+	// The ID of the Client VPN endpoint to which the client certificate revocation
+	// list applies.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s ImportClientVpnClientCertificateRevocationListInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ImportClientVpnClientCertificateRevocationListInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ImportClientVpnClientCertificateRevocationListInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ImportClientVpnClientCertificateRevocationListInput"}
+
+	if s.CertificateRevocationList == nil {
+		invalidParams.Add(aws.NewErrParamRequired("CertificateRevocationList"))
+	}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ImportClientVpnClientCertificateRevocationListResult
+type ImportClientVpnClientCertificateRevocationListOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool `locationName:"return" type:"boolean"`
+}
+
+// String returns the string representation
+func (s ImportClientVpnClientCertificateRevocationListOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ImportClientVpnClientCertificateRevocationListOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ImportClientVpnClientCertificateRevocationListOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Contains the parameters for ImportImage.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ImportImageRequest
 type ImportImageInput struct {
@@ -35897,10 +43646,45 @@ type ImportImageInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
+	// Specifies whether the destination AMI of the imported image should be encrypted.
+	// The default CMK for EBS is used unless you specify a non-default AWS Key
+	// Management Service (AWS KMS) CMK using KmsKeyId. For more information, see
+	// Amazon EBS Encryption (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	Encrypted *bool `type:"boolean"`
+
 	// The target hypervisor platform.
 	//
 	// Valid values: xen
 	Hypervisor *string `type:"string"`
+
+	// An identifier for the AWS Key Management Service (AWS KMS) customer master
+	// key (CMK) to use when creating the encrypted AMI. This parameter is only
+	// required if you want to use a non-default CMK; if this parameter is not specified,
+	// the default CMK for EBS is used. If a KmsKeyId is specified, the Encrypted
+	// flag must also be set.
+	//
+	// The CMK identifier may be provided in any of the following formats:
+	//
+	//    * Key ID
+	//
+	//    * Key alias, in the form alias/ExampleAlias
+	//
+	//    * ARN using key ID. The ID ARN contains the arn:aws:kms namespace, followed
+	//    by the region of the CMK, the AWS account ID of the CMK owner, the key
+	//    namespace, and then the CMK ID. For example, arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef.
+	//
+	//    * ARN using key alias. The alias ARN contains the arn:aws:kms namespace,
+	//    followed by the region of the CMK, the AWS account ID of the CMK owner,
+	//    the alias namespace, and then the CMK alias. For example, arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
+	//
+	//
+	// AWS parses KmsKeyId asynchronously, meaning that the action you call may
+	// appear to complete even though you provided an invalid identifier. This action
+	// will eventually report failure.
+	//
+	// The specified CMK must exist in the region that the AMI is being copied to.
+	KmsKeyId *string `type:"string"`
 
 	// The license type to be used for the Amazon Machine Image (AMI) after importing.
 	//
@@ -35944,6 +43728,9 @@ type ImportImageOutput struct {
 	// A description of the import task.
 	Description *string `locationName:"description" type:"string"`
 
+	// Indicates whether the AMI is encypted.
+	Encrypted *bool `locationName:"encrypted" type:"boolean"`
+
 	// The target hypervisor of the import task.
 	Hypervisor *string `locationName:"hypervisor" type:"string"`
 
@@ -35952,6 +43739,10 @@ type ImportImageOutput struct {
 
 	// The task ID of the import image task.
 	ImportTaskId *string `locationName:"importTaskId" type:"string"`
+
+	// The identifier for the AWS Key Management Service (AWS KMS) customer master
+	// key (CMK) that was used to create the encrypted AMI.
+	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
 	// The license type of the virtual machine.
 	LicenseType *string `locationName:"licenseType" type:"string"`
@@ -36000,6 +43791,9 @@ type ImportImageTask struct {
 	// A description of the import task.
 	Description *string `locationName:"description" type:"string"`
 
+	// Indicates whether the image is encrypted.
+	Encrypted *bool `locationName:"encrypted" type:"boolean"`
+
 	// The target hypervisor for the import task.
 	//
 	// Valid values: xen
@@ -36010,6 +43804,10 @@ type ImportImageTask struct {
 
 	// The ID of the import image task.
 	ImportTaskId *string `locationName:"importTaskId" type:"string"`
+
+	// The identifier for the AWS Key Management Service (AWS KMS) customer master
+	// key (CMK) that was used to create the encrypted image.
+	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
 	// The license type of the virtual machine.
 	LicenseType *string `locationName:"licenseType" type:"string"`
@@ -36208,35 +44006,25 @@ type ImportInstanceVolumeDetailItem struct {
 	_ struct{} `type:"structure"`
 
 	// The Availability Zone where the resulting instance will reside.
-	//
-	// AvailabilityZone is a required field
-	AvailabilityZone *string `locationName:"availabilityZone" type:"string" required:"true"`
+	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
 
 	// The number of bytes converted so far.
-	//
-	// BytesConverted is a required field
-	BytesConverted *int64 `locationName:"bytesConverted" type:"long" required:"true"`
+	BytesConverted *int64 `locationName:"bytesConverted" type:"long"`
 
 	// A description of the task.
 	Description *string `locationName:"description" type:"string"`
 
 	// The image.
-	//
-	// Image is a required field
-	Image *DiskImageDescription `locationName:"image" type:"structure" required:"true"`
+	Image *DiskImageDescription `locationName:"image" type:"structure"`
 
 	// The status of the import of this particular disk image.
-	//
-	// Status is a required field
-	Status *string `locationName:"status" type:"string" required:"true"`
+	Status *string `locationName:"status" type:"string"`
 
 	// The status information or errors related to the disk image.
 	StatusMessage *string `locationName:"statusMessage" type:"string"`
 
 	// The volume.
-	//
-	// Volume is a required field
-	Volume *DiskImageVolumeDescription `locationName:"volume" type:"structure" required:"true"`
+	Volume *DiskImageVolumeDescription `locationName:"volume" type:"structure"`
 }
 
 // String returns the string representation
@@ -36351,6 +44139,42 @@ type ImportSnapshotInput struct {
 	// the required permissions, the error response is DryRunOperation. Otherwise,
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
+
+	// Specifies whether the destination snapshot of the imported image should be
+	// encrypted. The default CMK for EBS is used unless you specify a non-default
+	// AWS Key Management Service (AWS KMS) CMK using KmsKeyId. For more information,
+	// see Amazon EBS Encryption (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	Encrypted *bool `type:"boolean"`
+
+	// An identifier for the AWS Key Management Service (AWS KMS) customer master
+	// key (CMK) to use when creating the encrypted snapshot. This parameter is
+	// only required if you want to use a non-default CMK; if this parameter is
+	// not specified, the default CMK for EBS is used. If a KmsKeyId is specified,
+	// the Encrypted flag must also be set.
+	//
+	// The CMK identifier may be provided in any of the following formats:
+	//
+	//    * Key ID
+	//
+	//    * Key alias, in the form alias/ExampleAlias
+	//
+	//    * ARN using key ID. The ID ARN contains the arn:aws:kms namespace, followed
+	//    by the region of the CMK, the AWS account ID of the CMK owner, the key
+	//    namespace, and then the CMK ID. For example, arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef.
+	//
+	//    * ARN using key alias. The alias ARN contains the arn:aws:kms namespace,
+	//    followed by the region of the CMK, the AWS account ID of the CMK owner,
+	//    the alias namespace, and then the CMK alias. For example, arn:aws:kms:us-east-1:012345678910:alias/ExampleAlias.
+	//
+	//
+	// AWS parses KmsKeyId asynchronously, meaning that the action you call may
+	// appear to complete even though you provided an invalid identifier. This action
+	// will eventually report failure.
+	//
+	// The specified CMK must exist in the region that the snapshot is being copied
+	// to.
+	KmsKeyId *string `type:"string"`
 
 	// The name of the role to use when not using the default role, 'vmimport'.
 	RoleName *string `type:"string"`
@@ -36567,6 +44391,12 @@ type Instance struct {
 	// Any block device mapping entries for the instance.
 	BlockDeviceMappings []InstanceBlockDeviceMapping `locationName:"blockDeviceMapping" locationNameList:"item" type:"list"`
 
+	// The ID of the Capacity Reservation.
+	CapacityReservationId *string `locationName:"capacityReservationId" type:"string"`
+
+	// Information about the Capacity Reservation targeting option.
+	CapacityReservationSpecification *CapacityReservationSpecificationResponse `locationName:"capacityReservationSpecification" type:"structure"`
+
 	// The idempotency token you provided when you launched the instance, if applicable.
 	ClientToken *string `locationName:"clientToken" type:"string"`
 
@@ -36583,8 +44413,14 @@ type Instance struct {
 	// The Elastic GPU associated with the instance.
 	ElasticGpuAssociations []ElasticGpuAssociation `locationName:"elasticGpuAssociationSet" locationNameList:"item" type:"list"`
 
+	// The elastic inference accelerator associated with the instance.
+	ElasticInferenceAcceleratorAssociations []ElasticInferenceAcceleratorAssociation `locationName:"elasticInferenceAcceleratorAssociationSet" locationNameList:"item" type:"list"`
+
 	// Specifies whether enhanced networking with ENA is enabled.
 	EnaSupport *bool `locationName:"enaSupport" type:"boolean"`
+
+	// Indicates whether the instance is enabled for hibernation.
+	HibernationOptions *HibernationOptions `locationName:"hibernationOptions" type:"structure"`
 
 	// The hypervisor type of the instance.
 	Hypervisor HypervisorType `locationName:"hypervisor" type:"string" enum:"true"`
@@ -36613,6 +44449,9 @@ type Instance struct {
 
 	// The time the instance was launched.
 	LaunchTime *time.Time `locationName:"launchTime" type:"timestamp" timestampFormat:"iso8601"`
+
+	// The license configurations.
+	Licenses []LicenseConfiguration `locationName:"licenseSet" locationNameList:"item" type:"list"`
 
 	// The monitoring for the instance.
 	Monitoring *Monitoring `locationName:"monitoring" type:"structure"`
@@ -37373,6 +45212,9 @@ type InternetGateway struct {
 	// The ID of the internet gateway.
 	InternetGatewayId *string `locationName:"internetGatewayId" type:"string"`
 
+	// The ID of the AWS account that owns the internet gateway.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
 	// Any tags assigned to the internet gateway.
 	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
@@ -37711,6 +45553,29 @@ func (s LaunchTemplate) GoString() string {
 	return s.String()
 }
 
+// Describes a launch template and overrides.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateAndOverridesResponse
+type LaunchTemplateAndOverridesResponse struct {
+	_ struct{} `type:"structure"`
+
+	// The launch template.
+	LaunchTemplateSpecification *FleetLaunchTemplateSpecification `locationName:"launchTemplateSpecification" type:"structure"`
+
+	// Any parameters that you specify override the same parameters in the launch
+	// template.
+	Overrides *FleetLaunchTemplateOverrides `locationName:"overrides" type:"structure"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateAndOverridesResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateAndOverridesResponse) GoString() string {
+	return s.String()
+}
+
 // Describes a block device mapping.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateBlockDeviceMapping
 type LaunchTemplateBlockDeviceMapping struct {
@@ -37771,6 +45636,69 @@ func (s LaunchTemplateBlockDeviceMappingRequest) String() string {
 
 // GoString returns the string representation
 func (s LaunchTemplateBlockDeviceMappingRequest) GoString() string {
+	return s.String()
+}
+
+// Describes an instance's Capacity Reservation targeting option. You can specify
+// only one option at a time. Use the CapacityReservationPreference parameter
+// to configure the instance to run in On-Demand capacity or to run in any open
+// Capacity Reservation that has matching attributes (instance type, platform,
+// Availability Zone). Use the CapacityReservationTarget parameter to explicitly
+// target a specific Capacity Reservation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateCapacityReservationSpecificationRequest
+type LaunchTemplateCapacityReservationSpecificationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates the instance's Capacity Reservation preferences. Possible preferences
+	// include:
+	//
+	//    * open - The instance can run in any open Capacity Reservation that has
+	//    matching attributes (instance type, platform, Availability Zone).
+	//
+	//    * none - The instance avoids running in a Capacity Reservation even if
+	//    one is available. The instance runs in On-Demand capacity.
+	CapacityReservationPreference CapacityReservationPreference `type:"string" enum:"true"`
+
+	// Information about the target Capacity Reservation.
+	CapacityReservationTarget *CapacityReservationTarget `type:"structure"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateCapacityReservationSpecificationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateCapacityReservationSpecificationRequest) GoString() string {
+	return s.String()
+}
+
+// Information about the Capacity Reservation targeting option.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateCapacityReservationSpecificationResponse
+type LaunchTemplateCapacityReservationSpecificationResponse struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates the instance's Capacity Reservation preferences. Possible preferences
+	// include:
+	//
+	//    * open - The instance can run in any open Capacity Reservation that has
+	//    matching attributes (instance type, platform, Availability Zone).
+	//
+	//    * none - The instance avoids running in a Capacity Reservation even if
+	//    one is available. The instance runs in On-Demand capacity.
+	CapacityReservationPreference CapacityReservationPreference `locationName:"capacityReservationPreference" type:"string" enum:"true"`
+
+	// Information about the target Capacity Reservation.
+	CapacityReservationTarget *CapacityReservationTargetResponse `locationName:"capacityReservationTarget" type:"structure"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateCapacityReservationSpecificationResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateCapacityReservationSpecificationResponse) GoString() string {
 	return s.String()
 }
 
@@ -37944,6 +45872,105 @@ func (s LaunchTemplateEbsBlockDeviceRequest) String() string {
 
 // GoString returns the string representation
 func (s LaunchTemplateEbsBlockDeviceRequest) GoString() string {
+	return s.String()
+}
+
+// Describes an elastic inference accelerator.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateElasticInferenceAccelerator
+type LaunchTemplateElasticInferenceAccelerator struct {
+	_ struct{} `type:"structure"`
+
+	// The type of elastic inference accelerator. The possible values are eia1.medium,
+	// eia1.large, and eia1.xlarge.
+	//
+	// Type is a required field
+	Type *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateElasticInferenceAccelerator) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateElasticInferenceAccelerator) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *LaunchTemplateElasticInferenceAccelerator) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "LaunchTemplateElasticInferenceAccelerator"}
+
+	if s.Type == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Type"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Describes an elastic inference accelerator.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateElasticInferenceAcceleratorResponse
+type LaunchTemplateElasticInferenceAcceleratorResponse struct {
+	_ struct{} `type:"structure"`
+
+	// The type of elastic inference accelerator. The possible values are eia1.medium,
+	// eia1.large, and eia1.xlarge.
+	Type *string `locationName:"type" type:"string"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateElasticInferenceAcceleratorResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateElasticInferenceAcceleratorResponse) GoString() string {
+	return s.String()
+}
+
+// Indicates whether an instance is configured for hibernation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateHibernationOptions
+type LaunchTemplateHibernationOptions struct {
+	_ struct{} `type:"structure"`
+
+	// If this parameter is set to true, the instance is enabled for hibernation;
+	// otherwise, it is not enabled for hibernation.
+	Configured *bool `locationName:"configured" type:"boolean"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateHibernationOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateHibernationOptions) GoString() string {
+	return s.String()
+}
+
+// Indicates whether the instance is configured for hibernation. This parameter
+// is valid only if the instance meets the hibernation prerequisites (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
+// Hibernation is currently supported only for Amazon Linux.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateHibernationOptionsRequest
+type LaunchTemplateHibernationOptionsRequest struct {
+	_ struct{} `type:"structure"`
+
+	// If you set this parameter to true, the instance is enabled for hibernation.
+	//
+	// Default: false
+	Configured *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateHibernationOptionsRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateHibernationOptionsRequest) GoString() string {
 	return s.String()
 }
 
@@ -38143,6 +46170,44 @@ func (s LaunchTemplateInstanceNetworkInterfaceSpecificationRequest) GoString() s
 	return s.String()
 }
 
+// Describes a license configuration.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateLicenseConfiguration
+type LaunchTemplateLicenseConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the license configuration.
+	LicenseConfigurationArn *string `locationName:"licenseConfigurationArn" type:"string"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateLicenseConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateLicenseConfiguration) GoString() string {
+	return s.String()
+}
+
+// Describes a license configuration.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateLicenseConfigurationRequest
+type LaunchTemplateLicenseConfigurationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the license configuration.
+	LicenseConfigurationArn *string `type:"string"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateLicenseConfigurationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LaunchTemplateLicenseConfigurationRequest) GoString() string {
+	return s.String()
+}
+
 // Describes overrides for a launch template.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplateOverrides
 type LaunchTemplateOverrides struct {
@@ -38217,7 +46282,7 @@ func (s LaunchTemplatePlacement) GoString() string {
 	return s.String()
 }
 
-// The placement for the instance.
+// Describes the placement of an instance.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LaunchTemplatePlacementRequest
 type LaunchTemplatePlacementRequest struct {
 	_ struct{} `type:"structure"`
@@ -38479,6 +46544,44 @@ func (s LaunchTemplatesMonitoringRequest) GoString() string {
 	return s.String()
 }
 
+// Describes a license configuration.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LicenseConfiguration
+type LicenseConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the license configuration.
+	LicenseConfigurationArn *string `locationName:"licenseConfigurationArn" type:"string"`
+}
+
+// String returns the string representation
+func (s LicenseConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LicenseConfiguration) GoString() string {
+	return s.String()
+}
+
+// Describes a license configuration.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LicenseConfigurationRequest
+type LicenseConfigurationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the license configuration.
+	LicenseConfigurationArn *string `type:"string"`
+}
+
+// String returns the string representation
+func (s LicenseConfigurationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LicenseConfigurationRequest) GoString() string {
+	return s.String()
+}
+
 // Describes the Classic Load Balancers and target groups to attach to a Spot
 // Fleet request.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/LoadBalancersConfig
@@ -38586,6 +46689,187 @@ func (s LoadPermissionRequest) String() string {
 // GoString returns the string representation
 func (s LoadPermissionRequest) GoString() string {
 	return s.String()
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyCapacityReservationRequest
+type ModifyCapacityReservationInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Capacity Reservation.
+	//
+	// CapacityReservationId is a required field
+	CapacityReservationId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The date and time at which the Capacity Reservation expires. When a Capacity
+	// Reservation expires, the reserved capacity is released and you can no longer
+	// launch instances into it. The Capacity Reservation's state changes to expired
+	// when it reaches its end date and time.
+	//
+	// The Capacity Reservation is cancelled within an hour from the specified time.
+	// For example, if you specify 5/31/2019, 13:30:55, the Capacity Reservation
+	// is guaranteed to end between 13:30:55 and 14:30:55 on 5/31/2019.
+	//
+	// You must provide an EndDate value if EndDateType is limited. Omit EndDate
+	// if EndDateType is unlimited.
+	EndDate *time.Time `type:"timestamp" timestampFormat:"iso8601"`
+
+	// Indicates the way in which the Capacity Reservation ends. A Capacity Reservation
+	// can have one of the following end types:
+	//
+	//    * unlimited - The Capacity Reservation remains active until you explicitly
+	//    cancel it. Do not provide an EndDate value if EndDateType is unlimited.
+	//
+	//    * limited - The Capacity Reservation expires automatically at a specified
+	//    date and time. You must provide an EndDate value if EndDateType is limited.
+	EndDateType EndDateType `type:"string" enum:"true"`
+
+	// The number of instances for which to reserve capacity.
+	InstanceCount *int64 `type:"integer"`
+}
+
+// String returns the string representation
+func (s ModifyCapacityReservationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyCapacityReservationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ModifyCapacityReservationInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ModifyCapacityReservationInput"}
+
+	if s.CapacityReservationId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("CapacityReservationId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyCapacityReservationResult
+type ModifyCapacityReservationOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the Capacity Reservation.
+	Return *bool `locationName:"return" type:"boolean"`
+}
+
+// String returns the string representation
+func (s ModifyCapacityReservationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyCapacityReservationOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ModifyCapacityReservationOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyClientVpnEndpointRequest
+type ModifyClientVpnEndpointInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint to modify.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Information about the client connection logging options.
+	//
+	// If you enable client connection logging, data about client connections is
+	// sent to a Cloudwatch Logs log stream. The following information is logged:
+	//
+	//    * Client connection requests
+	//
+	//    * Client connection results (successful and unsuccessful)
+	//
+	//    * Reasons for unsuccessful client connection requests
+	//
+	//    * Client connection termination time
+	ConnectionLogOptions *ConnectionLogOptions `type:"structure"`
+
+	// A brief description of the Client VPN endpoint.
+	Description *string `type:"string"`
+
+	// Information about the DNS servers to be used by Client VPN connections. A
+	// Client VPN endpoint can have up to two DNS servers.
+	DnsServers *DnsServersOptionsModifyStructure `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ARN of the server certificate to be used. The server certificate must
+	// be provisioned in AWS Certificate Manager (ACM).
+	ServerCertificateArn *string `type:"string"`
+}
+
+// String returns the string representation
+func (s ModifyClientVpnEndpointInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyClientVpnEndpointInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ModifyClientVpnEndpointInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ModifyClientVpnEndpointInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyClientVpnEndpointResult
+type ModifyClientVpnEndpointOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool `locationName:"return" type:"boolean"`
+}
+
+// String returns the string representation
+func (s ModifyClientVpnEndpointOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyClientVpnEndpointOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ModifyClientVpnEndpointOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyFleetRequest
@@ -38836,7 +47120,6 @@ func (s ModifyHostsOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters of ModifyIdFormat.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyIdFormatRequest
 type ModifyIdFormatInput struct {
 	_ struct{} `type:"structure"`
@@ -38911,7 +47194,6 @@ func (s ModifyIdFormatOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters of ModifyIdentityIdFormat.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyIdentityIdFormatRequest
 type ModifyIdentityIdFormatInput struct {
 	_ struct{} `type:"structure"`
@@ -39090,7 +47372,6 @@ func (s ModifyImageAttributeOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for ModifyInstanceAttribute.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyInstanceAttributeRequest
 type ModifyInstanceAttributeInput struct {
 	_ struct{} `type:"structure"`
@@ -39234,6 +47515,80 @@ func (s ModifyInstanceAttributeOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyInstanceCapacityReservationAttributesRequest
+type ModifyInstanceCapacityReservationAttributesInput struct {
+	_ struct{} `type:"structure"`
+
+	// Information about the Capacity Reservation targeting option.
+	//
+	// CapacityReservationSpecification is a required field
+	CapacityReservationSpecification *CapacityReservationSpecification `type:"structure" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the instance to be modified.
+	//
+	// InstanceId is a required field
+	InstanceId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ModifyInstanceCapacityReservationAttributesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyInstanceCapacityReservationAttributesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ModifyInstanceCapacityReservationAttributesInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ModifyInstanceCapacityReservationAttributesInput"}
+
+	if s.CapacityReservationSpecification == nil {
+		invalidParams.Add(aws.NewErrParamRequired("CapacityReservationSpecification"))
+	}
+
+	if s.InstanceId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("InstanceId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyInstanceCapacityReservationAttributesResult
+type ModifyInstanceCapacityReservationAttributesOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool `locationName:"return" type:"boolean"`
+}
+
+// String returns the string representation
+func (s ModifyInstanceCapacityReservationAttributesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyInstanceCapacityReservationAttributesOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ModifyInstanceCapacityReservationAttributesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyInstanceCreditSpecificationRequest
 type ModifyInstanceCreditSpecificationInput struct {
 	_ struct{} `type:"structure"`
@@ -39318,7 +47673,8 @@ type ModifyInstancePlacementInput struct {
 
 	// The name of the placement group in which to place the instance. For spread
 	// placement groups, the instance must have a tenancy of default. For cluster
-	// placement groups, the instance must have a tenancy of default or dedicated.
+	// and partition placement groups, the instance must have a tenancy of default
+	// or dedicated.
 	//
 	// To remove an instance from a placement group, specify an empty string ("").
 	GroupName *string `type:"string"`
@@ -39330,6 +47686,9 @@ type ModifyInstancePlacementInput struct {
 	//
 	// InstanceId is a required field
 	InstanceId *string `locationName:"instanceId" type:"string" required:"true"`
+
+	// Reserved for future use.
+	PartitionNumber *int64 `type:"integer"`
 
 	// The tenancy for the instance.
 	Tenancy HostTenancy `locationName:"tenancy" type:"string" enum:"true"`
@@ -39833,6 +48192,103 @@ func (s ModifySubnetAttributeOutput) GoString() string {
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s ModifySubnetAttributeOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyTransitGatewayVpcAttachmentRequest
+type ModifyTransitGatewayVpcAttachmentInput struct {
+	_ struct{} `type:"structure"`
+
+	// The IDs of one or more subnets to add. You can specify at most one subnet
+	// per Availability Zone.
+	AddSubnetIds []string `locationNameList:"item" type:"list"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The new VPC attachment options.
+	Options *ModifyTransitGatewayVpcAttachmentRequestOptions `type:"structure"`
+
+	// The IDs of one or more subnets to remove.
+	RemoveSubnetIds []string `locationNameList:"item" type:"list"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ModifyTransitGatewayVpcAttachmentInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyTransitGatewayVpcAttachmentInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ModifyTransitGatewayVpcAttachmentInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ModifyTransitGatewayVpcAttachmentInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyTransitGatewayVpcAttachmentResult
+type ModifyTransitGatewayVpcAttachmentOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the modified attachment.
+	TransitGatewayVpcAttachment *TransitGatewayVpcAttachment `locationName:"transitGatewayVpcAttachment" type:"structure"`
+}
+
+// String returns the string representation
+func (s ModifyTransitGatewayVpcAttachmentOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyTransitGatewayVpcAttachmentOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ModifyTransitGatewayVpcAttachmentOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Describes the options for a VPC attachment.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ModifyTransitGatewayVpcAttachmentRequestOptions
+type ModifyTransitGatewayVpcAttachmentRequestOptions struct {
+	_ struct{} `type:"structure"`
+
+	// Enable or disable DNS support. The default is enable.
+	DnsSupport DnsSupportValue `type:"string" enum:"true"`
+
+	// Enable or disable IPv6 support. The default is enable.
+	Ipv6Support Ipv6SupportValue `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s ModifyTransitGatewayVpcAttachmentRequestOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ModifyTransitGatewayVpcAttachmentRequestOptions) GoString() string {
+	return s.String()
 }
 
 // Contains the parameters for ModifyVolumeAttribute.
@@ -40527,7 +48983,6 @@ func (s ModifyVpcTenancyOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for MonitorInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/MonitorInstancesRequest
 type MonitorInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -40568,7 +49023,6 @@ func (s *MonitorInstancesInput) Validate() error {
 	return nil
 }
 
-// Contains the output of MonitorInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/MonitorInstancesResult
 type MonitorInstancesOutput struct {
 	_ struct{} `type:"structure"`
@@ -40614,7 +49068,6 @@ func (s Monitoring) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for MoveAddressToVpc.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/MoveAddressToVpcRequest
 type MoveAddressToVpcInput struct {
 	_ struct{} `type:"structure"`
@@ -40655,7 +49108,6 @@ func (s *MoveAddressToVpcInput) Validate() error {
 	return nil
 }
 
-// Contains the output of MoveAddressToVpc.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/MoveAddressToVpcResult
 type MoveAddressToVpcOutput struct {
 	_ struct{} `type:"structure"`
@@ -40842,6 +49294,9 @@ type NetworkAcl struct {
 	// The ID of the network ACL.
 	NetworkAclId *string `locationName:"networkAclId" type:"string"`
 
+	// The ID of the AWS account that owns the network ACL.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
 	// Any tags assigned to the network ACL.
 	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 
@@ -40905,7 +49360,7 @@ type NetworkAclEntry struct {
 	// TCP or UDP protocols: The range of ports the rule applies to.
 	PortRange *PortRange `locationName:"portRange" type:"structure"`
 
-	// The protocol. A value of -1 means all protocols.
+	// The protocol number. A value of "-1" means all protocols.
 	Protocol *string `locationName:"protocol" type:"string"`
 
 	// Indicates whether to allow or deny the traffic that matches the rule.
@@ -41230,6 +49685,14 @@ type OnDemandOptions struct {
 	// launching the highest priority first. If you do not specify a value, EC2
 	// Fleet defaults to lowest-price.
 	AllocationStrategy FleetOnDemandAllocationStrategy `locationName:"allocationStrategy" type:"string" enum:"true"`
+
+	// The minimum target capacity for On-Demand Instances in the fleet. If the
+	// minimum target capacity is not reached, the fleet launches no instances.
+	MinTargetCapacity *int64 `locationName:"minTargetCapacity" type:"integer"`
+
+	// Indicates that the fleet uses a single instance type to launch all On-Demand
+	// Instances in the fleet.
+	SingleInstanceType *bool `locationName:"singleInstanceType" type:"boolean"`
 }
 
 // String returns the string representation
@@ -41254,6 +49717,14 @@ type OnDemandOptionsRequest struct {
 	// launching the highest priority first. If you do not specify a value, EC2
 	// Fleet defaults to lowest-price.
 	AllocationStrategy FleetOnDemandAllocationStrategy `type:"string" enum:"true"`
+
+	// The minimum target capacity for On-Demand Instances in the fleet. If the
+	// minimum target capacity is not reached, the fleet launches no instances.
+	MinTargetCapacity *int64 `type:"integer"`
+
+	// Indicates that the fleet uses a single instance type to launch all On-Demand
+	// Instances in the fleet.
+	SingleInstanceType *bool `type:"boolean"`
 }
 
 // String returns the string representation
@@ -41370,6 +49841,10 @@ type Placement struct {
 	// is not supported for the ImportInstance command.
 	HostId *string `locationName:"hostId" type:"string"`
 
+	// The number of the partition the instance is in. Valid only if the placement
+	// group strategy is set to partition.
+	PartitionNumber *int64 `locationName:"partitionNumber" type:"integer"`
+
 	// Reserved for future use.
 	SpreadDomain *string `locationName:"spreadDomain" type:"string"`
 
@@ -41397,6 +49872,9 @@ type PlacementGroup struct {
 	// The name of the placement group.
 	GroupName *string `locationName:"groupName" type:"string"`
 
+	// The number of partitions. Valid only if strategy is set to partition.
+	PartitionCount *int64 `locationName:"partitionCount" type:"integer"`
+
 	// The state of the placement group.
 	State PlacementGroupState `locationName:"state" type:"string" enum:"true"`
 
@@ -41411,6 +49889,25 @@ func (s PlacementGroup) String() string {
 
 // GoString returns the string representation
 func (s PlacementGroup) GoString() string {
+	return s.String()
+}
+
+// Describes the placement of an instance.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/PlacementResponse
+type PlacementResponse struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the placement group the instance is in.
+	GroupName *string `locationName:"groupName" type:"string"`
+}
+
+// String returns the string representation
+func (s PlacementResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PlacementResponse) GoString() string {
 	return s.String()
 }
 
@@ -41661,6 +50158,85 @@ func (s PropagatingVgw) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ProvisionByoipCidrRequest
+type ProvisionByoipCidrInput struct {
+	_ struct{} `type:"structure"`
+
+	// The public IPv4 address range, in CIDR notation. The most specific prefix
+	// that you can specify is /24. The address range cannot overlap with another
+	// address range that you've brought to this or another region.
+	//
+	// Cidr is a required field
+	Cidr *string `type:"string" required:"true"`
+
+	// A signed document that proves that you are authorized to bring the specified
+	// IP address range to Amazon using BYOIP.
+	CidrAuthorizationContext *CidrAuthorizationContext `type:"structure"`
+
+	// A description for the address range and the address pool.
+	Description *string `type:"string"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s ProvisionByoipCidrInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ProvisionByoipCidrInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ProvisionByoipCidrInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ProvisionByoipCidrInput"}
+
+	if s.Cidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Cidr"))
+	}
+	if s.CidrAuthorizationContext != nil {
+		if err := s.CidrAuthorizationContext.Validate(); err != nil {
+			invalidParams.AddNested("CidrAuthorizationContext", err.(aws.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ProvisionByoipCidrResult
+type ProvisionByoipCidrOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the address pool.
+	ByoipCidr *ByoipCidr `locationName:"byoipCidr" type:"structure"`
+}
+
+// String returns the string representation
+func (s ProvisionByoipCidrOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ProvisionByoipCidrOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ProvisionByoipCidrOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Reserved. If you need to sustain traffic greater than the documented limits
 // (http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/vpc-nat-gateway.html),
 // contact us through the Support Center (https://console.aws.amazon.com/support/home?).
@@ -41701,6 +50277,65 @@ func (s ProvisionedBandwidth) String() string {
 
 // GoString returns the string representation
 func (s ProvisionedBandwidth) GoString() string {
+	return s.String()
+}
+
+// Describes an address pool.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/PublicIpv4Pool
+type PublicIpv4Pool struct {
+	_ struct{} `type:"structure"`
+
+	// A description of the address pool.
+	Description *string `locationName:"description" type:"string"`
+
+	// The address ranges.
+	PoolAddressRanges []PublicIpv4PoolRange `locationName:"poolAddressRangeSet" locationNameList:"item" type:"list"`
+
+	// The ID of the IPv4 address pool.
+	PoolId *string `locationName:"poolId" type:"string"`
+
+	// The total number of addresses.
+	TotalAddressCount *int64 `locationName:"totalAddressCount" type:"integer"`
+
+	// The total number of available addresses.
+	TotalAvailableAddressCount *int64 `locationName:"totalAvailableAddressCount" type:"integer"`
+}
+
+// String returns the string representation
+func (s PublicIpv4Pool) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublicIpv4Pool) GoString() string {
+	return s.String()
+}
+
+// Describes an address range of an IPv4 address pool.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/PublicIpv4PoolRange
+type PublicIpv4PoolRange struct {
+	_ struct{} `type:"structure"`
+
+	// The number of addresses in the range.
+	AddressCount *int64 `locationName:"addressCount" type:"integer"`
+
+	// The number of available addresses in the range.
+	AvailableAddressCount *int64 `locationName:"availableAddressCount" type:"integer"`
+
+	// The first IP address in the range.
+	FirstAddress *string `locationName:"firstAddress" type:"string"`
+
+	// The last IP address in the range.
+	LastAddress *string `locationName:"lastAddress" type:"string"`
+}
+
+// String returns the string representation
+func (s PublicIpv4PoolRange) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublicIpv4PoolRange) GoString() string {
 	return s.String()
 }
 
@@ -42052,7 +50687,6 @@ func (s PurchaseScheduledInstancesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for RebootInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RebootInstancesRequest
 type RebootInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -42281,6 +50915,71 @@ func (s RegisterImageOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RejectTransitGatewayVpcAttachmentRequest
+type RejectTransitGatewayVpcAttachmentInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	//
+	// TransitGatewayAttachmentId is a required field
+	TransitGatewayAttachmentId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s RejectTransitGatewayVpcAttachmentInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RejectTransitGatewayVpcAttachmentInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RejectTransitGatewayVpcAttachmentInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "RejectTransitGatewayVpcAttachmentInput"}
+
+	if s.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RejectTransitGatewayVpcAttachmentResult
+type RejectTransitGatewayVpcAttachmentOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the attachment.
+	TransitGatewayVpcAttachment *TransitGatewayVpcAttachment `locationName:"transitGatewayVpcAttachment" type:"structure"`
+}
+
+// String returns the string representation
+func (s RejectTransitGatewayVpcAttachmentOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RejectTransitGatewayVpcAttachmentOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s RejectTransitGatewayVpcAttachmentOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RejectVpcEndpointConnectionsRequest
 type RejectVpcEndpointConnectionsInput struct {
 	_ struct{} `type:"structure"`
@@ -42420,7 +51119,6 @@ func (s RejectVpcPeeringConnectionOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for ReleaseAddress.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ReleaseAddressRequest
 type ReleaseAddressInput struct {
 	_ struct{} `type:"structure"`
@@ -42696,8 +51394,8 @@ type ReplaceNetworkAclEntryInput struct {
 	// Egress is a required field
 	Egress *bool `locationName:"egress" type:"boolean" required:"true"`
 
-	// ICMP protocol: The ICMP or ICMPv6 type and code. Required if specifying the
-	// ICMP (1) protocol, or protocol 58 (ICMPv6) with an IPv6 CIDR block.
+	// ICMP protocol: The ICMP or ICMPv6 type and code. Required if specifying protocol
+	// 1 (ICMP) or protocol 58 (ICMPv6) with an IPv6 CIDR block.
 	IcmpTypeCode *IcmpTypeCode `locationName:"Icmp" type:"structure"`
 
 	// The IPv6 network range to allow or deny, in CIDR notation (for example 2001:bd8:1234:1a00::/64).
@@ -42709,16 +51407,16 @@ type ReplaceNetworkAclEntryInput struct {
 	NetworkAclId *string `locationName:"networkAclId" type:"string" required:"true"`
 
 	// TCP or UDP protocols: The range of ports the rule applies to. Required if
-	// specifying TCP (6) or UDP (17) for the protocol.
+	// specifying protocol 6 (TCP) or 17 (UDP).
 	PortRange *PortRange `locationName:"portRange" type:"structure"`
 
-	// The IP protocol. You can specify all or -1 to mean all protocols. If you
-	// specify all, -1, or a protocol number other than tcp, udp, or icmp, traffic
-	// on all ports is allowed, regardless of any ports or ICMP types or codes you
-	// that specify. If you specify protocol 58 (ICMPv6) and specify an IPv4 CIDR
-	// block, traffic for all ICMP types and codes allowed, regardless of any that
-	// you specify. If you specify protocol 58 (ICMPv6) and specify an IPv6 CIDR
-	// block, you must specify an ICMP type and code.
+	// The protocol number. A value of "-1" means all protocols. If you specify
+	// "-1" or a protocol number other than "6" (TCP), "17" (UDP), or "1" (ICMP),
+	// traffic on all ports is allowed, regardless of any ports or ICMP types or
+	// codes that you specify. If you specify protocol "58" (ICMPv6) and specify
+	// an IPv4 CIDR block, traffic for all ICMP types and codes allowed, regardless
+	// of any that you specify. If you specify protocol "58" (ICMPv6) and specify
+	// an IPv6 CIDR block, you must specify an ICMP type and code.
 	//
 	// Protocol is a required field
 	Protocol *string `locationName:"protocol" type:"string" required:"true"`
@@ -42832,6 +51530,9 @@ type ReplaceRouteInput struct {
 	//
 	// RouteTableId is a required field
 	RouteTableId *string `locationName:"routeTableId" type:"string" required:"true"`
+
+	// The ID of a transit gateway.
+	TransitGatewayId *string `type:"string"`
 
 	// The ID of a VPC peering connection.
 	VpcPeeringConnectionId *string `locationName:"vpcPeeringConnectionId" type:"string"`
@@ -42957,7 +51658,87 @@ func (s ReplaceRouteTableAssociationOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for ReportInstanceStatus.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ReplaceTransitGatewayRouteRequest
+type ReplaceTransitGatewayRouteInput struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether traffic matching this route is to be dropped.
+	Blackhole *bool `type:"boolean"`
+
+	// The CIDR range used for the destination match. Routing decisions are based
+	// on the most specific match.
+	//
+	// DestinationCidrBlock is a required field
+	DestinationCidrBlock *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `type:"string"`
+
+	// The ID of the route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ReplaceTransitGatewayRouteInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ReplaceTransitGatewayRouteInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ReplaceTransitGatewayRouteInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "ReplaceTransitGatewayRouteInput"}
+
+	if s.DestinationCidrBlock == nil {
+		invalidParams.Add(aws.NewErrParamRequired("DestinationCidrBlock"))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ReplaceTransitGatewayRouteResult
+type ReplaceTransitGatewayRouteOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the modified route.
+	Route *TransitGatewayRoute `locationName:"route" type:"structure"`
+}
+
+// String returns the string representation
+func (s ReplaceTransitGatewayRouteOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ReplaceTransitGatewayRouteOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s ReplaceTransitGatewayRouteOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ReportInstanceStatusRequest
 type ReportInstanceStatusInput struct {
 	_ struct{} `type:"structure"`
@@ -43081,6 +51862,9 @@ type RequestLaunchTemplateData struct {
 	// cannot be changed using this action.
 	BlockDeviceMappings []LaunchTemplateBlockDeviceMappingRequest `locationName:"BlockDeviceMapping" locationNameList:"BlockDeviceMapping" type:"list"`
 
+	// The Capacity Reservation targeting option.
+	CapacityReservationSpecification *LaunchTemplateCapacityReservationSpecificationRequest `type:"structure"`
+
 	// The CPU options for the instance. For more information, see Optimizing CPU
 	// Options (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
@@ -43103,6 +51887,16 @@ type RequestLaunchTemplateData struct {
 
 	// An elastic GPU to associate with the instance.
 	ElasticGpuSpecifications []ElasticGpuSpecification `locationName:"ElasticGpuSpecification" locationNameList:"ElasticGpuSpecification" type:"list"`
+
+	// The elastic inference accelerator for the instance.
+	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAccelerator `locationName:"ElasticInferenceAccelerator" locationNameList:"item" type:"list"`
+
+	// Indicates whether an instance is enabled for hibernation. This parameter
+	// is valid only if the instance meets the hibernation prerequisites (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
+	// Hibernation is currently supported only for Amazon Linux. For more information,
+	// see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	HibernationOptions *LaunchTemplateHibernationOptionsRequest `type:"structure"`
 
 	// The IAM instance profile.
 	IamInstanceProfile *LaunchTemplateIamInstanceProfileSpecificationRequest `type:"structure"`
@@ -43136,6 +51930,9 @@ type RequestLaunchTemplateData struct {
 	// If you do not specify a key pair, you can't connect to the instance unless
 	// you choose an AMI that is configured to allow users another way to log in.
 	KeyName *string `type:"string"`
+
+	// The license configurations.
+	LicenseSpecifications []LaunchTemplateLicenseConfigurationRequest `locationName:"LicenseSpecification" locationNameList:"item" type:"list"`
 
 	// The monitoring for the instance.
 	Monitoring *LaunchTemplatesMonitoringRequest `type:"structure"`
@@ -43201,6 +51998,13 @@ func (s *RequestLaunchTemplateData) Validate() error {
 			}
 		}
 	}
+	if s.ElasticInferenceAccelerators != nil {
+		for i, v := range s.ElasticInferenceAccelerators {
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ElasticInferenceAccelerators", i), err.(aws.ErrInvalidParams))
+			}
+		}
+	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -43262,9 +52066,7 @@ type RequestSpotFleetOutput struct {
 	responseMetadata aws.Response
 
 	// The ID of the Spot Fleet request.
-	//
-	// SpotFleetRequestId is a required field
-	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string" required:"true"`
+	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string"`
 }
 
 // String returns the string representation
@@ -44038,7 +52840,6 @@ func (s ResetImageAttributeOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for ResetInstanceAttribute.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/ResetInstanceAttributeRequest
 type ResetInstanceAttributeInput struct {
 	_ struct{} `type:"structure"`
@@ -44281,6 +53082,9 @@ type ResponseLaunchTemplateData struct {
 	// The block device mappings.
 	BlockDeviceMappings []LaunchTemplateBlockDeviceMapping `locationName:"blockDeviceMappingSet" locationNameList:"item" type:"list"`
 
+	// Information about the Capacity Reservation targeting option.
+	CapacityReservationSpecification *LaunchTemplateCapacityReservationSpecificationResponse `locationName:"capacityReservationSpecification" type:"structure"`
+
 	// The CPU options for the instance. For more information, see Optimizing CPU
 	// Options (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
@@ -44298,6 +53102,14 @@ type ResponseLaunchTemplateData struct {
 
 	// The elastic GPU specification.
 	ElasticGpuSpecifications []ElasticGpuSpecificationResponse `locationName:"elasticGpuSpecificationSet" locationNameList:"item" type:"list"`
+
+	// The elastic inference accelerator for the instance.
+	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAcceleratorResponse `locationName:"elasticInferenceAcceleratorSet" locationNameList:"item" type:"list"`
+
+	// Indicates whether an instance is configured for hibernation. For more information,
+	// see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	HibernationOptions *LaunchTemplateHibernationOptions `locationName:"hibernationOptions" type:"structure"`
 
 	// The IAM instance profile.
 	IamInstanceProfile *LaunchTemplateIamInstanceProfileSpecification `locationName:"iamInstanceProfile" type:"structure"`
@@ -44320,6 +53132,9 @@ type ResponseLaunchTemplateData struct {
 
 	// The name of the key pair.
 	KeyName *string `locationName:"keyName" type:"string"`
+
+	// The license configurations.
+	LicenseSpecifications []LaunchTemplateLicenseConfiguration `locationName:"licenseSet" locationNameList:"item" type:"list"`
 
 	// The monitoring for the instance.
 	Monitoring *LaunchTemplatesMonitoring `locationName:"monitoring" type:"structure"`
@@ -44356,7 +53171,6 @@ func (s ResponseLaunchTemplateData) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for RestoreAddressToClassic.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RestoreAddressToClassicRequest
 type RestoreAddressToClassicInput struct {
 	_ struct{} `type:"structure"`
@@ -44397,7 +53211,6 @@ func (s *RestoreAddressToClassicInput) Validate() error {
 	return nil
 }
 
-// Contains the output of RestoreAddressToClassic.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RestoreAddressToClassicResult
 type RestoreAddressToClassicOutput struct {
 	_ struct{} `type:"structure"`
@@ -44423,6 +53236,87 @@ func (s RestoreAddressToClassicOutput) GoString() string {
 
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s RestoreAddressToClassicOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RevokeClientVpnIngressRequest
+type RevokeClientVpnIngressInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Active Directory group for which to revoke access.
+	AccessGroupId *string `type:"string"`
+
+	// The ID of the Client VPN endpoint with which the authorization rule is associated.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// Indicates whether access should be revoked for all clients.
+	RevokeAllGroups *bool `type:"boolean"`
+
+	// The IPv4 address range, in CIDR notation, of the network for which access
+	// is being removed.
+	//
+	// TargetNetworkCidr is a required field
+	TargetNetworkCidr *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s RevokeClientVpnIngressInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RevokeClientVpnIngressInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RevokeClientVpnIngressInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "RevokeClientVpnIngressInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if s.TargetNetworkCidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TargetNetworkCidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RevokeClientVpnIngressResult
+type RevokeClientVpnIngressOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The current state of the authorization rule.
+	Status *ClientVpnAuthorizationRuleStatus `locationName:"status" type:"structure"`
+}
+
+// String returns the string representation
+func (s RevokeClientVpnIngressOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RevokeClientVpnIngressOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s RevokeClientVpnIngressOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
@@ -44648,7 +53542,10 @@ type Route struct {
 	// VPC, or the specified NAT instance has been terminated).
 	State RouteState `locationName:"state" type:"string" enum:"true"`
 
-	// The ID of the VPC peering connection.
+	// The ID of a transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+
+	// The ID of a VPC peering connection.
 	VpcPeeringConnectionId *string `locationName:"vpcPeeringConnectionId" type:"string"`
 }
 
@@ -44669,6 +53566,9 @@ type RouteTable struct {
 
 	// The associations between the route table and one or more subnets.
 	Associations []RouteTableAssociation `locationName:"associationSet" locationNameList:"item" type:"list"`
+
+	// The ID of the AWS account that owns the route table.
+	OwnerId *string `locationName:"ownerId" type:"string"`
 
 	// Any virtual private gateway (VGW) propagating routes.
 	PropagatingVgws []PropagatingVgw `locationName:"propagatingVgwSet" locationNameList:"item" type:"list"`
@@ -44724,7 +53624,6 @@ func (s RouteTableAssociation) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for RunInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/RunInstancesRequest
 type RunInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -44737,6 +53636,9 @@ type RunInstancesInput struct {
 	// on creation. If a snapshot is the basis for a volume, it is not blank and
 	// its encryption status is used for the volume encryption status.
 	BlockDeviceMappings []BlockDeviceMapping `locationName:"BlockDeviceMapping" locationNameList:"BlockDeviceMapping" type:"list"`
+
+	// Information about the Capacity Reservation targeting option.
+	CapacityReservationSpecification *CapacityReservationSpecification `type:"structure"`
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of
 	// the request. For more information, see Ensuring Idempotency (http://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
@@ -44783,6 +53685,14 @@ type RunInstancesInput struct {
 
 	// An elastic GPU to associate with the instance.
 	ElasticGpuSpecification []ElasticGpuSpecification `locationNameList:"item" type:"list"`
+
+	// An elastic inference accelerator.
+	ElasticInferenceAccelerators []ElasticInferenceAccelerator `locationName:"ElasticInferenceAccelerator" locationNameList:"item" type:"list"`
+
+	// Indicates whether an instance is enabled for hibernation. For more information,
+	// see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	HibernationOptions *HibernationOptionsRequest `type:"structure"`
 
 	// The IAM instance profile.
 	IamInstanceProfile *IamInstanceProfileSpecification `locationName:"iamInstanceProfile" type:"structure"`
@@ -44842,6 +53752,9 @@ type RunInstancesInput struct {
 	// specify in RunInstances override the same parameters in the launch template.
 	// You can specify either the name or ID of a launch template, but not both.
 	LaunchTemplate *LaunchTemplateSpecification `type:"structure"`
+
+	// The license configurations.
+	LicenseSpecifications []LicenseConfigurationRequest `locationName:"LicenseSpecification" locationNameList:"item" type:"list"`
 
 	// The maximum number of instances to launch. If you specify more instances
 	// than Amazon EC2 can launch in the target Availability Zone, Amazon EC2 launches
@@ -44951,6 +53864,13 @@ func (s *RunInstancesInput) Validate() error {
 		for i, v := range s.ElasticGpuSpecification {
 			if err := v.Validate(); err != nil {
 				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ElasticGpuSpecification", i), err.(aws.ErrInvalidParams))
+			}
+		}
+	}
+	if s.ElasticInferenceAccelerators != nil {
+		for i, v := range s.ElasticInferenceAccelerators {
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ElasticInferenceAccelerators", i), err.(aws.ErrInvalidParams))
 			}
 		}
 	}
@@ -45699,6 +54619,100 @@ func (s ScheduledInstancesPrivateIpAddressConfig) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/SearchTransitGatewayRoutesRequest
+type SearchTransitGatewayRoutesInput struct {
+	_ struct{} `type:"structure"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// One or more filters. The possible values are:
+	//
+	//    * transit-gateway-route-destination-cidr-block - The CIDR range.
+	//
+	//    * transit-gateway-route-state - The state of the route (active | blackhole).
+	//
+	//    * transit-gateway-route-transit-gateway-attachment-id - The ID of the
+	//    attachment.
+	//
+	//    * transit-gateway-route-type - The route type (static | propagated).
+	//
+	//    * transit-gateway-route-vpn-connection-id - The ID of the VPN connection.
+	//
+	// Filters is a required field
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list" required:"true"`
+
+	// The maximum number of routes to return.
+	MaxResults *int64 `min:"5" type:"integer"`
+
+	// The ID of the transit gateway route table.
+	//
+	// TransitGatewayRouteTableId is a required field
+	TransitGatewayRouteTableId *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s SearchTransitGatewayRoutesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s SearchTransitGatewayRoutesInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *SearchTransitGatewayRoutesInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "SearchTransitGatewayRoutesInput"}
+
+	if s.Filters == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Filters"))
+	}
+	if s.MaxResults != nil && *s.MaxResults < 5 {
+		invalidParams.Add(aws.NewErrParamMinValue("MaxResults", 5))
+	}
+
+	if s.TransitGatewayRouteTableId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/SearchTransitGatewayRoutesResult
+type SearchTransitGatewayRoutesOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Indicates whether there are additional routes available.
+	AdditionalRoutesAvailable *bool `locationName:"additionalRoutesAvailable" type:"boolean"`
+
+	// Information about the routes.
+	Routes []TransitGatewayRoute `locationName:"routeSet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s SearchTransitGatewayRoutesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s SearchTransitGatewayRoutesOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s SearchTransitGatewayRoutesOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 // Describes a security group
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/SecurityGroup
 type SecurityGroup struct {
@@ -45767,14 +54781,10 @@ type SecurityGroupReference struct {
 	_ struct{} `type:"structure"`
 
 	// The ID of your security group.
-	//
-	// GroupId is a required field
-	GroupId *string `locationName:"groupId" type:"string" required:"true"`
+	GroupId *string `locationName:"groupId" type:"string"`
 
 	// The ID of the VPC with the referencing security group.
-	//
-	// ReferencingVpcId is a required field
-	ReferencingVpcId *string `locationName:"referencingVpcId" type:"string" required:"true"`
+	ReferencingVpcId *string `locationName:"referencingVpcId" type:"string"`
 
 	// The ID of the VPC peering connection.
 	VpcPeeringConnectionId *string `locationName:"vpcPeeringConnectionId" type:"string"`
@@ -46051,8 +55061,15 @@ type SnapshotTaskDetail struct {
 	// The size of the disk in the snapshot, in GiB.
 	DiskImageSize *float64 `locationName:"diskImageSize" type:"double"`
 
+	// Indicates whether the snapshot is encrypted.
+	Encrypted *bool `locationName:"encrypted" type:"boolean"`
+
 	// The format of the disk image from which the snapshot is created.
 	Format *string `locationName:"format" type:"string"`
+
+	// The identifier for the AWS Key Management Service (AWS KMS) customer master
+	// key (CMK) that was used to create the encrypted snapshot.
+	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
 	// The percentage of completion for the import snapshot task.
 	Progress *string `locationName:"progress" type:"string"`
@@ -46240,24 +55257,16 @@ type SpotFleetRequestConfig struct {
 	ActivityStatus ActivityStatus `locationName:"activityStatus" type:"string" enum:"true"`
 
 	// The creation date and time of the request.
-	//
-	// CreateTime is a required field
-	CreateTime *time.Time `locationName:"createTime" type:"timestamp" timestampFormat:"iso8601" required:"true"`
+	CreateTime *time.Time `locationName:"createTime" type:"timestamp" timestampFormat:"iso8601"`
 
 	// The configuration of the Spot Fleet request.
-	//
-	// SpotFleetRequestConfig is a required field
-	SpotFleetRequestConfig *SpotFleetRequestConfigData `locationName:"spotFleetRequestConfig" type:"structure" required:"true"`
+	SpotFleetRequestConfig *SpotFleetRequestConfigData `locationName:"spotFleetRequestConfig" type:"structure"`
 
 	// The ID of the Spot Fleet request.
-	//
-	// SpotFleetRequestId is a required field
-	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string" required:"true"`
+	SpotFleetRequestId *string `locationName:"spotFleetRequestId" type:"string"`
 
 	// The state of the Spot Fleet request.
-	//
-	// SpotFleetRequestState is a required field
-	SpotFleetRequestState BatchState `locationName:"spotFleetRequestState" type:"string" required:"true" enum:"true"`
+	SpotFleetRequestState BatchState `locationName:"spotFleetRequestState" type:"string" enum:"true"`
 }
 
 // String returns the string representation
@@ -46290,7 +55299,7 @@ type SpotFleetRequestConfigData struct {
 	ExcessCapacityTerminationPolicy ExcessCapacityTerminationPolicy `locationName:"excessCapacityTerminationPolicy" type:"string" enum:"true"`
 
 	// The number of units fulfilled by this request compared to the set target
-	// capacity.
+	// capacity. You cannot set this value.
 	FulfilledCapacity *float64 `locationName:"fulfilledCapacity" type:"double"`
 
 	// Grants the Spot Fleet permission to terminate Spot Instances on your behalf
@@ -46637,6 +55646,14 @@ type SpotOptions struct {
 	// the cheapest Spot pools and evenly allocates your target Spot capacity across
 	// the number of Spot pools that you specify.
 	InstancePoolsToUseCount *int64 `locationName:"instancePoolsToUseCount" type:"integer"`
+
+	// The minimum target capacity for Spot Instances in the fleet. If the minimum
+	// target capacity is not reached, the fleet launches no instances.
+	MinTargetCapacity *int64 `locationName:"minTargetCapacity" type:"integer"`
+
+	// Indicates that the fleet uses a single instance type to launch all Spot Instances
+	// in the fleet.
+	SingleInstanceType *bool `locationName:"singleInstanceType" type:"boolean"`
 }
 
 // String returns the string representation
@@ -46666,6 +55683,14 @@ type SpotOptionsRequest struct {
 	// selects the cheapest Spot pools and evenly allocates your target Spot capacity
 	// across the number of Spot pools that you specify.
 	InstancePoolsToUseCount *int64 `type:"integer"`
+
+	// The minimum target capacity for Spot Instances in the fleet. If the minimum
+	// target capacity is not reached, the fleet launches no instances.
+	MinTargetCapacity *int64 `type:"integer"`
+
+	// Indicates that the fleet uses a single instance type to launch all Spot Instances
+	// in the fleet.
+	SingleInstanceType *bool `type:"boolean"`
 }
 
 // String returns the string representation
@@ -46788,9 +55813,7 @@ type StaleSecurityGroup struct {
 	Description *string `locationName:"description" type:"string"`
 
 	// The ID of the security group.
-	//
-	// GroupId is a required field
-	GroupId *string `locationName:"groupId" type:"string" required:"true"`
+	GroupId *string `locationName:"groupId" type:"string"`
 
 	// The name of the security group.
 	GroupName *string `locationName:"groupName" type:"string"`
@@ -46815,7 +55838,6 @@ func (s StaleSecurityGroup) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for StartInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/StartInstancesRequest
 type StartInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -46859,7 +55881,6 @@ func (s *StartInstancesInput) Validate() error {
 	return nil
 }
 
-// Contains the output of StartInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/StartInstancesResult
 type StartInstancesOutput struct {
 	_ struct{} `type:"structure"`
@@ -46924,6 +55945,8 @@ type StateReason struct {
 	//
 	//    * Client.InvalidSnapshot.NotFound: The specified snapshot was not found.
 	//
+	//    * Client.UserInitiatedHibernate: Hibernation was initiated on the instance.
+	//
 	//    * Client.UserInitiatedShutdown: The instance was shut down using the Amazon
 	//    EC2 API.
 	//
@@ -46943,7 +55966,6 @@ func (s StateReason) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for StopInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/StopInstancesRequest
 type StopInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -46961,6 +55983,14 @@ type StopInstancesInput struct {
 	//
 	// Default: false
 	Force *bool `locationName:"force" type:"boolean"`
+
+	// Hibernates the instance if the instance was enabled for hibernation at launch.
+	// If the instance cannot hibernate successfully, a normal shutdown occurs.
+	// For more information, see Hibernate Your Instance (http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	//
+	// Default: false
+	Hibernate *bool `type:"boolean"`
 
 	// One or more instance IDs.
 	//
@@ -46992,7 +56022,6 @@ func (s *StopInstancesInput) Validate() error {
 	return nil
 }
 
-// Contains the output of StopInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/StopInstancesResult
 type StopInstancesOutput struct {
 	_ struct{} `type:"structure"`
@@ -47071,6 +56100,9 @@ type Subnet struct {
 	// The Availability Zone of the subnet.
 	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
 
+	// The AZ ID of the subnet.
+	AvailabilityZoneId *string `locationName:"availabilityZoneId" type:"string"`
+
 	// The number of unused private IPv4 addresses in the subnet. The IPv4 addresses
 	// for any stopped instances are considered unavailable.
 	AvailableIpAddressCount *int64 `locationName:"availableIpAddressCount" type:"integer"`
@@ -47088,8 +56120,14 @@ type Subnet struct {
 	// address.
 	MapPublicIpOnLaunch *bool `locationName:"mapPublicIpOnLaunch" type:"boolean"`
 
+	// The ID of the AWS account that owns the subnet.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
 	// The current state of the subnet.
 	State SubnetState `locationName:"state" type:"string" enum:"true"`
+
+	// The Amazon Resource Name (ARN) of the subnet.
+	SubnetArn *string `locationName:"subnetArn" type:"string"`
 
 	// The ID of the subnet.
 	SubnetId *string `locationName:"subnetId" type:"string"`
@@ -47214,7 +56252,7 @@ type TagDescription struct {
 	// The tag key.
 	Key *string `locationName:"key" type:"string"`
 
-	// The ID of the resource. For example, ami-1a2b3c4d.
+	// The ID of the resource.
 	ResourceId *string `locationName:"resourceId" type:"string"`
 
 	// The resource type.
@@ -47406,9 +56444,7 @@ type TargetGroup struct {
 	_ struct{} `type:"structure"`
 
 	// The Amazon Resource Name (ARN) of the target group.
-	//
-	// Arn is a required field
-	Arn *string `locationName:"arn" type:"string" required:"true"`
+	Arn *string `locationName:"arn" type:"string"`
 }
 
 // String returns the string representation
@@ -47421,20 +56457,6 @@ func (s TargetGroup) GoString() string {
 	return s.String()
 }
 
-// Validate inspects the fields of the type to determine if they are valid.
-func (s *TargetGroup) Validate() error {
-	invalidParams := aws.ErrInvalidParams{Context: "TargetGroup"}
-
-	if s.Arn == nil {
-		invalidParams.Add(aws.NewErrParamRequired("Arn"))
-	}
-
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	}
-	return nil
-}
-
 // Describes the target groups to attach to a Spot Fleet. Spot Fleet registers
 // the running Spot Instances with these target groups.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TargetGroupsConfig
@@ -47442,9 +56464,7 @@ type TargetGroupsConfig struct {
 	_ struct{} `type:"structure"`
 
 	// One or more target groups.
-	//
-	// TargetGroups is a required field
-	TargetGroups []TargetGroup `locationName:"targetGroups" locationNameList:"item" min:"1" type:"list" required:"true"`
+	TargetGroups []TargetGroup `locationName:"targetGroups" locationNameList:"item" min:"1" type:"list"`
 }
 
 // String returns the string representation
@@ -47460,25 +56480,48 @@ func (s TargetGroupsConfig) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *TargetGroupsConfig) Validate() error {
 	invalidParams := aws.ErrInvalidParams{Context: "TargetGroupsConfig"}
-
-	if s.TargetGroups == nil {
-		invalidParams.Add(aws.NewErrParamRequired("TargetGroups"))
-	}
 	if s.TargetGroups != nil && len(s.TargetGroups) < 1 {
 		invalidParams.Add(aws.NewErrParamMinLen("TargetGroups", 1))
-	}
-	if s.TargetGroups != nil {
-		for i, v := range s.TargetGroups {
-			if err := v.Validate(); err != nil {
-				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "TargetGroups", i), err.(aws.ErrInvalidParams))
-			}
-		}
 	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	}
 	return nil
+}
+
+// Describes a target network associated with a Client VPN endpoint.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TargetNetwork
+type TargetNetwork struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the association.
+	AssociationId *string `locationName:"associationId" type:"string"`
+
+	// The ID of the Client VPN endpoint with which the target network is associated.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// The IDs of the security groups applied to the target network association.
+	SecurityGroups []string `locationName:"securityGroups" locationNameList:"item" type:"list"`
+
+	// The current state of the target network association.
+	Status *AssociationStatus `locationName:"status" type:"structure"`
+
+	// The ID of the subnet specified as the target network.
+	TargetNetworkId *string `locationName:"targetNetworkId" type:"string"`
+
+	// The ID of the VPC in which the target network (subnet) is located.
+	VpcId *string `locationName:"vpcId" type:"string"`
+}
+
+// String returns the string representation
+func (s TargetNetwork) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TargetNetwork) GoString() string {
+	return s.String()
 }
 
 // The total value of the new Convertible Reserved Instances.
@@ -47506,7 +56549,110 @@ func (s TargetReservationValue) GoString() string {
 	return s.String()
 }
 
-// Contains the parameters for TerminateInstances.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TerminateClientVpnConnectionsRequest
+type TerminateClientVpnConnectionsInput struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the Client VPN endpoint to which the client is connected.
+	//
+	// ClientVpnEndpointId is a required field
+	ClientVpnEndpointId *string `type:"string" required:"true"`
+
+	// The ID of the client connection to be terminated.
+	ConnectionId *string `type:"string"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
+	// The name of the user who initiated the connection. Use this option to terminate
+	// all active connections for the specified user. This option can only be used
+	// if the user has established up to five connections.
+	Username *string `type:"string"`
+}
+
+// String returns the string representation
+func (s TerminateClientVpnConnectionsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TerminateClientVpnConnectionsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *TerminateClientVpnConnectionsInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "TerminateClientVpnConnectionsInput"}
+
+	if s.ClientVpnEndpointId == nil {
+		invalidParams.Add(aws.NewErrParamRequired("ClientVpnEndpointId"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TerminateClientVpnConnectionsResult
+type TerminateClientVpnConnectionsOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// The ID of the Client VPN endpoint.
+	ClientVpnEndpointId *string `locationName:"clientVpnEndpointId" type:"string"`
+
+	// The current state of the client connections.
+	ConnectionStatuses []TerminateConnectionStatus `locationName:"connectionStatuses" locationNameList:"item" type:"list"`
+
+	// The user who established the terminated client connections.
+	Username *string `locationName:"username" type:"string"`
+}
+
+// String returns the string representation
+func (s TerminateClientVpnConnectionsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TerminateClientVpnConnectionsOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s TerminateClientVpnConnectionsOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
+// Information about a terminated Client VPN endpoint client connection.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TerminateConnectionStatus
+type TerminateConnectionStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the client connection.
+	ConnectionId *string `locationName:"connectionId" type:"string"`
+
+	// A message about the status of the client connection, if applicable.
+	CurrentStatus *ClientVpnConnectionStatus `locationName:"currentStatus" type:"structure"`
+
+	// The state of the client connection.
+	PreviousStatus *ClientVpnConnectionStatus `locationName:"previousStatus" type:"structure"`
+}
+
+// String returns the string representation
+func (s TerminateConnectionStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TerminateConnectionStatus) GoString() string {
+	return s.String()
+}
+
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TerminateInstancesRequest
 type TerminateInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -47550,7 +56696,6 @@ func (s *TerminateInstancesInput) Validate() error {
 	return nil
 }
 
-// Contains the output of TerminateInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TerminateInstancesResult
 type TerminateInstancesOutput struct {
 	_ struct{} `type:"structure"`
@@ -47574,6 +56719,495 @@ func (s TerminateInstancesOutput) GoString() string {
 // SDKResponseMetdata return sthe response metadata for the API.
 func (s TerminateInstancesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
+}
+
+// Describes a transit gateway.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGateway
+type TransitGateway struct {
+	_ struct{} `type:"structure"`
+
+	// The creation time.
+	CreationTime *time.Time `locationName:"creationTime" type:"timestamp" timestampFormat:"iso8601"`
+
+	// The description of the transit gateway.
+	Description *string `locationName:"description" type:"string"`
+
+	// The transit gateway options.
+	Options *TransitGatewayOptions `locationName:"options" type:"structure"`
+
+	// The ID of the AWS account ID that owns the transit gateway.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The state of the transit gateway.
+	State TransitGatewayState `locationName:"state" type:"string" enum:"true"`
+
+	// The tags for the transit gateway.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The Amazon Resource Name (ARN) of the transit gateway.
+	TransitGatewayArn *string `locationName:"transitGatewayArn" type:"string"`
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGateway) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGateway) GoString() string {
+	return s.String()
+}
+
+// Describes an association between a resource attachment and a transit gateway
+// route table.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayAssociation
+type TransitGatewayAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The resource type.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The state of the association.
+	State TransitGatewayAssociationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+
+	// The ID of the transit gateway route table.
+	TransitGatewayRouteTableId *string `locationName:"transitGatewayRouteTableId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayAssociation) GoString() string {
+	return s.String()
+}
+
+// Describes an attachment between a resource and a transit gateway.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayAttachment
+type TransitGatewayAttachment struct {
+	_ struct{} `type:"structure"`
+
+	// The association.
+	Association *TransitGatewayAttachmentAssociation `locationName:"association" type:"structure"`
+
+	// The creation time.
+	CreationTime *time.Time `locationName:"creationTime" type:"timestamp" timestampFormat:"iso8601"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The ID of the AWS account that owns the resource.
+	ResourceOwnerId *string `locationName:"resourceOwnerId" type:"string"`
+
+	// The resource type.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The attachment state.
+	State TransitGatewayAttachmentState `locationName:"state" type:"string" enum:"true"`
+
+	// The tags for the attachment.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+
+	// The ID of the AWS account that owns the transit gateway.
+	TransitGatewayOwnerId *string `locationName:"transitGatewayOwnerId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayAttachment) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayAttachment) GoString() string {
+	return s.String()
+}
+
+// Describes an association.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayAttachmentAssociation
+type TransitGatewayAttachmentAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the association.
+	State TransitGatewayAssociationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the route table for the transit gateway.
+	TransitGatewayRouteTableId *string `locationName:"transitGatewayRouteTableId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayAttachmentAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayAttachmentAssociation) GoString() string {
+	return s.String()
+}
+
+// Describes a propagation route table.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayAttachmentPropagation
+type TransitGatewayAttachmentPropagation struct {
+	_ struct{} `type:"structure"`
+
+	// The state of the propagation route table.
+	State TransitGatewayPropagationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the propagation route table.
+	TransitGatewayRouteTableId *string `locationName:"transitGatewayRouteTableId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayAttachmentPropagation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayAttachmentPropagation) GoString() string {
+	return s.String()
+}
+
+// Describes the options for a transit gateway.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayOptions
+type TransitGatewayOptions struct {
+	_ struct{} `type:"structure"`
+
+	// A private Autonomous System Number (ASN) for the Amazon side of a BGP session.
+	// The range is 64512 to 65534 for 16-bit ASNs and 4200000000 to 4294967294
+	// for 32-bit ASNs.
+	AmazonSideAsn *int64 `locationName:"amazonSideAsn" type:"long"`
+
+	// The ID of the default association route table.
+	AssociationDefaultRouteTableId *string `locationName:"associationDefaultRouteTableId" type:"string"`
+
+	// Indicates whether attachment requests are automatically accepted.
+	AutoAcceptSharedAttachments AutoAcceptSharedAttachmentsValue `locationName:"autoAcceptSharedAttachments" type:"string" enum:"true"`
+
+	// Indicates whether resource attachments are automatically associated with
+	// the default association route table.
+	DefaultRouteTableAssociation DefaultRouteTableAssociationValue `locationName:"defaultRouteTableAssociation" type:"string" enum:"true"`
+
+	// Indicates whether resource attachments automatically propagate routes to
+	// the default propagation route table.
+	DefaultRouteTablePropagation DefaultRouteTablePropagationValue `locationName:"defaultRouteTablePropagation" type:"string" enum:"true"`
+
+	// Indicates whether DNS support is enabled.
+	DnsSupport DnsSupportValue `locationName:"dnsSupport" type:"string" enum:"true"`
+
+	// The ID of the default propagation route table.
+	PropagationDefaultRouteTableId *string `locationName:"propagationDefaultRouteTableId" type:"string"`
+
+	// Indicates whether Equal Cost Multipath Protocol support is enabled.
+	VpnEcmpSupport VpnEcmpSupportValue `locationName:"vpnEcmpSupport" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s TransitGatewayOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayOptions) GoString() string {
+	return s.String()
+}
+
+// Describes route propagation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayPropagation
+type TransitGatewayPropagation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The resource type.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The state.
+	State TransitGatewayPropagationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+
+	// The ID of the transit gateway route table.
+	TransitGatewayRouteTableId *string `locationName:"transitGatewayRouteTableId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayPropagation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayPropagation) GoString() string {
+	return s.String()
+}
+
+// Describes the options for a transit gateway.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayRequestOptions
+type TransitGatewayRequestOptions struct {
+	_ struct{} `type:"structure"`
+
+	// A private Autonomous System Number (ASN) for the Amazon side of a BGP session.
+	// The range is 64512 to 65534 for 16-bit ASNs and 4200000000 to 4294967294
+	// for 32-bit ASNs.
+	AmazonSideAsn *int64 `type:"long"`
+
+	// Enable or disable automatic acceptance of attachment requests. The default
+	// is disable.
+	AutoAcceptSharedAttachments AutoAcceptSharedAttachmentsValue `type:"string" enum:"true"`
+
+	// Enable or disable automatic association with the default association route
+	// table. The default is enable.
+	DefaultRouteTableAssociation DefaultRouteTableAssociationValue `type:"string" enum:"true"`
+
+	// Enable or disable automatic propagation of routes to the default propagation
+	// route table. The default is enable.
+	DefaultRouteTablePropagation DefaultRouteTablePropagationValue `type:"string" enum:"true"`
+
+	// Enable or disable DNS support.
+	DnsSupport DnsSupportValue `type:"string" enum:"true"`
+
+	// Enable or disable Equal Cost Multipath Protocol support.
+	VpnEcmpSupport VpnEcmpSupportValue `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s TransitGatewayRequestOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayRequestOptions) GoString() string {
+	return s.String()
+}
+
+// Describes a route for a transit gateway route table.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayRoute
+type TransitGatewayRoute struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR block used for destination matches.
+	DestinationCidrBlock *string `locationName:"destinationCidrBlock" type:"string"`
+
+	// The state of the route.
+	State TransitGatewayRouteState `locationName:"state" type:"string" enum:"true"`
+
+	// The attachments.
+	TransitGatewayAttachments []TransitGatewayRouteAttachment `locationName:"transitGatewayAttachments" locationNameList:"item" type:"list"`
+
+	// The route type.
+	Type TransitGatewayRouteType `locationName:"type" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s TransitGatewayRoute) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayRoute) GoString() string {
+	return s.String()
+}
+
+// Describes a route attachment.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayRouteAttachment
+type TransitGatewayRouteAttachment struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The resource type.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayRouteAttachment) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayRouteAttachment) GoString() string {
+	return s.String()
+}
+
+// Describes a transit gateway route table.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayRouteTable
+type TransitGatewayRouteTable struct {
+	_ struct{} `type:"structure"`
+
+	// The creation time.
+	CreationTime *time.Time `locationName:"creationTime" type:"timestamp" timestampFormat:"iso8601"`
+
+	// Indicates whether this is the default association route table for the transit
+	// gateway.
+	DefaultAssociationRouteTable *bool `locationName:"defaultAssociationRouteTable" type:"boolean"`
+
+	// Indicates whether this is the default propagation route table for the transit
+	// gateway.
+	DefaultPropagationRouteTable *bool `locationName:"defaultPropagationRouteTable" type:"boolean"`
+
+	// The state of the transit gateway route table.
+	State TransitGatewayRouteTableState `locationName:"state" type:"string" enum:"true"`
+
+	// Any tags assigned to the route table.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+
+	// The ID of the transit gateway route table.
+	TransitGatewayRouteTableId *string `locationName:"transitGatewayRouteTableId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayRouteTable) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayRouteTable) GoString() string {
+	return s.String()
+}
+
+// Describes an association between a route table and a resource attachment.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayRouteTableAssociation
+type TransitGatewayRouteTableAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The resource type.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The state of the association.
+	State TransitGatewayAssociationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayRouteTableAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayRouteTableAssociation) GoString() string {
+	return s.String()
+}
+
+// Describes a route table propagation.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayRouteTablePropagation
+type TransitGatewayRouteTablePropagation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The type of resource.
+	ResourceType TransitGatewayAttachmentResourceType `locationName:"resourceType" type:"string" enum:"true"`
+
+	// The state of the resource.
+	State TransitGatewayPropagationState `locationName:"state" type:"string" enum:"true"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayRouteTablePropagation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayRouteTablePropagation) GoString() string {
+	return s.String()
+}
+
+// Describes a VPC attachment.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayVpcAttachment
+type TransitGatewayVpcAttachment struct {
+	_ struct{} `type:"structure"`
+
+	// The creation time.
+	CreationTime *time.Time `locationName:"creationTime" type:"timestamp" timestampFormat:"iso8601"`
+
+	// The VPC attachment options.
+	Options *TransitGatewayVpcAttachmentOptions `locationName:"options" type:"structure"`
+
+	// The state of the VPC attachment.
+	State TransitGatewayAttachmentState `locationName:"state" type:"string" enum:"true"`
+
+	// The IDs of the subnets.
+	SubnetIds []string `locationName:"subnetIds" locationNameList:"item" type:"list"`
+
+	// The tags for the VPC attachment.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The ID of the attachment.
+	TransitGatewayAttachmentId *string `locationName:"transitGatewayAttachmentId" type:"string"`
+
+	// The ID of the transit gateway.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+
+	// The ID of the VPC.
+	VpcId *string `locationName:"vpcId" type:"string"`
+
+	// The ID of the AWS account that owns the VPC.
+	VpcOwnerId *string `locationName:"vpcOwnerId" type:"string"`
+}
+
+// String returns the string representation
+func (s TransitGatewayVpcAttachment) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayVpcAttachment) GoString() string {
+	return s.String()
+}
+
+// Describes the VPC attachment options.
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/TransitGatewayVpcAttachmentOptions
+type TransitGatewayVpcAttachmentOptions struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether DNS support is enabled.
+	DnsSupport DnsSupportValue `locationName:"dnsSupport" type:"string" enum:"true"`
+
+	// Indicates whether IPv6 support is enabled.
+	Ipv6Support Ipv6SupportValue `locationName:"ipv6Support" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s TransitGatewayVpcAttachmentOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TransitGatewayVpcAttachmentOptions) GoString() string {
+	return s.String()
 }
 
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/UnassignIpv6AddressesRequest
@@ -47714,7 +57348,6 @@ func (s UnassignPrivateIpAddressesOutput) SDKResponseMetadata() aws.Response {
 	return s.responseMetadata
 }
 
-// Contains the parameters for UnmonitorInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/UnmonitorInstancesRequest
 type UnmonitorInstancesInput struct {
 	_ struct{} `type:"structure"`
@@ -47755,7 +57388,6 @@ func (s *UnmonitorInstancesInput) Validate() error {
 	return nil
 }
 
-// Contains the output of UnmonitorInstances.
 // Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/UnmonitorInstancesResult
 type UnmonitorInstancesOutput struct {
 	_ struct{} `type:"structure"`
@@ -47834,9 +57466,7 @@ type UnsuccessfulItem struct {
 	_ struct{} `type:"structure"`
 
 	// Information about the error.
-	//
-	// Error is a required field
-	Error *UnsuccessfulItemError `locationName:"error" type:"structure" required:"true"`
+	Error *UnsuccessfulItemError `locationName:"error" type:"structure"`
 
 	// The ID of the resource.
 	ResourceId *string `locationName:"resourceId" type:"string"`
@@ -47859,14 +57489,10 @@ type UnsuccessfulItemError struct {
 	_ struct{} `type:"structure"`
 
 	// The error code.
-	//
-	// Code is a required field
-	Code *string `locationName:"code" type:"string" required:"true"`
+	Code *string `locationName:"code" type:"string"`
 
 	// The error message accompanying the error code.
-	//
-	// Message is a required field
-	Message *string `locationName:"message" type:"string" required:"true"`
+	Message *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -48425,6 +58051,9 @@ type Vpc struct {
 	// Indicates whether the VPC is the default VPC.
 	IsDefault *bool `locationName:"isDefault" type:"boolean"`
 
+	// The ID of the AWS account that owns the VPC.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
 	// The current state of the VPC.
 	State VpcState `locationName:"state" type:"string" enum:"true"`
 
@@ -48808,6 +58437,9 @@ type VpnConnection struct {
 	// Any tags assigned to the VPN connection.
 	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 
+	// The ID of the transit gateway associated with the VPN connection.
+	TransitGatewayId *string `locationName:"transitGatewayId" type:"string"`
+
 	// The type of VPN connection.
 	Type GatewayType `locationName:"type" type:"string" enum:"true"`
 
@@ -48985,6 +58617,71 @@ func (s VpnTunnelOptionsSpecification) GoString() string {
 	return s.String()
 }
 
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/WithdrawByoipCidrRequest
+type WithdrawByoipCidrInput struct {
+	_ struct{} `type:"structure"`
+
+	// The public IPv4 address range, in CIDR notation.
+	//
+	// Cidr is a required field
+	Cidr *string `type:"string" required:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+}
+
+// String returns the string representation
+func (s WithdrawByoipCidrInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s WithdrawByoipCidrInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *WithdrawByoipCidrInput) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "WithdrawByoipCidrInput"}
+
+	if s.Cidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Cidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// Please also see https://docs.aws.amazon.com/goto/WebAPI/ec2-2016-11-15/WithdrawByoipCidrResult
+type WithdrawByoipCidrOutput struct {
+	_ struct{} `type:"structure"`
+
+	responseMetadata aws.Response
+
+	// Information about the address pool.
+	ByoipCidr *ByoipCidr `locationName:"byoipCidr" type:"structure"`
+}
+
+// String returns the string representation
+func (s WithdrawByoipCidrOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s WithdrawByoipCidrOutput) GoString() string {
+	return s.String()
+}
+
+// SDKResponseMetdata return sthe response metadata for the API.
+func (s WithdrawByoipCidrOutput) SDKResponseMetadata() aws.Response {
+	return s.responseMetadata
+}
+
 type AccountAttributeName string
 
 // Enum values for AccountAttributeName
@@ -49081,6 +58778,7 @@ type ArchitectureValues string
 const (
 	ArchitectureValuesI386  ArchitectureValues = "i386"
 	ArchitectureValuesX8664 ArchitectureValues = "x86_64"
+	ArchitectureValuesArm64 ArchitectureValues = "arm64"
 )
 
 func (enum ArchitectureValues) MarshalValue() (string, error) {
@@ -49088,6 +58786,42 @@ func (enum ArchitectureValues) MarshalValue() (string, error) {
 }
 
 func (enum ArchitectureValues) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type AssociatedNetworkType string
+
+// Enum values for AssociatedNetworkType
+const (
+	AssociatedNetworkTypeVpc AssociatedNetworkType = "vpc"
+)
+
+func (enum AssociatedNetworkType) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum AssociatedNetworkType) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type AssociationStatusCode string
+
+// Enum values for AssociationStatusCode
+const (
+	AssociationStatusCodeAssociating       AssociationStatusCode = "associating"
+	AssociationStatusCodeAssociated        AssociationStatusCode = "associated"
+	AssociationStatusCodeAssociationFailed AssociationStatusCode = "association-failed"
+	AssociationStatusCodeDisassociating    AssociationStatusCode = "disassociating"
+	AssociationStatusCodeDisassociated     AssociationStatusCode = "disassociated"
+)
+
+func (enum AssociationStatusCode) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum AssociationStatusCode) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }
@@ -49107,6 +58841,23 @@ func (enum AttachmentStatus) MarshalValue() (string, error) {
 }
 
 func (enum AttachmentStatus) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type AutoAcceptSharedAttachmentsValue string
+
+// Enum values for AutoAcceptSharedAttachmentsValue
+const (
+	AutoAcceptSharedAttachmentsValueEnable  AutoAcceptSharedAttachmentsValue = "enable"
+	AutoAcceptSharedAttachmentsValueDisable AutoAcceptSharedAttachmentsValue = "disable"
+)
+
+func (enum AutoAcceptSharedAttachmentsValue) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum AutoAcceptSharedAttachmentsValue) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }
@@ -49191,6 +58942,28 @@ func (enum BundleTaskState) MarshalValueBuf(b []byte) ([]byte, error) {
 	return append(b, enum...), nil
 }
 
+type ByoipCidrState string
+
+// Enum values for ByoipCidrState
+const (
+	ByoipCidrStateAdvertised         ByoipCidrState = "advertised"
+	ByoipCidrStateDeprovisioned      ByoipCidrState = "deprovisioned"
+	ByoipCidrStateFailedDeprovision  ByoipCidrState = "failed-deprovision"
+	ByoipCidrStateFailedProvision    ByoipCidrState = "failed-provision"
+	ByoipCidrStatePendingDeprovision ByoipCidrState = "pending-deprovision"
+	ByoipCidrStatePendingProvision   ByoipCidrState = "pending-provision"
+	ByoipCidrStateProvisioned        ByoipCidrState = "provisioned"
+)
+
+func (enum ByoipCidrState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ByoipCidrState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type CancelBatchErrorCode string
 
 // Enum values for CancelBatchErrorCode
@@ -49226,6 +58999,193 @@ func (enum CancelSpotInstanceRequestState) MarshalValue() (string, error) {
 }
 
 func (enum CancelSpotInstanceRequestState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type CapacityReservationInstancePlatform string
+
+// Enum values for CapacityReservationInstancePlatform
+const (
+	CapacityReservationInstancePlatformLinuxUnix                      CapacityReservationInstancePlatform = "Linux/UNIX"
+	CapacityReservationInstancePlatformRedHatEnterpriseLinux          CapacityReservationInstancePlatform = "Red Hat Enterprise Linux"
+	CapacityReservationInstancePlatformSuselinux                      CapacityReservationInstancePlatform = "SUSE Linux"
+	CapacityReservationInstancePlatformWindows                        CapacityReservationInstancePlatform = "Windows"
+	CapacityReservationInstancePlatformWindowswithSqlserver           CapacityReservationInstancePlatform = "Windows with SQL Server"
+	CapacityReservationInstancePlatformWindowswithSqlserverEnterprise CapacityReservationInstancePlatform = "Windows with SQL Server Enterprise"
+	CapacityReservationInstancePlatformWindowswithSqlserverStandard   CapacityReservationInstancePlatform = "Windows with SQL Server Standard"
+	CapacityReservationInstancePlatformWindowswithSqlserverWeb        CapacityReservationInstancePlatform = "Windows with SQL Server Web"
+)
+
+func (enum CapacityReservationInstancePlatform) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum CapacityReservationInstancePlatform) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type CapacityReservationPreference string
+
+// Enum values for CapacityReservationPreference
+const (
+	CapacityReservationPreferenceOpen CapacityReservationPreference = "open"
+	CapacityReservationPreferenceNone CapacityReservationPreference = "none"
+)
+
+func (enum CapacityReservationPreference) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum CapacityReservationPreference) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type CapacityReservationState string
+
+// Enum values for CapacityReservationState
+const (
+	CapacityReservationStateActive    CapacityReservationState = "active"
+	CapacityReservationStateExpired   CapacityReservationState = "expired"
+	CapacityReservationStateCancelled CapacityReservationState = "cancelled"
+	CapacityReservationStatePending   CapacityReservationState = "pending"
+	CapacityReservationStateFailed    CapacityReservationState = "failed"
+)
+
+func (enum CapacityReservationState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum CapacityReservationState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type CapacityReservationTenancy string
+
+// Enum values for CapacityReservationTenancy
+const (
+	CapacityReservationTenancyDefault   CapacityReservationTenancy = "default"
+	CapacityReservationTenancyDedicated CapacityReservationTenancy = "dedicated"
+)
+
+func (enum CapacityReservationTenancy) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum CapacityReservationTenancy) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type ClientCertificateRevocationListStatusCode string
+
+// Enum values for ClientCertificateRevocationListStatusCode
+const (
+	ClientCertificateRevocationListStatusCodePending ClientCertificateRevocationListStatusCode = "pending"
+	ClientCertificateRevocationListStatusCodeActive  ClientCertificateRevocationListStatusCode = "active"
+)
+
+func (enum ClientCertificateRevocationListStatusCode) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ClientCertificateRevocationListStatusCode) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type ClientVpnAuthenticationType string
+
+// Enum values for ClientVpnAuthenticationType
+const (
+	ClientVpnAuthenticationTypeCertificateAuthentication      ClientVpnAuthenticationType = "certificate-authentication"
+	ClientVpnAuthenticationTypeDirectoryServiceAuthentication ClientVpnAuthenticationType = "directory-service-authentication"
+)
+
+func (enum ClientVpnAuthenticationType) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ClientVpnAuthenticationType) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type ClientVpnAuthorizationRuleStatusCode string
+
+// Enum values for ClientVpnAuthorizationRuleStatusCode
+const (
+	ClientVpnAuthorizationRuleStatusCodeAuthorizing ClientVpnAuthorizationRuleStatusCode = "authorizing"
+	ClientVpnAuthorizationRuleStatusCodeActive      ClientVpnAuthorizationRuleStatusCode = "active"
+	ClientVpnAuthorizationRuleStatusCodeFailed      ClientVpnAuthorizationRuleStatusCode = "failed"
+	ClientVpnAuthorizationRuleStatusCodeRevoking    ClientVpnAuthorizationRuleStatusCode = "revoking"
+)
+
+func (enum ClientVpnAuthorizationRuleStatusCode) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ClientVpnAuthorizationRuleStatusCode) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type ClientVpnConnectionStatusCode string
+
+// Enum values for ClientVpnConnectionStatusCode
+const (
+	ClientVpnConnectionStatusCodeActive            ClientVpnConnectionStatusCode = "active"
+	ClientVpnConnectionStatusCodeFailedToTerminate ClientVpnConnectionStatusCode = "failed-to-terminate"
+	ClientVpnConnectionStatusCodeTerminating       ClientVpnConnectionStatusCode = "terminating"
+	ClientVpnConnectionStatusCodeTerminated        ClientVpnConnectionStatusCode = "terminated"
+)
+
+func (enum ClientVpnConnectionStatusCode) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ClientVpnConnectionStatusCode) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type ClientVpnEndpointStatusCode string
+
+// Enum values for ClientVpnEndpointStatusCode
+const (
+	ClientVpnEndpointStatusCodePendingAssociate ClientVpnEndpointStatusCode = "pending-associate"
+	ClientVpnEndpointStatusCodeAvailable        ClientVpnEndpointStatusCode = "available"
+	ClientVpnEndpointStatusCodeDeleting         ClientVpnEndpointStatusCode = "deleting"
+	ClientVpnEndpointStatusCodeDeleted          ClientVpnEndpointStatusCode = "deleted"
+)
+
+func (enum ClientVpnEndpointStatusCode) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ClientVpnEndpointStatusCode) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type ClientVpnRouteStatusCode string
+
+// Enum values for ClientVpnRouteStatusCode
+const (
+	ClientVpnRouteStatusCodeCreating ClientVpnRouteStatusCode = "creating"
+	ClientVpnRouteStatusCodeActive   ClientVpnRouteStatusCode = "active"
+	ClientVpnRouteStatusCodeFailed   ClientVpnRouteStatusCode = "failed"
+	ClientVpnRouteStatusCodeDeleting ClientVpnRouteStatusCode = "deleting"
+)
+
+func (enum ClientVpnRouteStatusCode) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum ClientVpnRouteStatusCode) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }
@@ -49331,6 +59291,40 @@ func (enum DatafeedSubscriptionState) MarshalValueBuf(b []byte) ([]byte, error) 
 	return append(b, enum...), nil
 }
 
+type DefaultRouteTableAssociationValue string
+
+// Enum values for DefaultRouteTableAssociationValue
+const (
+	DefaultRouteTableAssociationValueEnable  DefaultRouteTableAssociationValue = "enable"
+	DefaultRouteTableAssociationValueDisable DefaultRouteTableAssociationValue = "disable"
+)
+
+func (enum DefaultRouteTableAssociationValue) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum DefaultRouteTableAssociationValue) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type DefaultRouteTablePropagationValue string
+
+// Enum values for DefaultRouteTablePropagationValue
+const (
+	DefaultRouteTablePropagationValueEnable  DefaultRouteTablePropagationValue = "enable"
+	DefaultRouteTablePropagationValueDisable DefaultRouteTablePropagationValue = "disable"
+)
+
+func (enum DefaultRouteTablePropagationValue) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum DefaultRouteTablePropagationValue) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type DefaultTargetCapacityType string
 
 // Enum values for DefaultTargetCapacityType
@@ -49402,6 +59396,23 @@ func (enum DiskImageFormat) MarshalValueBuf(b []byte) ([]byte, error) {
 	return append(b, enum...), nil
 }
 
+type DnsSupportValue string
+
+// Enum values for DnsSupportValue
+const (
+	DnsSupportValueEnable  DnsSupportValue = "enable"
+	DnsSupportValueDisable DnsSupportValue = "disable"
+)
+
+func (enum DnsSupportValue) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum DnsSupportValue) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type DomainType string
 
 // Enum values for DomainType
@@ -49448,6 +59459,23 @@ func (enum ElasticGpuStatus) MarshalValue() (string, error) {
 }
 
 func (enum ElasticGpuStatus) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type EndDateType string
+
+// Enum values for EndDateType
+const (
+	EndDateTypeUnlimited EndDateType = "unlimited"
+	EndDateTypeLimited   EndDateType = "limited"
+)
+
+func (enum EndDateType) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum EndDateType) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }
@@ -49643,6 +59671,7 @@ type FleetType string
 const (
 	FleetTypeRequest  FleetType = "request"
 	FleetTypeMaintain FleetType = "maintain"
+	FleetTypeInstant  FleetType = "instant"
 )
 
 func (enum FleetType) MarshalValue() (string, error) {
@@ -49905,6 +59934,23 @@ func (enum InstanceInterruptionBehavior) MarshalValueBuf(b []byte) ([]byte, erro
 	return append(b, enum...), nil
 }
 
+type InstanceLifecycle string
+
+// Enum values for InstanceLifecycle
+const (
+	InstanceLifecycleSpot     InstanceLifecycle = "spot"
+	InstanceLifecycleOnDemand InstanceLifecycle = "on-demand"
+)
+
+func (enum InstanceLifecycle) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum InstanceLifecycle) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type InstanceLifecycleType string
 
 // Enum values for InstanceLifecycleType
@@ -49918,6 +59964,23 @@ func (enum InstanceLifecycleType) MarshalValue() (string, error) {
 }
 
 func (enum InstanceLifecycleType) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type InstanceMatchCriteria string
+
+// Enum values for InstanceMatchCriteria
+const (
+	InstanceMatchCriteriaOpen     InstanceMatchCriteria = "open"
+	InstanceMatchCriteriaTargeted InstanceMatchCriteria = "targeted"
+)
+
+func (enum InstanceMatchCriteria) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum InstanceMatchCriteria) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }
@@ -49947,156 +60010,184 @@ type InstanceType string
 
 // Enum values for InstanceType
 const (
-	InstanceTypeT1Micro     InstanceType = "t1.micro"
-	InstanceTypeT2Nano      InstanceType = "t2.nano"
-	InstanceTypeT2Micro     InstanceType = "t2.micro"
-	InstanceTypeT2Small     InstanceType = "t2.small"
-	InstanceTypeT2Medium    InstanceType = "t2.medium"
-	InstanceTypeT2Large     InstanceType = "t2.large"
-	InstanceTypeT2Xlarge    InstanceType = "t2.xlarge"
-	InstanceTypeT22xlarge   InstanceType = "t2.2xlarge"
-	InstanceTypeT3Nano      InstanceType = "t3.nano"
-	InstanceTypeT3Micro     InstanceType = "t3.micro"
-	InstanceTypeT3Small     InstanceType = "t3.small"
-	InstanceTypeT3Medium    InstanceType = "t3.medium"
-	InstanceTypeT3Large     InstanceType = "t3.large"
-	InstanceTypeT3Xlarge    InstanceType = "t3.xlarge"
-	InstanceTypeT32xlarge   InstanceType = "t3.2xlarge"
-	InstanceTypeM1Small     InstanceType = "m1.small"
-	InstanceTypeM1Medium    InstanceType = "m1.medium"
-	InstanceTypeM1Large     InstanceType = "m1.large"
-	InstanceTypeM1Xlarge    InstanceType = "m1.xlarge"
-	InstanceTypeM3Medium    InstanceType = "m3.medium"
-	InstanceTypeM3Large     InstanceType = "m3.large"
-	InstanceTypeM3Xlarge    InstanceType = "m3.xlarge"
-	InstanceTypeM32xlarge   InstanceType = "m3.2xlarge"
-	InstanceTypeM4Large     InstanceType = "m4.large"
-	InstanceTypeM4Xlarge    InstanceType = "m4.xlarge"
-	InstanceTypeM42xlarge   InstanceType = "m4.2xlarge"
-	InstanceTypeM44xlarge   InstanceType = "m4.4xlarge"
-	InstanceTypeM410xlarge  InstanceType = "m4.10xlarge"
-	InstanceTypeM416xlarge  InstanceType = "m4.16xlarge"
-	InstanceTypeM2Xlarge    InstanceType = "m2.xlarge"
-	InstanceTypeM22xlarge   InstanceType = "m2.2xlarge"
-	InstanceTypeM24xlarge   InstanceType = "m2.4xlarge"
-	InstanceTypeCr18xlarge  InstanceType = "cr1.8xlarge"
-	InstanceTypeR3Large     InstanceType = "r3.large"
-	InstanceTypeR3Xlarge    InstanceType = "r3.xlarge"
-	InstanceTypeR32xlarge   InstanceType = "r3.2xlarge"
-	InstanceTypeR34xlarge   InstanceType = "r3.4xlarge"
-	InstanceTypeR38xlarge   InstanceType = "r3.8xlarge"
-	InstanceTypeR4Large     InstanceType = "r4.large"
-	InstanceTypeR4Xlarge    InstanceType = "r4.xlarge"
-	InstanceTypeR42xlarge   InstanceType = "r4.2xlarge"
-	InstanceTypeR44xlarge   InstanceType = "r4.4xlarge"
-	InstanceTypeR48xlarge   InstanceType = "r4.8xlarge"
-	InstanceTypeR416xlarge  InstanceType = "r4.16xlarge"
-	InstanceTypeR5Large     InstanceType = "r5.large"
-	InstanceTypeR5Xlarge    InstanceType = "r5.xlarge"
-	InstanceTypeR52xlarge   InstanceType = "r5.2xlarge"
-	InstanceTypeR54xlarge   InstanceType = "r5.4xlarge"
-	InstanceTypeR58xlarge   InstanceType = "r5.8xlarge"
-	InstanceTypeR512xlarge  InstanceType = "r5.12xlarge"
-	InstanceTypeR516xlarge  InstanceType = "r5.16xlarge"
-	InstanceTypeR524xlarge  InstanceType = "r5.24xlarge"
-	InstanceTypeR5Metal     InstanceType = "r5.metal"
-	InstanceTypeR5dLarge    InstanceType = "r5d.large"
-	InstanceTypeR5dXlarge   InstanceType = "r5d.xlarge"
-	InstanceTypeR5d2xlarge  InstanceType = "r5d.2xlarge"
-	InstanceTypeR5d4xlarge  InstanceType = "r5d.4xlarge"
-	InstanceTypeR5d8xlarge  InstanceType = "r5d.8xlarge"
-	InstanceTypeR5d12xlarge InstanceType = "r5d.12xlarge"
-	InstanceTypeR5d16xlarge InstanceType = "r5d.16xlarge"
-	InstanceTypeR5d24xlarge InstanceType = "r5d.24xlarge"
-	InstanceTypeR5dMetal    InstanceType = "r5d.metal"
-	InstanceTypeX116xlarge  InstanceType = "x1.16xlarge"
-	InstanceTypeX132xlarge  InstanceType = "x1.32xlarge"
-	InstanceTypeX1eXlarge   InstanceType = "x1e.xlarge"
-	InstanceTypeX1e2xlarge  InstanceType = "x1e.2xlarge"
-	InstanceTypeX1e4xlarge  InstanceType = "x1e.4xlarge"
-	InstanceTypeX1e8xlarge  InstanceType = "x1e.8xlarge"
-	InstanceTypeX1e16xlarge InstanceType = "x1e.16xlarge"
-	InstanceTypeX1e32xlarge InstanceType = "x1e.32xlarge"
-	InstanceTypeI2Xlarge    InstanceType = "i2.xlarge"
-	InstanceTypeI22xlarge   InstanceType = "i2.2xlarge"
-	InstanceTypeI24xlarge   InstanceType = "i2.4xlarge"
-	InstanceTypeI28xlarge   InstanceType = "i2.8xlarge"
-	InstanceTypeI3Large     InstanceType = "i3.large"
-	InstanceTypeI3Xlarge    InstanceType = "i3.xlarge"
-	InstanceTypeI32xlarge   InstanceType = "i3.2xlarge"
-	InstanceTypeI34xlarge   InstanceType = "i3.4xlarge"
-	InstanceTypeI38xlarge   InstanceType = "i3.8xlarge"
-	InstanceTypeI316xlarge  InstanceType = "i3.16xlarge"
-	InstanceTypeI3Metal     InstanceType = "i3.metal"
-	InstanceTypeHi14xlarge  InstanceType = "hi1.4xlarge"
-	InstanceTypeHs18xlarge  InstanceType = "hs1.8xlarge"
-	InstanceTypeC1Medium    InstanceType = "c1.medium"
-	InstanceTypeC1Xlarge    InstanceType = "c1.xlarge"
-	InstanceTypeC3Large     InstanceType = "c3.large"
-	InstanceTypeC3Xlarge    InstanceType = "c3.xlarge"
-	InstanceTypeC32xlarge   InstanceType = "c3.2xlarge"
-	InstanceTypeC34xlarge   InstanceType = "c3.4xlarge"
-	InstanceTypeC38xlarge   InstanceType = "c3.8xlarge"
-	InstanceTypeC4Large     InstanceType = "c4.large"
-	InstanceTypeC4Xlarge    InstanceType = "c4.xlarge"
-	InstanceTypeC42xlarge   InstanceType = "c4.2xlarge"
-	InstanceTypeC44xlarge   InstanceType = "c4.4xlarge"
-	InstanceTypeC48xlarge   InstanceType = "c4.8xlarge"
-	InstanceTypeC5Large     InstanceType = "c5.large"
-	InstanceTypeC5Xlarge    InstanceType = "c5.xlarge"
-	InstanceTypeC52xlarge   InstanceType = "c5.2xlarge"
-	InstanceTypeC54xlarge   InstanceType = "c5.4xlarge"
-	InstanceTypeC59xlarge   InstanceType = "c5.9xlarge"
-	InstanceTypeC518xlarge  InstanceType = "c5.18xlarge"
-	InstanceTypeC5dLarge    InstanceType = "c5d.large"
-	InstanceTypeC5dXlarge   InstanceType = "c5d.xlarge"
-	InstanceTypeC5d2xlarge  InstanceType = "c5d.2xlarge"
-	InstanceTypeC5d4xlarge  InstanceType = "c5d.4xlarge"
-	InstanceTypeC5d9xlarge  InstanceType = "c5d.9xlarge"
-	InstanceTypeC5d18xlarge InstanceType = "c5d.18xlarge"
-	InstanceTypeCc14xlarge  InstanceType = "cc1.4xlarge"
-	InstanceTypeCc28xlarge  InstanceType = "cc2.8xlarge"
-	InstanceTypeG22xlarge   InstanceType = "g2.2xlarge"
-	InstanceTypeG28xlarge   InstanceType = "g2.8xlarge"
-	InstanceTypeG34xlarge   InstanceType = "g3.4xlarge"
-	InstanceTypeG38xlarge   InstanceType = "g3.8xlarge"
-	InstanceTypeG316xlarge  InstanceType = "g3.16xlarge"
-	InstanceTypeCg14xlarge  InstanceType = "cg1.4xlarge"
-	InstanceTypeP2Xlarge    InstanceType = "p2.xlarge"
-	InstanceTypeP28xlarge   InstanceType = "p2.8xlarge"
-	InstanceTypeP216xlarge  InstanceType = "p2.16xlarge"
-	InstanceTypeP32xlarge   InstanceType = "p3.2xlarge"
-	InstanceTypeP38xlarge   InstanceType = "p3.8xlarge"
-	InstanceTypeP316xlarge  InstanceType = "p3.16xlarge"
-	InstanceTypeD2Xlarge    InstanceType = "d2.xlarge"
-	InstanceTypeD22xlarge   InstanceType = "d2.2xlarge"
-	InstanceTypeD24xlarge   InstanceType = "d2.4xlarge"
-	InstanceTypeD28xlarge   InstanceType = "d2.8xlarge"
-	InstanceTypeF12xlarge   InstanceType = "f1.2xlarge"
-	InstanceTypeF14xlarge   InstanceType = "f1.4xlarge"
-	InstanceTypeF116xlarge  InstanceType = "f1.16xlarge"
-	InstanceTypeM5Large     InstanceType = "m5.large"
-	InstanceTypeM5Xlarge    InstanceType = "m5.xlarge"
-	InstanceTypeM52xlarge   InstanceType = "m5.2xlarge"
-	InstanceTypeM54xlarge   InstanceType = "m5.4xlarge"
-	InstanceTypeM512xlarge  InstanceType = "m5.12xlarge"
-	InstanceTypeM524xlarge  InstanceType = "m5.24xlarge"
-	InstanceTypeM5dLarge    InstanceType = "m5d.large"
-	InstanceTypeM5dXlarge   InstanceType = "m5d.xlarge"
-	InstanceTypeM5d2xlarge  InstanceType = "m5d.2xlarge"
-	InstanceTypeM5d4xlarge  InstanceType = "m5d.4xlarge"
-	InstanceTypeM5d12xlarge InstanceType = "m5d.12xlarge"
-	InstanceTypeM5d24xlarge InstanceType = "m5d.24xlarge"
-	InstanceTypeH12xlarge   InstanceType = "h1.2xlarge"
-	InstanceTypeH14xlarge   InstanceType = "h1.4xlarge"
-	InstanceTypeH18xlarge   InstanceType = "h1.8xlarge"
-	InstanceTypeH116xlarge  InstanceType = "h1.16xlarge"
-	InstanceTypeZ1dLarge    InstanceType = "z1d.large"
-	InstanceTypeZ1dXlarge   InstanceType = "z1d.xlarge"
-	InstanceTypeZ1d2xlarge  InstanceType = "z1d.2xlarge"
-	InstanceTypeZ1d3xlarge  InstanceType = "z1d.3xlarge"
-	InstanceTypeZ1d6xlarge  InstanceType = "z1d.6xlarge"
-	InstanceTypeZ1d12xlarge InstanceType = "z1d.12xlarge"
+	InstanceTypeT1Micro      InstanceType = "t1.micro"
+	InstanceTypeT2Nano       InstanceType = "t2.nano"
+	InstanceTypeT2Micro      InstanceType = "t2.micro"
+	InstanceTypeT2Small      InstanceType = "t2.small"
+	InstanceTypeT2Medium     InstanceType = "t2.medium"
+	InstanceTypeT2Large      InstanceType = "t2.large"
+	InstanceTypeT2Xlarge     InstanceType = "t2.xlarge"
+	InstanceTypeT22xlarge    InstanceType = "t2.2xlarge"
+	InstanceTypeT3Nano       InstanceType = "t3.nano"
+	InstanceTypeT3Micro      InstanceType = "t3.micro"
+	InstanceTypeT3Small      InstanceType = "t3.small"
+	InstanceTypeT3Medium     InstanceType = "t3.medium"
+	InstanceTypeT3Large      InstanceType = "t3.large"
+	InstanceTypeT3Xlarge     InstanceType = "t3.xlarge"
+	InstanceTypeT32xlarge    InstanceType = "t3.2xlarge"
+	InstanceTypeM1Small      InstanceType = "m1.small"
+	InstanceTypeM1Medium     InstanceType = "m1.medium"
+	InstanceTypeM1Large      InstanceType = "m1.large"
+	InstanceTypeM1Xlarge     InstanceType = "m1.xlarge"
+	InstanceTypeM3Medium     InstanceType = "m3.medium"
+	InstanceTypeM3Large      InstanceType = "m3.large"
+	InstanceTypeM3Xlarge     InstanceType = "m3.xlarge"
+	InstanceTypeM32xlarge    InstanceType = "m3.2xlarge"
+	InstanceTypeM4Large      InstanceType = "m4.large"
+	InstanceTypeM4Xlarge     InstanceType = "m4.xlarge"
+	InstanceTypeM42xlarge    InstanceType = "m4.2xlarge"
+	InstanceTypeM44xlarge    InstanceType = "m4.4xlarge"
+	InstanceTypeM410xlarge   InstanceType = "m4.10xlarge"
+	InstanceTypeM416xlarge   InstanceType = "m4.16xlarge"
+	InstanceTypeM2Xlarge     InstanceType = "m2.xlarge"
+	InstanceTypeM22xlarge    InstanceType = "m2.2xlarge"
+	InstanceTypeM24xlarge    InstanceType = "m2.4xlarge"
+	InstanceTypeCr18xlarge   InstanceType = "cr1.8xlarge"
+	InstanceTypeR3Large      InstanceType = "r3.large"
+	InstanceTypeR3Xlarge     InstanceType = "r3.xlarge"
+	InstanceTypeR32xlarge    InstanceType = "r3.2xlarge"
+	InstanceTypeR34xlarge    InstanceType = "r3.4xlarge"
+	InstanceTypeR38xlarge    InstanceType = "r3.8xlarge"
+	InstanceTypeR4Large      InstanceType = "r4.large"
+	InstanceTypeR4Xlarge     InstanceType = "r4.xlarge"
+	InstanceTypeR42xlarge    InstanceType = "r4.2xlarge"
+	InstanceTypeR44xlarge    InstanceType = "r4.4xlarge"
+	InstanceTypeR48xlarge    InstanceType = "r4.8xlarge"
+	InstanceTypeR416xlarge   InstanceType = "r4.16xlarge"
+	InstanceTypeR5Large      InstanceType = "r5.large"
+	InstanceTypeR5Xlarge     InstanceType = "r5.xlarge"
+	InstanceTypeR52xlarge    InstanceType = "r5.2xlarge"
+	InstanceTypeR54xlarge    InstanceType = "r5.4xlarge"
+	InstanceTypeR58xlarge    InstanceType = "r5.8xlarge"
+	InstanceTypeR512xlarge   InstanceType = "r5.12xlarge"
+	InstanceTypeR516xlarge   InstanceType = "r5.16xlarge"
+	InstanceTypeR524xlarge   InstanceType = "r5.24xlarge"
+	InstanceTypeR5Metal      InstanceType = "r5.metal"
+	InstanceTypeR5aLarge     InstanceType = "r5a.large"
+	InstanceTypeR5aXlarge    InstanceType = "r5a.xlarge"
+	InstanceTypeR5a2xlarge   InstanceType = "r5a.2xlarge"
+	InstanceTypeR5a4xlarge   InstanceType = "r5a.4xlarge"
+	InstanceTypeR5a12xlarge  InstanceType = "r5a.12xlarge"
+	InstanceTypeR5a24xlarge  InstanceType = "r5a.24xlarge"
+	InstanceTypeR5dLarge     InstanceType = "r5d.large"
+	InstanceTypeR5dXlarge    InstanceType = "r5d.xlarge"
+	InstanceTypeR5d2xlarge   InstanceType = "r5d.2xlarge"
+	InstanceTypeR5d4xlarge   InstanceType = "r5d.4xlarge"
+	InstanceTypeR5d8xlarge   InstanceType = "r5d.8xlarge"
+	InstanceTypeR5d12xlarge  InstanceType = "r5d.12xlarge"
+	InstanceTypeR5d16xlarge  InstanceType = "r5d.16xlarge"
+	InstanceTypeR5d24xlarge  InstanceType = "r5d.24xlarge"
+	InstanceTypeR5dMetal     InstanceType = "r5d.metal"
+	InstanceTypeX116xlarge   InstanceType = "x1.16xlarge"
+	InstanceTypeX132xlarge   InstanceType = "x1.32xlarge"
+	InstanceTypeX1eXlarge    InstanceType = "x1e.xlarge"
+	InstanceTypeX1e2xlarge   InstanceType = "x1e.2xlarge"
+	InstanceTypeX1e4xlarge   InstanceType = "x1e.4xlarge"
+	InstanceTypeX1e8xlarge   InstanceType = "x1e.8xlarge"
+	InstanceTypeX1e16xlarge  InstanceType = "x1e.16xlarge"
+	InstanceTypeX1e32xlarge  InstanceType = "x1e.32xlarge"
+	InstanceTypeI2Xlarge     InstanceType = "i2.xlarge"
+	InstanceTypeI22xlarge    InstanceType = "i2.2xlarge"
+	InstanceTypeI24xlarge    InstanceType = "i2.4xlarge"
+	InstanceTypeI28xlarge    InstanceType = "i2.8xlarge"
+	InstanceTypeI3Large      InstanceType = "i3.large"
+	InstanceTypeI3Xlarge     InstanceType = "i3.xlarge"
+	InstanceTypeI32xlarge    InstanceType = "i3.2xlarge"
+	InstanceTypeI34xlarge    InstanceType = "i3.4xlarge"
+	InstanceTypeI38xlarge    InstanceType = "i3.8xlarge"
+	InstanceTypeI316xlarge   InstanceType = "i3.16xlarge"
+	InstanceTypeI3Metal      InstanceType = "i3.metal"
+	InstanceTypeHi14xlarge   InstanceType = "hi1.4xlarge"
+	InstanceTypeHs18xlarge   InstanceType = "hs1.8xlarge"
+	InstanceTypeC1Medium     InstanceType = "c1.medium"
+	InstanceTypeC1Xlarge     InstanceType = "c1.xlarge"
+	InstanceTypeC3Large      InstanceType = "c3.large"
+	InstanceTypeC3Xlarge     InstanceType = "c3.xlarge"
+	InstanceTypeC32xlarge    InstanceType = "c3.2xlarge"
+	InstanceTypeC34xlarge    InstanceType = "c3.4xlarge"
+	InstanceTypeC38xlarge    InstanceType = "c3.8xlarge"
+	InstanceTypeC4Large      InstanceType = "c4.large"
+	InstanceTypeC4Xlarge     InstanceType = "c4.xlarge"
+	InstanceTypeC42xlarge    InstanceType = "c4.2xlarge"
+	InstanceTypeC44xlarge    InstanceType = "c4.4xlarge"
+	InstanceTypeC48xlarge    InstanceType = "c4.8xlarge"
+	InstanceTypeC5Large      InstanceType = "c5.large"
+	InstanceTypeC5Xlarge     InstanceType = "c5.xlarge"
+	InstanceTypeC52xlarge    InstanceType = "c5.2xlarge"
+	InstanceTypeC54xlarge    InstanceType = "c5.4xlarge"
+	InstanceTypeC59xlarge    InstanceType = "c5.9xlarge"
+	InstanceTypeC518xlarge   InstanceType = "c5.18xlarge"
+	InstanceTypeC5dLarge     InstanceType = "c5d.large"
+	InstanceTypeC5dXlarge    InstanceType = "c5d.xlarge"
+	InstanceTypeC5d2xlarge   InstanceType = "c5d.2xlarge"
+	InstanceTypeC5d4xlarge   InstanceType = "c5d.4xlarge"
+	InstanceTypeC5d9xlarge   InstanceType = "c5d.9xlarge"
+	InstanceTypeC5d18xlarge  InstanceType = "c5d.18xlarge"
+	InstanceTypeC5nLarge     InstanceType = "c5n.large"
+	InstanceTypeC5nXlarge    InstanceType = "c5n.xlarge"
+	InstanceTypeC5n2xlarge   InstanceType = "c5n.2xlarge"
+	InstanceTypeC5n4xlarge   InstanceType = "c5n.4xlarge"
+	InstanceTypeC5n9xlarge   InstanceType = "c5n.9xlarge"
+	InstanceTypeC5n18xlarge  InstanceType = "c5n.18xlarge"
+	InstanceTypeCc14xlarge   InstanceType = "cc1.4xlarge"
+	InstanceTypeCc28xlarge   InstanceType = "cc2.8xlarge"
+	InstanceTypeG22xlarge    InstanceType = "g2.2xlarge"
+	InstanceTypeG28xlarge    InstanceType = "g2.8xlarge"
+	InstanceTypeG34xlarge    InstanceType = "g3.4xlarge"
+	InstanceTypeG38xlarge    InstanceType = "g3.8xlarge"
+	InstanceTypeG316xlarge   InstanceType = "g3.16xlarge"
+	InstanceTypeG3sXlarge    InstanceType = "g3s.xlarge"
+	InstanceTypeCg14xlarge   InstanceType = "cg1.4xlarge"
+	InstanceTypeP2Xlarge     InstanceType = "p2.xlarge"
+	InstanceTypeP28xlarge    InstanceType = "p2.8xlarge"
+	InstanceTypeP216xlarge   InstanceType = "p2.16xlarge"
+	InstanceTypeP32xlarge    InstanceType = "p3.2xlarge"
+	InstanceTypeP38xlarge    InstanceType = "p3.8xlarge"
+	InstanceTypeP316xlarge   InstanceType = "p3.16xlarge"
+	InstanceTypeP3dn24xlarge InstanceType = "p3dn.24xlarge"
+	InstanceTypeD2Xlarge     InstanceType = "d2.xlarge"
+	InstanceTypeD22xlarge    InstanceType = "d2.2xlarge"
+	InstanceTypeD24xlarge    InstanceType = "d2.4xlarge"
+	InstanceTypeD28xlarge    InstanceType = "d2.8xlarge"
+	InstanceTypeF12xlarge    InstanceType = "f1.2xlarge"
+	InstanceTypeF14xlarge    InstanceType = "f1.4xlarge"
+	InstanceTypeF116xlarge   InstanceType = "f1.16xlarge"
+	InstanceTypeM5Large      InstanceType = "m5.large"
+	InstanceTypeM5Xlarge     InstanceType = "m5.xlarge"
+	InstanceTypeM52xlarge    InstanceType = "m5.2xlarge"
+	InstanceTypeM54xlarge    InstanceType = "m5.4xlarge"
+	InstanceTypeM512xlarge   InstanceType = "m5.12xlarge"
+	InstanceTypeM524xlarge   InstanceType = "m5.24xlarge"
+	InstanceTypeM5aLarge     InstanceType = "m5a.large"
+	InstanceTypeM5aXlarge    InstanceType = "m5a.xlarge"
+	InstanceTypeM5a2xlarge   InstanceType = "m5a.2xlarge"
+	InstanceTypeM5a4xlarge   InstanceType = "m5a.4xlarge"
+	InstanceTypeM5a12xlarge  InstanceType = "m5a.12xlarge"
+	InstanceTypeM5a24xlarge  InstanceType = "m5a.24xlarge"
+	InstanceTypeM5dLarge     InstanceType = "m5d.large"
+	InstanceTypeM5dXlarge    InstanceType = "m5d.xlarge"
+	InstanceTypeM5d2xlarge   InstanceType = "m5d.2xlarge"
+	InstanceTypeM5d4xlarge   InstanceType = "m5d.4xlarge"
+	InstanceTypeM5d12xlarge  InstanceType = "m5d.12xlarge"
+	InstanceTypeM5d24xlarge  InstanceType = "m5d.24xlarge"
+	InstanceTypeH12xlarge    InstanceType = "h1.2xlarge"
+	InstanceTypeH14xlarge    InstanceType = "h1.4xlarge"
+	InstanceTypeH18xlarge    InstanceType = "h1.8xlarge"
+	InstanceTypeH116xlarge   InstanceType = "h1.16xlarge"
+	InstanceTypeZ1dLarge     InstanceType = "z1d.large"
+	InstanceTypeZ1dXlarge    InstanceType = "z1d.xlarge"
+	InstanceTypeZ1d2xlarge   InstanceType = "z1d.2xlarge"
+	InstanceTypeZ1d3xlarge   InstanceType = "z1d.3xlarge"
+	InstanceTypeZ1d6xlarge   InstanceType = "z1d.6xlarge"
+	InstanceTypeZ1d12xlarge  InstanceType = "z1d.12xlarge"
+	InstanceTypeU6tb1Metal   InstanceType = "u-6tb1.metal"
+	InstanceTypeU9tb1Metal   InstanceType = "u-9tb1.metal"
+	InstanceTypeU12tb1Metal  InstanceType = "u-12tb1.metal"
+	InstanceTypeA1Medium     InstanceType = "a1.medium"
+	InstanceTypeA1Large      InstanceType = "a1.large"
+	InstanceTypeA1Xlarge     InstanceType = "a1.xlarge"
+	InstanceTypeA12xlarge    InstanceType = "a1.2xlarge"
+	InstanceTypeA14xlarge    InstanceType = "a1.4xlarge"
 )
 
 func (enum InstanceType) MarshalValue() (string, error) {
@@ -50121,6 +60212,23 @@ func (enum InterfacePermissionType) MarshalValue() (string, error) {
 }
 
 func (enum InterfacePermissionType) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type Ipv6SupportValue string
+
+// Enum values for Ipv6SupportValue
+const (
+	Ipv6SupportValueEnable  Ipv6SupportValue = "enable"
+	Ipv6SupportValueDisable Ipv6SupportValue = "disable"
+)
+
+func (enum Ipv6SupportValue) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum Ipv6SupportValue) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }
@@ -50477,8 +60585,9 @@ type PlacementStrategy string
 
 // Enum values for PlacementStrategy
 const (
-	PlacementStrategyCluster PlacementStrategy = "cluster"
-	PlacementStrategySpread  PlacementStrategy = "spread"
+	PlacementStrategyCluster   PlacementStrategy = "cluster"
+	PlacementStrategySpread    PlacementStrategy = "spread"
+	PlacementStrategyPartition PlacementStrategy = "partition"
 )
 
 func (enum PlacementStrategy) MarshalValue() (string, error) {
@@ -50694,24 +60803,33 @@ type ResourceType string
 
 // Enum values for ResourceType
 const (
-	ResourceTypeCustomerGateway      ResourceType = "customer-gateway"
-	ResourceTypeDedicatedHost        ResourceType = "dedicated-host"
-	ResourceTypeDhcpOptions          ResourceType = "dhcp-options"
-	ResourceTypeImage                ResourceType = "image"
-	ResourceTypeInstance             ResourceType = "instance"
-	ResourceTypeInternetGateway      ResourceType = "internet-gateway"
-	ResourceTypeNetworkAcl           ResourceType = "network-acl"
-	ResourceTypeNetworkInterface     ResourceType = "network-interface"
-	ResourceTypeReservedInstances    ResourceType = "reserved-instances"
-	ResourceTypeRouteTable           ResourceType = "route-table"
-	ResourceTypeSnapshot             ResourceType = "snapshot"
-	ResourceTypeSpotInstancesRequest ResourceType = "spot-instances-request"
-	ResourceTypeSubnet               ResourceType = "subnet"
-	ResourceTypeSecurityGroup        ResourceType = "security-group"
-	ResourceTypeVolume               ResourceType = "volume"
-	ResourceTypeVpc                  ResourceType = "vpc"
-	ResourceTypeVpnConnection        ResourceType = "vpn-connection"
-	ResourceTypeVpnGateway           ResourceType = "vpn-gateway"
+	ResourceTypeCustomerGateway          ResourceType = "customer-gateway"
+	ResourceTypeDedicatedHost            ResourceType = "dedicated-host"
+	ResourceTypeDhcpOptions              ResourceType = "dhcp-options"
+	ResourceTypeElasticIp                ResourceType = "elastic-ip"
+	ResourceTypeFleet                    ResourceType = "fleet"
+	ResourceTypeFpgaImage                ResourceType = "fpga-image"
+	ResourceTypeImage                    ResourceType = "image"
+	ResourceTypeInstance                 ResourceType = "instance"
+	ResourceTypeInternetGateway          ResourceType = "internet-gateway"
+	ResourceTypeLaunchTemplate           ResourceType = "launch-template"
+	ResourceTypeNatgateway               ResourceType = "natgateway"
+	ResourceTypeNetworkAcl               ResourceType = "network-acl"
+	ResourceTypeNetworkInterface         ResourceType = "network-interface"
+	ResourceTypeReservedInstances        ResourceType = "reserved-instances"
+	ResourceTypeRouteTable               ResourceType = "route-table"
+	ResourceTypeSecurityGroup            ResourceType = "security-group"
+	ResourceTypeSnapshot                 ResourceType = "snapshot"
+	ResourceTypeSpotInstancesRequest     ResourceType = "spot-instances-request"
+	ResourceTypeSubnet                   ResourceType = "subnet"
+	ResourceTypeTransitGateway           ResourceType = "transit-gateway"
+	ResourceTypeTransitGatewayAttachment ResourceType = "transit-gateway-attachment"
+	ResourceTypeTransitGatewayRouteTable ResourceType = "transit-gateway-route-table"
+	ResourceTypeVolume                   ResourceType = "volume"
+	ResourceTypeVpc                      ResourceType = "vpc"
+	ResourceTypeVpcPeeringConnection     ResourceType = "vpc-peering-connection"
+	ResourceTypeVpnConnection            ResourceType = "vpn-connection"
+	ResourceTypeVpnGateway               ResourceType = "vpn-gateway"
 )
 
 func (enum ResourceType) MarshalValue() (string, error) {
@@ -51123,6 +61241,180 @@ func (enum TrafficType) MarshalValueBuf(b []byte) ([]byte, error) {
 	return append(b, enum...), nil
 }
 
+type TransitGatewayAssociationState string
+
+// Enum values for TransitGatewayAssociationState
+const (
+	TransitGatewayAssociationStateAssociating    TransitGatewayAssociationState = "associating"
+	TransitGatewayAssociationStateAssociated     TransitGatewayAssociationState = "associated"
+	TransitGatewayAssociationStateDisassociating TransitGatewayAssociationState = "disassociating"
+	TransitGatewayAssociationStateDisassociated  TransitGatewayAssociationState = "disassociated"
+)
+
+func (enum TransitGatewayAssociationState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayAssociationState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayAttachmentResourceType string
+
+// Enum values for TransitGatewayAttachmentResourceType
+const (
+	TransitGatewayAttachmentResourceTypeVpc TransitGatewayAttachmentResourceType = "vpc"
+	TransitGatewayAttachmentResourceTypeVpn TransitGatewayAttachmentResourceType = "vpn"
+)
+
+func (enum TransitGatewayAttachmentResourceType) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayAttachmentResourceType) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayAttachmentState string
+
+// Enum values for TransitGatewayAttachmentState
+const (
+	TransitGatewayAttachmentStatePendingAcceptance TransitGatewayAttachmentState = "pendingAcceptance"
+	TransitGatewayAttachmentStateRollingBack       TransitGatewayAttachmentState = "rollingBack"
+	TransitGatewayAttachmentStatePending           TransitGatewayAttachmentState = "pending"
+	TransitGatewayAttachmentStateAvailable         TransitGatewayAttachmentState = "available"
+	TransitGatewayAttachmentStateModifying         TransitGatewayAttachmentState = "modifying"
+	TransitGatewayAttachmentStateDeleting          TransitGatewayAttachmentState = "deleting"
+	TransitGatewayAttachmentStateDeleted           TransitGatewayAttachmentState = "deleted"
+	TransitGatewayAttachmentStateFailed            TransitGatewayAttachmentState = "failed"
+	TransitGatewayAttachmentStateRejected          TransitGatewayAttachmentState = "rejected"
+	TransitGatewayAttachmentStateRejecting         TransitGatewayAttachmentState = "rejecting"
+	TransitGatewayAttachmentStateFailing           TransitGatewayAttachmentState = "failing"
+)
+
+func (enum TransitGatewayAttachmentState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayAttachmentState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayPropagationState string
+
+// Enum values for TransitGatewayPropagationState
+const (
+	TransitGatewayPropagationStateEnabling  TransitGatewayPropagationState = "enabling"
+	TransitGatewayPropagationStateEnabled   TransitGatewayPropagationState = "enabled"
+	TransitGatewayPropagationStateDisabling TransitGatewayPropagationState = "disabling"
+	TransitGatewayPropagationStateDisabled  TransitGatewayPropagationState = "disabled"
+)
+
+func (enum TransitGatewayPropagationState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayPropagationState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayRouteState string
+
+// Enum values for TransitGatewayRouteState
+const (
+	TransitGatewayRouteStatePending   TransitGatewayRouteState = "pending"
+	TransitGatewayRouteStateActive    TransitGatewayRouteState = "active"
+	TransitGatewayRouteStateBlackhole TransitGatewayRouteState = "blackhole"
+	TransitGatewayRouteStateDeleting  TransitGatewayRouteState = "deleting"
+	TransitGatewayRouteStateDeleted   TransitGatewayRouteState = "deleted"
+)
+
+func (enum TransitGatewayRouteState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayRouteState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayRouteTableState string
+
+// Enum values for TransitGatewayRouteTableState
+const (
+	TransitGatewayRouteTableStatePending   TransitGatewayRouteTableState = "pending"
+	TransitGatewayRouteTableStateAvailable TransitGatewayRouteTableState = "available"
+	TransitGatewayRouteTableStateDeleting  TransitGatewayRouteTableState = "deleting"
+	TransitGatewayRouteTableStateDeleted   TransitGatewayRouteTableState = "deleted"
+)
+
+func (enum TransitGatewayRouteTableState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayRouteTableState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayRouteType string
+
+// Enum values for TransitGatewayRouteType
+const (
+	TransitGatewayRouteTypeStatic     TransitGatewayRouteType = "static"
+	TransitGatewayRouteTypePropagated TransitGatewayRouteType = "propagated"
+)
+
+func (enum TransitGatewayRouteType) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayRouteType) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransitGatewayState string
+
+// Enum values for TransitGatewayState
+const (
+	TransitGatewayStatePending   TransitGatewayState = "pending"
+	TransitGatewayStateAvailable TransitGatewayState = "available"
+	TransitGatewayStateModifying TransitGatewayState = "modifying"
+	TransitGatewayStateDeleting  TransitGatewayState = "deleting"
+	TransitGatewayStateDeleted   TransitGatewayState = "deleted"
+)
+
+func (enum TransitGatewayState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransitGatewayState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type TransportProtocol string
+
+// Enum values for TransportProtocol
+const (
+	TransportProtocolTcp TransportProtocol = "tcp"
+	TransportProtocolUdp TransportProtocol = "udp"
+)
+
+func (enum TransportProtocol) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum TransportProtocol) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type UnsuccessfulInstanceCreditSpecificationErrorCode string
 
 // Enum values for UnsuccessfulInstanceCreditSpecificationErrorCode
@@ -51399,6 +61691,39 @@ func (enum VpcTenancy) MarshalValue() (string, error) {
 }
 
 func (enum VpcTenancy) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type VpnEcmpSupportValue string
+
+// Enum values for VpnEcmpSupportValue
+const (
+	VpnEcmpSupportValueEnable  VpnEcmpSupportValue = "enable"
+	VpnEcmpSupportValueDisable VpnEcmpSupportValue = "disable"
+)
+
+func (enum VpnEcmpSupportValue) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum VpnEcmpSupportValue) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
+type VpnProtocol string
+
+// Enum values for VpnProtocol
+const (
+	VpnProtocolOpenvpn VpnProtocol = "openvpn"
+)
+
+func (enum VpnProtocol) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum VpnProtocol) MarshalValueBuf(b []byte) ([]byte, error) {
 	b = b[0:0]
 	return append(b, enum...), nil
 }

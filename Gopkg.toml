@@ -39,7 +39,7 @@ required = [
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go-v2"
-  version = "2.0.0-preview.5"
+  revision = "v0.7.0"
 
   # main-usage = "pkg/policy/groups"
   # on-revision = ""
