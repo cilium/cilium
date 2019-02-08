@@ -1165,7 +1165,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 	}
-	log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
