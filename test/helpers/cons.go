@@ -102,6 +102,9 @@ const (
 	// HttpdImage is the image used for starting an HTTP server.
 	HttpdImage = "docker.io/cilium/demo-httpd:latest"
 
+	// DNSSECContainerImage is the image used for starting a DNSSec client.
+	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.1"
+
 	// Names of commonly used containers in tests.
 	Httpd1 = "httpd1"
 	Httpd2 = "httpd2"

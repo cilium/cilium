@@ -143,11 +143,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		world1Target = "http://world1.cilium.test"
 		world2Target = "http://world2.cilium.test"
 
-		DNSSECDomain         = "dnssec.test"
-		DNSSECWorld1Target   = "world1.dnssec.test"
-		DNSSECWorld2Target   = "world2.dnssec.test"
-		DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.1"
-		DNSSECContainerName  = "dnssec"
+		DNSSECDomain        = "dnssec.test"
+		DNSSECWorld1Target  = "world1.dnssec.test"
+		DNSSECWorld2Target  = "world2.dnssec.test"
+		DNSSECContainerName = "dnssec"
 	)
 
 	var (
@@ -850,7 +849,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Validate that allow target is working correctly")
 		res := vm.ContainerRun(
 			DNSSECContainerName,
-			DNSSECContainerImage,
+			helpers.DNSSECContainerImage,
 			helpers.CiliumDockerNetwork,
 			fmt.Sprintf("-l id.%s --dns=%s --rm", DNSSECContainerName, DNSServerIP),
 			DNSSECWorld1Target)
@@ -859,7 +858,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Validate that disallow target is working correctly")
 		res = vm.ContainerRun(
 			DNSSECContainerName,
-			DNSSECContainerImage,
+			helpers.DNSSECContainerImage,
 			helpers.CiliumDockerNetwork,
 			fmt.Sprintf("-l id.%s --dns=%s --rm", DNSSECContainerName, DNSServerIP),
 			DNSSECWorld2Target)
