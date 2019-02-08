@@ -303,13 +303,13 @@ function write_cilium_cfg() {
     # container runtime options
     case "${RUNTIME}" in
         "containerd" | "containerD")
-            cilium_options+=" --container-runtime=containerd --container-runtime-endpoint=/var/run/containerd/containerd.sock"
+            cilium_options+=" --container-runtime=containerd --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock"
             ;;
         "crio" | "cri-o")
-            cilium_options+=" --container-runtime=crio --container-runtime-endpoint=/var/run/crio/crio.sock"
+            cilium_options+=" --container-runtime=crio --container-runtime-endpoint=crio=/var/run/crio/crio.sock"
             ;;
         *)
-            cilium_options+=" --container-runtime=docker --container-runtime-endpoint=unix:///var/run/docker.sock"
+            cilium_options+=" --container-runtime=docker --container-runtime-endpoint=docker=unix:///var/run/docker.sock"
             ;;
     esac
 

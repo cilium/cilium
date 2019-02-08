@@ -15,15 +15,15 @@ k8s_cache_dir="${cache_dir}/k8s/${k8s_version}"
 certs_dir="${dir}/certs"
 
 function install_crio() {
-  sudo apt-key adv --recv-key --keyserver keyserver.ubuntu.com 8BECF1637AD8C79D
+   sudo apt-key adv --recv-key --keyserver keyserver.ubuntu.com 8BECF1637AD8C79D
 
    cat <<EOF > /etc/apt/sources.list.d/projectatomic-ubuntu-ppa-artful.list
-deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu xenial main
-deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu artful main
+deb http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main
+deb-src http://ppa.launchpad.net/projectatomic/ppa/ubuntu bionic main
 EOF
    sudo apt-get update
-   sudo apt-get remove cri-o-1.*
-   sudo apt-get install cri-o-1.12 -y
+   sudo apt-get remove cri-o-1.* -y || true
+   sudo apt-get install cri-o-1.13 -y || true
    sudo ln -s /usr/sbin/runc /usr/local/sbin/runc
 }
 
