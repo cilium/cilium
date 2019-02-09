@@ -368,11 +368,11 @@
   version = "v4.1.0"
 
 [[projects]]
-  digest = "1:f35faf953fdca65ab88b705da82272662c79a0f942d6764afd232c1eba8d8bdb"
+  digest = "1:ade392a843b2035effb4b4a2efa2c3bab3eb29b992e98bacf9c898b0ecb54e45"
   name = "github.com/fatih/color"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "533cd7fd8a85905f67a1753afb4deddc85ea174f"
+  revision = "3f9d52f7176a6927daacff70a3e8d1dc2025c53e"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
