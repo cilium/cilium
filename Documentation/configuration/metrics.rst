@@ -71,7 +71,9 @@ Drops/Forwards (L3/L4)
 ----------------------
 
 * ``drop_count_total``: Total dropped packets, tagged by drop reason and ingress/egress direction
+* ``drop_bytes_total``: Total dropped bytes, tagged by drop reason and ingress/egress direction
 * ``forward_count_total``: Total forwarded packets, tagged by ingress/egress direction
+* ``forward_bytes_total``: Total forwarded bytes, tagged by ingress/egress direction
 
 Policy
 ------
