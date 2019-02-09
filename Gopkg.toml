@@ -130,7 +130,7 @@ required = [
 
 [[constraint]]
   name = "github.com/fatih/color"
-  revision = "533cd7fd8a85905f67a1753afb4deddc85ea174f"
+  revision = "3f9d52f7176a6927daacff70a3e8d1dc2025c53e"
 
   # main-usage = "pkg/colors"
   # on-revision = ""
