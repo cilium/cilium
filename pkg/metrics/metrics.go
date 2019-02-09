@@ -324,12 +324,30 @@ var (
 	},
 		[]string{"reason", "direction"})
 
-	// ForwardCount is the total forward requests,
+	// DropBytes is the total dropped bytes,
+	// tagged by drop reason and direction(ingress/egress)
+	DropBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "drop_bytes_total",
+		Help:      "Total dropped bytes, tagged by drop reason and ingress/egress direction",
+	},
+		[]string{"reason", "direction"})
+
+	// ForwardCount is the total forwarded packets,
 	// tagged by ingress/egress direction
 	ForwardCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "forward_count_total",
 		Help:      "Total forwarded packets, tagged by ingress/egress direction",
+	},
+		[]string{"direction"})
+
+	// ForwardBytes is the total forwarded bytes,
+	// tagged by ingress/egress direction
+	ForwardBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "forward_bytes_total",
+		Help:      "Total forwarded bytes, tagged by ingress/egress direction",
 	},
 		[]string{"direction"})
 
@@ -489,7 +507,9 @@ func init() {
 	MustRegister(ProxyUpstreamTime)
 
 	MustRegister(DropCount)
+	MustRegister(DropBytes)
 	MustRegister(ForwardCount)
+	MustRegister(ForwardBytes)
 
 	MustRegister(newStatusCollector())
 
