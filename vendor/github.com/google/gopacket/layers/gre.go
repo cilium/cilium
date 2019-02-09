@@ -15,11 +15,11 @@ import (
 // GRE is a Generic Routing Encapsulation header.
 type GRE struct {
 	BaseLayer
-	ChecksumPresent, RoutingPresent, KeyPresent, SeqPresent, StrictSourceRoute bool
-	RecursionControl, Flags, Version                                           uint8
-	Protocol                                                                   EthernetType
-	Checksum, Offset                                                           uint16
-	Key, Seq                                                                   uint32
+	ChecksumPresent, RoutingPresent, KeyPresent, SeqPresent, StrictSourceRoute, AckPresent bool
+	RecursionControl, Flags, Version                                                       uint8
+	Protocol                                                                               EthernetType
+	Checksum, Offset                                                                       uint16
+	Key, Seq, Ack                                                                          uint32
 	*GRERouting
 }
 
@@ -42,6 +42,7 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	g.KeyPresent = data[0]&0x20 != 0
 	g.SeqPresent = data[0]&0x10 != 0
 	g.StrictSourceRoute = data[0]&0x08 != 0
+	g.AckPresent = data[1]&0x80 != 0
 	g.RecursionControl = data[0] & 0x7
 	g.Flags = data[1] >> 3
 	g.Version = data[1] & 0x7
@@ -77,6 +78,10 @@ func (g *GRE) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 			tail = &sre.Next
 		}
 	}
+	if g.AckPresent {
+		g.Ack = binary.BigEndian.Uint32(data[offset : offset+4])
+		offset += 4
+	}
 	g.BaseLayer = BaseLayer{data[:offset], data[offset:]}
 	return nil
 }
@@ -102,6 +107,9 @@ func (g *GRE) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 		}
 		size += 4
 	}
+	if g.AckPresent {
+		size += 4
+	}
 	buf, err := b.PrependBytes(size)
 	if err != nil {
 		return err
@@ -123,6 +131,9 @@ func (g *GRE) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 	}
 	if g.StrictSourceRoute {
 		buf[0] |= 0x08
+	}
+	if g.AckPresent {
+		buf[1] |= 0x80
 	}
 	buf[0] |= g.RecursionControl
 	buf[1] |= g.Flags << 3
@@ -158,6 +169,10 @@ func (g *GRE) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 		}
 		// Terminate routing field with a "NULL" SRE.
 		binary.BigEndian.PutUint32(buf[offset:offset+4], 0)
+	}
+	if g.AckPresent {
+		binary.BigEndian.PutUint32(buf[offset:offset+4], g.Ack)
+		offset += 4
 	}
 	if g.ChecksumPresent {
 		if opts.ComputeChecksums {

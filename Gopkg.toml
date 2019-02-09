@@ -144,7 +144,7 @@ required = [
 
 [[constraint]]
   name = "github.com/google/gopacket"
-  revision = "v1.1.15"
+  revision = "v1.1.16"
 
   # main-usage = "pkg/monitor"
   # on-revision = ""

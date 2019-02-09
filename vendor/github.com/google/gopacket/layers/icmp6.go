@@ -24,12 +24,21 @@ const (
 	ICMPv6TypeParameterProblem       = 4
 	ICMPv6TypeEchoRequest            = 128
 	ICMPv6TypeEchoReply              = 129
+
 	// The following are from RFC 4861
 	ICMPv6TypeRouterSolicitation    = 133
 	ICMPv6TypeRouterAdvertisement   = 134
 	ICMPv6TypeNeighborSolicitation  = 135
 	ICMPv6TypeNeighborAdvertisement = 136
 	ICMPv6TypeRedirect              = 137
+
+	// The following are from RFC 2710
+	ICMPv6TypeMLDv1MulticastListenerQueryMessage  = 130
+	ICMPv6TypeMLDv1MulticastListenerReportMessage = 131
+	ICMPv6TypeMLDv1MulticastListenerDoneMessage   = 132
+
+	// The following are from RFC 3810
+	ICMPv6TypeMLDv2MulticastListenerReportMessageV2 = 143
 )
 
 const (
@@ -234,6 +243,18 @@ func (i *ICMPv6) NextLayerType() gopacket.LayerType {
 		return LayerTypeICMPv6NeighborAdvertisement
 	case ICMPv6TypeRedirect:
 		return LayerTypeICMPv6Redirect
+	case ICMPv6TypeMLDv1MulticastListenerQueryMessage: // Same Code for MLDv1 Query and MLDv2 Query
+		if len(i.Payload) > 20 { // Only payload size differs
+			return LayerTypeMLDv2MulticastListenerQuery
+		} else {
+			return LayerTypeMLDv1MulticastListenerQuery
+		}
+	case ICMPv6TypeMLDv1MulticastListenerDoneMessage:
+		return LayerTypeMLDv1MulticastListenerDone
+	case ICMPv6TypeMLDv1MulticastListenerReportMessage:
+		return LayerTypeMLDv1MulticastListenerReport
+	case ICMPv6TypeMLDv2MulticastListenerReportMessageV2:
+		return LayerTypeMLDv2MulticastListenerReport
 	}
 
 	return gopacket.LayerTypePayload
