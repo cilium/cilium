@@ -189,6 +189,9 @@ type SIP struct {
 	Method  SIPMethod
 	Headers map[string][]string
 
+	// Request
+	RequestURI string
+
 	// Response
 	IsResponse     bool
 	ResponseCode   int
@@ -340,6 +343,8 @@ func (s *SIP) ParseFirstLine(firstLine []byte) error {
 		if err != nil {
 			return err
 		}
+
+		s.RequestURI = splits[1]
 
 		// Validate SIP Version
 		s.Version, err = GetSIPVersion(splits[2])

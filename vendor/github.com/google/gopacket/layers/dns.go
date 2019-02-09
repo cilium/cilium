@@ -296,7 +296,7 @@ func (d *DNS) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 	if len(data) < 12 {
 		df.SetTruncated()
-		return errors.New("DNS packet too short")
+		return errDNSPacketTooShort
 	}
 
 	// since there are no further layers, the baselayer's content is
@@ -366,13 +366,13 @@ func (d *DNS) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	}
 
 	if uint16(len(d.Questions)) != d.QDCount {
-		return errors.New("Invalid query decoding, not the right number of questions")
+		return errDecodeQueryBadQDCount
 	} else if uint16(len(d.Answers)) != d.ANCount {
-		return errors.New("Invalid query decoding, not the right number of answers")
+		return errDecodeQueryBadANCount
 	} else if uint16(len(d.Authorities)) != d.NSCount {
-		return errors.New("Invalid query decoding, not the right number of authorities")
+		return errDecodeQueryBadNSCount
 	} else if uint16(len(d.Additionals)) != d.ARCount {
-		return errors.New("Invalid query decoding, not the right number of additionals info")
+		return errDecodeQueryBadARCount
 	}
 	return nil
 }
@@ -504,17 +504,15 @@ func (d *DNS) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 	return nil
 }
 
-var errMaxRecursion = errors.New("max DNS recursion level hit")
-
 const maxRecursionLevel = 255
 
 func decodeName(data []byte, offset int, buffer *[]byte, level int) ([]byte, int, error) {
 	if level > maxRecursionLevel {
 		return nil, 0, errMaxRecursion
 	} else if offset >= len(data) {
-		return nil, 0, errors.New("dns name offset too high")
+		return nil, 0, errDNSNameOffsetTooHigh
 	} else if offset < 0 {
-		return nil, 0, errors.New("dns name offset is negative")
+		return nil, 0, errDNSNameOffsetNegative
 	}
 	start := len(*buffer)
 	index := offset
@@ -535,9 +533,9 @@ loop:
 			*/
 			index2 := index + int(data[index]) + 1
 			if index2-offset > 255 {
-				return nil, 0, errors.New("dns name is too long")
+				return nil, 0, errDNSNameTooLong
 			} else if index2 < index+1 || index2 > len(data) {
-				return nil, 0, errors.New("dns name uncomputable: invalid index")
+				return nil, 0, errDNSNameInvalidIndex
 			}
 			*buffer = append(*buffer, '.')
 			*buffer = append(*buffer, data[index+1:index2]...)
@@ -564,11 +562,11 @@ loop:
 			      - a sequence of labels ending with a pointer
 			*/
 			if index+2 > len(data) {
-				return nil, 0, errors.New("dns offset pointer too high")
+				return nil, 0, errDNSPointerOffsetTooHigh
 			}
 			offsetp := int(binary.BigEndian.Uint16(data[index:index+2]) & 0x3fff)
 			if offsetp > len(data) {
-				return nil, 0, errors.New("dns offset pointer too high")
+				return nil, 0, errDNSPointerOffsetTooHigh
 			}
 			// This looks a little tricky, but actually isn't.  Because of how
 			// decodeName is written, calling it appends the decoded name to the
@@ -590,11 +588,11 @@ loop:
 				data[index], index)
 		}
 		if index >= len(data) {
-			return nil, 0, errors.New("dns index walked out of range")
+			return nil, 0, errDNSIndexOutOfRange
 		}
 	}
 	if len(*buffer) <= start {
-		return nil, 0, errors.New("no dns data found for name")
+		return nil, 0, errDNSNameHasNoData
 	}
 	return (*buffer)[start+1:], index + 1, nil
 }
@@ -686,7 +684,7 @@ func (rr *DNSResourceRecord) decode(data []byte, offset int, df gopacket.DecodeF
 	rr.DataLength = binary.BigEndian.Uint16(data[endq+8 : endq+10])
 	end := endq + 10 + int(rr.DataLength)
 	if end > len(data) {
-		return 0, fmt.Errorf("resource record length exceeds data")
+		return 0, errDecodeRecordLength
 	}
 	rr.Data = data[endq+10 : end]
 
@@ -798,7 +796,7 @@ func decodeCharacterStrings(data []byte) ([][]byte, error) {
 	for index, index2 := 0, 0; index != end; index = index2 {
 		index2 = index + 1 + int(data[index]) // index increases by 1..256 and does not overflow
 		if index2 > end {
-			return nil, errors.New("Insufficient data for a <character-string>")
+			return nil, errCharStringMissData
 		}
 		strings = append(strings, data[index+1:index2])
 	}
@@ -892,3 +890,25 @@ type DNSMX struct {
 	Preference uint16
 	Name       []byte
 }
+
+var (
+	errMaxRecursion = errors.New("max DNS recursion level hit")
+
+	errDNSNameOffsetTooHigh    = errors.New("dns name offset too high")
+	errDNSNameOffsetNegative   = errors.New("dns name offset is negative")
+	errDNSPacketTooShort       = errors.New("DNS packet too short")
+	errDNSNameTooLong          = errors.New("dns name is too long")
+	errDNSNameInvalidIndex     = errors.New("dns name uncomputable: invalid index")
+	errDNSPointerOffsetTooHigh = errors.New("dns offset pointer too high")
+	errDNSIndexOutOfRange      = errors.New("dns index walked out of range")
+	errDNSNameHasNoData        = errors.New("no dns data found for name")
+
+	errCharStringMissData = errors.New("Insufficient data for a <character-string>")
+
+	errDecodeRecordLength = errors.New("resource record length exceeds data")
+
+	errDecodeQueryBadQDCount = errors.New("Invalid query decoding, not the right number of questions")
+	errDecodeQueryBadANCount = errors.New("Invalid query decoding, not the right number of answers")
+	errDecodeQueryBadNSCount = errors.New("Invalid query decoding, not the right number of authorities")
+	errDecodeQueryBadARCount = errors.New("Invalid query decoding, not the right number of additionals info")
+)

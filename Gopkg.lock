@@ -559,14 +559,14 @@
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
 
 [[projects]]
-  digest = "1:fd89d7e301e6ccbcf3b2871fd3e0c893bce6ab9a8b793740edf257a922277fd7"
+  digest = "1:ed8a3c57dfb3581bd330c9bbd153712ca4a4e47aa597bba672096e3cb5c55d89"
   name = "github.com/google/gopacket"
   packages = [
     ".",
     "layers",
   ]
   pruneopts = "NUT"
-  revision = "v1.1.15"
+  revision = "v1.1.16"
 
 [[projects]]
   digest = "1:aebccac5eae98c77bbdf314428fb06ec1c1b4bee91589c3624d7facba176b8a6"

@@ -10,6 +10,7 @@ package layers
 import (
 	"encoding/binary"
 	"fmt"
+
 	"github.com/google/gopacket"
 )
 
@@ -27,6 +28,10 @@ type UDP struct {
 func (u *UDP) LayerType() gopacket.LayerType { return LayerTypeUDP }
 
 func (udp *UDP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 8 {
+		df.SetTruncated()
+		return fmt.Errorf("Invalid UDP header. Length %d less than 8", len(data))
+	}
 	udp.SrcPort = UDPPort(binary.BigEndian.Uint16(data[0:2]))
 	udp.sPort = data[0:2]
 	udp.DstPort = UDPPort(binary.BigEndian.Uint16(data[2:4]))
