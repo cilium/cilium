@@ -165,59 +165,72 @@ required = [
 
 [[constraint]]
   name = "github.com/go-openapi/errors"
-  revision = "fc3f73a224499b047eda7191e5d22e1e9631e86f"
+  revision = "v0.18.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/loads"
-  revision = "bf98340e04734f11563fd3008e87be4c1d4ffc08"
+  revision = "v0.18.0"
 
   # main-usage = "swagger spec"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/runtime"
-  revision = "bf2ff8f7150788b1c7256abb0805ba0410cbbabb"
-
-  # main-usage = "api/v1"
-  # on-revision = ""
-
-# Once we update "github.com/go-openapi/runtime" we can remove this override
-[[override]]
-  name = "github.com/go-openapi/analysis"
-  revision = "d5a75b7d751ca3f11ad5d93cfe97405f2c3f6a47"
+  revision = "v0.18.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/spec"
-  revision = "3a0434164aa36744c7ba29b822d36894a1e5ec96"
+  revision = "v0.18.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 # TODO(mrostecki): Switch to releases when they will include:
-# https://github.com/go-openapi/strfmt/commit/dd2bd34dedb77725bec3b8e941ad06daf32a935a
+# https://github.com/go-openapi/strfmt/commit/bc2668dc64edd7a448bdb3a6a997a85f7f868bbc
 [[constraint]]
   name = "github.com/go-openapi/strfmt"
-  revision = "dd2bd34dedb77725bec3b8e941ad06daf32a935a"
+  revision = "bc2668dc64edd7a448bdb3a6a997a85f7f868bbc"
 
   # main-usage = "swagger and pkg/controllers"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/swag"
-  revision = "96d7b9ebd181a1735a1c9ac87914f2b32fbf56c9"
+  revision = "v0.18.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/validate"
-  revision = "b11dbf889b64cf815a7e2667412df313f4a3f17b"
+  revision = "v0.18.0"
+
+  # main-usage = "api/v1"
+  # on-revision = ""
+
+[[override]]
+  name = "github.com/go-openapi/analysis"
+  revision = "v0.18.0"
+
+  # main-usage = "api/v1"
+  # on-revision = ""
+
+[[override]]
+  name = "github.com/go-openapi/errors"
+  revision = "v0.18.0"
+
+  # main-usage = "api/v1"
+  # on-revision = ""
+
+[[override]]
+  name = "github.com/go-openapi/jsonpointer"
+  revision = "v0.18.0"
 
   # main-usage = "api/v1"
   # on-revision = ""

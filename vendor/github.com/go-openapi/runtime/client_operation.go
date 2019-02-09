@@ -15,9 +15,8 @@
 package runtime
 
 import (
+	"context"
 	"net/http"
-
-	"golang.org/x/net/context"
 )
 
 // ClientOperation represents the context for a swagger operation to be submitted to the transport

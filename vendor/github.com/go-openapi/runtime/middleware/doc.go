@@ -27,7 +27,7 @@ Pseudo middleware handler
   		// use context to lookup routes
   		if matched, ok := ctx.RouteInfo(r); ok {
 
-  			if len(matched.Authenticators) > 0 {
+  			if matched.NeedsAuth() {
   				if _, err := ctx.Authorize(r, matched); err != nil {
   					ctx.Respond(rw, r, matched.Produces, matched, err)
   					return

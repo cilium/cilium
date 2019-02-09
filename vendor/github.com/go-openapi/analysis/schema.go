@@ -1,6 +1,8 @@
 package analysis
 
 import (
+	"fmt"
+
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 )
@@ -16,6 +18,10 @@ type SchemaOpts struct {
 // Schema analysis, will classify the schema according to known
 // patterns.
 func Schema(opts SchemaOpts) (*AnalyzedSchema, error) {
+	if opts.Schema == nil {
+		return nil, fmt.Errorf("no schema to analyze")
+	}
+
 	a := &AnalyzedSchema{
 		schema:   opts.Schema,
 		root:     opts.Root,
@@ -35,6 +41,7 @@ func Schema(opts SchemaOpts) (*AnalyzedSchema, error) {
 	}
 
 	if err := a.inferTuple(); err != nil {
+		// NOTE(fredbi): currently, inferTuple() never returns an error
 		return nil, err
 	}
 
@@ -99,12 +106,17 @@ func (a *AnalyzedSchema) inherits(other *AnalyzedSchema) {
 
 func (a *AnalyzedSchema) inferFromRef() error {
 	if a.hasRef {
-		opts := &spec.ExpandOptions{RelativeBase: a.basePath}
-		sch, err := spec.ResolveRefWithBase(a.root, &a.schema.Ref, opts)
+		sch := new(spec.Schema)
+		sch.Ref = a.schema.Ref
+		err := spec.ExpandSchema(sch, a.root, nil)
 		if err != nil {
 			return err
 		}
 		if sch != nil {
+			// NOTE(fredbi): currently the only cause for errors in
+			// unresolved ref. Since spec.ExpandSchema() expands the
+			// schema recursively, there is no chance to get there,
+			// until we add more causes for error in this schema analysis.
 			rsch, err := Schema(SchemaOpts{
 				Schema:   sch,
 				Root:     a.root,
@@ -159,23 +171,18 @@ func (a *AnalyzedSchema) inferMap() error {
 }
 
 func (a *AnalyzedSchema) inferArray() error {
-	fromValid := a.isArrayType() && (a.schema.Items == nil || a.schema.Items.Len() < 2)
-	a.IsArray = fromValid || (a.hasItems && a.schema.Items.Len() < 2)
+	// an array has Items defined as an object schema, otherwise we qualify this JSON array as a tuple
+	// (yes, even if the Items array contains only one element).
+	// arrays in JSON schema may be unrestricted (i.e no Items specified).
+	// Note that arrays in Swagger MUST have Items. Nonetheless, we analyze unrestricted arrays.
+	//
+	// NOTE: the spec package misses the distinction between:
+	// items: [] and items: {}, so we consider both arrays here.
+	a.IsArray = a.isArrayType() && (a.schema.Items == nil || a.schema.Items.Schemas == nil)
 	if a.IsArray && a.hasItems {
 		if a.schema.Items.Schema != nil {
 			itsch, err := Schema(SchemaOpts{
 				Schema:   a.schema.Items.Schema,
-				Root:     a.root,
-				BasePath: a.basePath,
-			})
-			if err != nil {
-				return err
-			}
-			a.IsSimpleArray = itsch.IsSimpleSchema
-		}
-		if len(a.schema.Items.Schemas) > 0 {
-			itsch, err := Schema(SchemaOpts{
-				Schema:   &a.schema.Items.Schemas[0],
 				Root:     a.root,
 				BasePath: a.basePath,
 			})
@@ -192,7 +199,7 @@ func (a *AnalyzedSchema) inferArray() error {
 }
 
 func (a *AnalyzedSchema) inferTuple() error {
-	tuple := a.hasItems && a.schema.Items.Len() > 1
+	tuple := a.hasItems && a.schema.Items.Schemas != nil
 	a.IsTuple = tuple && !a.hasAdditionalItems
 	a.IsTupleWithExtra = tuple && a.hasAdditionalItems
 	return nil
