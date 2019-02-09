@@ -577,7 +577,7 @@
     "signal",
   ]
   pruneopts = "NUT"
-  revision = "v0.3.5"
+  revision = "v0.3.6"
 
 [[projects]]
   digest = "1:06a7dadb7b760767341ffb6c8d377238d68a1226f2b21b5d497d2e3f6ecf6b4e"

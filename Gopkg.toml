@@ -151,7 +151,7 @@ required = [
 
 [[constraint]]
   name = "github.com/google/gops"
-  revision = "v0.3.5"
+  revision = "v0.3.6"
 
   # main-usage = "all main packages"
   # on-revision = ""
