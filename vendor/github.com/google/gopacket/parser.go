@@ -116,7 +116,7 @@ func NewDecodingLayerParser(first LayerType, decoders ...DecodingLayer) *Decodin
 //      decodedLayers := make([]gopacket.LayerType, 0, 10)
 //      for {
 //        data, _, err := source.ReadPacketData()
-//        if err == nil {
+//        if err != nil {
 //          fmt.Println("Error reading packet data: ", err)
 //          continue
 //        }

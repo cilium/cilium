@@ -22,6 +22,8 @@ useful, including:
 Also, if you're looking to dive right into code, see the examples subdirectory
 for numerous simple binaries built using gopacket libraries.
 
+Minimum go version required is 1.5.
+
 Basic Usage
 
 gopacket takes in packet data as a []byte and decodes it into a packet with
@@ -288,7 +290,10 @@ the packet's information.  A quick example:
    parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &ip6, &tcp)
    decoded := []gopacket.LayerType{}
    for packetData := range somehowGetPacketData() {
-     err := parser.DecodeLayers(packetData, &decoded)
+     if err := parser.DecodeLayers(packetData, &decoded); err != nil {
+       fmt.Fprintf(os.Stderr, "Could not decode layers: %v\n", err)
+       continue
+     }
      for _, layerType := range decoded {
        switch layerType {
          case layers.LayerTypeIPv6:

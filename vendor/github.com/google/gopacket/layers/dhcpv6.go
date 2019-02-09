@@ -7,7 +7,6 @@
 package layers
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -158,7 +157,7 @@ func (d *DHCPv6) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.Serialize
 
 	if len(d.Options) > 0 {
 		for _, o := range d.Options {
-			if err := o.encode(data[offset:]); err != nil {
+			if err := o.encode(data[offset:], opts); err != nil {
 				return err
 			}
 			offset += int(o.Length) + 4 // 2 from option code, 2 from option length
@@ -188,7 +187,7 @@ func decodeDHCPv6(data []byte, p gopacket.PacketBuilder) error {
 }
 
 // DHCPv6StatusCode represents a DHCP status code - RFC-3315
-type DHCPv6StatusCode byte
+type DHCPv6StatusCode uint16
 
 // Constants for the DHCPv6StatusCode.
 const (
@@ -218,159 +217,6 @@ func (o DHCPv6StatusCode) String() string {
 	default:
 		return "Unknown"
 	}
-}
-
-// DHCPv6Opt represents a DHCP option or parameter from RFC-3315
-type DHCPv6Opt uint16
-
-// Constants for the DHCPv6Opt options.
-const (
-	DHCPv6OptClientID           DHCPv6Opt = 1
-	DHCPv6OptServerID           DHCPv6Opt = 2
-	DHCPv6OptIANA               DHCPv6Opt = 3
-	DHCPv6OptIATA               DHCPv6Opt = 4
-	DHCPv6OptIAAddr             DHCPv6Opt = 5
-	DHCPv6OptOro                DHCPv6Opt = 6
-	DHCPv6OptPreference         DHCPv6Opt = 7
-	DHCPv6OptElapsedTime        DHCPv6Opt = 8
-	DHCPv6OptRelayMessage       DHCPv6Opt = 9
-	DHCPv6OptAuth               DHCPv6Opt = 11
-	DHCPv6OptUnicast            DHCPv6Opt = 12
-	DHCPv6OptStatusCode         DHCPv6Opt = 13
-	DHCPv6OptRapidCommit        DHCPv6Opt = 14
-	DHCPv6OptUserClass          DHCPv6Opt = 15
-	DHCPv6OptVendorClass        DHCPv6Opt = 16
-	DHCPv6OptVendorOpts         DHCPv6Opt = 17
-	DHCPv6OptInterfaceID        DHCPv6Opt = 18
-	DHCPv6OptReconfigureMessage DHCPv6Opt = 19
-	DHCPv6OptReconfigureAccept  DHCPv6Opt = 20
-)
-
-// String returns a string version of a DHCPv6Opt.
-func (o DHCPv6Opt) String() string {
-	switch o {
-	case DHCPv6OptClientID:
-		return "ClientID"
-	case DHCPv6OptServerID:
-		return "ServerID"
-	case DHCPv6OptIANA:
-		return "IA_NA"
-	case DHCPv6OptIATA:
-		return "IA_TA"
-	case DHCPv6OptIAAddr:
-		return "IAAddr"
-	case DHCPv6OptOro:
-		return "Oro"
-	case DHCPv6OptPreference:
-		return "Preference"
-	case DHCPv6OptElapsedTime:
-		return "ElapsedTime"
-	case DHCPv6OptRelayMessage:
-		return "RelayMessage"
-	case DHCPv6OptAuth:
-		return "Auth"
-	case DHCPv6OptUnicast:
-		return "Unicast"
-	case DHCPv6OptStatusCode:
-		return "StatusCode"
-	case DHCPv6OptRapidCommit:
-		return "RapidCommit"
-	case DHCPv6OptUserClass:
-		return "UserClass"
-	case DHCPv6OptVendorClass:
-		return "VendorClass"
-	case DHCPv6OptVendorOpts:
-		return "VendorOpts"
-	case DHCPv6OptInterfaceID:
-		return "InterfaceID"
-	case DHCPv6OptReconfigureMessage:
-		return "ReconfigureMessage"
-	case DHCPv6OptReconfigureAccept:
-		return "ReconfigureAccept"
-	default:
-		return "Unknown"
-	}
-}
-
-// DHCPv6Options is used to get nicely printed option lists which would normally
-// be cut off after 5 options.
-type DHCPv6Options []DHCPv6Option
-
-// String returns a string version of the options list.
-func (o DHCPv6Options) String() string {
-	buf := &bytes.Buffer{}
-	buf.WriteByte('[')
-	for i, opt := range o {
-		buf.WriteString(opt.String())
-		if i+1 != len(o) {
-			buf.WriteString(", ")
-		}
-	}
-	buf.WriteByte(']')
-	return buf.String()
-}
-
-// DHCPv6Option rerpresents a DHCP option.
-type DHCPv6Option struct {
-	Code   DHCPv6Opt
-	Length uint16
-	Data   []byte
-}
-
-// String returns a string version of a DHCP Option.
-func (o DHCPv6Option) String() string {
-	switch o.Code {
-	case DHCPv6OptClientID, DHCPv6OptServerID:
-		duid, err := decodeDHCPv6DUID(o.Data)
-		if err != nil {
-			return fmt.Sprintf("Option(%s:INVALID)", o.Code)
-		}
-		return fmt.Sprintf("Option(%s:[%s])", o.Code, duid.String())
-	case DHCPv6OptOro:
-		options := ""
-		for i := 0; i < int(o.Length); i += 2 {
-			if options != "" {
-				options += ","
-			}
-			option := DHCPv6Opt(binary.BigEndian.Uint16(o.Data[i : i+2]))
-			options += option.String()
-		}
-		return fmt.Sprintf("Option(%s:[%s])", o.Code, options)
-	default:
-		return fmt.Sprintf("Option(%s:%v)", o.Code, o.Data)
-	}
-}
-
-// NewDHCPv6Option constructs a new DHCPv6Option with a given type and data.
-func NewDHCPv6Option(code DHCPv6Opt, data []byte) DHCPv6Option {
-	o := DHCPv6Option{Code: code}
-	if data != nil {
-		o.Data = data
-		o.Length = uint16(len(data))
-	}
-
-	return o
-}
-
-func (o *DHCPv6Option) encode(b []byte) error {
-	binary.BigEndian.PutUint16(b[0:2], uint16(o.Code))
-	binary.BigEndian.PutUint16(b[2:4], o.Length)
-	copy(b[4:], o.Data)
-
-	return nil
-}
-
-func (o *DHCPv6Option) decode(data []byte) error {
-	if len(data) < 2 {
-		return errors.New("Not enough data to decode")
-	}
-	o.Code = DHCPv6Opt(binary.BigEndian.Uint16(data[0:2]))
-	if len(data) < 3 {
-		return errors.New("Not enough data to decode")
-	}
-	o.Length = binary.BigEndian.Uint16(data[2:4])
-	o.Data = data[4 : 4+o.Length]
-	return nil
 }
 
 // DHCPv6DUIDType represents a DHCP DUID - RFC-3315

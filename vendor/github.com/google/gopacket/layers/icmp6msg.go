@@ -129,6 +129,11 @@ func (i ICMPv6Opt) String() string {
 	}
 }
 
+// CanDecode returns the set of layer types that this DecodingLayer can decode.
+func (i *ICMPv6Echo) CanDecode() gopacket.LayerClass {
+	return LayerTypeICMPv6Echo
+}
+
 // LayerType returns LayerTypeICMPv6Echo.
 func (i *ICMPv6Echo) LayerType() gopacket.LayerType {
 	return LayerTypeICMPv6Echo

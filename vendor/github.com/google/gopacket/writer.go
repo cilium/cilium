@@ -36,6 +36,8 @@ type SerializableLayer interface {
 	// LayerPayload.  It just serializes based on struct fields, neither
 	// modifying nor using contents/payload.
 	SerializeTo(b SerializeBuffer, opts SerializeOptions) error
+	// LayerType returns the type of the layer that is being serialized to the buffer
+	LayerType() LayerType
 }
 
 // SerializeOptions provides options for behaviors that SerializableLayers may want to
@@ -97,12 +99,19 @@ type SerializeBuffer interface {
 	// the byte slice returned by any previous call to Bytes() for this buffer
 	// should be considered invalidated.
 	Clear() error
+	// Layers returns all the Layers that have been successfully serialized into this buffer
+	// already.
+	Layers() []LayerType
+	// PushLayer adds the current Layer to the list of Layers that have been serialized
+	// into this buffer.
+	PushLayer(LayerType)
 }
 
 type serializeBuffer struct {
 	data                []byte
 	start               int
 	prepended, appended int
+	layers              []LayerType
 }
 
 // NewSerializeBuffer creates a new instance of the default implementation of
@@ -171,7 +180,16 @@ func (w *serializeBuffer) AppendBytes(num int) ([]byte, error) {
 func (w *serializeBuffer) Clear() error {
 	w.start = w.prepended
 	w.data = w.data[:w.start]
+	w.layers = w.layers[:0]
 	return nil
+}
+
+func (w *serializeBuffer) Layers() []LayerType {
+	return w.layers
+}
+
+func (w *serializeBuffer) PushLayer(l LayerType) {
+	w.layers = append(w.layers, l)
 }
 
 // SerializeLayers clears the given write buffer, then writes all layers into it so
@@ -193,6 +211,7 @@ func SerializeLayers(w SerializeBuffer, opts SerializeOptions, layers ...Seriali
 		if err != nil {
 			return err
 		}
+		w.PushLayer(layer.LayerType())
 	}
 	return nil
 }

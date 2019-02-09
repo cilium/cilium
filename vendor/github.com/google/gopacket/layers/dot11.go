@@ -405,6 +405,12 @@ const (
 	Dot11InformationElementIDVHTTxPowerEnvelope        Dot11InformationElementID = 195
 	Dot11InformationElementIDChannelSwitchWrapper      Dot11InformationElementID = 196
 	Dot11InformationElementIDOperatingModeNotification Dot11InformationElementID = 199
+	Dot11InformationElementIDUPSIM                     Dot11InformationElementID = 200
+	Dot11InformationElementIDReducedNeighborReport     Dot11InformationElementID = 201
+	Dot11InformationElementIDTVHTOperation             Dot11InformationElementID = 202
+	Dot11InformationElementIDDeviceLocation            Dot11InformationElementID = 204
+	Dot11InformationElementIDWhiteSpaceMap             Dot11InformationElementID = 205
+	Dot11InformationElementIDFineTuningMeasureParams   Dot11InformationElementID = 206
 	Dot11InformationElementIDVendor                    Dot11InformationElementID = 221
 )
 
@@ -742,6 +748,18 @@ func (a Dot11InformationElementID) String() string {
 		return "Channel Switch Wrapper"
 	case Dot11InformationElementIDOperatingModeNotification:
 		return "Operating Mode Notification"
+	case Dot11InformationElementIDUPSIM:
+		return "UP SIM"
+	case Dot11InformationElementIDReducedNeighborReport:
+		return "Reduced Neighbor Report"
+	case Dot11InformationElementIDTVHTOperation:
+		return "TVHT Op"
+	case Dot11InformationElementIDDeviceLocation:
+		return "Device Location"
+	case Dot11InformationElementIDWhiteSpaceMap:
+		return "White Space Map"
+	case Dot11InformationElementIDFineTuningMeasureParams:
+		return "Fine Tuning Measure Parameters"
 	case Dot11InformationElementIDVendor:
 		return "Vendor"
 	default:

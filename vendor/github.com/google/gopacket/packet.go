@@ -16,6 +16,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -814,7 +815,7 @@ func (p *PacketSource) packetsToChannel() {
 	defer close(p.c)
 	for {
 		packet, err := p.NextPacket()
-		if err == io.EOF {
+		if err == io.EOF || err == syscall.EBADF {
 			return
 		} else if err == nil {
 			p.c <- packet
