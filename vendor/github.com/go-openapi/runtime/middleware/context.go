@@ -16,9 +16,7 @@ package middleware
 
 import (
 	stdContext "context"
-	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 
@@ -26,18 +24,19 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/loads"
 	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/runtime/logger"
 	"github.com/go-openapi/runtime/middleware/untyped"
-	"github.com/go-openapi/runtime/security"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 )
 
 // Debug when true turns on verbose logging
-var Debug = os.Getenv("SWAGGER_DEBUG") != "" || os.Getenv("DEBUG") != ""
+var Debug = logger.DebugEnabled()
+var Logger logger.Logger = logger.StandardLogger{}
 
 func debugLog(format string, args ...interface{}) {
 	if Debug {
-		log.Printf(format, args...)
+		Logger.Printf(format, args...)
 	}
 }
 
@@ -94,7 +93,7 @@ func newRoutableUntypedAPI(spec *loads.Document, api *untyped.API, context *Cont
 	for method, hls := range analyzer.Operations() {
 		um := strings.ToUpper(method)
 		for path, op := range hls {
-			schemes := analyzer.SecurityDefinitionsFor(op)
+			schemes := analyzer.SecurityRequirementsFor(op)
 
 			if oh, ok := api.OperationHandlerFor(method, path); ok {
 				if handlers == nil {
@@ -193,7 +192,7 @@ func NewRoutableContext(spec *loads.Document, routableAPI RoutableAPI, routes Ro
 	if spec != nil {
 		an = analysis.New(spec.Spec())
 	}
-	ctx := &Context{spec: spec, api: routableAPI, analyzer: an}
+	ctx := &Context{spec: spec, api: routableAPI, analyzer: an, router: routes}
 	return ctx
 }
 
@@ -205,6 +204,7 @@ func NewContext(spec *loads.Document, api *untyped.API, routes Router) *Context 
 	}
 	ctx := &Context{spec: spec, analyzer: an}
 	ctx.api = newRoutableUntypedAPI(spec, api, ctx)
+	ctx.router = routes
 	return ctx
 }
 
@@ -231,6 +231,32 @@ const (
 	ctxSecurityPrincipal
 	ctxSecurityScopes
 )
+
+// MatchedRouteFrom request context value.
+func MatchedRouteFrom(req *http.Request) *MatchedRoute {
+	mr := req.Context().Value(ctxMatchedRoute)
+	if mr == nil {
+		return nil
+	}
+	if res, ok := mr.(*MatchedRoute); ok {
+		return res
+	}
+	return nil
+}
+
+// SecurityPrincipalFrom request context value.
+func SecurityPrincipalFrom(req *http.Request) interface{} {
+	return req.Context().Value(ctxSecurityPrincipal)
+}
+
+// SecurityScopesFrom request context value.
+func SecurityScopesFrom(req *http.Request) []string {
+	rs := req.Context().Value(ctxSecurityScopes)
+	if res, ok := rs.([]string); ok {
+		return res
+	}
+	return nil
+}
 
 type contentTypeValue struct {
 	MediaType string
@@ -369,12 +395,20 @@ func (c *Context) AllowedMethods(request *http.Request) []string {
 	return c.router.OtherMethods(request.Method, request.URL.EscapedPath())
 }
 
+// ResetAuth removes the current principal from the request context
+func (c *Context) ResetAuth(request *http.Request) *http.Request {
+	rctx := request.Context()
+	rctx = stdContext.WithValue(rctx, ctxSecurityPrincipal, nil)
+	rctx = stdContext.WithValue(rctx, ctxSecurityScopes, nil)
+	return request.WithContext(rctx)
+}
+
 // Authorize authorizes the request
 // Returns the principal object and a shallow copy of the request when its
 // context doesn't contain the principal, otherwise the same request or an error
 // (the last) if one of the authenticators returns one or an Unauthenticated error
 func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interface{}, *http.Request, error) {
-	if route == nil || len(route.Authenticators) == 0 {
+	if route == nil || !route.HasAuth() {
 		return nil, nil, nil
 	}
 
@@ -383,33 +417,22 @@ func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interfa
 		return v, request, nil
 	}
 
-	var lastError error
-	for scheme, authenticator := range route.Authenticators {
-		applies, usr, err := authenticator.Authenticate(&security.ScopedAuthRequest{
-			Request:        request,
-			RequiredScopes: route.Scopes[scheme],
-		})
-		if !applies || err != nil || usr == nil {
-			if err != nil {
-				lastError = err
-			}
-			continue
+	applies, usr, err := route.Authenticators.Authenticate(request, route)
+	if !applies || err != nil || !route.Authenticators.AllowsAnonymous() && usr == nil {
+		if err != nil {
+			return nil, nil, err
 		}
-		if route.Authorizer != nil {
-			if err := route.Authorizer.Authorize(request, usr); err != nil {
-				return nil, nil, errors.New(http.StatusForbidden, err.Error())
-			}
+		return nil, nil, errors.Unauthenticated("invalid credentials")
+	}
+	if route.Authorizer != nil {
+		if err := route.Authorizer.Authorize(request, usr); err != nil {
+			return nil, nil, errors.New(http.StatusForbidden, err.Error())
 		}
-		rCtx = stdContext.WithValue(rCtx, ctxSecurityPrincipal, usr)
-		rCtx = stdContext.WithValue(rCtx, ctxSecurityScopes, route.Scopes[scheme])
-		return usr, request.WithContext(rCtx), nil
 	}
 
-	if lastError != nil {
-		return nil, nil, lastError
-	}
-
-	return nil, nil, errors.Unauthenticated("invalid credentials")
+	rCtx = stdContext.WithValue(rCtx, ctxSecurityPrincipal, usr)
+	rCtx = stdContext.WithValue(rCtx, ctxSecurityScopes, route.Authenticator.AllScopes())
+	return usr, request.WithContext(rCtx), nil
 }
 
 // BindAndValidate binds and validates the request

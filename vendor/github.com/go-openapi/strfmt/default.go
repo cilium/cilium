@@ -311,7 +311,7 @@ func (b *Base64) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as Base64")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *Base64) DeepCopyInto(out *Base64) {
 	*out = *in
 	return
@@ -412,7 +412,7 @@ func (u *URI) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as URI")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *URI) DeepCopyInto(out *URI) {
 	*out = *in
 	return
@@ -513,7 +513,7 @@ func (e *Email) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as Email")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *Email) DeepCopyInto(out *Email) {
 	*out = *in
 	return
@@ -614,7 +614,7 @@ func (h *Hostname) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as Hostname")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *Hostname) DeepCopyInto(out *Hostname) {
 	*out = *in
 	return
@@ -715,7 +715,7 @@ func (u *IPv4) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as IPv4")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *IPv4) DeepCopyInto(out *IPv4) {
 	*out = *in
 	return
@@ -816,7 +816,7 @@ func (u *IPv6) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as IPv6")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *IPv6) DeepCopyInto(out *IPv6) {
 	*out = *in
 	return
@@ -917,7 +917,7 @@ func (u *MAC) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as MAC")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *MAC) DeepCopyInto(out *MAC) {
 	*out = *in
 	return
@@ -1021,7 +1021,7 @@ func (u *UUID) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as UUID")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *UUID) DeepCopyInto(out *UUID) {
 	*out = *in
 	return
@@ -1125,7 +1125,7 @@ func (u *UUID3) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as UUID3")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *UUID3) DeepCopyInto(out *UUID3) {
 	*out = *in
 	return
@@ -1229,7 +1229,7 @@ func (u *UUID4) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as UUID4")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *UUID4) DeepCopyInto(out *UUID4) {
 	*out = *in
 	return
@@ -1333,7 +1333,7 @@ func (u *UUID5) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as UUID5")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *UUID5) DeepCopyInto(out *UUID5) {
 	*out = *in
 	return
@@ -1434,7 +1434,7 @@ func (u *ISBN) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as ISBN")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *ISBN) DeepCopyInto(out *ISBN) {
 	*out = *in
 	return
@@ -1535,7 +1535,7 @@ func (u *ISBN10) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as ISBN10")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *ISBN10) DeepCopyInto(out *ISBN10) {
 	*out = *in
 	return
@@ -1636,7 +1636,7 @@ func (u *ISBN13) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as ISBN13")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *ISBN13) DeepCopyInto(out *ISBN13) {
 	*out = *in
 	return
@@ -1737,7 +1737,7 @@ func (u *CreditCard) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as CreditCard")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *CreditCard) DeepCopyInto(out *CreditCard) {
 	*out = *in
 	return
@@ -1838,7 +1838,7 @@ func (u *SSN) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as SSN")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *SSN) DeepCopyInto(out *SSN) {
 	*out = *in
 	return
@@ -1939,7 +1939,7 @@ func (h *HexColor) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as HexColor")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *HexColor) DeepCopyInto(out *HexColor) {
 	*out = *in
 	return
@@ -2040,7 +2040,7 @@ func (r *RGBColor) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as RGBColor")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *RGBColor) DeepCopyInto(out *RGBColor) {
 	*out = *in
 	return
@@ -2142,7 +2142,7 @@ func (r *Password) SetBSON(raw bson.Raw) error {
 	return errors.New("couldn't unmarshal bson raw value as Password")
 }
 
-// DeepCopyInto copies the reciever and writes its value into out.
+// DeepCopyInto copies the receiver and writes its value into out.
 func (in *Password) DeepCopyInto(out *Password) {
 	*out = *in
 	return

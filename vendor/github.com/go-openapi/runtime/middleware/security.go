@@ -22,7 +22,7 @@ func newSecureAPI(ctx *Context, next http.Handler) http.Handler {
 		if rCtx != nil {
 			r = rCtx
 		}
-		if route != nil && len(route.Authenticators) == 0 {
+		if route != nil && !route.NeedsAuth() {
 			next.ServeHTTP(rw, r)
 			return
 		}

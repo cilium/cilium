@@ -33,7 +33,8 @@ func Spec(basePath string, b []byte, next http.Handler) http.Handler {
 		if r.URL.Path == pth {
 			rw.Header().Set("Content-Type", "application/json")
 			rw.WriteHeader(http.StatusOK)
-			_, _ = rw.Write(b)
+			//#nosec
+			rw.Write(b)
 			return
 		}
 

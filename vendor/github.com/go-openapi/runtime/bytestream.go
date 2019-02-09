@@ -25,14 +25,40 @@ import (
 	"github.com/go-openapi/swag"
 )
 
+func defaultCloser() error { return nil }
+
+type byteStreamOpt func(opts *byteStreamOpts)
+
+// ClosesStream when the bytestream consumer or producer is finished
+func ClosesStream(opts *byteStreamOpts) {
+	opts.Close = true
+}
+
+type byteStreamOpts struct {
+	Close bool
+}
+
 // ByteStreamConsumer creates a consmer for byte streams,
 // takes a Writer/BinaryUnmarshaler interface or binary slice by reference,
 // and reads from the provided reader
-func ByteStreamConsumer() Consumer {
+func ByteStreamConsumer(opts ...byteStreamOpt) Consumer {
+	var vals byteStreamOpts
+	for _, opt := range opts {
+		opt(&vals)
+	}
+
 	return ConsumerFunc(func(reader io.Reader, data interface{}) error {
 		if reader == nil {
 			return errors.New("ByteStreamConsumer requires a reader") // early exit
 		}
+
+		close := defaultCloser
+		if vals.Close {
+			if cl, ok := reader.(io.Closer); ok {
+				close = cl.Close
+			}
+		}
+		defer close()
 
 		if wrtr, ok := data.(io.Writer); ok {
 			_, err := io.Copy(wrtr, reader)
@@ -66,11 +92,22 @@ func ByteStreamConsumer() Consumer {
 // ByteStreamProducer creates a producer for byte streams,
 // takes a Reader/BinaryMarshaler interface or binary slice,
 // and writes to a writer (essentially a pipe)
-func ByteStreamProducer() Producer {
+func ByteStreamProducer(opts ...byteStreamOpt) Producer {
+	var vals byteStreamOpts
+	for _, opt := range opts {
+		opt(&vals)
+	}
 	return ProducerFunc(func(writer io.Writer, data interface{}) error {
 		if writer == nil {
 			return errors.New("ByteStreamProducer requires a writer") // early exit
 		}
+		close := defaultCloser
+		if vals.Close {
+			if cl, ok := writer.(io.Closer); ok {
+				close = cl.Close
+			}
+		}
+		defer close()
 
 		if rdr, ok := data.(io.Reader); ok {
 			_, err := io.Copy(writer, rdr)
@@ -92,9 +129,7 @@ func ByteStreamProducer() Producer {
 				_, err := writer.Write([]byte(e.Error()))
 				return err
 			}
-		}
 
-		if data != nil {
 			v := reflect.Indirect(reflect.ValueOf(data))
 			if t := v.Type(); t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8 {
 				_, err := writer.Write(v.Bytes())
