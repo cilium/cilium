@@ -126,6 +126,11 @@ func (v *Value) CountFloat() float64 {
 	return float64(v.Count)
 }
 
+// bytesFloat converts the bytes count to float
+func (v *Value) bytesFloat() float64 {
+	return float64(v.Bytes)
+}
+
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
 func (k *Key) NewValue() bpf.MapValue { return &Value{} }
@@ -135,32 +140,36 @@ func (v *Value) GetValuePtr() unsafe.Pointer {
 	return unsafe.Pointer(v)
 }
 
-// updatePrometheusMetrics checks the metricsmap key value pair
-// and determines which prometheus metrics along with respective labels
-// need to be updated.
-func updatePrometheusMetrics(key *Key, val *Value) {
-	var counter prometheus.Counter
-	var err error
-	if key.IsDrop() {
-		counter, err = metrics.DropCount.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
-	} else {
-		counter, err = metrics.ForwardCount.GetMetricWithLabelValues(key.Direction())
-	}
+func updateMetric(getCounter func() (prometheus.Counter, error), newValue float64) {
+	counter, err := getCounter()
 	if err != nil {
 		log.WithError(err).Warn("Failed to update prometheus metrics")
 		return
 	}
+
 	oldValue := metrics.GetCounterValue(counter)
-	newValue := val.CountFloat()
-	// Check if metrics have changed since the last poll.
-	// If yes, we need to add only the delta.
 	if newValue > oldValue {
-		if key.IsDrop() {
-			metrics.DropCount.WithLabelValues(key.DropForwardReason(), key.Direction()).Add((newValue - oldValue))
-		} else {
-			metrics.ForwardCount.WithLabelValues(key.Direction()).Add((newValue - oldValue))
-		}
+		counter.Add((newValue - oldValue))
 	}
+}
+
+// updatePrometheusMetrics checks the metricsmap key value pair
+// and determines which prometheus metrics along with respective labels
+// need to be updated.
+func updatePrometheusMetrics(key *Key, val *Value) {
+	updateMetric(func() (prometheus.Counter, error) {
+		if key.IsDrop() {
+			return metrics.DropCount.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
+		}
+		return metrics.ForwardCount.GetMetricWithLabelValues(key.Direction())
+	}, val.CountFloat())
+
+	updateMetric(func() (prometheus.Counter, error) {
+		if key.IsDrop() {
+			return metrics.DropBytes.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
+		}
+		return metrics.ForwardBytes.GetMetricWithLabelValues(key.Direction())
+	}, val.bytesFloat())
 }
 
 // SyncMetricsMap is called periodically to sync off the metrics map by
