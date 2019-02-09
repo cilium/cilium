@@ -35,6 +35,8 @@ rules:
   - pods
   verbs:
   - list
+  - delete
+  - get
 - apiGroups:
   - apps
   resources:
