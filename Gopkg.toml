@@ -217,7 +217,7 @@ required = [
 
 [[constraint]]
   name = "github.com/gorilla/mux"
-  revision = "26a6070f849969ba72b72256e9f14cf519751690"
+  revision = "v1.7.0"
 
   # main-usage = "plugins/cilium-docker"
   # on-revision = ""
