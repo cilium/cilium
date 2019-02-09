@@ -137,7 +137,7 @@ required = [
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
+  revision = "v1.2.0"
 
   # main-usage = "pkg/envoy and proxylib"
   # on-revision = ""
