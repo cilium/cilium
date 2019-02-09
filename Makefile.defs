@@ -1,3 +1,6 @@
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
+
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
 include $(ROOT_DIR)/Makefile.quiet
