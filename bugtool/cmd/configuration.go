@@ -210,6 +210,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	ciliumCommands := []string{
 		fmt.Sprintf("cilium debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium metrics list",
+		"cilium fqdn cache list",
 		"cilium config",
 		"cilium bpf tunnel list",
 		"cilium bpf lb list",
