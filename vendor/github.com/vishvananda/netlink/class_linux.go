@@ -173,18 +173,18 @@ func classPayload(req *nl.NetlinkRequest, class Class) error {
 			return errors.New("HTB: failed to calculate ceil rate table")
 		}
 		opt.Ceil = tcceil
-		nl.NewRtAttrChild(options, nl.TCA_HTB_PARMS, opt.Serialize())
-		nl.NewRtAttrChild(options, nl.TCA_HTB_RTAB, SerializeRtab(rtab))
-		nl.NewRtAttrChild(options, nl.TCA_HTB_CTAB, SerializeRtab(ctab))
+		options.AddRtAttr(nl.TCA_HTB_PARMS, opt.Serialize())
+		options.AddRtAttr(nl.TCA_HTB_RTAB, SerializeRtab(rtab))
+		options.AddRtAttr(nl.TCA_HTB_CTAB, SerializeRtab(ctab))
 	case "hfsc":
 		hfsc := class.(*HfscClass)
 		opt := nl.HfscCopt{}
 		opt.Rsc.Set(hfsc.Rsc.Attrs())
 		opt.Fsc.Set(hfsc.Fsc.Attrs())
 		opt.Usc.Set(hfsc.Usc.Attrs())
-		nl.NewRtAttrChild(options, nl.TCA_HFSC_RSC, nl.SerializeHfscCurve(&opt.Rsc))
-		nl.NewRtAttrChild(options, nl.TCA_HFSC_FSC, nl.SerializeHfscCurve(&opt.Fsc))
-		nl.NewRtAttrChild(options, nl.TCA_HFSC_USC, nl.SerializeHfscCurve(&opt.Usc))
+		options.AddRtAttr(nl.TCA_HFSC_RSC, nl.SerializeHfscCurve(&opt.Rsc))
+		options.AddRtAttr(nl.TCA_HFSC_FSC, nl.SerializeHfscCurve(&opt.Fsc))
+		options.AddRtAttr(nl.TCA_HFSC_USC, nl.SerializeHfscCurve(&opt.Usc))
 	}
 	req.AddData(options)
 	return nil

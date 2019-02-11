@@ -848,11 +848,26 @@ func (gtp *GTP) Type() string {
 	return "gtp"
 }
 
+// Virtual XFRM Interfaces
+//	Named "xfrmi" to prevent confusion with XFRM objects
+type Xfrmi struct {
+	LinkAttrs
+	Ifid uint32
+}
+
+func (xfrm *Xfrmi) Attrs() *LinkAttrs {
+	return &xfrm.LinkAttrs
+}
+
+func (xfrm *Xfrmi) Type() string {
+	return "xfrm"
+}
+
 // iproute2 supported devices;
 // vlan | veth | vcan | dummy | ifb | macvlan | macvtap |
 // bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |
 // gre | gretap | ip6gre | ip6gretap | vti | vti6 | nlmon |
-// bond_slave | ipvlan
+// bond_slave | ipvlan | xfrm
 
 // LinkNotFoundError wraps the various not found errors when
 // getting/reading links. This is intended for better error

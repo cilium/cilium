@@ -573,3 +573,11 @@ const (
 	GTP_ROLE_GGSN = iota
 	GTP_ROLE_SGSN
 )
+
+const (
+	IFLA_XFRM_UNSPEC = iota
+	IFLA_XFRM_LINK
+	IFLA_XFRM_IF_ID
+
+	IFLA_XFRM_MAX = iota - 1
+)
