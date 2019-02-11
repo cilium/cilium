@@ -27,6 +27,10 @@ const (
 var (
 	modpsapi                 = windows.NewLazySystemDLL("psapi.dll")
 	procGetProcessMemoryInfo = modpsapi.NewProc("GetProcessMemoryInfo")
+
+	advapi32                  = windows.NewLazySystemDLL("advapi32.dll")
+	procLookupPrivilegeValue  = advapi32.NewProc("LookupPrivilegeValueW")
+	procAdjustTokenPrivileges = advapi32.NewProc("AdjustTokenPrivileges")
 )
 
 type SystemProcessInformation struct {
@@ -90,8 +94,61 @@ type Win32_Process struct {
 	WorkingSetSize        uint64
 }
 
+type winLUID struct {
+	LowPart  winDWord
+	HighPart winLong
+}
+
+// LUID_AND_ATTRIBUTES
+type winLUIDAndAttributes struct {
+	Luid       winLUID
+	Attributes winDWord
+}
+
+// TOKEN_PRIVILEGES
+type winTokenPriviledges struct {
+	PrivilegeCount winDWord
+	Privileges     [1]winLUIDAndAttributes
+}
+
+type winLong int32
+type winDWord uint32
+
 func init() {
 	wmi.DefaultClient.AllowMissingFields = true
+
+	// enable SeDebugPrivilege https://github.com/midstar/proci/blob/6ec79f57b90ba3d9efa2a7b16ef9c9369d4be875/proci_windows.go#L80-L119
+	handle, err := syscall.GetCurrentProcess()
+	if err != nil {
+		return
+	}
+
+	var token syscall.Token
+	err = syscall.OpenProcessToken(handle, 0x0028, &token)
+	if err != nil {
+		return
+	}
+	defer token.Close()
+
+	tokenPriviledges := winTokenPriviledges{PrivilegeCount: 1}
+	lpName := syscall.StringToUTF16("SeDebugPrivilege")
+	ret, _, _ := procLookupPrivilegeValue.Call(
+		0,
+		uintptr(unsafe.Pointer(&lpName[0])),
+		uintptr(unsafe.Pointer(&tokenPriviledges.Privileges[0].Luid)))
+	if ret == 0 {
+		return
+	}
+
+	tokenPriviledges.Privileges[0].Attributes = 0x00000002 // SE_PRIVILEGE_ENABLED
+
+	procAdjustTokenPrivileges.Call(
+		uintptr(token),
+		0,
+		uintptr(unsafe.Pointer(&tokenPriviledges)),
+		uintptr(unsafe.Sizeof(tokenPriviledges)),
+		0,
+		0)
 }
 
 func Pids() ([]int32, error) {
@@ -177,7 +234,20 @@ func (p *Process) Exe() (string, error) {
 }
 
 func (p *Process) ExeWithContext(ctx context.Context) (string, error) {
-	dst, err := GetWin32Proc(p.Pid)
+	if p.Pid != 0 { // 0 or null is the current process for CreateToolhelp32Snapshot
+		snap := w32.CreateToolhelp32Snapshot(w32.TH32CS_SNAPMODULE|w32.TH32CS_SNAPMODULE32, uint32(p.Pid))
+		if snap != 0 { // don't report errors here, fallback to WMI instead
+			defer w32.CloseHandle(snap)
+			var me32 w32.MODULEENTRY32
+			me32.Size = uint32(unsafe.Sizeof(me32))
+
+			if w32.Module32First(snap, &me32) {
+				szexepath := windows.UTF16ToString(me32.SzExePath[:])
+				return szexepath, nil
+			}
+		}
+	}
+	dst, err := GetWin32ProcWithContext(ctx, p.Pid)
 	if err != nil {
 		return "", fmt.Errorf("could not get ExecutablePath: %s", err)
 	}
@@ -189,7 +259,7 @@ func (p *Process) Cmdline() (string, error) {
 }
 
 func (p *Process) CmdlineWithContext(ctx context.Context) (string, error) {
-	dst, err := GetWin32Proc(p.Pid)
+	dst, err := GetWin32ProcWithContext(ctx, p.Pid)
 	if err != nil {
 		return "", fmt.Errorf("could not get CommandLine: %s", err)
 	}
@@ -204,7 +274,7 @@ func (p *Process) CmdlineSlice() ([]string, error) {
 }
 
 func (p *Process) CmdlineSliceWithContext(ctx context.Context) ([]string, error) {
-	cmdline, err := p.Cmdline()
+	cmdline, err := p.CmdlineWithContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +320,15 @@ func (p *Process) Status() (string, error) {
 func (p *Process) StatusWithContext(ctx context.Context) (string, error) {
 	return "", common.ErrNotImplementedError
 }
+
+func (p *Process) Foreground() (bool, error) {
+	return p.ForegroundWithContext(context.Background())
+}
+
+func (p *Process) ForegroundWithContext(ctx context.Context) (bool, error) {
+	return false, common.ErrNotImplementedError
+}
+
 func (p *Process) Username() (string, error) {
 	return p.UsernameWithContext(context.Background())
 }
@@ -309,7 +388,7 @@ func (p *Process) Nice() (int32, error) {
 }
 
 func (p *Process) NiceWithContext(ctx context.Context) (int32, error) {
-	dst, err := GetWin32Proc(p.Pid)
+	dst, err := GetWin32ProcWithContext(ctx, p.Pid)
 	if err != nil {
 		return 0, fmt.Errorf("could not get Priority: %s", err)
 	}
@@ -346,7 +425,7 @@ func (p *Process) IOCounters() (*IOCountersStat, error) {
 }
 
 func (p *Process) IOCountersWithContext(ctx context.Context) (*IOCountersStat, error) {
-	dst, err := GetWin32Proc(p.Pid)
+	dst, err := GetWin32ProcWithContext(ctx, p.Pid)
 	if err != nil || len(dst) == 0 {
 		return nil, fmt.Errorf("could not get Win32Proc: %s", err)
 	}
@@ -378,7 +457,7 @@ func (p *Process) NumThreads() (int32, error) {
 }
 
 func (p *Process) NumThreadsWithContext(ctx context.Context) (int32, error) {
-	dst, err := GetWin32Proc(p.Pid)
+	dst, err := GetWin32ProcWithContext(ctx, p.Pid)
 	if err != nil {
 		return 0, fmt.Errorf("could not get ThreadCount: %s", err)
 	}
@@ -451,27 +530,46 @@ func (p *Process) MemoryInfoExWithContext(ctx context.Context) (*MemoryInfoExSta
 	return nil, common.ErrNotImplementedError
 }
 
+func (p *Process) PageFaults() (*PageFaultsStat, error) {
+	return p.PageFaultsWithContext(context.Background())
+}
+
+func (p *Process) PageFaultsWithContext(ctx context.Context) (*PageFaultsStat, error) {
+	return nil, common.ErrNotImplementedError
+}
+
 func (p *Process) Children() ([]*Process, error) {
 	return p.ChildrenWithContext(context.Background())
 }
 
 func (p *Process) ChildrenWithContext(ctx context.Context) ([]*Process, error) {
-	var dst []Win32_Process
-	query := wmi.CreateQuery(&dst, fmt.Sprintf("Where ParentProcessId = %d", p.Pid))
-	err := common.WMIQueryWithContext(ctx, query, &dst)
-	if err != nil {
-		return nil, err
-	}
-
 	out := []*Process{}
-	for _, proc := range dst {
-		p, err := NewProcess(int32(proc.ProcessID))
-		if err != nil {
-			continue
-		}
-		out = append(out, p)
+	snap := w32.CreateToolhelp32Snapshot(w32.TH32CS_SNAPPROCESS, uint32(0))
+	if snap == 0 {
+		return out, windows.GetLastError()
+	}
+	defer w32.CloseHandle(snap)
+	var pe32 w32.PROCESSENTRY32
+	pe32.DwSize = uint32(unsafe.Sizeof(pe32))
+	if w32.Process32First(snap, &pe32) == false {
+		return out, windows.GetLastError()
 	}
 
+	if pe32.Th32ParentProcessID == uint32(p.Pid) {
+		p, err := NewProcess(int32(pe32.Th32ProcessID))
+		if err == nil {
+			out = append(out, p)
+		}
+	}
+
+	for w32.Process32Next(snap, &pe32) {
+		if pe32.Th32ParentProcessID == uint32(p.Pid) {
+			p, err := NewProcess(int32(pe32.Th32ProcessID))
+			if err == nil {
+				out = append(out, p)
+			}
+		}
+	}
 	return out, nil
 }
 

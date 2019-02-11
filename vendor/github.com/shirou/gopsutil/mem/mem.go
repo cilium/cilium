@@ -44,7 +44,7 @@ type VirtualMemoryStat struct {
 
 	// FreeBSD specific numbers:
 	// https://reviews.freebsd.org/D8467
-	Laundry  uint64 `json:"laundry"`
+	Laundry uint64 `json:"laundry"`
 
 	// Linux specific numbers
 	// https://www.centos.org/docs/5/html/5.1/Deployment_Guide/s2-proc-meminfo.html
@@ -57,6 +57,7 @@ type VirtualMemoryStat struct {
 	WritebackTmp   uint64 `json:"writebacktmp"`
 	Shared         uint64 `json:"shared"`
 	Slab           uint64 `json:"slab"`
+	SReclaimable   uint64 `json:"sreclaimable"`
 	PageTables     uint64 `json:"pagetables"`
 	SwapCached     uint64 `json:"swapcached"`
 	CommitLimit    uint64 `json:"commitlimit"`

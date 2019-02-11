@@ -16,7 +16,7 @@ import (
 )
 
 // sys/sched.h
-const (
+var (
 	CPUser    = 0
 	CPNice    = 1
 	CPSys     = 2
@@ -35,18 +35,36 @@ const (
 var ClocksPerSec = float64(128)
 
 func init() {
-	getconf, err := exec.LookPath("/usr/bin/getconf")
-	if err != nil {
-		return
-	}
-	out, err := invoke.Command(getconf, "CLK_TCK")
-	// ignore errors
-	if err == nil {
-		i, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
-		if err == nil {
-			ClocksPerSec = float64(i)
+	func() {
+		getconf, err := exec.LookPath("/usr/bin/getconf")
+		if err != nil {
+			return
 		}
-	}
+		out, err := invoke.Command(getconf, "CLK_TCK")
+		// ignore errors
+		if err == nil {
+			i, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+			if err == nil {
+				ClocksPerSec = float64(i)
+			}
+		}
+	}()
+	func() {
+		v, err := unix.Sysctl("kern.osrelease") // can't reuse host.PlatformInformation because of circular import
+		if err != nil {
+			return
+		}
+		v = strings.ToLower(v)
+		version, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return
+		}
+		if version >= 6.4 {
+			CPIntr = 4
+			CPIdle = 5
+			CPUStates = 6
+		}
+	}()
 }
 
 func Times(percpu bool) ([]TimesStat, error) {
@@ -64,7 +82,7 @@ func TimesWithContext(ctx context.Context, percpu bool) ([]TimesStat, error) {
 	}
 
 	for i := 0; i < ncpu; i++ {
-		var cpuTimes [CPUStates]int64
+		var cpuTimes = make([]int64, CPUStates)
 		var mib []int32
 		if percpu {
 			mib = []int32{CTLKern, KernCptime}
@@ -106,14 +124,24 @@ func Info() ([]InfoStat, error) {
 
 func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 	var ret []InfoStat
+	var err error
 
 	c := InfoStat{}
 
-	v, err := unix.Sysctl("hw.model")
-	if err != nil {
+	var u32 uint32
+	if u32, err = unix.SysctlUint32("hw.cpuspeed"); err != nil {
 		return nil, err
 	}
-	c.ModelName = v
+	c.Mhz = float64(u32)
+
+	if u32, err = unix.SysctlUint32("hw.ncpuonline"); err != nil {
+		return nil, err
+	}
+	c.Cores = int32(u32)
+
+	if c.ModelName, err = unix.Sysctl("hw.model"); err != nil {
+		return nil, err
+	}
 
 	return append(ret, c), nil
 }
