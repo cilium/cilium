@@ -745,6 +745,14 @@
   revision = "db49ba357de1f26c56dac48a5de39c65785bf24a"
 
 [[projects]]
+  digest = "1:4059c14e87a2de3a434430340521b5feece186c1469eff0834c29a63870de3ed"
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
+  version = "v1.0.1"
+
+[[projects]]
   digest = "1:7b21c7fc5551b46d1308b4ffa9e9e49b66c7a8b0ba88c0130474b0e7a20d859f"
   name = "github.com/kr/pretty"
   packages = ["."]
@@ -1117,14 +1125,14 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:81aa9c5acf59350f3255a67a1dae67ad27c81fee74d103e4b47cfa0d495e9a81"
+  digest = "1:7575fbb5d423d4759fb0e5d823a35ada77e4411d51b31267b6347e200b639bdb"
   name = "github.com/sirupsen/logrus"
   packages = [
     ".",
     "hooks/syslog",
   ]
   pruneopts = "NUT"
-  revision = "v1.0.3"
+  revision = "v1.3.0"
 
 [[projects]]
   digest = "1:330e9062b308ac597e28485699c02223bd052437a6eed32a173c9227dcb9d95a"
