@@ -98,9 +98,9 @@ CoreOS
 cpuma
 cpumap
 cqlsh
+crd
 createtopic
 CreationDate
-crd
 cri
 crio
 daemonset
@@ -194,6 +194,7 @@ golang
 GOPATH
 Gospodarek
 Graf
+Grafana
 grep
 gRPC
 gsg
