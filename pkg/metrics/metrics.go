@@ -22,10 +22,8 @@ package metrics
 // - Register the new object in the init function
 
 import (
-	"net/http"
-	"os"
-
 	"github.com/cilium/cilium/api/v1/models"
+	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -476,7 +474,7 @@ var (
 )
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(os.Getpid(), Namespace))
+	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: "cilium"}))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
 
