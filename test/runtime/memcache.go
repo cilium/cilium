@@ -32,9 +32,9 @@ var _ = Describe("RuntimeMemcache", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"memcache":             "memcached:1.5.11",
-			"memcache-bin-client":  "nebril/python-binary-memcached",
-			"memcache-text-client": "alpine",
+			"memcache":             "docker.io/library/memcached:1.5.11",
+			"memcache-bin-client":  "docker.io/cilium/python-bmemcached:v0.0.1",
+			"memcache-text-client": "docker.io/library/alpine:3.9",
 		}
 		cmds := map[string][]string{
 			"memcache-bin-client":  {"sleep", "10000"},
