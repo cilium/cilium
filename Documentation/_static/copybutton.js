@@ -40,7 +40,7 @@ function addCopyButtonToCodeCells() {
       var buttonHtml = [];
       buttonHtml.push('<div class="copybutton-wrapper">');
       buttonHtml.push(
-        '<img class="copy-icon" src="../_static/copy-icon.png" alt="" />'
+        '<img class="copy-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAACiUExURUdwTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJkEv5MAAAA1dFJOUwAwnr/H5BShnG3DCRPPm5OdyC4jGzHhB7o4AmkDyTJE1vn6ymWjbAHtTIQE6dwNoGH71I2zlJ78SQAAAI9JREFUKM/t0kcOwkAMhWGnTZhUOoQWeu8w979aJEDiOWhGOQD/wpL1LbwxER32ivUU9E0e6zXsngDOfWLJGBZVwl36i6H4FL3mCDGfeqygDegkFjYZ9wEbQ37ZVoCu5Oj/sSLaBnSCTjPUYSv2upkOqSeigRbJcPPdYs1xNYMlPbHvvWyXgOcHe/vbdUPmCj5KFX8s6tJBAAAAAElFTkSuQmCC" alt="" />'
       );
       buttonHtml.push(
         '<a class="copybutton" data-clipboard-mode="first-line" data-clipboard-target="#' +
