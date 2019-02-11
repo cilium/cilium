@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -435,7 +435,7 @@ func printTicks(w io.Writer) {
 }
 
 func writeHTML(data []byte, path string) {
-	output := blackfriday.MarkdownCommon(data)
+	output := blackfriday.Run(data)
 	if err := ioutil.WriteFile(path, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
 		return

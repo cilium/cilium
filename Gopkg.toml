@@ -337,9 +337,9 @@ required = [
   # main-usage = "pkg/metrics"
   # on-revision = "last available commit and there is not stable releases"
 
-[[constraint]]
+[[override]]
   name = "github.com/russross/blackfriday"
-  revision = "6d1ef893fcb01b4f50cb6e57ed7df3e2e627b6b2"
+  revision = "v2.0.1"
 
   # main-usage = "cilium/cmd/debuginfo"
   # on-revision = ""
@@ -378,6 +378,12 @@ required = [
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""
+
+[[override]]
+  name = "github.com/cpuguy83/go-md2man"
+  revision = "691ee98543af2f262f35fbb54bdd42f00b9b9cc5"
+
+  # main-usage = "github.com/spf13/cobra"
 
 [[constraint]]
   name = "github.com/spf13/pflag"
