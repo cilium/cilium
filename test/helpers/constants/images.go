@@ -51,6 +51,9 @@ const (
 	// CassandraImage is the image used for testing of the cassandra proxy
 	// functionality in Cilium.
 	CassandraImage = "docker.io/library/cassandra:3.11.3"
+
+	// KafkaImage is the image used for setting up a multi-broker Kafka container.
+	KafkaImage = "docker.io/wurstmeister/kafka:2.11-0.11.0.3"
 )
 
 // AllImages is the set of all container images which are ran directly via
@@ -69,4 +72,5 @@ var AllImages = map[string]struct{}{
 	MemcacheBinClient:    {},
 	AlpineImage:          {},
 	CassandraImage:       {},
+	KafkaImage:           {},
 }
