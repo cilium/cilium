@@ -701,11 +701,11 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:d3956ca35b6433618aad53cb167a3fc3ea43a0c181bdc382eaea30ce80d2b903"
+  digest = "1:55a63f420e0ef5af8380d646d9d695182e7d4bd2a096321414dfd27c98d5da70"
   name = "github.com/jessevdk/go-flags"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "4e64e4a4e2552194cf594243e23aa9baf3b4297e"
+  revision = "c0795c8afcf41dd1d786bebce68636c199b3bb45"
 
 [[projects]]
   digest = "1:1f2aebae7e7c856562355ec0198d8ca2fa222fb05e5b1b66632a1fce39631885"

@@ -28,6 +28,15 @@ type Unmarshaler interface {
 	UnmarshalFlag(value string) error
 }
 
+// ValueValidator is the interface implemented by types that can validate a
+// flag argument themselves. The provided value is directly passed from the
+// command line.
+type ValueValidator interface {
+	// IsValidValue returns an error if the provided string value is valid for
+	// the flag.
+	IsValidValue(value string) error
+}
+
 func getBase(options multiTag, base int) (int, error) {
 	sbase := options.Get("base")
 
@@ -154,6 +163,13 @@ func convertToString(val reflect.Value, options multiTag) (string, error) {
 func convertUnmarshal(val string, retval reflect.Value) (bool, error) {
 	if retval.Type().NumMethod() > 0 && retval.CanInterface() {
 		if unmarshaler, ok := retval.Interface().(Unmarshaler); ok {
+			if retval.IsNil() {
+				retval.Set(reflect.New(retval.Type().Elem()))
+
+				// Re-assign from the new value
+				unmarshaler = retval.Interface().(Unmarshaler)
+			}
+
 			return true, unmarshaler.UnmarshalFlag(val)
 		}
 	}
