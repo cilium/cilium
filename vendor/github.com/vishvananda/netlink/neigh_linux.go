@@ -45,6 +45,7 @@ const (
 	NTF_ROUTER = 0x80
 )
 
+// Ndmsg is for adding, removing or receiving information about a neighbor table entry
 type Ndmsg struct {
 	Family uint8
 	Index  uint32
@@ -176,41 +177,49 @@ func neighHandle(neigh *Neigh, req *nl.NetlinkRequest) error {
 	return err
 }
 
-// NeighList gets a list of IP-MAC mappings in the system (ARP table).
+// NeighList returns a list of IP-MAC mappings in the system (ARP table).
 // Equivalent to: `ip neighbor show`.
 // The list can be filtered by link and ip family.
 func NeighList(linkIndex, family int) ([]Neigh, error) {
 	return pkgHandle.NeighList(linkIndex, family)
 }
 
-// NeighProxyList gets a list of neighbor proxies in the system.
+// NeighProxyList returns a list of neighbor proxies in the system.
 // Equivalent to: `ip neighbor show proxy`.
 // The list can be filtered by link and ip family.
 func NeighProxyList(linkIndex, family int) ([]Neigh, error) {
 	return pkgHandle.NeighProxyList(linkIndex, family)
 }
 
-// NeighList gets a list of IP-MAC mappings in the system (ARP table).
+// NeighList returns a list of IP-MAC mappings in the system (ARP table).
 // Equivalent to: `ip neighbor show`.
 // The list can be filtered by link and ip family.
 func (h *Handle) NeighList(linkIndex, family int) ([]Neigh, error) {
-	return h.neighList(linkIndex, family, 0)
+	return h.NeighListExecute(Ndmsg{
+		Family: uint8(family),
+		Index:  uint32(linkIndex),
+	})
 }
 
-// NeighProxyList gets a list of neighbor proxies in the system.
+// NeighProxyList returns a list of neighbor proxies in the system.
 // Equivalent to: `ip neighbor show proxy`.
 // The list can be filtered by link, ip family.
 func (h *Handle) NeighProxyList(linkIndex, family int) ([]Neigh, error) {
-	return h.neighList(linkIndex, family, NTF_PROXY)
-}
-
-func (h *Handle) neighList(linkIndex, family, flags int) ([]Neigh, error) {
-	req := h.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
-	msg := Ndmsg{
+	return h.NeighListExecute(Ndmsg{
 		Family: uint8(family),
 		Index:  uint32(linkIndex),
-		Flags:  uint8(flags),
-	}
+		Flags:  NTF_PROXY,
+	})
+}
+
+// NeighListExecute returns a list of neighbour entries filtered by link, ip family, flag and state.
+func NeighListExecute(msg Ndmsg) ([]Neigh, error) {
+	return pkgHandle.NeighListExecute(msg)
+}
+
+// NeighListExecute returns a list of neighbour entries filtered by link, ip family, flag and state.
+func (h *Handle) NeighListExecute(msg Ndmsg) ([]Neigh, error) {
+	req := h.newNetlinkRequest(unix.RTM_GETNEIGH, unix.NLM_F_DUMP)
 	req.AddData(&msg)
 
 	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWNEIGH)
@@ -221,7 +230,7 @@ func (h *Handle) neighList(linkIndex, family, flags int) ([]Neigh, error) {
 	var res []Neigh
 	for _, m := range msgs {
 		ndm := deserializeNdmsg(m)
-		if linkIndex != 0 && int(ndm.Index) != linkIndex {
+		if msg.Index != 0 && ndm.Index != msg.Index {
 			// Ignore messages from other interfaces
 			continue
 		}
@@ -253,14 +262,6 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 		return nil, err
 	}
 
-	// This should be cached for perfomance
-	// once per table dump
-	link, err := LinkByIndex(neigh.LinkIndex)
-	if err != nil {
-		return nil, err
-	}
-	encapType := link.Attrs().EncapType
-
 	for _, attr := range attrs {
 		switch attr.Attr.Type {
 		case NDA_DST:
@@ -270,13 +271,16 @@ func NeighDeserialize(m []byte) (*Neigh, error) {
 			// #define RTA_LENGTH(len) (RTA_ALIGN(sizeof(struct rtattr)) + (len))
 			// #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
 			attrLen := attr.Attr.Len - unix.SizeofRtAttr
-			if attrLen == 4 && (encapType == "ipip" ||
-				encapType == "sit" ||
-				encapType == "gre") {
+			if attrLen == 4 {
 				neigh.LLIPAddr = net.IP(attr.Value)
-			} else if attrLen == 16 &&
-				encapType == "tunnel6" {
-				neigh.IP = net.IP(attr.Value)
+			} else if attrLen == 16 {
+				// Can be IPv6 or FireWire HWAddr
+				link, err := LinkByIndex(neigh.LinkIndex)
+				if err == nil && link.Attrs().EncapType == "tunnel6" {
+					neigh.IP = net.IP(attr.Value)
+				} else {
+					neigh.HardwareAddr = net.HardwareAddr(attr.Value)
+				}
 			} else {
 				neigh.HardwareAddr = net.HardwareAddr(attr.Value)
 			}

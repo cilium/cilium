@@ -309,7 +309,7 @@ func parseRawData(data []byte) *ConntrackFlow {
 // Common parameters and options:
 //   -s, --src, --orig-src ip              Source address from original direction
 //   -d, --dst, --orig-dst ip              Destination address from original direction
-//   -r, --reply-src ip            Source addres from reply direction
+//   -r, --reply-src ip            Source address from reply direction
 //   -q, --reply-dst ip            Destination address from reply direction
 //   -p, --protonum proto          Layer 4 Protocol, eg. 'tcp'
 //   -f, --family proto            Layer 3 Protocol, eg. 'ipv6'
@@ -326,11 +326,14 @@ func parseRawData(data []byte) *ConntrackFlow {
 type ConntrackFilterType uint8
 
 const (
-	ConntrackOrigSrcIP = iota // -orig-src ip   Source address from original direction
-	ConntrackOrigDstIP        // -orig-dst ip   Destination address from original direction
-	ConntrackNatSrcIP         // -src-nat ip    Source NAT ip
-	ConntrackNatDstIP         // -dst-nat ip    Destination NAT ip
-	ConntrackNatAnyIP         // -any-nat ip    Source or destination NAT ip
+	ConntrackOrigSrcIP  = iota                // -orig-src ip    Source address from original direction
+	ConntrackOrigDstIP                        // -orig-dst ip    Destination address from original direction
+	ConntrackReplySrcIP                       // --reply-src ip  Reply Source IP
+	ConntrackReplyDstIP                       // --reply-dst ip  Reply Destination IP
+	ConntrackReplyAnyIP                       // Match source or destination reply IP
+	ConntrackNatSrcIP   = ConntrackReplySrcIP // deprecated use instead ConntrackReplySrcIP
+	ConntrackNatDstIP   = ConntrackReplyDstIP // deprecated use instead ConntrackReplyDstIP
+	ConntrackNatAnyIP   = ConntrackReplyAnyIP // deprecated use instaed ConntrackReplyAnyIP
 )
 
 type CustomConntrackFilter interface {
@@ -375,17 +378,17 @@ func (f *ConntrackFilter) MatchConntrackFlow(flow *ConntrackFlow) bool {
 	}
 
 	// -src-nat ip    Source NAT ip
-	if elem, found := f.ipFilter[ConntrackNatSrcIP]; match && found {
+	if elem, found := f.ipFilter[ConntrackReplySrcIP]; match && found {
 		match = match && elem.Equal(flow.Reverse.SrcIP)
 	}
 
 	// -dst-nat ip    Destination NAT ip
-	if elem, found := f.ipFilter[ConntrackNatDstIP]; match && found {
+	if elem, found := f.ipFilter[ConntrackReplyDstIP]; match && found {
 		match = match && elem.Equal(flow.Reverse.DstIP)
 	}
 
-	// -any-nat ip    Source or destination NAT ip
-	if elem, found := f.ipFilter[ConntrackNatAnyIP]; match && found {
+	// Match source or destination reply IP
+	if elem, found := f.ipFilter[ConntrackReplyAnyIP]; match && found {
 		match = match && (elem.Equal(flow.Reverse.SrcIP) || elem.Equal(flow.Reverse.DstIP))
 	}
 

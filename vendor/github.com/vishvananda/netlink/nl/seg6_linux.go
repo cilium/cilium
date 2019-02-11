@@ -112,7 +112,7 @@ func DecodeSEG6Srh(buf []byte) ([]net.IP, error) {
 	}
 	buf = buf[8:]
 	if len(buf)%16 != 0 {
-		err := fmt.Errorf("DecodeSEG6Srh: error parsing Segment List (buf len: %d)\n", len(buf))
+		err := fmt.Errorf("DecodeSEG6Srh: error parsing Segment List (buf len: %d)", len(buf))
 		return nil, err
 	}
 	for len(buf) > 0 {
@@ -124,7 +124,7 @@ func DecodeSEG6Srh(buf []byte) ([]net.IP, error) {
 func EncodeSEG6Srh(segments []net.IP) ([]byte, error) {
 	nsegs := len(segments) // nsegs: number of segments
 	if nsegs == 0 {
-		return nil, errors.New("EncodeSEG6Srh: No Segments\n")
+		return nil, errors.New("EncodeSEG6Srh: No Segments")
 	}
 	b := make([]byte, 8, 8+len(segments)*16)
 	native := NativeEndian()
