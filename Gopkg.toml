@@ -346,7 +346,7 @@ required = [
 
 [[constraint]]
   name = "github.com/sasha-s/go-deadlock"
-  revision = "d68e2bc52ae3291765881b9056f2c1527f245f1e"
+  revision = "5dc88f41ca59ce157900a9942b2059ef084e6f81"
 
   # main-usage = "pkg/lock"
   # on-revision = "last available commit and there is not stable releases"
