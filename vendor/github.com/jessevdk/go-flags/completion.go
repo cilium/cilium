@@ -2,6 +2,7 @@ package flags
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -62,6 +63,11 @@ func completionsWithoutDescriptions(items []string) []Completion {
 // prefix.
 func (f *Filename) Complete(match string) []Completion {
 	ret, _ := filepath.Glob(match + "*")
+	if len(ret) == 1 {
+		if info, err := os.Stat(ret[0]); err == nil && info.IsDir() {
+			ret[0] = ret[0] + "/"
+		}
+	}
 	return completionsWithoutDescriptions(ret)
 }
 
@@ -73,27 +79,8 @@ func (c *completion) skipPositional(s *parseState, n int) {
 	}
 }
 
-func (c *completion) completeOptionNames(names map[string]*Option, prefix string, match string) []Completion {
-	n := make([]Completion, 0, len(names))
-
-	for k, opt := range names {
-		if strings.HasPrefix(k, match) && !opt.Hidden {
-			n = append(n, Completion{
-				Item:        prefix + k,
-				Description: opt.Description,
-			})
-		}
-	}
-
-	return n
-}
-
-func (c *completion) completeLongNames(s *parseState, prefix string, match string) []Completion {
-	return c.completeOptionNames(s.lookup.longNames, prefix, match)
-}
-
-func (c *completion) completeShortNames(s *parseState, prefix string, match string) []Completion {
-	if len(match) != 0 {
+func (c *completion) completeOptionNames(s *parseState, prefix string, match string, short bool) []Completion {
+	if short && len(match) != 0 {
 		return []Completion{
 			Completion{
 				Item: prefix + match,
@@ -101,7 +88,42 @@ func (c *completion) completeShortNames(s *parseState, prefix string, match stri
 		}
 	}
 
-	return c.completeOptionNames(s.lookup.shortNames, prefix, match)
+	var results []Completion
+	repeats := map[string]bool{}
+
+	for name, opt := range s.lookup.longNames {
+		if strings.HasPrefix(name, match) && !opt.Hidden {
+			results = append(results, Completion{
+				Item:        defaultLongOptDelimiter + name,
+				Description: opt.Description,
+			})
+
+			if short {
+				repeats[string(opt.ShortName)] = true
+			}
+		}
+	}
+
+	if short {
+		for name, opt := range s.lookup.shortNames {
+			if _, exist := repeats[name]; !exist && strings.HasPrefix(name, match) && !opt.Hidden {
+				results = append(results, Completion{
+					Item:        string(defaultShortOptDelimiter) + name,
+					Description: opt.Description,
+				})
+			}
+		}
+	}
+
+	return results
+}
+
+func (c *completion) completeNamesForLongPrefix(s *parseState, prefix string, match string) []Completion {
+	return c.completeOptionNames(s, prefix, match, false)
+}
+
+func (c *completion) completeNamesForShortPrefix(s *parseState, prefix string, match string) []Completion {
+	return c.completeOptionNames(s, prefix, match, true)
 }
 
 func (c *completion) completeCommands(s *parseState, match string) []Completion {
@@ -120,6 +142,9 @@ func (c *completion) completeCommands(s *parseState, match string) []Completion 
 }
 
 func (c *completion) completeValue(value reflect.Value, prefix string, match string) []Completion {
+	if value.Kind() == reflect.Slice {
+		value = reflect.New(value.Type().Elem())
+	}
 	i := value.Interface()
 
 	var ret []Completion
@@ -137,16 +162,6 @@ func (c *completion) completeValue(value reflect.Value, prefix string, match str
 	}
 
 	return ret
-}
-
-func (c *completion) completeArg(arg *Arg, prefix string, match string) []Completion {
-	if arg.isRemaining() {
-		// For remaining positional args (that are parsed into a slice), complete
-		// based on the element type.
-		return c.completeValue(reflect.New(arg.value.Type().Elem()), prefix, match)
-	}
-
-	return c.completeValue(arg.value, prefix, match)
 }
 
 func (c *completion) complete(args []string) []Completion {
@@ -244,7 +259,7 @@ func (c *completion) complete(args []string) []Completion {
 			if opt := s.lookup.shortNames[sname]; opt != nil && opt.canArgument() {
 				ret = c.completeValue(opt.value, prefix+sname, optname[n:])
 			} else {
-				ret = c.completeShortNames(s, prefix, optname)
+				ret = c.completeNamesForShortPrefix(s, prefix, optname)
 			}
 		} else if argument != nil {
 			if islong {
@@ -257,13 +272,13 @@ func (c *completion) complete(args []string) []Completion {
 				ret = c.completeValue(opt.value, prefix+optname+split, *argument)
 			}
 		} else if islong {
-			ret = c.completeLongNames(s, prefix, optname)
+			ret = c.completeNamesForLongPrefix(s, prefix, optname)
 		} else {
-			ret = c.completeShortNames(s, prefix, optname)
+			ret = c.completeNamesForShortPrefix(s, prefix, optname)
 		}
 	} else if len(s.positional) > 0 {
 		// Complete for positional argument
-		ret = c.completeArg(s.positional[0], "", lastarg)
+		ret = c.completeValue(s.positional[0].value, "", lastarg)
 	} else if len(s.command.commands) > 0 {
 		// Complete for command
 		ret = c.completeCommands(s, lastarg)

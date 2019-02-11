@@ -247,7 +247,7 @@ required = [
 
 [[constraint]]
   name = "github.com/jessevdk/go-flags"
-  revision = "4e64e4a4e2552194cf594243e23aa9baf3b4297e"
+  revision = "c0795c8afcf41dd1d786bebce68636c199b3bb45"
 
   # main-usage = "all CLI packages"
   # on-revision = ""

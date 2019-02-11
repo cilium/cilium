@@ -3,7 +3,9 @@ package flags
 import (
 	"fmt"
 	"io"
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -38,7 +40,7 @@ func formatForMan(wr io.Writer, s string) {
 
 func writeManPageOptions(wr io.Writer, grp *Group) {
 	grp.eachGroup(func(group *Group) {
-		if group.Hidden || len(group.options) == 0 {
+		if !group.showInHelp() {
 			return
 		}
 
@@ -54,7 +56,7 @@ func writeManPageOptions(wr io.Writer, grp *Group) {
 		}
 
 		for _, opt := range group.options {
-			if !opt.canCli() || opt.Hidden {
+			if !opt.showInHelp() {
 				continue
 			}
 
@@ -83,11 +85,11 @@ func writeManPageOptions(wr io.Writer, grp *Group) {
 
 			if len(opt.Default) != 0 {
 				fmt.Fprintf(wr, " <default: \\fI%s\\fR>", manQuote(strings.Join(quoteV(opt.Default), ", ")))
-			} else if len(opt.EnvDefaultKey) != 0 {
+			} else if len(opt.EnvKeyWithNamespace()) != 0 {
 				if runtime.GOOS == "windows" {
-					fmt.Fprintf(wr, " <default: \\fI%%%s%%\\fR>", manQuote(opt.EnvDefaultKey))
+					fmt.Fprintf(wr, " <default: \\fI%%%s%%\\fR>", manQuote(opt.EnvKeyWithNamespace()))
 				} else {
-					fmt.Fprintf(wr, " <default: \\fI$%s\\fR>", manQuote(opt.EnvDefaultKey))
+					fmt.Fprintf(wr, " <default: \\fI$%s\\fR>", manQuote(opt.EnvKeyWithNamespace()))
 				}
 			}
 
@@ -148,12 +150,12 @@ func writeManPageCommand(wr io.Writer, name string, root *Command, command *Comm
 	var usage string
 	if us, ok := command.data.(Usage); ok {
 		usage = us.Usage()
-	} else if command.hasCliOptions() {
+	} else if command.hasHelpOptions() {
 		usage = fmt.Sprintf("[%s-OPTIONS]", command.Name)
 	}
 
 	var pre string
-	if root.hasCliOptions() {
+	if root.hasHelpOptions() {
 		pre = fmt.Sprintf("%s [OPTIONS] %s", root.Name, command.Name)
 	} else {
 		pre = fmt.Sprintf("%s %s", root.Name, command.Name)
@@ -175,6 +177,14 @@ func writeManPageCommand(wr io.Writer, name string, root *Command, command *Comm
 // writer.
 func (p *Parser) WriteManPage(wr io.Writer) {
 	t := time.Now()
+	source_date_epoch := os.Getenv("SOURCE_DATE_EPOCH")
+	if source_date_epoch != "" {
+		sde, err := strconv.ParseInt(source_date_epoch, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid SOURCE_DATE_EPOCH: %s", err))
+		}
+		t = time.Unix(sde, 0)
+	}
 
 	fmt.Fprintf(wr, ".TH %s 1 \"%s\"\n", manQuote(p.Name), t.Format("2 January 2006"))
 	fmt.Fprintln(wr, ".SH NAME")
