@@ -242,6 +242,8 @@ IP
 ip
 ipcache
 iproute
+IPSec
+ipsec
 iptables
 IPv
 ipvlan
