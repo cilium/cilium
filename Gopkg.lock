@@ -796,11 +796,11 @@
   version = "v0.0.4"
 
 [[projects]]
-  digest = "1:4c8622179c0c2527c7ad7ebee8def63f8866c8aeaae369ed5516d87b752c37d0"
+  digest = "1:4e14b4f87c4c2e83af461721625ee71db2bf1a1a38d2d8cfe883a86a7ec05219"
   name = "github.com/mattn/go-shellwords"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "9858af9cca4c73576f0b8c6609a396eb0878023c"
+  revision = "3c0603ff9671145648171317c30371d805656003"
 
 [[projects]]
   digest = "1:5985ef4caf91ece5d54817c11ea25f182697534f8ae6521eadcd628c142ac4b6"
