@@ -332,6 +332,4 @@ const (
 	SYS_STATX                  = 379
 	SYS_S390_STHYI             = 380
 	SYS_KEXEC_FILE_LOAD        = 381
-	SYS_IO_PGETEVENTS          = 382
-	SYS_RSEQ                   = 383
 )

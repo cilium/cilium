@@ -1235,7 +1235,7 @@
   revision = "5ba7f63082460102a45837dbd1827e10f9479ac0"
 
 [[projects]]
-  digest = "1:36d7c2490cae958afcd40b50f7840339409576240f410ecccdd3487d547f14d0"
+  digest = "1:77a64592c4916bbe77a9a0775a4f1b2e6bf1854a7675ab643cec05287a759cfd"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -1244,21 +1244,22 @@
     "html",
     "html/atom",
     "html/charset",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "icmp",
     "idna",
     "internal/iana",
     "internal/socket",
+    "internal/socks",
     "internal/timeseries",
     "ipv4",
     "ipv6",
-    "lex/httplex",
     "proxy",
     "trace",
   ]
   pruneopts = "NUT"
-  revision = "0744d001aa8470aaa53df28d32e5ceeb8af9bd70"
+  revision = "a4630153038d3cb8c57f83d95200aea356145cf5"
 
 [[projects]]
   branch = "master"
@@ -1272,24 +1273,24 @@
   revision = "d2e6202438beef2727060aa7cabdd924d92ebfd9"
 
 [[projects]]
-  digest = "1:d6b0cfc5ae30841c4b116ac589629f56f8add0955a39f11d8c0d06ca67f5b3d5"
+  digest = "1:04a5b0e4138f98eef79ce12a955a420ee358e9f787044cc3a553ac3c3ade997e"
   name = "golang.org/x/sync"
   packages = [
     "errgroup",
     "semaphore",
   ]
   pruneopts = "NUT"
-  revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
+  revision = "37e7f081c4d4c64e13b10787722085407fe5d15f"
 
 [[projects]]
-  digest = "1:710483a12b766fb0e99ab26cbf6f82df2d958e94cb28890fcb2db96f76d39762"
+  digest = "1:ec76a40fbfda0c329ee58f4e3b14b4279a939efce89eca020e934e2e5234eddd"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "NUT"
-  revision = "62eef0e2fa9b2c385f7b2778e763486da6880d37"
+  revision = "98c5dad5d1a0e8a73845ecc8897d0bd56586511d"
 
 [[projects]]
   digest = "1:2c4e3b27329379d7b5f889038b48086140ea60708fb92e4b19d6a775926ea30b"
