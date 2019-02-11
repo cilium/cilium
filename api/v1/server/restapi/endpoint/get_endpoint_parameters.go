@@ -6,7 +6,6 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"io"
 	"net/http"
 
 	"github.com/go-openapi/errors"
@@ -34,7 +33,6 @@ type GetEndpointParams struct {
 
 	/*List of labels
 
-	  Required: true
 	  In: body
 	*/
 	Labels models.Labels
@@ -50,12 +48,7 @@ func (o *GetEndpointParams) BindRequest(r *http.Request, route *middleware.Match
 		defer r.Body.Close()
 		var body models.Labels
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if err == io.EOF {
-				res = append(res, errors.Required("labels", "body"))
-			} else {
-				res = append(res, errors.NewParseError("labels", "body", "", err))
-			}
-
+			res = append(res, errors.NewParseError("labels", "body", "", err))
 		} else {
 
 			if len(res) == 0 {
@@ -63,8 +56,6 @@ func (o *GetEndpointParams) BindRequest(r *http.Request, route *middleware.Match
 			}
 		}
 
-	} else {
-		res = append(res, errors.Required("labels", "body"))
 	}
 
 	if len(res) > 0 {
