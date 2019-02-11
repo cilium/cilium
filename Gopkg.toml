@@ -422,21 +422,21 @@ required = [
 
 [[override]]
   name = "golang.org/x/net"
-  revision = "0744d001aa8470aaa53df28d32e5ceeb8af9bd70"
+  revision = "a4630153038d3cb8c57f83d95200aea356145cf5"
 
   # main-usage = "pkg/kvstore/etcd, pkg/workloads, pkg/envoy and api/v1"
-  # on-revision = ""
+  # on-revision = "last revision of branch 1.11"
 
 [[constraint]]
   name = "golang.org/x/sync"
-  revision = "42b317875d0fa942474b76e1b46a6060d720ae6e"
+  revision = "37e7f081c4d4c64e13b10787722085407fe5d15f"
 
   # main-usage = "daemon"
   # on-revision = "last available commit and there is not stable releases"
 
 [[override]]
   name = "golang.org/x/sys"
-  revision = "62eef0e2fa9b2c385f7b2778e763486da6880d37"
+  revision = "98c5dad5d1a0e8a73845ecc8897d0bd56586511d"
 
   # main-usage = "daemon, pkg/bpf, pkg/maps/ipcache"
   # on-revision = "github.com/shirou/gopsutil uses master so we override it with a particullar commit after v2.18.10 was released"

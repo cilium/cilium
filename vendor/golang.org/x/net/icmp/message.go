@@ -11,22 +11,24 @@
 // ICMP extensions for MPLS are defined in RFC 4950.
 // ICMP extensions for interface and next-hop identification are
 // defined in RFC 5837.
+// PROBE: A utility for probing interfaces is defined in RFC 8335.
 package icmp // import "golang.org/x/net/icmp"
 
 import (
 	"encoding/binary"
 	"errors"
 	"net"
-	"syscall"
 
 	"golang.org/x/net/internal/iana"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 )
 
-// BUG(mikio): This package is not implemented on NaCl and Plan 9.
+// BUG(mikio): This package is not implemented on JS, NaCl and Plan 9.
 
 var (
+	errInvalidConn      = errors.New("invalid connection")
+	errInvalidProtocol  = errors.New("invalid protocol")
 	errMessageTooShort  = errors.New("message too short")
 	errHeaderTooShort   = errors.New("header too short")
 	errBufferTooShort   = errors.New("buffer too short")
@@ -79,7 +81,7 @@ func (m *Message) Marshal(psh []byte) ([]byte, error) {
 	case ipv6.ICMPType:
 		mtype = int(typ)
 	default:
-		return nil, syscall.EINVAL
+		return nil, errInvalidProtocol
 	}
 	b := []byte{byte(mtype), byte(m.Code), 0, 0}
 	if m.Type.Protocol() == iana.ProtocolIPv6ICMP && psh != nil {
@@ -107,25 +109,30 @@ func (m *Message) Marshal(psh []byte) ([]byte, error) {
 	return b[len(psh):], nil
 }
 
-var parseFns = map[Type]func(int, []byte) (MessageBody, error){
+var parseFns = map[Type]func(int, Type, []byte) (MessageBody, error){
 	ipv4.ICMPTypeDestinationUnreachable: parseDstUnreach,
 	ipv4.ICMPTypeTimeExceeded:           parseTimeExceeded,
 	ipv4.ICMPTypeParameterProblem:       parseParamProb,
 
-	ipv4.ICMPTypeEcho:      parseEcho,
-	ipv4.ICMPTypeEchoReply: parseEcho,
+	ipv4.ICMPTypeEcho:                parseEcho,
+	ipv4.ICMPTypeEchoReply:           parseEcho,
+	ipv4.ICMPTypeExtendedEchoRequest: parseExtendedEchoRequest,
+	ipv4.ICMPTypeExtendedEchoReply:   parseExtendedEchoReply,
 
 	ipv6.ICMPTypeDestinationUnreachable: parseDstUnreach,
 	ipv6.ICMPTypePacketTooBig:           parsePacketTooBig,
 	ipv6.ICMPTypeTimeExceeded:           parseTimeExceeded,
 	ipv6.ICMPTypeParameterProblem:       parseParamProb,
 
-	ipv6.ICMPTypeEchoRequest: parseEcho,
-	ipv6.ICMPTypeEchoReply:   parseEcho,
+	ipv6.ICMPTypeEchoRequest:         parseEcho,
+	ipv6.ICMPTypeEchoReply:           parseEcho,
+	ipv6.ICMPTypeExtendedEchoRequest: parseExtendedEchoRequest,
+	ipv6.ICMPTypeExtendedEchoReply:   parseExtendedEchoReply,
 }
 
 // ParseMessage parses b as an ICMP message.
-// Proto must be either the ICMPv4 or ICMPv6 protocol number.
+// The provided proto must be either the ICMPv4 or ICMPv6 protocol
+// number.
 func ParseMessage(proto int, b []byte) (*Message, error) {
 	if len(b) < 4 {
 		return nil, errMessageTooShort
@@ -138,12 +145,12 @@ func ParseMessage(proto int, b []byte) (*Message, error) {
 	case iana.ProtocolIPv6ICMP:
 		m.Type = ipv6.ICMPType(b[0])
 	default:
-		return nil, syscall.EINVAL
+		return nil, errInvalidProtocol
 	}
 	if fn, ok := parseFns[m.Type]; !ok {
 		m.Body, err = parseDefaultMessageBody(proto, b[4:])
 	} else {
-		m.Body, err = fn(proto, b[4:])
+		m.Body, err = fn(proto, m.Type, b[4:])
 	}
 	if err != nil {
 		return nil, err
