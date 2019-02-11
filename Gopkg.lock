@@ -742,7 +742,7 @@
   name = "github.com/kr/pretty"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
+  revision = "v0.1.0"
 
 [[projects]]
   digest = "1:c3a7836b5904db0f8b609595b619916a6831cb35b8b714aec39f96d00c6155d8"
