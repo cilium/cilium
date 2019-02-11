@@ -374,7 +374,7 @@ required = [
 
 [[constraint]]
   name = "github.com/spf13/cobra"
-  revision = "d2d81d9a96e23f0255397222bb0b4e3165e492dc"
+  revision = "7547e83b2d85fd1893c7d76916f67689d761fecb"
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""
