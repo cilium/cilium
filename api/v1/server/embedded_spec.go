@@ -112,7 +112,12 @@ func init() {
         "summary": "Retrieves a list of endpoints that have metadata matching the provided parameters.",
         "parameters": [
           {
-            "$ref": "#/parameters/labels"
+            "description": "List of labels\n",
+            "name": "labels",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Labels"
+            }
           }
         ],
         "responses": {
