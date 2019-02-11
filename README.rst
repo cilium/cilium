@@ -55,7 +55,7 @@ the cluster.
 
 In order to avoid this situation which limits scale, Cilium assigns a security
 identity to groups of application containers which share identical security
-polices. The identity is then associated with all network packets emitted by
+policies. The identity is then associated with all network packets emitted by
 the application containers, allowing to validate the identity at the receiving
 node. Security identity management is performed using a key-value store.
 
