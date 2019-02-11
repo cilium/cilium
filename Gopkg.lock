@@ -283,7 +283,7 @@
   revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
 
 [[projects]]
-  digest = "1:a0be80035fc4ffc14e6117289633857ccf900fb4f236be69fd600e7e545ca71e"
+  digest = "1:5ee86814b6fb7399211372a86008636cf1b86299df919c3807b9df93db314960"
   name = "github.com/docker/docker"
   packages = [
     "api",
@@ -304,6 +304,11 @@
     "api/types/volume",
     "client",
     "errdefs",
+    "pkg/ioutils",
+    "pkg/longpath",
+    "pkg/plugingetter",
+    "pkg/plugins",
+    "pkg/plugins/transport",
     "pkg/stringid",
   ]
   pruneopts = "NUT"
@@ -338,7 +343,7 @@
   version = "v0.3.3"
 
 [[projects]]
-  digest = "1:87f5143b5261a8a356a0e385b608f68191a43095cc228c4bf3666d752d04fba1"
+  digest = "1:b71c8af786182eb63f59531f51ed63251631f25951c546200cf50e6a12797385"
   name = "github.com/docker/libnetwork"
   packages = [
     "discoverapi",
@@ -349,7 +354,7 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
+  revision = "d8d4c8cf03d7d036a76d5470553cd8753e522a99"
 
 [[projects]]
   digest = "1:32598368f409bbee79deb9d43569fcd92b9fb27f39155f5e166b3371217f051f"
@@ -699,6 +704,13 @@
   pruneopts = "NUT"
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
+
+[[projects]]
+  digest = "1:cd99b2f230f8c7240364f82b78bb8e7a60e64e91af843124cd433ad610147fe4"
+  name = "github.com/ishidawataru/sctp"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "07191f837fedd2f13d1ec7b5f885f0f3ec54b1cb"
 
 [[projects]]
   digest = "1:55a63f420e0ef5af8380d646d9d695182e7d4bd2a096321414dfd27c98d5da70"

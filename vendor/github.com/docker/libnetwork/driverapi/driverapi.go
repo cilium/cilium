@@ -3,6 +3,7 @@ package driverapi
 import (
 	"net"
 
+	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/libnetwork/discoverapi"
 )
 
@@ -61,7 +62,7 @@ type Driver interface {
 	// programming to allow the external connectivity dictated by the passed options
 	ProgramExternalConnectivity(nid, eid string, options map[string]interface{}) error
 
-	// RevokeExternalConnectivity aks the driver to remove any external connectivity
+	// RevokeExternalConnectivity asks the driver to remove any external connectivity
 	// programming that was done so far
 	RevokeExternalConnectivity(nid, eid string) error
 
@@ -71,8 +72,21 @@ type Driver interface {
 	// only invoked for the global scope driver.
 	EventNotify(event EventType, nid string, tableName string, key string, value []byte)
 
-	// Type returns the the type of this driver, the network type this driver manages
+	// DecodeTableEntry passes the driver a key, value pair from table it registered
+	// with libnetwork. Driver should return {object ID, map[string]string} tuple.
+	// If DecodeTableEntry is called for a table associated with NetworkObject or
+	// EndpointObject the return object ID should be the network id or endpoint id
+	// associated with that entry. map should have information about the object that
+	// can be presented to the user.
+	// For example: overlay driver returns the VTEP IP of the host that has the endpoint
+	// which is shown in 'network inspect --verbose'
+	DecodeTableEntry(tablename string, key string, value []byte) (string, map[string]string)
+
+	// Type returns the type of this driver, the network type this driver manages
 	Type() string
+
+	// IsBuiltIn returns true if it is a built-in driver
+	IsBuiltIn() bool
 }
 
 // NetworkInfo provides a go interface for drivers to provide network
@@ -80,10 +94,10 @@ type Driver interface {
 type NetworkInfo interface {
 	// TableEventRegister registers driver interest in a given
 	// table name.
-	TableEventRegister(tableName string) error
+	TableEventRegister(tableName string, objType ObjectType) error
 }
 
-// InterfaceInfo provides a go interface for drivers to retrive
+// InterfaceInfo provides a go interface for drivers to retrieve
 // network information to interface resources.
 type InterfaceInfo interface {
 	// SetMacAddress allows the driver to set the mac address to the endpoint interface
@@ -139,13 +153,16 @@ type JoinInfo interface {
 
 // DriverCallback provides a Callback interface for Drivers into LibNetwork
 type DriverCallback interface {
+	// GetPluginGetter returns the pluginv2 getter.
+	GetPluginGetter() plugingetter.PluginGetter
 	// RegisterDriver provides a way for Remote drivers to dynamically register new NetworkType and associate with a driver instance
 	RegisterDriver(name string, driver Driver, capability Capability) error
 }
 
 // Capability represents the high level capabilities of the drivers which libnetwork can make use of
 type Capability struct {
-	DataScope string
+	DataScope         string
+	ConnectivityScope string
 }
 
 // IPAMData represents the per-network ip related
@@ -169,3 +186,28 @@ const (
 	// Delete event is generated when a table entry is deleted.
 	Delete
 )
+
+// ObjectType represents the type of object driver wants to store in libnetwork's networkDB
+type ObjectType int
+
+const (
+	// EndpointObject should be set for libnetwork endpoint object related data
+	EndpointObject ObjectType = 1 + iota
+	// NetworkObject should be set for libnetwork network object related data
+	NetworkObject
+	// OpaqueObject is for driver specific data with no corresponding libnetwork object
+	OpaqueObject
+)
+
+// IsValidType validates the passed in type against the valid object types
+func IsValidType(objType ObjectType) bool {
+	switch objType {
+	case EndpointObject:
+		fallthrough
+	case NetworkObject:
+		fallthrough
+	case OpaqueObject:
+		return true
+	}
+	return false
+}
