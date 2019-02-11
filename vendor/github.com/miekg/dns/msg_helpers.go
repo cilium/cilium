@@ -99,14 +99,14 @@ func unpackHeader(msg []byte, off int) (rr RR_Header, off1 int, truncmsg []byte,
 	return hdr, off, msg, err
 }
 
-// pack packs an RR header, returning the offset to the end of the header.
+// packHeader packs an RR header, returning the offset to the end of the header.
 // See PackDomainName for documentation about the compression.
-func (hdr RR_Header) pack(msg []byte, off int, compression map[string]int, compress bool) (off1 int, err error) {
+func (hdr RR_Header) packHeader(msg []byte, off int, compression compressionMap, compress bool) (int, error) {
 	if off == len(msg) {
 		return off, nil
 	}
 
-	off, err = PackDomainName(hdr.Name, msg, off, compression, compress)
+	off, err := packDomainName(hdr.Name, msg, off, compression, compress)
 	if err != nil {
 		return len(msg), err
 	}
@@ -122,7 +122,7 @@ func (hdr RR_Header) pack(msg []byte, off int, compression map[string]int, compr
 	if err != nil {
 		return len(msg), err
 	}
-	off, err = packUint16(hdr.Rdlength, msg, off)
+	off, err = packUint16(0, msg, off) // The RDLENGTH field will be set later in packRR.
 	if err != nil {
 		return len(msg), err
 	}
@@ -177,14 +177,14 @@ func unpackUint8(msg []byte, off int) (i uint8, off1 int, err error) {
 	if off+1 > len(msg) {
 		return 0, len(msg), &Error{err: "overflow unpacking uint8"}
 	}
-	return uint8(msg[off]), off + 1, nil
+	return msg[off], off + 1, nil
 }
 
 func packUint8(i uint8, msg []byte, off int) (off1 int, err error) {
 	if off+1 > len(msg) {
 		return len(msg), &Error{err: "overflow packing uint8"}
 	}
-	msg[off] = byte(i)
+	msg[off] = i
 	return off + 1, nil
 }
 
@@ -275,7 +275,7 @@ func unpackString(msg []byte, off int) (string, int, error) {
 			s.WriteByte('\\')
 			s.WriteByte(b)
 		case b < ' ' || b > '~': // unprintable
-			writeEscapedByte(&s, b)
+			s.WriteString(escapeByte(b))
 		default:
 			s.WriteByte(b)
 		}
@@ -363,6 +363,22 @@ func packStringHex(s string, msg []byte, off int) (int, error) {
 	return off, nil
 }
 
+func unpackStringAny(msg []byte, off, end int) (string, int, error) {
+	if end > len(msg) {
+		return "", len(msg), &Error{err: "overflow unpacking anything"}
+	}
+	return string(msg[off:end]), end, nil
+}
+
+func packStringAny(s string, msg []byte, off int) (int, error) {
+	if off+len(s) > len(msg) {
+		return len(msg), &Error{err: "overflow packing anything"}
+	}
+	copy(msg[off:off+len(s)], s)
+	off += len(s)
+	return off, nil
+}
+
 func unpackStringTxt(msg []byte, off int) ([]string, int, error) {
 	txt, off, err := unpackTxt(msg, off)
 	if err != nil {
@@ -383,7 +399,7 @@ func packStringTxt(s []string, msg []byte, off int) (int, error) {
 func unpackDataOpt(msg []byte, off int) ([]EDNS0, int, error) {
 	var edns []EDNS0
 Option:
-	code := uint16(0)
+	var code uint16
 	if off+4 > len(msg) {
 		return nil, len(msg), &Error{err: "overflow unpacking opt"}
 	}
@@ -621,10 +637,10 @@ func unpackDataDomainNames(msg []byte, off, end int) ([]string, int, error) {
 	return servers, off, nil
 }
 
-func packDataDomainNames(names []string, msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+func packDataDomainNames(names []string, msg []byte, off int, compression compressionMap, compress bool) (int, error) {
 	var err error
 	for j := 0; j < len(names); j++ {
-		off, err = PackDomainName(names[j], msg, off, compression, false && compress)
+		off, err = packDomainName(names[j], msg, off, compression, compress)
 		if err != nil {
 			return len(msg), err
 		}
