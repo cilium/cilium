@@ -2,49 +2,44 @@ package dns
 
 import (
 	"crypto/sha1"
-	"hash"
+	"encoding/hex"
 	"strings"
 )
 
-type saltWireFmt struct {
-	Salt string `dns:"size-hex"`
-}
-
 // HashName hashes a string (label) according to RFC 5155. It returns the hashed string in uppercase.
 func HashName(label string, ha uint8, iter uint16, salt string) string {
-	saltwire := new(saltWireFmt)
-	saltwire.Salt = salt
-	wire := make([]byte, DefaultMsgSize)
-	n, err := packSaltWire(saltwire, wire)
+	if ha != SHA1 {
+		return ""
+	}
+
+	wireSalt := make([]byte, hex.DecodedLen(len(salt)))
+	n, err := packStringHex(salt, wireSalt, 0)
 	if err != nil {
 		return ""
 	}
-	wire = wire[:n]
+	wireSalt = wireSalt[:n]
+
 	name := make([]byte, 255)
 	off, err := PackDomainName(strings.ToLower(label), name, 0, nil, false)
 	if err != nil {
 		return ""
 	}
 	name = name[:off]
-	var s hash.Hash
-	switch ha {
-	case SHA1:
-		s = sha1.New()
-	default:
-		return ""
-	}
 
+	s := sha1.New()
 	// k = 0
 	s.Write(name)
-	s.Write(wire)
+	s.Write(wireSalt)
 	nsec3 := s.Sum(nil)
+
 	// k > 0
 	for k := uint16(0); k < iter; k++ {
 		s.Reset()
 		s.Write(nsec3)
-		s.Write(wire)
+		s.Write(wireSalt)
 		nsec3 = s.Sum(nsec3[:0])
 	}
+
 	return toBase32(nsec3)
 }
 
@@ -97,12 +92,4 @@ func (rr *NSEC3) Match(name string) bool {
 		return true
 	}
 	return false
-}
-
-func packSaltWire(sw *saltWireFmt, msg []byte) (int, error) {
-	off, err := packStringHex(sw.Salt, msg, 0)
-	if err != nil {
-		return off, err
-	}
-	return off, nil
 }
