@@ -450,7 +450,7 @@ required = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  revision = "v1.11.3"
+  revision = "v1.18.0"
 
   # main-usage = "pkg/envoy, pkg/workloads and proxylib/npds"
   # on-revision = ""
