@@ -115,8 +115,8 @@ required = [
   # on-revision = ""
 
 [[constraint]]
-  name = "github.com/docker/engine-api"
-  revision = "4eca04ae18f4f93f40196a17b9aa6e11262a7269"
+  name = "github.com/docker/docker"
+  revision = "f18cf23e97b01855d210eb497494fef8ac511073"
 
   # main-usage = "pkg/workloads"
   # on-revision = ""

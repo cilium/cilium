@@ -15,8 +15,8 @@
 package workloads
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,17 +37,15 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
 
-	"context"
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/docker/engine-api/client"
-	dTypes "github.com/docker/engine-api/types"
-	dTypesEvents "github.com/docker/engine-api/types/events"
-	dNetwork "github.com/docker/engine-api/types/network"
+	dTypes "github.com/docker/docker/api/types"
+	dTypesEvents "github.com/docker/docker/api/types/events"
+	dNetwork "github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	ctx "golang.org/x/net/context"
@@ -217,8 +215,8 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 	containerID := ep.GetContainerID()
 
 	if networkID != "" {
-		nls, err := d.NetworkInspect(ctx.Background(), networkID)
-		if client.IsErrNetworkNotFound(err) {
+		nls, err := d.NetworkInspect(ctx.Background(), networkID, dTypes.NetworkInspectOptions{})
+		if client.IsErrNotFound(err) {
 			return false
 		}
 
@@ -240,7 +238,7 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 
 	if containerID != "" {
 		cont, err := d.ContainerInspect(ctx.Background(), containerID)
-		if client.IsErrContainerNotFound(err) {
+		if client.IsErrNotFound(err) {
 			return false
 		}
 
@@ -276,7 +274,7 @@ const (
 
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
-func (d *dockerClient) EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
+func (d *dockerClient) EnableEventListener() (chan<- *EventMessage, error) {
 	if d == nil {
 		log.Debug("Not enabling docker event listener because dockerClient is nil")
 		return nil, nil
@@ -300,45 +298,49 @@ func (d *dockerClient) EnableEventListener() (eventsCh chan<- *EventMessage, err
 	since := time.Now()
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}
 	r, err := d.Events(ctx.Background(), eo)
-	if err != nil {
-		return nil, err
-	}
 
-	go d.listenForDockerEvents(ws, r)
+	go d.listenForDockerEvents(ws, r, err)
 
 	log.Debug("Started to listen for docker events")
 	return nil, nil
 }
 
-func (d *dockerClient) listenForDockerEvents(ws *watcherState, reader io.ReadCloser) {
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		metrics.EventTSContainerd.SetToCurrentTime()
+func (d *dockerClient) listenForDockerEvents(ws *watcherState, messagesCh <-chan dTypesEvents.Message, errCh <-chan error) {
+	for {
+		select {
+		case err, ok := <-errCh:
+			if !ok {
+				log.Info("Docker error channel closed")
+				return
+			}
+			if err != io.EOF {
+				log.WithError(err).Error("Error while reading events")
+				// Sleep to avoid consuming 100% CPU
+				time.Sleep(100 * time.Millisecond)
+			} else {
+				log.Info("Docker error channel closed")
+				return
+			}
+		case e, ok := <-messagesCh:
+			if !ok {
+				log.Error("docker events channel closed")
+				return
+			}
+			if e.ID == "" || e.Type != "container" {
+				continue
+			}
+			log.WithFields(logrus.Fields{
+				"event":               e.Status,
+				logfields.ContainerID: shortContainerID(e.ID),
+			}).Debug("Queueing container event")
 
-		var e dTypesEvents.Message
-		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-			log.WithError(err).Error("Error while unmarshalling event")
-			time.Sleep(100 * time.Millisecond)
-			continue
+			switch e.Status {
+			case "start":
+				ws.enqueueByContainerID(e.ID, &EventMessage{WorkloadID: e.ID, EventType: EventTypeStart})
+			case "die":
+				ws.enqueueByContainerID(e.ID, &EventMessage{WorkloadID: e.ID, EventType: EventTypeDelete})
+			}
 		}
-		if e.ID == "" || e.Type != "container" {
-			continue
-		}
-		log.WithFields(logrus.Fields{
-			"event":               e.Status,
-			logfields.ContainerID: shortContainerID(e.ID),
-		}).Debug("Queueing container event")
-
-		switch e.Status {
-		case "start":
-			ws.enqueueByContainerID(e.ID, &EventMessage{WorkloadID: e.ID, EventType: EventTypeStart})
-		case "die":
-			ws.enqueueByContainerID(e.ID, &EventMessage{WorkloadID: e.ID, EventType: EventTypeDelete})
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.WithError(err).Error("Error while reading events")
 	}
 }
 

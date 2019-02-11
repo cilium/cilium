@@ -283,38 +283,31 @@
   revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
 
 [[projects]]
-  digest = "1:8526812c8798f0b7920d2cbd97b6c0dbdd61816b548d53ac68a728ab4b815c18"
+  digest = "1:a0be80035fc4ffc14e6117289633857ccf900fb4f236be69fd600e7e545ca71e"
   name = "github.com/docker/docker"
   packages = [
-    "pkg/random",
+    "api",
+    "api/types",
+    "api/types/blkiodev",
+    "api/types/container",
+    "api/types/events",
+    "api/types/filters",
+    "api/types/image",
+    "api/types/mount",
+    "api/types/network",
+    "api/types/registry",
+    "api/types/strslice",
+    "api/types/swarm",
+    "api/types/swarm/runtime",
+    "api/types/time",
+    "api/types/versions",
+    "api/types/volume",
+    "client",
+    "errdefs",
     "pkg/stringid",
   ]
   pruneopts = "NUT"
-  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
-  version = "v1.13.1"
-
-[[projects]]
-  digest = "1:bdda594d1f922e89568b121116a27cb3114b58fbfca1d1f91aeac9de1af2c041"
-  name = "github.com/docker/engine-api"
-  packages = [
-    "client",
-    "client/transport",
-    "client/transport/cancellable",
-    "types",
-    "types/blkiodev",
-    "types/container",
-    "types/events",
-    "types/filters",
-    "types/network",
-    "types/reference",
-    "types/registry",
-    "types/strslice",
-    "types/swarm",
-    "types/time",
-    "types/versions",
-  ]
-  pruneopts = "NUT"
-  revision = "4eca04ae18f4f93f40196a17b9aa6e11262a7269"
+  revision = "f18cf23e97b01855d210eb497494fef8ac511073"
 
 [[projects]]
   digest = "1:2a47f7eb1a2c30428d1ee6808cb66d4deb17e68a3e55d696f03c8068552ba5e8"
@@ -1777,10 +1770,10 @@
     "github.com/coreos/etcd/clientv3/yaml",
     "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes",
     "github.com/davecgh/go-spew/spew",
-    "github.com/docker/engine-api/client",
-    "github.com/docker/engine-api/types",
-    "github.com/docker/engine-api/types/events",
-    "github.com/docker/engine-api/types/network",
+    "github.com/docker/docker/api/types",
+    "github.com/docker/docker/api/types/events",
+    "github.com/docker/docker/api/types/network",
+    "github.com/docker/docker/client",
     "github.com/docker/libnetwork/drivers/remote/api",
     "github.com/docker/libnetwork/ipams/remote/api",
     "github.com/docker/libnetwork/types",
