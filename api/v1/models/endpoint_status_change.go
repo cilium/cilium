@@ -17,10 +17,10 @@ import (
 
 // EndpointStatusChange Indication of a change of status
 // swagger:model EndpointStatusChange
-
 type EndpointStatusChange struct {
 
 	// Code indicate type of status change
+	// Enum: [ok failed]
 	Code string `json:"code,omitempty"`
 
 	// Status message
@@ -33,25 +33,15 @@ type EndpointStatusChange struct {
 	Timestamp string `json:"timestamp,omitempty"`
 }
 
-/* polymorph EndpointStatusChange code false */
-
-/* polymorph EndpointStatusChange message false */
-
-/* polymorph EndpointStatusChange state false */
-
-/* polymorph EndpointStatusChange timestamp false */
-
 // Validate validates this endpoint status change
 func (m *EndpointStatusChange) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCode(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateState(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -74,8 +64,10 @@ func init() {
 }
 
 const (
+
 	// EndpointStatusChangeCodeOk captures enum value "ok"
 	EndpointStatusChangeCodeOk string = "ok"
+
 	// EndpointStatusChangeCodeFailed captures enum value "failed"
 	EndpointStatusChangeCodeFailed string = "failed"
 )

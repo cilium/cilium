@@ -8,7 +8,6 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
@@ -24,45 +23,8 @@ type IPAMStatus struct {
 	IPV6 []string `json:"ipv6"`
 }
 
-/* polymorph IPAMStatus ipv4 false */
-
-/* polymorph IPAMStatus ipv6 false */
-
 // Validate validates this IP a m status
 func (m *IPAMStatus) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.validateIPV4(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateIPV6(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *IPAMStatus) validateIPV4(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.IPV4) { // not required
-		return nil
-	}
-
-	return nil
-}
-
-func (m *IPAMStatus) validateIPV6(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.IPV6) { // not required
-		return nil
-	}
-
 	return nil
 }
 

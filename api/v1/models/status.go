@@ -17,26 +17,21 @@ import (
 
 // Status Status of an individual component
 // swagger:model Status
-
 type Status struct {
 
 	// Human readable status/error/warning message
 	Msg string `json:"msg,omitempty"`
 
 	// State the component is in
+	// Enum: [Ok Warning Failure Disabled]
 	State string `json:"state,omitempty"`
 }
-
-/* polymorph Status msg false */
-
-/* polymorph Status state false */
 
 // Validate validates this status
 func (m *Status) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateState(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -59,12 +54,16 @@ func init() {
 }
 
 const (
+
 	// StatusStateOk captures enum value "Ok"
 	StatusStateOk string = "Ok"
+
 	// StatusStateWarning captures enum value "Warning"
 	StatusStateWarning string = "Warning"
+
 	// StatusStateFailure captures enum value "Failure"
 	StatusStateFailure string = "Failure"
+
 	// StatusStateDisabled captures enum value "Disabled"
 	StatusStateDisabled string = "Disabled"
 )

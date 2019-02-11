@@ -17,26 +17,21 @@ import (
 
 // Port Layer 4 port / protocol pair
 // swagger:model Port
-
 type Port struct {
 
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
 
 	// Layer 4 protocol
+	// Enum: [TCP UDP ANY]
 	Protocol string `json:"protocol,omitempty"`
 }
-
-/* polymorph Port port false */
-
-/* polymorph Port protocol false */
 
 // Validate validates this port
 func (m *Port) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateProtocol(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -59,10 +54,13 @@ func init() {
 }
 
 const (
+
 	// PortProtocolTCP captures enum value "TCP"
 	PortProtocolTCP string = "TCP"
+
 	// PortProtocolUDP captures enum value "UDP"
 	PortProtocolUDP string = "UDP"
+
 	// PortProtocolANY captures enum value "ANY"
 	PortProtocolANY string = "ANY"
 )

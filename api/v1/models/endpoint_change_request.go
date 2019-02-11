@@ -15,7 +15,6 @@ import (
 // EndpointChangeRequest Structure which contains the mutable elements of an Endpoint.
 //
 // swagger:model EndpointChangeRequest
-
 type EndpointChangeRequest struct {
 
 	// addressing
@@ -55,7 +54,7 @@ type EndpointChangeRequest struct {
 	K8sPodName string `json:"k8s-pod-name,omitempty"`
 
 	// Labels describing the identity
-	Labels Labels `json:"labels"`
+	Labels Labels `json:"labels,omitempty"`
 
 	// MAC address
 	Mac string `json:"mac,omitempty"`
@@ -75,53 +74,19 @@ type EndpointChangeRequest struct {
 	SyncBuildEndpoint bool `json:"sync-build-endpoint,omitempty"`
 }
 
-/* polymorph EndpointChangeRequest addressing false */
-
-/* polymorph EndpointChangeRequest container-id false */
-
-/* polymorph EndpointChangeRequest container-name false */
-
-/* polymorph EndpointChangeRequest datapath-map-id false */
-
-/* polymorph EndpointChangeRequest docker-endpoint-id false */
-
-/* polymorph EndpointChangeRequest docker-network-id false */
-
-/* polymorph EndpointChangeRequest host-mac false */
-
-/* polymorph EndpointChangeRequest id false */
-
-/* polymorph EndpointChangeRequest interface-index false */
-
-/* polymorph EndpointChangeRequest interface-name false */
-
-/* polymorph EndpointChangeRequest k8s-namespace false */
-
-/* polymorph EndpointChangeRequest k8s-pod-name false */
-
-/* polymorph EndpointChangeRequest labels false */
-
-/* polymorph EndpointChangeRequest mac false */
-
-/* polymorph EndpointChangeRequest pid false */
-
-/* polymorph EndpointChangeRequest policy-enabled false */
-
-/* polymorph EndpointChangeRequest state false */
-
-/* polymorph EndpointChangeRequest sync-build-endpoint false */
-
 // Validate validates this endpoint change request
 func (m *EndpointChangeRequest) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateLabels(formats); err != nil {
 		res = append(res, err)
 	}
 
 	if err := m.validateState(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -138,13 +103,28 @@ func (m *EndpointChangeRequest) validateAddressing(formats strfmt.Registry) erro
 	}
 
 	if m.Addressing != nil {
-
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *EndpointChangeRequest) validateLabels(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Labels) { // not required
+		return nil
+	}
+
+	if err := m.Labels.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("labels")
+		}
+		return err
 	}
 
 	return nil

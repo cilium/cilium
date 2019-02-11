@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // AddressPair Addressing information of an endpoint
 // swagger:model AddressPair
-
 type AddressPair struct {
 
 	// IPv4 address
@@ -24,17 +22,8 @@ type AddressPair struct {
 	IPV6 string `json:"ipv6,omitempty"`
 }
 
-/* polymorph AddressPair ipv4 false */
-
-/* polymorph AddressPair ipv6 false */
-
 // Validate validates this address pair
 func (m *AddressPair) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

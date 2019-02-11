@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/health/models"
+	models "github.com/cilium/cilium/api/v1/health/models"
 )
 
 // PutStatusProbeOKCode is the HTTP code returned for type PutStatusProbeOK
@@ -30,6 +30,7 @@ type PutStatusProbeOK struct {
 
 // NewPutStatusProbeOK creates PutStatusProbeOK with default headers values
 func NewPutStatusProbeOK() *PutStatusProbeOK {
+
 	return &PutStatusProbeOK{}
 }
 
@@ -68,22 +69,23 @@ type PutStatusProbeFailed struct {
 	/*
 	  In: Body
 	*/
-	Payload PutStatusProbeFailedBody `json:"body,omitempty"`
+	Payload models.Error `json:"body,omitempty"`
 }
 
 // NewPutStatusProbeFailed creates PutStatusProbeFailed with default headers values
 func NewPutStatusProbeFailed() *PutStatusProbeFailed {
+
 	return &PutStatusProbeFailed{}
 }
 
 // WithPayload adds the payload to the put status probe failed response
-func (o *PutStatusProbeFailed) WithPayload(payload PutStatusProbeFailedBody) *PutStatusProbeFailed {
+func (o *PutStatusProbeFailed) WithPayload(payload models.Error) *PutStatusProbeFailed {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the put status probe failed response
-func (o *PutStatusProbeFailed) SetPayload(payload PutStatusProbeFailedBody) {
+func (o *PutStatusProbeFailed) SetPayload(payload models.Error) {
 	o.Payload = payload
 }
 

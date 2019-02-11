@@ -16,13 +16,13 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPutServiceIDParams creates a new PutServiceIDParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewPutServiceIDParams() PutServiceIDParams {
-	var ()
+
 	return PutServiceIDParams{}
 }
 
@@ -33,7 +33,7 @@ func NewPutServiceIDParams() PutServiceIDParams {
 type PutServiceIDParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*Service configuration
 	  Required: true
@@ -48,9 +48,12 @@ type PutServiceIDParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewPutServiceIDParams() beforehand.
 func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
@@ -62,8 +65,8 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 			} else {
 				res = append(res, errors.NewParseError("config", "body", "", err))
 			}
-
 		} else {
+			// validate body object
 			if err := body.Validate(route.Formats); err != nil {
 				res = append(res, err)
 			}
@@ -72,11 +75,9 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 				o.Config = &body
 			}
 		}
-
 	} else {
 		res = append(res, errors.Required("config", "body"))
 	}
-
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
@@ -88,11 +89,15 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 	return nil
 }
 
+// bindID binds and validates parameter ID from path.
 func (o *PutServiceIDParams) bindID(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
 	}
+
+	// Required: true
+	// Parameter is provided by construction from the route
 
 	value, err := swag.ConvertInt64(raw)
 	if err != nil {

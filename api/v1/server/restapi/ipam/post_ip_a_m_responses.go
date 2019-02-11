@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PostIPAMCreatedCode is the HTTP code returned for type PostIPAMCreated
@@ -30,6 +30,7 @@ type PostIPAMCreated struct {
 
 // NewPostIPAMCreated creates PostIPAMCreated with default headers values
 func NewPostIPAMCreated() *PostIPAMCreated {
+
 	return &PostIPAMCreated{}
 }
 
@@ -73,6 +74,7 @@ type PostIPAMFailure struct {
 
 // NewPostIPAMFailure creates PostIPAMFailure with default headers values
 func NewPostIPAMFailure() *PostIPAMFailure {
+
 	return &PostIPAMFailure{}
 }
 

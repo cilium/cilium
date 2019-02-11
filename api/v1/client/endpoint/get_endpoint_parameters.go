@@ -6,10 +6,9 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -17,7 +16,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetEndpointParams creates a new GetEndpointParams object
@@ -128,8 +127,10 @@ func (o *GetEndpointParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 	}
 	var res []error
 
-	if err := r.SetBodyParam(o.Labels); err != nil {
-		return err
+	if o.Labels != nil {
+		if err := r.SetBodyParam(o.Labels); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

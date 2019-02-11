@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/health/models"
+	models "github.com/cilium/cilium/api/v1/health/models"
 )
 
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
@@ -30,6 +30,7 @@ type GetHealthzOK struct {
 
 // NewGetHealthzOK creates GetHealthzOK with default headers values
 func NewGetHealthzOK() *GetHealthzOK {
+
 	return &GetHealthzOK{}
 }
 
@@ -68,22 +69,23 @@ type GetHealthzFailed struct {
 	/*
 	  In: Body
 	*/
-	Payload GetHealthzFailedBody `json:"body,omitempty"`
+	Payload models.Error `json:"body,omitempty"`
 }
 
 // NewGetHealthzFailed creates GetHealthzFailed with default headers values
 func NewGetHealthzFailed() *GetHealthzFailed {
+
 	return &GetHealthzFailed{}
 }
 
 // WithPayload adds the payload to the get healthz failed response
-func (o *GetHealthzFailed) WithPayload(payload GetHealthzFailedBody) *GetHealthzFailed {
+func (o *GetHealthzFailed) WithPayload(payload models.Error) *GetHealthzFailed {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get healthz failed response
-func (o *GetHealthzFailed) SetPayload(payload GetHealthzFailedBody) {
+func (o *GetHealthzFailed) SetPayload(payload models.Error) {
 	o.Payload = payload
 }
 

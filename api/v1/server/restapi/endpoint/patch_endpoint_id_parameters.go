@@ -15,13 +15,13 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchEndpointIDParams creates a new PatchEndpointIDParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewPatchEndpointIDParams() PatchEndpointIDParams {
-	var ()
+
 	return PatchEndpointIDParams{}
 }
 
@@ -32,7 +32,7 @@ func NewPatchEndpointIDParams() PatchEndpointIDParams {
 type PatchEndpointIDParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*
 	  Required: true
@@ -59,9 +59,12 @@ type PatchEndpointIDParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewPatchEndpointIDParams() beforehand.
 func (o *PatchEndpointIDParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
@@ -73,8 +76,8 @@ func (o *PatchEndpointIDParams) BindRequest(r *http.Request, route *middleware.M
 			} else {
 				res = append(res, errors.NewParseError("endpoint", "body", "", err))
 			}
-
 		} else {
+			// validate body object
 			if err := body.Validate(route.Formats); err != nil {
 				res = append(res, err)
 			}
@@ -83,11 +86,9 @@ func (o *PatchEndpointIDParams) BindRequest(r *http.Request, route *middleware.M
 				o.Endpoint = &body
 			}
 		}
-
 	} else {
 		res = append(res, errors.Required("endpoint", "body"))
 	}
-
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
@@ -99,11 +100,15 @@ func (o *PatchEndpointIDParams) BindRequest(r *http.Request, route *middleware.M
 	return nil
 }
 
+// bindID binds and validates parameter ID from path.
 func (o *PatchEndpointIDParams) bindID(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
 	}
+
+	// Required: true
+	// Parameter is provided by construction from the route
 
 	o.ID = raw
 

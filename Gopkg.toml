@@ -420,13 +420,6 @@ required = [
   # on-revision = ""
 
 [[constraint]]
-  name = "github.com/tylerb/graceful"
-  revision = "d37e108c89765a8e307f15b8fb2ecd10575da6bb"
-
-  # main-usage = "api/v1"
-  # on-revision = ""
-
-[[constraint]]
   name = "github.com/vishvananda/netlink"
   revision = "b9cafe4a8544a27110dad06be07d48bbe5f292dd"
 

@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // PrefilterSpec CIDR ranges implemented in the Prefilter
 // swagger:model PrefilterSpec
-
 type PrefilterSpec struct {
 
 	// deny
@@ -24,31 +22,8 @@ type PrefilterSpec struct {
 	Revision int64 `json:"revision,omitempty"`
 }
 
-/* polymorph PrefilterSpec deny false */
-
-/* polymorph PrefilterSpec revision false */
-
 // Validate validates this prefilter spec
 func (m *PrefilterSpec) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.validateDeny(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *PrefilterSpec) validateDeny(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Deny) { // not required
-		return nil
-	}
-
 	return nil
 }
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PutPolicyOKCode is the HTTP code returned for type PutPolicyOK
@@ -30,6 +30,7 @@ type PutPolicyOK struct {
 
 // NewPutPolicyOK creates PutPolicyOK with default headers values
 func NewPutPolicyOK() *PutPolicyOK {
+
 	return &PutPolicyOK{}
 }
 
@@ -73,6 +74,7 @@ type PutPolicyInvalidPolicy struct {
 
 // NewPutPolicyInvalidPolicy creates PutPolicyInvalidPolicy with default headers values
 func NewPutPolicyInvalidPolicy() *PutPolicyInvalidPolicy {
+
 	return &PutPolicyInvalidPolicy{}
 }
 
@@ -115,6 +117,7 @@ type PutPolicyInvalidPath struct {
 
 // NewPutPolicyInvalidPath creates PutPolicyInvalidPath with default headers values
 func NewPutPolicyInvalidPath() *PutPolicyInvalidPath {
+
 	return &PutPolicyInvalidPath{}
 }
 
@@ -157,6 +160,7 @@ type PutPolicyFailure struct {
 
 // NewPutPolicyFailure creates PutPolicyFailure with default headers values
 func NewPutPolicyFailure() *PutPolicyFailure {
+
 	return &PutPolicyFailure{}
 }
 

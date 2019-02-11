@@ -14,7 +14,6 @@ import (
 
 // NodeStatus Connectivity status of a remote cilium-health instance
 // swagger:model NodeStatus
-
 type NodeStatus struct {
 
 	// Connectivity status to simulated endpoint on node IP
@@ -27,23 +26,15 @@ type NodeStatus struct {
 	Name string `json:"name,omitempty"`
 }
 
-/* polymorph NodeStatus endpoint false */
-
-/* polymorph NodeStatus host false */
-
-/* polymorph NodeStatus name false */
-
 // Validate validates this node status
 func (m *NodeStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateEndpoint(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateHost(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -60,7 +51,6 @@ func (m *NodeStatus) validateEndpoint(formats strfmt.Registry) error {
 	}
 
 	if m.Endpoint != nil {
-
 		if err := m.Endpoint.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("endpoint")
@@ -79,7 +69,6 @@ func (m *NodeStatus) validateHost(formats strfmt.Registry) error {
 	}
 
 	if m.Host != nil {
-
 		if err := m.Host.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host")

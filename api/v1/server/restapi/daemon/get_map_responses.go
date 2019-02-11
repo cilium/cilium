@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetMapOKCode is the HTTP code returned for type GetMapOK
@@ -30,6 +30,7 @@ type GetMapOK struct {
 
 // NewGetMapOK creates GetMapOK with default headers values
 func NewGetMapOK() *GetMapOK {
+
 	return &GetMapOK{}
 }
 

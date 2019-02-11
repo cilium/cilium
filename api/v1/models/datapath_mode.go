@@ -16,12 +16,13 @@ import (
 
 // DatapathMode Datapath mode
 // swagger:model DatapathMode
-
 type DatapathMode string
 
 const (
+
 	// DatapathModeVeth captures enum value "veth"
 	DatapathModeVeth DatapathMode = "veth"
+
 	// DatapathModeIpvlan captures enum value "ipvlan"
 	DatapathModeIpvlan DatapathMode = "ipvlan"
 )

@@ -14,11 +14,10 @@ import (
 
 // EndpointStatus The current state and configuration of the endpoint, its policy & datapath, and subcomponents
 // swagger:model EndpointStatus
-
 type EndpointStatus struct {
 
 	// Status of internal controllers attached to this endpoint
-	Controllers ControllerStatuses `json:"controllers"`
+	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
 	// Unique identifiers for this endpoint from outside cilium
 	ExternalIdentifiers *EndpointIdentifiers `json:"external-identifiers,omitempty"`
@@ -33,7 +32,7 @@ type EndpointStatus struct {
 	Labels *LabelConfigurationStatus `json:"labels,omitempty"`
 
 	// Most recent status log. See endpoint/{id}/log for the complete log.
-	Log EndpointStatusLog `json:"log"`
+	Log EndpointStatusLog `json:"log,omitempty"`
 
 	// Networking properties of the endpoint
 	Networking *EndpointNetworking `json:"networking,omitempty"`
@@ -49,73 +48,69 @@ type EndpointStatus struct {
 	State EndpointState `json:"state"`
 }
 
-/* polymorph EndpointStatus controllers false */
-
-/* polymorph EndpointStatus external-identifiers false */
-
-/* polymorph EndpointStatus health false */
-
-/* polymorph EndpointStatus identity false */
-
-/* polymorph EndpointStatus labels false */
-
-/* polymorph EndpointStatus log false */
-
-/* polymorph EndpointStatus networking false */
-
-/* polymorph EndpointStatus policy false */
-
-/* polymorph EndpointStatus realized false */
-
-/* polymorph EndpointStatus state false */
-
 // Validate validates this endpoint status
 func (m *EndpointStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateControllers(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateExternalIdentifiers(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateHealth(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateIdentity(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateLabels(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateLog(formats); err != nil {
 		res = append(res, err)
 	}
 
 	if err := m.validateNetworking(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validatePolicy(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateRealized(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateState(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Controllers) { // not required
+		return nil
+	}
+
+	if err := m.Controllers.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("controllers")
+		}
+		return err
+	}
+
 	return nil
 }
 
@@ -126,7 +121,6 @@ func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) er
 	}
 
 	if m.ExternalIdentifiers != nil {
-
 		if err := m.ExternalIdentifiers.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("external-identifiers")
@@ -145,7 +139,6 @@ func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
 	}
 
 	if m.Health != nil {
-
 		if err := m.Health.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health")
@@ -164,7 +157,6 @@ func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
 	}
 
 	if m.Identity != nil {
-
 		if err := m.Identity.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity")
@@ -183,13 +175,28 @@ func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
 	}
 
 	if m.Labels != nil {
-
 		if err := m.Labels.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("labels")
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Log) { // not required
+		return nil
+	}
+
+	if err := m.Log.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("log")
+		}
+		return err
 	}
 
 	return nil
@@ -202,7 +209,6 @@ func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
 	}
 
 	if m.Networking != nil {
-
 		if err := m.Networking.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("networking")
@@ -221,7 +227,6 @@ func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
 	}
 
 	if m.Policy != nil {
-
 		if err := m.Policy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
@@ -240,7 +245,6 @@ func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
 	}
 
 	if m.Realized != nil {
-
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

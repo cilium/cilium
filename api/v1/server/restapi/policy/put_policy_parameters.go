@@ -15,9 +15,9 @@ import (
 )
 
 // NewPutPolicyParams creates a new PutPolicyParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewPutPolicyParams() PutPolicyParams {
-	var ()
+
 	return PutPolicyParams{}
 }
 
@@ -28,19 +28,22 @@ func NewPutPolicyParams() PutPolicyParams {
 type PutPolicyParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*Policy rules
 	  Required: true
 	  In: body
 	*/
-	Policy *string
+	Policy string
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewPutPolicyParams() beforehand.
 func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
@@ -52,18 +55,13 @@ func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 			} else {
 				res = append(res, errors.NewParseError("policy", "body", "", err))
 			}
-
 		} else {
-
-			if len(res) == 0 {
-				o.Policy = &body
-			}
+			// no validation required on inline body
+			o.Policy = body
 		}
-
 	} else {
 		res = append(res, errors.Required("policy", "body"))
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}

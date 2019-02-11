@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // EndpointIdentifiers Unique identifiers for this endpoint from outside cilium
 // swagger:model EndpointIdentifiers
-
 type EndpointIdentifiers struct {
 
 	// ID assigned by container runtime
@@ -33,23 +31,8 @@ type EndpointIdentifiers struct {
 	PodName string `json:"pod-name,omitempty"`
 }
 
-/* polymorph EndpointIdentifiers container-id false */
-
-/* polymorph EndpointIdentifiers container-name false */
-
-/* polymorph EndpointIdentifiers docker-endpoint-id false */
-
-/* polymorph EndpointIdentifiers docker-network-id false */
-
-/* polymorph EndpointIdentifiers pod-name false */
-
 // Validate validates this endpoint identifiers
 func (m *EndpointIdentifiers) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

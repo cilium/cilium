@@ -14,7 +14,6 @@ import (
 
 // LabelConfiguration Label configuration of an endpoint
 // swagger:model LabelConfiguration
-
 type LabelConfiguration struct {
 
 	// The user provided desired configuration
@@ -24,21 +23,15 @@ type LabelConfiguration struct {
 	Status *LabelConfigurationStatus `json:"status,omitempty"`
 }
 
-/* polymorph LabelConfiguration spec false */
-
-/* polymorph LabelConfiguration status false */
-
 // Validate validates this label configuration
 func (m *LabelConfiguration) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateSpec(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateStatus(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -55,7 +48,6 @@ func (m *LabelConfiguration) validateSpec(formats strfmt.Registry) error {
 	}
 
 	if m.Spec != nil {
-
 		if err := m.Spec.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("spec")
@@ -74,7 +66,6 @@ func (m *LabelConfiguration) validateStatus(formats strfmt.Registry) error {
 	}
 
 	if m.Status != nil {
-
 		if err := m.Status.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("status")

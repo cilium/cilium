@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PostIPAMIPOKCode is the HTTP code returned for type PostIPAMIPOK
@@ -25,11 +25,14 @@ type PostIPAMIPOK struct {
 
 // NewPostIPAMIPOK creates PostIPAMIPOK with default headers values
 func NewPostIPAMIPOK() *PostIPAMIPOK {
+
 	return &PostIPAMIPOK{}
 }
 
 // WriteResponse to the client
 func (o *PostIPAMIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -46,11 +49,14 @@ type PostIPAMIPInvalid struct {
 
 // NewPostIPAMIPInvalid creates PostIPAMIPInvalid with default headers values
 func NewPostIPAMIPInvalid() *PostIPAMIPInvalid {
+
 	return &PostIPAMIPInvalid{}
 }
 
 // WriteResponse to the client
 func (o *PostIPAMIPInvalid) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -67,11 +73,14 @@ type PostIPAMIPExists struct {
 
 // NewPostIPAMIPExists creates PostIPAMIPExists with default headers values
 func NewPostIPAMIPExists() *PostIPAMIPExists {
+
 	return &PostIPAMIPExists{}
 }
 
 // WriteResponse to the client
 func (o *PostIPAMIPExists) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(409)
 }
@@ -93,6 +102,7 @@ type PostIPAMIPFailure struct {
 
 // NewPostIPAMIPFailure creates PostIPAMIPFailure with default headers values
 func NewPostIPAMIPFailure() *PostIPAMIPFailure {
+
 	return &PostIPAMIPFailure{}
 }
 
@@ -130,11 +140,14 @@ type PostIPAMIPDisabled struct {
 
 // NewPostIPAMIPDisabled creates PostIPAMIPDisabled with default headers values
 func NewPostIPAMIPDisabled() *PostIPAMIPDisabled {
+
 	return &PostIPAMIPDisabled{}
 }
 
 // WriteResponse to the client
 func (o *PostIPAMIPDisabled) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(501)
 }

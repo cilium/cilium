@@ -16,7 +16,6 @@ import (
 
 // L4Policy L4 endpoint policy
 // swagger:model L4Policy
-
 type L4Policy struct {
 
 	// List of L4 egress rules
@@ -26,21 +25,15 @@ type L4Policy struct {
 	Ingress []*PolicyRule `json:"ingress"`
 }
 
-/* polymorph L4Policy egress false */
-
-/* polymorph L4Policy ingress false */
-
 // Validate validates this l4 policy
 func (m *L4Policy) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateEgress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateIngress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -57,13 +50,11 @@ func (m *L4Policy) validateEgress(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Egress); i++ {
-
 		if swag.IsZero(m.Egress[i]) { // not required
 			continue
 		}
 
 		if m.Egress[i] != nil {
-
 			if err := m.Egress[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
@@ -84,13 +75,11 @@ func (m *L4Policy) validateIngress(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Ingress); i++ {
-
 		if swag.IsZero(m.Ingress[i]) { // not required
 			continue
 		}
 
 		if m.Ingress[i] != nil {
-
 			if err := m.Ingress[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))

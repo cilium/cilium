@@ -16,16 +16,19 @@ import (
 
 // EndpointPolicyEnabled Whether policy enforcement is enabled (ingress, egress, both or none)
 // swagger:model EndpointPolicyEnabled
-
 type EndpointPolicyEnabled string
 
 const (
+
 	// EndpointPolicyEnabledNone captures enum value "none"
 	EndpointPolicyEnabledNone EndpointPolicyEnabled = "none"
+
 	// EndpointPolicyEnabledIngress captures enum value "ingress"
 	EndpointPolicyEnabledIngress EndpointPolicyEnabled = "ingress"
+
 	// EndpointPolicyEnabledEgress captures enum value "egress"
 	EndpointPolicyEnabledEgress EndpointPolicyEnabled = "egress"
+
 	// EndpointPolicyEnabledBoth captures enum value "both"
 	EndpointPolicyEnabledBoth EndpointPolicyEnabled = "both"
 )

@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetIdentityOKCode is the HTTP code returned for type GetIdentityOK
@@ -30,6 +30,7 @@ type GetIdentityOK struct {
 
 // NewGetIdentityOK creates GetIdentityOK with default headers values
 func NewGetIdentityOK() *GetIdentityOK {
+
 	return &GetIdentityOK{}
 }
 
@@ -71,11 +72,14 @@ type GetIdentityNotFound struct {
 
 // NewGetIdentityNotFound creates GetIdentityNotFound with default headers values
 func NewGetIdentityNotFound() *GetIdentityNotFound {
+
 	return &GetIdentityNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetIdentityNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -97,6 +101,7 @@ type GetIdentityUnreachable struct {
 
 // NewGetIdentityUnreachable creates GetIdentityUnreachable with default headers values
 func NewGetIdentityUnreachable() *GetIdentityUnreachable {
+
 	return &GetIdentityUnreachable{}
 }
 
@@ -139,6 +144,7 @@ type GetIdentityInvalidStorageFormat struct {
 
 // NewGetIdentityInvalidStorageFormat creates GetIdentityInvalidStorageFormat with default headers values
 func NewGetIdentityInvalidStorageFormat() *GetIdentityInvalidStorageFormat {
+
 	return &GetIdentityInvalidStorageFormat{}
 }
 

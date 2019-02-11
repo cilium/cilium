@@ -17,10 +17,10 @@ import (
 
 // BPFMapEntry BPF map cache entry"
 // swagger:model BPFMapEntry
-
 type BPFMapEntry struct {
 
 	// Desired action to be performed
+	// Enum: [ok insert delete]
 	DesiredAction string `json:"desired-action,omitempty"`
 
 	// Key of map entry
@@ -33,20 +33,11 @@ type BPFMapEntry struct {
 	Value string `json:"value,omitempty"`
 }
 
-/* polymorph BPFMapEntry desired-action false */
-
-/* polymorph BPFMapEntry key false */
-
-/* polymorph BPFMapEntry last-error false */
-
-/* polymorph BPFMapEntry value false */
-
 // Validate validates this b p f map entry
 func (m *BPFMapEntry) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateDesiredAction(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -69,10 +60,13 @@ func init() {
 }
 
 const (
+
 	// BPFMapEntryDesiredActionOk captures enum value "ok"
 	BPFMapEntryDesiredActionOk string = "ok"
+
 	// BPFMapEntryDesiredActionInsert captures enum value "insert"
 	BPFMapEntryDesiredActionInsert string = "insert"
+
 	// BPFMapEntryDesiredActionDelete captures enum value "delete"
 	BPFMapEntryDesiredActionDelete string = "delete"
 )

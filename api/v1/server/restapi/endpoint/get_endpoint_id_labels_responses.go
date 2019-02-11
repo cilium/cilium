@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetEndpointIDLabelsOKCode is the HTTP code returned for type GetEndpointIDLabelsOK
@@ -30,6 +30,7 @@ type GetEndpointIDLabelsOK struct {
 
 // NewGetEndpointIDLabelsOK creates GetEndpointIDLabelsOK with default headers values
 func NewGetEndpointIDLabelsOK() *GetEndpointIDLabelsOK {
+
 	return &GetEndpointIDLabelsOK{}
 }
 
@@ -68,11 +69,14 @@ type GetEndpointIDLabelsNotFound struct {
 
 // NewGetEndpointIDLabelsNotFound creates GetEndpointIDLabelsNotFound with default headers values
 func NewGetEndpointIDLabelsNotFound() *GetEndpointIDLabelsNotFound {
+
 	return &GetEndpointIDLabelsNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetEndpointIDLabelsNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

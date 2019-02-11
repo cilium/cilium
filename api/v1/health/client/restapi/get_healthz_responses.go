@@ -13,7 +13,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/health/models"
+	models "github.com/cilium/cilium/api/v1/health/models"
 )
 
 // GetHealthzReader is a Reader for the GetHealthz structure.
@@ -83,7 +83,7 @@ func NewGetHealthzFailed() *GetHealthzFailed {
 Failed to contact local Cilium daemon
 */
 type GetHealthzFailed struct {
-	Payload GetHealthzFailedBody
+	Payload models.Error
 }
 
 func (o *GetHealthzFailed) Error() string {
@@ -97,16 +97,5 @@ func (o *GetHealthzFailed) readResponse(response runtime.ClientResponse, consume
 		return err
 	}
 
-	return nil
-}
-
-/*GetHealthzFailedBody get healthz failed body
-swagger:model getHealthzFailedBody
-*/
-
-type GetHealthzFailedBody string
-
-// Validate validates this get healthz failed body
-func (o GetHealthzFailedBody) Validate(formats strfmt.Registry) error {
 	return nil
 }

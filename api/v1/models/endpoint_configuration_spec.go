@@ -14,7 +14,6 @@ import (
 
 // EndpointConfigurationSpec An endpoint's configuration
 // swagger:model EndpointConfigurationSpec
-
 type EndpointConfigurationSpec struct {
 
 	// the endpoint's labels
@@ -24,16 +23,15 @@ type EndpointConfigurationSpec struct {
 	Options ConfigurationMap `json:"options,omitempty"`
 }
 
-/* polymorph EndpointConfigurationSpec label-configuration false */
-
-/* polymorph EndpointConfigurationSpec options false */
-
 // Validate validates this endpoint configuration spec
 func (m *EndpointConfigurationSpec) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateLabelConfiguration(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateOptions(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -50,13 +48,28 @@ func (m *EndpointConfigurationSpec) validateLabelConfiguration(formats strfmt.Re
 	}
 
 	if m.LabelConfiguration != nil {
-
 		if err := m.LabelConfiguration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("label-configuration")
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *EndpointConfigurationSpec) validateOptions(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Options) { // not required
+		return nil
+	}
+
+	if err := m.Options.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("options")
+		}
+		return err
 	}
 
 	return nil

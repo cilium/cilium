@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PatchEndpointIDOKCode is the HTTP code returned for type PatchEndpointIDOK
@@ -25,11 +25,14 @@ type PatchEndpointIDOK struct {
 
 // NewPatchEndpointIDOK creates PatchEndpointIDOK with default headers values
 func NewPatchEndpointIDOK() *PatchEndpointIDOK {
+
 	return &PatchEndpointIDOK{}
 }
 
 // WriteResponse to the client
 func (o *PatchEndpointIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -51,6 +54,7 @@ type PatchEndpointIDInvalid struct {
 
 // NewPatchEndpointIDInvalid creates PatchEndpointIDInvalid with default headers values
 func NewPatchEndpointIDInvalid() *PatchEndpointIDInvalid {
+
 	return &PatchEndpointIDInvalid{}
 }
 
@@ -88,11 +92,14 @@ type PatchEndpointIDNotFound struct {
 
 // NewPatchEndpointIDNotFound creates PatchEndpointIDNotFound with default headers values
 func NewPatchEndpointIDNotFound() *PatchEndpointIDNotFound {
+
 	return &PatchEndpointIDNotFound{}
 }
 
 // WriteResponse to the client
 func (o *PatchEndpointIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -114,6 +121,7 @@ type PatchEndpointIDFailed struct {
 
 // NewPatchEndpointIDFailed creates PatchEndpointIDFailed with default headers values
 func NewPatchEndpointIDFailed() *PatchEndpointIDFailed {
+
 	return &PatchEndpointIDFailed{}
 }
 

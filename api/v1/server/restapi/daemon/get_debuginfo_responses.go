@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetDebuginfoOKCode is the HTTP code returned for type GetDebuginfoOK
@@ -30,6 +30,7 @@ type GetDebuginfoOK struct {
 
 // NewGetDebuginfoOK creates GetDebuginfoOK with default headers values
 func NewGetDebuginfoOK() *GetDebuginfoOK {
+
 	return &GetDebuginfoOK{}
 }
 
@@ -73,6 +74,7 @@ type GetDebuginfoFailure struct {
 
 // NewGetDebuginfoFailure creates GetDebuginfoFailure with default headers values
 func NewGetDebuginfoFailure() *GetDebuginfoFailure {
+
 	return &GetDebuginfoFailure{}
 }
 

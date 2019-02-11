@@ -34,30 +34,19 @@ type NodeElement struct {
 	SecondaryAddresses []*NodeAddressingElement `json:"secondary-addresses"`
 }
 
-/* polymorph NodeElement health-endpoint-address false */
-
-/* polymorph NodeElement name false */
-
-/* polymorph NodeElement primary-address false */
-
-/* polymorph NodeElement secondary-addresses false */
-
 // Validate validates this node element
 func (m *NodeElement) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateHealthEndpointAddress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validatePrimaryAddress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateSecondaryAddresses(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -74,7 +63,6 @@ func (m *NodeElement) validateHealthEndpointAddress(formats strfmt.Registry) err
 	}
 
 	if m.HealthEndpointAddress != nil {
-
 		if err := m.HealthEndpointAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health-endpoint-address")
@@ -93,7 +81,6 @@ func (m *NodeElement) validatePrimaryAddress(formats strfmt.Registry) error {
 	}
 
 	if m.PrimaryAddress != nil {
-
 		if err := m.PrimaryAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
@@ -112,13 +99,11 @@ func (m *NodeElement) validateSecondaryAddresses(formats strfmt.Registry) error 
 	}
 
 	for i := 0; i < len(m.SecondaryAddresses); i++ {
-
 		if swag.IsZero(m.SecondaryAddresses[i]) { // not required
 			continue
 		}
 
 		if m.SecondaryAddresses[i] != nil {
-
 			if err := m.SecondaryAddresses[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))

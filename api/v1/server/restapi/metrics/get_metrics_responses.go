@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetMetricsOKCode is the HTTP code returned for type GetMetricsOK
@@ -30,6 +30,7 @@ type GetMetricsOK struct {
 
 // NewGetMetricsOK creates GetMetricsOK with default headers values
 func NewGetMetricsOK() *GetMetricsOK {
+
 	return &GetMetricsOK{}
 }
 
@@ -71,11 +72,14 @@ type GetMetricsInternalServerError struct {
 
 // NewGetMetricsInternalServerError creates GetMetricsInternalServerError with default headers values
 func NewGetMetricsInternalServerError() *GetMetricsInternalServerError {
+
 	return &GetMetricsInternalServerError{}
 }
 
 // WriteResponse to the client
 func (o *GetMetricsInternalServerError) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(500)
 }

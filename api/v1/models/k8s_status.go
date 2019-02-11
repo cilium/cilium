@@ -27,41 +27,21 @@ type K8sStatus struct {
 	Msg string `json:"msg,omitempty"`
 
 	// State the component is in
+	// Enum: [Ok Warning Failure Disabled]
 	State string `json:"state,omitempty"`
 }
-
-/* polymorph K8sStatus k8s-api-versions false */
-
-/* polymorph K8sStatus msg false */
-
-/* polymorph K8sStatus state false */
 
 // Validate validates this k8s status
 func (m *K8sStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateK8sAPIVersions(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
 	if err := m.validateState(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *K8sStatus) validateK8sAPIVersions(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.K8sAPIVersions) { // not required
-		return nil
-	}
-
 	return nil
 }
 
@@ -78,12 +58,16 @@ func init() {
 }
 
 const (
+
 	// K8sStatusStateOk captures enum value "Ok"
 	K8sStatusStateOk string = "Ok"
+
 	// K8sStatusStateWarning captures enum value "Warning"
 	K8sStatusStateWarning string = "Warning"
+
 	// K8sStatusStateFailure captures enum value "Failure"
 	K8sStatusStateFailure string = "Failure"
+
 	// K8sStatusStateDisabled captures enum value "Disabled"
 	K8sStatusStateDisabled string = "Disabled"
 )

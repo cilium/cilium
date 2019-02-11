@@ -14,21 +14,17 @@ import (
 
 // ServiceStatus Configuration of a service
 // swagger:model ServiceStatus
-
 type ServiceStatus struct {
 
 	// realized
 	Realized *ServiceSpec `json:"realized,omitempty"`
 }
 
-/* polymorph ServiceStatus realized false */
-
 // Validate validates this service status
 func (m *ServiceStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateRealized(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -45,7 +41,6 @@ func (m *ServiceStatus) validateRealized(formats strfmt.Registry) error {
 	}
 
 	if m.Realized != nil {
-
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

@@ -16,7 +16,6 @@ import (
 
 // EndpointNetworking Unique identifiers for this endpoint from outside cilium
 // swagger:model EndpointNetworking
-
 type EndpointNetworking struct {
 
 	// IP4/6 addresses assigned to this Endpoint
@@ -38,29 +37,15 @@ type EndpointNetworking struct {
 	Mac string `json:"mac,omitempty"`
 }
 
-/* polymorph EndpointNetworking addressing false */
-
-/* polymorph EndpointNetworking host-addressing false */
-
-/* polymorph EndpointNetworking host-mac false */
-
-/* polymorph EndpointNetworking interface-index false */
-
-/* polymorph EndpointNetworking interface-name false */
-
-/* polymorph EndpointNetworking mac false */
-
 // Validate validates this endpoint networking
 func (m *EndpointNetworking) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateHostAddressing(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -77,13 +62,11 @@ func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Addressing); i++ {
-
 		if swag.IsZero(m.Addressing[i]) { // not required
 			continue
 		}
 
 		if m.Addressing[i] != nil {
-
 			if err := m.Addressing[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("addressing" + "." + strconv.Itoa(i))
@@ -104,7 +87,6 @@ func (m *EndpointNetworking) validateHostAddressing(formats strfmt.Registry) err
 	}
 
 	if m.HostAddressing != nil {
-
 		if err := m.HostAddressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-addressing")

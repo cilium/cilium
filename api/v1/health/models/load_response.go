@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // LoadResponse System load on node
 // swagger:model LoadResponse
-
 type LoadResponse struct {
 
 	// Load average over the past 15 minutes
@@ -27,19 +25,8 @@ type LoadResponse struct {
 	Last5min string `json:"last5min,omitempty"`
 }
 
-/* polymorph LoadResponse last15min false */
-
-/* polymorph LoadResponse last1min false */
-
-/* polymorph LoadResponse last5min false */
-
 // Validate validates this load response
 func (m *LoadResponse) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

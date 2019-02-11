@@ -24,6 +24,7 @@ type ProxyStatistics struct {
 	AllocatedProxyPort int64 `json:"allocated-proxy-port,omitempty"`
 
 	// Location of where the redirect is installed
+	// Enum: [ingress egress]
 	Location string `json:"location,omitempty"`
 
 	// The port subject to the redirect
@@ -36,27 +37,15 @@ type ProxyStatistics struct {
 	Statistics *RequestResponseStatistics `json:"statistics,omitempty"`
 }
 
-/* polymorph ProxyStatistics allocated-proxy-port false */
-
-/* polymorph ProxyStatistics location false */
-
-/* polymorph ProxyStatistics port false */
-
-/* polymorph ProxyStatistics protocol false */
-
-/* polymorph ProxyStatistics statistics false */
-
 // Validate validates this proxy statistics
 func (m *ProxyStatistics) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateLocation(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateStatistics(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -79,8 +68,10 @@ func init() {
 }
 
 const (
+
 	// ProxyStatisticsLocationIngress captures enum value "ingress"
 	ProxyStatisticsLocationIngress string = "ingress"
+
 	// ProxyStatisticsLocationEgress captures enum value "egress"
 	ProxyStatisticsLocationEgress string = "egress"
 )
@@ -114,7 +105,6 @@ func (m *ProxyStatistics) validateStatistics(formats strfmt.Registry) error {
 	}
 
 	if m.Statistics != nil {
-
 		if err := m.Statistics.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("statistics")

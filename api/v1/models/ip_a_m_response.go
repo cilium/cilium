@@ -15,7 +15,6 @@ import (
 
 // IPAMResponse IPAM configuration of an endpoint
 // swagger:model IPAMResponse
-
 type IPAMResponse struct {
 
 	// address
@@ -27,21 +26,15 @@ type IPAMResponse struct {
 	HostAddressing *NodeAddressing `json:"host-addressing"`
 }
 
-/* polymorph IPAMResponse address false */
-
-/* polymorph IPAMResponse host-addressing false */
-
 // Validate validates this IP a m response
 func (m *IPAMResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateHostAddressing(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -58,7 +51,6 @@ func (m *IPAMResponse) validateAddress(formats strfmt.Registry) error {
 	}
 
 	if m.Address != nil {
-
 		if err := m.Address.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("address")
@@ -77,7 +69,6 @@ func (m *IPAMResponse) validateHostAddressing(formats strfmt.Registry) error {
 	}
 
 	if m.HostAddressing != nil {
-
 		if err := m.HostAddressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-addressing")

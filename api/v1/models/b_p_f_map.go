@@ -16,7 +16,6 @@ import (
 
 // BPFMap BPF map definition and content
 // swagger:model BPFMap
-
 type BPFMap struct {
 
 	// Contents of cache
@@ -26,16 +25,11 @@ type BPFMap struct {
 	Path string `json:"path,omitempty"`
 }
 
-/* polymorph BPFMap cache false */
-
-/* polymorph BPFMap path false */
-
 // Validate validates this b p f map
 func (m *BPFMap) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCache(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -52,13 +46,11 @@ func (m *BPFMap) validateCache(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Cache); i++ {
-
 		if swag.IsZero(m.Cache[i]) { // not required
 			continue
 		}
 
 		if m.Cache[i] != nil {
-
 			if err := m.Cache[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("cache" + "." + strconv.Itoa(i))

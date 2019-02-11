@@ -3,22 +3,27 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/go-openapi/runtime/flagext"
 	"github.com/go-openapi/swag"
 	flags "github.com/jessevdk/go-flags"
-	graceful "github.com/tylerb/graceful"
+	"golang.org/x/net/netutil"
 
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/api"
@@ -42,7 +47,9 @@ func init() {
 func NewServer(api *restapi.CiliumAPI) *Server {
 	s := new(Server)
 
+	s.shutdown = make(chan struct{})
 	s.api = api
+	s.interrupt = make(chan os.Signal, 1)
 	return s
 }
 
@@ -63,7 +70,8 @@ func (s *Server) ConfigureFlags() {
 // Server for the cilium API
 type Server struct {
 	EnabledListeners []string         `long:"scheme" description:"the listeners to enable, this can be repeated and defaults to the schemes in the swagger spec"`
-	CleanupTimeout   time.Duration    `long:"cleanup-timeout" description:"grace period for which to wait before shutting down the server" default:"10s"`
+	CleanupTimeout   time.Duration    `long:"cleanup-timeout" description:"grace period for which to wait before killing idle connections" default:"10s"`
+	GracefulTimeout  time.Duration    `long:"graceful-timeout" description:"grace period for which to wait before shutting down the server" default:"15s"`
 	MaxHeaderSize    flagext.ByteSize `long:"max-header-size" description:"controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line. It does not limit the size of the request body." default:"1MiB"`
 
 	SocketPath    flags.Filename `long:"socket-path" description:"the unix socket to listen on" default:"/var/run/cilium.sock"`
@@ -91,6 +99,10 @@ type Server struct {
 	api          *restapi.CiliumAPI
 	handler      http.Handler
 	hasListeners bool
+	shutdown     chan struct{}
+	shuttingDown int32
+	interrupted  bool
+	interrupt    chan os.Signal
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
@@ -157,15 +169,21 @@ func (s *Server) Serve() (err error) {
 		s.SetHandler(s.api.Serve(nil))
 	}
 
-	var wg sync.WaitGroup
+	wg := new(sync.WaitGroup)
+	once := new(sync.Once)
+	signalNotify(s.interrupt)
+	go handleInterrupt(once, s)
+
+	servers := []*http.Server{}
+	wg.Add(1)
+	go s.handleShutdown(wg, &servers)
 
 	if s.hasScheme(schemeUnix) {
-		domainSocket := &graceful.Server{Server: new(http.Server)}
+		domainSocket := new(http.Server)
 		domainSocket.MaxHeaderBytes = int(s.MaxHeaderSize)
 		domainSocket.Handler = s.handler
-		domainSocket.LogFunc = s.Logf
 		if int64(s.CleanupTimeout) > 0 {
-			domainSocket.Timeout = s.CleanupTimeout
+			domainSocket.IdleTimeout = s.CleanupTimeout
 		}
 
 		configureServer(domainSocket, "unix", string(s.SocketPath))
@@ -176,12 +194,12 @@ func (s *Server) Serve() (err error) {
 				return err
 			}
 		}
-
+		servers = append(servers, domainSocket)
 		wg.Add(1)
 		s.Logf("Serving cilium at unix://%s", s.SocketPath)
 		go func(l net.Listener) {
 			defer wg.Done()
-			if err := domainSocket.Serve(l); err != nil {
+			if err := domainSocket.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
 			s.Logf("Stopped serving cilium at unix://%s", s.SocketPath)
@@ -189,30 +207,29 @@ func (s *Server) Serve() (err error) {
 	}
 
 	if s.hasScheme(schemeHTTP) {
-		httpServer := &graceful.Server{Server: new(http.Server)}
+		httpServer := new(http.Server)
 		httpServer.MaxHeaderBytes = int(s.MaxHeaderSize)
 		httpServer.ReadTimeout = s.ReadTimeout
 		httpServer.WriteTimeout = s.WriteTimeout
 		httpServer.SetKeepAlivesEnabled(int64(s.KeepAlive) > 0)
-		httpServer.TCPKeepAlive = s.KeepAlive
 		if s.ListenLimit > 0 {
-			httpServer.ListenLimit = s.ListenLimit
+			s.httpServerL = netutil.LimitListener(s.httpServerL, s.ListenLimit)
 		}
 
 		if int64(s.CleanupTimeout) > 0 {
-			httpServer.Timeout = s.CleanupTimeout
+			httpServer.IdleTimeout = s.CleanupTimeout
 		}
 
 		httpServer.Handler = s.handler
-		httpServer.LogFunc = s.Logf
 
 		configureServer(httpServer, "http", s.httpServerL.Addr().String())
 
+		servers = append(servers, httpServer)
 		wg.Add(1)
 		s.Logf("Serving cilium at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
 			defer wg.Done()
-			if err := httpServer.Serve(l); err != nil {
+			if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
 			s.Logf("Stopped serving cilium at http://%s", l.Addr())
@@ -220,20 +237,18 @@ func (s *Server) Serve() (err error) {
 	}
 
 	if s.hasScheme(schemeHTTPS) {
-		httpsServer := &graceful.Server{Server: new(http.Server)}
+		httpsServer := new(http.Server)
 		httpsServer.MaxHeaderBytes = int(s.MaxHeaderSize)
 		httpsServer.ReadTimeout = s.TLSReadTimeout
 		httpsServer.WriteTimeout = s.TLSWriteTimeout
 		httpsServer.SetKeepAlivesEnabled(int64(s.TLSKeepAlive) > 0)
-		httpsServer.TCPKeepAlive = s.TLSKeepAlive
 		if s.TLSListenLimit > 0 {
-			httpsServer.ListenLimit = s.TLSListenLimit
+			s.httpsServerL = netutil.LimitListener(s.httpsServerL, s.TLSListenLimit)
 		}
 		if int64(s.CleanupTimeout) > 0 {
-			httpsServer.Timeout = s.CleanupTimeout
+			httpsServer.IdleTimeout = s.CleanupTimeout
 		}
 		httpsServer.Handler = s.handler
-		httpsServer.LogFunc = s.Logf
 
 		// Inspired by https://blog.bracebin.com/achieving-perfect-ssl-labs-score-with-go
 		httpsServer.TLSConfig = &tls.Config{
@@ -253,33 +268,40 @@ func (s *Server) Serve() (err error) {
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 			},
 		}
 
+		// build standard config from server options
 		if s.TLSCertificate != "" && s.TLSCertificateKey != "" {
 			httpsServer.TLSConfig.Certificates = make([]tls.Certificate, 1)
 			httpsServer.TLSConfig.Certificates[0], err = tls.LoadX509KeyPair(string(s.TLSCertificate), string(s.TLSCertificateKey))
+			if err != nil {
+				return err
+			}
 		}
 
 		if s.TLSCACertificate != "" {
+			// include specified CA certificate
 			caCert, caCertErr := ioutil.ReadFile(string(s.TLSCACertificate))
 			if caCertErr != nil {
-				log.Fatal(caCertErr)
+				return caCertErr
 			}
 			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(caCert)
+			ok := caCertPool.AppendCertsFromPEM(caCert)
+			if !ok {
+				return fmt.Errorf("cannot parse CA certificate")
+			}
 			httpsServer.TLSConfig.ClientCAs = caCertPool
 			httpsServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 		}
 
+		// call custom TLS configurator
 		configureTLS(httpsServer.TLSConfig)
-		httpsServer.TLSConfig.BuildNameToCertificate()
-
-		if err != nil {
-			return err
-		}
 
 		if len(httpsServer.TLSConfig.Certificates) == 0 {
+			// after standard and custom config are passed, this ends up with no certificate
 			if s.TLSCertificate == "" {
 				if s.TLSCertificateKey == "" {
 					s.Fatalf("the required flags `--tls-certificate` and `--tls-key` were not specified")
@@ -289,15 +311,21 @@ func (s *Server) Serve() (err error) {
 			if s.TLSCertificateKey == "" {
 				s.Fatalf("the required flag `--tls-key` was not specified")
 			}
+			// this happens with a wrong custom TLS configurator
+			s.Fatalf("no certificate was configured for TLS")
 		}
+
+		// must have at least one certificate or panics
+		httpsServer.TLSConfig.BuildNameToCertificate()
 
 		configureServer(httpsServer, "https", s.httpsServerL.Addr().String())
 
+		servers = append(servers, httpsServer)
 		wg.Add(1)
 		s.Logf("Serving cilium at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
 			defer wg.Done()
-			if err := httpsServer.Serve(l); err != nil {
+			if err := httpsServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
 			s.Logf("Stopped serving cilium at https://%s", l.Addr())
@@ -381,8 +409,49 @@ func (s *Server) Listen() error {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() error {
-	s.api.ServerShutdown()
+	if atomic.CompareAndSwapInt32(&s.shuttingDown, 0, 1) {
+		close(s.shutdown)
+	}
 	return nil
+}
+
+func (s *Server) handleShutdown(wg *sync.WaitGroup, serversPtr *[]*http.Server) {
+	// wg.Done must occur last, after s.api.ServerShutdown()
+	// (to preserve old behaviour)
+	defer wg.Done()
+
+	<-s.shutdown
+
+	servers := *serversPtr
+
+	ctx, cancel := context.WithTimeout(context.TODO(), s.GracefulTimeout)
+	defer cancel()
+
+	shutdownChan := make(chan bool)
+	for i := range servers {
+		server := servers[i]
+		go func() {
+			var success bool
+			defer func() {
+				shutdownChan <- success
+			}()
+			if err := server.Shutdown(ctx); err != nil {
+				// Error from closing listeners, or context timeout:
+				s.Logf("HTTP server Shutdown: %v", err)
+			} else {
+				success = true
+			}
+		}()
+	}
+
+	// Wait until all listeners have successfully shut down before calling ServerShutdown
+	success := true
+	for range servers {
+		success = success && <-shutdownChan
+	}
+	if success {
+		s.api.ServerShutdown()
+	}
 }
 
 // GetHandler returns a handler useful for testing
@@ -423,4 +492,24 @@ func (s *Server) TLSListener() (net.Listener, error) {
 		}
 	}
 	return s.httpsServerL, nil
+}
+
+func handleInterrupt(once *sync.Once, s *Server) {
+	once.Do(func() {
+		for range s.interrupt {
+			if s.interrupted {
+				s.Logf("Server already shutting down")
+				continue
+			}
+			s.interrupted = true
+			s.Logf("Shutting down... ")
+			if err := s.Shutdown(); err != nil {
+				s.Logf("HTTP server Shutdown: %v", err)
+			}
+		}
+	})
+}
+
+func signalNotify(interrupt chan<- os.Signal) {
+	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 }

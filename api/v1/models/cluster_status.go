@@ -29,23 +29,15 @@ type ClusterStatus struct {
 	Self string `json:"self,omitempty"`
 }
 
-/* polymorph ClusterStatus ciliumHealth false */
-
-/* polymorph ClusterStatus nodes false */
-
-/* polymorph ClusterStatus self false */
-
 // Validate validates this cluster status
 func (m *ClusterStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCiliumHealth(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateNodes(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -62,7 +54,6 @@ func (m *ClusterStatus) validateCiliumHealth(formats strfmt.Registry) error {
 	}
 
 	if m.CiliumHealth != nil {
-
 		if err := m.CiliumHealth.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ciliumHealth")
@@ -81,13 +72,11 @@ func (m *ClusterStatus) validateNodes(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Nodes); i++ {
-
 		if swag.IsZero(m.Nodes[i]) { // not required
 			continue
 		}
 
 		if m.Nodes[i] != nil {
-
 			if err := m.Nodes[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))

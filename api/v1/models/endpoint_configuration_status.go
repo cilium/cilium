@@ -14,7 +14,6 @@ import (
 
 // EndpointConfigurationStatus An endpoint's configuration
 // swagger:model EndpointConfigurationStatus
-
 type EndpointConfigurationStatus struct {
 
 	// Most recent error, if applicable
@@ -27,24 +26,57 @@ type EndpointConfigurationStatus struct {
 	Realized *EndpointConfigurationSpec `json:"realized,omitempty"`
 }
 
-/* polymorph EndpointConfigurationStatus error false */
-
-/* polymorph EndpointConfigurationStatus immutable false */
-
-/* polymorph EndpointConfigurationStatus realized false */
-
 // Validate validates this endpoint configuration status
 func (m *EndpointConfigurationStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateError(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateImmutable(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateRealized(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *EndpointConfigurationStatus) validateError(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Error) { // not required
+		return nil
+	}
+
+	if err := m.Error.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("error")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointConfigurationStatus) validateImmutable(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Immutable) { // not required
+		return nil
+	}
+
+	if err := m.Immutable.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("immutable")
+		}
+		return err
+	}
+
 	return nil
 }
 
@@ -55,7 +87,6 @@ func (m *EndpointConfigurationStatus) validateRealized(formats strfmt.Registry) 
 	}
 
 	if m.Realized != nil {
-
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetPolicyOKCode is the HTTP code returned for type GetPolicyOK
@@ -30,6 +30,7 @@ type GetPolicyOK struct {
 
 // NewGetPolicyOK creates GetPolicyOK with default headers values
 func NewGetPolicyOK() *GetPolicyOK {
+
 	return &GetPolicyOK{}
 }
 
@@ -68,11 +69,14 @@ type GetPolicyNotFound struct {
 
 // NewGetPolicyNotFound creates GetPolicyNotFound with default headers values
 func NewGetPolicyNotFound() *GetPolicyNotFound {
+
 	return &GetPolicyNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetPolicyNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

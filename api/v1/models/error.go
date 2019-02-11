@@ -11,7 +11,6 @@ import (
 
 // Error error
 // swagger:model Error
-
 type Error string
 
 // Validate validates this error

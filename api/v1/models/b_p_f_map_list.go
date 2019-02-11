@@ -16,21 +16,17 @@ import (
 
 // BPFMapList List of BPF Maps
 // swagger:model BPFMapList
-
 type BPFMapList struct {
 
 	// Array of open BPF map lists
 	Maps []*BPFMap `json:"maps"`
 }
 
-/* polymorph BPFMapList maps false */
-
 // Validate validates this b p f map list
 func (m *BPFMapList) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateMaps(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -47,13 +43,11 @@ func (m *BPFMapList) validateMaps(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Maps); i++ {
-
 		if swag.IsZero(m.Maps[i]) { // not required
 			continue
 		}
 
 		if m.Maps[i] != nil {
-
 			if err := m.Maps[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("maps" + "." + strconv.Itoa(i))

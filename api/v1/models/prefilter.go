@@ -14,7 +14,6 @@ import (
 
 // Prefilter Collection of endpoints to be served
 // swagger:model Prefilter
-
 type Prefilter struct {
 
 	// spec
@@ -24,21 +23,15 @@ type Prefilter struct {
 	Status *PrefilterStatus `json:"status,omitempty"`
 }
 
-/* polymorph Prefilter spec false */
-
-/* polymorph Prefilter status false */
-
 // Validate validates this prefilter
 func (m *Prefilter) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateSpec(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateStatus(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -55,7 +48,6 @@ func (m *Prefilter) validateSpec(formats strfmt.Registry) error {
 	}
 
 	if m.Spec != nil {
-
 		if err := m.Spec.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("spec")
@@ -74,7 +66,6 @@ func (m *Prefilter) validateStatus(formats strfmt.Registry) error {
 	}
 
 	if m.Status != nil {
-
 		if err := m.Status.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("status")

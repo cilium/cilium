@@ -1195,13 +1195,6 @@
   revision = "d98352740cb2c55f81556b63d4a1ec64c5a319c2"
 
 [[projects]]
-  digest = "1:49fe0137c9f8623cb88500da6ee2a5c59469e1ead2d95a4225a6c5936f5d0b75"
-  name = "github.com/tylerb/graceful"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "d37e108c89765a8e307f15b8fb2ecd10575da6bb"
-
-[[projects]]
   digest = "1:a315dbe56bff8c505524aa56d5e057d2a4496c642aa781e9f365508b5b9e66af"
   name = "github.com/vishvananda/netlink"
   packages = [
@@ -1236,7 +1229,7 @@
   revision = "5ba7f63082460102a45837dbd1827e10f9479ac0"
 
 [[projects]]
-  digest = "1:77a64592c4916bbe77a9a0775a4f1b2e6bf1854a7675ab643cec05287a759cfd"
+  digest = "1:77f0df0a744220ea2d96c636686811a7888c1297ff4ecce5cc97b30df4e3a78f"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -1256,6 +1249,7 @@
     "internal/timeseries",
     "ipv4",
     "ipv6",
+    "netutil",
     "proxy",
     "trace",
   ]
@@ -1839,11 +1833,11 @@
     "github.com/spf13/cobra/doc",
     "github.com/spf13/pflag",
     "github.com/spf13/viper",
-    "github.com/tylerb/graceful",
     "github.com/vishvananda/netlink",
     "golang.org/x/crypto/ssh",
     "golang.org/x/crypto/ssh/agent",
     "golang.org/x/net/context",
+    "golang.org/x/net/netutil",
     "golang.org/x/sync/semaphore",
     "golang.org/x/sys/unix",
     "google.golang.org/genproto/googleapis/rpc/status",

@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // CIDRList List of CIDRs
 // swagger:model CIDRList
-
 type CIDRList struct {
 
 	// list
@@ -24,31 +22,8 @@ type CIDRList struct {
 	Revision int64 `json:"revision,omitempty"`
 }
 
-/* polymorph CIDRList list false */
-
-/* polymorph CIDRList revision false */
-
 // Validate validates this c ID r list
 func (m *CIDRList) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.validateList(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *CIDRList) validateList(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.List) { // not required
-		return nil
-	}
-
 	return nil
 }
 

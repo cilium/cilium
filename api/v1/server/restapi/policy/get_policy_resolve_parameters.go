@@ -12,13 +12,13 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetPolicyResolveParams creates a new GetPolicyResolveParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewGetPolicyResolveParams() GetPolicyResolveParams {
-	var ()
+
 	return GetPolicyResolveParams{}
 }
 
@@ -29,7 +29,7 @@ func NewGetPolicyResolveParams() GetPolicyResolveParams {
 type GetPolicyResolveParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*Context to provide policy evaluation on
 	  In: body
@@ -38,9 +38,12 @@ type GetPolicyResolveParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewGetPolicyResolveParams() beforehand.
 func (o *GetPolicyResolveParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
@@ -49,6 +52,7 @@ func (o *GetPolicyResolveParams) BindRequest(r *http.Request, route *middleware.
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			res = append(res, errors.NewParseError("traceSelector", "body", "", err))
 		} else {
+			// validate body object
 			if err := body.Validate(route.Formats); err != nil {
 				res = append(res, err)
 			}
@@ -57,9 +61,7 @@ func (o *GetPolicyResolveParams) BindRequest(r *http.Request, route *middleware.
 				o.TraceSelector = &body
 			}
 		}
-
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}

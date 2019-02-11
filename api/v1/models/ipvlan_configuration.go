@@ -17,26 +17,21 @@ import (
 
 // IpvlanConfiguration Setup for datapath when operating in ipvlan mode.
 // swagger:model IpvlanConfiguration
-
 type IpvlanConfiguration struct {
 
 	// Workload facing ipvlan master device ifindex.
 	MasterDeviceIndex int64 `json:"masterDeviceIndex,omitempty"`
 
 	// Mode in which ipvlan setup operates.
+	// Enum: [L3 L3S]
 	OperationMode string `json:"operationMode,omitempty"`
 }
-
-/* polymorph IpvlanConfiguration masterDeviceIndex false */
-
-/* polymorph IpvlanConfiguration operationMode false */
 
 // Validate validates this ipvlan configuration
 func (m *IpvlanConfiguration) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateOperationMode(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -59,8 +54,10 @@ func init() {
 }
 
 const (
+
 	// IpvlanConfigurationOperationModeL3 captures enum value "L3"
 	IpvlanConfigurationOperationModeL3 string = "L3"
+
 	// IpvlanConfigurationOperationModeL3S captures enum value "L3S"
 	IpvlanConfigurationOperationModeL3S string = "L3S"
 )

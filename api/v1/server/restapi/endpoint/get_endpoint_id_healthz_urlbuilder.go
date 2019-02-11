@@ -38,7 +38,7 @@ func (o *GetEndpointIDHealthzURL) SetBasePath(bp string) {
 
 // Build a url path and query string
 func (o *GetEndpointIDHealthzURL) Build() (*url.URL, error) {
-	var result url.URL
+	var _result url.URL
 
 	var _path = "/endpoint/{id}/healthz"
 
@@ -48,13 +48,14 @@ func (o *GetEndpointIDHealthzURL) Build() (*url.URL, error) {
 	} else {
 		return nil, errors.New("ID is required on GetEndpointIDHealthzURL")
 	}
+
 	_basePath := o._basePath
 	if _basePath == "" {
 		_basePath = "/v1"
 	}
-	result.Path = golangswaggerpaths.Join(_basePath, _path)
+	_result.Path = golangswaggerpaths.Join(_basePath, _path)
 
-	return &result, nil
+	return &_result, nil
 }
 
 // Must is a helper function to panic when the url builder returns an error

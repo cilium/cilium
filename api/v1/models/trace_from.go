@@ -14,22 +14,39 @@ import (
 
 // TraceFrom trace from
 // swagger:model TraceFrom
-
 type TraceFrom struct {
 
 	// labels
-	Labels Labels `json:"labels"`
+	Labels Labels `json:"labels,omitempty"`
 }
-
-/* polymorph TraceFrom labels false */
 
 // Validate validates this trace from
 func (m *TraceFrom) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateLabels(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *TraceFrom) validateLabels(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Labels) { // not required
+		return nil
+	}
+
+	if err := m.Labels.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("labels")
+		}
+		return err
+	}
+
 	return nil
 }
 

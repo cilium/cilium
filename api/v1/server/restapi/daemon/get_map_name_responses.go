@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetMapNameOKCode is the HTTP code returned for type GetMapNameOK
@@ -30,6 +30,7 @@ type GetMapNameOK struct {
 
 // NewGetMapNameOK creates GetMapNameOK with default headers values
 func NewGetMapNameOK() *GetMapNameOK {
+
 	return &GetMapNameOK{}
 }
 
@@ -68,11 +69,14 @@ type GetMapNameNotFound struct {
 
 // NewGetMapNameNotFound creates GetMapNameNotFound with default headers values
 func NewGetMapNameNotFound() *GetMapNameNotFound {
+
 	return &GetMapNameNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetMapNameNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
