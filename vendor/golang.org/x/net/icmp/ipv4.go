@@ -17,8 +17,16 @@ import (
 // See http://www.freebsd.org/doc/en/books/porters-handbook/freebsd-versions.html.
 var freebsdVersion uint32
 
-// ParseIPv4Header parses b as an IPv4 header of ICMP error message
-// invoking packet, which is contained in ICMP error message.
+// ParseIPv4Header returns the IPv4 header of the IPv4 packet that
+// triggered an ICMP error message.
+// This is found in the Data field of the ICMP error message body.
+//
+// The provided b must be in the format used by a raw ICMP socket on
+// the local system.
+// This may differ from the wire format, and the format used by a raw
+// IP socket, depending on the system.
+//
+// To parse an IPv6 header, use ipv6.ParseHeader.
 func ParseIPv4Header(b []byte) (*ipv4.Header, error) {
 	if len(b) < ipv4.HeaderLen {
 		return nil, errHeaderTooShort
