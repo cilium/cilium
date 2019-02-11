@@ -443,7 +443,7 @@ required = [
 
 [[constraint]]
   name = "google.golang.org/genproto"
-  revision = "595979c8a7bf586b2d293fb42246bf91a0b893d9"
+  revision = "4b09977fb92221987e99d190c8f88f2c92727a29"
 
   # main-usage = "proxylib"
   # on-revision = ""
