@@ -6,17 +6,17 @@
 
 .. _ipvlan:
 
-*********************
-Using ipvlan datapath
-*********************
+******************************
+IPVLAN based Networking (beta)
+******************************
 
 This guide explains how to configure Cilium to set up an ipvlan-based
 datapath instead of the default veth-based one.
 
 .. note::
 
-    This is a beta feature. Please provide feedback and file a GitHub issue
-    if you experience any problems.
+    This is a beta feature. Please provide feedback and file a GitHub issue if
+    you experience any problems.
 
 First step is to download the Cilium Kubernetes descriptor:
 
