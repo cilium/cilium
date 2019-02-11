@@ -610,11 +610,11 @@
   revision = "9cad4c3443a7200dd6400aef47183728de563a38"
 
 [[projects]]
-  digest = "1:a6870429d5083ea442fc6df86fa846dbe19f6f2a27607213594dd86debb10a52"
+  digest = "1:eeda5c1da08e3b6e6dac8869c1cab16848bd7f80ccd08fad84fe7ae33df2345c"
   name = "github.com/hashicorp/consul"
   packages = ["api"]
   pruneopts = "NUT"
-  revision = "v1.4.0"
+  revision = "v1.4.2"
 
 [[projects]]
   digest = "1:a5d940c38bf56f121721bfa747c66356df387cb9d5318c570c6d4170aab62862"
