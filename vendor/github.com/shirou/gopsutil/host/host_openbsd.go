@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/shirou/gopsutil/internal/common"
 	"github.com/shirou/gopsutil/process"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -108,19 +108,14 @@ func PlatformInformationWithContext(ctx context.Context) (string, string, string
 	platform := ""
 	family := ""
 	version := ""
-	uname, err := exec.LookPath("uname")
-	if err != nil {
-		return "", "", "", err
-	}
 
-	out, err := invoke.CommandWithContext(ctx, uname, "-s")
+	p, err := unix.Sysctl("kern.ostype")
 	if err == nil {
-		platform = strings.ToLower(strings.TrimSpace(string(out)))
+		platform = strings.ToLower(p)
 	}
-
-	out, err = invoke.CommandWithContext(ctx, uname, "-r")
+	v, err := unix.Sysctl("kern.osrelease")
 	if err == nil {
-		version = strings.ToLower(strings.TrimSpace(string(out)))
+		version = strings.ToLower(v)
 	}
 
 	return platform, family, version, nil

@@ -393,7 +393,11 @@ func statsFromInodes(root string, pid int32, tmap []netConnectionKindType, inode
 		var path string
 		var connKey string
 		var ls []connTmp
-		path = fmt.Sprintf("%s/net/%s", root, t.filename)
+		if pid == 0 {
+			path = fmt.Sprintf("%s/net/%s", root, t.filename)
+		} else {
+			path = fmt.Sprintf("%s/%d/net/%s", root, pid, t.filename)
+		}
 		switch t.family {
 		case syscall.AF_INET, syscall.AF_INET6:
 			ls, err = processInet(path, t, inodes, pid)
