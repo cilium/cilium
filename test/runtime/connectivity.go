@@ -7,6 +7,7 @@ import (
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -49,8 +50,8 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 	Context("Basic Connectivity test", func() {
 
 		BeforeEach(func() {
-			vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-			vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+			vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+			vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 			vm.PolicyDelAll()
 			vm.WaitEndpointsReady()
 			err := helpers.WithTimeout(func() bool {
@@ -176,11 +177,11 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 	Context("With CNI", func() {
 		var (
-			cniPlugin   = "/opt/cni/bin/cilium-cni"
-			cniServer   = "cni-server"
-			cniClient   = "cni-client"
-			netDPath    = "/etc/cni/net.d/"
-			tmpDir      *helpers.CmdRes
+			cniPlugin = "/opt/cni/bin/cilium-cni"
+			cniServer = "cni-server"
+			cniClient = "cni-client"
+			netDPath  = "/etc/cni/net.d/"
+			tmpDir    *helpers.CmdRes
 		)
 
 		BeforeAll(func() {
@@ -204,11 +205,11 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		AfterEach(func() {
 			vm.ContainerRm(cniServer)
 			vm.ContainerRm(cniClient)
-			vm.Exec(fmt.Sprintf("docker rm -f $(docker ps --filter ancestor=%s --format '{{.ID}}')", helpers.BusyboxImage))
+			vm.Exec(fmt.Sprintf("docker rm -f $(docker ps --filter ancestor=%s --format '{{.ID}}')", constants.BusyboxImage))
 		})
 
 		runCNIContainer := func(name string, label string) {
-			res := vm.Exec(fmt.Sprintf("docker run -t -d --net=none -l %s %s", label, helpers.BusyboxImage))
+			res := vm.Exec(fmt.Sprintf("docker run -t -d --net=none -l %s %s", label, constants.BusyboxImage))
 			res.ExpectSuccess()
 			containerID := res.SingleOut()
 
@@ -222,7 +223,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			res.ExpectSuccess("CNI exec-plugins did not work correctly")
 
 			res = vm.ContainerCreate(
-				name, helpers.NetperfImage,
+				name, constants.NetperfImage,
 				fmt.Sprintf("container:%s", containerID), fmt.Sprintf("-l %s", label))
 			res.ExpectSuccess("Container %s cannot be created", name)
 		}
@@ -610,12 +611,12 @@ var _ = Describe("RuntimeConntrackTest", func() {
 
 	BeforeEach(func() {
 		// TODO: provide map[string]string instead of one string representing KV pair.
-		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
-		vm.ContainerCreate(helpers.Httpd1, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
-		vm.ContainerCreate(helpers.Httpd2, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
-		vm.ContainerCreate(curl1ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
-		vm.ContainerCreate(curl2ContainerName, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
+		vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+		vm.ContainerCreate(helpers.Httpd1, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
+		vm.ContainerCreate(helpers.Httpd2, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
+		vm.ContainerCreate(curl1ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
+		vm.ContainerCreate(curl2ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
 
 		vm.PolicyDelAll().ExpectSuccess("cannot delete all policies")
 

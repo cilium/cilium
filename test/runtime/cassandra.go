@@ -18,6 +18,7 @@ import (
 	"fmt"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 )
@@ -32,8 +33,8 @@ var _ = Describe("RuntimeCassandra", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"cass-server": helpers.CassandraImage,
-			"cass-client": helpers.CassandraImage,
+			"cass-server": constants.CassandraImage,
+			"cass-client": constants.CassandraImage,
 		}
 		cmds := map[string][]string{
 			"cass-client": {"sleep", "10000"},
