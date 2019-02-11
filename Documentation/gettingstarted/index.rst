@@ -54,6 +54,7 @@ Advanced Networking
    clustermesh
    flannel-integration
    ipvlan
+   encryption
 
 Operations
 ----------
