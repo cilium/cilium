@@ -29,6 +29,9 @@ type Parser struct {
 	// NamespaceDelimiter separates group namespaces and option long names
 	NamespaceDelimiter string
 
+	// EnvNamespaceDelimiter separates group env namespaces and env keys
+	EnvNamespaceDelimiter string
+
 	// UnknownOptionsHandler is a function which gets called when the parser
 	// encounters an unknown option. The function receives the unknown option
 	// name, a SplitArgument which specifies its value if set with an argument
@@ -170,9 +173,10 @@ func NewParser(data interface{}, options Options) *Parser {
 // be added to this parser by using AddGroup and AddCommand.
 func NewNamedParser(appname string, options Options) *Parser {
 	p := &Parser{
-		Command:            newCommand(appname, "", "", nil),
-		Options:            options,
-		NamespaceDelimiter: ".",
+		Command:               newCommand(appname, "", "", nil),
+		Options:               options,
+		NamespaceDelimiter:    ".",
+		EnvNamespaceDelimiter: "_",
 	}
 
 	p.Command.parent = p
@@ -237,6 +241,7 @@ func (p *Parser) ParseArgs(args []string) ([]string, error) {
 	p.fillParseState(s)
 
 	for !s.eof() {
+		var err error
 		arg := s.pop()
 
 		// When PassDoubleDash is set and we encounter a --, then
@@ -247,6 +252,20 @@ func (p *Parser) ParseArgs(args []string) ([]string, error) {
 		}
 
 		if !argumentIsOption(arg) {
+			if (p.Options&PassAfterNonOption) != None && s.lookup.commands[arg] == nil {
+				// If PassAfterNonOption is set then all remaining arguments
+				// are considered positional
+				if err = s.addArgs(s.arg); err != nil {
+					break
+				}
+
+				if err = s.addArgs(s.args...); err != nil {
+					break
+				}
+
+				break
+			}
+
 			// Note: this also sets s.err, so we can just check for
 			// nil here and use s.err later
 			if p.parseNonOption(s) != nil {
@@ -255,8 +274,6 @@ func (p *Parser) ParseArgs(args []string) ([]string, error) {
 
 			continue
 		}
-
-		var err error
 
 		prefix, optname, islong := stripOptionPrefix(arg)
 		optname, _, argument := splitOption(prefix, optname, islong)
@@ -479,7 +496,7 @@ func (p *parseState) estimateCommand() error {
 			msg = fmt.Sprintf("%s. You should use the %s command",
 				msg,
 				cmdnames[0])
-		} else {
+		} else if len(cmdnames) > 1 {
 			msg = fmt.Sprintf("%s. Please specify one command of: %s or %s",
 				msg,
 				strings.Join(cmdnames[:len(cmdnames)-1], ", "),
@@ -490,7 +507,7 @@ func (p *parseState) estimateCommand() error {
 
 		if len(cmdnames) == 1 {
 			msg = fmt.Sprintf("Please specify the %s command", cmdnames[0])
-		} else {
+		} else if len(cmdnames) > 1 {
 			msg = fmt.Sprintf("Please specify one command of: %s or %s",
 				strings.Join(cmdnames[:len(cmdnames)-1], ", "),
 				cmdnames[len(cmdnames)-1])
@@ -515,8 +532,8 @@ func (p *Parser) parseOption(s *parseState, name string, option *Option, canarg 
 		} else {
 			arg = s.pop()
 
-			if argumentIsOption(arg) && !(option.isSignedNumber() && len(arg) > 1 && arg[0] == '-' && arg[1] >= '0' && arg[1] <= '9') {
-				return newErrorf(ErrExpectedArgument, "expected argument for flag `%s', but got option `%s'", option, arg)
+			if validationErr := option.isValidValue(arg); validationErr != nil {
+				return newErrorf(ErrExpectedArgument, validationErr.Error())
 			} else if p.Options&PassDoubleDash != 0 && arg == "--" {
 				return newErrorf(ErrExpectedArgument, "expected argument for flag `%s', but got double dash `--'", option)
 			}
@@ -649,23 +666,7 @@ func (p *Parser) parseNonOption(s *parseState) error {
 		}
 	}
 
-	if (p.Options & PassAfterNonOption) != None {
-		// If PassAfterNonOption is set then all remaining arguments
-		// are considered positional
-		if err := s.addArgs(s.arg); err != nil {
-			return err
-		}
-
-		if err := s.addArgs(s.args...); err != nil {
-			return err
-		}
-
-		s.args = []string{}
-	} else {
-		return s.addArgs(s.arg)
-	}
-
-	return nil
+	return s.addArgs(s.arg)
 }
 
 func (p *Parser) showBuiltinHelp() error {
