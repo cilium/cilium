@@ -20,7 +20,6 @@ import (
 // protocol, use policy.
 //
 // swagger:model FrontendAddress
-
 type FrontendAddress struct {
 
 	// Layer 3 address
@@ -30,21 +29,15 @@ type FrontendAddress struct {
 	Port uint16 `json:"port,omitempty"`
 
 	// Layer 4 protocol
+	// Enum: [tcp udp any]
 	Protocol string `json:"protocol,omitempty"`
 }
-
-/* polymorph FrontendAddress ip false */
-
-/* polymorph FrontendAddress port false */
-
-/* polymorph FrontendAddress protocol false */
 
 // Validate validates this frontend address
 func (m *FrontendAddress) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateProtocol(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -67,10 +60,13 @@ func init() {
 }
 
 const (
+
 	// FrontendAddressProtocolTCP captures enum value "tcp"
 	FrontendAddressProtocolTCP string = "tcp"
+
 	// FrontendAddressProtocolUDP captures enum value "udp"
 	FrontendAddressProtocolUDP string = "udp"
+
 	// FrontendAddressProtocolAny captures enum value "any"
 	FrontendAddressProtocolAny string = "any"
 )

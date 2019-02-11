@@ -24,21 +24,15 @@ type NodeAddressing struct {
 	IPV6 *NodeAddressingElement `json:"ipv6,omitempty"`
 }
 
-/* polymorph NodeAddressing ipv4 false */
-
-/* polymorph NodeAddressing ipv6 false */
-
 // Validate validates this node addressing
 func (m *NodeAddressing) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateIPV4(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateIPV6(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -55,7 +49,6 @@ func (m *NodeAddressing) validateIPV4(formats strfmt.Registry) error {
 	}
 
 	if m.IPV4 != nil {
-
 		if err := m.IPV4.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv4")
@@ -74,7 +67,6 @@ func (m *NodeAddressing) validateIPV6(formats strfmt.Registry) error {
 	}
 
 	if m.IPV6 != nil {
-
 		if err := m.IPV6.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv6")

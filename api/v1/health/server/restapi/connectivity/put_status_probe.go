@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	middleware "github.com/go-openapi/runtime/middleware"
-	strfmt "github.com/go-openapi/strfmt"
 )
 
 // PutStatusProbeHandlerFunc turns a function with the right signature into a put status probe handler
@@ -60,14 +59,4 @@ func (o *PutStatusProbe) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
-}
-
-// putStatusProbeFailedBody put status probe failed body
-// swagger:model putStatusProbeFailedBody
-
-type PutStatusProbeFailedBody string
-
-// Validate validates this put status probe failed body
-func (o PutStatusProbeFailedBody) Validate(formats strfmt.Registry) error {
-	return nil
 }

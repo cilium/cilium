@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // DeletePolicyOKCode is the HTTP code returned for type DeletePolicyOK
@@ -30,6 +30,7 @@ type DeletePolicyOK struct {
 
 // NewDeletePolicyOK creates DeletePolicyOK with default headers values
 func NewDeletePolicyOK() *DeletePolicyOK {
+
 	return &DeletePolicyOK{}
 }
 
@@ -73,6 +74,7 @@ type DeletePolicyInvalid struct {
 
 // NewDeletePolicyInvalid creates DeletePolicyInvalid with default headers values
 func NewDeletePolicyInvalid() *DeletePolicyInvalid {
+
 	return &DeletePolicyInvalid{}
 }
 
@@ -110,11 +112,14 @@ type DeletePolicyNotFound struct {
 
 // NewDeletePolicyNotFound creates DeletePolicyNotFound with default headers values
 func NewDeletePolicyNotFound() *DeletePolicyNotFound {
+
 	return &DeletePolicyNotFound{}
 }
 
 // WriteResponse to the client
 func (o *DeletePolicyNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -136,6 +141,7 @@ type DeletePolicyFailure struct {
 
 // NewDeletePolicyFailure creates DeletePolicyFailure with default headers values
 func NewDeletePolicyFailure() *DeletePolicyFailure {
+
 	return &DeletePolicyFailure{}
 }
 

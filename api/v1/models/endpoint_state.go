@@ -16,26 +16,34 @@ import (
 
 // EndpointState State of endpoint
 // swagger:model EndpointState
-
 type EndpointState string
 
 const (
+
 	// EndpointStateCreating captures enum value "creating"
 	EndpointStateCreating EndpointState = "creating"
+
 	// EndpointStateWaitingForIdentity captures enum value "waiting-for-identity"
 	EndpointStateWaitingForIdentity EndpointState = "waiting-for-identity"
+
 	// EndpointStateNotReady captures enum value "not-ready"
 	EndpointStateNotReady EndpointState = "not-ready"
+
 	// EndpointStateWaitingToRegenerate captures enum value "waiting-to-regenerate"
 	EndpointStateWaitingToRegenerate EndpointState = "waiting-to-regenerate"
+
 	// EndpointStateRegenerating captures enum value "regenerating"
 	EndpointStateRegenerating EndpointState = "regenerating"
+
 	// EndpointStateRestoring captures enum value "restoring"
 	EndpointStateRestoring EndpointState = "restoring"
+
 	// EndpointStateReady captures enum value "ready"
 	EndpointStateReady EndpointState = "ready"
+
 	// EndpointStateDisconnecting captures enum value "disconnecting"
 	EndpointStateDisconnecting EndpointState = "disconnecting"
+
 	// EndpointStateDisconnected captures enum value "disconnected"
 	EndpointStateDisconnected EndpointState = "disconnected"
 )

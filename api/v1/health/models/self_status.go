@@ -8,28 +8,19 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // SelfStatus Description of the cilium-health node
 // swagger:model SelfStatus
-
 type SelfStatus struct {
 
 	// Name associated with this node
 	Name string `json:"name,omitempty"`
 }
 
-/* polymorph SelfStatus name false */
-
 // Validate validates this self status
 func (m *SelfStatus) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

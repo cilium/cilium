@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetIdentityIDOKCode is the HTTP code returned for type GetIdentityIDOK
@@ -30,6 +30,7 @@ type GetIdentityIDOK struct {
 
 // NewGetIdentityIDOK creates GetIdentityIDOK with default headers values
 func NewGetIdentityIDOK() *GetIdentityIDOK {
+
 	return &GetIdentityIDOK{}
 }
 
@@ -68,11 +69,14 @@ type GetIdentityIDBadRequest struct {
 
 // NewGetIdentityIDBadRequest creates GetIdentityIDBadRequest with default headers values
 func NewGetIdentityIDBadRequest() *GetIdentityIDBadRequest {
+
 	return &GetIdentityIDBadRequest{}
 }
 
 // WriteResponse to the client
 func (o *GetIdentityIDBadRequest) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -89,11 +93,14 @@ type GetIdentityIDNotFound struct {
 
 // NewGetIdentityIDNotFound creates GetIdentityIDNotFound with default headers values
 func NewGetIdentityIDNotFound() *GetIdentityIDNotFound {
+
 	return &GetIdentityIDNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetIdentityIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -115,6 +122,7 @@ type GetIdentityIDUnreachable struct {
 
 // NewGetIdentityIDUnreachable creates GetIdentityIDUnreachable with default headers values
 func NewGetIdentityIDUnreachable() *GetIdentityIDUnreachable {
+
 	return &GetIdentityIDUnreachable{}
 }
 
@@ -157,6 +165,7 @@ type GetIdentityIDInvalidStorageFormat struct {
 
 // NewGetIdentityIDInvalidStorageFormat creates GetIdentityIDInvalidStorageFormat with default headers values
 func NewGetIdentityIDInvalidStorageFormat() *GetIdentityIDInvalidStorageFormat {
+
 	return &GetIdentityIDInvalidStorageFormat{}
 }
 

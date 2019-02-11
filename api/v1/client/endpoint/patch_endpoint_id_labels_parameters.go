@@ -6,10 +6,9 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -17,7 +16,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchEndpointIDLabelsParams creates a new PatchEndpointIDLabelsParams object
@@ -152,12 +151,10 @@ func (o *PatchEndpointIDLabelsParams) WriteToRequest(r runtime.ClientRequest, re
 	}
 	var res []error
 
-	if o.Configuration == nil {
-		o.Configuration = new(models.LabelConfigurationSpec)
-	}
-
-	if err := r.SetBodyParam(o.Configuration); err != nil {
-		return err
+	if o.Configuration != nil {
+		if err := r.SetBodyParam(o.Configuration); err != nil {
+			return err
+		}
 	}
 
 	// path param id

@@ -39,9 +39,6 @@ func NewHTTPClient(formats strfmt.Registry) *CiliumHealth {
 // using a customizable transport config.
 func NewHTTPClientWithConfig(formats strfmt.Registry, cfg *TransportConfig) *CiliumHealth {
 	// ensure nullable parameters have default
-	if formats == nil {
-		formats = strfmt.Default
-	}
 	if cfg == nil {
 		cfg = DefaultTransportConfig()
 	}
@@ -53,6 +50,11 @@ func NewHTTPClientWithConfig(formats strfmt.Registry, cfg *TransportConfig) *Cil
 
 // New creates a new cilium health client
 func New(transport runtime.ClientTransport, formats strfmt.Registry) *CiliumHealth {
+	// ensure nullable parameters have default
+	if formats == nil {
+		formats = strfmt.Default
+	}
+
 	cli := new(CiliumHealth)
 	cli.Transport = transport
 

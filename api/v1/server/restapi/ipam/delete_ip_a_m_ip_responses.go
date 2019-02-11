@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // DeleteIPAMIPOKCode is the HTTP code returned for type DeleteIPAMIPOK
@@ -25,11 +25,14 @@ type DeleteIPAMIPOK struct {
 
 // NewDeleteIPAMIPOK creates DeleteIPAMIPOK with default headers values
 func NewDeleteIPAMIPOK() *DeleteIPAMIPOK {
+
 	return &DeleteIPAMIPOK{}
 }
 
 // WriteResponse to the client
 func (o *DeleteIPAMIPOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -46,11 +49,14 @@ type DeleteIPAMIPInvalid struct {
 
 // NewDeleteIPAMIPInvalid creates DeleteIPAMIPInvalid with default headers values
 func NewDeleteIPAMIPInvalid() *DeleteIPAMIPInvalid {
+
 	return &DeleteIPAMIPInvalid{}
 }
 
 // WriteResponse to the client
 func (o *DeleteIPAMIPInvalid) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -67,11 +73,14 @@ type DeleteIPAMIPNotFound struct {
 
 // NewDeleteIPAMIPNotFound creates DeleteIPAMIPNotFound with default headers values
 func NewDeleteIPAMIPNotFound() *DeleteIPAMIPNotFound {
+
 	return &DeleteIPAMIPNotFound{}
 }
 
 // WriteResponse to the client
 func (o *DeleteIPAMIPNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -93,6 +102,7 @@ type DeleteIPAMIPFailure struct {
 
 // NewDeleteIPAMIPFailure creates DeleteIPAMIPFailure with default headers values
 func NewDeleteIPAMIPFailure() *DeleteIPAMIPFailure {
+
 	return &DeleteIPAMIPFailure{}
 }
 
@@ -130,11 +140,14 @@ type DeleteIPAMIPDisabled struct {
 
 // NewDeleteIPAMIPDisabled creates DeleteIPAMIPDisabled with default headers values
 func NewDeleteIPAMIPDisabled() *DeleteIPAMIPDisabled {
+
 	return &DeleteIPAMIPDisabled{}
 }
 
 // WriteResponse to the client
 func (o *DeleteIPAMIPDisabled) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(501)
 }

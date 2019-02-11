@@ -18,7 +18,6 @@ import (
 // probing via all known IP addresses
 //
 // swagger:model HostStatus
-
 type HostStatus struct {
 
 	// primary address
@@ -28,21 +27,15 @@ type HostStatus struct {
 	SecondaryAddresses []*PathStatus `json:"secondary-addresses"`
 }
 
-/* polymorph HostStatus primary-address false */
-
-/* polymorph HostStatus secondary-addresses false */
-
 // Validate validates this host status
 func (m *HostStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validatePrimaryAddress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateSecondaryAddresses(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -59,7 +52,6 @@ func (m *HostStatus) validatePrimaryAddress(formats strfmt.Registry) error {
 	}
 
 	if m.PrimaryAddress != nil {
-
 		if err := m.PrimaryAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
@@ -78,13 +70,11 @@ func (m *HostStatus) validateSecondaryAddresses(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.SecondaryAddresses); i++ {
-
 		if swag.IsZero(m.SecondaryAddresses[i]) { // not required
 			continue
 		}
 
 		if m.SecondaryAddresses[i] != nil {
-
 			if err := m.SecondaryAddresses[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))

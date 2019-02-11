@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PatchConfigOKCode is the HTTP code returned for type PatchConfigOK
@@ -25,11 +25,14 @@ type PatchConfigOK struct {
 
 // NewPatchConfigOK creates PatchConfigOK with default headers values
 func NewPatchConfigOK() *PatchConfigOK {
+
 	return &PatchConfigOK{}
 }
 
 // WriteResponse to the client
 func (o *PatchConfigOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -51,6 +54,7 @@ type PatchConfigBadRequest struct {
 
 // NewPatchConfigBadRequest creates PatchConfigBadRequest with default headers values
 func NewPatchConfigBadRequest() *PatchConfigBadRequest {
+
 	return &PatchConfigBadRequest{}
 }
 
@@ -93,6 +97,7 @@ type PatchConfigFailure struct {
 
 // NewPatchConfigFailure creates PatchConfigFailure with default headers values
 func NewPatchConfigFailure() *PatchConfigFailure {
+
 	return &PatchConfigFailure{}
 }
 

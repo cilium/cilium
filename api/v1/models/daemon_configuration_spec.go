@@ -17,32 +17,47 @@ import (
 
 // DaemonConfigurationSpec The controllable configuration of the daemon.
 // swagger:model DaemonConfigurationSpec
-
 type DaemonConfigurationSpec struct {
 
 	// Changeable configuration
 	Options ConfigurationMap `json:"options,omitempty"`
 
 	// The policy-enforcement mode
+	// Enum: [default always never]
 	PolicyEnforcement string `json:"policy-enforcement,omitempty"`
 }
-
-/* polymorph DaemonConfigurationSpec options false */
-
-/* polymorph DaemonConfigurationSpec policy-enforcement false */
 
 // Validate validates this daemon configuration spec
 func (m *DaemonConfigurationSpec) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateOptions(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validatePolicyEnforcement(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *DaemonConfigurationSpec) validateOptions(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Options) { // not required
+		return nil
+	}
+
+	if err := m.Options.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("options")
+		}
+		return err
+	}
+
 	return nil
 }
 
@@ -59,10 +74,13 @@ func init() {
 }
 
 const (
+
 	// DaemonConfigurationSpecPolicyEnforcementDefault captures enum value "default"
 	DaemonConfigurationSpecPolicyEnforcementDefault string = "default"
+
 	// DaemonConfigurationSpecPolicyEnforcementAlways captures enum value "always"
 	DaemonConfigurationSpecPolicyEnforcementAlways string = "always"
+
 	// DaemonConfigurationSpecPolicyEnforcementNever captures enum value "never"
 	DaemonConfigurationSpecPolicyEnforcementNever string = "never"
 )

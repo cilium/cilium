@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetFqdnCacheOKCode is the HTTP code returned for type GetFqdnCacheOK
@@ -30,6 +30,7 @@ type GetFqdnCacheOK struct {
 
 // NewGetFqdnCacheOK creates GetFqdnCacheOK with default headers values
 func NewGetFqdnCacheOK() *GetFqdnCacheOK {
+
 	return &GetFqdnCacheOK{}
 }
 
@@ -76,6 +77,7 @@ type GetFqdnCacheBadRequest struct {
 
 // NewGetFqdnCacheBadRequest creates GetFqdnCacheBadRequest with default headers values
 func NewGetFqdnCacheBadRequest() *GetFqdnCacheBadRequest {
+
 	return &GetFqdnCacheBadRequest{}
 }
 
@@ -113,11 +115,14 @@ type GetFqdnCacheNotFound struct {
 
 // NewGetFqdnCacheNotFound creates GetFqdnCacheNotFound with default headers values
 func NewGetFqdnCacheNotFound() *GetFqdnCacheNotFound {
+
 	return &GetFqdnCacheNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetFqdnCacheNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

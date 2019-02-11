@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // ProxyStatus Status of proxy
 // swagger:model ProxyStatus
-
 type ProxyStatus struct {
 
 	// IP address that the proxy listens on
@@ -24,17 +22,8 @@ type ProxyStatus struct {
 	PortRange string `json:"port-range,omitempty"`
 }
 
-/* polymorph ProxyStatus ip false */
-
-/* polymorph ProxyStatus port-range false */
-
 // Validate validates this proxy status
 func (m *ProxyStatus) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

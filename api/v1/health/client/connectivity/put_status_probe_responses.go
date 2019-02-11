@@ -13,7 +13,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/health/models"
+	models "github.com/cilium/cilium/api/v1/health/models"
 )
 
 // PutStatusProbeReader is a Reader for the PutStatusProbe structure.
@@ -83,7 +83,7 @@ func NewPutStatusProbeFailed() *PutStatusProbeFailed {
 Internal error occurred while conducting connectivity probe
 */
 type PutStatusProbeFailed struct {
-	Payload PutStatusProbeFailedBody
+	Payload models.Error
 }
 
 func (o *PutStatusProbeFailed) Error() string {
@@ -97,16 +97,5 @@ func (o *PutStatusProbeFailed) readResponse(response runtime.ClientResponse, con
 		return err
 	}
 
-	return nil
-}
-
-/*PutStatusProbeFailedBody put status probe failed body
-swagger:model putStatusProbeFailedBody
-*/
-
-type PutStatusProbeFailedBody string
-
-// Validate validates this put status probe failed body
-func (o PutStatusProbeFailedBody) Validate(formats strfmt.Registry) error {
 	return nil
 }

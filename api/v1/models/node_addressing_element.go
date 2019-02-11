@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // NodeAddressingElement Addressing information
 // swagger:model NodeAddressingElement
-
 type NodeAddressingElement struct {
 
 	// Node address type, one of HostName, ExternalIP or InternalIP
@@ -30,21 +28,8 @@ type NodeAddressingElement struct {
 	IP string `json:"ip,omitempty"`
 }
 
-/* polymorph NodeAddressingElement address-type false */
-
-/* polymorph NodeAddressingElement alloc-range false */
-
-/* polymorph NodeAddressingElement enabled false */
-
-/* polymorph NodeAddressingElement ip false */
-
 // Validate validates this node addressing element
 func (m *NodeAddressingElement) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

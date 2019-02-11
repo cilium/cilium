@@ -22,7 +22,7 @@ import (
 
 // PolicyPut inserts the `policyJSON`
 func (c *Client) PolicyPut(policyJSON string) (*models.Policy, error) {
-	params := policy.NewPutPolicyParams().WithPolicy(&policyJSON).WithTimeout(api.ClientTimeout)
+	params := policy.NewPutPolicyParams().WithPolicy(policyJSON).WithTimeout(api.ClientTimeout)
 	resp, err := c.Policy.PutPolicy(params)
 	if err != nil {
 		return nil, Hint(err)

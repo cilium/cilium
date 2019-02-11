@@ -23,11 +23,14 @@ type GetHelloOK struct {
 
 // NewGetHelloOK creates GetHelloOK with default headers values
 func NewGetHelloOK() *GetHelloOK {
+
 	return &GetHelloOK{}
 }
 
 // WriteResponse to the client
 func (o *GetHelloOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }

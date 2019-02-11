@@ -14,7 +14,6 @@ import (
 
 // EndpointPolicy Policy information of an endpoint
 // swagger:model EndpointPolicy
-
 type EndpointPolicy struct {
 
 	// List of identities to which this endpoint is allowed to communicate
@@ -44,72 +43,25 @@ type EndpointPolicy struct {
 	PolicyRevision int64 `json:"policy-revision,omitempty"`
 }
 
-/* polymorph EndpointPolicy allowed-egress-identities false */
-
-/* polymorph EndpointPolicy allowed-ingress-identities false */
-
-/* polymorph EndpointPolicy build false */
-
-/* polymorph EndpointPolicy cidr-policy false */
-
-/* polymorph EndpointPolicy id false */
-
-/* polymorph EndpointPolicy l4 false */
-
-/* polymorph EndpointPolicy policy-enabled false */
-
-/* polymorph EndpointPolicy policy-revision false */
-
 // Validate validates this endpoint policy
 func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateAllowedEgressIdentities(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateAllowedIngressIdentities(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
 	if err := m.validateCidrPolicy(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateL4(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validatePolicyEnabled(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *EndpointPolicy) validateAllowedEgressIdentities(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.AllowedEgressIdentities) { // not required
-		return nil
-	}
-
-	return nil
-}
-
-func (m *EndpointPolicy) validateAllowedIngressIdentities(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.AllowedIngressIdentities) { // not required
-		return nil
-	}
-
 	return nil
 }
 
@@ -120,7 +72,6 @@ func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
 	}
 
 	if m.CidrPolicy != nil {
-
 		if err := m.CidrPolicy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cidr-policy")
@@ -139,7 +90,6 @@ func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
 	}
 
 	if m.L4 != nil {
-
 		if err := m.L4.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("l4")

@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // PolicyRule A policy rule including the rule labels it derives from
 // swagger:model PolicyRule
-
 type PolicyRule struct {
 
 	// The policy rule labels identifying the policy rules this rule derives from
@@ -24,31 +22,8 @@ type PolicyRule struct {
 	Rule string `json:"rule,omitempty"`
 }
 
-/* polymorph PolicyRule derived-from-rules false */
-
-/* polymorph PolicyRule rule false */
-
 // Validate validates this policy rule
 func (m *PolicyRule) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.validateDerivedFromRules(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *PolicyRule) validateDerivedFromRules(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.DerivedFromRules) { // not required
-		return nil
-	}
-
 	return nil
 }
 

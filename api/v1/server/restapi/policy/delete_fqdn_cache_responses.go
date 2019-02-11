@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // DeleteFqdnCacheOKCode is the HTTP code returned for type DeleteFqdnCacheOK
@@ -25,11 +25,14 @@ type DeleteFqdnCacheOK struct {
 
 // NewDeleteFqdnCacheOK creates DeleteFqdnCacheOK with default headers values
 func NewDeleteFqdnCacheOK() *DeleteFqdnCacheOK {
+
 	return &DeleteFqdnCacheOK{}
 }
 
 // WriteResponse to the client
 func (o *DeleteFqdnCacheOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -51,6 +54,7 @@ type DeleteFqdnCacheBadRequest struct {
 
 // NewDeleteFqdnCacheBadRequest creates DeleteFqdnCacheBadRequest with default headers values
 func NewDeleteFqdnCacheBadRequest() *DeleteFqdnCacheBadRequest {
+
 	return &DeleteFqdnCacheBadRequest{}
 }
 

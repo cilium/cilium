@@ -12,13 +12,13 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetIdentityParams creates a new GetIdentityParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewGetIdentityParams() GetIdentityParams {
-	var ()
+
 	return GetIdentityParams{}
 }
 
@@ -29,7 +29,7 @@ func NewGetIdentityParams() GetIdentityParams {
 type GetIdentityParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*List of labels
 
@@ -39,9 +39,12 @@ type GetIdentityParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewGetIdentityParams() beforehand.
 func (o *GetIdentityParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
@@ -50,14 +53,16 @@ func (o *GetIdentityParams) BindRequest(r *http.Request, route *middleware.Match
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			res = append(res, errors.NewParseError("labels", "body", "", err))
 		} else {
+			// validate body object
+			if err := body.Validate(route.Formats); err != nil {
+				res = append(res, err)
+			}
 
 			if len(res) == 0 {
 				o.Labels = body
 			}
 		}
-
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}

@@ -24,21 +24,15 @@ type RequestResponseStatistics struct {
 	Responses *MessageForwardingStatistics `json:"responses,omitempty"`
 }
 
-/* polymorph RequestResponseStatistics requests false */
-
-/* polymorph RequestResponseStatistics responses false */
-
 // Validate validates this request response statistics
 func (m *RequestResponseStatistics) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateRequests(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateResponses(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -55,7 +49,6 @@ func (m *RequestResponseStatistics) validateRequests(formats strfmt.Registry) er
 	}
 
 	if m.Requests != nil {
-
 		if err := m.Requests.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("requests")
@@ -74,7 +67,6 @@ func (m *RequestResponseStatistics) validateResponses(formats strfmt.Registry) e
 	}
 
 	if m.Responses != nil {
-
 		if err := m.Responses.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("responses")

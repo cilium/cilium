@@ -16,7 +16,6 @@ import (
 
 // HealthStatusResponse Connectivity status to other daemons
 // swagger:model HealthStatusResponse
-
 type HealthStatusResponse struct {
 
 	// Description of the local node
@@ -29,23 +28,15 @@ type HealthStatusResponse struct {
 	Timestamp string `json:"timestamp,omitempty"`
 }
 
-/* polymorph HealthStatusResponse local false */
-
-/* polymorph HealthStatusResponse nodes false */
-
-/* polymorph HealthStatusResponse timestamp false */
-
 // Validate validates this health status response
 func (m *HealthStatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateLocal(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateNodes(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -62,7 +53,6 @@ func (m *HealthStatusResponse) validateLocal(formats strfmt.Registry) error {
 	}
 
 	if m.Local != nil {
-
 		if err := m.Local.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("local")
@@ -81,13 +71,11 @@ func (m *HealthStatusResponse) validateNodes(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Nodes); i++ {
-
 		if swag.IsZero(m.Nodes[i]) { // not required
 			continue
 		}
 
 		if m.Nodes[i] != nil {
-
 			if err := m.Nodes[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))

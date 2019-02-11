@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetEndpointIDHealthzOKCode is the HTTP code returned for type GetEndpointIDHealthzOK
@@ -30,6 +30,7 @@ type GetEndpointIDHealthzOK struct {
 
 // NewGetEndpointIDHealthzOK creates GetEndpointIDHealthzOK with default headers values
 func NewGetEndpointIDHealthzOK() *GetEndpointIDHealthzOK {
+
 	return &GetEndpointIDHealthzOK{}
 }
 
@@ -68,11 +69,14 @@ type GetEndpointIDHealthzInvalid struct {
 
 // NewGetEndpointIDHealthzInvalid creates GetEndpointIDHealthzInvalid with default headers values
 func NewGetEndpointIDHealthzInvalid() *GetEndpointIDHealthzInvalid {
+
 	return &GetEndpointIDHealthzInvalid{}
 }
 
 // WriteResponse to the client
 func (o *GetEndpointIDHealthzInvalid) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -89,11 +93,14 @@ type GetEndpointIDHealthzNotFound struct {
 
 // NewGetEndpointIDHealthzNotFound creates GetEndpointIDHealthzNotFound with default headers values
 func NewGetEndpointIDHealthzNotFound() *GetEndpointIDHealthzNotFound {
+
 	return &GetEndpointIDHealthzNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetEndpointIDHealthzNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

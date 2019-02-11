@@ -16,7 +16,6 @@ import (
 
 // CIDRPolicy CIDR endpoint policy
 // swagger:model CIDRPolicy
-
 type CIDRPolicy struct {
 
 	// List of CIDR egress rules
@@ -26,21 +25,15 @@ type CIDRPolicy struct {
 	Ingress []*PolicyRule `json:"ingress"`
 }
 
-/* polymorph CIDRPolicy egress false */
-
-/* polymorph CIDRPolicy ingress false */
-
 // Validate validates this c ID r policy
 func (m *CIDRPolicy) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateEgress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateIngress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -57,13 +50,11 @@ func (m *CIDRPolicy) validateEgress(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Egress); i++ {
-
 		if swag.IsZero(m.Egress[i]) { // not required
 			continue
 		}
 
 		if m.Egress[i] != nil {
-
 			if err := m.Egress[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
@@ -84,13 +75,11 @@ func (m *CIDRPolicy) validateIngress(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Ingress); i++ {
-
 		if swag.IsZero(m.Ingress[i]) { // not required
 			continue
 		}
 
 		if m.Ingress[i] != nil {
-
 			if err := m.Ingress[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))

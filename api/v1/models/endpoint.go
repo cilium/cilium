@@ -14,7 +14,6 @@ import (
 
 // Endpoint An endpoint is a namespaced network interface to which cilium applies policies
 // swagger:model Endpoint
-
 type Endpoint struct {
 
 	// The cilium-agent-local ID of the endpoint
@@ -27,23 +26,15 @@ type Endpoint struct {
 	Status *EndpointStatus `json:"status,omitempty"`
 }
 
-/* polymorph Endpoint id false */
-
-/* polymorph Endpoint spec false */
-
-/* polymorph Endpoint status false */
-
 // Validate validates this endpoint
 func (m *Endpoint) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateSpec(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateStatus(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -60,7 +51,6 @@ func (m *Endpoint) validateSpec(formats strfmt.Registry) error {
 	}
 
 	if m.Spec != nil {
-
 		if err := m.Spec.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("spec")
@@ -79,7 +69,6 @@ func (m *Endpoint) validateStatus(formats strfmt.Registry) error {
 	}
 
 	if m.Status != nil {
-
 		if err := m.Status.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("status")

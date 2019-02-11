@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // KVstoreConfiguration Configuration used for the kvstore
 // swagger:model KVstoreConfiguration
-
 type KVstoreConfiguration struct {
 
 	// Configuration options
@@ -24,17 +22,8 @@ type KVstoreConfiguration struct {
 	Type string `json:"type,omitempty"`
 }
 
-/* polymorph KVstoreConfiguration options false */
-
-/* polymorph KVstoreConfiguration type false */
-
 // Validate validates this k vstore configuration
 func (m *KVstoreConfiguration) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

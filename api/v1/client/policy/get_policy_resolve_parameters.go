@@ -6,10 +6,9 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -17,7 +16,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetPolicyResolveParams creates a new GetPolicyResolveParams object
@@ -127,12 +126,10 @@ func (o *GetPolicyResolveParams) WriteToRequest(r runtime.ClientRequest, reg str
 	}
 	var res []error
 
-	if o.TraceSelector == nil {
-		o.TraceSelector = new(models.TraceSelector)
-	}
-
-	if err := r.SetBodyParam(o.TraceSelector); err != nil {
-		return err
+	if o.TraceSelector != nil {
+		if err := r.SetBodyParam(o.TraceSelector); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

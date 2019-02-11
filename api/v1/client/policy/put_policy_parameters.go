@@ -6,10 +6,9 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -66,7 +65,7 @@ type PutPolicyParams struct {
 	  Policy rules
 
 	*/
-	Policy *string
+	Policy string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -107,13 +106,13 @@ func (o *PutPolicyParams) SetHTTPClient(client *http.Client) {
 }
 
 // WithPolicy adds the policy to the put policy params
-func (o *PutPolicyParams) WithPolicy(policy *string) *PutPolicyParams {
+func (o *PutPolicyParams) WithPolicy(policy string) *PutPolicyParams {
 	o.SetPolicy(policy)
 	return o
 }
 
 // SetPolicy adds the policy to the put policy params
-func (o *PutPolicyParams) SetPolicy(policy *string) {
+func (o *PutPolicyParams) SetPolicy(policy string) {
 	o.Policy = policy
 }
 

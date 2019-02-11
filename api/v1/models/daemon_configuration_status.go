@@ -17,7 +17,6 @@ import (
 // settings.
 //
 // swagger:model DaemonConfigurationStatus
-
 type DaemonConfigurationStatus struct {
 
 	// addressing
@@ -54,59 +53,35 @@ type DaemonConfigurationStatus struct {
 	RouteMTU int64 `json:"routeMTU,omitempty"`
 }
 
-/* polymorph DaemonConfigurationStatus addressing false */
-
-/* polymorph DaemonConfigurationStatus datapathMode false */
-
-/* polymorph DaemonConfigurationStatus deviceMTU false */
-
-/* polymorph DaemonConfigurationStatus immutable false */
-
-/* polymorph DaemonConfigurationStatus ipvlanConfiguration false */
-
-/* polymorph DaemonConfigurationStatus k8s-configuration false */
-
-/* polymorph DaemonConfigurationStatus k8s-endpoint false */
-
-/* polymorph DaemonConfigurationStatus kvstoreConfiguration false */
-
-/* polymorph DaemonConfigurationStatus nodeMonitor false */
-
-/* polymorph DaemonConfigurationStatus realized false */
-
-/* polymorph DaemonConfigurationStatus routeMTU false */
-
 // Validate validates this daemon configuration status
 func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateAddressing(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateDatapathMode(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateImmutable(formats); err != nil {
 		res = append(res, err)
 	}
 
 	if err := m.validateIpvlanConfiguration(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateKvstoreConfiguration(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateNodeMonitor(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateRealized(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -123,7 +98,6 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 	}
 
 	if m.Addressing != nil {
-
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
@@ -151,6 +125,22 @@ func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry
 	return nil
 }
 
+func (m *DaemonConfigurationStatus) validateImmutable(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Immutable) { // not required
+		return nil
+	}
+
+	if err := m.Immutable.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("immutable")
+		}
+		return err
+	}
+
+	return nil
+}
+
 func (m *DaemonConfigurationStatus) validateIpvlanConfiguration(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.IpvlanConfiguration) { // not required
@@ -158,7 +148,6 @@ func (m *DaemonConfigurationStatus) validateIpvlanConfiguration(formats strfmt.R
 	}
 
 	if m.IpvlanConfiguration != nil {
-
 		if err := m.IpvlanConfiguration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipvlanConfiguration")
@@ -177,7 +166,6 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 	}
 
 	if m.KvstoreConfiguration != nil {
-
 		if err := m.KvstoreConfiguration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstoreConfiguration")
@@ -196,7 +184,6 @@ func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry)
 	}
 
 	if m.NodeMonitor != nil {
-
 		if err := m.NodeMonitor.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
@@ -215,7 +202,6 @@ func (m *DaemonConfigurationStatus) validateRealized(formats strfmt.Registry) er
 	}
 
 	if m.Realized != nil {
-
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

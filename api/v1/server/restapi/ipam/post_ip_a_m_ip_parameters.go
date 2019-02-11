@@ -15,9 +15,9 @@ import (
 )
 
 // NewPostIPAMIPParams creates a new PostIPAMIPParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewPostIPAMIPParams() PostIPAMIPParams {
-	var ()
+
 	return PostIPAMIPParams{}
 }
 
@@ -28,7 +28,7 @@ func NewPostIPAMIPParams() PostIPAMIPParams {
 type PostIPAMIPParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*IP address
 	  Required: true
@@ -38,9 +38,12 @@ type PostIPAMIPParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewPostIPAMIPParams() beforehand.
 func (o *PostIPAMIPParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	rIP, rhkIP, _ := route.Params.GetOK("ip")
@@ -54,11 +57,15 @@ func (o *PostIPAMIPParams) BindRequest(r *http.Request, route *middleware.Matche
 	return nil
 }
 
+// bindIP binds and validates parameter IP from path.
 func (o *PostIPAMIPParams) bindIP(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
 	}
+
+	// Required: true
+	// Parameter is provided by construction from the route
 
 	o.IP = raw
 

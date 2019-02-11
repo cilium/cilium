@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // ControllerStatus Status of a controller
@@ -27,28 +28,23 @@ type ControllerStatus struct {
 	Status *ControllerStatusStatus `json:"status,omitempty"`
 
 	// UUID of controller
+	// Format: uuid
 	UUID strfmt.UUID `json:"uuid,omitempty"`
 }
-
-/* polymorph ControllerStatus configuration false */
-
-/* polymorph ControllerStatus name false */
-
-/* polymorph ControllerStatus status false */
-
-/* polymorph ControllerStatus uuid false */
 
 // Validate validates this controller status
 func (m *ControllerStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateConfiguration(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateStatus(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateUUID(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -65,7 +61,6 @@ func (m *ControllerStatus) validateConfiguration(formats strfmt.Registry) error 
 	}
 
 	if m.Configuration != nil {
-
 		if err := m.Configuration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("configuration")
@@ -84,13 +79,25 @@ func (m *ControllerStatus) validateStatus(formats strfmt.Registry) error {
 	}
 
 	if m.Status != nil {
-
 		if err := m.Status.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("status")
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *ControllerStatus) validateUUID(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.UUID) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("uuid", "body", "uuid", m.UUID.String(), formats); err != nil {
+		return err
 	}
 
 	return nil
@@ -116,32 +123,61 @@ func (m *ControllerStatus) UnmarshalBinary(b []byte) error {
 
 // ControllerStatusConfiguration Configuration of controller
 // swagger:model ControllerStatusConfiguration
-
 type ControllerStatusConfiguration struct {
 
 	// Retry on error
 	ErrorRetry bool `json:"error-retry,omitempty"`
 
 	// Base error retry back-off time
+	// Format: duration
 	ErrorRetryBase strfmt.Duration `json:"error-retry-base,omitempty"`
 
 	// Regular synchronization interval
+	// Format: duration
 	Interval strfmt.Duration `json:"interval,omitempty"`
 }
-
-/* polymorph ControllerStatusConfiguration error-retry false */
-
-/* polymorph ControllerStatusConfiguration error-retry-base false */
-
-/* polymorph ControllerStatusConfiguration interval false */
 
 // Validate validates this controller status configuration
 func (m *ControllerStatusConfiguration) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateErrorRetryBase(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateInterval(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ControllerStatusConfiguration) validateErrorRetryBase(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ErrorRetryBase) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("configuration"+"."+"error-retry-base", "body", "duration", m.ErrorRetryBase.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *ControllerStatusConfiguration) validateInterval(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Interval) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("configuration"+"."+"interval", "body", "duration", m.Interval.String(), formats); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -178,34 +214,58 @@ type ControllerStatusStatus struct {
 	LastFailureMsg string `json:"last-failure-msg,omitempty"`
 
 	// Timestamp of last error
+	// Format: date-time
 	LastFailureTimestamp strfmt.DateTime `json:"last-failure-timestamp,omitempty"`
 
 	// Timestamp of last success
+	// Format: date-time
 	LastSuccessTimestamp strfmt.DateTime `json:"last-success-timestamp,omitempty"`
 
 	// Total number of successful runs
 	SuccessCount int64 `json:"success-count,omitempty"`
 }
 
-/* polymorph ControllerStatusStatus consecutive-failure-count false */
-
-/* polymorph ControllerStatusStatus failure-count false */
-
-/* polymorph ControllerStatusStatus last-failure-msg false */
-
-/* polymorph ControllerStatusStatus last-failure-timestamp false */
-
-/* polymorph ControllerStatusStatus last-success-timestamp false */
-
-/* polymorph ControllerStatusStatus success-count false */
-
 // Validate validates this controller status status
 func (m *ControllerStatusStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateLastFailureTimestamp(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateLastSuccessTimestamp(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *ControllerStatusStatus) validateLastFailureTimestamp(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.LastFailureTimestamp) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("status"+"."+"last-failure-timestamp", "body", "date-time", m.LastFailureTimestamp.String(), formats); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *ControllerStatusStatus) validateLastSuccessTimestamp(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.LastSuccessTimestamp) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("status"+"."+"last-success-timestamp", "body", "date-time", m.LastSuccessTimestamp.String(), formats); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -14,22 +14,39 @@ import (
 
 // LabelConfigurationSpec User desired Label configuration of an endpoint
 // swagger:model LabelConfigurationSpec
-
 type LabelConfigurationSpec struct {
 
 	// Custom labels in addition to orchestration system labels.
-	User Labels `json:"user"`
+	User Labels `json:"user,omitempty"`
 }
-
-/* polymorph LabelConfigurationSpec user false */
 
 // Validate validates this label configuration spec
 func (m *LabelConfigurationSpec) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateUser(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *LabelConfigurationSpec) validateUser(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.User) { // not required
+		return nil
+	}
+
+	if err := m.User.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("user")
+		}
+		return err
+	}
+
 	return nil
 }
 

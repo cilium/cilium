@@ -16,7 +16,6 @@ import (
 
 // TraceTo trace to
 // swagger:model TraceTo
-
 type TraceTo struct {
 
 	// List of Layer 4 port and protocol pairs which will be used in communication
@@ -25,19 +24,18 @@ type TraceTo struct {
 	Dports []*Port `json:"dports"`
 
 	// labels
-	Labels Labels `json:"labels"`
+	Labels Labels `json:"labels,omitempty"`
 }
-
-/* polymorph TraceTo dports false */
-
-/* polymorph TraceTo labels false */
 
 // Validate validates this trace to
 func (m *TraceTo) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateDports(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateLabels(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -54,13 +52,11 @@ func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.Dports); i++ {
-
 		if swag.IsZero(m.Dports[i]) { // not required
 			continue
 		}
 
 		if m.Dports[i] != nil {
-
 			if err := m.Dports[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("dports" + "." + strconv.Itoa(i))
@@ -69,6 +65,22 @@ func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 			}
 		}
 
+	}
+
+	return nil
+}
+
+func (m *TraceTo) validateLabels(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Labels) { // not required
+		return nil
+	}
+
+	if err := m.Labels.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("labels")
+		}
+		return err
 	}
 
 	return nil

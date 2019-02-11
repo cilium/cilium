@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // Metric Metric information
 // swagger:model Metric
-
 type Metric struct {
 
 	// Labels of the metric
@@ -27,19 +25,8 @@ type Metric struct {
 	Value float64 `json:"value,omitempty"`
 }
 
-/* polymorph Metric labels false */
-
-/* polymorph Metric name false */
-
-/* polymorph Metric value false */
-
 // Validate validates this metric
 func (m *Metric) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

@@ -6,7 +6,7 @@ Cilium Health Checker
 
 
     Schemes:
-      http
+      unix
     Host: localhost
     BasePath: /v1beta
     Version: v1beta

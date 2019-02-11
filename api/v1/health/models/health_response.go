@@ -18,7 +18,6 @@ import (
 
 // HealthResponse Health and status information of local node
 // swagger:model HealthResponse
-
 type HealthResponse struct {
 
 	// Status of Cilium daemon
@@ -31,23 +30,15 @@ type HealthResponse struct {
 	Uptime string `json:"uptime,omitempty"`
 }
 
-/* polymorph HealthResponse cilium false */
-
-/* polymorph HealthResponse system-load false */
-
-/* polymorph HealthResponse uptime false */
-
 // Validate validates this health response
 func (m *HealthResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCilium(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateSystemLoad(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -64,7 +55,6 @@ func (m *HealthResponse) validateCilium(formats strfmt.Registry) error {
 	}
 
 	if m.Cilium != nil {
-
 		if err := m.Cilium.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium")
@@ -83,7 +73,6 @@ func (m *HealthResponse) validateSystemLoad(formats strfmt.Registry) error {
 	}
 
 	if m.SystemLoad != nil {
-
 		if err := m.SystemLoad.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("system-load")

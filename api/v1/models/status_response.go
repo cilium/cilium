@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // StatusResponse Health and status information of daemon
@@ -27,7 +28,7 @@ type StatusResponse struct {
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
 	// Status of all endpoint controllers
-	Controllers ControllerStatuses `json:"controllers"`
+	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
 	// Status of IP address management
 	IPAM *IPAMStatus `json:"ipam,omitempty"`
@@ -48,67 +49,47 @@ type StatusResponse struct {
 	Stale map[string]strfmt.DateTime `json:"stale,omitempty"`
 }
 
-/* polymorph StatusResponse cilium false */
-
-/* polymorph StatusResponse cluster false */
-
-/* polymorph StatusResponse container-runtime false */
-
-/* polymorph StatusResponse controllers false */
-
-/* polymorph StatusResponse ipam false */
-
-/* polymorph StatusResponse kubernetes false */
-
-/* polymorph StatusResponse kvstore false */
-
-/* polymorph StatusResponse nodeMonitor false */
-
-/* polymorph StatusResponse proxy false */
-
-/* polymorph StatusResponse stale false */
-
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCilium(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateCluster(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateContainerRuntime(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateControllers(formats); err != nil {
 		res = append(res, err)
 	}
 
 	if err := m.validateIPAM(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateKubernetes(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateKvstore(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateNodeMonitor(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateProxy(formats); err != nil {
-		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateStale(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -125,7 +106,6 @@ func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
 	}
 
 	if m.Cilium != nil {
-
 		if err := m.Cilium.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium")
@@ -144,7 +124,6 @@ func (m *StatusResponse) validateCluster(formats strfmt.Registry) error {
 	}
 
 	if m.Cluster != nil {
-
 		if err := m.Cluster.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster")
@@ -163,13 +142,28 @@ func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error
 	}
 
 	if m.ContainerRuntime != nil {
-
 		if err := m.ContainerRuntime.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("container-runtime")
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Controllers) { // not required
+		return nil
+	}
+
+	if err := m.Controllers.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("controllers")
+		}
+		return err
 	}
 
 	return nil
@@ -182,7 +176,6 @@ func (m *StatusResponse) validateIPAM(formats strfmt.Registry) error {
 	}
 
 	if m.IPAM != nil {
-
 		if err := m.IPAM.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
@@ -201,7 +194,6 @@ func (m *StatusResponse) validateKubernetes(formats strfmt.Registry) error {
 	}
 
 	if m.Kubernetes != nil {
-
 		if err := m.Kubernetes.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kubernetes")
@@ -220,7 +212,6 @@ func (m *StatusResponse) validateKvstore(formats strfmt.Registry) error {
 	}
 
 	if m.Kvstore != nil {
-
 		if err := m.Kvstore.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstore")
@@ -239,7 +230,6 @@ func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
 	}
 
 	if m.NodeMonitor != nil {
-
 		if err := m.NodeMonitor.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
@@ -258,13 +248,29 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 	}
 
 	if m.Proxy != nil {
-
 		if err := m.Proxy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("proxy")
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateStale(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Stale) { // not required
+		return nil
+	}
+
+	for k := range m.Stale {
+
+		if err := validate.FormatOf("stale"+"."+k, "body", "date-time", m.Stale[k].String(), formats); err != nil {
+			return err
+		}
+
 	}
 
 	return nil

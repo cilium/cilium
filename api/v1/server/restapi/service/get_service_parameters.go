@@ -13,9 +13,9 @@ import (
 )
 
 // NewGetServiceParams creates a new GetServiceParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewGetServiceParams() GetServiceParams {
-	var ()
+
 	return GetServiceParams{}
 }
 
@@ -26,13 +26,16 @@ func NewGetServiceParams() GetServiceParams {
 type GetServiceParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewGetServiceParams() beforehand.
 func (o *GetServiceParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	if len(res) > 0 {

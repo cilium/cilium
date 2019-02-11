@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // MonitorStatus Status of the node monitor
 // swagger:model MonitorStatus
-
 type MonitorStatus struct {
 
 	// Number of CPUs to listen on for events.
@@ -33,23 +31,8 @@ type MonitorStatus struct {
 	Unknown int64 `json:"unknown,omitempty"`
 }
 
-/* polymorph MonitorStatus cpus false */
-
-/* polymorph MonitorStatus lost false */
-
-/* polymorph MonitorStatus npages false */
-
-/* polymorph MonitorStatus pagesize false */
-
-/* polymorph MonitorStatus unknown false */
-
 // Validate validates this monitor status
 func (m *MonitorStatus) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

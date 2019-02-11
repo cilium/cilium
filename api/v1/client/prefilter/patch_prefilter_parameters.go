@@ -6,10 +6,9 @@ package prefilter
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -17,7 +16,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchPrefilterParams creates a new PatchPrefilterParams object
@@ -127,12 +126,10 @@ func (o *PatchPrefilterParams) WriteToRequest(r runtime.ClientRequest, reg strfm
 	}
 	var res []error
 
-	if o.PrefilterSpec == nil {
-		o.PrefilterSpec = new(models.PrefilterSpec)
-	}
-
-	if err := r.SetBodyParam(o.PrefilterSpec); err != nil {
-		return err
+	if o.PrefilterSpec != nil {
+		if err := r.SetBodyParam(o.PrefilterSpec); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

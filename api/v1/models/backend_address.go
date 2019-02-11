@@ -15,7 +15,6 @@ import (
 
 // BackendAddress Service backend address
 // swagger:model BackendAddress
-
 type BackendAddress struct {
 
 	// Layer 3 address
@@ -29,18 +28,11 @@ type BackendAddress struct {
 	Weight uint16 `json:"weight,omitempty"`
 }
 
-/* polymorph BackendAddress ip false */
-
-/* polymorph BackendAddress port false */
-
-/* polymorph BackendAddress weight false */
-
 // Validate validates this backend address
 func (m *BackendAddress) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateIP(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 

@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // MessageForwardingStatistics Statistics of a message forwarding entity
 // swagger:model MessageForwardingStatistics
-
 type MessageForwardingStatistics struct {
 
 	// Number of messages denied
@@ -30,21 +28,8 @@ type MessageForwardingStatistics struct {
 	Received int64 `json:"received,omitempty"`
 }
 
-/* polymorph MessageForwardingStatistics denied false */
-
-/* polymorph MessageForwardingStatistics error false */
-
-/* polymorph MessageForwardingStatistics forwarded false */
-
-/* polymorph MessageForwardingStatistics received false */
-
 // Validate validates this message forwarding statistics
 func (m *MessageForwardingStatistics) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

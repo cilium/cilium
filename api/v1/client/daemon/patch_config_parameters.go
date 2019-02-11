@@ -6,10 +6,9 @@ package daemon
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
@@ -17,7 +16,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchConfigParams creates a new PatchConfigParams object
@@ -124,12 +123,10 @@ func (o *PatchConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 	}
 	var res []error
 
-	if o.Configuration == nil {
-		o.Configuration = new(models.DaemonConfigurationSpec)
-	}
-
-	if err := r.SetBodyParam(o.Configuration); err != nil {
-		return err
+	if o.Configuration != nil {
+		if err := r.SetBodyParam(o.Configuration); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

@@ -14,7 +14,6 @@ import (
 
 // TraceSelector Context describing a pair of source and destination identity
 // swagger:model TraceSelector
-
 type TraceSelector struct {
 
 	// from
@@ -28,23 +27,15 @@ type TraceSelector struct {
 	Verbose bool `json:"verbose,omitempty"`
 }
 
-/* polymorph TraceSelector from false */
-
-/* polymorph TraceSelector to false */
-
-/* polymorph TraceSelector verbose false */
-
 // Validate validates this trace selector
 func (m *TraceSelector) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateFrom(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateTo(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -61,7 +52,6 @@ func (m *TraceSelector) validateFrom(formats strfmt.Registry) error {
 	}
 
 	if m.From != nil {
-
 		if err := m.From.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("from")
@@ -80,7 +70,6 @@ func (m *TraceSelector) validateTo(formats strfmt.Registry) error {
 	}
 
 	if m.To != nil {
-
 		if err := m.To.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("to")

@@ -14,32 +14,45 @@ import (
 
 // Identity Security identity
 // swagger:model Identity
-
 type Identity struct {
 
 	// Unique identifier
 	ID int64 `json:"id,omitempty"`
 
 	// Labels describing the identity
-	Labels Labels `json:"labels"`
+	Labels Labels `json:"labels,omitempty"`
 
 	// SHA256 of labels
 	LabelsSHA256 string `json:"labelsSHA256,omitempty"`
 }
 
-/* polymorph Identity id false */
-
-/* polymorph Identity labels false */
-
-/* polymorph Identity labelsSHA256 false */
-
 // Validate validates this identity
 func (m *Identity) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateLabels(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *Identity) validateLabels(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Labels) { // not required
+		return nil
+	}
+
+	if err := m.Labels.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("labels")
+		}
+		return err
+	}
+
 	return nil
 }
 

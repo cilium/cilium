@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PatchEndpointIDConfigOKCode is the HTTP code returned for type PatchEndpointIDConfigOK
@@ -25,11 +25,14 @@ type PatchEndpointIDConfigOK struct {
 
 // NewPatchEndpointIDConfigOK creates PatchEndpointIDConfigOK with default headers values
 func NewPatchEndpointIDConfigOK() *PatchEndpointIDConfigOK {
+
 	return &PatchEndpointIDConfigOK{}
 }
 
 // WriteResponse to the client
 func (o *PatchEndpointIDConfigOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -46,11 +49,14 @@ type PatchEndpointIDConfigInvalid struct {
 
 // NewPatchEndpointIDConfigInvalid creates PatchEndpointIDConfigInvalid with default headers values
 func NewPatchEndpointIDConfigInvalid() *PatchEndpointIDConfigInvalid {
+
 	return &PatchEndpointIDConfigInvalid{}
 }
 
 // WriteResponse to the client
 func (o *PatchEndpointIDConfigInvalid) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -67,11 +73,14 @@ type PatchEndpointIDConfigNotFound struct {
 
 // NewPatchEndpointIDConfigNotFound creates PatchEndpointIDConfigNotFound with default headers values
 func NewPatchEndpointIDConfigNotFound() *PatchEndpointIDConfigNotFound {
+
 	return &PatchEndpointIDConfigNotFound{}
 }
 
 // WriteResponse to the client
 func (o *PatchEndpointIDConfigNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -93,6 +102,7 @@ type PatchEndpointIDConfigFailed struct {
 
 // NewPatchEndpointIDConfigFailed creates PatchEndpointIDConfigFailed with default headers values
 func NewPatchEndpointIDConfigFailed() *PatchEndpointIDConfigFailed {
+
 	return &PatchEndpointIDConfigFailed{}
 }
 

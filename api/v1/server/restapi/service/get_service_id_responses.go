@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetServiceIDOKCode is the HTTP code returned for type GetServiceIDOK
@@ -30,6 +30,7 @@ type GetServiceIDOK struct {
 
 // NewGetServiceIDOK creates GetServiceIDOK with default headers values
 func NewGetServiceIDOK() *GetServiceIDOK {
+
 	return &GetServiceIDOK{}
 }
 
@@ -68,11 +69,14 @@ type GetServiceIDNotFound struct {
 
 // NewGetServiceIDNotFound creates GetServiceIDNotFound with default headers values
 func NewGetServiceIDNotFound() *GetServiceIDNotFound {
+
 	return &GetServiceIDNotFound{}
 }
 
 // WriteResponse to the client
 func (o *GetServiceIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }

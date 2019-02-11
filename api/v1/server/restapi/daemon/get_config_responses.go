@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetConfigOKCode is the HTTP code returned for type GetConfigOK
@@ -30,6 +30,7 @@ type GetConfigOK struct {
 
 // NewGetConfigOK creates GetConfigOK with default headers values
 func NewGetConfigOK() *GetConfigOK {
+
 	return &GetConfigOK{}
 }
 

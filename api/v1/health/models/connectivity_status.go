@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // ConnectivityStatus Connectivity status of a path
 // swagger:model ConnectivityStatus
-
 type ConnectivityStatus struct {
 
 	// Round trip time to node in nanoseconds
@@ -24,17 +22,8 @@ type ConnectivityStatus struct {
 	Status string `json:"status,omitempty"`
 }
 
-/* polymorph ConnectivityStatus latency false */
-
-/* polymorph ConnectivityStatus status false */
-
 // Validate validates this connectivity status
 func (m *ConnectivityStatus) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

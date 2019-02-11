@@ -376,7 +376,7 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	d := h.daemon
 
 	var rules policyAPI.Rules
-	if err := json.Unmarshal([]byte(*params.Policy), &rules); err != nil {
+	if err := json.Unmarshal([]byte(params.Policy), &rules); err != nil {
 		return NewPutPolicyInvalidPolicy()
 	}
 

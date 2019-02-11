@@ -16,7 +16,6 @@ import (
 
 // EndpointPolicyStatus Policy information of an endpoint
 // swagger:model EndpointPolicyStatus
-
 type EndpointPolicyStatus struct {
 
 	// The policy revision currently enforced in the proxy for this endpoint
@@ -32,30 +31,19 @@ type EndpointPolicyStatus struct {
 	Spec *EndpointPolicy `json:"spec,omitempty"`
 }
 
-/* polymorph EndpointPolicyStatus proxy-policy-revision false */
-
-/* polymorph EndpointPolicyStatus proxy-statistics false */
-
-/* polymorph EndpointPolicyStatus realized false */
-
-/* polymorph EndpointPolicyStatus spec false */
-
 // Validate validates this endpoint policy status
 func (m *EndpointPolicyStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateProxyStatistics(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateRealized(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateSpec(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -72,13 +60,11 @@ func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) 
 	}
 
 	for i := 0; i < len(m.ProxyStatistics); i++ {
-
 		if swag.IsZero(m.ProxyStatistics[i]) { // not required
 			continue
 		}
 
 		if m.ProxyStatistics[i] != nil {
-
 			if err := m.ProxyStatistics[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
@@ -99,7 +85,6 @@ func (m *EndpointPolicyStatus) validateRealized(formats strfmt.Registry) error {
 	}
 
 	if m.Realized != nil {
-
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
@@ -118,7 +103,6 @@ func (m *EndpointPolicyStatus) validateSpec(formats strfmt.Registry) error {
 	}
 
 	if m.Spec != nil {
-
 		if err := m.Spec.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("spec")

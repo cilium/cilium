@@ -16,7 +16,6 @@ import (
 // policies or service redirection
 //
 // swagger:model PathStatus
-
 type PathStatus struct {
 
 	// Connectivity status without policy applied
@@ -29,23 +28,15 @@ type PathStatus struct {
 	IP string `json:"ip,omitempty"`
 }
 
-/* polymorph PathStatus http false */
-
-/* polymorph PathStatus icmp false */
-
-/* polymorph PathStatus ip false */
-
 // Validate validates this path status
 func (m *PathStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateHTTP(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateIcmp(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -62,7 +53,6 @@ func (m *PathStatus) validateHTTP(formats strfmt.Registry) error {
 	}
 
 	if m.HTTP != nil {
-
 		if err := m.HTTP.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("http")
@@ -81,7 +71,6 @@ func (m *PathStatus) validateIcmp(formats strfmt.Registry) error {
 	}
 
 	if m.Icmp != nil {
-
 		if err := m.Icmp.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("icmp")

@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // GetPrefilterOKCode is the HTTP code returned for type GetPrefilterOK
@@ -30,6 +30,7 @@ type GetPrefilterOK struct {
 
 // NewGetPrefilterOK creates GetPrefilterOK with default headers values
 func NewGetPrefilterOK() *GetPrefilterOK {
+
 	return &GetPrefilterOK{}
 }
 
@@ -73,6 +74,7 @@ type GetPrefilterFailure struct {
 
 // NewGetPrefilterFailure creates GetPrefilterFailure with default headers values
 func NewGetPrefilterFailure() *GetPrefilterFailure {
+
 	return &GetPrefilterFailure{}
 }
 

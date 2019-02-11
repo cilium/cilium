@@ -16,7 +16,6 @@ import (
 
 // DebugInfo groups some debugging related information on the agent
 // swagger:model DebugInfo
-
 type DebugInfo struct {
 
 	// cilium memory map
@@ -50,52 +49,23 @@ type DebugInfo struct {
 	Subsystem map[string]string `json:"subsystem,omitempty"`
 }
 
-/* polymorph DebugInfo cilium-memory-map false */
-
-/* polymorph DebugInfo cilium-nodemonitor-memory-map false */
-
-/* polymorph DebugInfo cilium-status false */
-
-/* polymorph DebugInfo cilium-version false */
-
-/* polymorph DebugInfo endpoint-list false */
-
-/* polymorph DebugInfo environment-variables false */
-
-/* polymorph DebugInfo kernel-version false */
-
-/* polymorph DebugInfo policy false */
-
-/* polymorph DebugInfo service-list false */
-
-/* polymorph DebugInfo subsystem false */
-
 // Validate validates this debug info
 func (m *DebugInfo) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateCiliumStatus(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateEndpointList(formats); err != nil {
-		// prop
-		res = append(res, err)
-	}
-
-	if err := m.validateEnvironmentVariables(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validatePolicy(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateServiceList(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -112,7 +82,6 @@ func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
 	}
 
 	if m.CiliumStatus != nil {
-
 		if err := m.CiliumStatus.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium-status")
@@ -131,13 +100,11 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.EndpointList); i++ {
-
 		if swag.IsZero(m.EndpointList[i]) { // not required
 			continue
 		}
 
 		if m.EndpointList[i] != nil {
-
 			if err := m.EndpointList[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
@@ -151,15 +118,6 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *DebugInfo) validateEnvironmentVariables(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.EnvironmentVariables) { // not required
-		return nil
-	}
-
-	return nil
-}
-
 func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Policy) { // not required
@@ -167,7 +125,6 @@ func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 	}
 
 	if m.Policy != nil {
-
 		if err := m.Policy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
@@ -186,13 +143,11 @@ func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.ServiceList); i++ {
-
 		if swag.IsZero(m.ServiceList[i]) { // not required
 			continue
 		}
 
 		if m.ServiceList[i] != nil {
-
 			if err := m.ServiceList[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))

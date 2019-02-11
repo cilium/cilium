@@ -17,7 +17,6 @@ import (
 
 // ServiceSpec Configuration of a service
 // swagger:model ServiceSpec
-
 type ServiceSpec struct {
 
 	// List of backend addresses
@@ -34,30 +33,19 @@ type ServiceSpec struct {
 	ID int64 `json:"id,omitempty"`
 }
 
-/* polymorph ServiceSpec backend-addresses false */
-
-/* polymorph ServiceSpec flags false */
-
-/* polymorph ServiceSpec frontend-address false */
-
-/* polymorph ServiceSpec id false */
-
 // Validate validates this service spec
 func (m *ServiceSpec) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateBackendAddresses(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateFlags(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
 	if err := m.validateFrontendAddress(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -74,13 +62,11 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 	}
 
 	for i := 0; i < len(m.BackendAddresses); i++ {
-
 		if swag.IsZero(m.BackendAddresses[i]) { // not required
 			continue
 		}
 
 		if m.BackendAddresses[i] != nil {
-
 			if err := m.BackendAddresses[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
@@ -101,7 +87,6 @@ func (m *ServiceSpec) validateFlags(formats strfmt.Registry) error {
 	}
 
 	if m.Flags != nil {
-
 		if err := m.Flags.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("flags")
@@ -120,7 +105,6 @@ func (m *ServiceSpec) validateFrontendAddress(formats strfmt.Registry) error {
 	}
 
 	if m.FrontendAddress != nil {
-
 		if err := m.FrontendAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
@@ -152,7 +136,6 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 
 // ServiceSpecFlags Optional service configuration flags
 // swagger:model ServiceSpecFlags
-
 type ServiceSpecFlags struct {
 
 	// Frontend to backend translation activated
@@ -162,17 +145,8 @@ type ServiceSpecFlags struct {
 	DirectServerReturn bool `json:"direct-server-return,omitempty"`
 }
 
-/* polymorph ServiceSpecFlags active-frontend false */
-
-/* polymorph ServiceSpecFlags direct-server-return false */
-
 // Validate validates this service spec flags
 func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 

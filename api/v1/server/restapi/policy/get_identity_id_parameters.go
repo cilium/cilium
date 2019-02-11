@@ -15,9 +15,9 @@ import (
 )
 
 // NewGetIdentityIDParams creates a new GetIdentityIDParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewGetIdentityIDParams() GetIdentityIDParams {
-	var ()
+
 	return GetIdentityIDParams{}
 }
 
@@ -28,7 +28,7 @@ func NewGetIdentityIDParams() GetIdentityIDParams {
 type GetIdentityIDParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*Cluster wide unique identifier of a security identity.
 
@@ -39,9 +39,12 @@ type GetIdentityIDParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewGetIdentityIDParams() beforehand.
 func (o *GetIdentityIDParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	rID, rhkID, _ := route.Params.GetOK("id")
@@ -55,11 +58,15 @@ func (o *GetIdentityIDParams) BindRequest(r *http.Request, route *middleware.Mat
 	return nil
 }
 
+// bindID binds and validates parameter ID from path.
 func (o *GetIdentityIDParams) bindID(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
 	}
+
+	// Required: true
+	// Parameter is provided by construction from the route
 
 	o.ID = raw
 

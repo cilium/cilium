@@ -14,21 +14,17 @@ import (
 
 // PrefilterStatus CIDR ranges implemented in the Prefilter
 // swagger:model PrefilterStatus
-
 type PrefilterStatus struct {
 
 	// realized
 	Realized *PrefilterSpec `json:"realized,omitempty"`
 }
 
-/* polymorph PrefilterStatus realized false */
-
 // Validate validates this prefilter status
 func (m *PrefilterStatus) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateRealized(formats); err != nil {
-		// prop
 		res = append(res, err)
 	}
 
@@ -45,7 +41,6 @@ func (m *PrefilterStatus) validateRealized(formats strfmt.Registry) error {
 	}
 
 	if m.Realized != nil {
-
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")

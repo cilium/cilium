@@ -15,9 +15,9 @@ import (
 )
 
 // NewGetEndpointIDHealthzParams creates a new GetEndpointIDHealthzParams object
-// with the default values initialized.
+// no default values defined in spec.
 func NewGetEndpointIDHealthzParams() GetEndpointIDHealthzParams {
-	var ()
+
 	return GetEndpointIDHealthzParams{}
 }
 
@@ -28,7 +28,7 @@ func NewGetEndpointIDHealthzParams() GetEndpointIDHealthzParams {
 type GetEndpointIDHealthzParams struct {
 
 	// HTTP Request Object
-	HTTPRequest *http.Request
+	HTTPRequest *http.Request `json:"-"`
 
 	/*String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
@@ -50,9 +50,12 @@ type GetEndpointIDHealthzParams struct {
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
-// for simple values it will use straight method calls
+// for simple values it will use straight method calls.
+//
+// To ensure default values, the struct must have been initialized with NewGetEndpointIDHealthzParams() beforehand.
 func (o *GetEndpointIDHealthzParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
+
 	o.HTTPRequest = r
 
 	rID, rhkID, _ := route.Params.GetOK("id")
@@ -66,11 +69,15 @@ func (o *GetEndpointIDHealthzParams) BindRequest(r *http.Request, route *middlew
 	return nil
 }
 
+// bindID binds and validates parameter ID from path.
 func (o *GetEndpointIDHealthzParams) bindID(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
 	}
+
+	// Required: true
+	// Parameter is provided by construction from the route
 
 	o.ID = raw
 

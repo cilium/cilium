@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/health/models"
+	models "github.com/cilium/cilium/api/v1/health/models"
 )
 
 // GetStatusOKCode is the HTTP code returned for type GetStatusOK
@@ -30,6 +30,7 @@ type GetStatusOK struct {
 
 // NewGetStatusOK creates GetStatusOK with default headers values
 func NewGetStatusOK() *GetStatusOK {
+
 	return &GetStatusOK{}
 }
 

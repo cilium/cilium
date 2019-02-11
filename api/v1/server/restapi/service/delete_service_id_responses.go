@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // DeleteServiceIDOKCode is the HTTP code returned for type DeleteServiceIDOK
@@ -25,11 +25,14 @@ type DeleteServiceIDOK struct {
 
 // NewDeleteServiceIDOK creates DeleteServiceIDOK with default headers values
 func NewDeleteServiceIDOK() *DeleteServiceIDOK {
+
 	return &DeleteServiceIDOK{}
 }
 
 // WriteResponse to the client
 func (o *DeleteServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(200)
 }
@@ -46,11 +49,14 @@ type DeleteServiceIDNotFound struct {
 
 // NewDeleteServiceIDNotFound creates DeleteServiceIDNotFound with default headers values
 func NewDeleteServiceIDNotFound() *DeleteServiceIDNotFound {
+
 	return &DeleteServiceIDNotFound{}
 }
 
 // WriteResponse to the client
 func (o *DeleteServiceIDNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -72,6 +78,7 @@ type DeleteServiceIDFailure struct {
 
 // NewDeleteServiceIDFailure creates DeleteServiceIDFailure with default headers values
 func NewDeleteServiceIDFailure() *DeleteServiceIDFailure {
+
 	return &DeleteServiceIDFailure{}
 }
 

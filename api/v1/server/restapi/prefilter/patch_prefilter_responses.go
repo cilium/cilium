@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	"github.com/cilium/cilium/api/v1/models"
+	models "github.com/cilium/cilium/api/v1/models"
 )
 
 // PatchPrefilterOKCode is the HTTP code returned for type PatchPrefilterOK
@@ -30,6 +30,7 @@ type PatchPrefilterOK struct {
 
 // NewPatchPrefilterOK creates PatchPrefilterOK with default headers values
 func NewPatchPrefilterOK() *PatchPrefilterOK {
+
 	return &PatchPrefilterOK{}
 }
 
@@ -73,6 +74,7 @@ type PatchPrefilterInvalidCIDR struct {
 
 // NewPatchPrefilterInvalidCIDR creates PatchPrefilterInvalidCIDR with default headers values
 func NewPatchPrefilterInvalidCIDR() *PatchPrefilterInvalidCIDR {
+
 	return &PatchPrefilterInvalidCIDR{}
 }
 
@@ -115,6 +117,7 @@ type PatchPrefilterFailure struct {
 
 // NewPatchPrefilterFailure creates PatchPrefilterFailure with default headers values
 func NewPatchPrefilterFailure() *PatchPrefilterFailure {
+
 	return &PatchPrefilterFailure{}
 }
 

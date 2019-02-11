@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	middleware "github.com/go-openapi/runtime/middleware"
-	strfmt "github.com/go-openapi/strfmt"
 )
 
 // GetHealthzHandlerFunc turns a function with the right signature into a get healthz handler
@@ -61,14 +60,4 @@ func (o *GetHealthz) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
-}
-
-// getHealthzFailedBody get healthz failed body
-// swagger:model getHealthzFailedBody
-
-type GetHealthzFailedBody string
-
-// Validate validates this get healthz failed body
-func (o GetHealthzFailedBody) Validate(formats strfmt.Registry) error {
-	return nil
 }

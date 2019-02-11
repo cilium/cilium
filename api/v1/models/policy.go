@@ -8,13 +8,11 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
 // Policy Policy definition
 // swagger:model Policy
-
 type Policy struct {
 
 	// Policy definition as JSON.
@@ -26,17 +24,8 @@ type Policy struct {
 	Revision int64 `json:"revision,omitempty"`
 }
 
-/* polymorph Policy policy false */
-
-/* polymorph Policy revision false */
-
 // Validate validates this policy
 func (m *Policy) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
 	return nil
 }
 
