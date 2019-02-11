@@ -1072,11 +1072,11 @@
   revision = "v2.0.1"
 
 [[projects]]
-  digest = "1:efe2886b3589a6f0d0dc793bea8980e28fbb15bce9ad537220506d545208e347"
+  digest = "1:54687206d0c840a45982b8fb507260451fb0dc5d218037b44443020460b16594"
   name = "github.com/sasha-s/go-deadlock"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "d68e2bc52ae3291765881b9056f2c1527f245f1e"
+  revision = "5dc88f41ca59ce157900a9942b2059ef084e6f81"
 
 [[projects]]
   digest = "1:cfde76df2f6c17783765b016cdddf6eb5727de3c644b5ef94611f3c3baf2f8c0"
