@@ -453,7 +453,7 @@ int tail_handle_ipv6(struct __sk_buff *skb)
 
 	if (IS_ERR(ret)) {
 		relax_verifier();
-		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
+		return send_drop_notify(skb, SECLABEL, dstID, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
 	}
 
@@ -740,7 +740,7 @@ int tail_handle_ipv4(struct __sk_buff *skb)
 	int ret = handle_ipv4_from_lxc(skb, &dstID);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, dstID, 0, 0, ret, TC_ACT_SHOT,
+		return send_drop_notify(skb, SECLABEL, dstID, 0, ret, TC_ACT_SHOT,
 		                        METRIC_EGRESS);
 
 	return ret;
@@ -794,7 +794,7 @@ int handle_xgress(struct __sk_buff *skb)
 	}
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		return send_drop_notify(skb, SECLABEL, 0, 0, ret, TC_ACT_SHOT,
 					METRIC_EGRESS);
 	return ret;
 }
@@ -950,7 +950,7 @@ int tail_ipv6_policy(struct __sk_buff *skb)
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+					ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -1100,7 +1100,7 @@ int tail_ipv4_policy(struct __sk_buff *skb)
 		ret = DROP_NO_CONFIG;
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+					ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -1115,7 +1115,7 @@ int tail_ipv4_policy(struct __sk_buff *skb)
  */
 __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
-	int ret, ifindex = skb->cb[CB_IFINDEX];
+	int ret;
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 
 	switch (skb->protocol) {
@@ -1138,7 +1138,7 @@ __section_tail(CILIUM_MAP_POLICY, LXC_ID) int handle_policy(struct __sk_buff *sk
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
-					ifindex, ret, TC_ACT_SHOT, METRIC_INGRESS);
+					ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -1148,7 +1148,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64) int tail_ipv6_to_ipv4(struct
 {
 	int ret = ipv6_to_ipv4(skb, 14, LXC_IPV4);
 	if (IS_ERR(ret))
-		return  send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		return  send_drop_notify(skb, SECLABEL, 0, 0, ret, TC_ACT_SHOT,
 				METRIC_EGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V64, skb->ingress_ifindex);
@@ -1179,7 +1179,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	int ret = handle_ipv4_to_ipv6(skb);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(skb, SECLABEL, 0, 0, 0, ret, TC_ACT_SHOT,
+		return send_drop_notify(skb, SECLABEL, 0, 0, ret, TC_ACT_SHOT,
 				METRIC_INGRESS);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
