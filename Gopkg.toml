@@ -360,7 +360,7 @@ required = [
 
 [[constraint]]
   name = "github.com/shirou/gopsutil"
-  revision = "v2.18.10"
+  revision = "v2.19.01"
 
   # main-usage = "pkg/loadinfo"
   # on-revision = ""
