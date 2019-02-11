@@ -1365,14 +1365,14 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:0efcfe82e59b828eb6f4115bba88ff45c0898c38e823fbe7f450bdffed9e739b"
+  digest = "1:6c6b70cf6d2788d9f7dc6589bc88e0e1c7edc40612294431ebb7d09536d12240"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
     "googleapis/rpc/status",
   ]
   pruneopts = "NUT"
-  revision = "595979c8a7bf586b2d293fb42246bf91a0b893d9"
+  revision = "4b09977fb92221987e99d190c8f88f2c92727a29"
 
 [[projects]]
   digest = "1:66625ff0927350922744c0d5d25d488774948c9bcf464cab48f70fb20ca5326d"
