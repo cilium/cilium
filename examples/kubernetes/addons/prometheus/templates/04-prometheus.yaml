@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: prometheus
-  namespace: monitoring
+  namespace: cilium-monitoring
 apiVersion: v1
 data:
   prometheus.yaml: |
@@ -134,7 +134,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: monitoring
+  namespace: cilium-monitoring
   labels:
     app: prometheus
 spec:
@@ -174,7 +174,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-  namespace: monitoring
+  namespace: cilium-monitoring
   labels:
     app: prometheus
 spec:
@@ -189,7 +189,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-open
-  namespace: monitoring
+  namespace: cilium-monitoring
   labels:
     app: prometheus
 spec:
@@ -212,7 +212,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-k8s
-  namespace: monitoring
+  namespace: cilium-monitoring
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -238,4 +238,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus-k8s
-  namespace: monitoring
+  namespace: cilium-monitoring
