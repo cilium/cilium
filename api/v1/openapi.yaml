@@ -176,7 +176,13 @@ paths:
       tags:
       - endpoint
       parameters:
-      - "$ref": "#/parameters/labels"
+      - name: labels
+        description: |
+          List of labels
+        in: body
+        required: false
+        schema:
+          "$ref": "#/definitions/Labels"
       responses:
         '200':
           description: Success
