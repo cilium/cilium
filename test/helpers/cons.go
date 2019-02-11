@@ -303,6 +303,24 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 }
 
+// AllImages is the set of all container images which are ran directly via
+// `docker run` in the Cilium CI. It is used to provide a central location in
+// the code of all images that are used.
+var AllImages = map[string]struct{}{
+	NetperfImage:         {},
+	HttpdImage:           {},
+	DNSSECContainerImage: {},
+	BindContainerImage:   {},
+	KafkaClientImage:     {},
+	ZookeeperImage:       {},
+	BusyboxImage:         {},
+	AlpineCurlImage:      {},
+	MemcacheDImage:       {},
+	MemcacheBinClient:    {},
+	AlpineImage:          {},
+	CassandraImage:       {},
+}
+
 const (
 	ciliumEtcdOperatorSA   = "cilium-etcd-operator-sa.yaml"
 	ciliumEtcdOperatorRBAC = "cilium-etcd-operator-rbac.yaml"
