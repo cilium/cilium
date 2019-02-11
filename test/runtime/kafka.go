@@ -20,6 +20,7 @@ import (
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 )
@@ -41,8 +42,8 @@ var _ = Describe("RuntimeKafka", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"zook":   helpers.ZookeeperImage,
-			"client": helpers.KafkaClientImage,
+			"zook":   constants.ZookeeperImage,
+			"client": constants.KafkaClientImage,
 		}
 
 		switch mode {

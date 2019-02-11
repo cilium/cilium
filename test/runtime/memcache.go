@@ -18,6 +18,7 @@ import (
 	"fmt"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 )
@@ -32,9 +33,9 @@ var _ = Describe("RuntimeMemcache", func() {
 	containers := func(mode string) {
 
 		images := map[string]string{
-			"memcache":             helpers.MemcacheDImage,
-			"memcache-bin-client":  helpers.MemcacheBinClient,
-			"memcache-text-client": helpers.AlpineImage,
+			"memcache":             constants.MemcacheDImage,
+			"memcache-bin-client":  constants.MemcacheBinClient,
+			"memcache-text-client": constants.AlpineImage,
 		}
 		cmds := map[string][]string{
 			"memcache-bin-client":  {"sleep", "10000"},

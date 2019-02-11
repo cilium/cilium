@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
@@ -63,7 +64,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
-		vm.ContainerCreate(appContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
+		vm.ContainerCreate(appContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.app")
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 	})
@@ -157,7 +158,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			ExpectEndpointSummary(vm, helpers.Disabled, 0)
 
 			By("Create a new container")
-			vm.ContainerCreate("new", helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.new")
+			vm.ContainerCreate("new", constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.new")
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 			ExpectEndpointSummary(vm, helpers.Enabled, 2)
@@ -203,7 +204,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 			ExpectEndpointSummary(vm, helpers.Enabled, 0)
 			ExpectEndpointSummary(vm, helpers.Disabled, 1)
 
-			vm.ContainerCreate("new", helpers.HttpdImage, helpers.CiliumDockerNetwork, "-l id.new")
+			vm.ContainerCreate("new", constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.new")
 			areEndpointsReady := vm.WaitEndpointsReady()
 			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
 
@@ -1264,7 +1265,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 		BeforeAll(func() {
 			By("Starting httpd server using host networking")
-			res := vm.ContainerCreate(hostDockerContainer, helpers.HttpdImage, helpers.HostDockerNetwork, "-l id.hostDockerContainer")
+			res := vm.ContainerCreate(hostDockerContainer, constants.HttpdImage, helpers.HostDockerNetwork, "-l id.hostDockerContainer")
 			res.ExpectSuccess("unable to start Docker container with host networking")
 
 			By("Detecting host IP in world CIDR")
@@ -1512,7 +1513,7 @@ var _ = Describe("RuntimePolicies", func() {
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
 			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
@@ -1548,7 +1549,7 @@ var _ = Describe("RuntimePolicies", func() {
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
+			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
 			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
@@ -1585,7 +1586,7 @@ var _ = Describe("RuntimePolicies", func() {
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
+			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel")
 			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
@@ -1620,7 +1621,7 @@ var _ = Describe("RuntimePolicies", func() {
 			defer cancel()
 
 			By("Creating an endpoint")
-			res := vm.ContainerCreate(initContainer, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
+			res := vm.ContainerCreate(initContainer, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l somelabel", "ping", hostIP)
 			res.ExpectSuccess("Failed to create container")
 
 			endpoints, err := vm.GetAllEndpointsIds()
@@ -1659,7 +1660,7 @@ var _ = Describe("RuntimePolicies", func() {
 			// allocated an identity from the key-value store.
 			By("Creating new container with label id.httpd1, which has already " +
 				"been allocated an identity from the key-value store")
-			vm.ContainerCreate(newContainerName, helpers.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
+			vm.ContainerCreate(newContainerName, constants.HttpdImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l id.%s", helpers.Httpd1))
 
 			By("Waiting for newly added endpoint to be ready")
 			areEndpointsReady := vm.WaitEndpointsReady()
