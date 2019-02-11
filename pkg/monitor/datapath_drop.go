@@ -37,7 +37,7 @@ type DropNotify struct {
 	SrcLabel uint32
 	DstLabel uint32
 	DstID    uint32
-	Ifindex  uint32
+	Unused   uint32
 	// data
 }
 
@@ -50,8 +50,8 @@ func (n *DropNotify) DumpInfo(data []byte) {
 
 // DumpVerbose prints the drop notification in human readable form
 func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
-	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s, to ifindex %s",
-		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType), ifname(int(n.Ifindex)))
+	fmt.Printf("%s MARK %#x FROM %d DROP: %d bytes, reason %s",
+		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
 		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
@@ -93,7 +93,6 @@ type DropNotifyVerbose struct {
 	CPUPrefix string `json:"cpu,omitempty"`
 	Type      string `json:"type,omitempty"`
 	Mark      string `json:"mark,omitempty"`
-	Ifindex   string `json:"ifindex,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 
 	Source   uint16 `json:"source"`
@@ -110,7 +109,6 @@ func DropNotifyToVerbose(n *DropNotify) DropNotifyVerbose {
 	return DropNotifyVerbose{
 		Type:     "drop",
 		Mark:     fmt.Sprintf("%#x", n.Hash),
-		Ifindex:  ifname(int(n.Ifindex)),
 		Reason:   api.DropReason(n.SubType),
 		Source:   n.Source,
 		Bytes:    n.OrigLen,
