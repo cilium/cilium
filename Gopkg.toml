@@ -123,9 +123,16 @@ required = [
 
 [[constraint]]
   name = "github.com/docker/libnetwork"
-  revision = "82fb373e3eaa4e9bbb5b5ac148b0a3a71f80fca6"
+  revision = "d8d4c8cf03d7d036a76d5470553cd8753e522a99"
 
   # main-usage = "plugins/cilium-docker"
+  # on-revision = ""
+
+[[override]]
+  name = "github.com/ishidawataru/sctp"
+  revision = "07191f837fedd2f13d1ec7b5f885f0f3ec54b1cb"
+
+  # main-usage = "github.com/docker/libnetwork"
   # on-revision = ""
 
 [[constraint]]
