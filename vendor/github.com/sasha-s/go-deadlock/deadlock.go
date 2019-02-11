@@ -44,6 +44,31 @@ var Opts = struct {
 	LogBuf:     os.Stderr,
 }
 
+// Cond is sync.Cond wrapper
+type Cond struct {
+	sync.Cond
+}
+
+// Locker is sync.Locker wrapper
+type Locker struct {
+	sync.Locker
+}
+
+// Once is sync.Once wrapper
+type Once struct {
+	sync.Once
+}
+
+// Pool is sync.Poll wrapper
+type Pool struct {
+	sync.Pool
+}
+
+// WaitGroup is sync.WaitGroup wrapper
+type WaitGroup struct {
+	sync.WaitGroup
+}
+
 // A Mutex is a drop-in replacement for sync.Mutex.
 // Performs deadlock detection unless disabled in Opts.
 type Mutex struct {
