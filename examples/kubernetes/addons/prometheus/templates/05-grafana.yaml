@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: grafana-config
-  namespace: monitoring
+  namespace: cilium-monitoring
   labels:
     app: grafana
 apiVersion: v1
@@ -16,7 +16,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: monitoring
+  namespace: cilium-monitoring
   labels:
     app: grafana
     component: core
@@ -44,7 +44,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: monitoring
+  namespace: cilium-monitoring
   labels:
     app: grafana
 spec:
