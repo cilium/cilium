@@ -33,14 +33,14 @@ import (
 // target server that needs to be created. In case of any error on vagrant
 // [provision|up|ssh-config] error will be returned.
 func CreateVM(scope string) error {
-	createCMD := "vagrant up %s --provision"
+	createCMD := "vagrant up %s --provision --debug"
 
 	for _, v := range Status(scope) {
 		switch v {
 		case "running":
-			createCMD = "vagrant provision %s"
+			createCMD = "vagrant provision --debug %s"
 		case "not_created":
-			createCMD = "vagrant up %s --provision"
+			createCMD = "vagrant up %s --provision --debug"
 		default:
 			// Sometimes servers are stoped and not destroyed. Destroy VM just in case
 			DestroyVM(scope)

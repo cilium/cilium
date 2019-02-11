@@ -62,8 +62,8 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up --debug --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --debug --no-provision'
             }
         }
         stage('BDD-Test-PR') {
