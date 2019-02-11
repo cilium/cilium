@@ -1,3 +1,5 @@
+// +build windows,go1.6
+
 package shellwords
 
 import (
