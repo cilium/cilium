@@ -580,6 +580,14 @@
   revision = "v0.3.6"
 
 [[projects]]
+  digest = "1:56a1f3949ebb7fa22fa6b4e4ac0fe0f77cc4faee5b57413e6fa9199a8458faf1"
+  name = "github.com/google/uuid"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "9b3b1e0f5f99ae461456d768e7d301a7acdaa2d8"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:06a7dadb7b760767341ffb6c8d377238d68a1226f2b21b5d497d2e3f6ecf6b4e"
   name = "github.com/googleapis/gnostic"
   packages = [
@@ -953,11 +961,11 @@
   source = "https://github.com/cilium/kafka"
 
 [[projects]]
-  digest = "1:a8ebc818b2e43e2fa7f052e5e7848aa2b288810a949fb5a65f283b2942c00501"
+  digest = "1:8052bed5b98ffdd208d45d25da04e8703edbcd3c62e50e5c4e1b72ab40c58ae4"
   name = "github.com/pborman/uuid"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "14801136da1260ea57627a3af55873f59f9ee1ea"
+  revision = "v1.2.0"
 
 [[projects]]
   digest = "1:cf254277d898b713195cc6b4a3fac8bf738b9f1121625df27843b52b267eec6c"

@@ -311,7 +311,7 @@ required = [
 
 [[constraint]]
   name = "github.com/pborman/uuid"
-  revision = "14801136da1260ea57627a3af55873f59f9ee1ea"
+  revision = "v1.2.0"
 
   # main-usage = "pkg/uuid"
   # on-revision = ""

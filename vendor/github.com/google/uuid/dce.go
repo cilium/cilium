@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc.  All rights reserved.
+// Copyright 2016 Google Inc.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -29,46 +29,42 @@ const (
 //
 // For a given domain/id pair the same token may be returned for up to
 // 7 minutes and 10 seconds.
-func NewDCESecurity(domain Domain, id uint32) UUID {
-	uuid := NewUUID()
-	if uuid != nil {
+func NewDCESecurity(domain Domain, id uint32) (UUID, error) {
+	uuid, err := NewUUID()
+	if err == nil {
 		uuid[6] = (uuid[6] & 0x0f) | 0x20 // Version 2
 		uuid[9] = byte(domain)
 		binary.BigEndian.PutUint32(uuid[0:], id)
 	}
-	return uuid
+	return uuid, err
 }
 
 // NewDCEPerson returns a DCE Security (Version 2) UUID in the person
 // domain with the id returned by os.Getuid.
 //
-//  NewDCEPerson(Person, uint32(os.Getuid()))
-func NewDCEPerson() UUID {
+//  NewDCESecurity(Person, uint32(os.Getuid()))
+func NewDCEPerson() (UUID, error) {
 	return NewDCESecurity(Person, uint32(os.Getuid()))
 }
 
 // NewDCEGroup returns a DCE Security (Version 2) UUID in the group
 // domain with the id returned by os.Getgid.
 //
-//  NewDCEGroup(Group, uint32(os.Getgid()))
-func NewDCEGroup() UUID {
+//  NewDCESecurity(Group, uint32(os.Getgid()))
+func NewDCEGroup() (UUID, error) {
 	return NewDCESecurity(Group, uint32(os.Getgid()))
 }
 
-// Domain returns the domain for a Version 2 UUID or false.
-func (uuid UUID) Domain() (Domain, bool) {
-	if v, _ := uuid.Version(); v != 2 {
-		return 0, false
-	}
-	return Domain(uuid[9]), true
+// Domain returns the domain for a Version 2 UUID.  Domains are only defined
+// for Version 2 UUIDs.
+func (uuid UUID) Domain() Domain {
+	return Domain(uuid[9])
 }
 
-// Id returns the id for a Version 2 UUID or false.
-func (uuid UUID) Id() (uint32, bool) {
-	if v, _ := uuid.Version(); v != 2 {
-		return 0, false
-	}
-	return binary.BigEndian.Uint32(uuid[0:4]), true
+// ID returns the id for a Version 2 UUID. IDs are only defined for Version 2
+// UUIDs.
+func (uuid UUID) ID() uint32 {
+	return binary.BigEndian.Uint32(uuid[0:4])
 }
 
 func (d Domain) String() string {
