@@ -20,6 +20,7 @@ import (
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 )
@@ -60,9 +61,9 @@ var _ = Describe("RuntimeLB", func() {
 	}, 500)
 
 	images := map[string]string{
-		helpers.Httpd1: helpers.HttpdImage,
-		helpers.Httpd2: helpers.HttpdImage,
-		helpers.Client: helpers.NetperfImage,
+		helpers.Httpd1: constants.HttpdImage,
+		helpers.Httpd2: constants.HttpdImage,
+		helpers.Client: constants.NetperfImage,
 	}
 
 	createContainers := func() {

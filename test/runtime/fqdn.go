@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 )
@@ -153,15 +154,15 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		monitorStop = func() error { return nil }
 
 		ciliumTestImages = map[string]string{
-			WorldHttpd1: helpers.HttpdImage,
-			WorldHttpd2: helpers.HttpdImage,
-			WorldHttpd3: helpers.HttpdImage,
+			WorldHttpd1: constants.HttpdImage,
+			WorldHttpd2: constants.HttpdImage,
+			WorldHttpd3: constants.HttpdImage,
 		}
 
 		ciliumOutsideImages = map[string]string{
-			OutsideHttpd1: helpers.HttpdImage,
-			OutsideHttpd2: helpers.HttpdImage,
-			OutsideHttpd3: helpers.HttpdImage,
+			OutsideHttpd1: constants.HttpdImage,
+			OutsideHttpd2: constants.HttpdImage,
+			OutsideHttpd3: constants.HttpdImage,
 		}
 
 		worldIps       = map[string]string{}
@@ -224,7 +225,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		// place.
 		res := vm.ContainerCreate(
 			bindContainerName,
-			helpers.BindContainerImage,
+			constants.BindContainerImage,
 			"bridge",
 			fmt.Sprintf("-p 53:53/udp -p 53:53/tcp -v /data:/data -l id.bind -e DNSSEC_DOMAIN=%s", DNSSECDomain))
 		res.ExpectSuccess("Cannot start bind container")
@@ -848,7 +849,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Validate that allow target is working correctly")
 		res := vm.ContainerRun(
 			DNSSECContainerName,
-			helpers.DNSSECContainerImage,
+			constants.DNSSECContainerImage,
 			helpers.CiliumDockerNetwork,
 			fmt.Sprintf("-l id.%s --dns=%s --rm", DNSSECContainerName, DNSServerIP),
 			DNSSECWorld1Target)
@@ -857,7 +858,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Validate that disallow target is working correctly")
 		res = vm.ContainerRun(
 			DNSSECContainerName,
-			helpers.DNSSECContainerImage,
+			constants.DNSSECContainerImage,
 			helpers.CiliumDockerNetwork,
 			fmt.Sprintf("-l id.%s --dns=%s --rm", DNSSECContainerName, DNSServerIP),
 			DNSSECWorld2Target)

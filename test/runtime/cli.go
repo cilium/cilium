@@ -21,6 +21,7 @@ import (
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 )
@@ -54,7 +55,7 @@ var _ = Describe("RuntimeCLI", func() {
 
 		BeforeAll(func() {
 			for _, set := range namesLabels {
-				res := vm.ContainerCreate(set[0], helpers.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
+				res := vm.ContainerCreate(set[0], constants.NetperfImage, helpers.CiliumDockerNetwork, fmt.Sprintf("-l %s", set[1]))
 				res.ExpectSuccess("Unable to create container")
 			}
 		})

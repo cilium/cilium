@@ -30,6 +30,7 @@ import (
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -474,7 +475,7 @@ spec:
 
 	err := helpers.RenderTemplateToFile(
 		t.GetManifestName(),
-		fmt.Sprintf(manifest, t.Prefix, t.SrcPod, t.DestPod, helpers.AlpineCurlImage, helpers.HttpdImage),
+		fmt.Sprintf(manifest, t.Prefix, t.SrcPod, t.DestPod, constants.AlpineCurlImage, constants.HttpdImage),
 		os.ModePerm)
 	if err != nil {
 		return err

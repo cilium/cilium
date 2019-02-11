@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/test/helpers/constants"
 	"github.com/onsi/ginkgo"
 )
 
@@ -53,8 +54,8 @@ func (s *SSHMeta) ContainerCreate(name, image, net, options string, cmdParams ..
 	if len(cmdParams) > 0 {
 		cmdOnStart = strings.Join(cmdParams, " ")
 	}
-	if _, ok := AllImages[image]; !ok {
-		ginkgo.Fail(fmt.Sprintf("Image %s is not in the set of pre-pulled Docker images; add this image to `AllImages` in `test/helpers/cons.go` and / or update the VM image to pull this image if necessary", image), 1)
+	if _, ok := constants.AllImages[image]; !ok {
+		ginkgo.Fail(fmt.Sprintf("Image %s is not in the set of pre-pulled Docker images; add this image to `AllImages` in `test/helpers/constants/images.go` and / or update the VM image to pull this image if necessary", image), 1)
 	}
 
 	cmd := fmt.Sprintf(
@@ -153,12 +154,12 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string, creat
 	}
 
 	images := map[string]string{
-		Httpd1: HttpdImage,
-		Httpd2: HttpdImage,
-		Httpd3: HttpdImage,
-		App1:   NetperfImage,
-		App2:   NetperfImage,
-		App3:   NetperfImage,
+		Httpd1: constants.HttpdImage,
+		Httpd2: constants.HttpdImage,
+		Httpd3: constants.HttpdImage,
+		App1:   constants.NetperfImage,
+		App2:   constants.NetperfImage,
+		App3:   constants.NetperfImage,
 	}
 
 	switch mode {

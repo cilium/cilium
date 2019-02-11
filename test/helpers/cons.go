@@ -88,50 +88,11 @@ const (
 	// selecting endpoints.
 	PolicyEnforcementNever = "never"
 
-	// Docker Image names
-
 	// CiliumDockerNetwork is the name of the Docker network which Cilium manages.
 	CiliumDockerNetwork = "cilium-net"
 
 	// HostDockerNetwork is the name of the host network driver.
 	HostDockerNetwork = "host"
-
-	// NetperfImage is the Docker image used for performance testing
-	NetperfImage = "docker.io/tgraf/netperf:v1.0"
-
-	// HttpdImage is the image used for starting an HTTP server.
-	HttpdImage = "docker.io/cilium/demo-httpd:latest"
-
-	// DNSSECContainerImage is the image used for starting a DNSSec client.
-	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.1"
-
-	// BindContainerImage is the image used for DNS binding testing.
-	BindContainerImage = "docker.io/cilium/docker-bind:v0.3"
-
-	// KafkaClientImage is the image used for Kafka clients.
-	KafkaClientImage = "docker.io/cilium/kafkaclient2:latest"
-
-	// ZookeeperImage is the image used for running Zookeeper.
-	ZookeeperImage = "docker.io/digitalwonderland/zookeeper:latest"
-
-	// BusyboxImage is a space efficient-image used for basic testing.
-	BusyboxImage = "docker.io/library/busybox:1.28.0"
-
-	// AlpineCurlImage is the image used for invoking curl with a small base image.
-	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.7"
-
-	// MemcacheDImage is the image used to test memcached in the runtime tests.
-	MemcacheDImage = "docker.io/library/memcached:1.5.11"
-
-	// MemcacheBinClient is the image used during binary memcached parser tests.
-	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.1"
-
-	// AlpineImage is used during the memcached tests as the text client.
-	AlpineImage = "docker.io/library/alpine:3.9"
-
-	// CassandraImage is the image used for testing of the cassandra proxy
-	// functionality in Cilium.
-	CassandraImage = "docker.io/library/cassandra:3.11.3"
 
 	// Names of commonly used containers in tests.
 	Httpd1 = "httpd1"
@@ -301,24 +262,6 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium policy get":                     "policy_get.txt",
 	"cilium status --all-controllers":       "status.txt",
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
-}
-
-// AllImages is the set of all container images which are ran directly via
-// `docker run` in the Cilium CI. It is used to provide a central location in
-// the code of all images that are used.
-var AllImages = map[string]struct{}{
-	NetperfImage:         {},
-	HttpdImage:           {},
-	DNSSECContainerImage: {},
-	BindContainerImage:   {},
-	KafkaClientImage:     {},
-	ZookeeperImage:       {},
-	BusyboxImage:         {},
-	AlpineCurlImage:      {},
-	MemcacheDImage:       {},
-	MemcacheBinClient:    {},
-	AlpineImage:          {},
-	CassandraImage:       {},
 }
 
 const (

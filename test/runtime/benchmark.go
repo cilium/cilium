@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/helpers/constants"
 
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -107,9 +108,9 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 
 	createContainers := func() {
 		By("create Client container")
-		vm.ContainerCreate(helpers.Client, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+		vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
 		By("create Server containers")
-		vm.ContainerCreate(helpers.Server, helpers.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+		vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
 		vm.PolicyDelAll()
 		Expect(vm.WaitEndpointsReady()).To(BeNil(), "Endpoints are not ready")
 	}
