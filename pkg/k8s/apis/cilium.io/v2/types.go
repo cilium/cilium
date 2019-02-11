@@ -333,6 +333,7 @@ type EndpointStatus struct {
 const EndpointStatusLogEntries = 5
 
 // ControllerList is a list of ControllerStatus
+// +k8s:deepcopy-gen=false
 type ControllerList []ControllerStatus
 
 // Sort sorts the ControllerList by controller name
@@ -341,6 +342,7 @@ func (c ControllerList) Sort() {
 }
 
 // ControllerStatus is the status of a failing controller
+// +k8s:deepcopy-gen=false
 type ControllerStatus struct {
 	// Name is the name of the controller
 	Name string `json:"name,omitempty"`
@@ -356,6 +358,7 @@ type ControllerStatus struct {
 }
 
 // ControllerStatusStatus is the detailed status section of a controller
+// +k8s:deepcopy-gen=false
 type ControllerStatusStatus struct {
 	ConsecutiveFailureCount int64  `json:"consecutive-failure-count,omitempty"`
 	FailureCount            int64  `json:"failure-count,omitempty"`
@@ -367,12 +370,14 @@ type ControllerStatusStatus struct {
 
 // EndpointPolicy represents the endpoint's policy by listing all allowed
 // ingress and egress identities in combination with L4 port and protocol
+// +k8s:deepcopy-gen=false
 type EndpointPolicy struct {
 	Ingress *EndpointPolicyDirection `json:"ingress,omitempty"`
 	Egress  *EndpointPolicyDirection `json:"egress,omitempty"`
 }
 
 // EndpointPolicyDirection is the list of allowed identities per direction
+// +k8s:deepcopy-gen=false
 type EndpointPolicyDirection struct {
 	Enforcing bool                `json:"enforcing"`
 	Allowed   AllowedIdentityList `json:"allowed,omitempty"`
@@ -382,6 +387,7 @@ type EndpointPolicyDirection struct {
 
 // AllowedIdentityTuple specifies an allowed peer by identity, destination port
 // and protocol
+// +k8s:deepcopy-gen=false
 type AllowedIdentityTuple struct {
 	Identity       uint64            `json:"identity,omitempty"`
 	IdentityLabels map[string]string `json:"identity-labels,omitempty"`
@@ -390,6 +396,7 @@ type AllowedIdentityTuple struct {
 }
 
 // AllowedIdentityList is a list of AllowedIdentityTuple
+// +k8s:deepcopy-gen=false
 type AllowedIdentityList []AllowedIdentityTuple
 
 // Sort sorts a list AllowedIdentityTuple by numeric identity, port and protocol
@@ -408,6 +415,7 @@ func (a AllowedIdentityList) Sort() {
 	})
 }
 
+// +k8s:deepcopy-gen=false
 type deprecatedEndpointConfigurationSpec struct {
 	LabelConfiguration *deprecatedLabelConfigurationSpec `json:"label-configuration,omitempty"`
 	Options            map[string]string                 `json:"options,omitempty"`
@@ -421,6 +429,7 @@ type deprecatedLabelConfigurationSpec struct {
 // backwards compatibility.
 //
 // See EndpointStatus for descriptions of fields
+// +k8s:deepcopy-gen=false
 type DeprecatedEndpointStatus struct {
 	Controllers ControllerList                 `json:"controllers,omitempty"`
 	Identity    *EndpointIdentity              `json:"identity,omitempty"`
@@ -437,6 +446,7 @@ type DeprecatedEndpointStatus struct {
 }
 
 // EndpointIdentity is the identity information of an endpoint
+// +k8s:deepcopy-gen=false
 type EndpointIdentity struct {
 	// ID is the numeric identity of the endpoint
 	ID int64 `json:"id,omitempty"`
@@ -449,12 +459,14 @@ type EndpointIdentity struct {
 }
 
 // AddressPair is is a par of IPv4 and/or IPv6 address
+// +k8s:deepcopy-gen=false
 type AddressPair struct {
 	IPV4 string `json:"ipv4,omitempty"`
 	IPV6 string `json:"ipv6,omitempty"`
 }
 
 // AddressPairList is a list of address pairs
+// +k8s:deepcopy-gen=false
 type AddressPairList []*AddressPair
 
 // Sort sorts an AddressPairList by IPv4 and IPv6 address
@@ -470,6 +482,7 @@ func (a AddressPairList) Sort() {
 }
 
 // EndpointNetworking is the addressing information of an endpoint
+// +k8s:deepcopy-gen=false
 type EndpointNetworking struct {
 	// IP4/6 addresses assigned to this Endpoint
 	Addressing AddressPairList `json:"addressing"`
