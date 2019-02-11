@@ -261,7 +261,7 @@ required = [
 
 [[constraint]]
   name = "github.com/kr/pretty"
-  revision = "cfb55aafdaf3ec08f0db22699ab822c50091b1c4"
+  revision = "v0.1.0"
 
   # main-usage = "pkg/comparator"
   # on-revision = ""
