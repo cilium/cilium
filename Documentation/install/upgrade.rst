@@ -149,43 +149,49 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-operator.yaml
 
   .. group-tab:: K8s 1.9
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-operator.yaml
 
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-operator.yaml
 
   .. group-tab:: K8s 1.11
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-operator.yaml
 
   .. group-tab:: K8s 1.12
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-operator.yaml
 
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
 
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-rbac.yaml
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-operator.yaml
 
 Below we will show examples of how Cilium should be upgraded using Kubernetes
 rolling upgrade functionality in order to preserve any existing Cilium
