@@ -55,6 +55,15 @@ Advanced Networking
    flannel-integration
    ipvlan
 
+Operations
+----------
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   grafana
+
 Istio
 -----
 
