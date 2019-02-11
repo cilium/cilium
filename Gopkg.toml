@@ -296,7 +296,7 @@ required = [
 
 [[constraint]]
   name = "github.com/op/go-logging"
-  revision = "0882c9abce533ab4afbab5677fcef7434dd36d5a"
+  revision = "970db520ece77730c7e4724c61121037378659d9"
 
   # main-usage = "pkg/policy"
   # on-revision = ""

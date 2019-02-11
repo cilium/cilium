@@ -896,11 +896,11 @@
   revision = "283ed655c6b8238afecd5bea6434bc9b03129f2f"
 
 [[projects]]
-  digest = "1:421eddadca0860f5c4e6ba2890b0cca3e4c2c5515dd9cbcc6f51eb033cd89e30"
+  digest = "1:7302bcf5914fc7c62b2eb65291547ba8522cd03fc3fda1d468c3438c80302db3"
   name = "github.com/op/go-logging"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "0882c9abce533ab4afbab5677fcef7434dd36d5a"
+  revision = "970db520ece77730c7e4724c61121037378659d9"
 
 [[projects]]
   digest = "1:e0cc8395ea893c898ff5eb0850f4d9851c1f57c78c232304a026379a47a552d0"
