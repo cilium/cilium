@@ -241,6 +241,15 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				reason = "Denied by policy"
 			}
 
+			// We determine the direction based on the DNS packet. The observation
+			// point is always Egress, however.
+			var flowType accesslog.FlowType
+			if msg.Response {
+				flowType = accesslog.TypeResponse
+			} else {
+				flowType = accesslog.TypeRequest
+			}
+
 			var serverPort int
 			serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
 			if err != nil {
@@ -279,9 +288,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				log.WithError(err).Error("cannot extract DNS message details")
 			}
 
-			// We are always egress
 			ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, verdict)
-			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, accesslog.TypeRequest, false,
+			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
