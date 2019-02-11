@@ -457,7 +457,7 @@ required = [
 
 [[constraint]]
   name = "gopkg.in/check.v1"
-  revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
+  revision = "788fd78401277ebd861206a03c884797c6ec5541"
 
   # main-usage = "unit tests"
   # on-revision = ""

@@ -1417,11 +1417,11 @@
   revision = "v1.18.0"
 
 [[projects]]
-  digest = "1:31dc2608eeec187b17712a05f92b263e04f8e02b06c672002203ddcde7b70ea3"
+  digest = "1:1ac47b19a2ad8287a4c6e91630355d63646c480c32f2bbee757a850dabe90bc8"
   name = "gopkg.in/check.v1"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
+  revision = "788fd78401277ebd861206a03c884797c6ec5541"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
