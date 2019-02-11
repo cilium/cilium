@@ -303,7 +303,7 @@ New ConfigMap Options
     connectivity. If this option is set to ``false`` during an upgrade to 1.4.0
     or later, then it may cause one-time disruptions during the upgrade.
 
-  * New flannel CNI integration mode options (tech preview):
+  * New flannel CNI integration mode options (beta):
 
     * ``flannel-master-device``: When running Cilium with policy enforcement
       enabled on top of Flannel, the BPF programs will be installed on the

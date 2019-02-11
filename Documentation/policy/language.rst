@@ -872,13 +872,10 @@ While communicating on this port, the only API endpoints allowed will be ``GET
         .. literalinclude:: ../../examples/policies/l7/http/http.json
 
 
-Kafka (Tech Preview)
---------------------
+Kafka (beta)
+------------
 
-.. note:: Kafka support is currently in tech preview phase. Tech preview is
-          functionality that has recently been added and had limited user
-          exposure so far.
-
+.. note:: Kafka support is currently in beta phase.
 
 PortRuleKafka is a list of Kafka protocol constraints. All fields are optional,
 if all fields are empty or missing, the rule will match all Kafka messages.
