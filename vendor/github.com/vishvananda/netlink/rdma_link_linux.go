@@ -95,6 +95,12 @@ func execRdmaGetLink(req *nl.NetlinkRequest, name string) (*RdmaLink, error) {
 	return nil, fmt.Errorf("Rdma device %v not found", name)
 }
 
+func execRdmaSetLink(req *nl.NetlinkRequest) error {
+
+	_, err := req.Execute(unix.NETLINK_RDMA, 0)
+	return err
+}
+
 // RdmaLinkByName finds a link by name and returns a pointer to the object if
 // found and nil error, otherwise returns error code.
 func RdmaLinkByName(name string) (*RdmaLink, error) {
@@ -109,4 +115,31 @@ func (h *Handle) RdmaLinkByName(name string) (*RdmaLink, error) {
 	req := h.newNetlinkRequest(proto, unix.NLM_F_ACK|unix.NLM_F_DUMP)
 
 	return execRdmaGetLink(req, name)
+}
+
+// RdmaLinkSetName sets the name of the rdma link device. Return nil on success
+// or error otherwise.
+// Equivalent to: `rdma dev set $old_devname name $name`
+func RdmaLinkSetName(link *RdmaLink, name string) error {
+	return pkgHandle.RdmaLinkSetName(link, name)
+}
+
+// RdmaLinkSetName sets the name of the rdma link device. Return nil on success
+// or error otherwise.
+// Equivalent to: `rdma dev set $old_devname name $name`
+func (h *Handle) RdmaLinkSetName(link *RdmaLink, name string) error {
+	proto := getProtoField(nl.RDMA_NL_NLDEV, nl.RDMA_NLDEV_CMD_SET)
+	req := h.newNetlinkRequest(proto, unix.NLM_F_ACK)
+
+	b := make([]byte, 4)
+	native.PutUint32(b, uint32(link.Attrs.Index))
+	data := nl.NewRtAttr(nl.RDMA_NLDEV_ATTR_DEV_INDEX, b)
+	req.AddData(data)
+
+	b = make([]byte, len(name)+1)
+	copy(b, name)
+	data = nl.NewRtAttr(nl.RDMA_NLDEV_ATTR_DEV_NAME, b)
+	req.AddData(data)
+
+	return execRdmaSetLink(req)
 }
