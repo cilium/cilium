@@ -654,7 +654,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.12
 * 1.13
 
-By default, the Vagrant VMs are provisioned with Kubernetes 1.9. To run with any other
+By default, the Vagrant VMs are provisioned with Kubernetes 1.13. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
 ::
@@ -865,7 +865,7 @@ the option ``-v``:
 	ginkgo --focus "Runtime*" -v
 
 In case that the verbose mode is not enough, you can retrieve all run commands
-and their output in the report directory (``./test/test-results``). Each test
+and their output in the report directory (``./test/test_results``). Each test
 creates a new folder, which contains a file called log where all information is
 saved, in case of a failing test an exhaustive data will be added.
 
@@ -956,7 +956,7 @@ configuration options that can be passed as environment variables:
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | CONTAINER\_RUNTIME   | docker            | containerd   | To set the default container runtime in the Kubernetes cluster   |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
-| K8S\_VERSION         | 1.10              | 1.\*\*       | Kubernetes version to install                                    |
+| K8S\_VERSION         | 1.13              | 1.\*\*       | Kubernetes version to install                                    |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | SERVER\_BOX          | cilium/ubuntu-dev | *            | Vagrantcloud base image                                          |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
