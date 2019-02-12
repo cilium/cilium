@@ -34,37 +34,25 @@ keys may be manually distributed but that is not shown here.
 Generate & import the PSK
 =========================
 
-First create a yaml file for the IPSec keys to be stored as a Kubernetes
-secret.  The ``cilium-ipsec-keys.yaml`` listed below gives an example.
-
-.. parsed-literal::
-  apiVersion: v1
-  kind: Secret
-  metadata:
-    name: cilium-ipsec-keys
-  type: Opaque
-  stringData:
-
-Next we will generate the necessary IPSec keys which will be distributed as a
-Kubernetes secret using the ``cilium-ipsec-keys.yaml`` file. In this example we use
+First create a Kubernetes secret for the IPSec keys to be stored.
+This will generate the necessary IPSec keys which will be distributed as a
+Kubernetes secret called ``cilium-ipsec-keys``. In this example we use
 AES-CBC with HMAC-256 (hash based authentication code), but any of the supported
 Linux algorithms may be used. To generate use the following
 
 .. parsed-literal::
-  KEY1=0x`dd if=/dev/urandom count=16 bs=1 2> /dev/null| xxd -p -c 64`
-  KEY2=0x`dd if=/dev/urandom count=16 bs=1 2> /dev/null| xxd -p -c 64`
-  echo "  keys: \\"hmac(sha256) $KEY1 cbc(aes) $KEY2\\"" >> cilium-ipsec-keys.yaml
 
-.. parsed-literal::
-  kubectl -n kube-system create -f cilium-ipsec-keys.yaml
+    kubectl create -n kube-system secret generic cilium-ipsec-keys \\
+       --from-literal=keys="hmac(sha256) $(echo \`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64\`) cbc(aes) $(echo \`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64\`)"
+
 
 The secret can be displayed with 'kubectl -n kube-system get secret' and will be
 listed as 'cilium-ipsec-keys'.
 
 .. parsed-literal::
- $ kubectl -n kube-system get secrets cilium-ipsec-keys
- NAME                                             TYPE                                  DATA   AGE
- cilium-ipsec-keys                                Opaque                                1      105m
+    $ kubectl -n kube-system get secrets cilium-ipsec-keys
+    NAME                TYPE     DATA   AGE
+    cilium-ipsec-keys   Opaque   1      176m
 
 Enable Encryption in Cilium
 ===========================
