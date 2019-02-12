@@ -18,6 +18,7 @@ package ipsec
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -263,6 +264,14 @@ func DeleteIPSecEndpoint(src, local net.IP) error {
 	return nil
 }
 
+func decodeIPSecKey(keyRaw string) ([]byte, error) {
+	// As we have released the v1.4.0 docs telling the users to write the
+	// k8s secret with the prefix "0x" we have to remove it if it is present,
+	// so we can decode the secret.
+	keyTrimmed := strings.TrimPrefix(keyRaw, "0x")
+	return hex.DecodeString(keyTrimmed)
+}
+
 // LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 func LoadIPSecKeysFile(path string) error {
@@ -287,8 +296,17 @@ func LoadIPSecKeysFile(path string) error {
 			return fmt.Errorf("missing IPSec keys or invalid format")
 		}
 
-		authname, authkey := s[0], []byte(s[1])
-		encname, enckey := s[2], []byte(s[3])
+		authkey, err := decodeIPSecKey(s[1])
+		if err != nil {
+			return fmt.Errorf("unable to decode authkey string %q", s[1])
+		}
+		authname := s[0]
+
+		enckey, err := decodeIPSecKey(s[3])
+		if err != nil {
+			return fmt.Errorf("unable to decode enckey string %q", s[3])
+		}
+		encname := s[2]
 
 		ipSecKey.Auth = &netlink.XfrmStateAlgo{
 			Name: authname,
