@@ -9,6 +9,6 @@ RUN strip cilium-docker
 
 FROM scratch
 LABEL maintainer="maintainer@cilium.io"
-COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-docker /usr/bin/cilium-docker
+COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-docker/cilium-docker /usr/bin/cilium-docker
 WORKDIR /
-CMD ["/usr/bin/cilium-etcd-operator"]
+CMD ["/usr/bin/cilium-docker"]
