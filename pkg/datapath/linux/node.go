@@ -434,7 +434,13 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
 				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
 				n.replaceNodeIPSecOutRoute(new4Net)
-				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
+				err := ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
+				if err != nil {
+					log.WithError(err).Errorf("Upsert local %s remote %s", ipsecLocal, ipsecRemote)
+				} else {
+					log.Debugf("Upsert (success) local %s remote %s", ipsecLocal, ipsecRemote)
+				}
+
 			}
 		}
 	}
