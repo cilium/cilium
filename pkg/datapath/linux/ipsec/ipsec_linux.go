@@ -220,22 +220,22 @@ func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int) error {
 	if !local.IP.Equal(remote.IP) {
 		if err := ipSecReplaceState(local.IP, remote.IP, spi); err != nil {
 			if !os.IsExist(err) {
-				return err
+				return fmt.Errorf("unable to replace local state: %s", err)
 			}
 		}
 		if err := ipSecReplaceState(remote.IP, local.IP, spi); err != nil {
 			if !os.IsExist(err) {
-				return err
+				return fmt.Errorf("unable to replace remote state: %s", err)
 			}
 		}
 		if err := ipSecReplacePolicyOut(local, remote); err != nil {
 			if !os.IsExist(err) {
-				return err
+				return fmt.Errorf("unable to replace policy out: %s", err)
 			}
 		}
 		if err := ipSecReplacePolicyIn(remote, local); err != nil {
 			if !os.IsExist(err) {
-				return err
+				return fmt.Errorf("unable to replace policy in: %s", err)
 			}
 		}
 	}
