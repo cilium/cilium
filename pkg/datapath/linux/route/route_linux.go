@@ -305,12 +305,12 @@ func Delete(route Route) error {
 }
 
 func lookupRule(fwmark, table, family int) (bool, error) {
-	rules, err := netlink.RuleList(0)
+	rules, err := netlink.RuleList(family)
 	if err != nil {
 		return false, err
 	}
 	for _, r := range rules {
-		if r.Mark == fwmark && r.Table == table && r.Family == family {
+		if r.Mark == fwmark && r.Table == table {
 			return true, nil
 		}
 	}
