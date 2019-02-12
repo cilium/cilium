@@ -6,9 +6,9 @@
 
 .. _encryption:
 
-****************************
-Using Transparent Encryption
-****************************
+*****************************
+Transparent Encryption (beta)
+*****************************
 
 This guide explains how to configure Cilium to use IPSec based transparent
 encryption using Kubernetes secrets to distribute the IPSec keys. After this
@@ -20,7 +20,54 @@ keys may be manually distributed but that is not shown here.
 .. note::
 
     This is a beta feature. Please provide feedback and file a GitHub issue
-    if you experience any problems. Currently only supported in tunnel mode.
+    if you experience any problems.
+
+.. note::
+
+    Transparent encryption is currently subject to the following limitations:
+
+    * Only works in tunnel mode
+    * Not compatible with the etcd-operator
+    
+    Both limitations will be resolved in 1.4.1.
+
+Generate & import the PSK
+=========================
+
+First create a yaml file for the IPSec keys to be stored as a Kubernetes
+secret.  The ``cilium-ipsec-keys.yaml`` listed below gives an example.
+
+.. parsed-literal::
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: cilium-ipsec-keys
+  type: Opaque
+  stringData:
+
+Next we will generate the necessary IPSec keys which will be distributed as a
+Kubernetes secret using the ``cilium-ipsec-keys.yaml`` file. In this example we use
+AES-CBC with HMAC-256 (hash based authentication code), but any of the supported
+Linux algorithms may be used. To generate use the following
+
+.. parsed-literal::
+  KEY1=0x`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64`
+  KEY2=0x`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64`
+  echo "  keys: \\"hmac(sha256) $KEY1 cbc(aes) $KEY2\\"" >> cilium-ipsec-keys.yaml
+
+.. parsed-literal::
+  kubectl -n kube-system create -f cilium-ipsec-keys.yaml
+
+The secret can be displayed with 'kubectl -n kube-system get secret' and will be
+listed as 'cilium-ipsec-keys'.
+
+.. parsed-literal::
+ $ kubectl -n kube-system get secrets cilium-ipsec-keys
+ NAME                                             TYPE                                  DATA   AGE
+ cilium-ipsec-keys                                Opaque                                1      105m
+
+Enable Encryption in Cilium
+===========================
 
 First step is to download the Cilium Kubernetes descriptor:
 
@@ -61,43 +108,14 @@ First step is to download the Cilium Kubernetes descriptor:
 
       curl -LO \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
 
-First create a yaml file for the IPSec keys to be stored as a Kubernetes secret.
-The 'cilium-ipsec-keys.yaml' listed below gives an example.
+You can also use your existing definition DaemonSet running in your cluster:
 
-.. parsed-literal::
-  apiVersion: v1
-  kind: Secret
-  metadata:
-    name: cilium-ipsec-keys
-  type: Opaque
-  stringData:
+.. code:: bash
 
-Next we will generate the necessary IPSec keys which will be distributed as a
-Kubernetes secret using the 'cilium-ipsec-keys.yaml' file. In this example we use
-AES-CBC with HMAC-256 (hash based authentication code), but any of the supported
-Linux algorithms may be used. To generate use the following
+    kubectl -n kube-system get ds cilium -o yaml > cilium-ds.yaml
 
-.. parsed-literal::
-  KEY1=0x`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64`
-  KEY2=0x`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64`
-  echo "  keys: \\"hmac(sha256) $KEY1 cbc(aes) $KEY2\\"" >> cilium-ipsec-keys.yaml
-
-From the 'cilium-ipsec-keys.yaml' file generate a Kubernetes secret.
-
-.. parsed-literal::
-  kubectl -n kube-system create -f cilium-ipsec-keys.yaml
-
-The secret can be displayed with 'kubectl -n kube-system get secret' and will be
-listed as 'cilium-ipsec-keys'.
-
-.. parsed-literal::
- $ kubectl -n kube-system get secrets
- NAME                                             TYPE                                  DATA   AGE
- cilium-ipsec-keys                                Opaque                                1      105m
-
-After the secret is built we can enable 'cilium-agent'.
-To enable 'cilium-agent' we use a patch file to update the configuration with the required
-cilium-agent options and included IPSec keys.
+To enable encryption in Cilium, we use a patch file to update the configuration
+with the required cilium-agent options and included IPSec keys.
 
 .. parsed-literal::
   metadata:
@@ -121,7 +139,8 @@ cilium-agent options and included IPSec keys.
           secret:
             secretName: cilium-ipsec-keys
 
-The above shows the 'cilium-ipsec.yaml' used with the following 'kubectl patch' command,
+The above shows the ``cilium-ipsec.yaml`` used with the following ``kubectl
+patch`` command:
 
 .. parsed-literal::
   kubectl patch --filename='cilium-ds.yaml' --patch "$(cat cilium-ipsec.yaml)" --local -o yaml > cilium-ipsec-ds.yaml
@@ -133,3 +152,9 @@ Finally, apply the file,
 
 At this point the Cilium managed nodes will be using IPSec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`arch_guide`.
+
+Disabling Encryption
+====================
+
+To disable the encryption, edit the DaemonSet and remove the ``--enable-ipsec``
+argument.
