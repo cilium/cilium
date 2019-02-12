@@ -51,8 +51,8 @@ AES-CBC with HMAC-256 (hash based authentication code), but any of the supported
 Linux algorithms may be used. To generate use the following
 
 .. parsed-literal::
-  KEY1=0x`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64`
-  KEY2=0x`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64`
+  KEY1=0x`dd if=/dev/urandom count=16 bs=1 2> /dev/null| xxd -p -c 64`
+  KEY2=0x`dd if=/dev/urandom count=16 bs=1 2> /dev/null| xxd -p -c 64`
   echo "  keys: \\"hmac(sha256) $KEY1 cbc(aes) $KEY2\\"" >> cilium-ipsec-keys.yaml
 
 .. parsed-literal::
