@@ -296,11 +296,11 @@ Changes that may require action
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
-  * ``enable-ipv4``: If enabled, all endpoints are allocated an IPv4 address.
+  * ``enable-ipv4``: If ``true``, all endpoints are allocated an IPv4 address.
 
-  * ``enable-ipv6``: If enabled, all endpoints are allocated an IPv6 address.
+  * ``enable-ipv6``: If ``true``, all endpoints are allocated an IPv6 address.
 
-  * ``preallocate-bpf-maps``: If true, reduce per-packet latency at the expense
+  * ``preallocate-bpf-maps``: If ``true``, reduce per-packet latency at the expense
     of up-front memory allocation for entries in BPF maps. If this value is
     modified, then during the next Cilium startup the restore of existing
     endpoints and tracking of ongoing connections may be disrupted. This may
@@ -309,7 +309,33 @@ New ConfigMap Options
     connectivity. If this option is set to ``false`` during an upgrade to 1.4.0
     or later, then it may cause one-time disruptions during the upgrade.
 
-  * New flannel CNI integration mode options (beta):
+  * ``auto-direct-node-routes``: If ``true``, then enable automatic L2 routing
+    between nodes. This is useful when running in direct routing mode and can
+    be used as an alternative to running a routing daemon. Routes to other
+    Cilium managed nodes will then be installed on automatically.
+
+  * ``install-iptables-rules``: If set to ``false`` then Cilium will not
+    install any iptables rules which are mainly for interaction with
+    kube-proxy. By default it is set to ``true``.
+
+  * ``masquerade``: The agent can optionally be set up for masquerading all
+    network traffic leaving the main networking device if ``masquerade`` is
+    set to ``true``. By default it is set to ``false``.
+
+  * ``datapath-mode``: Cilium can operate in two different datapath modes,
+    that is, either based upon ``veth`` devices (default) or ``ipvlan``
+    devices (beta). The latter requires an additional setting to specify
+    the ipvlan master device.
+
+  * New ipvlan-specific CNI integration mode options (beta):
+
+    * ``ipvlan-master-device``: When running Cilium in ipvlan datapath mode,
+      an ipvlan master device must be specified. This is typically pointing
+      to a networking device that is facing the external network. Be aware
+      that this will be used by all nodes, so it is required that the device
+      name is consistent on all nodes where this is going to be deployed.
+
+  * New flannel-specific CNI integration mode options (beta):
 
     * ``flannel-master-device``: When running Cilium with policy enforcement
       enabled on top of Flannel, the BPF programs will be installed on the
