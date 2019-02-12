@@ -440,7 +440,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 				} else {
 					log.Debugf("Upsert (success) local %s remote %s", ipsecLocal, ipsecRemote)
 				}
-
 			}
 		}
 	}
@@ -651,7 +650,10 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 		}
 	}
 
-	route.Upsert(n.createNodeIPSecOutRoute(ip), n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip), n.nodeConfig.MtuConfig)
+	if err != nil {
+		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
+	}
 }
 
 // replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing table
@@ -671,7 +673,10 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 		}
 	}
 
-	route.Upsert(n.createNodeIPSecInRoute(ip), n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeIPSecInRoute(ip), n.nodeConfig.MtuConfig)
+	if err != nil {
+		log.WithError(err).Error("Unable to replace the IPSec route IN the host routing table")
+	}
 }
 
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
