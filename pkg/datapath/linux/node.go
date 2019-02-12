@@ -420,6 +420,45 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
 	return nil
 }
 
+func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
+	if newNode.IsLocal() {
+		n.replaceHostRules()
+	}
+
+	if n.nodeConfig.EnableIPv4 {
+		new4Net := &net.IPNet{IP: newNode.IPv4AllocCIDR.IP, Mask: newNode.IPv4AllocCIDR.Mask}
+		if newNode.IsLocal() {
+			n.replaceNodeIPSecInRoute(new4Net)
+		} else {
+			if ciliumInternalIPv4 := newNode.GetCiliumInternalIP(false); ciliumInternalIPv4 != nil {
+				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
+				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
+				n.replaceNodeIPSecOutRoute(new4Net)
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
+			}
+		}
+	}
+
+	if n.nodeConfig.EnableIPv6 {
+		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
+		if newNode.IsLocal() {
+			n.replaceHostRules()
+			n.replaceNodeIPSecInRoute(new6Net)
+		} else {
+			if ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true); ciliumInternalIPv6 != nil {
+				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
+				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv6, Mask: newNode.IPv6AllocCIDR.Mask}
+				ipsecHost := &net.IPNet{IP: n.nodeAddressing.IPv6().PrimaryExternal(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
+				n.replaceNodeIPSecOutRoute(new6Net)
+				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
+				if !ipsecHost.IP.Equal(ipsecLocal.IP) {
+					ipsec.UpsertIPSecEndpoint(ipsecHost, ipsecRemote, linux_defaults.IPSecNodeSPI)
+				}
+			}
+		}
+	}
+}
+
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition bool) error {
 	var (
 		oldIP4Cidr, oldIP6Cidr *cidr.CIDR
@@ -436,34 +475,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		new4Net := &net.IPNet{IP: newNode.IPv4AllocCIDR.IP, Mask: newNode.IPv4AllocCIDR.Mask}
-		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
-		if newNode.IsLocal() {
-			n.replaceHostRules()
-			n.replaceNodeIPSecInRoute(new4Net)
-			n.replaceNodeIPSecInRoute(new6Net)
-		} else {
-			ciliumInternalIPv4 := newNode.GetCiliumInternalIP(false)
-			ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true)
-
-			if ciliumInternalIPv4 != nil {
-				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
-				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
-				n.replaceNodeIPSecOutRoute(new4Net)
-				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
-			}
-
-			if ciliumInternalIPv6 != nil {
-				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
-				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv6, Mask: newNode.IPv6AllocCIDR.Mask}
-				ipsecHost := &net.IPNet{IP: n.nodeAddressing.IPv6().PrimaryExternal(), Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
-				n.replaceNodeIPSecOutRoute(new6Net)
-				ipsec.UpsertIPSecEndpoint(ipsecLocal, ipsecRemote, linux_defaults.IPSecEndpointSPI)
-				if !ipsecHost.IP.Equal(ipsecLocal.IP) {
-					ipsec.UpsertIPSecEndpoint(ipsecHost, ipsecRemote, linux_defaults.IPSecNodeSPI)
-				}
-			}
-		}
+		n.enableIPsec(newNode)
 	}
 
 	if newNode.IsLocal() {
@@ -563,22 +575,28 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 }
 
 func (n *linuxNodeHandler) replaceHostRules() error {
-	if err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
-		log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
-		return err
+	if n.nodeConfig.EnableIPv4 {
+		if err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+			log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
+			return err
+		}
+		if err := route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+			log.WithError(err).Error("Replace IPv4 route encrypt rule failed")
+			return err
+		}
 	}
-	if err := route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
-		log.WithError(err).Error("Replace IPv4 route encrypt rule failed")
-		return err
+
+	if n.nodeConfig.EnableIPv6 {
+		if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+			log.WithError(err).Error("Replace IPv6 route decrypt rule failed")
+			return err
+		}
+		if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+			log.WithError(err).Error("Replace IPv6 route ecrypt rule failed")
+			return err
+		}
 	}
-	if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
-		log.WithError(err).Error("Replace IPv6 route decrypt rule failed")
-		return err
-	}
-	if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
-		log.WithError(err).Error("Replace IPv6 route ecrypt rule failed")
-		return err
-	}
+
 	return nil
 }
 
