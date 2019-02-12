@@ -172,7 +172,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail(worldTargetIP))
-		res.ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, worldTargetIP)
+		res.ExpectSuccess("%q cannot curl to %q after restart", helpers.App2, worldTargetIP)
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
