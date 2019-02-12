@@ -18,6 +18,20 @@ datapath instead of the default veth-based one.
     This is a beta feature. Please provide feedback and file a GitHub issue if
     you experience any problems.
 
+    The feature lacks support of the following, which will be resolved in
+    upcoming Cilium releases:
+
+    - IPVLAN L2 mode
+    - L7 policy enforcement
+    - NAT64
+    - IPVLAN with tunneling
+
+.. note::
+
+   The ipvlan-based datapath in L3 mode requires v4.12 or more recent Linux
+   kernel, while L3S mode, in addition, requires a stable kernel with the fix
+   mentioned in this document (see below).
+
 First step is to download the Cilium Kubernetes descriptor:
 
 .. tabs::
