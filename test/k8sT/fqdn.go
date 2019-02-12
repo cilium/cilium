@@ -168,6 +168,9 @@ var _ = Describe("K8sFQDNTest", func() {
 		ExpectAllPodsTerminated(kubectl)
 		ExpectCiliumReady(kubectl)
 
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
+
 		By("Testing connectivity when cilium is *restored* using IPS without DNS")
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
@@ -179,8 +182,6 @@ var _ = Describe("K8sFQDNTest", func() {
 			helpers.CurlFail(worldInvalidTargetIP))
 		res.ExpectFail("%q can  connect when it should not work", helpers.App2)
 
-		err = kubectl.CiliumEndpointWaitReady()
-		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
 		By("Testing connectivity using DNS request when cilium is restored correctly")
 		connectivityTest()
 	})
