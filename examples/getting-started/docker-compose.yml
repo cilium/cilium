@@ -9,6 +9,7 @@ services:
       - /var/run/cilium:/var/run/cilium
       - /run/docker/plugins:/run/docker/plugins
       - /sys/fs/bpf:/sys/fs/bpf
+      - /var/run/docker/netns:/var/run/docker/netns:rshared
     network_mode: "host"
     cap_add:
       - "NET_ADMIN"
@@ -18,7 +19,7 @@ services:
 
   cilium_docker:
     container_name: cilium-docker-plugin
-    image: docker.io/cilium/cilium:${CILIUM_TAG}
+    image: docker.io/cilium/docker-plugin:${CILIUM_TAG}
     command: cilium-docker
     volumes:
       - /var/run/cilium:/var/run/cilium
