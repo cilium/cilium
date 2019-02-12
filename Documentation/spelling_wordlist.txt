@@ -178,6 +178,7 @@ fromCIDRSet
 fromEndpoints
 frontend
 fs
+fwmark
 Gartrell
 gcc
 Geneve
