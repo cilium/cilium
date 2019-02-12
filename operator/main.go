@@ -35,6 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/klog"
 )
 
 var (
@@ -110,6 +111,15 @@ func init() {
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
 	viper.BindPFlags(flags)
+
+	// Make sure that klog logging variables are initialized so that we can
+	// update them from this file.
+	klog.InitFlags(nil)
+
+	// Make sure klog (used by the client-go dependency) logs to stderr, as it
+	// will try to log to directories that may not exist in the cilium-operator
+	// container (/tmp) and cause the cilium-operator to exit.
+	flag.Set("logtostderr", "true")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -129,11 +139,6 @@ func initConfig() {
 
 func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
-
-	// Make sure glog (used by the client-go dependency) logs to stderr, as it
-	// will try to log to directories that may not exist in the cilium-operator
-	// container and cause the cilium-operator to exit.
-	flag.Set("logtostderr", "true")
 
 	log.Infof("Cilium Operator %s", version.Version)
 
