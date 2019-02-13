@@ -105,12 +105,9 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 					allIPs = append(allIPs, ips...)
 				}
 			}
-		}
-
-		// Only overwrite ToCIDRSet for rules with FQDN elements
-		if len(allIPs) > 0 {
 			egressRule.ToCIDRSet = api.IPsToCIDRRules(ip.KeepUniqueIPs(allIPs))
 		}
+
 	}
 
 	for dnsName := range missing {
