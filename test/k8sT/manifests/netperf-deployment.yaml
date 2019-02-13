@@ -10,7 +10,7 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: netperf
-    image: tgraf/netperf
+    image: docker.io/tgraf/netperf:v1.0
 ---
 apiVersion: v1
 kind: Pod
@@ -23,7 +23,7 @@ spec:
   terminationGracePeriodSeconds: 0
   containers:
   - name: netperf
-    image: tgraf/netperf
+    image: docker.io/tgraf/netperf:v1.0
 ---
 apiVersion: v1
 kind: Service
