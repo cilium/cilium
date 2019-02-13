@@ -66,12 +66,15 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"journalctl -u cilium*",
 		"journalctl -u kubelet",
 		// iptables
-		"iptables-save",
+		"iptables-save -c",
+		"ip6tables-save -c",
 		"iptables -S",
 		"ip6tables -S",
 		"iptables -L -v",
 		"ip rule",
+		"ip -4 route show table 2004",
 		"ip -4 route show table 2005",
+		"ip -6 route show table 2004",
 		"ip -6 route show table 2005",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
