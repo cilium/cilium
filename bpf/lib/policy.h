@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -199,8 +199,6 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 	return ret;
 }
 
-#if defined LXC_ID
-
 static inline int __inline__
 policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
 {
@@ -231,23 +229,6 @@ static inline int policy_can_egress4(struct __sk_buff *skb,
 {
 	return policy_can_egress(skb, identity, tuple->dport, tuple->nexthdr);
 }
-
-#else /* LXC_ID */
-
-static inline int
-policy_can_egress6(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
-		   __u32 identity, union v6addr *daddr)
-{
-	return TC_ACT_OK;
-}
-
-static inline int
-policy_can_egress4(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-		   __u32 identity, __be32 daddr)
-{
-	return TC_ACT_OK;
-}
-#endif /* LXC_ID */
 
 /**
  * Mark skb to skip policy enforcement
