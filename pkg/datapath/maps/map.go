@@ -90,6 +90,7 @@ func staleMapWalker(path string) error {
 		ctmap.MapNameAny4,
 		endpoint.CallsMapName,
 		bpfconfig.MapNamePrefix,
+		endpoint.IpvlanMapName,
 	}
 
 	checkStaleGlobalMap(path, filename)
