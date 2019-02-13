@@ -230,6 +230,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/metrics"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -321,6 +323,7 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 		unsafe.Pointer(&attr),
 	)
 
+	startTime := time.Now()
 	ret, _, err := unix.Syscall6(
 		unix.SYS_PERF_EVENT_OPEN,
 		uintptr(unsafe.Pointer(&attr)),
@@ -328,6 +331,8 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 		uintptr(cpu),
 		uintptr(groupFD),
 		uintptr(flags), 0)
+	callDuration := time.Since(startTime)
+	metricSyscallDuration.WithLabelValues(metricOpPerfEventOpen, metrics.Errno2Outcome(err)).Observe(callDuration.Seconds())
 
 	if int(ret) > 0 && err == 0 {
 		return &PerfEvent{
@@ -380,7 +385,11 @@ func (e *PerfEvent) freeBuffers() {
 
 func (e *PerfEvent) Enable() error {
 	e.allocateBuffers()
-	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0); err != nil {
+	startTime := time.Now()
+	err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0)
+	callDuration := time.Since(startTime)
+	metricSyscallDuration.WithLabelValues(metricOpPerfEventEnable, metrics.Error2Outcome(err)).Observe(callDuration.Seconds())
+	if err != nil {
 		e.freeBuffers()
 		return fmt.Errorf("Unable to enable perf event: %v", err)
 	}
@@ -398,7 +407,11 @@ func (e *PerfEvent) Disable() error {
 	// Does not fail in perf's kernel-side ioctl handler, but even if
 	// there's not much we can do here ...
 	ret = nil
-	if err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_DISABLE, 0); err != nil {
+	startTime := time.Now()
+	err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_DISABLE, 0)
+	callDuration := time.Since(startTime)
+	metricSyscallDuration.WithLabelValues(metricOpPerfEventDisable, metrics.Error2Outcome(err)).Observe(callDuration.Seconds())
+	if err != nil {
 		ret = fmt.Errorf("Unable to disable perf event: %v", err)
 	}
 

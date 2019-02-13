@@ -18,7 +18,10 @@ package bpf
 
 import (
 	"fmt"
+	"time"
 	"unsafe"
+
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"golang.org/x/sys/unix"
 )
@@ -69,7 +72,10 @@ func GetProgNextID(current uint32) (uint32, error) {
 		progID: current,
 	}
 
+	startTime := time.Now()
 	ret, _, err := unix.Syscall(unix.SYS_BPF, BPF_PROG_GET_NEXT_ID, uintptr(unsafe.Pointer(&attr)), unsafe.Sizeof(attr))
+	callDuration := time.Since(startTime)
+	metricSyscallDuration.WithLabelValues(metricOpProgGetNextID, metrics.Errno2Outcome(err)).Observe(callDuration.Seconds())
 	if ret != 0 || err != 0 {
 		return 0, fmt.Errorf("Unable to get next id: %v", err)
 	}
@@ -106,7 +112,10 @@ func GetProgInfoByFD(fd int) (ProgInfo, error) {
 		info: attrInfo,
 	}
 
+	startTime := time.Now()
 	ret, _, err := unix.Syscall(unix.SYS_BPF, BPF_OBJ_GET_INFO_BY_FD, uintptr(unsafe.Pointer(&attr)), unsafe.Sizeof(attr))
+	callDuration := time.Since(startTime)
+	metricSyscallDuration.WithLabelValues(metricOpObjGetInfoByFD, metrics.Errno2Outcome(err)).Observe(callDuration.Seconds())
 	if ret != 0 || err != 0 {
 		return ProgInfo{}, fmt.Errorf("Unable to get object info: %v", err)
 	}
