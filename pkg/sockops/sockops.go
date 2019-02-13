@@ -143,9 +143,9 @@ func bpftoolMapAttach(progID string, mapID string) error {
 		"bpftool": prog,
 		"args":    args,
 	}).Debug("Map Attach BPF Object:")
-	_, err := exec.Command(prog, args...).CombinedOutput()
+	out, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Failed to attach prog(%s) to map(%s): %s", progID, mapID, err)
+		return fmt.Errorf("Failed to attach prog(%s) to map(%s): %s: %s", progID, mapID, err, out)
 	}
 	return nil
 }
@@ -161,9 +161,9 @@ func bpftoolAttach(bpfObject string) error {
 		"bpftool": prog,
 		"args":    args,
 	}).Debug("Attach BPF Object:")
-	_, err := exec.Command(prog, args...).CombinedOutput()
+	out, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Failed to attach %s: %s", bpfObject, err)
+		return fmt.Errorf("Failed to attach %s: %s: %s", bpfObject, err, out)
 	}
 	return nil
 }
@@ -179,9 +179,9 @@ func bpftoolDetach(bpfObject string) error {
 		"bpftool": prog,
 		"args":    args,
 	}).Debug("Detach BPF Object:")
-	_, err := exec.Command(prog, args...).CombinedOutput()
+	out, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Failed to detach %s: %s", bpfObject, err)
+		return fmt.Errorf("Failed to detach %s: %s: %s", bpfObject, err, out)
 	}
 	return nil
 
@@ -241,9 +241,9 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 		"bpftool": prog,
 		"args":    args,
 	}).Debug("Load BPF Object:")
-	_, err = exec.Command(prog, args...).CombinedOutput()
+	out, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Failed to load %s: %s", bpfObject, err)
+		return fmt.Errorf("Failed to load %s: %s: %s", bpfObject, err, out)
 	}
 	return nil
 }
@@ -267,7 +267,7 @@ func bpftoolGetProgID(progName string) (string, error) {
 	}).Debug("GetProgID:")
 	output, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("Failed to load %s: %s", progName, err)
+		return "", fmt.Errorf("Failed to load %s: %s: %s", progName, err, output)
 	}
 
 	// Scrap the prog_id out of the bpftool output after libbpf is dual licensed
@@ -293,7 +293,7 @@ func bpftoolGetMapID(progName string, mapName string) (int, error) {
 	}).Debug("GetMapID:")
 	output, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return 0, fmt.Errorf("Failed to load %s: %s", progName, err)
+		return 0, fmt.Errorf("Failed to load %s: %s: %s", progName, err, output)
 	}
 
 	// Find the mapID out of the bpftool output
@@ -329,9 +329,9 @@ func bpftoolPinMapID(mapName string, mapID int) error {
 		"bpftool": prog,
 		"args":    args,
 	}).Debug("Map pin:")
-	_, err := exec.Command(prog, args...).CombinedOutput()
+	out, err := exec.Command(prog, args...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("Failed to pin map %d(%s): %s", mapID, mapName, err)
+		return fmt.Errorf("Failed to pin map %d(%s): %s: %s", mapID, mapName, err, out)
 	}
 
 	return nil
