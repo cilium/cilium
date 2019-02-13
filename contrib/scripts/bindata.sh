@@ -7,7 +7,7 @@ BINDATA_FILE=bindata.go
 if [[ "$arg1" == "apply" ]]; then
   NEW_SHA1SUM=`sha1sum ${BINDATA_FILE} | awk '{ print $1}'`
   GO_VERSION_USED=`go version | awk '{ print $3 }'`
-  BPF_FILES=`git ls-files ../bpf/ | tr "\n" ' '`
+  BPF_FILES=`git ls-files ../bpf/ | grep -v .gitignore | tr "\n" ' '`
   sed -i "s/GO_BINDATA_SHA1SUM=.*/GO_BINDATA_SHA1SUM=${NEW_SHA1SUM}/g" bpf.sha
   sed -i "s/GO_VERSION_USED=.*/GO_VERSION_USED=${GO_VERSION_USED}/g" bpf.sha
   sed -i "s#BPF_FILES=.*#BPF_FILES=${BPF_FILES}#g" bpf.sha
