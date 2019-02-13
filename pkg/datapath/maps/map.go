@@ -92,7 +92,10 @@ func staleMapWalker(path string) error {
 
 	mapPrefix := []string{
 		policymap.MapName,
-		ctmap.MapNamePrefix,
+		ctmap.MapNameTCP6,
+		ctmap.MapNameTCP4,
+		ctmap.MapNameAny6,
+		ctmap.MapNameAny4,
 		endpoint.CallsMapName,
 		bpfconfig.MapNamePrefix,
 	}
