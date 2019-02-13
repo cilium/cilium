@@ -244,7 +244,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		if (dir == CT_INGRESS) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
 			__sync_fetch_and_add(&entry->rx_bytes, skb->len);
-		} else {
+		} else if (dir == CT_EGRESS) {
 			__sync_fetch_and_add(&entry->tx_packets, 1);
 			__sync_fetch_and_add(&entry->tx_bytes, skb->len);
 		}
