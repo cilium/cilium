@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -1409,9 +1410,14 @@ func (d *Daemon) staleMapWalker(path string) error {
 	filename := filepath.Base(path)
 
 	mapPrefix := []string{
-		policymap.MapName,
+		bpfconfig.MapNamePrefix,
+		ctmap.MapNameAny4,
+		ctmap.MapNameAny6,
 		ctmap.MapNamePrefix,
+		ctmap.MapNameTCP4,
+		ctmap.MapNameTCP6,
 		endpoint.CallsMapName,
+		policymap.MapName,
 	}
 
 	d.checkStaleGlobalMap(path, filename)
