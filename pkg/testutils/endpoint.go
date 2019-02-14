@@ -26,6 +26,7 @@ import (
 type TestEndpoint struct {
 	Id   uint64
 	Opts *option.IntOptions
+	MAC  mac.MAC
 }
 
 func NewTestEndpoint() TestEndpoint {
@@ -33,6 +34,7 @@ func NewTestEndpoint() TestEndpoint {
 	opts.SetBool("TEST_OPTION", true)
 	return TestEndpoint{
 		Id:   42,
+		MAC:  mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D}),
 		Opts: opts,
 	}
 }
@@ -43,7 +45,7 @@ func (e *TestEndpoint) GetCIDRPrefixLengths() ([]int, []int)  { return nil, nil 
 func (e *TestEndpoint) GetID() uint64                         { return e.Id }
 func (e *TestEndpoint) StringID() string                      { return "42" }
 func (e *TestEndpoint) GetIdentity() identity.NumericIdentity { return 42 }
-func (e *TestEndpoint) GetNodeMAC() mac.MAC                   { return nil }
+func (e *TestEndpoint) GetNodeMAC() mac.MAC                   { return e.MAC }
 func (e *TestEndpoint) GetOptions() *option.IntOptions        { return e.Opts }
 
 func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
