@@ -72,6 +72,8 @@ BPF
 
 * ``bpf_syscall_duration_seconds``: Duration of BPF system call performed
   * Labels: ``operation={lookup, delete, update, objPin, getNextKey, ...}``, ``outcome={success|failure}``
+* ``bpf_map_ops_total``: Number of BPF map operations performed
+  * Labels: ``mapName=<string>``, ``operation={delete|update}``, ``outcome={success|failure}``
 
 Drops/Forwards (L3/L4)
 ----------------------
