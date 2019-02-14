@@ -35,7 +35,8 @@ import (
 type LoaderTestSuite struct{}
 
 var (
-	_              = Suite(&LoaderTestSuite{})
+	_ = Suite(&LoaderTestSuite{})
+
 	contextTimeout = 10 * time.Second
 
 	dirInfo *directoryInfo
@@ -44,6 +45,22 @@ var (
 
 func Test(t *testing.T) {
 	TestingT(t)
+}
+
+func (s *LoaderTestSuite) SetUpSuite(c *C) {
+	SetTestIncludes([]string{
+		fmt.Sprintf("-I%s", bpfDir),
+		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
+	})
+
+	sourceFile := filepath.Join(bpfDir, sourceName)
+	err := os.Symlink(sourceFile, sourceName)
+	c.Assert(err, IsNil)
+}
+
+func (s *LoaderTestSuite) TearDownSuite(c *C) {
+	SetTestIncludes(nil)
+	os.RemoveAll(sourceName)
 }
 
 func (s *LoaderTestSuite) TearDownTest(c *C) {
