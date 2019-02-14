@@ -402,8 +402,9 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 }
 
 func (e *etcdClient) DeletePrefix(path string) error {
-	increaseMetric(path, metricDelete, "DeletePrefix")
+	startTime := time.Now()
 	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
+	increaseMetric(path, metricDelete, "DeletePrefix", time.Since(startTime), err)
 	return Hint(err)
 }
 
@@ -600,8 +601,9 @@ func (e *etcdClient) Status() (string, error) {
 
 // Get returns value of key
 func (e *etcdClient) Get(key string) ([]byte, error) {
-	increaseMetric(key, metricRead, "Get")
+	startTime := time.Now()
 	getR, err := e.client.Get(ctx.Background(), key)
+	increaseMetric(key, metricRead, "Get", time.Since(startTime), err)
 	if err != nil {
 		return nil, Hint(err)
 	}
@@ -614,8 +616,9 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 
 // GetPrefix returns the first key which matches the prefix
 func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
-	increaseMetric(prefix, metricRead, "GetPrefix")
+	startTime := time.Now()
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
+	increaseMetric(prefix, metricRead, "GetPrefix", time.Since(startTime), err)
 	if err != nil {
 		return nil, Hint(err)
 	}
@@ -628,15 +631,17 @@ func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
 
 // Set sets value of key
 func (e *etcdClient) Set(key string, value []byte) error {
-	increaseMetric(key, metricSet, "Set")
+	startTime := time.Now()
 	_, err := e.client.Put(ctx.Background(), key, string(value))
+	increaseMetric(key, metricSet, "Set", time.Since(startTime), err)
 	return Hint(err)
 }
 
 // Delete deletes a key
 func (e *etcdClient) Delete(key string) error {
-	increaseMetric(key, metricDelete, "Delete")
+	startTime := time.Now()
 	_, err := e.client.Delete(ctx.Background(), key)
+	increaseMetric(key, metricDelete, "Delete", time.Since(startTime), err)
 	return Hint(err)
 }
 
@@ -652,23 +657,27 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 
 // Update creates or updates a key
 func (e *etcdClient) Update(key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "Update")
 	<-e.firstSession
 	if lease {
+		startTime := time.Now()
 		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
+		increaseMetric(key, metricSet, "Update", time.Since(startTime), err)
 		return Hint(err)
 	}
 
+	startTime := time.Now()
 	_, err := e.client.Put(ctx.Background(), key, string(value))
+	increaseMetric(key, metricSet, "Update", time.Since(startTime), err)
 	return Hint(err)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "CreateOnly")
+	startTime := time.Now()
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	increaseMetric(key, metricSet, "CreateOnly", time.Since(startTime), err)
 	if err != nil {
 		return Hint(err)
 	}
@@ -682,10 +691,11 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 
 // CreateIfExists creates a key with the value only if key condKey exists
 func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "CreateIfExists")
+	startTime := time.Now()
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	increaseMetric(key, metricSet, "CreateIfExists", time.Since(startTime), err)
 	if err != nil {
 		return Hint(err)
 	}
@@ -718,8 +728,9 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 
 // ListPrefix returns a map of matching keys
 func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
-	increaseMetric(prefix, metricRead, "ListPrefix")
+	startTime := time.Now()
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
+	increaseMetric(prefix, metricRead, "ListPrefix", time.Since(startTime), err)
 	if err != nil {
 		return nil, Hint(err)
 	}

@@ -344,29 +344,33 @@ func (c *consulClient) Status() (string, error) {
 }
 
 func (c *consulClient) DeletePrefix(path string) error {
-	increaseMetric(path, metricDelete, "DeletePrefix")
+	startTime := time.Now()
 	_, err := c.Client.KV().DeleteTree(path, nil)
+	increaseMetric(path, metricDelete, "DeletePrefix", time.Since(startTime), err)
 	return err
 }
 
 // Set sets value of key
 func (c *consulClient) Set(key string, value []byte) error {
-	increaseMetric(key, metricSet, "Set")
+	startTime := time.Now()
 	_, err := c.KV().Put(&consulAPI.KVPair{Key: key, Value: value}, nil)
+	increaseMetric(key, metricSet, "Set", time.Since(startTime), err)
 	return err
 }
 
 // Delete deletes a key
 func (c *consulClient) Delete(key string) error {
-	increaseMetric(key, metricDelete, "Delete")
+	startTime := time.Now()
 	_, err := c.KV().Delete(key, nil)
+	increaseMetric(key, metricDelete, "Delete", time.Since(startTime), err)
 	return err
 }
 
 // Get returns value of key
 func (c *consulClient) Get(key string) ([]byte, error) {
-	increaseMetric(key, metricRead, "Get")
+	startTime := time.Now()
 	pair, _, err := c.KV().Get(key, nil)
+	increaseMetric(key, metricRead, "Get", time.Since(startTime), err)
 	if err != nil {
 		return nil, err
 	}
@@ -378,8 +382,9 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 
 // GetPrefix returns the first key which matches the prefix
 func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
-	increaseMetric(prefix, metricRead, "GetPrefix")
+	startTime := time.Now()
 	pairs, _, err := c.KV().List(prefix, nil)
+	increaseMetric(prefix, metricRead, "GetPrefix", time.Since(startTime), err)
 	if err != nil {
 		return nil, err
 	}
@@ -393,20 +398,20 @@ func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
 
 // Update creates or updates a key with the value
 func (c *consulClient) Update(key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "Update")
 	k := &consulAPI.KVPair{Key: key, Value: value}
 
 	if lease {
 		k.Session = c.lease
 	}
 
+	startTime := time.Now()
 	_, err := c.KV().Put(k, nil)
+	increaseMetric(key, metricSet, "Update", time.Since(startTime), err)
 	return err
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "CreateOnly")
 	k := &consulAPI.KVPair{
 		Key:         key,
 		Value:       value,
@@ -417,7 +422,9 @@ func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
 		k.Session = c.lease
 	}
 
+	startTime := time.Now()
 	success, _, err := c.KV().CAS(k, nil)
+	increaseMetric(key, metricSet, "CreateOnly", time.Since(startTime), err)
 	if err != nil {
 		return fmt.Errorf("unable to compare-and-swap: %s", err)
 	}
@@ -428,15 +435,14 @@ func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
 	return nil
 }
 
-// CreateIfExists creates a key with the value only if key condKey exists
-func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+// createIfExists creates a key with the value only if key condKey exists
+func (c *consulClient) createIfExists(condKey, key string, value []byte, lease bool) error {
 	// Consul does not support transactions which would allow to check for
 	// the presence of a conditional key if the key is not the key being
 	// manipulated
 	//
 	// Lock the conditional key to serialize all CreateIfExists() calls
 
-	increaseMetric(key, metricSet, "CreateIfExists")
 	l, err := LockPath(condKey)
 	if err != nil {
 		return fmt.Errorf("unable to lock condKey for CreateIfExists: %s", err)
@@ -460,10 +466,19 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 	return nil
 }
 
+// CreateIfExists creates a key with the value only if key condKey exists
+func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
+	startTime := time.Now()
+	err := c.createIfExists(condKey, key, value, lease)
+	increaseMetric(key, metricSet, "CreateIfExists", time.Since(startTime), err)
+	return err
+}
+
 // ListPrefix returns a map of matching keys
 func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
-	increaseMetric(prefix, metricRead, "ListPrefix")
+	startTime := time.Now()
 	pairs, _, err := c.KV().List(prefix, nil)
+	increaseMetric(prefix, metricRead, "ListPrefix", time.Since(startTime), err)
 	if err != nil {
 		return nil, err
 	}
