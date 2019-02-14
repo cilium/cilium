@@ -28,6 +28,8 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -58,12 +60,14 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint3
 		innerID,
 	}
 
+	duration := spanstat.Start()
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_CREATE,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpCreate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if err != 0 {
 		return 0, &os.PathError{
@@ -72,6 +76,7 @@ func CreateMap(mapType int, keySize, valueSize, maxEntries, flags, innerID uint3
 			Err:  err,
 		}
 	}
+
 	return int(ret), nil
 }
 
@@ -98,12 +103,14 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 		flags: uint64(flags),
 	}
 
+	duration := spanstat.Start()
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_UPDATE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpUpdate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if ret != 0 || err != 0 {
 		return fmt.Errorf("Unable to update element for map with file descriptor %d: %s", fd, err)
@@ -121,12 +128,14 @@ func LookupElement(fd int, key, value unsafe.Pointer) error {
 		value: uint64(uintptr(value)),
 	}
 
+	duration := spanstat.Start()
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_LOOKUP_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpLookup, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if ret != 0 || err != 0 {
 		return fmt.Errorf("Unable to lookup element in map with file descriptor %d: %s", fd, err)
@@ -140,12 +149,14 @@ func deleteElement(fd int, key unsafe.Pointer) (uintptr, syscall.Errno) {
 		mapFd: uint32(fd),
 		key:   uint64(uintptr(key)),
 	}
+	duration := spanstat.Start()
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_DELETE_ELEM,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpDelete, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	return ret, err
 }
@@ -168,12 +179,14 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 		key:   uint64(uintptr(key)),
 		value: uint64(uintptr(nextKey)),
 	}
+	duration := spanstat.Start()
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_GET_NEXT_KEY,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpGetNextKey, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if ret != 0 || err != 0 {
 		return fmt.Errorf("Unable to get next key from map with file descriptor %d: %s", fd, err)
@@ -199,12 +212,14 @@ func ObjPin(fd int, pathname string) error {
 		fd:       uint32(fd),
 	}
 
+	duration := spanstat.Start()
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_OBJ_PIN,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpObjPin, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if ret != 0 || err != 0 {
 		return fmt.Errorf("Unable to pin object with file descriptor %d to %s: %s", fd, pathname, err)
@@ -221,12 +236,14 @@ func ObjGet(pathname string) (int, error) {
 		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 	}
 
+	duration := spanstat.Start()
 	fd, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_OBJ_GET,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpObjGet, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if fd == 0 || err != 0 {
 		return 0, &os.PathError{
@@ -251,12 +268,14 @@ func MapFdFromID(id int) (int, error) {
 		ID: uint32(id),
 	}
 
+	duration := spanstat.Start()
 	fd, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_GET_FD_BY_ID,
 		uintptr(unsafe.Pointer(&uba)),
 		unsafe.Sizeof(uba),
 	)
+	metricSyscallDuration.WithLabelValues(metricOpGetFDByID, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 
 	if fd == 0 || err != 0 {
 		return 0, fmt.Errorf("Unable to get object fd from id %d: %s", id, err)

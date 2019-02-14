@@ -67,6 +67,12 @@ Datapath
 * ``datapath_conntrack_gc_duration_seconds``: Duration in seconds of the garbage
   collector process labeled by datapath and completion status.
 
+BPF
+---
+
+* ``bpf_syscall_duration_seconds``: Duration of BPF system call performed
+  * Labels: ``operation={lookup, delete, update, objPin, getNextKey, ...}``, ``outcome={success|failure}``
+
 Drops/Forwards (L3/L4)
 ----------------------
 
