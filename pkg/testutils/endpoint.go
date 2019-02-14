@@ -72,7 +72,3 @@ func (e *TestEndpoint) StateDir() string {
 func (e *TestEndpoint) MapPath() string {
 	return "map_path"
 }
-
-func (e *TestEndpoint) MustGraftDatapathMap() bool {
-	return false
-}
