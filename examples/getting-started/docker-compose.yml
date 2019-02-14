@@ -7,9 +7,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/run/cilium:/var/run/cilium
-      - /run/docker/plugins:/run/docker/plugins
       - /sys/fs/bpf:/sys/fs/bpf
+      # To access Docker container netns:
       - /var/run/docker/netns:/var/run/docker/netns:rshared
+      # To create named netns for cilium-health endpoint:
+      - /var/run/netns:/var/run/netns:rshared
     network_mode: "host"
     cap_add:
       - "NET_ADMIN"
