@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/logging"
@@ -83,6 +84,10 @@ type Map struct {
 	once sync.Once
 	lock lock.RWMutex
 
+	// cachedCommonName is the common portion of the name excluding any
+	// endpoint ID
+	cachedCommonName string
+
 	// enableSync is true when synchronization retries have been enabled.
 	enableSync bool
 
@@ -129,6 +134,15 @@ func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries
 func (m *Map) WithNonPersistent() *Map {
 	m.NonPersistent = true
 	return m
+}
+
+func (m *Map) commonName() string {
+	if m.cachedCommonName != "" {
+		return m.cachedCommonName
+	}
+
+	m.cachedCommonName = extractCommonName(m.name)
+	return m.cachedCommonName
 }
 
 // scheduleErrorResolver schedules a periodic resolver controller that scans
@@ -628,6 +642,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	}
 
 	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
+	metricMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	return err
 }
 
@@ -676,7 +691,7 @@ func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
 	}
 
 	_, errno = deleteElement(m.fd, key.GetKeyPtr())
-
+	metricMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	if errno != 0 {
 		err = fmt.Errorf("Unable to delete element from map %s: %s", m.name, errno.Error())
 	}
@@ -756,7 +771,9 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 		return err
 	}
 
-	return GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
+	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
+	metricMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
+	return err
 }
 
 // ConvertKeyValue converts key and value from bytes to given Golang struct pointers.
@@ -859,6 +876,7 @@ func (m *Map) resolveErrors() error {
 		case OK:
 		case Insert:
 			err := UpdateElement(m.fd, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
+			metricMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			if err == nil {
 				e.DesiredAction = OK
 				e.LastError = nil
@@ -871,6 +889,7 @@ func (m *Map) resolveErrors() error {
 
 		case Delete:
 			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
+			metricMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 			if err == 0 || err == unix.ENOENT {
 				delete(m.cache, k)
 				resolved++
