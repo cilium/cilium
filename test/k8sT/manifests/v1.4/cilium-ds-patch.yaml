@@ -1,0 +1,22 @@
+---
+metadata:
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - image: docker.io/cilium/cilium:v1.4
+        imagePullPolicy: IfNotPresent
+        name: cilium-agent
+        args:
+        - "--debug=$(CILIUM_DEBUG)"
+        - "-t=vxlan"
+        - "--kvstore=etcd"
+        - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
+        - "--k8s-require-ipv4-pod-cidr"
+        - "--pprof=true"
+        - "--log-system-load"
+      volumes:
+      - name: etcd-secrets
+        secret:
+          secretName: cilium-etcd-client-tls
