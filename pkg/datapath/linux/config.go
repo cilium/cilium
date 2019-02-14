@@ -216,5 +216,7 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 
 	l.writeNetdevConfig(fw, e)
 
+	fmt.Fprint(fw, "#undef DEBUG")
+
 	return fw.Flush()
 }
