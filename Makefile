@@ -17,9 +17,12 @@ SWAGGER_VERSION = 0.12.0
 SWAGGER = $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG ?= ./...
-GOTEST_BASE = -test.v -check.vv -timeout 360s
-GOTEST_PRIV_OPTS = $(GOTEST_BASE) -tags=privileged_tests
+GOTEST_BASE = -test.v -timeout 360s
+GOTEST_UNIT_BASE = $(GOTEST_BASE) -check.vv
+GOTEST_PRIV_OPTS = $(GOTEST_UNIT_BASE) -tags=privileged_tests
 GOTEST_COVER_OPTS = -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
+BENCH ?= "."
+BENCHFLAGS ?= -bench=$(BENCH) -run=^$ -benchtime=10s
 
 JOB_BASE_NAME ?= cilium_test
 
@@ -111,6 +114,19 @@ unit-tests: start-kvstores
 	$(MAKE) generate-cov
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	$(MAKE) stop-kvstores
+
+bench: start-kvstores
+	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
+		$(GO) test $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
+			$(pkg) \
+		|| exit 1;)
+	$(MAKE) stop-kvstores
+
+bench-privileged:
+	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
+		$(GO) test $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
+			-tags=privileged_tests $(pkg) \
+		|| exit 1;)
 
 clean-tags:
 	@$(ECHO_CLEAN) tags
