@@ -104,10 +104,14 @@ var (
 		Use:   "cilium-agent",
 		Short: "Run the cilium agent",
 		Run: func(cmd *cobra.Command, args []string) {
+			bootstrapStats.earlyInit.Start()
 			initEnv(cmd)
+			bootstrapStats.earlyInit.End(true)
 			runDaemon()
 		},
 	}
+
+	bootstrapStats = bootstrapStatistics{}
 )
 
 func init() {
@@ -115,6 +119,7 @@ func init() {
 }
 
 func daemonMain() {
+	bootstrapStats.overall.Start()
 
 	// Open socket for using gops to get stacktraces of the agent.
 	if err := gops.Listen(gops.Options{}); err != nil {
@@ -1089,18 +1094,23 @@ func runDaemon() {
 		})
 	}
 
+	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
 	endpointmanager.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
 		option.Config.ConntrackGarbageCollectorInterval,
 		restoredEndpoints.restored)
+	bootstrapStats.enableConntrack.End(true)
 
 	endpointmanager.EndpointSynchronizer = &endpointsynchronizer.EndpointSynchronizer{}
 
 	log.Info("Launching node monitor daemon")
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
+	bootstrapStats.k8sInit.Start()
 	d.initK8sSubsystem()
+	bootstrapStats.k8sInit.End(true)
 
+	bootstrapStats.restore.Start()
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
 		// received the full list of policies present at the time the daemon
@@ -1135,6 +1145,7 @@ func runDaemon() {
 		// these containers from reading.
 		workloads.IgnoreRunningWorkloads()
 	}
+	bootstrapStats.restore.End(true)
 
 	if option.Config.IsFlannelMasterDeviceSet() {
 		// health checking is not supported by flannel
@@ -1150,8 +1161,10 @@ func runDaemon() {
 		}
 	}
 
+	bootstrapStats.cleanup.Start()
 	maps.CollectStaleMapGarbage()
 	maps.RemoveDisabledMaps()
+	bootstrapStats.cleanup.End(true)
 
 	// The workload event listener *must* be enabled *after* restored endpoints
 	// are added into the endpoint manager; otherwise, updates to important
@@ -1164,14 +1177,17 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
+	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		d.initHealth()
 	}
+	bootstrapStats.healthCheck.End(true)
 
 	d.startStatusCollector()
 
 	metricsErrs := initMetrics()
 
+	bootstrapStats.initAPI.Start()
 	api := d.instantiateAPI()
 
 	server := server.NewServer(api)
@@ -1182,6 +1198,7 @@ func runDaemon() {
 	defer server.Shutdown()
 
 	server.ConfigureAPI()
+	bootstrapStats.initAPI.End(true)
 
 	repr, err := monitorAPI.TimeRepr(time.Now())
 	if err != nil {
@@ -1198,6 +1215,9 @@ func runDaemon() {
 	go func() {
 		errs <- server.Serve()
 	}()
+
+	bootstrapStats.overall.End(true)
+	bootstrapStats.updateMetrics()
 
 	select {
 	case err := <-metricsErrs:

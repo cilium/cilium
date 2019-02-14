@@ -882,6 +882,7 @@ func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (ro
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+	bootstrapStats.daemonInit.Start()
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
@@ -919,9 +920,13 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		datapath:         dp,
 		nodeDiscovery:    newNodeDiscovery(nodeMngr, mtuConfig),
 	}
+	bootstrapStats.daemonInit.End(true)
 
 	// Open or create BPF maps.
-	if err := d.initMaps(); err != nil {
+	bootstrapStats.mapsInit.Start()
+	err = d.initMaps()
+	bootstrapStats.mapsInit.EndError(err)
+	if err != nil {
 		log.WithError(err).Error("Error while opening/creating BPF maps")
 		return nil, nil, err
 	}
@@ -932,7 +937,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// not changing across restarts or that a new service could accidentally
 	// use an existing service ID.
 	if option.Config.RestoreState {
+		bootstrapStats.restore.Start()
 		restoreServiceIDs()
+		bootstrapStats.restore.End(true)
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -948,20 +955,27 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
 
+	bootstrapStats.k8sInit.Start()
 	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
+	bootstrapStats.k8sInit.End(true)
 	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
 
+	bootstrapStats.workloadsInit.Start()
 	workloads.Init(&d)
+	bootstrapStats.workloadsInit.End(true)
 
+	bootstrapStats.cleanup.Start()
 	// Clear previous leftovers before listening for new requests
 	log.Info("Clearing leftover Cilium veths")
 	err = d.clearCiliumVeths()
+	bootstrapStats.cleanup.EndError(err)
 	if err != nil {
 		log.WithError(err).Debug("Unable to clean leftover veths")
 	}
 
 	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
 		if err := k8s.Init(); err != nil {
 			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
 		}
@@ -991,6 +1005,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 		// Inject K8s dependency into packages which need to annotate K8s resources.
 		endpoint.EpAnnotator = k8s.Client()
+		bootstrapStats.k8sInit.End(true)
 	}
 
 	// If the device has been specified, the IPv4AllocPrefix and the
@@ -1005,6 +1020,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
+	bootstrapStats.ipam.Start()
 	log.Info("Initializing node addressing")
 
 	if err := node.AutoComplete(); err != nil {
@@ -1038,8 +1054,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		EnableIPv4: option.Config.EnableIPv4,
 		EnableIPv6: option.Config.EnableIPv6,
 	})
+	bootstrapStats.ipam.End(true)
 
 	if option.Config.WorkloadsEnabled() {
+		bootstrapStats.workloadsInit.Start()
 		// workaround for to use the values of the deprecated dockerEndpoint
 		// variable if it is set with a different value than defaults.
 		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
@@ -1066,8 +1084,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		}
 
 		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+		bootstrapStats.workloadsInit.End(true)
 	}
 
+	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
@@ -1075,7 +1095,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	if err != nil {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
+	bootstrapStats.restore.End(true)
 
+	bootstrapStats.ipam.Start()
 	if option.Config.EnableIPv4 {
 		routerIP, err := d.prepareAllocationCIDR(dp.LocalNodeAddressing().IPv4())
 		if err != nil {
@@ -1122,7 +1144,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
 	}
+	bootstrapStats.ipam.End(true)
 
+	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		if option.Config.EnableIPv4 {
 			health4, err := d.ipam.AllocateNextFamily(ipam.IPv4)
@@ -1147,10 +1171,12 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			log.Debugf("IPv6 health endpoint address: %s", health6)
 		}
 	}
+	bootstrapStats.healthCheck.End(true)
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
 	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
 		log.Info("Annotating k8s node with CIDR ranges")
 		err := k8s.Client().AnnotateNode(node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
@@ -1159,6 +1185,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
+		bootstrapStats.k8sInit.End(true)
 	}
 
 	d.nodeDiscovery.startDiscovery()
@@ -1167,6 +1194,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// as the node address is required as suffix.
 	go cache.InitIdentityAllocator(&d)
 
+	bootstrapStats.clusterMeshInit.Start()
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {
 			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
@@ -1186,8 +1214,12 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			d.clustermesh = clustermesh
 		}
 	}
+	bootstrapStats.clusterMeshInit.End(true)
 
-	if err = d.init(); err != nil {
+	bootstrapStats.bpfBase.Start()
+	err = d.init()
+	bootstrapStats.bpfBase.EndError(err)
+	if err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
 		return nil, restoredEndpoints, err
 	}
@@ -1197,18 +1229,24 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
 
+	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
 		option.Config.AccessLog, &d, option.Config.AgentLabels)
+	bootstrapStats.proxyStart.End(true)
 
+	bootstrapStats.fqdn.Start()
 	if err := fqdn.ConfigFromResolvConf(); err != nil {
+		bootstrapStats.fqdn.EndError(err)
 		return nil, nil, err
 	}
 
 	err = d.bootstrapFQDN(restoredEndpoints, option.Config.ToFQDNsPreCache)
 	if err != nil {
+		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
+	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
 }

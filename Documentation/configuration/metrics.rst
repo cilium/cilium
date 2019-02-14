@@ -143,6 +143,13 @@ KVstore
 * ``kvstore_operations_duration_seconds``: Duration of kvstore operation
   * Labels: ``action``, ``kind``, ``outcome``, ``scope``
 
+
+Agent
+-----
+
+* ``agent_bootstrap_seconds``: Duration of various bootstrap phases
+  * Labels: ``scope``, ``outcome``
+
 Cilium as a Kubernetes pod
 ==========================
 The Cilium Prometheus reference configuration configures jobs that automatically
