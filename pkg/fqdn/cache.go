@@ -521,6 +521,30 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 	return namesAffected
 }
 
+// ForceExpireByNames is the same function as ForceExpire but uses the exact
+// names to delete the entries.
+func (c *DNSCache) ForceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
+	c.Lock()
+	defer c.Unlock()
+	for _, name := range names {
+		entries, exists := c.forward[name]
+		if !exists {
+			continue
+		}
+
+		// We pass expireLookupsBefore as the `now` parameter but it is redundant
+		// because LookupTime must be before ExpirationTime.
+		// The second expireLookupsBefore actually matches lookup times, and will
+		// delete the entries completely.
+		nameNeedsRegen := c.removeExpired(entries, expireLookupsBefore, expireLookupsBefore)
+		if nameNeedsRegen {
+			namesAffected = append(namesAffected, name)
+		}
+	}
+
+	return namesAffected
+}
+
 // Dump returns unexpired cache entries in the cache. They are deduplicated,
 // but not usefully sorted. These objects should not be modified.
 func (c *DNSCache) Dump() (lookups []*cacheEntry) {
