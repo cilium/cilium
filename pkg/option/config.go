@@ -282,9 +282,6 @@ const (
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = "tofqdns-pre-cache"
 
-	// AutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
-	AutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
-
 	// LegacyAutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
 	LegacyAutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
 

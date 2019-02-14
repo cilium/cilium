@@ -26,8 +26,8 @@ index c442188f5..9cfb9ac94 100755
      ipv6_addr="${3}"
      filename="${4}"
  
--    cilium_options="--auto-ipv6-node-routes"
-+    cilium_options="--flannel-master-device=cni0 --auto-ipv6-node-routes"
+-    cilium_options="--auto-direct-node-routes"
++    cilium_options="--flannel-master-device=cni0 --auto-direct-node-routes"
  
      if [[ "${IPV4}" -eq "1" ]]; then
          if [[ -z "${K8S}" ]]; then
