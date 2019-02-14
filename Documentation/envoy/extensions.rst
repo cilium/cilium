@@ -523,7 +523,7 @@ and adding the ''--debug-verbose=flow'' flag.
 
   $ sudo service cilium stop 
   
-  $ sudo /usr/bin/cilium-agent --debug --auto-ipv6-node-routes --ipv4-range 10.11.0.0/16 --kvstore-opt consul.address=192.168.33.11:8500 --kvstore consul --container-runtime=docker --container-runtime-endpoint=unix:///var/run/docker.sock -t vxlan --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns --debug-verbose=flow --access-log=/var/log/cilium-access.log 
+  $ sudo /usr/bin/cilium-agent --debug --auto-direct-node-routes --ipv4-range 10.11.0.0/16 --kvstore-opt consul.address=192.168.33.11:8500 --kvstore consul --container-runtime=docker --container-runtime-endpoint=unix:///var/run/docker.sock -t vxlan --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns --debug-verbose=flow --access-log=/var/log/cilium-access.log
 
 
 The cilium access log is accessible from within the developer VM at ''/var/log/cilium-access.log''

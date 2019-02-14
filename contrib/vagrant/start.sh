@@ -278,7 +278,7 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options="--auto-ipv6-node-routes"
+    cilium_options="--auto-direct-node-routes"
 
     if [[ "${IPV4}" -eq "1" ]]; then
         if [[ -z "${K8S}" ]]; then
