@@ -35,15 +35,27 @@ type SpanStat struct {
 	failureDuration time.Duration
 }
 
+// Start creates a new SpanStat and starts it
+func Start() *SpanStat {
+	s := &SpanStat{}
+	return s.Start()
+}
+
 // Start starts a new span
-func (s *SpanStat) Start() {
+func (s *SpanStat) Start() *SpanStat {
 	s.spanStart = time.Now()
+	return s
+}
+
+// EndError calls End() based on the value of err
+func (s *SpanStat) EndError(err error) *SpanStat {
+	return s.End(err == nil)
 }
 
 // End ends the current span and adds the measured duration to the total
 // cumulated duration, and to the success or failure cumulated duration
 // depending on the given success flag
-func (s *SpanStat) End(success bool) {
+func (s *SpanStat) End(success bool) *SpanStat {
 	if !s.spanStart.IsZero() {
 		d, _ := safetime.TimeSinceSafe(s.spanStart, log)
 		if success {
@@ -53,6 +65,7 @@ func (s *SpanStat) End(success bool) {
 		}
 	}
 	s.spanStart = time.Time{}
+	return s
 }
 
 // Total returns the total duration of all spans measured, including both
