@@ -92,8 +92,6 @@ const (
 	// StateRestoring is used to set the endpoint is being restored.
 	StateRestoring = string(models.EndpointStateRestoring)
 
-	// CallsMapName specifies the base prefix for EP specific call map.
-	CallsMapName = "cilium_calls_"
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
 

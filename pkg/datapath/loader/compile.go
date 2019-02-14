@@ -303,3 +303,14 @@ func Compile(ctx context.Context, src string, out string) error {
 	}
 	return compile(ctx, &prog, &dirs, debug)
 }
+
+// compileTemplate compiles a BPF program generating a template object file.
+func compileTemplate(ctx context.Context, out string) error {
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  out,
+		State:   out,
+	}
+	return compile(ctx, datapathProg, &dirs, option.Config.BPFCompilationDebug)
+}
