@@ -53,6 +53,22 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
+func (s *LoaderTestSuite) SetUpSuite(c *C) {
+	SetTestIncludes([]string{
+		fmt.Sprintf("-I%s", bpfDir),
+		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
+	})
+
+	sourceFile := filepath.Join(bpfDir, endpointProg)
+	err := os.Symlink(sourceFile, endpointProg)
+	c.Assert(err, IsNil)
+}
+
+func (s *LoaderTestSuite) TearDownSuite(c *C) {
+	SetTestIncludes(nil)
+	os.RemoveAll(endpointProg)
+}
+
 func (s *LoaderTestSuite) TearDownTest(c *C) {
 	// Old map names as created by older versions of these tests
 	//

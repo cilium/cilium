@@ -37,6 +37,9 @@ const (
 	//StateDir is the default path for the state directory relative to RuntimePath
 	StateDir = "state"
 
+	// TemplatesDir is the default path for the compiled template objects relative to StateDir
+	TemplatesDir = "templates"
+
 	// BpfDir is the default path for template files relative to LibDir
 	BpfDir = "bpf"
 
