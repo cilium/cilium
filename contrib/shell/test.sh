@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2017 Authors of Cilium
+# Copyright 2017-2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ function watchtest
         echo "Cannot find 'inotifywait'. Please install inotify-tools."
         exit 1
     elif [ $# -eq 1 ]; then
-        TESTPKGS="github.com/cilium/cilium/$1" watchtest_
+        TESTPKGS="$1" watchtest_
     else
         watchtest_
     fi
