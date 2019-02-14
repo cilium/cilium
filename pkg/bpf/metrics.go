@@ -21,7 +21,10 @@ import (
 )
 
 const (
+	metricSubsystem = "bpf"
+
 	metricLabelOperation = "operation"
+	metricLabelMapName   = "mapName"
 
 	metricOpCreate           = "create"
 	metricOpUpdate           = "update"
@@ -40,17 +43,30 @@ const (
 
 var (
 	metricSyscallDuration *prometheus.HistogramVec
+	metricMapOps          *prometheus.CounterVec
 )
 
 func init() {
 	metricSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: "bpf",
+		Subsystem: metricSubsystem,
 		Name:      "syscall_duration_seconds",
 		Help:      "Duration of BPF system calls",
 	}, []string{metricLabelOperation, metrics.LabelOutcome})
 
 	if err := metrics.Register(metricSyscallDuration); err != nil {
+		log.WithError(err).Fatal("unable to register prometheus metric")
+	}
+
+	metricMapOps = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metrics.Namespace,
+		Subsystem: metricSubsystem,
+		Name:      "map_ops_total",
+		Help:      "Total operations on map, tagged by map name",
+	},
+		[]string{metricLabelMapName, metricLabelOperation, metrics.LabelOutcome})
+
+	if err := metrics.Register(metricMapOps); err != nil {
 		log.WithError(err).Fatal("unable to register prometheus metric")
 	}
 }

@@ -12,91 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build privileged_tests
+// +build !privileged_tests
 
 package bpf
 
 import (
-	"fmt"
-	"os"
-	"testing"
-
 	. "gopkg.in/check.v1"
-
-	"github.com/cilium/cilium/pkg/checker"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type BPFTestSuite struct{}
-
-var _ = Suite(&BPFTestSuite{})
-
-var (
-	maxEntries = 2
-
-	testMap = NewMap("cilium_test",
-		MapTypeHash,
-		4,
-		4,
-		maxEntries,
-		BPF_F_NO_PREALLOC,
-		0,
-		nil)
-)
-
-func runTests(m *testing.M) (int, error) {
-	CheckOrMountFS("")
-
-	_, err := testMap.OpenOrCreate()
-	if err != nil {
-		return 1, fmt.Errorf("Failed to create map")
-	}
-	defer func() {
-		path, _ := testMap.Path()
-		os.Remove(path)
-	}()
-	defer testMap.Close()
-
-	return m.Run(), nil
-}
-
-func TestMain(m *testing.M) {
-	exitCode, err := runTests(m)
-	if err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(exitCode)
-}
-
-func (s *BPFTestSuite) TestGetMapInfo(c *C) {
-	mi, err := GetMapInfo(os.Getpid(), testMap.fd)
-	c.Assert(err, IsNil)
-	c.Assert(&testMap.MapInfo, checker.DeepEquals, mi)
-}
-
-func (s *BPFTestSuite) TestOpen(c *C) {
-	// Ensure that os.IsNotExist() can be used with Map.Open()
-	noSuchMap := NewMap("cilium_test_no_exist",
-		MapTypeHash, 4, 4, maxEntries, 0, 0, nil)
-	err := noSuchMap.Open()
-	c.Assert(os.IsNotExist(err), Equals, true)
-	c.Assert(err, ErrorMatches, ".*cilium_test_no_exist.*")
-
-	// existingMap is the same as testMap. Opening should succeed.
-	existingMap := NewMap("cilium_test",
-		MapTypeHash,
-		4,
-		4,
-		maxEntries,
-		BPF_F_NO_PREALLOC,
-		0,
-		nil)
-	err = existingMap.Open()
-	c.Check(err, IsNil)      // Avoid assert to ensure Close() is called below.
-	err = existingMap.Open() // Reopen should be no-op.
-	c.Check(err, IsNil)
-	err = existingMap.Close()
-	c.Assert(err, IsNil)
+func (s *BPFTestSuite) TestExtractCommonName(c *C) {
+	c.Assert(extractCommonName("cilium_calls_1157"), Equals, "calls")
+	c.Assert(extractCommonName("cilium_calls_netdev_ns_1"), Equals, "calls")
+	c.Assert(extractCommonName("cilium_calls_overlay_2"), Equals, "calls")
+	c.Assert(extractCommonName("cilium_ct4_global"), Equals, "ct4_global")
+	c.Assert(extractCommonName("cilium_ct_any4_global"), Equals, "ct_any4_global")
+	c.Assert(extractCommonName("cilium_ep_config_1157"), Equals, "ep_config")
+	c.Assert(extractCommonName("cilium_events"), Equals, "events")
+	c.Assert(extractCommonName("cilium_ipcache"), Equals, "ipcache")
+	c.Assert(extractCommonName("cilium_lb4_reverse_nat"), Equals, "lb4_reverse_nat")
+	c.Assert(extractCommonName("cilium_lb4_rr_seq"), Equals, "lb4_rr_seq")
+	c.Assert(extractCommonName("cilium_lb4_services"), Equals, "lb4_services")
+	c.Assert(extractCommonName("cilium_lxc"), Equals, "lxc")
+	c.Assert(extractCommonName("cilium_metrics"), Equals, "metrics")
+	c.Assert(extractCommonName("cilium_policy"), Equals, "policy")
+	c.Assert(extractCommonName("cilium_policy_1157"), Equals, "policy")
+	c.Assert(extractCommonName("cilium_policy_reserved_1"), Equals, "policy")
+	c.Assert(extractCommonName("cilium_proxy4"), Equals, "proxy4")
+	c.Assert(extractCommonName("cilium_tunnel_map"), Equals, "tunnel_map")
 }
