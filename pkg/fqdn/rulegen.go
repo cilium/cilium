@@ -248,7 +248,7 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 	generatedRules, namesMissingIPs := gen.GenerateRulesFromSources(rulesToUpdate)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
-			Warn("Missing IPs for ToFQDN rule")
+			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
 	// no new rules to add, do not call AddGeneratedRules below
