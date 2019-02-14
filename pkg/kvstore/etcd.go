@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/spanstat"
 
 	client "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -402,8 +403,9 @@ func (e *etcdClient) LockPath(path string) (kvLocker, error) {
 }
 
 func (e *etcdClient) DeletePrefix(path string) error {
-	increaseMetric(path, metricDelete, "DeletePrefix")
+	duration := spanstat.Start()
 	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
+	increaseMetric(path, metricDelete, "DeletePrefix", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
@@ -600,8 +602,9 @@ func (e *etcdClient) Status() (string, error) {
 
 // Get returns value of key
 func (e *etcdClient) Get(key string) ([]byte, error) {
-	increaseMetric(key, metricRead, "Get")
+	duration := spanstat.Start()
 	getR, err := e.client.Get(ctx.Background(), key)
+	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, Hint(err)
 	}
@@ -614,8 +617,9 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 
 // GetPrefix returns the first key which matches the prefix
 func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
-	increaseMetric(prefix, metricRead, "GetPrefix")
+	duration := spanstat.Start()
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
+	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, Hint(err)
 	}
@@ -628,15 +632,17 @@ func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
 
 // Set sets value of key
 func (e *etcdClient) Set(key string, value []byte) error {
-	increaseMetric(key, metricSet, "Set")
+	duration := spanstat.Start()
 	_, err := e.client.Put(ctx.Background(), key, string(value))
+	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
 // Delete deletes a key
 func (e *etcdClient) Delete(key string) error {
-	increaseMetric(key, metricDelete, "Delete")
+	duration := spanstat.Start()
 	_, err := e.client.Delete(ctx.Background(), key)
+	increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
@@ -652,23 +658,27 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 
 // Update creates or updates a key
 func (e *etcdClient) Update(key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "Update")
 	<-e.firstSession
 	if lease {
+		duration := spanstat.Start()
 		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
+		increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 		return Hint(err)
 	}
 
+	duration := spanstat.Start()
 	_, err := e.client.Put(ctx.Background(), key, string(value))
+	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "CreateOnly")
+	duration := spanstat.Start()
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	if err != nil {
 		return Hint(err)
 	}
@@ -682,10 +692,11 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 
 // CreateIfExists creates a key with the value only if key condKey exists
 func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
-	increaseMetric(key, metricSet, "CreateIfExists")
+	duration := spanstat.Start()
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	if err != nil {
 		return Hint(err)
 	}
@@ -718,8 +729,9 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 
 // ListPrefix returns a map of matching keys
 func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
-	increaseMetric(prefix, metricRead, "ListPrefix")
+	duration := spanstat.Start()
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
+	increaseMetric(prefix, metricRead, "ListPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
 		return nil, Hint(err)
 	}
