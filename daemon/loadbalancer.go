@@ -628,6 +628,31 @@ func (d *Daemon) SyncLBMap() error {
 	return nil
 }
 
+// FrontendList is the list of all k8s service frontends
+type frontendList map[string]struct{}
+
+// LooseMatch returns true if the provided frontend is found in the
+// FrontendList. If the frontend has a protocol value set, it only matches a
+// k8s service with a matching protocol. If no protocol is set, any k8s service
+// matching frontend IP and port is considered a match, regardless of protocol.
+func (l frontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
+	switch frontend.Protocol {
+	case loadbalancer.NONE:
+		for _, protocol := range loadbalancer.AllProtocols {
+			frontend.Protocol = protocol
+			_, exists = l[frontend.StringWithProtocol()]
+			if exists {
+				return
+			}
+		}
+
+	// If the protocol is set, perform an exact match
+	default:
+		_, exists = l[frontend.StringWithProtocol()]
+	}
+	return
+}
+
 // syncLBMapsWithK8s ensures that the only contents of all BPF maps related to
 // services (loadbalancer, RevNAT - for IPv4 and IPv6) are those that are
 // sent to Cilium via K8s. This function is intended to be ran as part of a
@@ -656,6 +681,8 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	log.Debugf("syncing BPF service maps with in-memory Kubernetes service map")
 	// Convert K8sServices to L3n4Addrs for easy comparison with values from
 	// dumps of BPF maps.
+
+	uniqueFrontends := frontendList{}
 	for _, k8sServiceInfo := range d.loadBalancer.K8sServices {
 		for _, frontendPort := range k8sServiceInfo.Ports {
 			// Convert L3n4Addr to string for use as key in map so we can
@@ -664,6 +691,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 				IP:     k8sServiceInfo.FEIP,
 				L4Addr: *frontendPort.L4Addr,
 			}
+			uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 			k8sServicesFrontendAddresses[address.StringWithProtocol()] = struct{}{}
 			log.WithFields(logrus.Fields{logfields.ServiceID: frontendPort.ID,
 				logfields.L3n4Addr: address}).Debug("adding service to set of services to check against service map BPF contents")
@@ -703,7 +731,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 			logfields.ServiceID: svc.FE.ID,
 			logfields.L3n4Addr:  logfields.Repr(svc.FE.L3n4Addr)})
 
-		if !k8sServicesFrontendAddresses.LooseMatch(svc.FE.L3n4Addr) {
+		if !uniqueFrontends.LooseMatch(svc.FE.L3n4Addr) {
 			scopedLog.Warning("Deleting no longer present service in datapath")
 			k8sDeletedServices[id] = svc.FE
 			continue
