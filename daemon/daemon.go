@@ -701,6 +701,7 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to write node configuration file")
 		return err
 	}
+
 	return nil
 }
 

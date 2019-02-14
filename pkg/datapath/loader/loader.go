@@ -19,6 +19,7 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -135,6 +136,40 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 	return compileAndLoad(ctx, ep, &dirs)
 }
 
+// CompileOrLoad loads the BPF datapath programs for the specified endpoint.
+//
+// In contrast with CompileAndLoad(), it attempts to find a pre-compiled
+// template datapath object to use, to avoid a costly compile operation.
+// Only if there is no existing template that has the same configuration
+// parameters as the specified endpoint, this function will compile a new
+// template for this configuration.
+//
+// This function will block if the cache does not contain an entry for the
+// same EndpointConfiguration and multiple goroutines attempt to concurrently
+// CompileOrLoad with the same configuration parameters. When the first
+// goroutine completes compilation of the template, all other CompileOrLoad
+// invocations will be released.
+func CompileOrLoad(ctx context.Context, ep endpoint) error {
+	templatePath, _, err := elfCache.FetchOrCompile(ctx, ep)
+	if err != nil {
+		return err
+	}
+
+	template, err := elf.Open(templatePath)
+	if err != nil {
+		return err
+	}
+	defer template.Close()
+
+	dstPath := path.Join(ep.StateDir(), "bpf_lxc.o")
+	opts, strings := ELFSubstitutions(ep)
+	if err = template.Write(dstPath, opts, strings); err != nil {
+		return err
+	}
+
+	return ReloadDatapath(ctx, ep)
+}
+
 func ReloadDatapath(ctx context.Context, ep endpoint) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
@@ -159,6 +194,17 @@ func compileWithPath(ctx context.Context, src, outDir, outBase string) error {
 		State:   option.Config.StateDir,
 	}
 	return compile(ctx, &prog, &dirs, debug)
+}
+
+// CompileEndpoint compiles a BPF program generating a template object file.
+func CompileEndpoint(ctx context.Context, out string) error {
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  out,
+		State:   out,
+	}
+	return compile(ctx, datapathProg, &dirs, option.Config.BPFCompilationDebug)
 }
 
 // Compile compiles a BPF program generating an object file.
