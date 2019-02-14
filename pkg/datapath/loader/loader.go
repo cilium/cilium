@@ -41,13 +41,13 @@ type endpoint interface {
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
 	MapPath() string
-	MustGraftDatapathMap() bool
+	HasIpvlanDataPath() bool
 }
 
 func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
-	if ep.MustGraftDatapathMap() {
+	if ep.HasIpvlanDataPath() {
 		if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
