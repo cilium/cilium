@@ -146,6 +146,27 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 	c.Assert(len(dump), Equals, 0, Commentf("Returned cache entries from cache dump after the cache was fully cleared: %v", dump))
 }
 
+func (ds *DNSCacheTestSuite) TestForceExpiredByNames(c *C) {
+	names := []string{"test1.com", "test2.com"}
+	cache := NewDNSCache()
+	for i := 1; i < 4; i++ {
+		cache.Update(
+			now,
+			fmt.Sprintf("test%d.com", i),
+			[]net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))},
+			5)
+	}
+
+	c.Assert(cache.forward, HasLen, 3)
+	result := cache.ForceExpireByNames(time.Now(), names)
+	c.Assert(result, checker.DeepEquals, names)
+	c.Assert(result, HasLen, 2)
+	c.Assert(cache.forward["test3.com"], Not(IsNil))
+
+	invalidName := cache.ForceExpireByNames(now, []string{"invalid.name"})
+	c.Assert(invalidName, HasLen, 0)
+}
+
 func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
 	names := map[string]net.IP{
 		"test1.com": net.ParseIP("2.2.2.1"),

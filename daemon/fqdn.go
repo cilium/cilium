@@ -140,11 +140,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 
 			//Before doing the loop the DNS names to clean will be removed from
 			//cfg.Cache, to make sure that data is persistant across cache.
-			namesRegex, err := regexp.Compile("^" + strings.Join(namesToClean, ".?|") + "$")
-			if err != nil {
-				return err
-			}
-			cfg.Cache.ForceExpire(time.Now(), namesRegex)
+			cfg.Cache.ForceExpireByNames(time.Now(), namesToClean)
 
 			// A second loop is needed to update the global cache from the
 			// endpoints cache. Looping this way is generally safe despite not
