@@ -43,6 +43,7 @@ import (
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -424,6 +425,7 @@ func (d *Daemon) compileBase() error {
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
+	loader.Init(d.datapath, &d.nodeDiscovery.localConfig)
 
 	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
 	if option.Config.DevicePreFilter != "undefined" {
@@ -688,6 +690,7 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to write node configuration file")
 		return err
 	}
+
 	return nil
 }
 

@@ -61,7 +61,7 @@ func (e *Endpoint) PolicyMapPathLocked() string {
 
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) CallsMapPathLocked() string {
-	return bpf.LocalMapPath(CallsMapName, e.ID)
+	return bpf.LocalMapPath(loader.CallsMapName, e.ID)
 }
 
 // BPFConfigMapPath returns the path to the BPF config map of endpoint.
@@ -546,11 +546,11 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 		// Compile and install BPF programs for this endpoint
 		if datapathRegenCtxt.bpfHeaderfilesChanged {
 			stats.bpfCompilation.Start()
-			err = loader.CompileAndLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache)
+			err = loader.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache)
 			stats.bpfCompilation.End(err == nil)
-			e.getLogger().WithError(err).
-				WithField(logfields.BPFCompilationTime, stats.bpfCompilation.Total().String()).
-				Info("Recompiled endpoint BPF program")
+			e.getLogger().WithError(err).Info("Rewrote endpoint BPF program")
+
+			// TODO: See what the implications of this are
 			compilationExecuted = true
 		} else {
 			err = loader.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache)
