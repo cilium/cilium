@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -223,4 +224,22 @@ func GetMapType(t MapType) MapType {
 		}
 	}
 	return t
+}
+
+var commonNameRegexps = []*regexp.Regexp{
+	regexp.MustCompile(`^(cilium_)(.+)_reserved_[0-9]+$`),
+	regexp.MustCompile(`^(cilium_)(.+)_netdev_ns_[0-9]+$`),
+	regexp.MustCompile(`^(cilium_)(.+)_overlay_[0-9]+$`),
+	regexp.MustCompile(`^(cilium_)(.+)_[0-9]+$`),
+	regexp.MustCompile(`^(cilium_)(.+)+$`),
+}
+
+func extractCommonName(name string) string {
+	for _, r := range commonNameRegexps {
+		if replaced := r.ReplaceAllString(name, `$2`); replaced != name {
+			return replaced
+		}
+	}
+
+	return name
 }
