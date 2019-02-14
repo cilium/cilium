@@ -94,6 +94,13 @@ tests: force
 
 TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml"
 
+generate-cov:
+	# Remove generated code from coverage
+	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
+		coverage-all-tmp.out > coverage-all.out
+	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
+	$(QUIET) rm coverage.out coverage-all-tmp.out
+
 unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
@@ -101,11 +108,7 @@ unit-tests: start-kvstores
 	$(QUIET)$(foreach pkg,$(TESTPKGS),\
 		$(GO) test $(TEST_UNITTEST_LDFLAGS) $(pkg) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) || exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out;)
-	# Remove generated code from coverage
-	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
-		coverage-all-tmp.out > coverage-all.out
-	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
-	$(QUIET) rm coverage.out coverage-all-tmp.out
+	$(MAKE) generate-cov
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 	$(MAKE) stop-kvstores
 
