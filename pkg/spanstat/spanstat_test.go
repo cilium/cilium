@@ -31,6 +31,12 @@ type SpanStatTestSuite struct{}
 
 var _ = Suite(&SpanStatTestSuite{})
 
+func (s *SpanStatTestSuite) TestSpanStatStart(c *C) {
+	span1 := Start()
+	span1.EndError(nil)
+	c.Assert(span1.Total(), Not(Equals), time.Duration(0))
+}
+
 func (s *SpanStatTestSuite) TestSpanStat(c *C) {
 	span1 := SpanStat{}
 
