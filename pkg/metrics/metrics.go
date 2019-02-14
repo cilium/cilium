@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,10 @@ package metrics
 // - Register the new object in the init function
 
 import (
-	"github.com/cilium/cilium/api/v1/models"
 	"net/http"
+	"syscall"
+
+	"github.com/cilium/cilium/api/v1/models"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -64,6 +66,9 @@ var (
 	// Datapath is the subsystem to scope metrics related to management of
 	// the datapath. It is prepended to metric names and separated with a '_'.
 	Datapath = "datapath"
+
+	// LabelOutcome indicates whether the outcome of the operation was successful or not
+	LabelOutcome = "outcome"
 
 	// Labels
 
@@ -467,10 +472,21 @@ var (
 
 	// KVStoreOperationsTotal is the  number of interactions with the Key-Value
 	// Store, labeled by subsystem, kind of action and action
+	//
+	// Deprecated: This metric can be removed in 1.6 as
+	// KVStoreOperationsDuration provides the count along with duration
 	KVStoreOperationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "kvstore_operations_total",
 		Help: "Number of interactions with the Key-Value Store, labeled by subsystem, kind of action and action",
-	}, []string{LabelScope, LabelKind, LabelAction})
+	}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
+
+	// KVStoreOperationsDuration records the duration of kvstore operations
+	KVStoreOperationsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: "kvstore",
+		Name:      "operations_duration_seconds",
+		Help:      "Duration in seconds of kvstore operations",
+	}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
 )
 
 func init() {
@@ -533,6 +549,7 @@ func init() {
 	MustRegister(IpamEvent)
 
 	MustRegister(KVStoreOperationsTotal)
+	MustRegister(KVStoreOperationsDuration)
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
@@ -642,4 +659,22 @@ func DumpMetrics() ([]*models.Metric, error) {
 		}
 	}
 	return result, nil
+}
+
+// Error2Outcome converts an error to LabelOutcome
+func Error2Outcome(err error) string {
+	if err != nil {
+		return LabelValueOutcomeFail
+	}
+
+	return LabelValueOutcomeSuccess
+}
+
+// Errno2Outcome converts a syscall.Errno to LabelOutcome
+func Errno2Outcome(errno syscall.Errno) string {
+	if errno != 0 {
+		return LabelValueOutcomeFail
+	}
+
+	return LabelValueOutcomeSuccess
 }

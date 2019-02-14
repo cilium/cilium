@@ -17,6 +17,7 @@ package kvstore
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -38,8 +39,11 @@ func getScopeFromKey(key string) string {
 	return fmt.Sprintf("%s/%s", s[2], s[3])
 }
 
-func increaseMetric(key, kind, action string) {
+func increaseMetric(key, kind, action string, duration time.Duration, err error) {
 	namespace := getScopeFromKey(key)
-	metrics.KVStoreOperationsTotal.WithLabelValues(
-		namespace, kind, action).Inc()
+	outcome := metrics.Error2Outcome(err)
+	metrics.KVStoreOperationsTotal.
+		WithLabelValues(namespace, kind, action, outcome).Inc()
+	metrics.KVStoreOperationsDuration.
+		WithLabelValues(namespace, kind, action, outcome).Observe(duration.Seconds())
 }
