@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2018 Authors of Cilium
+# Copyright 2018-2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ set -e
 
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
-TC_PROGS="bpf_lb bpf_lxc bpf_netdev bpf_overlay"
+#TC_PROGS="bpf_lb bpf_lxc bpf_netdev bpf_overlay"
+TC_PROGS="bpf_lxc"
 VERBOSE=false
 
 function clean_maps {
