@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,9 @@
 #define HOST_IFINDEX_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 #define NAT46_PREFIX { .addr = { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
+
 #ifdef ENABLE_IPV4
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
@@ -64,7 +67,7 @@
 #define LB4_RR_SEQ_MAP test_cilium_lb4_rr_seq
 #define SECLABEL 2
 #define SECLABEL_NB 0xfffff
-#define ENABLE_ARP_RESPONDER
+#define ENABLE_ARP_RESPONDER 1
 #define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
 #define LB_RR_MAX_SEQ 31
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
@@ -79,8 +82,8 @@
 #define IPCACHE_MAP_SIZE 512000
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #ifndef SKIP_DEBUG
-#define LB_DEBUG
+#define LB_DEBUG 1
 #endif
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
-#define ENABLE_IPSEC
+#undef ENABLE_IPSEC

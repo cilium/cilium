@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,10 +30,13 @@
 #define POLICY_MAP cilium_policy_foo
 #define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
 #ifndef SKIP_DEBUG
-#define DEBUG
+#define DEBUG 1
+#define LB_DEBUG 1
 #endif
-#define DROP_NOTIFY
-#define TRACE_NOTIFY
+#define DROP_NOTIFY 1
+#define TRACE_NOTIFY 1
+#define ENABLE_ARP_RESPONDER 1
+#define ENABLE_HOST_REDIRECT 1
 #define CT_MAP_TCP6 cilium_ct_tcp6_111
 #define CT_MAP_ANY6 cilium_ct_any6_111
 #define CT_MAP_TCP4 cilium_ct_tcp4_111
@@ -41,11 +44,11 @@
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
 #define CALLS_MAP test_cilium_calls_111
-#define LB_L3
-#define LB_L4
-#define LOCAL_DELIVERY_METRICS
-#define CONNTRACK
-#define CONNTRACK_ACCOUNTING
+#define LB_L3 1
+#define LB_L4 1
+#define LOCAL_DELIVERY_METRICS 1
+#define CONNTRACK 1
+#define CONNTRACK_ACCOUNTING 1
 #define CONFIG_MAP test_cilium_ep_config_111
 
 /* It appears that we can support around the below number of prefixes in an
