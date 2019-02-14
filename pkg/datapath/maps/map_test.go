@@ -82,13 +82,14 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				42,
 			},
 			paths: []string{
-				"cilium_policy_1",
-				"cilium_policy_42",
-				"cilium_ct6_1",
-				"cilium_ct4_1",
-				"cilium_ct_any6_1",
-				"cilium_ct_any4_1",
-				"cilium_ep_config_1",
+				"cilium_policy_00001",
+				"cilium_policy_00001",
+				"cilium_policy_00042",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
 			},
 			removedPaths:    []string{},
 			removedMappings: []int{},
@@ -96,19 +97,45 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 		{
 			name: "Delete some endpoints",
 			endpoints: []uint16{
+				42,
+			},
+			paths: []string{
+				"cilium_policy_00001",
+				"cilium_policy_00042",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
+			},
+			removedPaths: []string{
+				"cilium_policy_00001",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
+			},
+			removedMappings: []int{
+				1,
+			},
+		},
+		{
+			name: "Delete some endpoints",
+			endpoints: []uint16{
 				1,
 			},
 			paths: []string{
-				"cilium_policy_1",
-				"cilium_policy_42",
-				"cilium_ct6_1",
-				"cilium_ct4_1",
-				"cilium_ct_any6_1",
-				"cilium_ct_any4_1",
-				"cilium_ep_config_1",
+				"cilium_policy_00001",
+				"cilium_policy_00042",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
-				"cilium_policy_42",
+				"cilium_policy_00042",
 			},
 			removedMappings: []int{
 				42,
@@ -118,6 +145,35 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 			name:      "Delete every map",
 			endpoints: []uint16{},
 			paths: []string{
+				"cilium_policy_00001",
+				"cilium_policy_00042",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
+			},
+			removedPaths: []string{
+				"cilium_policy_00001",
+				"cilium_policy_00042",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
+			},
+			removedMappings: []int{
+				1,
+				42,
+			},
+		},
+		{
+			name: "Delete maps with old path format",
+			endpoints: []uint16{
+				1,
+				42,
+			},
+			paths: []string{
 				"cilium_policy_1",
 				"cilium_policy_42",
 				"cilium_ct6_1",
@@ -125,6 +181,13 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct_any6_1",
 				"cilium_ct_any4_1",
 				"cilium_ep_config_1",
+				"cilium_policy_00001",
+				"cilium_policy_00042",
+				"cilium_ct6_00001",
+				"cilium_ct4_00001",
+				"cilium_ct_any6_00001",
+				"cilium_ct_any4_00001",
+				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_1",
@@ -135,14 +198,12 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct_any4_1",
 				"cilium_ep_config_1",
 			},
-			removedMappings: []int{
-				1,
-				42,
-			},
+			removedMappings: []int{},
 		},
 	}
 
 	for _, tt := range testCases {
+		c.Log(tt.name)
 		testEPManager := newTestEPManager()
 		sweeper := newMapSweeper(testEPManager)
 

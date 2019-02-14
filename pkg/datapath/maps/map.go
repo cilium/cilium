@@ -95,9 +95,14 @@ func newMapSweeper(g endpointManager) *mapSweeper {
 // deleteMapIfStale uses the endpointManager implementation to determine for
 // the given path whether it should be deleted, and if so deletes the path.
 func (ms *mapSweeper) deleteMapIfStale(path string, filename string, endpointID string) {
-	if tmp, err := strconv.ParseUint(endpointID, 0, 16); err == nil {
+	if tmp, err := strconv.ParseUint(endpointID, 10, 16); err == nil {
 		epID := uint16(tmp)
-		if !ms.endpointExists(epID) {
+		if ms.endpointExists(epID) {
+			prefix := strings.TrimSuffix(filename, endpointID)
+			if filename != bpf.LocalMapName(prefix, uint16(tmp)) {
+				ms.removeMapPath(path)
+			}
+		} else {
 			err2 := ms.removeDatapathMapping(epID)
 			if err2 != nil {
 				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)

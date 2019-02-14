@@ -107,7 +107,7 @@ func MapPath(name string) string {
 
 // LocalMapName returns the name for a BPF map that is local to the specified ID.
 func LocalMapName(name string, id uint16) string {
-	return fmt.Sprintf("%s%d", name, id)
+	return fmt.Sprintf("%s%05d", name, id)
 }
 
 // LocalMapPath returns the path for a BPF map that is local to the specified ID.
