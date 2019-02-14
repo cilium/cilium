@@ -81,13 +81,18 @@ func newMapSweeper(g garbageWalker) *mapSweeper {
 // checkStaleMap uses the garbageWalker implementation to determine for the
 // given path whether it should be deleted, and if so deletes the path.
 func (ms *mapSweeper) checkStaleMap(path string, filename string, id string) {
-	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
+	if tmp, err := strconv.ParseUint(id, 10, 16); err == nil {
 		if ms.shouldRemove(uint16(tmp)) {
 			err2 := ms.removeMapping(uint32(tmp))
 			if err2 != nil {
 				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)
 			}
 			ms.removePath(path)
+		} else {
+			prefix := strings.TrimSuffix(filename, id)
+			if filename != bpf.LocalMapName(prefix, uint16(tmp)) {
+				ms.removePath(path)
+			}
 		}
 	}
 }

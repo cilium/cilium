@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1831,8 +1832,9 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		Expect(err).Should(BeNil(), "Unable to get endpoint IDs")
 
 		for _, endpointID := range endpointIDMap {
+			epID, _ := strconv.Atoi(endpointID)
 			By("Checking that endpoint policy map exists for endpoint %s", endpointID)
-			epPolicyMap := fmt.Sprintf("/sys/fs/bpf/tc/globals/cilium_policy_%s", endpointID)
+			epPolicyMap := fmt.Sprintf("/sys/fs/bpf/tc/globals/cilium_policy_%05d", epID)
 			vm.Exec(fmt.Sprintf("test -f %s", epPolicyMap)).ExpectSuccess(fmt.Sprintf("Endpoint policy map %s does not exist", epPolicyMap))
 		}
 
