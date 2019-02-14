@@ -37,6 +37,8 @@ var (
 	updateMetric = metrics.ServicesCount.WithLabelValues("update")
 	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
 	addMetric    = metrics.ServicesCount.WithLabelValues("add")
+
+	AllProtocols = []L4Type{TCP, UDP}
 )
 
 const (
