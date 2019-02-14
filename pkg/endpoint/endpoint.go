@@ -339,12 +339,6 @@ func (e *Endpoint) HasIpvlanDataPath() bool {
 	return false
 }
 
-// MustGraftDatapathMap returns whether we need full replacement or grafting of
-// object file.
-func (e *Endpoint) MustGraftDatapathMap() bool {
-	return e.HasIpvlanDataPath()
-}
-
 // GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
 // enabled for endpoint or not. The endpoint's mutex must be held.
 func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {

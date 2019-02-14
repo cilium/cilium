@@ -35,10 +35,10 @@ type epInfoCache struct {
 	value *lxcmap.EndpointInfo
 
 	// For datapath.loader.endpoint
-	epdir       string
-	id          string
-	ifName      string
-	graftToLoad bool
+	epdir  string
+	id     string
+	ifName string
+	ipvlan bool
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -52,13 +52,13 @@ type epInfoCache struct {
 // Must be called when endpoint is still locked.
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 	ep := &epInfoCache{
-		revision:    e.nextPolicyRevision,
-		endpoint:    e,
-		epdir:       epdir,
-		id:          e.StringID(),
-		ifName:      e.IfName,
-		keys:        e.GetBPFKeys(),
-		graftToLoad: e.MustGraftDatapathMap(),
+		revision: e.nextPolicyRevision,
+		endpoint: e,
+		epdir:    epdir,
+		id:       e.StringID(),
+		ifName:   e.IfName,
+		keys:     e.GetBPFKeys(),
+		ipvlan:   e.HasIpvlanDataPath(),
 	}
 
 	var err error
@@ -91,9 +91,9 @@ func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 	return ep.endpoint.Logger(subsystem)
 }
 
-// MustGraftDatapathMap returns whether we need full replacement or grafting of object file.
-func (ep *epInfoCache) MustGraftDatapathMap() bool {
-	return ep.graftToLoad
+// HasIpvlanDataPath returns whether the endpoint's datapath is implemented via ipvlan.
+func (ep *epInfoCache) HasIpvlanDataPath() bool {
+	return ep.ipvlan
 }
 
 // StateDir returns the directory for the endpoint's (next) state.
