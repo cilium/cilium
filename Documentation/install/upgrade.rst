@@ -117,8 +117,8 @@ Step 1: Upgrade to latest micro version (Recommended)
 -----------------------------------------------------
 
 When upgrading from one minor release to another minor release, for example 1.x
-to 1.y, it is recommended to first upgrade to the latest micro release of the
-currently running minor release. This ensures that downgrading by rolling back
+to 1.y, it is recommended to first upgrade to the latest micro release
+as documented in (:ref:`upgrade_micro`). This ensures that downgrading by rolling back
 on a failed minor release upgrade is always possible and seamless.
 
 Step 2: Upgrade the ConfigMap (Optional)
@@ -297,8 +297,9 @@ Changes that may require action
 
  * The DaemonSet now uses ``dnsPolicy: ClusterFirstWithHostNet`` in order for
    Cilium to look up Kubernetes service names via DNS. This in turn requires
-   the cluster to run kube-dns. If you are not running kube-dns, remove the
-   ``dnsPolicy`` field. This will mean that you cannot use the etcd-operator.
+   the cluster to run a cluster DNS such as kube-dns or CoreDNS. If you are not
+   running cluster DNS, remove the ``dnsPolicy`` field. This will mean that you
+   cannot use the etcd-operator.
    More details can be found in the :ref:`k8s_req_kubedns` section.
 
 .. _1.4_new_options:
