@@ -309,7 +309,7 @@ required = [
 
 [[constraint]]
   name = "github.com/onsi/gomega"
-  revision = "283ed655c6b8238afecd5bea6434bc9b03129f2f"
+  revision = "v1.4.3"
 
   # main-usage = "only in integration tests"
   # on-revision = ""
