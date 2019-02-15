@@ -302,7 +302,7 @@ required = [
 
 [[constraint]]
   name = "github.com/onsi/ginkgo"
-  revision = "ba8e856bb854d6771a72ddf6497a42dad3a0c971"
+  revision = "v1.7.0"
 
   # main-usage = "only in integration tests"
   # on-revision = ""

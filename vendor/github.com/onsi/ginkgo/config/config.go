@@ -20,7 +20,7 @@ import (
 	"fmt"
 )
 
-const VERSION = "1.4.0"
+const VERSION = "1.7.0"
 
 type GinkgoConfigType struct {
 	RandomSeed         int64
@@ -34,6 +34,7 @@ type GinkgoConfigType struct {
 	FlakeAttempts      int
 	EmitSpecProgress   bool
 	DryRun             bool
+	DebugParallel      bool
 
 	ParallelNode  int
 	ParallelTotal int
@@ -80,6 +81,8 @@ func Flags(flagSet *flag.FlagSet, prefix string, includeParallelFlags bool) {
 	flagSet.IntVar(&(GinkgoConfig.FlakeAttempts), prefix+"flakeAttempts", 1, "Make up to this many attempts to run each spec. Please note that if any of the attempts succeed, the suite will not be failed. But any failures will still be recorded.")
 
 	flagSet.BoolVar(&(GinkgoConfig.EmitSpecProgress), prefix+"progress", false, "If set, ginkgo will emit progress information as each spec runs to the GinkgoWriter.")
+
+	flagSet.BoolVar(&(GinkgoConfig.DebugParallel), prefix+"debug", false, "If set, ginkgo will emit node output to files when running in parallel.")
 
 	if includeParallelFlags {
 		flagSet.IntVar(&(GinkgoConfig.ParallelNode), prefix+"parallel.node", 1, "This worker node's (one-indexed) node number.  For running specs in parallel.")
@@ -139,6 +142,10 @@ func BuildFlagArgs(prefix string, ginkgo GinkgoConfigType, reporter DefaultRepor
 
 	if ginkgo.EmitSpecProgress {
 		result = append(result, fmt.Sprintf("--%sprogress", prefix))
+	}
+
+	if ginkgo.DebugParallel {
+		result = append(result, fmt.Sprintf("--%sdebug", prefix))
 	}
 
 	if ginkgo.ParallelNode != 0 {

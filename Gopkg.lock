@@ -686,6 +686,20 @@
   version = "v0.8.1"
 
 [[projects]]
+  digest = "1:41933d387bfa3eaa6a82647914ed7044f7b8355764c24fb920892bc8c03ef0c3"
+  name = "github.com/hpcloud/tail"
+  packages = [
+    ".",
+    "ratelimiter",
+    "util",
+    "watch",
+    "winfile",
+  ]
+  pruneopts = "NUT"
+  revision = "a30252cb686a21eb2d0b98132633053ec2f7f1e5"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:9a52adf44086cead3b384e5d0dbf7a1c1cce65e67552ee3383a8561c42a18cd3"
   name = "github.com/imdario/mergo"
   packages = ["."]
@@ -866,7 +880,7 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:3dc39744bbac155b21a79c6b8e250d6985bbab77b71c073a4477071e59fe5e61"
+  digest = "1:cdc5cfc04dd0b98f86433207fe6d9879757c46734441a08886acc11251c7ed4a"
   name = "github.com/onsi/ginkgo"
   packages = [
     ".",
@@ -889,7 +903,7 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "ba8e856bb854d6771a72ddf6497a42dad3a0c971"
+  revision = "v1.7.0"
 
 [[projects]]
   digest = "1:2714e6fd12597d802d18dd2f864a8d82311145eeb2c8f5dcb3f6fa8aca1004f6"
@@ -1440,6 +1454,14 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "v2.1"
+
+[[projects]]
+  branch = "v1"
+  digest = "1:8fb1ccb16a6cfecbfdfeb84d8ea1cc7afa8f9ef16526bc2326f72d993e32cef1"
+  name = "gopkg.in/tomb.v1"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "dd632973f1e7218eb1089048e0798ec9ae7dceb8"
 
 [[projects]]
   digest = "1:7c95b35057a0ff2e19f707173cc1a947fa43a6eb5c4d300d196ece0334046082"
