@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/plugins/cilium-docker/driver"
@@ -309,19 +310,15 @@ func (d *dockerClient) listenForDockerEvents(ws *watcherState, messagesCh <-chan
 	for {
 		select {
 		case err, ok := <-errCh:
-			if !ok {
+			if !ok || err == io.EOF {
 				log.Info("Docker error channel closed")
 				return
 			}
-			if err != io.EOF {
-				log.WithError(err).Error("Error while reading events")
-				// Sleep to avoid consuming 100% CPU
-				time.Sleep(100 * time.Millisecond)
-			} else {
-				log.Info("Docker error channel closed")
-				return
-			}
+			log.WithError(err).Error("Error while reading docker events")
+			// Sleep to avoid consuming 100% CPU
+			time.Sleep(100 * time.Millisecond)
 		case e, ok := <-messagesCh:
+			metrics.EventTSContainerd.SetToCurrentTime()
 			if !ok {
 				log.Error("docker events channel closed")
 				return
