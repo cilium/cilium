@@ -96,6 +96,9 @@ func (p *sshParser) parseKV() sshParserStateFn {
 	}
 	comment := ""
 	tok := p.peek()
+	if tok == nil {
+		tok = &token{typ: tokenEOF}
+	}
 	if tok.typ == tokenComment && tok.Position.Line == val.Position.Line {
 		tok = p.getToken()
 		comment = tok.val
@@ -107,19 +110,17 @@ func (p *sshParser) parseKV() sshParserStateFn {
 	}
 	if strings.ToLower(key.val) == "host" {
 		strPatterns := strings.Split(val.val, " ")
+		patterns := make([]*Pattern, 0)
 		for i := range strPatterns {
 			if strPatterns[i] == "" {
-				strPatterns = append(strPatterns[:i], strPatterns[i+1:]...)
+				continue
 			}
-		}
-		patterns := make([]*Pattern, len(strPatterns))
-		for i := range strPatterns {
 			pat, err := NewPattern(strPatterns[i])
 			if err != nil {
 				p.raiseErrorf(val, "Invalid host pattern: %v", err)
 				return nil
 			}
-			patterns[i] = pat
+			patterns = append(patterns, pat)
 		}
 		p.config.Hosts = append(p.config.Hosts, &Host{
 			Patterns:   patterns,

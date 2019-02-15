@@ -739,11 +739,11 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
-  digest = "1:a310f6d9c2ab6d34834393dfa25ca7f07ed2738089cb43b75d16aaf5808c2024"
+  digest = "1:29e44e9481a689be0093a0033299b95741d394a97b28e0273c21afe697873a22"
   name = "github.com/kevinburke/ssh_config"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "db49ba357de1f26c56dac48a5de39c65785bf24a"
+  revision = "0.5"
 
 [[projects]]
   digest = "1:4059c14e87a2de3a434430340521b5feece186c1469eff0834c29a63870de3ed"

@@ -86,6 +86,12 @@ func (s *sshLexer) lexRvalue() sshLexStateFn {
 	for {
 		next := s.peek()
 		switch next {
+		case '\r':
+			if s.follow("\r\n") {
+				s.emitWithValue(tokenString, growingString)
+				s.skip()
+				return s.lexVoid
+			}
 		case '\n':
 			s.emitWithValue(tokenString, growingString)
 			s.skip()
