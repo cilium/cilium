@@ -32,7 +32,7 @@ required = [
 
 [[constraint]]
   name = "github.com/asaskevich/govalidator"
-  revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
+  revision = "f9ffefc3facfbe0caee3fea233cbb6e8208f4541"
 
   # main-usage = "only in integration tests"
   # on-revision = ""

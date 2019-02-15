@@ -55,11 +55,11 @@
   version = "1.0.0"
 
 [[projects]]
-  digest = "1:b481bb1a9d7b0b76177c4111c05c39d99733e3f8886141981baba118b3a025ec"
+  digest = "1:0df282a1d6220ba71e2f5a5570640095c41e048374b9c4627ea8ed80c5dff970"
   name = "github.com/asaskevich/govalidator"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "fdf19785fd3558d619ef81212f5edf1d6c2a5911"
+  revision = "f9ffefc3facfbe0caee3fea233cbb6e8208f4541"
 
 [[projects]]
   digest = "1:abb9e396a89827531b69f68252a5d92e7a6b3ae865cd5c8c259d9401cef36376"
