@@ -28,7 +28,7 @@ import (
 
 var (
 	// HelperTimeout is a predefined timeout value for commands.
-	HelperTimeout = 5 * time.Minute
+	HelperTimeout = 8 * time.Minute
 
 	// CiliumStartTimeout is a predefined timeout value for Cilium startup.
 	CiliumStartTimeout = 100 * time.Second
