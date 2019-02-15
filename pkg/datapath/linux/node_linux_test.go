@@ -67,50 +67,46 @@ const (
 	dummyExternalDeviceName = "dummy_external"
 )
 
-func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
-	s.nodeAddressing = fake.NewIPv6OnlyNodeAddressing()
+func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
+	s.nodeAddressing = addressing
 	s.mtuConfig = mtu.NewConfiguration(false, 1500)
-	s.enableIPv6 = true
+	s.enableIPv6 = enableIPv6
+	s.enableIPv4 = enableIPv4
 
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 
-	err := setupDummyDevice(dummyExternalDeviceName, s.nodeAddressing.IPv6().PrimaryExternal())
+	ips := make([]net.IP, 0)
+	if enableIPv6 {
+		ips = append(ips, s.nodeAddressing.IPv6().PrimaryExternal())
+	}
+	if enableIPv4 {
+		ips = append(ips, s.nodeAddressing.IPv4().PrimaryExternal())
+	}
+	err := setupDummyDevice(dummyExternalDeviceName, ips...)
 	c.Assert(err, check.IsNil)
 
-	err = setupDummyDevice(dummyHostDeviceName)
+	if enableIPv4 {
+		err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
+	} else {
+		err = setupDummyDevice(dummyHostDeviceName)
+	}
 	c.Assert(err, check.IsNil)
+}
+
+func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
+	addressing := fake.NewIPv6OnlyNodeAddressing()
+	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, false)
 }
 
 func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpTest(c *check.C) {
-	s.nodeAddressing = fake.NewIPv4OnlyNodeAddressing()
-	s.mtuConfig = mtu.NewConfiguration(false, 1500)
-	s.enableIPv4 = true
-
-	removeDevice(dummyHostDeviceName)
-	removeDevice(dummyExternalDeviceName)
-
-	err := setupDummyDevice(dummyExternalDeviceName, s.nodeAddressing.IPv4().PrimaryExternal())
-	c.Assert(err, check.IsNil)
-
-	err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
-	c.Assert(err, check.IsNil)
+	addressing := fake.NewIPv4OnlyNodeAddressing()
+	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, false, true)
 }
 
 func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
-	s.nodeAddressing = fake.NewNodeAddressing()
-	s.mtuConfig = mtu.NewConfiguration(false, 1500)
-	s.enableIPv6 = true
-	s.enableIPv4 = true
-
-	removeDevice(dummyHostDeviceName)
-	removeDevice(dummyExternalDeviceName)
-
-	err := setupDummyDevice(dummyExternalDeviceName, s.nodeAddressing.IPv4().PrimaryExternal(), s.nodeAddressing.IPv6().PrimaryExternal())
-	c.Assert(err, check.IsNil)
-
-	err = setupDummyDevice(dummyHostDeviceName, s.nodeAddressing.IPv4().Router())
-	c.Assert(err, check.IsNil)
+	addressing := fake.NewNodeAddressing()
+	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, true)
 }
 
 func tearDownTest(c *check.C) {
