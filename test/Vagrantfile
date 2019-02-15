@@ -52,7 +52,7 @@ Vagrant.configure("2") do |config|
         # Provision section
         server.vm.provision :shell,
             :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-        server.vm.provision "file", source: "provision", destination: "/tmp/provision"
+        server.vm.provision "file", source: "provision/", destination: "/tmp/"
         server.vm.provision "shell" do |sh|
             sh.path = "./provision/runtime_install.sh"
             sh.env = {}
@@ -92,7 +92,7 @@ Vagrant.configure("2") do |config|
             # Provision section
             server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-            server.vm.provision "file", source: "provision", destination: "/tmp/provision"
+            server.vm.provision "file", source: "provision/", destination: "/tmp/"
             server.vm.provision "shell" do |sh|
                 sh.path = "./provision/k8s_install.sh"
                 sh.args = [
