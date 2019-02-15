@@ -1227,20 +1227,21 @@
   revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
 
 [[projects]]
-  digest = "1:0dea92322600b83d86e3ad7c10770e03a92d6aae9bd0b7e8620e38653f030769"
+  digest = "1:528c3b867218fc6ce15b9fa7b1e6d90c3a4245cb2683ca33426d598a6fe9690b"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
     "ed25519",
     "ed25519/internal/edwards25519",
     "internal/chacha20",
+    "internal/subtle",
     "poly1305",
     "ssh",
     "ssh/agent",
     "ssh/terminal",
   ]
   pruneopts = "NUT"
-  revision = "5ba7f63082460102a45837dbd1827e10f9479ac0"
+  revision = "56440b844dfe139a8ac053f4ecac0b20b79058f4"
 
 [[projects]]
   digest = "1:77f0df0a744220ea2d96c636686811a7888c1297ff4ecce5cc97b30df4e3a78f"
