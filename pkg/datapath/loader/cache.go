@@ -165,13 +165,16 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 		}
 	}
 
+	cfg.stats.bpfCompilation.Start()
 	err = compileTemplate(ctx, templatePath)
+	cfg.stats.bpfCompilation.End(err == nil)
 	if err != nil {
 		return err
 	}
 
 	log.WithFields(logrus.Fields{
-		logfields.Path: objectPath,
+		logfields.Path:               objectPath,
+		logfields.BPFCompilationTime: cfg.stats.bpfCompilation.Total(),
 	}).Info("Compiled new BPF template")
 
 	o.insert(hash, objectPath)
@@ -186,7 +189,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration) (string, bool, error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *SpanStat) (string, bool, error) {
 	hash, err := o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
 		return "", false, err
@@ -197,7 +200,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 	if !compiled {
 		fq.Enqueue(func() error {
 			defer fq.Stop()
-			templateCfg := wrap(cfg)
+			templateCfg := wrap(cfg, stats)
 			return o.build(ctx, templateCfg, hash)
 		}, serializer.NoRetry)
 	}

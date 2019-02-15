@@ -33,7 +33,7 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 	)
 
 	realEP := testutils.NewTestEndpoint()
-	template := wrap(&realEP)
+	template := wrap(&realEP, nil)
 	dp := linux.NewDatapath(linux.DatapathConfiguration{})
 
 	// Write the configuration that should be the same, and verify it is.

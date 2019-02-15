@@ -374,19 +374,22 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	e.RUnlock()
 	stats.SendMetrics()
 
-	scopedLog := e.getLogger().WithFields(logrus.Fields{
+	fields := logrus.Fields{
 		"waitingForLock":         stats.waitingForLock.Total(),
 		"waitingForCTClean":      stats.waitingForCTClean.Total(),
 		"policyCalculation":      stats.policyCalculation.Total(),
 		"proxyConfiguration":     stats.proxyConfiguration.Total(),
 		"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
 		"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
-		"bpfCompilation":         stats.bpfCompilation.Total(),
 		"mapSync":                stats.mapSync.Total(),
 		"prepareBuild":           stats.prepareBuild.Total(),
 		logfields.BuildDuration:  stats.totalTime.Total(),
 		logfields.Reason:         context.Reason,
-	})
+	}
+	for field, stat := range stats.datapathRealization.GetMap() {
+		fields[field] = stat.Total()
+	}
+	scopedLog := e.getLogger().WithFields(fields)
 
 	if err != nil {
 		scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
