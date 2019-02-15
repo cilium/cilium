@@ -912,6 +912,16 @@ func (s *SSHMeta) SetUpCiliumWithSockops() error {
 	return s.SetUpCiliumWithOptions(config)
 }
 
+// SetUpCiliumInIpvlanMode starts cilium-agent in the ipvlan mode
+func (s *SSHMeta) SetUpCiliumInIpvlanMode(ipvlanMasterDevice string) error {
+	var config = `
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load \
+	--tunnel=disabled --datapath-mode=ipvlan --ipvlan-master-device=` + ipvlanMasterDevice + `
+INITSYSTEM=SYSTEMD`
+	return s.SetUpCiliumWithOptions(config)
+}
+
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.
