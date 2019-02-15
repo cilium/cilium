@@ -61,8 +61,9 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 // So this is a good place to plug in a panic handling middleware, logging and metrics
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	eventsHelper := &metrics.APIEventTSHelper{
-		Next:    handler,
-		TSGauge: metrics.EventTSAPI,
+		Next:      handler,
+		TSGauge:   metrics.EventTSAPI,
+		Histogram: metrics.APIInteractions,
 	}
 
 	return &api.APIPanicHandler{

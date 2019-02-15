@@ -67,6 +67,9 @@ var (
 	// the datapath. It is prepended to metric names and separated with a '_'.
 	Datapath = "datapath"
 
+	// Agent is the subsystem to cope metrics related to the cilium agent itself.
+	Agent = "agent"
+
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
@@ -130,6 +133,26 @@ var (
 
 	// LabelKind is the kind a label
 	LabelKind = "kind"
+
+	// LabelPath is the label for the API path
+	LabelPath = "path"
+
+	// LabelMethod is the label for the HTTP method
+	LabelMethod = "method"
+
+	// LabelAPIReturnCode is the HTTP code returned for that API path
+	LabelAPIReturnCode = "return_code"
+
+	// API interactions
+
+	// APIInteractions is the total time taken to process an API call made
+	// to the cilium-agent
+	APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: Agent,
+		Name:      "api_process_time_seconds",
+		Help:      "Duration of processed API calls labeled by path, method and return code.",
+	}, []string{LabelPath, LabelMethod, LabelAPIReturnCode})
 
 	// Endpoint
 
@@ -493,6 +516,7 @@ func init() {
 	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
+	MustRegister(APIInteractions)
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
