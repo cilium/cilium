@@ -485,9 +485,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 
 		// Compile and install BPF programs for this endpoint
 		if datapathRegenCtxt.regenerationLevel == RegenerateWithDatapathRebuild {
-			stats.bpfCompilation.Start()
-			err = loader.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache)
-			stats.bpfCompilation.End(err == nil)
+			err = loader.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			e.getLogger().WithError(err).Info("Rewrote endpoint BPF program")
 			compilationExecuted = true
 		} else { // RegenerateWithDatapathLoad
