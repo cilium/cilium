@@ -111,8 +111,8 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func CompileOrLoad(ctx context.Context, ep endpoint) error {
-	templatePath, _, err := templateCache.fetchOrCompile(ctx, ep)
+func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+	templatePath, _, err := templateCache.fetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
 	}
