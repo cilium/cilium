@@ -201,7 +201,7 @@
   name = "github.com/containerd/cri"
   packages = ["pkg/store"]
   pruneopts = "NUT"
-  revision = "v1.11.1"
+  revision = "da0c016c830b2ea97fd1d737c49a568a816bf964"
 
 [[projects]]
   branch = "master"
