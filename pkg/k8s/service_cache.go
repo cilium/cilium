@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -103,6 +103,20 @@ func NewServiceCache() ServiceCache {
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, 128),
 	}
+}
+
+// GetBackendIP returns a random L3n4Addr that is backing the given Service ID.
+func (s *ServiceCache) GetBackendIP(svcID ServiceID) *loadbalancer.L3n4Addr {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	svc := s.services[svcID]
+	if svc == nil {
+		return nil
+	}
+	for _, port := range svc.Ports {
+		return loadbalancer.NewL3n4Addr(port.Protocol, svc.FrontendIP, port.Port)
+	}
+	return nil
 }
 
 // UpdateService parses a Kubernetes service and adds or updates it in the
