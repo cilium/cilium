@@ -113,6 +113,30 @@ func (s ServiceID) String() string {
 	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
 }
 
+// ParseServiceIDFrom returns a ServiceID derived from the given kubernetes
+// service FQDN.
+func ParseServiceIDFrom(dn string) *ServiceID {
+	// typical service name "cilium-etcd-client.kube-system.svc"
+	idx1 := strings.IndexByte(dn, '.')
+	if idx1 >= 0 {
+		svc := ServiceID{
+			Name: dn[:idx1],
+		}
+		idx2 := strings.IndexByte(dn[idx1+1:], '.')
+		if idx2 >= 0 {
+			// "cilium-etcd-client.kube-system.svc"
+			//                     ^idx1+1    ^ idx1+1+idx2
+			svc.Namespace = dn[idx1+1 : idx1+1+idx2]
+		} else {
+			// "cilium-etcd-client.kube-system"
+			//                     ^idx1+1
+			svc.Namespace = dn[idx1+1:]
+		}
+		return &svc
+	}
+	return nil
+}
+
 // Service is an abstraction for a k8s service that is composed by the frontend IP
 // address (FEIP) and the map of the frontend ports (Ports).
 type Service struct {
