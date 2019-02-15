@@ -29,6 +29,7 @@ import (
 	"github.com/onsi/ginkgo/internal/writer"
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/ginkgo/reporters/stenographer"
+	colorable "github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable"
 	"github.com/onsi/ginkgo/types"
 )
 
@@ -228,10 +229,14 @@ func RunSpecsWithCustomReporters(t GinkgoTestingT, description string, specRepor
 func buildDefaultReporter() Reporter {
 	remoteReportingServer := config.GinkgoConfig.StreamHost
 	if remoteReportingServer == "" {
-		stenographer := stenographer.New(!config.DefaultReporterConfig.NoColor, config.GinkgoConfig.FlakeAttempts > 1)
+		stenographer := stenographer.New(!config.DefaultReporterConfig.NoColor, config.GinkgoConfig.FlakeAttempts > 1, colorable.NewColorableStdout())
 		return reporters.NewDefaultReporter(config.DefaultReporterConfig, stenographer)
 	} else {
-		return remote.NewForwardingReporter(remoteReportingServer, &http.Client{}, remote.NewOutputInterceptor())
+		debugFile := ""
+		if config.GinkgoConfig.DebugParallel {
+			debugFile = fmt.Sprintf("ginkgo-node-%d.log", config.GinkgoConfig.ParallelNode)
+		}
+		return remote.NewForwardingReporter(config.DefaultReporterConfig, remoteReportingServer, &http.Client{}, remote.NewOutputInterceptor(), GinkgoWriter.(*writer.Writer), debugFile)
 	}
 }
 
@@ -582,6 +587,16 @@ func BeforeEach(body interface{}, timeout ...float64) bool {
 //a Done channel
 func JustBeforeEach(body interface{}, timeout ...float64) bool {
 	globalSuite.PushJustBeforeEachNode(body, codelocation.New(1), parseTimeout(timeout...))
+	return true
+}
+
+//JustAfterEach blocks are run after It blocks but *before* all AfterEach blocks.  For more details,
+//read the [documentation](http://onsi.github.io/ginkgo/#separating_creation_and_configuration_)
+//
+//Like It blocks, JustAfterEach blocks can be made asynchronous by providing a body function that accepts
+//a Done channel
+func JustAfterEach(body interface{}, timeout ...float64) bool {
+	globalSuite.PushJustAfterEachNode(body, codelocation.New(1), parseTimeout(timeout...))
 	return true
 }
 
