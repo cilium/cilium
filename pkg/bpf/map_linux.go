@@ -194,6 +194,16 @@ func (m *Map) Path() (string, error) {
 	return m.path, nil
 }
 
+// Unpin attempts to unpin (remove) the map from the filesystem.
+func (m *Map) Unpin() error {
+	path, err := m.Path()
+	if err != nil {
+		return err
+	}
+
+	return os.RemoveAll(path)
+}
+
 // DeepEquals compares the current map against another map to see that the
 // attributes of the two maps are the same.
 func (m *Map) DeepEquals(other *Map) bool {
