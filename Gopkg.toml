@@ -67,10 +67,10 @@ required = [
 
 [[constraint]]
   name = "github.com/containerd/cri"
-  revision = "v1.11.1"
+  revision = "da0c016c830b2ea97fd1d737c49a568a816bf964"
 
   # main-usage = "pkg/workloads"
-  # on-revision = ""
+  # on-revision = "it is the same revision used by containerd and we only use this repo directly to access a constant"
 
 [[override]]
   name = "github.com/docker/distribution"
