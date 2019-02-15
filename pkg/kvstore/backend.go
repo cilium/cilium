@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 // limitations under the License.
 
 package kvstore
+
+import (
+	"google.golang.org/grpc"
+)
 
 type backendOption struct {
 	// description is the description of the option
@@ -32,6 +36,12 @@ type backendBase struct {
 	opts backendOptions
 }
 
+// ExtraOptions represents any options that can not be represented in a textual
+// format and need to be set programmatically.
+type ExtraOptions struct {
+	DialOption []grpc.DialOption
+}
+
 // backendModule is the interface that each kvstore backend has to implement.
 type backendModule interface {
 	// getName must return the name of the backend
@@ -40,6 +50,10 @@ type backendModule interface {
 	// setConfig must configure the backend with the specified options.
 	// This function is called once before newClient().
 	setConfig(opts map[string]string) error
+
+	// setExtraConfig sets more options in the kvstore that are not able to
+	// be set by strings.
+	setExtraConfig(opts *ExtraOptions) error
 
 	// setConfigDummy must configure the backend with dummy configuration
 	// for testing purposes. This is a replacement for setConfig().

@@ -105,6 +105,14 @@ func (e *etcdModule) setConfig(opts map[string]string) error {
 	return setOpts(opts, e.opts)
 }
 
+func (e *etcdModule) setExtraConfig(opts *ExtraOptions) error {
+	if opts != nil && len(opts.DialOption) != 0 {
+		e.config = &client.Config{}
+		e.config.DialOptions = append(e.config.DialOptions, opts.DialOption...)
+	}
+	return nil
+}
+
 func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
@@ -114,8 +122,11 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 
 	endpointsOpt, endpointsSet := e.opts[addrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
-	configPath := ""
 
+	var configPath string
+	if configSet {
+		configPath = configPathOpt.value
+	}
 	if e.config == nil {
 		if !endpointsSet && !configSet {
 			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified", EtcdOptionConfig, addrOption)
@@ -123,7 +134,7 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 			return nil, errChan
 		}
 
-		if endpointsOpt.value == "" && configPathOpt.value == "" {
+		if endpointsOpt.value == "" && configPath == "" {
 			errChan <- fmt.Errorf("invalid etcd configuration, %s or %s must be specified",
 				EtcdOptionConfig, addrOption)
 			close(errChan)
@@ -131,14 +142,10 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 		}
 
 		e.config = &client.Config{}
+	}
 
-		if endpointsSet {
-			e.config.Endpoints = []string{endpointsOpt.value}
-		}
-
-		if configSet {
-			configPath = configPathOpt.value
-		}
+	if e.config.Endpoints == nil && endpointsSet {
+		e.config.Endpoints = []string{endpointsOpt.value}
 	}
 
 	for {
@@ -263,6 +270,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		if err != nil {
 			return nil, err
 		}
+		cfg.DialOptions = append(cfg.DialOptions, config.DialOptions...)
 		config = cfg
 	}
 
