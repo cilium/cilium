@@ -18,12 +18,12 @@ package k8s
 
 import (
 	"net"
+	"reflect"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
-
 	"gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -526,4 +526,30 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 			},
 		},
 	})
+}
+
+func TestParseServiceIDFrom(t *testing.T) {
+	type args struct {
+		dn string
+	}
+	tests := []struct {
+		args args
+		want *ServiceID
+	}{
+		{args: args{dn: "cilium-etcd-client.kube-system.svc"}, want: &ServiceID{Name: "cilium-etcd-client", Namespace: "kube-system"}},
+		{args: args{dn: "1.kube-system"}, want: &ServiceID{Name: "1", Namespace: "kube-system"}},
+		{args: args{dn: ".kube-system"}, want: &ServiceID{Name: "", Namespace: "kube-system"}},
+		{args: args{dn: "..kube-system"}, want: &ServiceID{Name: "", Namespace: ""}},
+		{args: args{dn: "2-..kube-system"}, want: &ServiceID{Name: "2-", Namespace: ""}},
+		{args: args{dn: ""}, want: nil},
+		{args: args{dn: "cilium-etcd-client.kube-system"}, want: &ServiceID{Name: "cilium-etcd-client", Namespace: "kube-system"}},
+		{args: args{dn: "cilium-etcd-client"}, want: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.args.dn, func(t *testing.T) {
+			if got := ParseServiceIDFrom(tt.args.dn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseServiceIDFrom() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
