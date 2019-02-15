@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,17 @@ const (
 
 var (
 	// TunnelMap represents the BPF map for tunnels
-	TunnelMap = &Map{Map: bpf.NewMap(MapName,
+	TunnelMap = NewTunnelMap(MapName)
+)
+
+// Map implements tunnel connectivity configuration in the BPF datapath.
+type Map struct {
+	*bpf.Map
+}
+
+// NewTunnelMap returns a new tunnel map with the specified name.
+func NewTunnelMap(name string) *Map {
+	return &Map{Map: bpf.NewMap(MapName,
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(tunnelEndpoint{})),
 		int(unsafe.Sizeof(tunnelEndpoint{})),
@@ -48,11 +58,6 @@ var (
 			return &k, &v, nil
 		}).WithCache(),
 	}
-)
-
-// Map implements tunnel connectivity configuration in the BPF datapath.
-type Map struct {
-	*bpf.Map
 }
 
 func init() {
