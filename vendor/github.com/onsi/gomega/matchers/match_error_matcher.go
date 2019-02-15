@@ -22,12 +22,12 @@ func (matcher *MatchErrorMatcher) Match(actual interface{}) (success bool, err e
 
 	actualErr := actual.(error)
 
-	if isString(matcher.Expected) {
-		return actualErr.Error() == matcher.Expected, nil
-	}
-
 	if isError(matcher.Expected) {
 		return reflect.DeepEqual(actualErr, matcher.Expected), nil
+	}
+
+	if isString(matcher.Expected) {
+		return actualErr.Error() == matcher.Expected, nil
 	}
 
 	var subMatcher omegaMatcher
