@@ -16,17 +16,20 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
+
 	"math"
-	"sync"
 	"time"
 )
 
-var (
-	endpointPolicyStatus = new(endpointPolicyStatusMap)
-)
+var endpointPolicyStatus endpointPolicyStatusMap
+
+func init() {
+	endpointPolicyStatus = newEndpointPolicyStatusMap()
+}
 
 type regenerationStatistics struct {
 	success                bool
@@ -93,19 +96,28 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy
 // enforcement status. It is used only to send metrics to prometheus.
 type endpointPolicyStatusMap struct {
-	sync.Map
+	mutex lock.Mutex
+	m     map[uint16]models.EndpointPolicyEnabled
+}
+
+func newEndpointPolicyStatusMap() endpointPolicyStatusMap {
+	return endpointPolicyStatusMap{m: make(map[uint16]models.EndpointPolicyEnabled)}
 }
 
 // Update adds or updates a new endpoint to the map and update the metrics
 // related
 func (epPolicyMaps *endpointPolicyStatusMap) Update(endpointID uint16, policyStatus models.EndpointPolicyEnabled) {
-	epPolicyMaps.Store(endpointID, policyStatus)
+	epPolicyMaps.mutex.Lock()
+	epPolicyMaps.m[endpointID] = policyStatus
+	epPolicyMaps.mutex.Unlock()
 	endpointPolicyStatus.UpdateMetrics()
 }
 
 // Remove deletes the given endpoint from the map and update the metrics
 func (epPolicyMaps *endpointPolicyStatusMap) Remove(endpointID uint16) {
-	epPolicyMaps.Delete(endpointID)
+	epPolicyMaps.mutex.Lock()
+	delete(epPolicyMaps.m, endpointID)
+	epPolicyMaps.mutex.Unlock()
 	epPolicyMaps.UpdateMetrics()
 }
 
@@ -118,11 +130,11 @@ func (epPolicyMaps *endpointPolicyStatusMap) UpdateMetrics() {
 		models.EndpointPolicyEnabledBoth:    0,
 	}
 
-	epPolicyMaps.Range(func(key, value interface{}) bool {
-		epPolicyStatus := value.(models.EndpointPolicyEnabled)
-		policyStatus[epPolicyStatus]++
-		return true
-	})
+	epPolicyMaps.mutex.Lock()
+	for _, value := range epPolicyMaps.m {
+		policyStatus[value]++
+	}
+	epPolicyMaps.mutex.Unlock()
 
 	for k, v := range policyStatus {
 		metrics.PolicyEndpointStatus.WithLabelValues(string(k)).Set(v)
