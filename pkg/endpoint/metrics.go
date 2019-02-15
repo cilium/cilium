@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -42,7 +43,7 @@ type regenerationStatistics struct {
 	proxyConfiguration     spanstat.SpanStat
 	proxyPolicyCalculation spanstat.SpanStat
 	proxyWaitForAck        spanstat.SpanStat
-	bpfCompilation         spanstat.SpanStat
+	datapathRealization    loader.SpanStat
 	mapSync                spanstat.SpanStat
 	prepareBuild           spanstat.SpanStat
 }
@@ -79,18 +80,21 @@ func (s *regenerationStatistics) SendMetrics() {
 
 // GetMap returns a map which key is the stat name and the value is the stat
 func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
-	return map[string]*spanstat.SpanStat{
+	result := map[string]*spanstat.SpanStat{
 		"waitingForLock":         &s.waitingForLock,
 		"waitingForCTClean":      &s.waitingForCTClean,
 		"policyCalculation":      &s.policyCalculation,
 		"proxyConfiguration":     &s.proxyConfiguration,
 		"proxyPolicyCalculation": &s.proxyPolicyCalculation,
 		"proxyWaitForAck":        &s.proxyWaitForAck,
-		"bpfCompilation":         &s.bpfCompilation,
 		"mapSync":                &s.mapSync,
 		"prepareBuild":           &s.prepareBuild,
 		logfields.BuildDuration:  &s.totalTime,
 	}
+	for k, v := range s.datapathRealization.GetMap() {
+		result[k] = v
+	}
+	return result
 }
 
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy
