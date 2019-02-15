@@ -314,6 +314,13 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		Spec: v1.ServiceSpec{
 			ClusterIP: "127.0.0.1",
 			Type:      v1.ServiceTypeClusterIP,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "foo",
+					Protocol: v1.ProtocolTCP,
+					Port:     80,
+				},
+			},
 		},
 	}
 
@@ -509,6 +516,10 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		})
 		return true
 	}, 2*time.Second), check.IsNil)
+
+	k8sSvcID, _ := ParseService(k8sSvc)
+	addresses := svcCache.GetRandomBackendIP(k8sSvcID)
+	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80))
 }
 
 func (s *K8sSuite) TestNonSharedServie(c *check.C) {

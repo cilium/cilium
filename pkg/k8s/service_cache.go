@@ -104,6 +104,20 @@ func NewServiceCache() ServiceCache {
 	}
 }
 
+// GetRandomBackendIP returns a random L3n4Addr that is backing the given Service ID.
+func (s *ServiceCache) GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Addr {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	svc := s.services[svcID]
+	if svc == nil {
+		return nil
+	}
+	for _, port := range svc.Ports {
+		return loadbalancer.NewL3n4Addr(port.Protocol, svc.FrontendIP, port.Port)
+	}
+	return nil
+}
+
 // UpdateService parses a Kubernetes service and adds or updates it in the
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
