@@ -92,6 +92,9 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 		err = setupDummyDevice(dummyHostDeviceName)
 	}
 	c.Assert(err, check.IsNil)
+
+	_, err = tunnel.TunnelMap.OpenOrCreate()
+	c.Assert(err, check.IsNil)
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) SetUpTest(c *check.C) {
@@ -112,6 +115,8 @@ func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
 func tearDownTest(c *check.C) {
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
+	err := tunnel.TunnelMap.Unpin()
+	c.Assert(err, check.IsNil)
 }
 
 func (s *linuxPrivilegedIPv6OnlyTestSuite) TearDownTest(c *check.C) {
