@@ -141,7 +141,8 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				backend, errChan := kvstore.NewClient(kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
-					})
+					},
+					nil)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the

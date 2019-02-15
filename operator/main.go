@@ -142,7 +142,7 @@ func runOperator(cmd *cobra.Command) {
 
 	log.Infof("Cilium Operator %s", version.Version)
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
+	if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			"kvstore": kvStore,
 			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],

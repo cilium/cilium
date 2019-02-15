@@ -56,7 +56,7 @@ func setupKvstore() {
 		}
 	}
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts); err != nil {
+	if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
 		Fatalf("Unable to setup kvstore: %s", err)
 	}
 }

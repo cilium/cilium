@@ -104,6 +104,10 @@ func (c *consulModule) setConfig(opts map[string]string) error {
 	return setOpts(opts, c.opts)
 }
 
+func (c *consulModule) setExtraConfig(opts *ExtraOptions) error {
+	return nil
+}
+
 func (c *consulModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }

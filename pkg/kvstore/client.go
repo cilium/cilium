@@ -63,7 +63,7 @@ func Client() BackendOperations {
 }
 
 // NewClient returns a new kvstore client based on the configuration
-func NewClient(selectedBackend string, opts map[string]string) (BackendOperations, chan error) {
+func NewClient(selectedBackend string, opts map[string]string, options *ExtraOptions) (BackendOperations, chan error) {
 	// Channel used to report immediate errors, module.newClient will
 	// create and return a different channel, caller doesn't need to know
 	errChan := make(chan error, 1)
@@ -76,6 +76,11 @@ func NewClient(selectedBackend string, opts map[string]string) (BackendOperation
 	}
 
 	if err := module.setConfig(opts); err != nil {
+		errChan <- err
+		return nil, errChan
+	}
+
+	if err := module.setExtraConfig(options); err != nil {
 		errChan <- err
 		return nil, errChan
 	}
