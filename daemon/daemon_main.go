@@ -925,7 +925,7 @@ func initEnv(cmd *cobra.Command) {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
 	go func() {
-		if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt); err != nil {
+		if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt, nil); err != nil {
 			addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
 			addr := option.Config.KVStoreOpt[addrkey]
 
