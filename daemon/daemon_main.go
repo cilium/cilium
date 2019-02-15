@@ -75,6 +75,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -924,18 +925,6 @@ func initEnv(cmd *cobra.Command) {
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {
 		log.Fatal("Either IPv4 or IPv6 addressing must be enabled")
 	}
-	go func() {
-		if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt, nil); err != nil {
-			addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
-			addr := option.Config.KVStoreOpt[addrkey]
-
-			log.WithError(err).WithFields(logrus.Fields{
-				"kvstore": option.Config.KVStore,
-				"address": addr,
-			}).Fatal("Unable to setup kvstore")
-		}
-	}()
-
 	if err := labels.ParseLabelPrefixCfg(option.Config.Labels, option.Config.LabelPrefixFile); err != nil {
 		log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 	}
@@ -1123,6 +1112,44 @@ func runDaemon() {
 	bootstrapStats.k8sInit.Start()
 	d.initK8sSubsystem()
 	bootstrapStats.k8sInit.End(true)
+
+	// If K8s is enabled we can do the service translation automagically by
+	// looking at services from k8s and retrieve the service IP from that.
+	// This makes cilium to not depend on kube dns to interact with etcd
+	var goopts *kvstore.ExtraOptions
+	if k8s.IsEnabled() {
+		goopts = &kvstore.ExtraOptions{}
+		log := log.WithField(logfields.LogSubsys, "etcd")
+		goopts.DialOption = []grpc.DialOption{
+			grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {
+				// If the service is available, do the service translation to
+				// the service IP. Otherwise dial with the original service
+				// name `s`.
+				svc := k8s.ParseServiceIDFrom(s)
+				if svc != nil {
+					backendIP := d.k8sSvcCache.GetRandomBackendIP(*svc)
+					if backendIP != nil {
+						s = backendIP.String()
+					}
+				} else {
+					log.Debug("Service not found")
+				}
+				log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
+				return net.Dial("tcp", s)
+			},
+			),
+		}
+	}
+
+	if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
+		addr := option.Config.KVStoreOpt[addrkey]
+
+		log.WithError(err).WithFields(logrus.Fields{
+			"kvstore": option.Config.KVStore,
+			"address": addr,
+		}).Fatal("Unable to setup kvstore")
+	}
 
 	bootstrapStats.restore.Start()
 	if option.Config.RestoreState {
