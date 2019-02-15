@@ -490,7 +490,7 @@ var (
 )
 
 func init() {
-	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: "cilium"}))
+	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
 
