@@ -137,6 +137,7 @@ func GinkgoPrint(message string, optionalValues ...interface{}) {
 func GetTestName() string {
 	testDesc := ginkgo.CurrentGinkgoTestDescription()
 	name := strings.Replace(testDesc.FullTestText, " ", "_", -1)
+	name = strings.Trim(name, "*")
 	return strings.Replace(name, "/", "-", -1)
 }
 
