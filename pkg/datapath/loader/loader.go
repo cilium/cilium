@@ -136,8 +136,8 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 	return compileAndLoad(ctx, ep, &dirs)
 }
 
-func CompileOrLoad(ctx context.Context, ep endpoint) error {
-	templatePath, _, err := elfCache.FetchOrCompile(ctx, ep)
+func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+	templatePath, _, err := elfCache.FetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
 	}

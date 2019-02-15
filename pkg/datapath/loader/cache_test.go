@@ -47,24 +47,24 @@ func (s *LoaderTestSuite) TestObjectCache(c *C) {
 	realEP := testutils.NewTestEndpoint()
 
 	// First run should compile and generate the object.
-	_, isNew, err := cache.FetchOrCompile(ctx, &realEP)
+	_, isNew, err := cache.FetchOrCompile(ctx, &realEP, nil)
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 
 	// Same EP should not be compiled twice.
-	_, isNew, err = cache.FetchOrCompile(ctx, &realEP)
+	_, isNew, err = cache.FetchOrCompile(ctx, &realEP, nil)
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, false)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
-	_, isNew, err = cache.FetchOrCompile(ctx, &realEP)
+	_, isNew, err = cache.FetchOrCompile(ctx, &realEP, nil)
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, false)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
-	_, isNew, err = cache.FetchOrCompile(ctx, &realEP)
+	_, isNew, err = cache.FetchOrCompile(ctx, &realEP, nil)
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 }
@@ -128,7 +128,7 @@ func (s *LoaderTestSuite) TestObjectCacheParallel(c *C) {
 				ep := testutils.NewTestEndpoint()
 				opt := fmt.Sprintf("OPT%d", i/t.divisor)
 				ep.Opts.SetBool(opt, true)
-				path, isNew, err := cache.FetchOrCompile(ctx, &ep)
+				path, isNew, err := cache.FetchOrCompile(ctx, &ep, nil)
 				results <- buildResult{
 					goroutine: i,
 					path:      path,
