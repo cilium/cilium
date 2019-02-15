@@ -416,3 +416,9 @@ func failIfContainsBadLogMsg(logs string) {
 		}
 	}
 }
+
+// RunsOnNetNext checks whether a test case is running on the net next machine
+// which means running on the latest (probably) unreleased kernel
+func RunsOnNetNext() bool {
+	return os.Getenv("NETNEXT") == "true"
+}
