@@ -26,14 +26,12 @@ DEFINE_U32(LXC_IPV4, 0x10203040);
 #define LXC_IPV4 fetch_u32(LXC_IPV4)
 DEFINE_U32(LXC_ID, 0x2A);
 #define LXC_ID fetch_u32(LXC_ID)
-#ifndef SECLABEL
 DEFINE_U32(SECLABEL, 0xfffff);
 #define SECLABEL fetch_u32(SECLABEL)
 DEFINE_U32(SECLABEL_NB, 0xfffff);
 #define SECLABEL_NB fetch_u32(SECLABEL_NB)
-#endif
 
-#define POLICY_MAP cilium_policy_foo
+#define POLICY_MAP test_cilium_policy_65535
 DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #define NODE_MAC fetch_mac(NODE_MAC)
 
@@ -42,19 +40,19 @@ DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #endif
 #define DROP_NOTIFY
 #define TRACE_NOTIFY
-#define CT_MAP_TCP6 cilium_ct_tcp6_111
-#define CT_MAP_ANY6 cilium_ct_any6_111
-#define CT_MAP_TCP4 cilium_ct_tcp4_111
-#define CT_MAP_ANY4 cilium_ct_any4_111
+#define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
+#define CT_MAP_ANY6 test_cilium_ct_any6_65535
+#define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
+#define CT_MAP_ANY4 test_cilium_ct_any4_65535
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
-#define CALLS_MAP test_cilium_calls_111
+#define CALLS_MAP test_cilium_calls_65535
 #define LB_L3
 #define LB_L4
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
-#define CONFIG_MAP test_cilium_ep_config_111
+#define CONFIG_MAP test_cilium_ep_config_65535
 
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of
