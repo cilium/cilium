@@ -34,7 +34,12 @@ var (
 	TemplateIPv4  = []byte{192, 0, 2, 3}
 	TemplateIPv6  = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 
-	CallsMapName = "cilium_calls_"
+	CallsMapName   = "cilium_calls_"
+	elfMapPrefixes = []string{
+		policymap.MapName,
+		CallsMapName,
+		bpfconfig.MapNamePrefix,
+	}
 )
 
 // templateCfg wraps a real configuration from an endpoint to pass through its
@@ -114,12 +119,7 @@ func elfMapSubstitutions(ep endpoint) map[string]string {
 	result := make(map[string]string)
 
 	epID := uint16(ep.GetID())
-	mapNames := []string{
-		policymap.MapName,
-		CallsMapName,
-		bpfconfig.MapNamePrefix,
-	}
-	for _, name := range mapNames {
+	for _, name := range elfMapPrefixes {
 		templateStr := bpf.LocalMapName(name, TemplateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
 		result[templateStr] = desiredStr
