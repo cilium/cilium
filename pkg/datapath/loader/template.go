@@ -29,10 +29,11 @@ import (
 )
 
 var (
-	TemplateLxcID = uint16(65535)
-	TemplateMAC   = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
-	TemplateIPv4  = []byte{192, 0, 2, 3}
-	TemplateIPv6  = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
+	TemplateSecurityID = identity.ReservedIdentityWorld
+	TemplateLxcID      = uint16(65535)
+	TemplateMAC        = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
+	TemplateIPv4       = []byte{192, 0, 2, 3}
+	TemplateIPv6       = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 
 	CallsMapName   = "cilium_calls_"
 	elfMapPrefixes = []string{
@@ -69,14 +70,21 @@ type templateCfg struct {
 // In practice, attempts to load an endpoint with the ID 65535 will fail which
 // means that the calling code must approprately substitute the ID in the ELF
 // prior to load, or it will fail with a relatively obvious error.
-func (t *templateCfg) GetID() uint64 { return uint64(TemplateLxcID) }
+func (t *templateCfg) GetID() uint64 {
+	return uint64(TemplateLxcID)
+}
 
 // StringID returns the string form of the ID returned by GetID().
-func (t *templateCfg) StringID() string { return fmt.Sprintf("%d", t.GetID()) }
+func (t *templateCfg) StringID() string {
+	return fmt.Sprintf("%d", t.GetID())
+}
 
-// GetIdentity should ideally return a security ID that will never be allocated
-// for an actual set of labels, so use UINT32_MAX here.
-func (t *templateCfg) GetIdentity() identity.NumericIdentity { return 0xFFFFFFFF }
+// GetIdentity treats the template program as part of the world, so if there's
+// ever some weird bug that causes the template value here to be used, it will
+// be in the least privileged security context.
+func (t *templateCfg) GetIdentity() identity.NumericIdentity {
+	return TemplateSecurityID
+}
 
 // GetNodeMAC returns a well-known dummy MAC address which may be later
 // substituted in the ELF.
