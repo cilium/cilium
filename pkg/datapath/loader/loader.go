@@ -16,6 +16,8 @@ package loader
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path"
 
 	"github.com/cilium/cilium/pkg/datapath"
@@ -122,6 +124,31 @@ func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 		return err
 	}
 	defer template.Close()
+
+	symPath := path.Join(ep.StateDir(), templateObj)
+	if _, err := os.Stat(symPath); err == nil {
+		if err = os.RemoveAll(symPath); err != nil {
+			return &os.PathError{
+				Op:   "Failed to remove old symlink",
+				Path: symPath,
+				Err:  err,
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		return &os.PathError{
+			Op:   "Failed to locate symlink",
+			Path: symPath,
+			Err:  err,
+		}
+	}
+	fullTemplatePath := path.Join(option.Config.StateDir, templatePath)
+	if err := os.Symlink(fullTemplatePath, symPath); err != nil {
+		return &os.PathError{
+			Op:   fmt.Sprintf("Failed to create symlink to %s", fullTemplatePath),
+			Path: symPath,
+			Err:  err,
+		}
+	}
 
 	dstPath := path.Join(ep.StateDir(), endpointObj)
 	opts, strings := ELFSubstitutions(ep)

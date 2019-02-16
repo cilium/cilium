@@ -76,6 +76,7 @@ var (
 	endpointObj      = fmt.Sprintf("%s.o", endpointPrefix)
 	endpointObjDebug = fmt.Sprintf("%s.dbg.o", endpointPrefix)
 	endpointAsm      = fmt.Sprintf("%s.%s", endpointPrefix, outputAssembly)
+	templateObj      = "template.o"
 
 	// testIncludes allows the unit tests to inject additional include
 	// paths into the compile command at test time. It is usually nil.
