@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -168,29 +169,33 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 	return fw.Flush()
 }
 
+// writeStaticData writes the endpoint-specific static data defines to the
+// specified writer. This must be kept in sync with loader.ELFSubstitutions().
+func (l *linuxDatapath) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
+	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+	fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
+
+	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
+	fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
+
+	secID := e.GetIdentity().Uint32()
+	fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
+	fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
+
+	epID := uint16(e.GetID())
+	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
+	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName(loader.CallsMapName, epID))
+	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", bpf.LocalMapName(bpfconfig.MapNamePrefix, epID))
+}
+
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
 func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, staticData bool) error {
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
 
-	// XXX: These should be consistent with the endpoint package's
-	//      variable substitution
 	if staticData {
-		fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
-		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
-
-		fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
-		fmt.Fprint(fw, defineUint32("LXC_ID", uint32(e.GetID())))
-
-		secID := e.GetIdentity().Uint32()
-		fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
-		fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
-
-		epID := uint16(e.GetID())
-		fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
-		fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName("cilium_calls_", epID))
-		fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", bpf.LocalMapName(bpfconfig.MapNamePrefix, epID))
+		l.writeStaticData(fw, e)
 	}
 
 	if !e.HasIpvlanDataPath() {
