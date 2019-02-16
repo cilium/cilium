@@ -88,12 +88,21 @@ func (s *DatapathSuite) TestdefineIPv6(c *C) {
 func (s *DatapathSuite) TestdefineMAC(c *C) {
 	tests := []formatTestCase{
 		{
-			input:  []byte{1, 2, 3},
-			output: "#define foo { .addr = { 0x1, 0x2, 0x3 } }\n",
+			input:  nil,
+			output: "/* BUG: bad mac define foo  */\n",
 		},
 		{
 			input:  []byte{},
-			output: "#define foo { .addr = {  } }\n",
+			output: "/* BUG: bad mac define foo  */\n",
+		},
+		{
+			input:  []byte{1, 2, 3},
+			output: "/* BUG: bad mac define foo 0x1, 0x2, 0x3 */\n",
+		},
+		{
+			input: []byte{1, 2, 3, 4, 5, 6},
+			output: "DEFINE_MAC(foo, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6);\n" +
+				"#define foo fetch_mac(foo)\n",
 		},
 	}
 	for _, test := range tests {

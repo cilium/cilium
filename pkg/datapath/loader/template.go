@@ -75,8 +75,6 @@ func (t *templateCfg) GetIdentity() identity.NumericIdentity { return 0xFFFFFFFF
 
 // GetNodeMAC returns a well-known dummy MAC address which may be later
 // substituted in the ELF.
-//
-// TODO: Substitution
 func (t *templateCfg) GetNodeMAC() mac.MAC {
 	return TemplateMAC
 }
@@ -130,14 +128,25 @@ func elfMapSubstitutions(ep endpoint) map[string]string {
 	return result
 }
 
-// sliceToBe32 converts the input slice of four bytes to a big-endian uint32.
-func sliceToBe32(input []byte) uint32 {
-	result := uint32(0)
-	result |= uint32(input[0]) << 24
+// sliceToU16 converts the input slice of two bytes to a host byte-order uint16.
+func sliceToU16(input []byte) uint16 {
+	result := uint16(input[0]) << 8
+	result |= uint16(input[1])
+	return result
+}
+
+// sliceToU32 converts the input slice of four bytes to a host byte-order uint32.
+func sliceToU32(input []byte) uint32 {
+	result := uint32(input[0]) << 24
 	result |= uint32(input[1]) << 16
 	result |= uint32(input[2]) << 8
 	result |= uint32(input[3])
-	return byteorder.HostToNetwork(result).(uint32)
+	return result
+}
+
+// sliceToBe32 converts the input slice of four bytes to a big-endian uint32.
+func sliceToBe32(input []byte) uint32 {
+	return byteorder.HostToNetwork(sliceToU32(input)).(uint32)
 }
 
 // elfVariableSubstitutions returns the set of data substitutions that must
@@ -159,8 +168,10 @@ func elfVariableSubstitutions(ep endpoint) map[string]uint32 {
 	if ipv4 := ep.IPv4Address(); ipv4 != nil {
 		result["LXC_IPV4"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
 	}
-	// TODO: MAC
-	//result["NODE_MAC"] =
+
+	mac := ep.GetNodeMAC()
+	result["NODE_MAC_1"] = sliceToU32(mac[0:4])
+	result["NODE_MAC_2"] = uint32(sliceToU16(mac[4:6]))
 	result["LXC_ID"] = uint32(ep.GetID())
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = identity
