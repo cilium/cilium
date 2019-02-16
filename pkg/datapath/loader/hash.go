@@ -86,7 +86,7 @@ func (h *Hash) String() string {
 }
 
 // SumEndpoint returns the hash of the complete datapath for an endpoint.
-func (h *Hash) SumEndpoint(epCfg datapath.EndpointConfiguration) string {
-	h.Datapath.WriteEndpointConfig(h, epCfg, false)
+func (h *Hash) SumEndpoint(epCfg datapath.EndpointConfiguration, staticData bool) string {
+	h.Datapath.WriteEndpointConfig(h, epCfg, staticData)
 	return h.String()
 }
