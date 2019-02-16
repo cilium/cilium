@@ -99,3 +99,20 @@ func (s *DatapathSuite) TestWriteEndpointConfig(c *C) {
 		return dp.WriteEndpointConfig(w, &dummyEPCfg, true)
 	})
 }
+
+func (s *DatapathSuite) TestWriteStaticData(c *C) {
+	dp := NewDatapath(DatapathConfiguration{})
+	ep := &dummyEPCfg
+
+	varSub, stringSub := loader.ELFSubstitutions(ep)
+
+	var buf bytes.Buffer
+	dp.writeStaticData(&buf, ep)
+	bytes := buf.Bytes()
+	for k := range varSub {
+		c.Assert(bufio.Contains(bytes, []byte(k)), Equals, true)
+	}
+	for k := range stringSub {
+		c.Assert(bufio.Contains(bytes, []byte(k)), Equals, true)
+	}
+}
