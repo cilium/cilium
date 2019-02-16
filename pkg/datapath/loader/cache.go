@@ -201,7 +201,7 @@ func (o *ObjectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
 func (o *ObjectCache) FetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *SpanStat) (string, bool, error) {
-	hash := o.baseHash.Copy().SumEndpoint(cfg)
+	hash := o.baseHash.Copy().SumEndpoint(cfg, false)
 
 	// Look up the channel that serializes attempts to compile this cfg.
 	c, compiled := o.serialize(hash)
@@ -235,5 +235,5 @@ func (o *ObjectCache) Flush() {
 // HashEndpoint hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
 func HashEndpoint(cfg datapath.EndpointConfiguration) string {
-	return elfCache.baseHash.Copy().SumEndpoint(cfg)
+	return elfCache.baseHash.Copy().SumEndpoint(cfg, true)
 }
