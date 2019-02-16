@@ -52,6 +52,11 @@ daemon:
 
 Similarly, you can enable the policy enforcement mode across a Kubernetes cluster by including the parameter above in the Cilium DaemonSet.
 
+.. code:: yaml
+
+    - name: CILIUM_ENABLE_POLICY
+      value: always
+
 
 .. _policy_rule:
 
