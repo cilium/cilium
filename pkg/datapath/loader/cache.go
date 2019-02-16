@@ -36,6 +36,21 @@ var (
 
 	// elfCache is the cache of pre-compiled datapaths.
 	elfCache ObjectCache
+
+	ignoredELFPrefixes = []string{
+		"2/",             // Calls within the endpoint
+		"HOST_IP",        // Global
+		"ROUTER_IP",      // Global
+		"cilium_ct",      // All CT maps, including local
+		"cilium_events",  // Global
+		"cilium_ipcache", // Global
+		"cilium_lb",      // Global
+		"cilium_lxc",     // Global
+		"cilium_metrics", // Global
+		"cilium_proxy",   // Global
+		"cilium_tunnel",  // Global
+		"from-container", // Prog name
+	}
 )
 
 // Init initializes the datapath cache with base program hashes derived from
@@ -43,20 +58,7 @@ var (
 func Init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
 	once.Do(func() {
 		elfCache = NewObjectCache(dp, nodeCfg)
-		elf.IgnoreSymbolPrefixes([]string{
-			"2/",             // Calls within the endpoint
-			"HOST_IP",        // Global
-			"ROUTER_IP",      // Global
-			"cilium_ct",      // All CT maps, including local
-			"cilium_events",  // Global
-			"cilium_ipcache", // Global
-			"cilium_lb",      // Global
-			"cilium_lxc",     // Global
-			"cilium_metrics", // Global
-			"cilium_proxy",   // Global
-			"cilium_tunnel",  // Global
-			"from-container", // Prog name
-		})
+		elf.IgnoreSymbolPrefixes(ignoredELFPrefixes)
 	})
 	elfCache.Update(nodeCfg)
 }
