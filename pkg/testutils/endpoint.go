@@ -53,7 +53,7 @@ func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
 	return addr
 }
 func (e *TestEndpoint) IPv6Address() addressing.CiliumIPv6 {
-	addr, _ := addressing.NewCiliumIPv6("::ffff:192.0.2.3")
+	addr, _ := addressing.NewCiliumIPv6("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
 	return addr
 }
 
