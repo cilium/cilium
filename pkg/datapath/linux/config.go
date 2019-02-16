@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -184,7 +183,7 @@ func (l *linuxDatapath) writeStaticData(fw io.Writer, e datapath.EndpointConfigu
 
 	epID := uint16(e.GetID())
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
-	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName(loader.CallsMapName, epID))
+	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName("cilium_calls_", epID))
 	fmt.Fprintf(fw, "#define CONFIG_MAP %s\n", bpf.LocalMapName(bpfconfig.MapNamePrefix, epID))
 }
 
