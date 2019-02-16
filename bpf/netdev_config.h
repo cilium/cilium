@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,3 +27,5 @@
 #define FROM_HOST
 #define ENCAP_IFINDEX 1
 #define POLICY_MAP cilium_policy_foo
+#define SECLABEL 2
+#define SECLABEL_NB 0xfffff
