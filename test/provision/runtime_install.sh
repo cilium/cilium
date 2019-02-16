@@ -13,3 +13,6 @@ sudo systemctl restart ssh
 
 "${PROVISIONSRC}"/dns.sh
 "${PROVISIONSRC}"/compile.sh
+
+curl -LO https://launchpad.net/~joestringer/+archive/ubuntu/ppa/+files/iproute2_4.20.0-1ubuntu0bjn2_amd64.deb
+sudo dpkg -i iproute2*deb
