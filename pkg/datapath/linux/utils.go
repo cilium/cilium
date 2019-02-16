@@ -71,5 +71,9 @@ func defineIPv6(name string, addr []byte) string {
 
 // defineMAC writes the C definition for the given MAC name and addr.
 func defineMAC(name string, addr []byte) string {
-	return fmt.Sprintf("#define %s { .addr = { %s } }\n", name, goArray2C(addr))
+	if len(addr) != 6 { /* MAC len */
+		return fmt.Sprintf("/* BUG: bad mac define %s %s */\n", name, goArray2C(addr))
+	}
+	return fmt.Sprintf("DEFINE_MAC(%s, %s);\n#define %s fetch_mac(%s)\n",
+		name, goArray2C(addr), name, name)
 }

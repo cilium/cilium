@@ -35,7 +35,9 @@ DEFINE_U32(SECLABEL_NB, 0xfffff);
 #endif
 
 #define POLICY_MAP cilium_policy_foo
-#define NODE_MAC { .addr = { 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde } }
+DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
+#define NODE_MAC fetch_mac(NODE_MAC)
+
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
