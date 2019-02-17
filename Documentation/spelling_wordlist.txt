@@ -299,6 +299,7 @@ kubernetes
 Kubespray
 kubespray
 KV
+KVstore
 kvstore
 Lando
 Leblond
