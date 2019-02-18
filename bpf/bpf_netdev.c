@@ -487,8 +487,10 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 proxy_identity = skb->cb[CB_SRC_IDENTITY];
-	int ret = handle_ipv4(skb, proxy_identity);
+	int ret;
 
+	skb->cb[CB_SRC_IDENTITY] = 0;
+	ret = handle_ipv4(skb, proxy_identity);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
