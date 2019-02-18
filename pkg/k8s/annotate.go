@@ -58,7 +58,7 @@ func (k8sCli K8sClient) AnnotatePod(k8sNamespace, k8sPodName, annotationKey, ann
 	return nil
 }
 
-func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) (*v1.Node, error) {
+func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) (*v1.Node, error) {
 	if node.Annotations == nil {
 		node.Annotations = map[string]string{}
 	}
@@ -81,6 +81,10 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 		node.Annotations[annotation.CiliumHostIP] = v4CiliumHostIP.String()
 	}
 
+	if v6CiliumHostIP != nil {
+		node.Annotations[annotation.CiliumHostIPv6] = v6CiliumHostIP.String()
+	}
+
 	node, err := c.CoreV1().Nodes().Update(node)
 	if err != nil {
 		return nil, err
@@ -96,7 +100,7 @@ func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR 
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) error {
+func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:       nodeName,
 		logfields.V4Prefix:       v4CIDR,
@@ -104,10 +108,11 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 		logfields.V4HealthIP:     v4HealthIP,
 		logfields.V6HealthIP:     v6HealthIP,
 		logfields.V4CiliumHostIP: v4CiliumHostIP,
+		logfields.V6CiliumHostIP: v6CiliumHostIP,
 	})
 	scopedLog.Debug("Updating node annotations with node CIDRs")
 
-	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP net.IP) {
+	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) {
 		var node *v1.Node
 		var err error
 
@@ -115,7 +120,7 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 			node, err = GetNode(c, nodeName)
 			switch {
 			case err == nil:
-				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
+				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
 			case errors.IsNotFound(err):
 				err = ErrNilNode
 			}
@@ -137,7 +142,7 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 
 			time.Sleep(time.Duration(n) * time.Second)
 		}
-	}(k8sCli, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP)
+	}(k8sCli, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
 
 	return nil
 }
