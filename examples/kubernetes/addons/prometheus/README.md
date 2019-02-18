@@ -11,9 +11,21 @@ The default installation contains:
 
 ## Installation
 
+Enable prometheus metrics on all cilium agents, be aware this will open the port
+`9090` in all nodes of your cluster where a cilium-agent is running.
+
+```
+$ kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"prometheus-serve-addr":":9090"}}'
+configmap/cilium-config patched
+```
+
+Make sure you restart all Cilium agents so they can get the new ConfigMap with
+`prometheus-serve-addr` option set.
+
+Next, install all monitoring tools and configurations by running:
+
 ```
 $ kubectl create -f examples/kubernetes/addons/prometheus/monitoring-example.yaml
-configmap/cilium-metrics-config created
 namespace/monitoring created
 clusterrolebinding.rbac.authorization.k8s.io/kube-state-metrics created
 clusterrole.rbac.authorization.k8s.io/kube-state-metrics created

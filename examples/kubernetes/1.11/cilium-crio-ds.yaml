@@ -58,6 +58,14 @@ spec:
               key: flannel-uninstall-on-exit
               name: cilium-config
               optional: true
+        # To be removed in Cilium 1.6, use prometheus-serve-addr in the
+        # cilium-config ConfigMap
+        - name: CILIUM_PROMETHEUS_SERVE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              key: prometheus-serve-addr
+              name: cilium-metrics-config
+              optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
         image: docker.io/cilium/cilium:latest

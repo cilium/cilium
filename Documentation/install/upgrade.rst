@@ -269,6 +269,34 @@ Annotations:
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
 
+.. _1.5_upgrade_notes:
+
+1.5 Upgrade Notes
+-----------------
+
+.. _1.5_new_options:
+
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  All options available in the cilium-agent can now be specified in the Cilium
+  ConfigMap without requiring to set an environment variable in the DaemonSet.
+
+
+Deprecated ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  * ``legacy-host-allows-world`` option is now removed as planned.
+
+  * ``monitor-aggregation-level``: Superseded by ``monitor-aggregation``.
+
+  * ``ct-global-max-entries-tcp``: Superseded by ``bpf-ct-global-tcp-max``.
+
+  * ``ct-global-max-entries-other``: Superseded by ``bpf-ct-global-any-max``.
+
+  * ``prometheus-serve-addr`` from the ``cilium-metrics-config`` ConfigMap is
+   superseded by ``prometheus-serve-addr``from the ``cilium-config` ConfigMap.
+
 .. _1.4_upgrade_notes:
 
 1.4 Upgrade Notes
