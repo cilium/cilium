@@ -543,7 +543,7 @@ int from_netdev(struct __sk_buff *skb)
 
 			seclabel = get_identity(skb);
 			tunnel_endpoint = skb->cb[4];
-			skb->mark = 123;
+			skb->mark = 0;
 			bpf_clear_cb(skb);
 			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
 		}
