@@ -122,6 +122,9 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 			continue
 		}
 		switch addr.Type {
+		// Ignore CiliumInternalIPs
+		case addressing.NodeCiliumInternalIP:
+			continue
 		// Always prefer a cluster internal IP
 		case addressing.NodeInternalIP:
 			return addr.IP, addr.Type

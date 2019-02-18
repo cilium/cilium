@@ -84,6 +84,24 @@ func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
 		addrs = append(addrs, na)
 	}
 
+	k8sNodeAddHostIP := func(annotation string) {
+		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok {
+			scopedLog.Debugf("Missing %s. Annotation required when IPSec Enabled", annotation)
+		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
+			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
+		} else {
+			na := node.Address{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   ip,
+			}
+			addrs = append(addrs, na)
+			scopedLog.Debugf("Add NodeCiliumInternalIP: %s", ip)
+		}
+	}
+
+	k8sNodeAddHostIP(annotation.CiliumHostIP)
+	k8sNodeAddHostIP(annotation.CiliumHostIPv6)
+
 	newNode := &node.Node{
 		Name:        k8sNode.Name,
 		Cluster:     option.Config.ClusterName,
