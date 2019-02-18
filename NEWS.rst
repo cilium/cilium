@@ -2,6 +2,79 @@
 NEWS
 ******
 
+
+v1.3.3
+======
+
+::
+
+    André Martins (12):
+          pkg/endpoint: do DeepCopy for proxy stats
+          pkg/health: protect local variable against concurrent writes
+          pkg/client: sort kubernetes API versions for CLI output
+          daemon: syncLBMapsWithK8s - delete k8s service once if not found
+          pkg/k8s: consider 2 CNPs different if they have different annotations
+          daemon: do not allow LB mode to run with tunneling
+          add DebugLB option to the daemon config options
+          docs: bump copyright headers to 2017-2019
+          test: add WithContext helper
+          do not make any more pod annotations
+          pkg/controller: stop controller execution on shutdown
+          api/v1: remove requirements of labels in endpoints API
+    
+    Dmitry Kharitonov (4):
+          added copy buttons for code blocks
+          downgrade to es5 syntax
+          correct button labels for various cases
+          docs: fixed copy buttons icon
+    
+    Eloy Coto (2):
+          k8s: Add LooseMatch() function to validate service presence
+          Backport PR-7054
+    
+    Ian Vernon (4):
+          health: acquire lock to set state to WaitingToRegenerate in LaunchAsEndpoint
+          endpoint: do not regenerate health endpoint after identity change
+          endpoint: signal when BPF program is compiled for the first time
+          endpoint: do not return error if endpoint RLock fails due to endpoint being removed
+    
+    Joe Stringer (6):
+          contrib: Accept multiple commits in 'cherry-pick'
+          backporting: Add summary log option to check-stable
+          docs: Update backporting for the latest scripts
+          Makefile: Serve render-docs on port 9080.
+          docs: Fix backporting shell example formatting
+          backporting: Add set-labels commands to check-stable
+    
+    John Fastabend (1):
+          cilium: fix fd leak from ObjClose being omitted on ConfigMap
+    
+    Martynas Pumputis (2):
+          daemon: Do not omit any error of createNodeConfigHeaderfile
+          status: Declare probe as stale only after FailureThreshold
+    
+    Ray Bejjani (1):
+          fqdn: Avoid regenerations on each poller update
+    
+    Romain Lenglet (1):
+          endpoint: Update LXC map before proxy ack wait and signalling
+    
+    Thomas Graf (14):
+          agent: Fix endpoint removal when createEndpoint() fails
+          endpoint: Require SyncBuildEndpoint flag to wait for endpoint build to complete
+          agent: Fix endpoint restore with unmounted BPF filesystem
+          test: Forcefully shut down microscope without any delays
+          test: Disable microscope
+          kvstore: Release local kvstore lock after timeout
+          kvstore: Decrease stale lock timeout from 2 minutes to 30 seconds
+          ipam: Release IPv6 IP when AllocateNext() is requested to allocate both and fails
+          route: Fix lookup logic
+          route: Fix IPv6 nexthop route addition race condition
+          endpoint: Fix old endpoint identity release
+          iptables: Fix 127.0.0.1:NodePort to remote pods
+          k8s: Correctly restore UDP services
+          lbmap: Fix protocol value for services read from BPF maps
+
 v1.3.2
 ======
 
