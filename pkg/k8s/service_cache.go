@@ -82,6 +82,10 @@ type ServiceEvent struct {
 // matching endpoints. The Events member will receive events as services and
 // ingresses
 type ServiceCache struct {
+	Events chan ServiceEvent
+
+	// mutex protects the maps below including the concurrent access of each
+	// value.
 	mutex     lock.RWMutex
 	services  map[ServiceID]*Service
 	endpoints map[ServiceID]*Endpoints
@@ -89,8 +93,6 @@ type ServiceCache struct {
 
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
-
-	Events chan ServiceEvent
 }
 
 // NewServiceCache returns a new ServiceCache
