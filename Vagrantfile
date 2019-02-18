@@ -93,7 +93,7 @@ if ENV['K8S'] then
 else
     $vm_base_name = "runtime"
 end
-	
+
 # Set locate to en_US.UTF-8
 ENV["LC_ALL"] = "en_US.UTF-8"
 ENV["LC_CTYPE"] = "en_US.UTF-8"
@@ -123,7 +123,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--audio", "none"]
 
         config.vm.box = "cilium/ubuntu-dev"
-        config.vm.box_version = "128"
+        config.vm.box_version = "131"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
