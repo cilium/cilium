@@ -1191,7 +1191,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		err := k8s.Client().AnnotateNode(node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
 			d.nodeDiscovery.localNode.IPv4HealthIP, d.nodeDiscovery.localNode.IPv6HealthIP,
-			node.GetInternalIPv4())
+			node.GetInternalIPv4(), node.GetIPv6Router())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}

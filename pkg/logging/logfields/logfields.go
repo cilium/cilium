@@ -129,6 +129,9 @@ const (
 	// V4CiliumHostIP is an address used for the cilium_host interface.
 	V4CiliumHostIP = "v4CiliumHostIP.IPv4"
 
+	// V6CiliumHostIP is an address used for the cilium_host interface.
+	V6CiliumHostIP = "v6CiliumHostIP.IPv6"
+
 	// L3n4Addr is a L3 (IP) + L4 (port and protocol) address object.
 	L3n4Addr = "l3n4Addr"
 

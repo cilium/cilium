@@ -41,6 +41,10 @@ const (
 	// of the cilium host interface in the node's annotations.
 	CiliumHostIP = Prefix + ".network.ipv4-cilium-host"
 
+	// CiliumHostIPv6 is the annotation name used to store the IPv6 address
+	// of the cilium host interface in the node's annotation.
+	CiliumHostIPv6 = Prefix + ".network.ipv6-cilium-host"
+
 	// GlobalService if set to true, marks a service to become a global
 	// service
 	GlobalService = Prefix + "/global-service"
