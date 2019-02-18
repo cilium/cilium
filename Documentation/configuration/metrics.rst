@@ -149,6 +149,8 @@ Agent
 
 * ``agent_bootstrap_seconds``: Duration of various bootstrap phases
   * Labels: ``scope``, ``outcome``
+* ``api_process_time_seconds``: Processing time of all the API calls made to the
+  cilium-agent, labeled by API method, API path and returned HTTP code.
 
 Cilium as a Kubernetes pod
 ==========================
