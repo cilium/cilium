@@ -37,6 +37,7 @@ const (
 	ciliumPostMangleChain = "CILIUM_POST_mangle"
 	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
+	xfrmDescription       = "cilium-xfrm-notrack:"
 )
 
 type customChain struct {
@@ -188,6 +189,8 @@ func RemoveRules() {
 	for _, c := range ciliumChains {
 		c.remove()
 	}
+
+	removeCiliumXfrmRules()
 }
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
@@ -372,5 +375,38 @@ func InstallRules(ifName string) error {
 		}
 	}
 
+	if err := addCiliumXfrmRules(); err != nil {
+		return fmt.Errorf("cannot install xfrm rules: %s", err)
+	}
+
 	return nil
+}
+
+func ciliumXfrmRules(table, chain, input string) error {
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
+	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+
+	if err := runProg("iptables", []string{
+		"-t", table, input, chain,
+		"-m", "mark", "--mark", matchFromIPSecDecrypt,
+		"-m", "comment", "--comment", xfrmDescription,
+		"-j", "NOTRACK"}, false); err != nil {
+		return err
+	}
+	if err := runProg("iptables", []string{
+		"-t", table, input, chain,
+		"-m", "mark", "--mark", matchFromIPSecEncrypt,
+		"-m", "comment", "--comment", xfrmDescription,
+		"-j", "NOTRACK"}, false); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addCiliumXfrmRules() error {
+	return ciliumXfrmRules("raw", "PREROUTING", "-I")
+}
+
+func removeCiliumXfrmRules() {
+	ciliumXfrmRules("raw", "PREROUTING", "-D")
 }
