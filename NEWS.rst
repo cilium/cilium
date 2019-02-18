@@ -2,6 +2,45 @@
 NEWS
 ******
 
+1.2.8
+=====
+
+::
+
+    André Martins (1):
+          docs: bump copyright headers to 2017-2019
+    
+    Dmitry Kharitonov (4):
+          added copy buttons for code blocks
+          downgrade to es5 syntax
+          correct button labels for various cases
+          docs: fixed copy buttons icon
+    
+    Ian Vernon (1):
+          endpoint: signal when BPF program is compiled for the first time
+    
+    Joe Stringer (7):
+          contrib: Accept multiple commits in 'cherry-pick'
+          docs: Streamline and tidy backporting docs
+          backporting: Add summary log option to check-stable
+          docs: Update backporting for the latest scripts
+          Makefile: Serve render-docs on port 9080.
+          docs: Fix backporting shell example formatting
+          backporting: Add set-labels commands to check-stable
+    
+    Martynas Pumputis (1):
+          docs: Add note about triggering builds with net-next
+    
+    Ray Bejjani (1):
+          fqdn: Avoid regenerations on each poller update
+    
+    Romain Lenglet (1):
+          endpoint: Update LXC map before proxy ack wait and signalling
+    
+    Thomas Graf (2):
+          kvstore: Release local kvstore lock after timeout
+          kvstore: Decrease stale lock timeout from 2 minutes to 30 seconds
+ 
 1.2.7
 =====
 
