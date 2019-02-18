@@ -26,6 +26,14 @@ data:
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
 
+  # If you want metrics enabled in all of your Cilium agents, set the port for
+  # which the Cilium agents will have their metrics exposed.
+  # This option deprecates the "prometheus-serve-addr" in the
+  # "cilium-metrics-config" ConfigMap
+  # NOTE that this will open the port on ALL nodes where Cilium pods are
+  # scheduled.
+  # prometheus-serve-addr: ":9090"
+
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
   # address.
   enable-ipv4: "true"
@@ -49,28 +57,10 @@ data:
   # backend after restart.
   clean-cilium-bpf-state: "false"
 
-  # In Cilium 1.0, all traffic from the host, including from local processes
-  # and traffic that is masqueraded from the outside world to the host IP,
-  # would be classified as from the host entity (reserved:host label).
-  # Furthermore, to allow Kubernetes agents to perform health checks over IP
-  # into the endpoints, the host is allowed by default. This means that all
-  # traffic from the outside world is also allowed by default, regardless of
-  # security policy.
-  #
-  # This option was introduced in Cilium 1.1 to disable this behaviour. It must
-  # be explicitly set to "false" to take effect on Cilium 1.3 or earlier.
-  # Cilium 1.4 sets this to "false" by default if it is not specified in the
-  # ConfigMap.
-  #
-  # This option has been deprecated, it will be removed in Cilium 1.5 or later.
-  #
-  # For more information, see https://cilium.link/host-vs-world
-  #legacy-host-allows-world: "false"
-
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.
-  monitor-aggregation-level: "none"
+  monitor-aggregation: "none"
 
   # ct-global-max-entries-* specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
@@ -83,8 +73,8 @@ data:
   #
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
   # during the upgrade process, comment out these options.
-  ct-global-max-entries-tcp: "524288"
-  ct-global-max-entries-other: "262144"
+  bpf-ct-global-tcp-max: "524288"
+  bpf-ct-global-any-max: "262144"
 
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
@@ -216,6 +206,14 @@ spec:
             configMapKeyRef:
               key: flannel-uninstall-on-exit
               name: cilium-config
+              optional: true
+        # To be removed in Cilium 1.6, use prometheus-serve-addr in the
+        # cilium-config ConfigMap
+        - name: CILIUM_PROMETHEUS_SERVE_ADDR
+          valueFrom:
+            configMapKeyRef:
+              key: prometheus-serve-addr
+              name: cilium-metrics-config
               optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
