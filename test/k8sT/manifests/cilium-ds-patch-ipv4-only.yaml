@@ -16,6 +16,7 @@ spec:
         - "--log-system-load"
         - "--enable-ipv4=true"
         - "--enable-ipv6=false"
+        - "--config-dir=/tmp/cilium/config-map"
       volumes:
       - name: etcd-secrets
         secret:
