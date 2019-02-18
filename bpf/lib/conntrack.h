@@ -627,7 +627,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
 		entry.rx_bytes = skb->len;
-	} else {
+	} else if (dir == CT_EGRESS) {
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
@@ -702,7 +702,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
 		entry.rx_bytes = skb->len;
-	} else {
+	} else if (dir == CT_EGRESS) {
 		entry.tx_packets = 1;
 		entry.tx_bytes = skb->len;
 	}
