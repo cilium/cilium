@@ -28,6 +28,11 @@ All metrics are exported under the ``cilium`` Prometheus namespace. When
 running and collecting in Kubernetes they will be tagged with a pod name and
 namespace.
 
+Agent
+-----
+* ``api_process_time_seconds``: Processing time of all the API calls made to the
+  cilium-agent, labeled by API method, API path and returned HTTP code.
+
 Endpoint
 --------
 
