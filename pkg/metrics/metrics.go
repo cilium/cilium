@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,6 +81,9 @@ var (
 	// LabelEventSourceK8s marks event-related metrics that come from k8s
 	LabelEventSourceK8s = "k8s"
 
+	// LabelEventSourceFQDN marks event-related metrics that come from pkg/fqdn
+	LabelEventSourceFQDN = "fqdn"
+
 	// LabelEventSourceContainerd marks event-related metrics that come from docker
 	LabelEventSourceContainerd = "docker"
 
@@ -102,6 +105,9 @@ var (
 
 	//LabelPolicyEnforcement is the label used to see the enforcement status
 	LabelPolicyEnforcement = "enforcement"
+
+	//LabelPolicySource is the label used to see the enforcement status
+	LabelPolicySource = "source"
 
 	// LabelScope is the label used to defined multiples scopes in the same
 	// metric. For example, one counter may measure a metric over the scope of
@@ -127,6 +133,25 @@ var (
 
 	// LabelKind is the kind a label
 	LabelKind = "kind"
+
+	// LabelPath is the label for the API path
+	LabelPath = "path"
+	// LabelMethod is the label for the HTTP method
+	LabelMethod = "method"
+
+	// LabelAPIReturnCode is the HTTP code returned for that API path
+	LabelAPIReturnCode = "return_code"
+
+	// API interactions
+
+	// APIInteractions is the total time taken to process an API call made
+	// to the cilium-agent
+	APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: "agent",
+		Name:      "api_process_time_seconds",
+		Help:      "Duration of processed API calls labeled by path, method and return code.",
+	}, []string{LabelPath, LabelMethod, LabelAPIReturnCode})
 
 	// Endpoint
 
@@ -237,6 +262,17 @@ var (
 		Name:      "policy_endpoint_enforcement_status",
 		Help:      "Number of endpoints labeled by policy enforcement status",
 	}, []string{LabelPolicyEnforcement})
+
+	// PolicyImplementationDelay is a distribution of times taken from adding a
+	// policy (and incrementing the policy revision) to seeing it in the datapath
+	// per Endpoint. This reflects the actual delay percieved by traffic flowing
+	// through the datapath. The longest times will roughly correlate with the
+	// time taken to fully deploy an endpoint.
+	PolicyImplementationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "policy_implementation_delay",
+		Help:      "Time between a policy change and it being fully deployed into the datapath",
+	}, []string{LabelPolicySource})
 
 	// Events
 
@@ -494,6 +530,7 @@ func init() {
 	MustRegister(PolicyRevision)
 	MustRegister(PolicyImportErrors)
 	MustRegister(PolicyEndpointStatus)
+	MustRegister(PolicyImplementationDelay)
 
 	MustRegister(EventTSK8s)
 	MustRegister(EventTSContainerd)
