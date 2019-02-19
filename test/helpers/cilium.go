@@ -890,7 +890,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 // returns an error if any of the operations needed to start Cilium fails.
 func (s *SSHMeta) SetUpCilium() error {
 	template := `
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
 INITSYSTEM=SYSTEMD`
 	return s.SetUpCiliumWithOptions(template)
@@ -918,7 +918,7 @@ func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
 
 func (s *SSHMeta) SetUpCiliumWithSockops() error {
 	var config = `
-+PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
++PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 +CILIUM_OPTS=--sockops-enable --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
 +INITSYSTEM=SYSTEMD`
 

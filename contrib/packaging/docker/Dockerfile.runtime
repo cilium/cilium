@@ -9,16 +9,29 @@ apt-get upgrade -y && \
 #
 apt-get install -y --no-install-recommends \
     gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev \
-    bash-completion binutils binutils-dev ca-certificates && \
+    bash-completion binutils binutils-dev ca-certificates clang-7 llvm-7 && \
 apt-get purge --auto-remove && \
-apt-get clean
+apt-get clean && \
+#
+# clang-7
+#
+rm -fr /usr/lib/llvm-7/include/llvm-c && \
+rm -fr /usr/lib/llvm-7/include/clang-c && \
+rm -fr /usr/lib/llvm-7/include/c++ && \
+rm -fr /usr/lib/llvm-7/include/polly && \
+rm -fr /usr/lib/llvm-7/share && \
+ls -d /usr/lib/llvm-7/lib/* | grep -vE clang$ | xargs rm -r && \
+ls -d /usr/lib/llvm-7/bin/* | grep -vE "clang$|clang-7$|llc$" | xargs basename -a | awk '{ print "/usr/bin/"$1"-7" }' | xargs rm -r && \
+ls -d /usr/lib/llvm-7/bin/* | grep -vE "clang$|clang-7$|llc$" | xargs rm -r && \
+strip /usr/lib/llvm-7/bin/* && \
+update-alternatives --install /usr/bin/clang clang /usr/lib/llvm-7/bin/clang 1000 && \
+update-alternatives --install /usr/bin/llc llc /usr/lib/llvm-7/bin/llc 1000
 
 #
 # Build Cilium runtime dependencies.
 #
 FROM runtime-base as runtime-build
 WORKDIR /tmp
-ADD clang-3.8.1.key ./
 RUN \
 #
 # Build dependencies
@@ -26,24 +39,6 @@ RUN \
 apt-get install -y --no-install-recommends make git curl ca-certificates xz-utils \
 # Additional iproute2 build dependencies
   gcc git pkg-config bison flex build-essential && \
-#
-# clang-3.8.1
-#
-gpg --import clang-3.8.1.key && \
-curl -Ssl -o clang+llvm.tar.xz http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz && \
-curl -Ssl -o clang+llvm.tar.xz.sig http://releases.llvm.org/3.8.1/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz.sig && \
-gpg --verify clang+llvm.tar.xz.sig && \
-mkdir -p /usr/local && \
-tar -C /usr/local -xJf ./clang+llvm.tar.xz && \
-mv /usr/local/clang+llvm-3.8.1-x86_64-linux-gnu-ubuntu-16.04 /usr/local/clang+llvm && \
-rm clang+llvm.tar.xz && \
-rm -fr /usr/local/clang+llvm/include/llvm-c && \
-rm -fr /usr/local/clang+llvm/include/clang-c && \
-rm -fr /usr/local/clang+llvm/include/c++ && \
-rm -fr /usr/local/clang+llvm/share && \
-ls -d /usr/local/clang+llvm/lib/* | grep -vE clang$ | xargs rm -r && \
-ls -d /usr/local/clang+llvm/bin/* | grep -vE "clang$|clang-3.8$|llc$" | xargs rm -r && \
-strip /usr/local/clang+llvm/bin/* && \
 #
 # iproute2
 #
@@ -99,8 +94,5 @@ COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
 COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
 COPY --from=runtime-build /tmp/bpf-map ./
 COPY --from=runtime-gobuild /go/bin/gops ./
-WORKDIR /usr/local/clang+llvm
-COPY --from=runtime-build /usr/local/clang+llvm ./
-ENV PATH="/usr/local/clang+llvm/bin:$PATH"
 WORKDIR /cni
 COPY --from=runtime-build /tmp/loopback ./
