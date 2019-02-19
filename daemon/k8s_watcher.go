@@ -667,7 +667,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error 
 	}
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
-	opts := AddOptions{Replace: true}
+	opts := AddOptions{Replace: true, Source: metrics.LabelEventSourceK8s}
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
@@ -1166,6 +1166,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		// resourceTypeCiliumNetworkPolicy
 		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
 			ReplaceWithLabels: cnp.GetIdentityLabels(),
+			Source:            metrics.LabelEventSourceK8s,
 		})
 	}
 
