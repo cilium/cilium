@@ -235,6 +235,7 @@ func DeleteIPFromKVStore(ip string) error {
 type IPIdentityWatcher struct {
 	backend  kvstore.BackendOperations
 	stop     chan struct{}
+	synced   chan struct{}
 	stopOnce sync.Once
 }
 
@@ -244,6 +245,7 @@ func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher 
 	watcher := &IPIdentityWatcher{
 		backend: backend,
 		stop:    make(chan struct{}),
+		synced:  make(chan struct{}),
 	}
 
 	return watcher
@@ -295,6 +297,7 @@ restart:
 					listener.OnIPIdentityCacheGC()
 				}
 				IPIdentityCache.Unlock()
+				close(iw.synced)
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
 				var ipIDPair identity.IPIdentityPair
@@ -362,15 +365,29 @@ func (iw *IPIdentityWatcher) Close() {
 	})
 }
 
+func (iw *IPIdentityWatcher) waitForInitialSync() {
+	<-iw.synced
+}
+
+var (
+	watcher     *IPIdentityWatcher
+	initialized = make(chan struct{}, 0)
+)
+
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
 func InitIPIdentityWatcher() {
 	setupIPIdentityWatcher.Do(func() {
 		globalMap = newKVReferenceCounter(kvstoreImplementation{})
-		go func() {
-			log.Info("Starting IP identity watcher")
-			watch := NewIPIdentityWatcher(kvstore.Client())
-			watch.Watch()
-		}()
+		log.Info("Starting IP identity watcher")
+		watcher = NewIPIdentityWatcher(kvstore.Client())
+		close(initialized)
+		go watcher.Watch()
 	})
+}
+
+// WaitForInitialSync waits until the ipcache has been synchronized from the kvstore
+func WaitForInitialSync() {
+	<-initialized
+	watcher.waitForInitialSync()
 }
