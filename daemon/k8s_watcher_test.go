@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
@@ -35,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioned"
 
+	go_version "github.com/hashicorp/go-version"
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1"
@@ -1083,11 +1085,14 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			},
 		},
 	}
+	var err error
+	k8sServerVer, err = go_version.NewVersion("1.11")
+	c.Assert(err, IsNil)
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		ds.d.policy = args.repo
-		err := ds.d.addCiliumNetworkPolicyV2(args.ciliumV2Store, args.cnp)
+		err := ds.d.addCiliumNetworkPolicyV2(&fake.Clientset{}, args.ciliumV2Store, args.cnp)
 		c.Assert(err, checker.DeepEquals, want.err, Commentf("Test name: %q", tt.name))
 		c.Assert(ds.d.policy.GetRulesList().Policy, checker.DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
 	}
