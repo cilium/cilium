@@ -184,7 +184,11 @@ func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 	if !identity.RequiresGlobalIdentity(lbls) && localIdentities != nil {
 		return localIdentities.lookupOrCreate(lbls)
 	}
-	<-identityAllocatorInitialized
+
+	// This will block until the kvstore can be accessed and all identities
+	// were succesfully synced
+	WaitForInitialIdentities()
+
 	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
@@ -216,7 +220,11 @@ func Release(id *identity.Identity) (bool, error) {
 		released := localIdentities.release(id)
 		return released, nil
 	}
-	<-identityAllocatorInitialized
+
+	// This will block until the kvstore can be accessed and all identities
+	// were succesfully synced
+	WaitForInitialIdentities()
+
 	if IdentityAllocator == nil {
 		return false, fmt.Errorf("allocator not initialized")
 	}
