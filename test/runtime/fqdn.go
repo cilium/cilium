@@ -866,12 +866,8 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	})
 
 	Context("toFQDNs populates toCIDRSet when poller is disabled (data from proxy)", func() {
-		var config = `
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=false
-INITSYSTEM=SYSTEMD`
 		BeforeAll(func() {
-			vm.SetUpCiliumWithOptions(config)
+			vm.SetUpCiliumWithNoDNSPoller()
 
 			ExpectCiliumReady(vm)
 			areEndpointsReady := vm.WaitEndpointsReady()

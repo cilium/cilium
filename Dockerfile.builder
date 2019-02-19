@@ -25,7 +25,7 @@ RUN apt-get update \
 		apt-utils \
 		binutils \
 		ca-certificates \
-		clang \
+		clang-7 \
 		coreutils \
 		curl \
 		gcc \
@@ -34,7 +34,7 @@ RUN apt-get update \
 		libc6-dev \
 		libc6-dev-i386 \
 		libelf-dev \
-		llvm \
+		llvm-7 \
 		m4 \
 		make \
 		pkg-config \

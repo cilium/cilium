@@ -17,3 +17,5 @@
     - libseccomp2
     - libsystemd-journal0
     - curl
+    - clang-7
+    - llvm-7
