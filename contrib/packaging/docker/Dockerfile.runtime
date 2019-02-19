@@ -42,7 +42,7 @@ apt-get install -y --no-install-recommends make git curl ca-certificates xz-util
 #
 # iproute2
 #
-git clone --depth 1 -b 4.20.0-1ubuntu0bjn2 https://github.com/joestringer/iproute2.git iproute2 && \
+git clone --depth 1 -b 4.20.0-1ubuntu0bjn2 https://github.com/cilium/iproute2.git iproute2 && \
 cd iproute2 && \
 ./configure && \
 make -j `getconf _NPROCESSORS_ONLN` && \
