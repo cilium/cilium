@@ -558,7 +558,17 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if _, err := ipcachemap.IPCache.OpenOrCreate(); err != nil {
+	// The ipcache is shared between endpoints. Parallel mode needs to be
+	// used to allow existing endpoints that have not been regenerated yet
+	// to continue using the existing ipcache until the endpoint is
+	// regenerated for the first time. Existing endpoints are using a
+	// policy map which is potentially out of sync as local identities are
+	// re-allocated on startup. Parallel mode allows to continue using the
+	// old version until regeneration. Note that the old version is not
+	// updated with new identities. This is fine as any new identity
+	// appearing would require a regeneration of the endpoint anyway in
+	// order for the endpoint to gain the privilege of communication.
+	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
 		return err
 	}
 
