@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -1052,6 +1053,12 @@ func waitForHostDeviceWhenReady(ifaceName string) error {
 	return nil
 }
 
+func endParallelMapMode() {
+	if err := ipcachemap.IPCache.EndParallelMode(); err != nil {
+		log.WithError(err).Error("Unable to end parallel mode of ipcache map")
+	}
+}
+
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: option.Config.HostDevice,
@@ -1115,7 +1122,12 @@ func runDaemon() {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
-		d.regenerateRestoredEndpoints(restoredEndpoints)
+		restoreComplete := d.regenerateRestoredEndpoints(restoredEndpoints)
+		go func() {
+			<-restoreComplete
+			endParallelMapMode()
+		}()
+
 		go func() {
 			if k8s.IsEnabled() {
 				// Start controller which removes any leftover Kubernetes
@@ -1144,6 +1156,9 @@ func runDaemon() {
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
 		workloads.IgnoreRunningWorkloads()
+
+		// No restore happened, end parallel map mode immediately
+		endParallelMapMode()
 	}
 	bootstrapStats.restore.End(true)
 

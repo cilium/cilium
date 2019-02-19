@@ -181,7 +181,9 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	return state, nil
 }
 
-func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
+func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (restoreComplete chan struct{}) {
+	restoreComplete = make(chan struct{}, 0)
+
 	log.Infof("Regenerating %d restored endpoints", len(state.restored))
 
 	// Before regenerating, check whether the CT map has properties that
@@ -356,7 +358,10 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 			"regenerated": regenerated,
 			"total":       total,
 		}).Info("Finished regenerating restored endpoints")
+		close(restoreComplete)
 	}()
+
+	return
 }
 
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
