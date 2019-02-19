@@ -186,7 +186,7 @@ spec:
               key: tofqdns-pre-cache
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.0
+        image: docker.io/cilium/cilium:v1.4.1
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
