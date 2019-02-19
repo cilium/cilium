@@ -53,8 +53,8 @@ struct bpf_elf_map __section_maps SOCK_OPS_MAP = {
 	.max_elem       = SOCKOPS_MAP_SIZE,
 };
 
-static inline void sk_extract4_key(struct bpf_sock_ops *ops,
-				   struct sock_key *key)
+static __always_inline void sk_extract4_key(struct bpf_sock_ops *ops,
+					    struct sock_key *key)
 {
 	key->dip4 = ops->remote_ip4;
 	key->sip4 = ops->local_ip4;
@@ -64,8 +64,8 @@ static inline void sk_extract4_key(struct bpf_sock_ops *ops,
 	key->dport = ops->remote_port >> 16;
 }
 
-static inline void sk_msg_extract4_key(struct sk_msg_md *msg,
-				       struct sock_key *key)
+static __always_inline void sk_msg_extract4_key(struct sk_msg_md *msg,
+						struct sock_key *key)
 {
 	key->dip4 = msg->remote_ip4;
 	key->sip4 = msg->local_ip4;
@@ -75,7 +75,8 @@ static inline void sk_msg_extract4_key(struct sk_msg_md *msg,
 	key->dport = msg->remote_port >> 16;
 }
 
-static inline void sk_lb4_key(struct lb4_key *lb4, struct sock_key *key)
+static __always_inline void sk_lb4_key(struct lb4_key *lb4,
+				       struct sock_key *key)
 {
 	/* SK MSG is always egress, so use daddr */
 	lb4->address = key->dip4;
@@ -83,7 +84,7 @@ static inline void sk_lb4_key(struct lb4_key *lb4, struct sock_key *key)
 	lb4->slave = 0;
 }
 
-static inline bool redirect_to_proxy(int verdict)
+static __always_inline bool redirect_to_proxy(int verdict)
 {
 	return verdict > 0;
 }
