@@ -67,7 +67,7 @@ func (d *Daemon) initHealth() {
 				// error, restart the health EP.
 				if client == nil || err != nil {
 					d.cleanupHealthEndpoint()
-					client, err = health.LaunchAsEndpoint(d, &d.nodeDiscovery.localNode, d.mtuConfig)
+					client, err = health.LaunchAsEndpoint(d, &d.nodeDiscovery.LocalNode, d.mtuConfig)
 				}
 				return err
 			},
@@ -83,7 +83,7 @@ func (d *Daemon) initHealth() {
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
-	localNode := d.nodeDiscovery.localNode
+	localNode := d.nodeDiscovery.LocalNode
 
 	// Delete the process
 	health.KillEndpoint()

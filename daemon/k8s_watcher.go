@@ -1710,7 +1710,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 		return fmt.Errorf("ipcache entry owned by kvstore or agent")
 	}
 
-	d.nodeDiscovery.manager.NodeUpdated(*nodeNew)
+	d.nodeDiscovery.Manager.NodeUpdated(*nodeNew)
 
 	return nil
 }
@@ -1745,7 +1745,7 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) error {
 		logfields.IPAddr: ip,
 	})
 
-	d.nodeDiscovery.manager.NodeDeleted(*oldNode)
+	d.nodeDiscovery.Manager.NodeDeleted(*oldNode)
 
 	id, exists := ipcache.IPIdentityCache.LookupByIP(ip)
 	if !exists {
@@ -1787,7 +1787,7 @@ func updateK8sEventMetric(scope string, action string, status bool) {
 // associated with the right node.
 func (d *Daemon) missingK8sNodeV1(m versioned.Map) versioned.Map {
 	missing := versioned.NewMap()
-	nodes := d.nodeDiscovery.manager.GetNodes()
+	nodes := d.nodeDiscovery.Manager.GetNodes()
 	for k, v := range m {
 		n := v.Data.(*v1.Node)
 		ciliumHostIPStr := n.GetAnnotations()[annotation.CiliumHostIP]
