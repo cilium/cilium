@@ -585,7 +585,11 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			reSyncPeriod,
 			metrics.EventTSK8s,
 		)
-		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
+
+		// Wrap the controller from Kubernetes so we can actually know when all
+		// objects were synchronized and processed from kubernetes.
+		cs := &k8sUtils.ControllerSyncer{Controller: ciliumV2Controller, ResourceEventHandler: rehf}
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, cs, "CiliumNetworkPolicy")
 
 		ciliumV2Controller.AddEventHandler(rehf)
 	}
