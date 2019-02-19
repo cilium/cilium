@@ -58,25 +58,25 @@ type lister func(client interface{}) func() (versioned.Map, error)
 // the HasSynced method with the help of our own ResourceEventHandler
 // implementation.
 type ControllerSyncer struct {
-	c   cache.Controller
-	reh ResourceEventHandler
+	Controller           cache.Controller
+	ResourceEventHandler ResourceEventHandler
 }
 
 // Run starts the controller, which will be stopped when stopCh is closed.
 func (c *ControllerSyncer) Run(stopCh <-chan struct{}) {
-	c.c.Run(stopCh)
+	c.Controller.Run(stopCh)
 }
 
 // HasSynced returns true if the controller has synced and the resource event
 // handler has handled all requests.
 func (c *ControllerSyncer) HasSynced() bool {
-	return c.reh.HasSynced()
+	return c.ResourceEventHandler.HasSynced()
 }
 
 // LastSyncResourceVersion is the resource version observed when last synced
 // with the underlying store.
 func (c *ControllerSyncer) LastSyncResourceVersion() string {
-	return c.c.LastSyncResourceVersion()
+	return c.Controller.LastSyncResourceVersion()
 }
 
 // ResourceEventHandler is a wrapper for the cache.ResourceEventHandler
