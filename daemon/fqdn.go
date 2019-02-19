@@ -73,7 +73,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
-			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true})
+			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
 			return err
 		},
 		PollerResponseNotify: func(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {

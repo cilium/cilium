@@ -87,6 +87,9 @@ var (
 	// LabelEventSourceK8s marks event-related metrics that come from k8s
 	LabelEventSourceK8s = "k8s"
 
+	// LabelEventSourceFQDN marks event-related metrics that come from pkg/fqdn
+	LabelEventSourceFQDN = "fqdn"
+
 	// LabelEventSourceContainerd marks event-related metrics that come from docker
 	LabelEventSourceContainerd = "docker"
 
@@ -108,6 +111,9 @@ var (
 
 	//LabelPolicyEnforcement is the label used to see the enforcement status
 	LabelPolicyEnforcement = "enforcement"
+
+	//LabelPolicySourceis the label used to see the enforcement status
+	LabelPolicySource = "source"
 
 	// LabelScope is the label used to defined multiples scopes in the same
 	// metric. For example, one counter may measure a metric over the scope of
@@ -263,6 +269,16 @@ var (
 		Name:      "policy_endpoint_enforcement_status",
 		Help:      "Number of endpoints labeled by policy enforcement status",
 	}, []string{LabelPolicyEnforcement})
+
+	// PolicyImplementationDelay is a distribution of times taken from adding a
+	// policy (and incrementing the policy revision) to seeing it in the
+	// datapath. These times should correlate to the delay in marking Enforcing:
+	// true on k8s CNPs.
+	PolicyImplementationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "policy_implementation_delay",
+		Help:      "Time between a policy change and it being fully deployed into the datapath",
+	}, []string{LabelPolicySource})
 
 	// Events
 
@@ -539,6 +555,7 @@ func init() {
 	MustRegister(PolicyRevision)
 	MustRegister(PolicyImportErrors)
 	MustRegister(PolicyEndpointStatus)
+	MustRegister(PolicyImplementationDelay)
 
 	MustRegister(EventTSK8s)
 	MustRegister(EventTSContainerd)

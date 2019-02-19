@@ -177,6 +177,13 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
+
+	// pendingMetricRevisions is used when tracking the delay between PolicyAdd
+	// calls and that specific revision being implemented in the datapath. This
+	// channel is buffered and holds the start-time and source for each new
+	// revision and is read by a goroutine spawned in
+	// startImplementationDelayWatcher
+	pendingMetricRevisions chan policyRevChange
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -929,6 +936,8 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:        mtuConfig,
 		datapath:         dp,
 		nodeDiscovery:    newNodeDiscovery(nodeMngr, mtuConfig),
+
+		pendingMetricRevisions: startImplementationDelayWatcher(),
 	}
 	bootstrapStats.daemonInit.End(true)
 
