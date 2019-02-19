@@ -39,6 +39,9 @@ const (
 	// MaxRetries is the number of times that a loop should iterate until a
 	// specified condition is not met
 	MaxRetries = 30
+
+	// LLVMVersion determines the version of LLVM installed in the VM.
+	LLVMVersion = "7"
 )
 
 // BpfLBList returns the output of `cilium bpf lb list -o json` as a map
@@ -889,10 +892,10 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 // SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
 // returns an error if any of the operations needed to start Cilium fails.
 func (s *SSHMeta) SetUpCilium() error {
-	template := `
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+	template := fmt.Sprintf(`
+PATH=/usr/lib/llvm-%s/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
-INITSYSTEM=SYSTEMD`
+INITSYSTEM=SYSTEMD`, LLVMVersion)
 	return s.SetUpCiliumWithOptions(template)
 }
 
@@ -917,10 +920,19 @@ func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
 }
 
 func (s *SSHMeta) SetUpCiliumWithSockops() error {
-	var config = `
-+PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+	var config = fmt.Sprintf(`
++PATH=/usr/lib/llvm-%s/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 +CILIUM_OPTS=--sockops-enable --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
-+INITSYSTEM=SYSTEMD`
++INITSYSTEM=SYSTEMD`, LLVMVersion)
+
+	return s.SetUpCiliumWithOptions(config)
+}
+
+func (s *SSHMeta) SetUpCiliumWithNoDNSPoller() error {
+	var config = fmt.Sprintf(`
+PATH=/usr/lib/llvm-%s/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=false
+INITSYSTEM=SYSTEMD`, LLVMVersion)
 
 	return s.SetUpCiliumWithOptions(config)
 }

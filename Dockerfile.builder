@@ -34,7 +34,7 @@ RUN apt-get update \
 		libc6-dev \
 		libc6-dev-i386 \
 		libelf-dev \
-		llvm \
+		llvm-7 \
 		m4 \
 		make \
 		pkg-config \
