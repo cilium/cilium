@@ -119,18 +119,13 @@ static uint64_t BPF_FUNC(ktime_get_ns);
 
 /* Debugging */
 
-/* FIXME: __attribute__ ((format(printf, 1, 3))) not possible unless
- * llvm bug https://llvm.org/bugs/show_bug.cgi?id=26243 gets resolved.
- * It would require ____fmt to be made const, which generates a reloc
- * entry (non-map).
- */
+__attribute__((__format__(__printf__, 1, 3)))
 static void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 
 #ifndef printt
 # define printt(fmt, ...)						\
 	({								\
-		char ____fmt[] = fmt;					\
-		trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__);	\
+		trace_printk(____fmt, ##__VA_ARGS__);			\
 	})
 #endif
 

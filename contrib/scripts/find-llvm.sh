@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-if [ -x /usr/local/clang/bin/clang ]; then
-	echo "/usr/local/clang"
+if [ -x /usr/lib/llvm-7/bin/clang ]; then
+	echo "/usr/lib/llvm-7"
 	exit 0
 fi
 

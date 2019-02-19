@@ -53,7 +53,7 @@ ExclusiveArch: x86_64
 Requires:      git
 Requires:      llvm
 Requires:      docker-engine >= 1.12, glibc-devel(x86-32), iproute >= 4.10, clang
-%{?fc25:Requires: clang >= 3.8, clang < 3.9}
+%{?fc25:Requires: clang >= 5.0}
 
 # If go_compiler is not set to 1, there is no virtual provide. Use golang instead.
 BuildRequires: %{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang}

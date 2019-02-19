@@ -339,7 +339,7 @@ sleep 2s
 sed -i '10s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
 echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
 echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
-echo 'PATH=/usr/local/clang/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
+echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
 chmod 644 /etc/sysconfig/cilium
 
 # Wait for the node to have a podCIDR so that cilium can use the podCIDR

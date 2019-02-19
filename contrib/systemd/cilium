@@ -6,7 +6,7 @@
 ## Default:             ""
 ## ServiceRestart:      cilium
 
-PATH=/usr/lib/llvm-3.8/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 
 ## Path:                System/Management
 ## Description:         Extra cli switches for cilium daemon
