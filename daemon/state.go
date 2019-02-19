@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -211,11 +212,13 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) {
 				epRegenerated <- false
 			}
 
-			// Wait for initial identities from the kvstore before
-			// doing any policy calculation for endpoints that don't have
-			// a fixed identity or are not well known.
+			// Wait for initial identities and ipcache from the
+			// kvstore before doing any policy calculation for
+			// endpoints that don't have a fixed identity or are
+			// not well known.
 			if !identity.IsFixed() && !identity.IsWellKnown() {
 				identityPkg.WaitForInitialIdentities()
+				ipcache.WaitForInitialSync()
 			}
 
 			if err := ep.LockAlive(); err != nil {
