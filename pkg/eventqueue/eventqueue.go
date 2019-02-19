@@ -15,7 +15,6 @@
 package eventqueue
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -33,8 +32,8 @@ func NewEventQueue() *EventQueue {
 	return &EventQueue{
 		// Only one event can be consumed per endpoint
 		// at a time.
-		events: make(chan *Event, 1),
-		close:  make(chan struct{}),
+		events:  make(chan *Event, 1),
+		close:   make(chan struct{}),
 		drained: make(chan struct{}),
 	}
 
@@ -51,8 +50,8 @@ type Event struct {
 	// It is populated by the EventQueue itself, not by the queuer.
 	EventResults chan interface{}
 
-	// Cancelled is a channel which is called when the EventQueue is being drained.
-	// The event was not ran if it was signaled upon.
+	// Cancelled is a channel which is closed when the EventQueue is being
+	// drained. It signals that the given Event was not ran.
 	Cancelled chan struct{}
 }
 
@@ -65,6 +64,8 @@ func NewEvent(meta interface{}) *Event {
 	}
 }
 
+// WasCancelled returns whether the Cancelled channel for the given even has
+// been closed or not.
 func (q *Event) WasCancelled() bool {
 	select {
 	case <-q.Cancelled:
@@ -74,17 +75,22 @@ func (q *Event) WasCancelled() bool {
 	}
 }
 
-func (q *EventQueue) QueueEvent(epEvent *Event) {
+// Enqueue pushes the given event onto the EventQueue. If the queue has been
+// stopped, the Event will not be enqueued, and its cancel channel will be
+// closed, indicating that the Event was not ran. This function may block if
+// there is an event being processed by the queue.
+func (q *EventQueue) Enqueue(ev *Event) {
 	select {
 	case <-q.close:
-		fmt.Printf("QueueEvent close epEvent.Cancelled\n")
-		close(epEvent.Cancelled)
+		close(ev.Cancelled)
 	default:
-		q.events <- epEvent
+		// The events channel will not be closed, because it is only closed if
+		// the close channel is closed for an EventQueue.
+		q.events <- ev
 	}
 }
 
-// runEventQueue consumes events that have been queued for this EventQueue. It
+// Run consumes events that have been queued for this EventQueue. It
 // is presumed that the eventQueue is a buffered channel with a length of one
 // (i.e., only one event can be processed at a time).
 // All business logic for handling queued events is contained within this
@@ -93,14 +99,14 @@ func (q *EventQueue) QueueEvent(epEvent *Event) {
 // a result from the event. Otherwise, if the event queue is closed, then all
 // events which were queued up are cancelled. It is assumed that the caller
 // handles both cases (cancel, or result) gracefully.
-func (q *EventQueue) RunEventQueue() {
+func (q *EventQueue) Run() {
 	q.eventQueueOnce.Do(func() {
 		for {
 			select {
-			// Receive next event.
+			// Receive next event. No other goroutine or process should consume
+			// events off of this channel!
 			case e := <-q.events:
 				{
-					fmt.Printf("Received event\n")
 					// Handle each event type.
 					switch t := e.Metadata.(type) {
 					case EventHandler:
@@ -118,26 +124,34 @@ func (q *EventQueue) RunEventQueue() {
 			// Cancel all events that were not yet consumed.
 			case <-q.close:
 				{
-					fmt.Printf("closing event queue!!!\n")
-					log.Debug("closing event queue")
-
-					// Drain queue of all events. This ensures that all events that
-					// nothing blocks on an EventResult which will never be created.
-					for drainEvent := range q.events {
-						fmt.Printf("draining queue of event\n")
-						close(drainEvent.Cancelled)
+					// Drain queue of all events.
+					for {
+						select {
+						case drainEvent := <-q.events:
+							close(drainEvent.Cancelled)
+							// TODO close results channel here??
+						default:
+							// No more events are in events channel, so we can close
+							// it and exit. It is guaranteed that no more events
+							// will be queued onto the events channel because
+							// the close channel has been closed. See Enqueue.
+							close(q.drained)
+							close(q.events)
+							return
+						}
 					}
-					fmt.Printf("closing q.drained!\n")
-					close(q.drained)
-					close(q.events)
-					return
 				}
 			}
 		}
 	})
 }
 
-func (q *EventQueue) CloseEventQueue() {
+// Stop stops any further events from being processed by the EventQueue. Any
+// event which is currently being processed by the EventQueue will continue to
+// run. All other events waiting to be processed, and all events that may be
+// enqueued will not be processed by the event queue; they will be cancelled.
+// If the queue has already been stopped, this is a no-op.
+func (q *EventQueue) Stop() {
 	select {
 	case <-q.close:
 		log.Warning("tried to close event queue, but it already has been closed")
@@ -147,6 +161,9 @@ func (q *EventQueue) CloseEventQueue() {
 	}
 }
 
+// EventHandler is an interface for allowing an EventQueue to handle events
+// in a generic way. To be processed by the EventQueue, all event types must
+// implement any function specified in this interface.
 type EventHandler interface {
 	Handle() interface{}
 }

@@ -294,8 +294,6 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
-	eventQueueOnce sync.Once
-
 	eventQueue *eventqueue.EventQueue
 
 	///////////////////////

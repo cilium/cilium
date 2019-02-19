@@ -64,8 +64,10 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
 	e.QueueEvent(epBumpEvent)
 	select {
-	case _ = <-epBumpEvent.EventResults:
-		e.getLogger().Infof("bumped endpoint revision to %d", rev)
+	case _, ok := <-epBumpEvent.EventResults:
+		if ok {
+			e.getLogger().Infof("bumped endpoint revision to %d", rev)
+		}
 	case <-epBumpEvent.Cancelled:
 	}
 }

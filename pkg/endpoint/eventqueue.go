@@ -22,21 +22,21 @@ import (
 // queue can ever be initialized for the lifetime of a given endpoint
 func (e *Endpoint) initializeEventQueue() {
 	e.getLogger().Debug("starting endpoint event queue")
-	go e.eventQueue.RunEventQueue()
+	go e.eventQueue.Run()
 }
 
-// QueueEvent enqueues epEvent to the endpoint's EventQueue. It may block until
+// Enqueue enqueues epEvent to the endpoint's EventQueue. It may block until
 // the current event being processed by the endpoint's event queue is finished.
 // If the event queue has been closed, then it is signalled to the event that
 // the event is not ran (i.e., it has been "cancelled").
 func (e *Endpoint) QueueEvent(epEvent *eventqueue.Event) {
-	e.eventQueue.QueueEvent(epEvent)
+	e.eventQueue.Enqueue(epEvent)
 }
 
-// CloseEventQueue closes the event queue for the given endpoint if it hasn't
+// Stop closes the event queue for the given endpoint if it hasn't
 // been closed already. All events that are attempted to be queued up for the
 // endpoint will be cancelled. This operation should only be performed when the
 // endpoint is being deleted.
 func (e *Endpoint) CloseEventQueue() {
-	e.eventQueue.CloseEventQueue()
+	e.eventQueue.Stop()
 }

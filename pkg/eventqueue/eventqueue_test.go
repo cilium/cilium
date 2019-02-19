@@ -15,7 +15,6 @@
 package eventqueue
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -40,9 +39,9 @@ func (s *EventQueueSuite) TestNewEventQueue(c *C) {
 
 func (s *EventQueueSuite) TestCloseEventQueueMultipleTimes(c *C) {
 	q := NewEventQueue()
-	q.CloseEventQueue()
+	q.Stop()
 	// Closing event queue twice should not cause panic.
-	q.CloseEventQueue()
+	q.Stop()
 }
 
 func (s *EventQueueSuite) TestNewEvent(c *C) {
@@ -52,62 +51,85 @@ func (s *EventQueueSuite) TestNewEvent(c *C) {
 	c.Assert(e.Cancelled, Not(IsNil))
 }
 
-type DummyEvent struct {}
+type DummyEvent struct{}
 
 func (d *DummyEvent) Handle() interface{} {
 	return struct{}{}
 }
 
-type LongDummyEvent struct {}
+type LongDummyEvent struct{}
 
 func (l *LongDummyEvent) Handle() interface{} {
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 	return struct{}{}
 }
 
 func (s *EventQueueSuite) TestEventCancelAfterQueueClosed(c *C) {
 	q := NewEventQueue()
-	go q.RunEventQueue()
+	go q.Run()
 	ev := NewEvent(&DummyEvent{})
-	q.QueueEvent(ev)
+	q.Enqueue(ev)
 
 	// Event should not have been cancelled since queue was not closed.
 	c.Assert(ev.WasCancelled(), Equals, false)
-	q.CloseEventQueue()
+	q.Stop()
 
 	ev = NewEvent(&DummyEvent{})
-	q.QueueEvent(ev)
+	q.Enqueue(ev)
 	c.Assert(ev.WasCancelled(), Equals, true)
 }
 
-func (s *EventQueueSuite) TestBufferbloatScenario(c *C) {
+func (s *EventQueueSuite) TestCancelWhenQueued(c *C) {
 	q := NewEventQueue()
-	go q.RunEventQueue()
+	go q.Run()
 	ev := NewEvent(&LongDummyEvent{})
 	ev2 := NewEvent(&LongDummyEvent{})
-	q.QueueEvent(ev)
-	go q.QueueEvent(ev2)
-	q.CloseEventQueue()
+	// This event is guaranteed to be taken off the queue because the close
+	// channel hasn't been closed yet.
+	q.Enqueue(ev)
 
+	// Queue another event in the background. This event *will* be cancelled
+	// because we are closing the close channel for it has a chance to be consumed.
+	go q.Enqueue(ev2)
+	q.Stop()
+
+	// CHeck that EventResults channel is closed.
+	c.Assert(testutils.WaitUntil(func() bool {
+		select {
+		case <-ev.EventResults:
+			return true
+		default:
+			return false
+		}
+	}, 5*time.Second), IsNil)
+
+	select {
+	case <-ev.EventResults:
+	default:
+
+	}
+
+	// Wait for queue to be drained.
 	c.Assert(testutils.WaitUntil(func() bool {
 		select {
 		case <-q.drained:
-			fmt.Printf("wait until queue drained\n")
 			return true
 		default:
-
-			fmt.Printf("wait until queue NOT drained\n")
 			return false
 		}
 	}, 10*time.Second), IsNil)
 
-	// Event should be cancelled since it was in the queue.
+	// If the queue is drained, the events channel should be closed too.
+	c.Assert(testutils.WaitUntil(func() bool {
+		select {
+		case <-q.events:
+			return true
+		default:
+			return false
+		}
+	}, 10*time.Second), IsNil)
+
+	// Event should be cancelled since it was not running before the queue was
+	// stopped.
 	c.Assert(ev2.WasCancelled(), Equals, true)
-	select {
-	case <-ev2.EventResults:
-		c.Error("event results channel should be close when cancelled")
-	}
-
-
-
 }

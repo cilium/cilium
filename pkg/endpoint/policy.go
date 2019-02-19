@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -430,7 +431,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 
 			regenContext.DoneFunc = doneFunc
 
-			epEvent := NewEndpointEvent(&EndpointRegenerationEvent{
+			epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
 				owner:        owner,
 				regenContext: regenContext,
 				ep:           e,
@@ -439,20 +440,27 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			e.QueueEvent(epEvent)
 
 			select {
-			case result := <-epEvent.EventResults:
-				// Regeneration is done, allow other builds to occur.
-				doneFunc()
-				log.Warningf("EV TYPE FROM REGEN: %T", reflect.TypeOf(result))
-				regenResult := result.(*EndpointRegenerationResult)
-				err = regenResult.err
+			case result, ok := <-epEvent.EventResults:
+				var regenError error
+				if ok {
+					// Regeneration is done, allow other builds to occur.
+					doneFunc()
+					log.Warningf("EV TYPE FROM REGEN: %T", reflect.TypeOf(result))
+					regenResult := result.(*EndpointRegenerationResult)
+					regenError = regenResult.err
 
-				// Build was successful whether regeneration errored out of not.
-				buildSuccess = err == nil
-
+					// Build was successful whether regeneration errored out of not.
+					buildSuccess = regenError == nil
+				} else {
+					// This may be unnecessary(?) since 'closing' of the results
+					// channel means that event has been cancelled?
+					e.getLogger().Debug("regeneration was cancelled")
+					doneFunc()
+				}
 				// Notify monitor of result of regeneration.
-				e.notifyEndpointRegeneration(owner, err)
+				e.notifyEndpointRegeneration(owner, regenError)
 			case <-epEvent.Cancelled:
-				e.getLogger().Info("event was not ran for endpoint due to event queue being closed")
+				e.getLogger().Debug("regeneration was cancelled")
 				// Still call doneFunc to allow other endpoint builds to occur.
 				doneFunc()
 			}
