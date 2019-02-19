@@ -196,7 +196,9 @@ func ControllerFactory(
 		rehf,
 	)
 
-	return c
+	// Wrap the controller from Kubernetes so we can actually know when all
+	// objects were synchronized and processed from kubernetes.
+	return &ControllerSyncer{Controller: c, ResourceEventHandler: rehf}
 }
 
 // ResourceEventHandlerFactory returns a ResourceEventHandlerSyncer,
