@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package nodediscovery
 
 import (
 	"time"
@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -30,12 +31,22 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-type nodeDiscovery struct {
-	manager     *nodemanager.Manager
-	localConfig datapath.LocalNodeConfiguration
-	registrar   nodestore.NodeRegistrar
-	localNode   node.Node
-	registered  chan struct{}
+const (
+	// AutoCIDR indicates that a CIDR should be allocated
+	AutoCIDR = "auto"
+
+	nodeDiscoverySubsys = "nodediscovery"
+)
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
+
+// NodeDiscovery represents a node discovery action
+type NodeDiscovery struct {
+	Manager     *nodemanager.Manager
+	LocalConfig datapath.LocalNodeConfiguration
+	Registrar   nodestore.NodeRegistrar
+	LocalNode   node.Node
+	Registered  chan struct{}
 }
 
 func enableLocalNodeRoute() bool {
@@ -46,7 +57,8 @@ func enableLocalNodeRoute() bool {
 	return true
 }
 
-func newNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration) *nodeDiscovery {
+// NewNodeDiscovery returns a pointer to new node discovery object
+func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -67,9 +79,9 @@ func newNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	return &nodeDiscovery{
-		manager: manager,
-		localConfig: datapath.LocalNodeConfiguration{
+	return &NodeDiscovery{
+		Manager: manager,
+		LocalConfig: datapath.LocalNodeConfiguration{
 			MtuConfig:               mtuConfig,
 			UseSingleClusterRoute:   option.Config.UseSingleClusterRoute,
 			EnableIPv4:              option.Config.EnableIPv4,
@@ -80,76 +92,76 @@ func newNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 			AuxiliaryPrefixes:       auxPrefixes,
 			EnableIPSec:             option.Config.EnableIPSec,
 		},
-		localNode: node.Node{
+		LocalNode: node.Node{
 			Source: node.FromLocalNode,
 		},
-		registered: make(chan struct{}),
+		Registered: make(chan struct{}),
 	}
 }
 
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent
-func (n *nodeDiscovery) startDiscovery() {
-	n.localNode.Name = node.GetName()
-	n.localNode.Cluster = option.Config.ClusterName
-	n.localNode.IPAddresses = []node.Address{}
-	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
-	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
-	n.localNode.ClusterID = option.Config.ClusterID
+func (n *NodeDiscovery) StartDiscovery() {
+	n.LocalNode.Name = node.GetName()
+	n.LocalNode.Cluster = option.Config.ClusterName
+	n.LocalNode.IPAddresses = []node.Address{}
+	n.LocalNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
+	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
+	n.LocalNode.ClusterID = option.Config.ClusterID
 
 	if node.GetExternalIPv4() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetExternalIPv4(),
 		})
 	}
 
 	if node.GetIPv6() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetIPv6(),
 		})
 	}
 
 	if node.GetInternalIPv4() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetInternalIPv4(),
 		})
 	}
 
 	if node.GetIPv6Router() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
 		})
 	}
 
-	n.manager.NodeUpdated(n.localNode)
+	n.Manager.NodeUpdated(n.LocalNode)
 
 	go func() {
 		log.Info("Adding local node to cluster")
-		if err := n.registrar.RegisterNode(&n.localNode, n.manager); err != nil {
+		if err := n.Registrar.RegisterNode(&n.LocalNode, n.Manager); err != nil {
 			log.WithError(err).Fatal("Unable to initialize local node")
 		}
-		close(n.registered)
+		close(n.Registered)
 	}()
 
 	go func() {
 		select {
-		case <-n.registered:
+		case <-n.Registered:
 		case <-time.NewTimer(defaults.NodeInitTimeout).C:
 			log.Fatalf("Unable to initialize local node due to timeout")
 		}
 	}()
 
 	go func() {
-		<-n.registered
+		<-n.Registered
 		controller.NewManager().UpdateController("propagating local node change to kv-store",
 			controller.ControllerParams{
 				DoFunc: func() error {
-					err := n.registrar.UpdateLocalKeySync(&n.localNode)
+					err := n.Registrar.UpdateLocalKeySync(&n.LocalNode)
 					if err != nil {
 						log.WithError(err).Error("Unable to propagate local node change to kvstore")
 					}
@@ -160,6 +172,6 @@ func (n *nodeDiscovery) startDiscovery() {
 }
 
 // Close shuts down the node discovery engine
-func (n *nodeDiscovery) Close() {
-	n.manager.Close()
+func (n *NodeDiscovery) Close() {
+	n.Manager.Close()
 }

@@ -74,6 +74,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
@@ -173,7 +174,7 @@ type Daemon struct {
 	datapath datapath.Datapath
 
 	// nodeDiscovery defines the node discovery logic of the agent
-	nodeDiscovery *nodeDiscovery
+	nodeDiscovery *nodediscovery.NodeDiscovery
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
@@ -525,7 +526,7 @@ func (d *Daemon) compileBase() error {
 		d.ipam.ReserveLocalRoutes()
 	}
 
-	if err := d.datapath.Node().NodeConfigurationChanged(d.nodeDiscovery.localConfig); err != nil {
+	if err := d.datapath.Node().NodeConfigurationChanged(d.nodeDiscovery.LocalConfig); err != nil {
 		return err
 	}
 
@@ -694,7 +695,7 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	}
 	defer f.Close()
 
-	if err = d.datapath.WriteNodeConfig(f, &d.nodeDiscovery.localConfig); err != nil {
+	if err = d.datapath.WriteNodeConfig(f, &d.nodeDiscovery.LocalConfig); err != nil {
 		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to write node configuration file")
 		return err
 	}
@@ -928,7 +929,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		compilationMutex: new(lock.RWMutex),
 		mtuConfig:        mtuConfig,
 		datapath:         dp,
-		nodeDiscovery:    newNodeDiscovery(nodeMngr, mtuConfig),
+		nodeDiscovery:    nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 	}
 	bootstrapStats.daemonInit.End(true)
 
@@ -1164,20 +1165,20 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 				return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
 
-			d.nodeDiscovery.localNode.IPv4HealthIP = health4
+			d.nodeDiscovery.LocalNode.IPv4HealthIP = health4
 			log.Debugf("IPv4 health endpoint address: %s", health4)
 		}
 
 		if option.Config.EnableIPv6 {
 			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6)
 			if err != nil {
-				if d.nodeDiscovery.localNode.IPv4HealthIP != nil {
-					d.ipam.ReleaseIP(d.nodeDiscovery.localNode.IPv4HealthIP)
+				if d.nodeDiscovery.LocalNode.IPv4HealthIP != nil {
+					d.ipam.ReleaseIP(d.nodeDiscovery.LocalNode.IPv4HealthIP)
 				}
 				return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
 
-			d.nodeDiscovery.localNode.IPv6HealthIP = health6
+			d.nodeDiscovery.LocalNode.IPv6HealthIP = health6
 			log.Debugf("IPv6 health endpoint address: %s", health6)
 		}
 	}
@@ -1190,7 +1191,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.Info("Annotating k8s node with CIDR ranges")
 		err := k8s.Client().AnnotateNode(node.GetName(),
 			node.GetIPv4AllocRange(), node.GetIPv6NodeRange(),
-			d.nodeDiscovery.localNode.IPv4HealthIP, d.nodeDiscovery.localNode.IPv6HealthIP,
+			d.nodeDiscovery.LocalNode.IPv4HealthIP, d.nodeDiscovery.LocalNode.IPv6HealthIP,
 			node.GetInternalIPv4(), node.GetIPv6Router())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
@@ -1198,7 +1199,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	d.nodeDiscovery.startDiscovery()
+	d.nodeDiscovery.StartDiscovery()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
