@@ -246,6 +246,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
 			}
+
 			// Wait for initial identities from the kvstore before
 			// doing any policy calculation for endpoints that don't have
 			// a fixed identity or are not well known.
