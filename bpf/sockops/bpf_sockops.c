@@ -26,7 +26,6 @@
 
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
-#include <sys/socket.h>
 
 #include "../lib/utils.h"
 #include "../lib/common.h"
@@ -35,6 +34,14 @@
 #include "../lib/eps.h"
 #include "../lib/events.h"
 #include "../lib/policy.h"
+
+#ifndef AF_INET
+#define AF_INET 2
+#endif
+
+#ifndef AF_INET6
+#define AF_INET6 10
+#endif
 
 #include "bpf_sockops.h"
 
