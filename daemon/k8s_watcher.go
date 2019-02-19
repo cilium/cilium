@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -651,7 +652,8 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error 
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
 	opts := AddOptions{Replace: true}
-	if _, err := d.PolicyAdd(rules, &opts); err != nil {
+	RUID := fmt.Sprintf("%s-K8sWatcher", uuid.NewUUID().String())
+	if _, err := d.PolicyAdd(rules, &opts, RUID); err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
 		}).Error("Unable to add NetworkPolicy rules to policy repository")
@@ -1147,9 +1149,11 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		policyImportErr = k8s.PreprocessRules(rules, &d.k8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
+
+		RUID := fmt.Sprintf("%s-K8sWatcher", uuid.NewUUID().String())
 		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
 			ReplaceWithLabels: cnp.GetIdentityLabels(),
-		})
+		}, RUID)
 	}
 
 	if policyImportErr != nil {

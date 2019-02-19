@@ -177,8 +177,8 @@ type AddOptions struct {
 // k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
-func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
-	logger := log.WithField("PolicyAddRequest", uuid.NewUUID().String())
+func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions, RequestID string) (uint64, error) {
+	logger := log.WithField("PolicyAddRequest", RequestID)
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
 	} else {
@@ -244,6 +244,14 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		}
 	}
 	rev := d.policy.AddListLocked(rules)
+
+	// The rules are added, we can begin ToFQDN DNS polling for them
+	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
+	// valid. This error should never happen (of course).
+	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
+		logger.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
+	}
+
 	d.policy.Mutex.Unlock()
 
 	// remove prefixes of replaced rules above. This potentially blocks on the
@@ -255,13 +263,6 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
-	}
-
-	// The rules are added, we can begin ToFQDN DNS polling for them
-	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
-	// valid. This error should never happen (of course).
-	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
-		logger.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
 	logger.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
@@ -388,7 +389,8 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		}
 	}
 
-	rev, err := d.PolicyAdd(rules, nil)
+	RUID := fmt.Sprintf("%s-API", uuid.NewUUID().String())
+	rev, err := d.PolicyAdd(rules, nil, RUID)
 	if err != nil {
 		return api.Error(PutPolicyFailureCode, err)
 	}
