@@ -77,7 +77,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 		key.sip4 = host_ip;
 		key.sport = verdict;
 
-		sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
+		sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_NOEXIST);
 		return;
 	}
 
@@ -100,7 +100,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	key.sip4 = dip4;
 	key.sport = dport;
 
-	sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_ANY);
+	sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_NOEXIST);
 }
 
 static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
