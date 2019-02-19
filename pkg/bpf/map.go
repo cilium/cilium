@@ -186,6 +186,11 @@ type Map struct {
 	once sync.Once
 	lock lock.RWMutex
 
+	// inParallelMode is true when the Map is currently being run in
+	// parallel and all modifications are performed on both maps until
+	// EndParallelMode() is called.
+	inParallelMode bool
+
 	// enableSync is true when synchronization retries have been enabled.
 	enableSync bool
 
@@ -383,10 +388,62 @@ func (m *Map) setPathIfUnset() error {
 	return nil
 }
 
+// EndParallelMode ends the parallel mode of a map
+func (m *Map) EndParallelMode() error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if !m.inParallelMode {
+		return fmt.Errorf("map is not in parallel mode")
+	}
+
+	m.inParallelMode = false
+	m.scopedLogger().Debug("End of parallel mode")
+
+	return nil
+}
+
+// OpenParallel is similar to OpenOrCreate() but prepares the existing map to
+// be faded out while a new map is taking over. This can be used if a map is
+// shared between multiple consumers and the context of the shared map is
+// changing. Any update to the shared map would impact all consumers and
+// consumers can only be updated one by one. Parallel mode allows for consumers
+// to continue using the old version of the map until the consumer is updated
+// to use the new version.
+func (m *Map) OpenParallel() (bool, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if m.fd != 0 {
+		return false, fmt.Errorf("OpenParallel() called on already open map")
+	}
+
+	if err := m.setPathIfUnset(); err != nil {
+		return false, err
+	}
+
+	if _, err := os.Stat(m.path); err == nil {
+		err := os.Remove(m.path)
+		if err != nil {
+			log.WithError(err).Warning("Unable to remove BPF map for parallel operation")
+			// Fall back to non-parallel mode
+		} else {
+			m.scopedLogger().Debug("Opening map in parallel mode")
+			m.inParallelMode = true
+		}
+	}
+
+	return m.openOrCreate()
+}
+
 func (m *Map) OpenOrCreate() (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	return m.openOrCreate()
+}
+
+func (m *Map) openOrCreate() (bool, error) {
 	if m.fd != 0 {
 		return false, nil
 	}

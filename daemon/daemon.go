@@ -1110,6 +1110,28 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter
 }
 
+func (d *Daemon) initMaps() error {
+	if option.Config.DryMode {
+		return nil
+	}
+
+	// The ipcache is shared between endpoints. Parallel mode needs to be
+	// used to allow existing endpoints that have not been regenerated yet
+	// to continue using the existing ipcache until the endpoint is
+	// regenerated for the first time. Existing endpoints are using a
+	// policy map which is potentially out of sync as local identities are
+	// re-allocated on startup. Parallel mode allows to continue using the
+	// old version until regeneration. Note that the old version is not
+	// updated with new identities. This is fine as any new identity
+	// appearing would require a regeneration of the endpoint anyway in
+	// order for the endpoint to gain the privilege of communication.
+	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 	// Validate the daemon specific global options
@@ -1136,13 +1158,20 @@ func NewDaemon() (*Daemon, *endpointRestoreState, error) {
 		compilationMutex: new(lock.RWMutex),
 	}
 
+	// Open or create BPF maps.
+	err := d.initMaps()
+	if err != nil {
+		log.WithError(err).Error("Error while opening/creating BPF maps")
+		return nil, nil, err
+	}
+
 	policyApi.InitEntities(option.Config.ClusterName)
 
 	workloads.Init(&d)
 
 	// Clear previous leftovers before listening for new requests
 	log.Info("Clearing leftover Cilium veths")
-	err := d.clearCiliumVeths()
+	err = d.clearCiliumVeths()
 	if err != nil {
 		log.WithError(err).Debug("Unable to clean leftover veths")
 	}

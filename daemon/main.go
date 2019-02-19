@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -842,6 +843,12 @@ func runCiliumHealthEndpoint(d *Daemon) error {
 	return nil
 }
 
+func endParallelMapMode() {
+	if err := ipcachemap.IPCache.EndParallelMode(); err != nil {
+		log.WithError(err).Error("Unable to end parallel mode of ipcache map")
+	}
+}
+
 func runDaemon() {
 	log.Info("Initializing daemon")
 
@@ -890,6 +897,12 @@ func runDaemon() {
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
 		d.regenerateRestoredEndpoints(restoredEndpoints)
+		restoreComplete := d.regenerateRestoredEndpoints(restoredEndpoints)
+		go func() {
+			<-restoreComplete
+			endParallelMapMode()
+		}()
+
 		go func() {
 			if k8s.IsEnabled() {
 				// Start controller which removes any leftover Kubernetes
@@ -918,6 +931,9 @@ func runDaemon() {
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
 		workloads.IgnoreRunningWorkloads()
+
+		// No restore happened, end parallel map mode immediately
+		endParallelMapMode()
 	}
 
 	d.collectStaleMapGarbage()
