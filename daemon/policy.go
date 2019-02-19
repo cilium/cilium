@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
@@ -177,33 +178,34 @@ type AddOptions struct {
 // pods which are selected. Eventual changes in policy rules are propagated to
 // all locally managed endpoints.
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, error) {
+	logger := log.WithField("PolicyAddRequest", uuid.NewUUID().String())
 	if opts != nil && opts.Generated {
-		log.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
+		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
 	} else {
-		log.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
+		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
 	}
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
 	d.dnsRuleGen.MarkToFQDNRules(rules)
 
 	prefixes := policy.GetCIDRPrefixes(rules)
-	log.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
+	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
 	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
-		log.WithError(err).WithField("prefixes", prefixes).Warn(
+		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
 		return 0, api.Error(PutPolicyFailureCode, err)
 	}
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
 		// Only recompile if configuration has changed.
-		log.Debug("CIDR policy has changed; recompiling base programs")
+		logger.Debug("CIDR policy has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
 			_ = d.prefixLengths.Delete(prefixes)
 			metrics.PolicyImportErrors.Inc()
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
-			log.WithError(err2).WithField("prefixes", prefixes).Warn(
+			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to recompile base programs due to prefix length count change")
 			return 0, api.Error(PutPolicyFailureCode, err)
 		}
@@ -212,7 +214,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
-		log.WithError(err).WithField("prefixes", prefixes).Warn(
+		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
 		return d.policy.GetRevision(), err
 	}
@@ -250,7 +252,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	// that are re-added, and will trigger deletions for those that are no longer
 	// used.
 	if len(removedPrefixes) > 0 {
-		log.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
+		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
 	}
@@ -259,10 +261,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
 	// valid. This error should never happen (of course).
 	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
-		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
+		logger.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
-	log.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
+	logger.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")
 
 	d.TriggerPolicyUpdates(false, "policy rules added")
 
@@ -272,7 +274,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 	repr, err := monitorAPI.PolicyUpdateRepr(len(rules), labels, rev)
 	if err != nil {
-		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
+		logger.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
 	} else {
 		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
