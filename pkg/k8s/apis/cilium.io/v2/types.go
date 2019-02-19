@@ -72,7 +72,7 @@ type CiliumNetworkPolicyStatus struct {
 
 	// DerivativePolicies is the status of all policies derived from the Cilium
 	// policy
-	DerivativePolicies map[string]CiliumNetworkPolicyNodeStatus `json:"DerivativePolicies,omitempty"`
+	DerivativePolicies map[string]CiliumNetworkPolicyNodeStatus `json:"derivativePolicies,omitempty"`
 }
 
 // CiliumNetworkPolicyNodeStatus is the status of a Cilium policy rule for a
