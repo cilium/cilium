@@ -504,7 +504,7 @@ func (ds *DaemonSuite) Test_missingK8sPodV1(c *C) {
 }
 
 func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
-	defer ds.d.nodeDiscovery.manager.DeleteAllNodes()
+	defer ds.d.nodeDiscovery.Manager.DeleteAllNodes()
 	prevClusterName := option.Config.ClusterName
 	option.Config.ClusterName = "default"
 	defer func() {
@@ -569,13 +569,13 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		{
 			name: "ipcache and the node package contains the node. Should be no-op",
 			setupArgs: func() args {
-				ds.d.nodeDiscovery.manager.DeleteAllNodes()
+				ds.d.nodeDiscovery.Manager.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("172.20.0.1", net.ParseIP("172.20.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
-				ds.d.nodeDiscovery.manager.NodeUpdated(node.Node{
+				ds.d.nodeDiscovery.Manager.NodeUpdated(node.Node{
 					Name:    "foo",
 					Cluster: "default",
 					Source:  node.FromKubernetes,
@@ -611,7 +611,7 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		{
 			name: "node doesn't contain any cilium host IP. should be no-op",
 			setupArgs: func() args {
-				ds.d.nodeDiscovery.manager.DeleteAllNodes()
+				ds.d.nodeDiscovery.Manager.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("127.0.0.1", net.ParseIP("127.0.0.2"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
@@ -641,13 +641,13 @@ func (ds *DaemonSuite) Test_missingK8sNodeV1(c *C) {
 		{
 			name: "ipcache contains the node but the CiliumHostIP is not the right one for the given nodeIP",
 			setupArgs: func() args {
-				ds.d.nodeDiscovery.manager.DeleteAllNodes()
+				ds.d.nodeDiscovery.Manager.DeleteAllNodes()
 				cache := ipcache.NewIPCache()
 				cache.Upsert("172.20.9.1", net.ParseIP("172.20.1.1"), ipcache.Identity{
 					ID:     identity.ReservedIdentityInit,
 					Source: ipcache.FromKubernetes,
 				})
-				ds.d.nodeDiscovery.manager.NodeUpdated(node.Node{
+				ds.d.nodeDiscovery.Manager.NodeUpdated(node.Node{
 					Name:    "bar",
 					Source:  node.FromAgentLocal,
 					Cluster: "default",

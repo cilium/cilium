@@ -69,9 +69,9 @@ func checkLocks(d *Daemon) {
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	clusterStatus := models.ClusterStatus{
-		Self: d.nodeDiscovery.localNode.Fullname(),
+		Self: d.nodeDiscovery.LocalNode.Fullname(),
 	}
-	for _, node := range d.nodeDiscovery.manager.GetNodes() {
+	for _, node := range d.nodeDiscovery.Manager.GetNodes() {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, node.GetModel())
 	}
 	return &clusterStatus
