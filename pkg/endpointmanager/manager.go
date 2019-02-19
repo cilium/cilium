@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -408,11 +409,19 @@ func WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-eps[i].WaitForPolicyRevision(ctx, rev):
+		case <-eps[i].WaitForPolicyRevision(ctx, rev, nil):
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
 		}
+	}
+	return nil
+}
+
+func CallbackForEndpointsAtPolicyRev(ctx context.Context, rev uint64, done func(time.Time)) error {
+	eps := GetEndpoints()
+	for i := range eps {
+		eps[i].WaitForPolicyRevision(ctx, rev, done)
 	}
 	return nil
 }

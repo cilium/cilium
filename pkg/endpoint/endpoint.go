@@ -227,7 +227,7 @@ type Endpoint struct {
 
 	// policyRevisionSignals contains a map of PolicyRevision signals that
 	// should be triggered once the policyRevision reaches the wanted wantedRev.
-	policyRevisionSignals map[policySignal]bool
+	policyRevisionSignals map[*policySignal]bool
 
 	// proxyPolicyRevision is the policy revision that has been applied to
 	// the proxy.
@@ -2016,6 +2016,7 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 		return
 	}
 
+	now := time.Now()
 	e.policyRevision = rev
 	e.UpdateLogger(map[string]interface{}{
 		logfields.DatapathPolicyRevision: e.policyRevision,
@@ -2024,10 +2025,12 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 		select {
 		case <-ps.ctx.Done():
 			close(ps.ch)
+			ps.done(now)
 			delete(e.policyRevisionSignals, ps)
 		default:
 			if rev >= ps.wantedRev {
 				close(ps.ch)
+				ps.done(now)
 				delete(e.policyRevisionSignals, ps)
 			}
 		}
@@ -2036,10 +2039,12 @@ func (e *Endpoint) setPolicyRevision(rev uint64) {
 
 // cleanPolicySignals closes and removes all policy revision signals.
 func (e *Endpoint) cleanPolicySignals() {
+	now := time.Now()
 	for w := range e.policyRevisionSignals {
+		w.done(now)
 		close(w.ch)
 	}
-	e.policyRevisionSignals = map[policySignal]bool{}
+	e.policyRevisionSignals = map[*policySignal]bool{}
 }
 
 // policySignal is used to mark when a wanted policy wantedRev is reached
@@ -2050,13 +2055,16 @@ type policySignal struct {
 	ch chan struct{}
 	// ctx is the context for the policy signal request.
 	ctx context.Context
+	// done is a callback to call for this policySignal. It is in addition to the
+	// ch above.
+	done func(ts time.Time)
 }
 
 // WaitForPolicyRevision returns a channel that is closed when one or more of
 // the following conditions have met:
 //  - the endpoint is disconnected state
 //  - the endpoint's policy revision reaches the wanted revision
-func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan struct{} {
+func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done func(ts time.Time)) <-chan struct{} {
 	// NOTE: UnconditionalLock is used here because this method handles endpoint in disconnected state on its own
 	e.UnconditionalLock()
 	defer e.Unlock()
@@ -2065,13 +2073,17 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64) <-chan
 		close(ch)
 		return ch
 	}
-	ps := policySignal{
+	if done == nil {
+		done = func(time.Time) {}
+	}
+	ps := &policySignal{
 		wantedRev: rev,
 		ctx:       ctx,
 		ch:        ch,
+		done:      done,
 	}
 	if e.policyRevisionSignals == nil {
-		e.policyRevisionSignals = map[policySignal]bool{}
+		e.policyRevisionSignals = map[*policySignal]bool{}
 	}
 	e.policyRevisionSignals[ps] = true
 	return ch
