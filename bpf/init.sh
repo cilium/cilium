@@ -446,3 +446,7 @@ if [ -n "$XDP_DEV" ]; then
 	OPTS=""
 	xdp_load $XDP_DEV $XDP_MODE "$OPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
+
+# Compile dummy BPF file containing all shared struct definitions used by
+# pkg/alignchecker to validate C and Go equivalent struct alignments
+bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""
