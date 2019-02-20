@@ -29,8 +29,8 @@ import (
 type CtKey4 struct {
 	DestAddr   types.IPv4
 	SourceAddr types.IPv4
-	SourcePort uint16
 	DestPort   uint16
+	SourcePort uint16
 	NextHeader u8proto.U8proto
 	Flags      uint8
 }
