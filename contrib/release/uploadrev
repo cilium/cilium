@@ -59,27 +59,47 @@ function copy_source() {
   git archive --format=tar.gz -o $TARGET_DIR/$TARBALL --prefix=$PREPEND $REV
 }
 
-function copy_binaries() {
+function copy_binaries_cilium_docker() {
+  echo "target_dir: $TARGET_DIR"
   mkdir -p $TARGET_DIR
-  SHA=$(docker create docker.io/cilium/cilium:$REV)
-  docker cp $SHA:/usr/bin/cilium $TARGET_DIR/cilium-$ARCH
-  docker cp $SHA:/usr/bin/cilium-agent $TARGET_DIR/cilium-agent-$ARCH
-  docker cp $SHA:/usr/bin/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH
-  docker cp $SHA:/usr/bin/cilium-node-monitor $TARGET_DIR/cilium-node-monitor-$ARCH
-  docker cp $SHA:/usr/bin/cilium-health $TARGET_DIR/cilium-health-$ARCH
-  docker cp $SHA:/usr/bin/cilium-envoy $TARGET_DIR/cilium-envoy-$ARCH
-  docker cp $SHA:/usr/bin/cilium-docker $TARGET_DIR/cilium-docker-$ARCH
-  docker cp $SHA:/opt/cni/bin/cilium-cni $TARGET_DIR/cilium-cni-$ARCH
-  cp contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
-  cp contrib/k8s/k8s-get-cilium-pod.sh $TARGET_DIR/tools/ || true
-  cp contrib/k8s/k8s-unmanaged.sh $TARGET_DIR/tools/ || true
+  SHA=$(docker create docker.io/cilium/docker-plugin:$REV)
+  docker cp $SHA:/usr/bin/cilium-docker/cilium-docker $TARGET_DIR/cilium-docker-$ARCH
   docker rm -f $SHA
+}
 
+function copy_binaries_cilium_operator() {
+  mkdir -p $TARGET_DIR
+  SHA=$(docker create docker.io/cilium/operator:$REV)
+  docker cp $SHA:/usr/bin/cilium-operator $TARGET_DIR/cilium-operator-$ARCH
+  docker rm -f $SHA
+}
+
+function generate_sha_digest_for_binaries() {
+  mkdir -p $TARGET_DIR
   # Generate  SHA256 digest
   cd $TARGET_DIR
   for f in *; do
     [ ! -d "$f" ] && sha256sum $f > $f.sha256sum
   done
+}
+
+function copy_binaries() {
+  mkdir -p $TARGET_DIR
+  SHA=$(docker create docker.io/cilium/cilium:$REV)
+  docker cp $SHA:/usr/bin/cilium-agent $TARGET_DIR/cilium-$ARCH
+  docker cp $SHA:/usr/bin/cilium-agent $TARGET_DIR/cilium-agent-$ARCH
+  docker cp $SHA:/usr/bin/cilium-agent $TARGET_DIR/cilium-node-monitor-$ARCH
+  docker cp $SHA:/usr/bin/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH
+  docker cp $SHA:/usr/bin/cilium-health $TARGET_DIR/cilium-health-$ARCH
+  docker cp $SHA:/usr/bin/cilium-envoy $TARGET_DIR/cilium-envoy-$ARCH
+  docker cp $SHA:/opt/cni/bin/cilium-cni $TARGET_DIR/cilium-cni-$ARCH
+  cp contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
+  cp contrib/k8s/k8s-get-cilium-pod.sh $TARGET_DIR/tools/ || true
+  cp contrib/k8s/k8s-unmanaged.sh $TARGET_DIR/tools/ || true
+  docker rm -f $SHA
+  copy_binaries_cilium_operator
+  copy_binaries_cilium_docker
+  generate_sha_digest_for_binaries
 }
 
 
