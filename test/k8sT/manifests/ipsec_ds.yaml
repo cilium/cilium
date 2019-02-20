@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cilium-ipsec-keys
+type: Opaque
+stringData:
+  keys: "0xhmac(sha256) 0123456789abcdef cbc(aes) 0x0123456789abcdef"

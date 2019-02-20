@@ -654,6 +654,13 @@ func (kub *Kubectl) Apply(filePath string) *CmdRes {
 		fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
 }
 
+// ApplyKubeSystem applies the Kubernetes manifest locate at path filepath to kube-system.
+func (kub *Kubectl) ApplyKubeSystem(filePath string) *CmdRes {
+	kub.logger.Debugf("applying %s (kube-system)", filePath)
+	return kub.Exec(
+		fmt.Sprintf("%s apply -n kube-system -f  %s", KubectlCmd, filePath))
+}
+
 // Create creates the Kubernetes kanifest located at path filepath.
 func (kub *Kubectl) Create(filePath string) *CmdRes {
 	kub.logger.Debugf("creating %s", filePath)
