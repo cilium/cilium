@@ -102,15 +102,15 @@ type EndpointFrontend interface {
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/common.h>
 type EndpointInfo struct {
-	IfIndex uint32
-	Unused  uint16
-	LxcID   uint16
-	Flags   uint32
+	IfIndex uint32 `align:"ifindex"`
+	Unused  uint16 `align:"unused"`
+	LxcID   uint16 `align:"lxc_id"`
+	Flags   uint32 `align:"flags"`
 	// go alignment
 	_       uint32
-	MAC     MAC
-	NodeMAC MAC
-	Pad     [4]uint32
+	MAC     MAC       `align:"mac"`
+	NodeMAC MAC       `align:"node_mac"`
+	Pad     [4]uint32 `align:"pad"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value

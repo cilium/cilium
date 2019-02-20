@@ -33,11 +33,11 @@ var (
 )
 
 type Proxy4Key struct {
-	SAddr   types.IPv4
-	DPort   uint16
-	SPort   uint16
-	Nexthdr uint8
-	Pad     uint8
+	SAddr   types.IPv4 `align:"saddr"`
+	DPort   uint16     `align:"dport"`
+	SPort   uint16     `align:"sport"`
+	Nexthdr uint8      `align:"nexthdr"`
+	Pad     uint8      `align:"pad"`
 }
 
 // HostPort returns host port for provided proxy key
@@ -47,11 +47,11 @@ func (k *Proxy4Key) HostPort() string {
 }
 
 type Proxy4Value struct {
-	OrigDAddr      types.IPv4
-	OrigDPort      uint16
-	Pad            uint16
-	SourceIdentity uint32
-	Lifetime       uint32
+	OrigDAddr      types.IPv4 `align:"orig_daddr"`
+	OrigDPort      uint16     `align:"orig_dport"`
+	Pad            uint16     `align:"pad"`
+	SourceIdentity uint32     `align:"identity"`
+	Lifetime       uint32     `align:"lifetime"`
 }
 
 // GetSourceIdentity returns the source identity
