@@ -4,7 +4,7 @@ dist: trusty
 sudo: required
 
 go:
- - 1.11.1
+ - 1.11.5
 
 # This will travis to build on branch updates only for the master branch
 branches:
@@ -20,6 +20,6 @@ before_install: ./.travis/prepare.sh
 
 before_script:
   - export PATH=/usr/local/clang/bin:$PATH
-  - export GO=/home/travis/.gimme/versions/go1.11.1.linux.amd64/bin/go
+  - export GO=/home/travis/.gimme/versions/go1.11.5.linux.amd64/bin/go
 
 script: ./.travis/build.sh
