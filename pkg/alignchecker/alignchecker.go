@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,152 +14,239 @@
 
 package alignchecker
 
-/*
-#cgo CFLAGS: -I./../../bpf/lib -I./../../bpf/include -I ./../../bpf -D__NR_CPUS__=1
-#include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <linux/byteorder.h>
-#include <linux/unistd.h>
-#include <linux/bpf.h>
-#include <linux/perf_event.h>
-#include <sys/resource.h>
-#include "node_config.h"
-#include "lib/conntrack.h"
-#include "lib/maps.h"
-#include "sockops/bpf_sockops.h"
-*/
-import "C"
-
 import (
+	"bytes"
+	"compress/zlib"
+	"debug/dwarf"
+	"debug/elf"
+	"encoding/binary"
 	"fmt"
-	"os"
+	"io"
 	"reflect"
-
-	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/maps/configmap"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
-	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"strings"
 )
 
-func compareStructs(cStruct reflect.Type, vtc valueToCheck) error {
-	goStruct := vtc.goStruct
-	for i := 0; i < cStruct.NumField(); i++ {
-		cField := cStruct.Field(i)
-		goField := goStruct.Field(i)
-		if cField.Offset != goField.Offset {
-			cPrevField := cStruct.Field(i - 1)
-			goPrevField := goStruct.Field(i - 1)
-			cFieldSize := cField.Offset - cPrevField.Offset
-			goFieldSize := goField.Offset - goPrevField.Offset
-			return fmt.Errorf("C struct field %q (%d) has different size than GoStruct field %q (%d)",
-				cPrevField.Name, cFieldSize, goPrevField.Name, goFieldSize)
+// CheckStructAlignments checks whether size and offsets match of the given
+// C and Go structs which are listed in the given toCheck map (C struct name =>
+// Go struct reflect.Type).
+//
+// C struct size info is extracted from the given ELF object file debug section
+// encoded in DWARF.
+//
+// To find a matching C struct field, a Go field has to be tagged with
+// `align:"field_name_in_c_struct". In the case of unnamed union field, such
+// union fields can be referred with special tags - `align:"$union0"`,
+// `align:"$union1"`, etc.
+func CheckStructAlignments(pathToObj string, toCheck map[string]reflect.Type) error {
+	f, err := elf.Open(pathToObj)
+	if err != nil {
+		return fmt.Errorf("elf failed to open %s: %s", pathToObj, err)
+	}
+	defer f.Close()
+
+	d, err := getDWARFFromELF(f)
+	if err != nil {
+		return fmt.Errorf("cannot parse DWARF debug info %s: %s", pathToObj, err)
+	}
+
+	structs, err := getStructInfosFromDWARF(d, toCheck)
+	if err != nil {
+		return fmt.Errorf("cannot extract struct infos from DWARF %s: %s", pathToObj, err)
+	}
+
+	return check(toCheck, structs)
+}
+
+// structInfo contains C struct info
+type structInfo struct {
+	size         int64
+	fieldOffsets map[string]int64
+}
+
+func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string]reflect.Type) (map[string]structInfo, error) {
+	structs := make(map[string]structInfo)
+
+	r := d.Reader()
+
+	for entry, err := r.Next(); entry != nil && err == nil; entry, err = r.Next() {
+		// Read only DWARF struct entries
+		if entry.Tag != dwarf.TagStructType {
+			continue
+		}
+
+		t, err := d.Type(entry.Offset)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read DWARF info section at offset %d: %s",
+				entry.Offset, err)
+		}
+
+		st := t.(*dwarf.StructType)
+
+		if _, found := toCheck[st.StructName]; found {
+			unionCount := 0
+			offsets := make(map[string]int64)
+			for _, field := range st.Field {
+				n := field.Name
+				// Create surrogate names ($union0, $union1, etc) for unnamed
+				// union members
+				if n == "" {
+					if t, ok := field.Type.(*dwarf.StructType); ok {
+						if t.Kind == "union" {
+							n = fmt.Sprintf("$union%d", unionCount)
+							unionCount++
+						}
+					}
+				}
+				offsets[n] = field.ByteOffset
+			}
+			structs[st.StructName] = structInfo{
+				size:         st.ByteSize,
+				fieldOffsets: offsets,
+			}
 		}
 	}
-	goSize := goStruct.Size()
-	if vtc.sizeOfC != goSize {
-		return fmt.Errorf("C struct %q (%d) has different size than GoStruct %q (%d)",
-			cStruct.Name(), vtc.sizeOfC, goStruct.Name(), goSize)
+
+	return structs, nil
+}
+
+func check(toCheck map[string]reflect.Type, structs map[string]structInfo) error {
+	for name, g := range toCheck {
+		c, found := structs[name]
+		if !found {
+			return fmt.Errorf("C struct %s not found", name)
+		}
+
+		if c.size != int64(g.Size()) {
+			return fmt.Errorf("struct sizes do not match: %s (%d) vs %s (%d)",
+				g, g.Size(), name, c.size)
+		}
+
+		for i := 0; i < g.NumField(); i++ {
+			fieldName := g.Field(i).Tag.Get("align")
+			// Ignore fields without `align` struct tag
+			if fieldName == "" {
+				continue
+			}
+			goOffset := int64(g.Field(i).Offset)
+			cOffset := structs[name].fieldOffsets[fieldName]
+			if goOffset != cOffset {
+				return fmt.Errorf("%s.%s offset (%d) does not match with %s.%s (%d)",
+					g, g.Field(i).Name, goOffset, name, fieldName, cOffset)
+			}
+		}
 	}
+
 	return nil
 }
 
-type valueToCheck struct {
-	sizeOfC  uintptr
-	goStruct reflect.Type
-}
+// Adopted from elf.File.DWARF
+// https://github.com/golang/go/blob/master/src/debug/elf/file.go (go1.11.2).
+//
+// The former method function tries to apply relocations when extracting DWARF
+// debug sections. Unfortunately, the relocations are not implemented for EM_BPF,
+// so the method fails.
+//
+// For struct alignment checks, no relocations are needed, so we comment out
+// the relocation bits.
+//
+// NOTE: DO NOT USE THE FUNCTION FOR ANYTHING ELSE!
+func getDWARFFromELF(f *elf.File) (*dwarf.Data, error) {
+	dwarfSuffix := func(s *elf.Section) string {
+		switch {
+		case strings.HasPrefix(s.Name, ".debug_"):
+			return s.Name[7:]
+		case strings.HasPrefix(s.Name, ".zdebug_"):
+			return s.Name[8:]
+		default:
+			return ""
+		}
 
-var cToGO = map[reflect.Type]valueToCheck{
-	reflect.TypeOf(C.struct_ipv4_ct_tuple{}): {
-		sizeOfC:  C.sizeof_struct_ipv4_ct_tuple,
-		goStruct: reflect.TypeOf(ctmap.CtKey4{}),
-	},
-	reflect.TypeOf(C.struct_ipv6_ct_tuple{}): {
-		sizeOfC:  C.sizeof_struct_ipv6_ct_tuple,
-		goStruct: reflect.TypeOf(ctmap.CtKey6{}),
-	},
-	reflect.TypeOf(C.struct_ct_entry{}): {
-		sizeOfC:  C.sizeof_struct_ct_entry,
-		goStruct: reflect.TypeOf(ctmap.CtEntry{}),
-	},
-	reflect.TypeOf(C.struct_ipcache_key{}): {
-		sizeOfC:  C.sizeof_struct_ipcache_key,
-		goStruct: reflect.TypeOf(ipcache.Key{}),
-	},
-	reflect.TypeOf(C.struct_remote_endpoint_info{}): {
-		sizeOfC:  C.sizeof_struct_remote_endpoint_info,
-		goStruct: reflect.TypeOf(ipcache.RemoteEndpointInfo{}),
-	},
-	reflect.TypeOf(C.struct_lb4_key{}): {
-		sizeOfC:  C.sizeof_struct_lb4_key,
-		goStruct: reflect.TypeOf(lbmap.Service4Key{}),
-	},
-	reflect.TypeOf(C.struct_lb4_service{}): {
-		sizeOfC:  C.sizeof_struct_lb4_service,
-		goStruct: reflect.TypeOf(lbmap.Service4Value{}),
-	},
-	reflect.TypeOf(C.struct_lb6_key{}): {
-		sizeOfC:  C.sizeof_struct_lb6_key,
-		goStruct: reflect.TypeOf(lbmap.Service6Key{}),
-	},
-	reflect.TypeOf(C.struct_lb6_service{}): {
-		sizeOfC:  C.sizeof_struct_lb6_service,
-		goStruct: reflect.TypeOf(lbmap.Service6Value{}),
-	},
-	reflect.TypeOf(C.struct_endpoint_key{}): {
-		sizeOfC:  C.sizeof_struct_endpoint_key,
-		goStruct: reflect.TypeOf(bpf.EndpointKey{}),
-	},
-	reflect.TypeOf(C.struct_endpoint_info{}): {
-		sizeOfC:  C.sizeof_struct_endpoint_info,
-		goStruct: reflect.TypeOf(lxcmap.EndpointInfo{}),
-	},
-	reflect.TypeOf(C.struct_metrics_key{}): {
-		sizeOfC:  C.sizeof_struct_metrics_key,
-		goStruct: reflect.TypeOf(metricsmap.Key{}),
-	},
-	reflect.TypeOf(C.struct_metrics_value{}): {
-		sizeOfC:  C.sizeof_struct_metrics_value,
-		goStruct: reflect.TypeOf(metricsmap.Value{}),
-	},
-	reflect.TypeOf(C.struct_proxy4_tbl_key{}): {
-		sizeOfC:  C.sizeof_struct_proxy4_tbl_key,
-		goStruct: reflect.TypeOf(proxymap.Proxy4Key{}),
-	},
-	reflect.TypeOf(C.struct_proxy4_tbl_value{}): {
-		sizeOfC:  C.sizeof_struct_proxy4_tbl_value,
-		goStruct: reflect.TypeOf(proxymap.Proxy4Value{}),
-	},
-	reflect.TypeOf(C.struct_proxy6_tbl_key{}): {
-		sizeOfC:  C.sizeof_struct_proxy6_tbl_key,
-		goStruct: reflect.TypeOf(proxymap.Proxy6Key{}),
-	},
-	reflect.TypeOf(C.struct_proxy6_tbl_value{}): {
-		sizeOfC:  C.sizeof_struct_proxy6_tbl_value,
-		goStruct: reflect.TypeOf(proxymap.Proxy6Value{}),
-	},
-	reflect.TypeOf(C.struct_sock_key{}): {
-		sizeOfC:  C.sizeof_struct_sock_key,
-		goStruct: reflect.TypeOf(sockmap.SockmapKey{}),
-	},
-	reflect.TypeOf(C.struct_ep_config{}): {
-		sizeOfC:  C.sizeof_struct_ep_config,
-		goStruct: reflect.TypeOf(configmap.EndpointConfig{}),
-	},
-}
+	}
+	// sectionData gets the data for s, checks its size, and
+	// applies any applicable relations.
+	sectionData := func(i int, s *elf.Section) ([]byte, error) {
+		b, err := s.Data()
+		if err != nil && uint64(len(b)) < s.Size {
+			return nil, err
+		}
 
-func init() {
-	for k, v := range cToGO {
-		err := compareStructs(k, v)
+		if len(b) >= 12 && string(b[:4]) == "ZLIB" {
+			dlen := binary.BigEndian.Uint64(b[4:12])
+			dbuf := make([]byte, dlen)
+			r, err := zlib.NewReader(bytes.NewBuffer(b[12:]))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := io.ReadFull(r, dbuf); err != nil {
+				return nil, err
+			}
+			if err := r.Close(); err != nil {
+				return nil, err
+			}
+			b = dbuf
+		}
+
+		for _, r := range f.Sections {
+			if r.Type != elf.SHT_RELA && r.Type != elf.SHT_REL {
+				continue
+			}
+			if int(r.Info) != i {
+				continue
+			}
+			//rd, err := r.Data()
+			_, err := r.Data()
+			if err != nil {
+				return nil, err
+			}
+			// err = f.applyRelocations(b, rd)
+			// if err != nil {
+			// 	return nil, err
+			// }
+		}
+		return b, nil
+	}
+
+	// There are many other DWARF sections, but these
+	// are the ones the debug/dwarf package uses.
+	// Don't bother loading others.
+	var dat = map[string][]byte{"abbrev": nil, "info": nil, "str": nil, "line": nil, "ranges": nil}
+	for i, s := range f.Sections {
+		suffix := dwarfSuffix(s)
+		if suffix == "" {
+			continue
+		}
+		if _, ok := dat[suffix]; !ok {
+			continue
+		}
+		b, err := sectionData(i, s)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "different structure types for CGO and GO: %s != %s\n", k, v.goStruct)
-			panic(err)
+			return nil, err
+		}
+		dat[suffix] = b
+	}
+
+	d, err := dwarf.New(dat["abbrev"], nil, nil, dat["info"], dat["line"], nil, dat["ranges"], dat["str"])
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for DWARF4 .debug_types sections.
+	for i, s := range f.Sections {
+		suffix := dwarfSuffix(s)
+		if suffix != "types" {
+			continue
+		}
+
+		b, err := sectionData(i, s)
+		if err != nil {
+			return nil, err
+		}
+
+		err = d.AddTypes(fmt.Sprintf("types-%d", i), b)
+		if err != nil {
+			return nil, err
 		}
 	}
+
+	return d, nil
 }
