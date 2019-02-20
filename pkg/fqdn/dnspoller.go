@@ -105,7 +105,7 @@ func (poller *DNSPoller) LookupUpdateDNS() error {
 		poller.config.PollerResponseNotify(lookupTime, qname, response)
 	}
 
-	return poller.ruleManager.UpdateGenerateDNS(lookupTime, updatedDNSIPs)
+	return poller.ruleManager.UpdateGenerateDNS(lookupTime, updatedDNSIPs, "poller")
 }
 
 // noopPollerResponseNotify is used when no PollerResponseNotify is set.

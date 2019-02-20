@@ -70,11 +70,11 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		MinTTL:         option.Config.ToFQDNsMinTTL,
 		Cache:          fqdn.DefaultDNSCache,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
+		AddGeneratedRules: func(generatedRules []*policyApi.Rule, rid string) error {
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
-			requestUUID := fmt.Sprintf("%s---AddGeneratedRulesCB", uuid.NewUUID().String())
+			requestUUID := fmt.Sprintf("%s---AddGeneratedRulesCB", rid)
 			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true}, requestUUID)
 			return err
 		},
@@ -358,13 +358,13 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				if ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL) {
 					ep.SyncEndpointHeaderFile(d)
 				}
-
+				rid := fmt.Sprintf("%s-%s-response", uuid.NewUUID().String())
 				log.Debug("Updating DNS name in cache from response to to query")
 				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 					qname: {
 						IPs: responseIPs,
 						TTL: int(effectiveTTL),
-					}})
+					}}, rid)
 				if err != nil {
 					log.WithError(err).Error("error updating internal DNS cache for rule generation")
 				}

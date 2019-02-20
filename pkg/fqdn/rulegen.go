@@ -90,7 +90,7 @@ func NewRuleGen(config Config) *RuleGen {
 	}
 
 	if config.AddGeneratedRules == nil {
-		config.AddGeneratedRules = func(generatedRules []*api.Rule) error { return nil }
+		config.AddGeneratedRules = func(generatedRules []*api.Rule, rid string) error { return nil }
 	}
 
 	return &RuleGen{
@@ -228,11 +228,13 @@ func (gen *RuleGen) GetDNSNames() (dnsNames []string) {
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name, store which rules must be updated in rulesToUpdate,
 // regenerate them, and emit via AddGeneratedRules.
-func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) error {
+func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords, RequestID string) error {
+
+	logger := log.WithField("PolicyAddRequest", RequestID)
 	// Update IPs in gen
 	uuidsToUpdate, updatedDNSNames := gen.UpdateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
-		log.WithFields(logrus.Fields{
+		logger.WithFields(logrus.Fields{
 			"matchName":     dnsName,
 			"IPs":           IPs,
 			"uuidsToUpdate": uuidsToUpdate,
@@ -242,12 +244,12 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 	// Generate a new rule for each sourceRule that needs an update.
 	rulesToUpdate, notFoundUUIDs := gen.GetRulesByUUID(uuidsToUpdate)
 	if len(notFoundUUIDs) != 0 {
-		log.WithField("uuid", strings.Join(notFoundUUIDs, ",")).
+		logger.WithField("uuid", strings.Join(notFoundUUIDs, ",")).
 			Debug("Did not find all rules during update")
 	}
 	generatedRules, namesMissingIPs := gen.GenerateRulesFromSources(rulesToUpdate)
 	if len(namesMissingIPs) != 0 {
-		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+		logger.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
@@ -257,7 +259,7 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 	}
 
 	// emit the new rules
-	return gen.config.AddGeneratedRules(generatedRules)
+	return gen.config.AddGeneratedRules(generatedRules, RequestID)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
@@ -295,7 +297,7 @@ func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
 	}
 
 	// emit the new rules
-	return gen.config.AddGeneratedRules(generatedRules)
+	return gen.config.AddGeneratedRules(generatedRules, "ForceGenerateDNS")
 }
 
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
