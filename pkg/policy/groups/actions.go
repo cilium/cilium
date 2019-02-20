@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -112,6 +113,7 @@ func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 
 	k8sClient, err := getK8sClient()
 	if err != nil {
+		metrics.PolicyImportErrors.Inc()
 		scopedLog.WithError(err).Error("Cannot get Kubernetes client")
 	}
 
@@ -150,6 +152,7 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 		if derivativeErr == nil {
 			break
 		}
+		metrics.PolicyImportErrors.Inc()
 		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
 		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, derivativeErr)
 		if statusErr != nil {
@@ -162,6 +165,7 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	if err != nil {
 		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
 		if statusErr != nil {
+			metrics.PolicyImportErrors.Inc()
 			scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
 		}
 		return statusErr
