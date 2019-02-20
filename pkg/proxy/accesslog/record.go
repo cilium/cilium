@@ -286,17 +286,17 @@ type LogRecordDNS struct {
 	// RCode is the response code
 	// defined as per https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 	// Use 	github.com/miekg/dns.RcodeToString map to retrieve string representation
-	RCode int
+	RCode int `json:"RCode,omitempty"`
 
 	// QTypes are question types in DNS message
 	// https://www.ietf.org/rfc/rfc1035.txt
 	// Use github.com/miekg/dns.TypeToString map to retrieve string representation
-	QTypes []uint16
+	QTypes []uint16 `json:"QTypes,omitempty"`
 
 	// AnswerTypes are record types in the answer section
 	// https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
 	// Use github.com/miekg/dns.TypeToString map to retrieve string representation
-	AnswerTypes []uint16
+	AnswerTypes []uint16 `json:"AnswerTypes,omitempty"`
 }
 
 // LogRecordL7 contains the generic L7 portion of a log record

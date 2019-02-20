@@ -104,6 +104,18 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				record.LogRecord.NodeAddressInfo.IPv6 = ip.String()
 			}
 
+			// Construct the list of DNS types for question and answer RRs
+			questionTypes := []uint16{dns.TypeA, dns.TypeAAAA}
+			answerTypes := []uint16{}
+			for _, ip := range response.IPs {
+				if ip.To4() == nil {
+					answerTypes = append(answerTypes, dns.TypeAAAA)
+				} else {
+					answerTypes = append(answerTypes, dns.TypeA)
+				}
+			}
+
+			// Update DNS specific data in the LogRecord
 			logger.LogTags.Verdict(accesslog.VerdictForwarded, "DNSPoller")(&record)
 			logger.LogTags.DNS(&accesslog.LogRecordDNS{
 				Query:             qname,
@@ -111,6 +123,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				TTL:               uint32(response.TTL),
 				CNAMEs:            nil,
 				ObservationSource: accesslog.DNSSourceAgentPoller,
+				RCode:             dns.RcodeSuccess,
+				QTypes:            questionTypes,
+				AnswerTypes:       answerTypes,
 			})(&record)
 			record.Log()
 		}}
