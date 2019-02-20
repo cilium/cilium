@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
@@ -158,6 +159,7 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 func labelSelectorToRequirements(labelSelector *metav1.LabelSelector) *k8sLbls.Requirements {
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
+		metrics.PolicyImportErrors.Inc()
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
 			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
 		return nil
