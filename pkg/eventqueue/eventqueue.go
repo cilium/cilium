@@ -180,7 +180,7 @@ func (ev *Event) printStats() {
 // cancelled. It is assumed that the caller handles both cases for an Event
 // (cancel, or result of event) gracefully.
 func (q *EventQueue) Run() {
-	q.eventQueueOnce.Do(func() {
+	go q.eventQueueOnce.Do(func() {
 		for {
 			select {
 			// Receive next event. No other goroutine or process should consume

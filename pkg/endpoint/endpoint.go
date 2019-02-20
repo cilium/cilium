@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -290,6 +291,8 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
+	*eventqueue.EventQueue
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -412,9 +415,12 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
+		EventQueue:    eventqueue.NewEventQueueBuffered(25),
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
+	ep.Run()
+
 	return ep
 }
 
@@ -443,6 +449,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		desiredPolicy:    &policy.EndpointPolicy{},
 		realizedPolicy:   &policy.EndpointPolicy{},
 		controllers:      controller.NewManager(),
+		EventQueue:       eventqueue.NewEventQueueBuffered(25),
 	}
 	ep.UpdateLogger(nil)
 
@@ -482,6 +489,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
+	ep.Run()
 
 	return ep, nil
 }
@@ -785,7 +793,7 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	return policyEnabled
 }
 
-// GetID returns the endpoint's ID
+// GetID returns the endpoint's ID as a 64-bit unsigned integer.
 func (e *Endpoint) GetID() uint64 {
 	return uint64(e.ID)
 }
@@ -797,6 +805,17 @@ func (e *Endpoint) GetLabels() []string {
 	}
 
 	return e.SecurityIdentity.Labels.GetModel()
+}
+
+// GetSecurityIdentity returns the security identity of the endpoint. It assumes
+// the endpoint's mutex.
+func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
+	return e.SecurityIdentity
+}
+
+// GetID16 returns the endpoint's ID as a 16-bit unsigned integer.
+func (e *Endpoint) GetID16() uint16 {
+	return e.ID
 }
 
 // GetK8sPodLabels returns all labels that exist in the endpoint and were
@@ -1037,6 +1056,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = &policy.EndpointPolicy{}
 	ep.realizedPolicy = &policy.EndpointPolicy{}
 	ep.controllers = controller.NewManager()
+	ep.EventQueue = eventqueue.NewEventQueueBuffered(25)
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -1049,6 +1069,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
+	ep.Run()
 
 	return &ep, nil
 }
@@ -1963,6 +1984,8 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
+
+	owner.ClearPolicyConsumers(e.ID).Wait()
 
 	e.SetIdentity(identity)
 

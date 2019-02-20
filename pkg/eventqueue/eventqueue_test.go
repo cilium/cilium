@@ -48,7 +48,7 @@ func (s *EventQueueSuite) TestCloseEventQueueMultipleTimes(c *C) {
 
 func (s *EventQueueSuite) TestDrained(c *C) {
 	q := NewEventQueue()
-	go q.Run()
+	q.Run()
 
 	// Stopping queue should drain it as well.
 	q.Stop()
@@ -79,7 +79,7 @@ func (d *DummyEvent) Handle(ifc chan interface{}) {
 
 func (s *EventQueueSuite) TestEventCancelAfterQueueClosed(c *C) {
 	q := NewEventQueue()
-	go q.Run()
+	q.Run()
 	ev := NewEvent(&DummyEvent{})
 	q.Enqueue(ev)
 
