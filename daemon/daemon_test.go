@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,6 +72,7 @@ type DaemonSuite struct {
 	OnGetCompilationLock      func() *lock.RWMutex
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
 	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
+	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -125,6 +127,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
+	ds.OnClearPolicyConsumers = nil
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -279,4 +282,11 @@ func (ds *DaemonSuite) NewProxyLogRecord(l *accesslog.LogRecord) error {
 
 func (ds *DaemonSuite) Datapath() datapath.Datapath {
 	return ds.d.datapath
+}
+
+func (ds *DaemonSuite) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
+	if ds.OnClearPolicyConsumers != nil {
+		return ds.OnClearPolicyConsumers(id)
+	}
+	panic("ClearPolicyConsumers should not have been called")
 }
