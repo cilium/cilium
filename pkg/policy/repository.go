@@ -203,6 +203,7 @@ func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 	egressL4Policy, err := p.ResolveL4EgressPolicy(ctx)
 	if err != nil {
+		metrics.PolicyImportErrors.Inc()
 		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
 	}
 	verdict := api.Undecided
@@ -222,6 +223,7 @@ func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
 	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)
 	if err != nil {
+		metrics.PolicyImportErrors.Inc()
 		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
 	}
 	verdict := api.Undecided
