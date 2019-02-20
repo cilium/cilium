@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path"
 	"runtime"
 
@@ -128,6 +129,14 @@ func prepareCmdPipes(cmd *exec.Cmd) (io.ReadCloser, io.ReadCloser, error) {
 	return stdout, stderr, nil
 }
 
+func pidFromProcess(proc *os.Process) string {
+	result := "not-started"
+	if proc != nil {
+		result = fmt.Sprintf("%d", proc.Pid)
+	}
+	return result
+}
+
 // compileAndLink links the specified program from the specified path to the
 // intermediate representation, to the output specified in the prog's info.
 func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool, compileArgs ...string) error {
@@ -163,8 +172,8 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	if err != nil {
 		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
 		log.WithFields(logrus.Fields{
-			"compiler-pid": compileCmd.Process.Pid,
-			"linker-pid":   linkCmd.Process.Pid,
+			"compiler-pid": pidFromProcess(compileCmd.Process),
+			"linker-pid":   pidFromProcess(linkCmd.Process),
 		}).Error(err)
 		if compileOut != nil {
 			scopedLog := log.Warn
