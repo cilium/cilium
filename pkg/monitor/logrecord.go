@@ -91,10 +91,15 @@ func (l *LogRecordNotify) DumpInfo() {
 	}
 
 	if l.DNS != nil {
-		t, _ := dns.TypeToString[l.DNS.QTypes[0]]
+		types := []string{}
+		for _, t := range l.DNS.QTypes {
+			types = append(types, dns.TypeToString[t])
+		}
+		qTypeStr := strings.Join(types, ",")
+
 		switch {
 		case l.Type == accesslog.TypeRequest:
-			fmt.Printf(" DNS Query: %s %s", l.DNS.Query, t)
+			fmt.Printf(" DNS Query: %s %s", l.DNS.Query, qTypeStr)
 
 		case l.Type == accesslog.TypeResponse:
 			sourceType := "Query"
@@ -102,7 +107,7 @@ func (l *LogRecordNotify) DumpInfo() {
 				sourceType = "Poll"
 			}
 
-			fmt.Printf(" DNS %s: %s %s", sourceType, l.DNS.Query, t)
+			fmt.Printf(" DNS %s: %s %s", sourceType, l.DNS.Query, qTypeStr)
 
 			ips := make([]string, 0, len(l.DNS.IPs))
 			for _, ip := range l.DNS.IPs {
