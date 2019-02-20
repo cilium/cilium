@@ -31,10 +31,11 @@ const (
 //
 // Must be in sync with struct endpoint_key in <bpf/lib/common.h>
 type EndpointKey struct {
-	IP     types.IPv6 // represents both IPv6 and IPv4 (in the lowest four bytes)
-	Family uint8
-	Pad1   uint8
-	Pad2   uint16
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	IP     types.IPv6 `align:"$union0"`
+	Family uint8      `align:"family"`
+	Pad1   uint8      `align:"pad4"`
+	Pad2   uint16     `align:"pad5"`
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
