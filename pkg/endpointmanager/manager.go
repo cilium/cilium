@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -199,25 +200,52 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 	updateReferences(ep)
 }
 
-// Remove removes the endpoint from the global maps.
-// Must be called with ep.Mutex.RLock held.
-func Remove(ep *endpoint.Endpoint) {
+// Remove removes the endpoint from the global maps and releases the node-local
+// ID allocated for the endpoint.
+// Must be called with ep.Mutex.RLock held. If the provided WaitGroup is non-nil,
+// release of the ID for the endpoint is done asynchronously, and the endpoint
+// ID will not be released until the WaitGroup has signaled that it is done.
+func Remove(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	// This must be done before the ID is released for the endpoint!
 	delete(endpoints, ep.ID)
 
-	if err := endpointid.Release(ep.ID); err != nil {
-		// While restoring, endpoint IDs may not have been reused yet.
-		// Failure to release means that the endpoint ID was not reused
-		// yet.
-		//
-		// While endpoint is disconnecting, ID is already available in ID cache.
-		//
-		// Avoid irritating warning messages.
-		state := ep.GetStateLocked()
-		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
-			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+	if wg == nil {
+		if err := endpointid.Release(ep.ID); err != nil {
+			// While restoring, endpoint IDs may not have been reused yet.
+			// Failure to release means that the endpoint ID was not reused
+			// yet.
+			//
+			// While endpoint is disconnecting, ID is already available in ID cache.
+			//
+			// Avoid irritating warning messages.
+			state := ep.GetStateLocked()
+			if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
+				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+			}
 		}
+	} else {
+		go func(epID uint16, wgg *sync.WaitGroup) {
+			// Need to wait for cleanup to be done before endpoint ID is released, otherwise
+			// the same ID could be allocated for another endpoint, and that endpoint
+			// could be regenerated.
+			wgg.Wait()
+			if err := endpointid.Release(ep.ID); err != nil {
+				// While restoring, endpoint IDs may not have been reused yet.
+				// Failure to release means that the endpoint ID was not reused
+				// yet.
+				//
+				// While endpoint is disconnecting, ID is already available in ID cache.
+				//
+				// Avoid irritating warning messages.
+				state := ep.GetStateLocked()
+				if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
+					log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+				}
+			}
+		}(ep.ID, wg)
 	}
 
 	if ep.ContainerID != "" {
@@ -304,6 +332,18 @@ func lookupContainerID(id string) *endpoint.Endpoint {
 	return nil
 }
 
+// EndpointIdentityMapping returns the mapping of all endpoint IDs to their
+// corresponding security identity which are being managed by the endpointmanager.
+func EndpointIdentityMapping() map[uint16]*identity.Identity {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	endpointIDs := make(map[uint16]*identity.Identity, len(endpoints))
+	for id, ep := range endpoints {
+		endpointIDs[id] = ep.SecurityIdentity
+	}
+	return endpointIDs
+}
+
 // UpdateReferences updates the mappings of various values to their corresponding
 // endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
 func updateReferences(ep *endpoint.Endpoint) {
@@ -361,6 +401,32 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 		}(ep, &wg)
 	}
 
+	return &wg
+}
+
+// RegenerateEndpointSet is similar to RegenerateAllEndpoints, except it only
+// regenerates all endpoints with IDs in endpointIDs.
+func RegenerateEndpointSet(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	wg.Add(len(endpointIDs))
+
+	for endpointID := range endpointIDs {
+		ep := endpoints[endpointID]
+		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
+			if err := ep.LockAlive(); err != nil {
+				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+			} else {
+				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+				ep.Unlock()
+				if regen {
+					// Regenerate logs status according to the build success/failure
+					<-ep.Regenerate(owner, regenMetadata)
+				}
+			}
+			wg.Done()
+		}(ep, &wg)
+	}
 	return &wg
 }
 

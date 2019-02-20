@@ -1972,6 +1972,9 @@ func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
+	identityChangedWG := owner.ClearPolicyConsumers(e.ID)
+	identityChangedWG.Wait()
+
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
