@@ -107,20 +107,20 @@ func (cfg *EndpointConfig) String() string {
 
 // EndpointConfig represents the value of the endpoint's BPF map.
 //
-// Must be in sync with struct config_value in <bpf/lib/common.h>
+// Must be in sync with struct ep_config in <bpf/lib/common.h>
 type EndpointConfig struct {
-	Flags Flags
+	Flags Flags `align:"flags"`
 	// NOTE: everything below this comment is not plumbed yet. This will be done
 	// through future work. See GH-6273.
-	IPv4 types.IPv4
-	IPv6 types.IPv6
+	IPv4 types.IPv4 `align:"ipv4Addr"`
+	IPv6 types.IPv6 `align:"ipv6Addr"`
 	// TODO: put lxcmap.MAC into its own pkg?
-	NodeMAC            lxcmap.MAC
-	LXCID              uint16
-	LXCIDNB            uint16
-	SecurityIdentity   uint32
-	SecurityIdentityNB uint32
-	Pad                uint32
+	NodeMAC            lxcmap.MAC `align:"node_mac"`
+	LXCID              uint16     `align:"lxc_id"`
+	LXCIDNB            uint16     `align:"lxc_id_nb"`
+	SecurityIdentity   uint32     `align:"identity"`
+	SecurityIdentityNB uint32     `align:"identity_nb"`
+	Pad                uint32     `align:"pad"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value

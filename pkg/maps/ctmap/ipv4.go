@@ -27,12 +27,12 @@ import (
 
 //CtKey4 represents the key for IPv4 entries in the local BPF conntrack map.
 type CtKey4 struct {
-	DestAddr   types.IPv4
-	SourceAddr types.IPv4
-	DestPort   uint16
-	SourcePort uint16
-	NextHeader u8proto.U8proto
-	Flags      uint8
+	DestAddr   types.IPv4      `align:"daddr"`
+	SourceAddr types.IPv4      `align:"saddr"`
+	DestPort   uint16          `align:"dport"`
+	SourcePort uint16          `align:"sport"`
+	NextHeader u8proto.U8proto `align:"nexthdr"`
+	Flags      uint8           `align:"flags"`
 }
 
 // GetKeyPtr returns the unsafe.Pointer for k.
