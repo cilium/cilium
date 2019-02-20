@@ -65,16 +65,15 @@ var direction = map[uint8]string{
 
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
 type Key struct {
-	Reason uint8
-	Dir    uint8
-	Pad1   uint16
-	Pad2   uint32
+	Reason   uint8     `align:"reason"`
+	Dir      uint8     `align:"dir"`
+	Reserved [3]uint16 `align:"reserved"`
 }
 
 // Value must be in sync with struct metrics_value in <bpf/lib/common.h>
 type Value struct {
-	Count uint64
-	Bytes uint64
+	Count uint64 `align:"count"`
+	Bytes uint64 `align:"bytes"`
 }
 
 // String converts the key into a human readable string format
