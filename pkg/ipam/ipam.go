@@ -104,6 +104,12 @@ func (ipam *IPAM) reserveLocalRoutes() {
 			continue
 		}
 
+		// ignore black hole route
+		if r.Src == nil && r.Gw == nil {
+			log.WithField("route", r).Debugf("Ignoring route: black hole")
+			continue
+		}
+
 		log.WithField("route", logfields.Repr(r)).Debug("Considering route")
 
 		if allocRange.Contains(r.Dst.IP) {
