@@ -585,6 +585,10 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
 
+	// Since the endpoint is being deleted, we no longer need to run events
+	// in its event queue.
+	ep.EventQueue.Stop()
+
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
 	endpointmanager.Remove(ep)
