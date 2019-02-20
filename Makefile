@@ -166,7 +166,7 @@ docker-image-no-clean: GIT_VERSION
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		-t "cilium/cilium:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "${CONTAINER_ENGINE_FULL} push cilium/cilium:$(DOCKER_IMAGE_TAG)"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium:$(DOCKER_IMAGE_TAG)"
 
 dev-docker-image: GIT_VERSION
 	$(CONTAINER_ENGINE_FULL) build \
@@ -175,13 +175,13 @@ dev-docker-image: GIT_VERSION
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		-t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "${CONTAINER_ENGINE_FULL} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)"
 
 docker-image-init:
-	$(QUIET)cd contrib/packaging/docker && ${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
+	$(QUIET)cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-init:$(UTC_DATE)" -f Dockerfile.init .
 
 docker-image-runtime:
-	cd contrib/packaging/docker && ${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
+	cd contrib/packaging/docker && ${CONTAINER_ENGINE} build -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
 
 docker-image-builder:
 	${CONTAINER_ENGINE_FULL} build -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
