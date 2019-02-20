@@ -27,12 +27,12 @@ import (
 
 //CtKey6 represents the key for IPv6 entries in the local BPF conntrack map.
 type CtKey6 struct {
-	DestAddr   types.IPv6
-	SourceAddr types.IPv6
-	DestPort   uint16
-	SourcePort uint16
-	NextHeader u8proto.U8proto
-	Flags      uint8
+	DestAddr   types.IPv6      `align:"daddr"`
+	SourceAddr types.IPv6      `align:"saddr"`
+	DestPort   uint16          `align:"dport"`
+	SourcePort uint16          `align:"sport"`
+	NextHeader u8proto.U8proto `align:"nexthdr"`
+	Flags      uint8           `align:"flags"`
 }
 
 // GetKeyPtr returns the unsafe.Pointer for k.

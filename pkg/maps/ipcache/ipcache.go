@@ -53,13 +53,14 @@ const (
 
 // Key implements the bpf.MapKey interface.
 //
-// Must be in sync with struct bpf_ipcache_key in <bpf/lib/eps.h>
+// Must be in sync with struct ipcache_key in <bpf/lib/maps.h>
 type Key struct {
-	Prefixlen uint32
-	Pad1      uint16
-	Pad2      uint8
-	Family    uint8
-	IP        types.IPv6 // represents both IPv6 and IPv4 (in the lowest four bytes)
+	Prefixlen uint32 `align:"lpm_key"`
+	Pad1      uint16 `align:"pad1"`
+	Pad2      uint8  `align:"pad2"`
+	Family    uint8  `align:"family"`
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	IP types.IPv6 `align:"$union0"`
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
@@ -125,8 +126,8 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32
-	TunnelEndpoint   [4]byte
+	SecurityIdentity uint32  `align:"sec_label"`
+	TunnelEndpoint   [4]byte `align:"tunnel_endpoint"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
