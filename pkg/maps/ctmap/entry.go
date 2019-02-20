@@ -23,20 +23,20 @@ import (
 
 // CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
-	RxPackets uint64
-	RxBytes   uint64
-	TxPackets uint64
-	TxBytes   uint64
-	Lifetime  uint32
-	Flags     uint16
+	RxPackets uint64 `align:"rx_packets"`
+	RxBytes   uint64 `align:"rx_bytes"`
+	TxPackets uint64 `align:"tx_packets"`
+	TxBytes   uint64 `align:"tx_bytes"`
+	Lifetime  uint32 `align:"lifetime"`
+	Flags     uint16 `align:"rx_closing"`
 	// RevNAT is in network byte order
-	RevNAT           uint16
-	Slave            uint16
-	TxFlagsSeen      uint8
-	RxFlagsSeen      uint8
-	SourceSecurityID uint32
-	LastTxReport     uint32
-	LastRxReport     uint32
+	RevNAT           uint16 `align:"rev_nat_index"`
+	Slave            uint16 `align:"slave"`
+	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
+	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
+	SourceSecurityID uint32 `align:"src_sec_id"`
+	LastTxReport     uint32 `align:"last_tx_report"`
+	LastRxReport     uint32 `align:"last_rx_report"`
 }
 
 // GetValuePtr returns the unsafe.Pointer for s.

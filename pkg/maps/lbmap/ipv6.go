@@ -80,9 +80,9 @@ var (
 
 // Service6Key must match 'struct lb6_key' in "bpf/lib/common.h".
 type Service6Key struct {
-	Address types.IPv6
-	Port    uint16
-	Slave   uint16
+	Address types.IPv6 `align:"address"`
+	Port    uint16     `align:"dport"`
+	Slave   uint16     `align:"slave"`
 }
 
 func NewService6Key(ip net.IP, port uint16, slave uint16) *Service6Key {
@@ -133,11 +133,11 @@ func (k *Service6Key) RevNatValue() RevNatValue {
 
 // Service6Value must match 'struct lb6_service' in "bpf/lib/common.h".
 type Service6Value struct {
-	Address types.IPv6
-	Port    uint16
-	Count   uint16
-	RevNat  uint16
-	Weight  uint16
+	Address types.IPv6 `align:"target"`
+	Port    uint16     `align:"port"`
+	Count   uint16     `align:"count"`
+	RevNat  uint16     `align:"rev_nat_index"`
+	Weight  uint16     `align:"weight"`
 }
 
 func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service6Value {

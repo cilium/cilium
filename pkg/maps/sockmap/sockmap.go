@@ -27,13 +27,13 @@ import (
 
 // SockmapKey is the 5-tuple used to lookup a socket
 type SockmapKey struct {
-	DIP    types.IPv6
-	SIP    types.IPv6
-	Family uint8
-	Pad7   uint8
-	Pad8   uint16
-	SPort  uint32
-	DPort  uint32
+	DIP    types.IPv6 `align:"$union0"`
+	SIP    types.IPv6 `align:"$union1"`
+	Family uint8      `align:"family"`
+	Pad7   uint8      `align:"pad7"`
+	Pad8   uint16     `align:"pad8"`
+	SPort  uint32     `align:"sport"`
+	DPort  uint32     `align:"dport"`
 }
 
 // SockmapValue is the fd of a socket
