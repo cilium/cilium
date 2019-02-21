@@ -207,10 +207,6 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-    if [ "$IN" = "bpf_alignchecker.c" ]; then
-        echo "compiling $LIB/$IN to $OUT" >> /var/run/cilium/state/bpf_compile.log
-        cat $LIB/$IN >> /var/run/cilium/state/bpf_compile.log
-    fi
 
 	clang -O2 -g -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
@@ -221,6 +217,12 @@ function bpf_compile()
 	      $EXTRA_OPTS						\
 	      -c $LIB/$IN -o - |					\
 	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $OUT
+
+    if [ "$IN" = "bpf_alignchecker.c" ]; then
+        echo "compiled $LIB/$IN to $OUT" >> /var/run/cilium/state/bpf_compile.log
+        cat $LIB/$IN >> /var/run/cilium/state/bpf_compile.log
+        cat $OUT | base64 >> /var/run/cilium/state/bpf_compile.log
+    fi
 }
 
 function xdp_load()
