@@ -199,13 +199,7 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 	updateReferences(ep)
 }
 
-// Remove removes the endpoint from the global maps.
-// Must be called with ep.Mutex.RLock held.
-func Remove(ep *endpoint.Endpoint) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	delete(endpoints, ep.ID)
-
+func releaseID(ep *endpoint.Endpoint) {
 	if err := endpointid.Release(ep.ID); err != nil {
 		// While restoring, endpoint IDs may not have been reused yet.
 		// Failure to release means that the endpoint ID was not reused
@@ -218,6 +212,32 @@ func Remove(ep *endpoint.Endpoint) {
 		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
 			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 		}
+	}
+}
+
+// Remove removes the endpoint from the global maps and releases the node-local
+// ID allocated for the endpoint.
+// Must be called with ep.Mutex.RLock held. If the provided WaitGroup is non-nil,
+// release of the ID for the endpoint is done asynchronously, and the endpoint
+// ID will not be released until the WaitGroup has signaled that it is done.
+func Remove(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// This must be done before the ID is released for the endpoint!
+	delete(endpoints, ep.ID)
+
+	if wg == nil {
+		releaseID(ep)
+	} else {
+		go func(ep *endpoint.Endpoint, wgg *sync.WaitGroup) {
+			// Need to wait for cleanup for consumers of endpoint ID to be done
+			// before endpoint ID is released, otherwise the same ID could be
+			// allocated for another endpoint, and that endpoint could be
+			// regenerated.
+			wgg.Wait()
+			releaseID(ep)
+		}(ep, wg)
 	}
 
 	if ep.ContainerID != "" {
