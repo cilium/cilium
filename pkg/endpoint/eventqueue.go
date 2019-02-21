@@ -40,3 +40,7 @@ func (e *Endpoint) Enqueue(epEvent *eventqueue.Event) {
 func (e *Endpoint) CloseEventQueue() {
 	e.eventQueue.Stop()
 }
+
+func (e *Endpoint) WaitQueueDrained() {
+	e.eventQueue.WaitDrained()
+}
