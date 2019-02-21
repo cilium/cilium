@@ -57,8 +57,6 @@ type DNSProxy struct {
 	// requests. This is a read-only value and reflects the actual value. Passing
 	// ":0" to StartDNSProxy will allow the kernel to set the port, and that can
 	// be read here.
-	// Note: unlike the other proxies, this server listens on a fixed, shared,
-	// port.
 	BindAddr string
 
 	// BindPort is the port in BindAddr.

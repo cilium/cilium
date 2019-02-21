@@ -133,7 +133,13 @@ func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry 
 		// when any DNS rule is removed. We rely on that happening elsewhere.
 		DNSProxyPort: DefaultDNSProxy.BindPort,
 	}
-	r.ProxyPort = dr.DNSProxyPort
+	if r.ProxyPort != dr.DNSProxyPort {
+		log.WithFields(logrus.Fields{
+			"dnsRedirect": dr,
+			"conf":        conf,
+		}).Errorf("Mismatching DNS proxy port: %d, should be %d", r.ProxyPort, dr.DNSProxyPort)
+		r.ProxyPort = dr.DNSProxyPort
+	}
 
 	log.WithFields(logrus.Fields{
 		"dnsRedirect": dr,

@@ -213,16 +213,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	}
 
 	var to uint16
-	fixedProxyPort := false
-	listenerName := id
-	// Detect the need for a reusable listener here and override the defaults, e.g.:
-	// if <need reusable listener> {
-	//         listenerName = "cilium-xxxx-yyyy" // unique name for the reusable listener
-	//         to = <port> // listener port to use
-	//         fixedProxyPort = true // needed if `to` was overridden above
-	// }
+	var listenerName string
 
-	if l4.L7Parser == policy.ParserTypeHTTP {
+	// Detect the need for a reusable listener here and override the defaults:
+	switch l4.L7Parser {
+	case policy.ParserTypeHTTP:
 		if l4.Ingress {
 			listenerName = "cilium-http-ingress"
 			to = 6773
@@ -230,7 +225,30 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			listenerName = "cilium-http-egress"
 			to = 6769
 		}
-		fixedProxyPort = true
+	case policy.ParserTypeKafka:
+		if l4.Ingress {
+			listenerName = "cilium-kafka-ingress"
+			to = 6774
+		} else {
+			listenerName = "cilium-kafka-egress"
+			to = 6770
+		}
+	case policy.ParserTypeDNS:
+		if l4.Ingress {
+			listenerName = "cilium-dns-ingress"
+			to = 6775
+		} else {
+			listenerName = "cilium-dns-egress"
+			to = 6771
+		}
+	default:
+		if l4.Ingress {
+			listenerName = "cilium-tcp-ingress"
+			to = 6776
+		} else {
+			listenerName = "cilium-tcp-egress"
+			to = 6772
+		}
 	}
 
 	redir = newRedirect(localEndpoint, listenerName)
@@ -242,23 +260,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	for nRetry := 0; ; nRetry++ {
-		if fixedProxyPort == false {
-			to, err = p.allocatePort()
-			if err != nil {
-				revertFunc() // Ignore errors while reverting. This is best-effort.
-				return
-			}
-		}
-
 		redir.ProxyPort = to
 
 		switch l4.L7Parser {
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
-			// DNS uses a fixed port. Release the allocated ProxyPort since normal
-			// cleanup will not (.ProxyPort is set in createDNSRedirect). This must
-			// be deferred because it is set below.
-			defer delete(p.allocatedPorts, to)
 
 		case policy.ParserTypeKafka:
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)

@@ -202,7 +202,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
-			e := endpointmanager.LookupIPv4(endpointIP.String())
+			e := endpointmanager.LookupIP(endpointIP)
 			if e == nil {
 				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 			}
@@ -274,7 +274,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			}
 
 			var ep *endpoint.Endpoint
-			epIP, _, err := net.SplitHostPort(epAddr)
+			epIPStr, _, err := net.SplitHostPort(epAddr)
 			if err != nil {
 				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
 				// We are always egress
@@ -282,7 +282,14 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				endMetric()
 				return err
 			}
-			ep = endpointmanager.LookupIPv4(epIP)
+			epIP := net.ParseIP(epIPStr)
+			if epIP == nil {
+				log.WithError(err).Error("cannot parse endpoint IP from DNS request")
+				ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, accesslog.VerdictError)
+				endMetric()
+				return err
+			}
+			ep = endpointmanager.LookupIP(epIP)
 			if ep == nil {
 				// This is a hard fail. We cannot proceed because record.Log requires a
 				// non-nil ep, and we also don't want to insert this data into the
