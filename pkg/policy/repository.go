@@ -16,8 +16,10 @@ package policy
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -351,26 +353,51 @@ nextLabel:
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
-func (p *Repository) Add(r api.Rule) (uint64, error) {
+func (p *Repository) Add(r api.Rule, localRuleConsumers []IdentityConsumer) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
 	if err := r.Sanitize(); err != nil {
-		return p.revision, err
+		return p.revision, nil, err
 	}
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	return p.AddListLocked(newList), nil
+	rev := p.AddListLocked(newList, localRuleConsumers, NewIDSet(), &sync.WaitGroup{})
+	return rev, map[uint16]struct{}{}, nil
+}
+
+// NewIDSet returns a new instance of an IDSet.
+func NewIDSet() *IDSet {
+	return &IDSet{
+		IDs: map[uint16]struct{}{},
+	}
+}
+
+type IdentityConsumer interface {
+	GetID16() uint16
+	GetSecurityIdentity() *identity.Identity
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules) uint64 {
-	newList := make([]*rule, len(rules))
+func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers []IdentityConsumer, consumersToUpdate *IDSet, policySelectionWG *sync.WaitGroup) uint64 {
+	policySelectionWG.Add(len(localRuleConsumers))
+
+	newList := make(ruleSlice, len(rules))
 	for i := range rules {
-		newList[i] = &rule{Rule: *rules[i]}
+		newRule := &rule{
+			Rule:     *rules[i],
+			metadata: newRuleMetadata(),
+		}
+		newList[i] = newRule
 	}
+
+	for _, identityConsumer := range localRuleConsumers {
+		// Spawn goroutine per rule to avoid blocking on matching via API
+		go newList.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
+	}
+
 	p.rules = append(p.rules, newList...)
 	p.revision++
 	metrics.PolicyCount.Add(float64(len(newList)))
@@ -379,25 +406,84 @@ func (p *Repository) AddListLocked(rules api.Rules) uint64 {
 	return p.revision
 }
 
-// AddList inserts a rule into the policy repository.
+// UpdateLocalConsumers updates the cache within each rule in the given repository
+// which specifies whether said rule selects said identity. Returns a wait group
+// which can be used to wait until all rules have had said caches updated.
+func (p *Repository) UpdateLocalConsumers(identifiers []IdentityConsumer) *sync.WaitGroup {
+	var policySelectionWG sync.WaitGroup
+	for _, identityConsumer := range identifiers {
+		policySelectionWG.Add(1)
+		go p.rules.analyzeWhetherRulesSelectEndpoint(identityConsumer, NewIDSet(), &policySelectionWG)
+	}
+	return &policySelectionWG
+}
+
+// RemoveIdentifierFromRuleCaches removes identifier from the processedConsumers
+// and localRuleConsumers sets in each rule within the repository. Returns a
+// sync.WaitGroup which can be waited on once all rules have been processed in
+// relation to the identifier.
+func (p *Repository) RemoveIdentifierFromRuleCaches(identifier uint16) *sync.WaitGroup {
+	p.Mutex.RLock()
+	defer p.Mutex.RUnlock()
+	var wg sync.WaitGroup
+	wg.Add(len(p.rules))
+	for _, r := range p.rules {
+		go func(rr *rule, wgg *sync.WaitGroup) {
+			rr.metadata.deleteID(identifier)
+			wgg.Done()
+		}(r, &wg)
+	}
+	return &wg
+}
+
+// AddList inserts a rule into the policy repository. It is used for
+// unit-testing purposes only.
 func (p *Repository) AddList(rules api.Rules) uint64 {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.AddListLocked(rules)
+	return p.AddListLocked(rules, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+}
+
+// AddListWithIdentityMap inserts a rule into the policy repository. It is used
+// for unit-testing purposes only.
+func (p *Repository) AddListWithIdentityMap(rules api.Rules, identityConsumers []IdentityConsumer) uint64 {
+	p.Mutex.Lock()
+	defer p.Mutex.Unlock()
+	var wg sync.WaitGroup
+	rev := p.AddListLocked(rules, identityConsumers, NewIDSet(), &wg)
+	wg.Wait()
+	return rev
+}
+
+// IDSet is a wrapper type around a set of unsigned 16-bit integers, with
+// a mutex for protecting access.
+type IDSet struct {
+	Mutex lock.RWMutex
+	IDs   map[uint16]struct{}
 }
 
 // DeleteByLabelsLocked deletes all rules in the policy repository which
-// contain the specified labels
-func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int) {
+// contain the specified labels. Returns the revision of the policy repository
+// after deleting the rules, as well as now many rules were deleted.
+func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsumers []IdentityConsumer, consumersToUpdate *IDSet, policySelectionWG *sync.WaitGroup) (uint64, int) {
+	policySelectionWG.Add(len(localConsumers))
+
 	deleted := 0
 	new := p.rules[:0]
+	deletedRules := ruleSlice{}
 
 	for _, r := range p.rules {
 		if !r.Labels.Contains(labels) {
 			new = append(new, r)
 		} else {
+			deletedRules = append(deletedRules, r)
 			deleted++
 		}
+	}
+
+	for _, identityConsumer := range localConsumers {
+		// Update each rule in parallel.
+		go deletedRules.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
 	}
 
 	if deleted > 0 {
@@ -415,7 +501,7 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (uint64, int
 func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.DeleteByLabelsLocked(labels)
+	return p.DeleteByLabelsLocked(labels, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON
@@ -472,17 +558,19 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bo
 // a slice of all rules which match.
 //
 // Must be called with p.Mutex held
-func (p *Repository) getMatchingRules(labels labels.LabelArray) (ingressMatch bool, egressMatch bool, matchingRules []*rule) {
+func (p *Repository) getMatchingRules(id uint16, securityIdentity *identity.Identity) (ingressMatch bool, egressMatch bool, matchingRules ruleSlice) {
 	matchingRules = []*rule{}
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
-		rulesMatch := r.EndpointSelector.Matches(labels)
-		if rulesMatch {
-			if len(r.Ingress) > 0 {
+		if ruleMatches := r.matches(id, securityIdentity); ruleMatches {
+			// Don't need to update whether ingressMatch is true if it already
+			// has been determined to be true - allows us to not have to check
+			// lenth of slice.
+			if !ingressMatch && len(r.Ingress) > 0 {
 				ingressMatch = true
 			}
-			if len(r.Egress) > 0 {
+			if !egressMatch && len(r.Egress) > 0 {
 				egressMatch = true
 			}
 			matchingRules = append(matchingRules, r)
@@ -560,7 +648,9 @@ func (p *Repository) GetRulesList() *models.Policy {
 // set of rules in the repository, and the provided set of identities.
 // If the policy cannot be generated due to conflicts at L4 or L7, returns an
 // error.
-func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOwner PolicyOwner, identityCache cache.IdentityCache) (*EndpointPolicy, error) {
+func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identity, policyOwner PolicyOwner, identityCache cache.IdentityCache) (*EndpointPolicy, error) {
+
+	labels := securityIdentity.LabelArray
 
 	calculatedPolicy := &EndpointPolicy{
 		ID:                      id,
@@ -577,7 +667,7 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 	// to not have to iterate through the entire rule list multiple times and
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
-	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(labels)
+	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(id, securityIdentity)
 	calculatedPolicy.IngressPolicyEnabled = ingressEnabled
 	calculatedPolicy.EgressPolicyEnabled = egressEnabled
 
@@ -676,16 +766,18 @@ func (p *Repository) ResolvePolicy(id uint16, labels labels.LabelArray, policyOw
 // the set of labels.
 //
 // Must be called with repo mutex held for reading.
-func (p *Repository) computePolicyEnforcementAndRules(lbls labels.LabelArray) (ingress bool, egress bool, matchingRules ruleSlice) {
+func (p *Repository) computePolicyEnforcementAndRules(id uint16, securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
+
+	lbls := securityIdentity.LabelArray
 	// Check if policy enforcement should be enabled at the daemon level.
 	switch GetPolicyEnabled() {
 	case option.AlwaysEnforce:
-		_, _, matchingRules = p.getMatchingRules(lbls)
+		_, _, matchingRules = p.getMatchingRules(id, securityIdentity)
 		// If policy enforcement is enabled for the daemon, then it has to be
 		// enabled for the endpoint.
 		return true, true, matchingRules
 	case option.DefaultEnforcement:
-		ingress, egress, matchingRules = p.getMatchingRules(lbls)
+		ingress, egress, matchingRules = p.getMatchingRules(id, securityIdentity)
 		// If the endpoint has the reserved:init label, i.e. if it has not yet
 		// received any labels, always enforce policy (default deny).
 		if lbls.Has(labels.IDNameInit) {

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -154,7 +155,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// policy needs to be enforced for either ingress or egress.
 	e.prevIdentityCache = labelsMap
 
-	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity.LabelArray, e, *labelsMap)
+	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity, e, *labelsMap)
 	if err != nil {
 		return err
 	}
@@ -429,24 +430,38 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			e.getLogger().Debug("Dequeued endpoint from build queue")
 
 			regenContext.DoneFunc = doneFunc
-			err := e.regenerate(owner, regenContext)
-			doneFunc() // in case not called already
 
-			repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
-			if reprerr != nil {
-				e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
-			}
+			epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
+				owner:        owner,
+				regenContext: regenContext,
+				ep:           e,
+			})
 
-			if err != nil {
-				buildSuccess = false
-				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
+			e.Enqueue(epEvent)
+
+			select {
+			case result, ok := <-epEvent.EventResults:
+				var regenError error
+				if ok {
+					// Regeneration is done, allow other builds to occur.
+					doneFunc()
+					regenResult := result.(*EndpointRegenerationResult)
+					regenError = regenResult.err
+
+					// Build was successful whether regeneration errored out of not.
+					buildSuccess = regenError == nil
+				} else {
+					// This may be unnecessary(?) since 'closing' of the results
+					// channel means that event has been cancelled?
+					e.getLogger().Debug("regeneration was cancelled")
+					doneFunc()
 				}
-			} else {
-				buildSuccess = true
-				if reprerr == nil && !option.Config.DryMode {
-					owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
-				}
+				// Notify monitor of result of regeneration.
+				e.notifyEndpointRegeneration(owner, regenError)
+			case <-epEvent.Cancelled:
+				e.getLogger().Debug("regeneration was cancelled")
+				// Still call doneFunc to allow other endpoint builds to occur.
+				doneFunc()
 			}
 		} else {
 			buildSuccess = false
@@ -455,6 +470,23 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 	}()
 
 	return done
+}
+
+func (e *Endpoint) notifyEndpointRegeneration(owner Owner, err error) {
+	repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
+	if reprerr != nil {
+		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
+	}
+
+	if err != nil {
+		if reprerr == nil && !option.Config.DryMode {
+			owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
+		}
+	} else {
+		if reprerr == nil && !option.Config.DryMode {
+			owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
+		}
+	}
 }
 
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
