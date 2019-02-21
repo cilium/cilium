@@ -59,7 +59,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		select {
 		case <-ctx.Done():
-			logger.Error("DeleteAll: delete all pods,services failed after %s", helpers.HelperTimeout)
+			logger.Errorf("DeleteAll: delete all pods,services failed after %s", helpers.HelperTimeout)
 		}
 	}
 	AfterAll(func() {

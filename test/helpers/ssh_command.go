@@ -213,7 +213,7 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 
 	stdin, err := session.StdinPipe()
 	if err != nil {
-		log.Errorf("Could not get stdin", err)
+		log.Errorf("Could not get stdin: %s", err)
 	}
 
 	go func() {
