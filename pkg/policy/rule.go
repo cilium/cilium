@@ -432,15 +432,29 @@ func (r *rule) matches(id uint16, securityIdentity *identity.Identity) bool {
 
 	// Rule has already been processed, we can check the caches in the rule.
 	if _, ok := r.processedConsumers[id]; ok {
-		if _, ok := r.localRuleConsumers[id]; ok {
+		// We can compare the pointers to the identity to see if they are
+		// equivalent here safely.
+		cachedIdentity, ok := r.localRuleConsumers[id]
+		// There could be a possibility that the same identifier mapped to a
+		// different identity in the cache previously. Ensure that identity to
+		// which identifier maps is the same.
+		if ok && cachedIdentity == securityIdentity {
 			return true
 		}
-		return false
+
+		// If the cached identity is the same, but wasn't in localRuleConsumers,
+		// then rule doesn't match ; return false. We fall back to label-based
+		// matching.
+		if cachedIdentity == securityIdentity {
+			return false
+		}
 	}
 	// Fall back to costly matching.
 	if ruleMatches = r.EndpointSelector.Matches(securityIdentity.LabelArray); ruleMatches {
 		// Update cache so we don't have to do costly matching again.
 		r.localRuleConsumers[id] = securityIdentity
+	} else {
+		delete(r.localRuleConsumers, id)
 	}
 
 	r.processedConsumers[id] = struct{}{}
