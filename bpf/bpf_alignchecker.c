@@ -29,26 +29,49 @@
 #include "lib/maps.h"
 #include "sockops/bpf_sockops.h"
 
+#ifndef barrier_data
+#define barrier_data(ptr) __asm__ __volatile__("": :"r"(ptr) :"memory")
+#endif
+
 int main() {
-    __attribute__((unused)) struct ipv4_ct_tuple s0;
-    __attribute__((unused)) struct ipv6_ct_tuple s1;
-    __attribute__((unused)) struct ct_entry s2;
-    __attribute__((unused)) struct ipcache_key s3;
-    __attribute__((unused)) struct remote_endpoint_info s4;
-    __attribute__((unused)) struct lb4_key s5;
-    __attribute__((unused)) struct lb4_service s6;
-    __attribute__((unused)) struct lb6_key s7;
-    __attribute__((unused)) struct lb6_service s9;
-    __attribute__((unused)) struct endpoint_key s10;
-    __attribute__((unused)) struct endpoint_info s11;
-    __attribute__((unused)) struct metrics_key s12;
-    __attribute__((unused)) struct metrics_value s13;
-    __attribute__((unused)) struct proxy4_tbl_key s14;
-    __attribute__((unused)) struct proxy4_tbl_value s15;
-    __attribute__((unused)) struct proxy6_tbl_key s16;
-    __attribute__((unused)) struct proxy6_tbl_value s17;
-    __attribute__((unused)) struct sock_key s18;
-    __attribute__((unused)) struct ep_config s19;
+    struct ipv4_ct_tuple *s0 = NULL;
+    barrier_data(s0);
+    struct ipv6_ct_tuple *s1 = NULL;
+    barrier_data(s1);
+    struct ct_entry *s2 = NULL;
+    barrier_data(s2);
+    struct ipcache_key *s3 = NULL;
+    barrier_data(s3);
+    struct remote_endpoint_info *s4 = NULL;
+    barrier_data(s4);
+    struct lb4_key *s5 = NULL;
+    barrier_data(s5);
+    struct lb4_service *s6 = NULL;
+    barrier_data(s6);
+    struct lb6_key *s7 = NULL;
+    barrier_data(s7);
+    struct lb6_service *s9 = NULL;
+    barrier_data(s9);
+    struct endpoint_key *s10 = NULL;
+    barrier_data(s10);
+    struct endpoint_info *s11 = NULL;
+    barrier_data(s11);
+    struct metrics_key *s12 = NULL;
+    barrier_data(s12);
+    struct metrics_value *s13 = NULL;
+    barrier_data(s13);
+    struct proxy4_tbl_key *s14 = NULL;
+    barrier_data(s14);
+    struct proxy4_tbl_value *s15 = NULL;
+    barrier_data(s15);
+    struct proxy6_tbl_key *s16 = NULL;
+    barrier_data(s16);
+    struct proxy6_tbl_value *s17 = NULL;
+    barrier_data(s17);
+    struct sock_key *s18 = NULL;
+    barrier_data(s18);
+    struct ep_config *s19 = NULL;
+    barrier_data(s19);
 
     return 0;
 }
