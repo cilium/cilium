@@ -1102,6 +1102,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	bootstrapStats.restore.Start()
+	loader.Init(d.datapath, &d.nodeDiscovery.LocalConfig)
+	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
+		log.WithError(err).Error("Unable to restore previous BPF templates")
+	}
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.

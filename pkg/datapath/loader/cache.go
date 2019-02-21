@@ -66,6 +66,17 @@ func Init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
 	elfCache.Update(nodeCfg)
 }
 
+// RestoreTemplates populates the object cache from templates on the filesystem
+// at the specified path.
+func RestoreTemplates(stateDir string) error {
+	// Simplest implementation: Just garbage-collect everything.
+	err := os.RemoveAll(filepath.Join(stateDir, templatesDir))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
 // buildChan is closed when a build is completed, successful or not.
 type buildChan chan struct{}
 
