@@ -793,7 +793,7 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	return policyEnabled
 }
 
-// GetID returns the endpoint's ID
+// GetID returns the endpoint's ID as a 64-bit unsigned integer.
 func (e *Endpoint) GetID() uint64 {
 	return uint64(e.ID)
 }
@@ -805,6 +805,16 @@ func (e *Endpoint) GetLabels() []string {
 	}
 
 	return e.SecurityIdentity.Labels.GetModel()
+}
+
+// GetSecurityIdentity returns the security identity of the endpoint.
+func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
+	return e.SecurityIdentity
+}
+
+// GetID16 returns the endpoint's ID as a 16-bit unsigned integer.
+func (e *Endpoint) GetID16() uint16 {
+	return e.ID
 }
 
 // GetK8sPodLabels returns all labels that exist in the endpoint and were
@@ -1974,6 +1984,9 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
+
+	identityChangedWG := owner.ClearPolicyConsumers(e.ID)
+	identityChangedWG.Wait()
 
 	e.SetIdentity(identity)
 
