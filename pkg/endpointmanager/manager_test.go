@@ -91,7 +91,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ID = 0
 			},
 		},
@@ -113,7 +113,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ID = 0
 			},
 		},
@@ -136,7 +136,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ContainerID = ""
 			},
 		},
@@ -159,7 +159,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.DockerEndpointID = ""
 			},
 		},
@@ -182,7 +182,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ContainerName = ""
 			},
 		},
@@ -206,7 +206,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.SetK8sPodName("")
 			},
 		},
@@ -231,7 +231,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.IPv4 = nil
 			},
 		},
@@ -318,7 +318,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ID = 0
 			},
 		},
@@ -385,7 +385,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.SetContainerID("")
 			},
 		},
@@ -454,7 +454,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.IPv4 = nil
 			},
 		},
@@ -522,7 +522,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.IPv4 = nil
 			},
 		},
@@ -598,7 +598,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.SetK8sNamespace("")
 				ep.SetK8sPodName("")
 				ep.SetContainerID("")
@@ -703,7 +703,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -722,7 +722,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				Remove(ep, nil)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -738,7 +738,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(1, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ctx    context.Context
@@ -776,8 +776,8 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
-				ep = &endpoint.Endpoint{}
+				Remove(ep, nil)
+				ep = endpoint.NewEndpointWithState(1, endpoint.StateReady)
 			},
 		},
 		{
@@ -802,8 +802,8 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
-				ep = &endpoint.Endpoint{}
+				Remove(ep, nil)
+				ep = endpoint.NewEndpointWithState(1, endpoint.StateReady)
 			},
 		},
 		{
@@ -828,8 +828,8 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
-				ep = &endpoint.Endpoint{}
+				Remove(ep, nil)
+				ep = endpoint.NewEndpointWithState(1, endpoint.StateReady)
 			},
 		},
 	}
