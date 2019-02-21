@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -27,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/policy"
@@ -145,7 +143,108 @@ func (p *Proxy) allocatePort() (uint16, error) {
 	return 0, fmt.Errorf("no available proxy ports")
 }
 
-var gcOnce sync.Once
+type ProxyPort struct {
+	// L7 parser type this port applies to
+	L7ParserType policy.L7ParserType
+	// 'true' for ingress, 'false' for egress
+	Ingress bool
+	// Proxy listening port number
+	// Note: For compatibility with older kernels, the lowest 6 bits are
+	// used as a DSCP value, which must be non-zero and unique among the
+	// proxy ports!
+	ProxyPort uint16
+	// Listener name
+	Name string
+}
+
+var ProxyPorts = []ProxyPort{
+	{
+		L7ParserType: policy.ParserTypeHTTP,
+		Ingress:      false,
+		ProxyPort:    6769,
+		Name:         "cilium-http-egress",
+	},
+	{
+		L7ParserType: policy.ParserTypeHTTP,
+		Ingress:      true,
+		ProxyPort:    6773,
+		Name:         "cilium-http-ingress",
+	},
+	{
+		L7ParserType: policy.ParserTypeKafka,
+		Ingress:      false,
+		ProxyPort:    6770,
+		Name:         "cilium-kafka-egress",
+	},
+	{
+		L7ParserType: policy.ParserTypeKafka,
+		Ingress:      true,
+		ProxyPort:    6774,
+		Name:         "cilium-kafka-ingress",
+	},
+	{
+		L7ParserType: policy.ParserTypeDNS,
+		Ingress:      false,
+		ProxyPort:    6771,
+		Name:         "cilium-dns-egress",
+	},
+	{
+		L7ParserType: policy.ParserTypeDNS,
+		Ingress:      true,
+		ProxyPort:    6775,
+		Name:         "cilium-dns-ingress",
+	},
+	{
+		L7ParserType: policy.ParserTypeNone,
+		Ingress:      false,
+		ProxyPort:    6772,
+		Name:         "cilium-proxylib-egress",
+	},
+	{
+		L7ParserType: policy.ParserTypeNone,
+		Ingress:      true,
+		ProxyPort:    6776,
+		Name:         "cilium-proxylib-ingress",
+	},
+}
+
+func init() {
+	// Sanity-check the proxy port values
+	pmap := make(map[uint16]uint16, 64)
+	for _, v := range ProxyPorts {
+		dscp := v.ProxyPort & 0x3F
+		if port, ok := pmap[dscp]; ok {
+			panic(fmt.Sprintf("Overlapping low 6 bits for %s ProxyPort %d (already have %d)", v.Name, v.ProxyPort, port))
+		}
+		pmap[dscp] = v.ProxyPort
+	}
+}
+
+// FindProxyPort() returns the fixed listen port for a proxy
+func FindProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+	portType := l7Type
+	switch l7Type {
+	case policy.ParserTypeDNS:
+	case policy.ParserTypeKafka:
+	case policy.ParserTypeHTTP:
+	default:
+		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
+		// is registered with an empty string.
+		portType = ""
+	}
+	// ProxyPorts is small enough to not bother indexing it.
+	for _, v := range ProxyPorts {
+		if v.L7ParserType == portType && v.Ingress == ingress {
+			return v.ProxyPort, v.Name, nil
+		}
+	}
+	dir := "egress"
+	if ingress {
+		dir = "ingress"
+	}
+	return 0, "", fmt.Errorf("unrecognized %s proxy type: %s", dir, l7Type)
+
+}
 
 // CreateOrUpdateRedirect creates or updates a L4 redirect with corresponding
 // proxy configuration. This will allocate a proxy port as required and launch
@@ -153,17 +252,6 @@ var gcOnce sync.Once
 // updated.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
 	wg *completion.WaitGroup) (redir *Redirect, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
-	gcOnce.Do(func() {
-		go func() {
-			for {
-				time.Sleep(10 * time.Second)
-				if deleted := proxymap.GC(); deleted > 0 {
-					log.WithField("count", deleted).
-						Debug("Evicted entries from proxy table")
-				}
-			}
-		}()
-	})
 
 	p.mutex.Lock()
 	defer func() {
@@ -212,43 +300,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		revertStack.Push(removeRevertFunc)
 	}
 
-	var to uint16
-	var listenerName string
-
-	// Detect the need for a reusable listener here and override the defaults:
-	switch l4.L7Parser {
-	case policy.ParserTypeHTTP:
-		if l4.Ingress {
-			listenerName = "cilium-http-ingress"
-			to = 6773
-		} else {
-			listenerName = "cilium-http-egress"
-			to = 6769
-		}
-	case policy.ParserTypeKafka:
-		if l4.Ingress {
-			listenerName = "cilium-kafka-ingress"
-			to = 6774
-		} else {
-			listenerName = "cilium-kafka-egress"
-			to = 6770
-		}
-	case policy.ParserTypeDNS:
-		if l4.Ingress {
-			listenerName = "cilium-dns-ingress"
-			to = 6775
-		} else {
-			listenerName = "cilium-dns-egress"
-			to = 6771
-		}
-	default:
-		if l4.Ingress {
-			listenerName = "cilium-tcp-ingress"
-			to = 6776
-		} else {
-			listenerName = "cilium-tcp-egress"
-			to = 6772
-		}
+	to, listenerName, err := FindProxyPort(l4.L7Parser, l4.Ingress)
+	if err != nil {
+		return
 	}
 
 	redir = newRedirect(localEndpoint, listenerName)
@@ -346,11 +400,6 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, 
 
 		go func() {
 			time.Sleep(portReuseDelay)
-
-			// The cleanup of the proxymap is delayed a bit to ensure that
-			// the datapath has implemented the redirect change and we
-			// cleanup the map before we release the port and allow reuse
-			proxymap.CleanupOnRedirectClose(proxyPort)
 
 			p.mutex.Lock()
 			delete(p.allocatedPorts, proxyPort)

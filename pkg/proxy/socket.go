@@ -18,15 +18,16 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
@@ -51,7 +52,7 @@ type proxySocket struct {
 	pairs []*connectionPair
 }
 
-func listenSocket(address string, mark int) (*proxySocket, error) {
+func listenSocket(address string, mark int, transparent bool) (*proxySocket, error) {
 	socket := &proxySocket{
 		closing: make(chan struct{}),
 	}
@@ -73,6 +74,17 @@ func listenSocket(address string, mark int) (*proxySocket, error) {
 
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
 		return nil, fmt.Errorf("unable to set SO_REUSEADDR socket option: %s", err)
+	}
+
+	if transparent {
+		if family == syscall.AF_INET {
+			err = syscall.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1)
+		} else {
+			err = syscall.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("unable to set SO_TRANSPARENT socket option: %s", err)
+		}
 	}
 
 	if mark != 0 {
@@ -433,20 +445,16 @@ func (p *connectionPair) close() {
 	}
 }
 
-func lookupNewDest(remoteAddr string, dport uint16) (uint32, string, error) {
-	key, err := createProxyMapKey(remoteAddr, dport)
+func lookupSrcID(remoteAddr, localAddr string, ingress bool) (uint32, error) {
+	val, err := ctmap.Lookup(remoteAddr, localAddr, u8proto.TCP, ingress)
 	if err != nil {
-		return 0, "", err
-	}
-
-	val, err := proxymap.Lookup(key)
-	if err != nil {
-		return 0, "", err
+		flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Did not find proxy entry!")
+		return 0, err
 	}
 
 	flowdebug.Log(log.WithField(logfields.Object, logfields.Repr(val)), "Found proxy entry")
 
-	return val.GetSourceIdentity(), val.HostPort(), nil
+	return val.SourceSecurityID, nil
 }
 
 func setFdMark(fd, mark int) {
@@ -470,50 +478,4 @@ func setSocketMark(c net.Conn, mark int) {
 			setFdMark(int(f.Fd()), mark)
 		}
 	}
-}
-
-func getProxyMapKey(c net.Conn, proxyPort uint16) (proxymap.ProxyMapKey, error) {
-	addr := c.RemoteAddr()
-	if addr == nil {
-		return nil, fmt.Errorf("RemoteAddr() returned nil")
-	}
-
-	return createProxyMapKey(addr.String(), proxyPort)
-}
-
-func createProxyMapKey(addr string, proxyPort uint16) (proxymap.ProxyMapKey, error) {
-	ip, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid remote address '%s': %s", addr, err)
-	}
-
-	pIP := net.ParseIP(ip)
-	if pIP == nil {
-		return nil, fmt.Errorf("unable to parse IP %s", ip)
-	}
-
-	sport, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse port string: %s", err)
-	}
-
-	if pIP.To4() != nil {
-		key := proxymap.Proxy4Key{
-			SPort:   uint16(sport),
-			DPort:   proxyPort,
-			Nexthdr: uint8(u8proto.TCP),
-		}
-
-		copy(key.SAddr[:], pIP.To4())
-		return key, nil
-	}
-
-	key := proxymap.Proxy6Key{
-		SPort:   uint16(sport),
-		DPort:   proxyPort,
-		Nexthdr: uint8(u8proto.TCP),
-	}
-
-	copy(key.SAddr[:], pIP.To16())
-	return key, nil
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -207,7 +208,11 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
+	port, _, err := proxy.FindProxyPort(policy.ParserTypeDNS, false)
+	if err != nil {
+		return err
+	}
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpointID string, err error) {
 			e := endpointmanager.LookupIP(endpointIP)
