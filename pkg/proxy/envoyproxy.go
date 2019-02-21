@@ -50,14 +50,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 			xdsServer:    xdsServer,
 		}
 
-		ip := r.localEndpoint.GetIPv4Address()
-		if ip == "" {
-			ip = r.localEndpoint.GetIPv6Address()
-		}
-		if ip == "" {
-			return nil, fmt.Errorf("%s: Cannot create redirect, proxy local endpoint has no IP address", r.id)
-		}
-		xdsServer.AddListener(redir.listenerName, r.parserType, ip, r.ProxyPort, r.ingress, wg)
+		xdsServer.AddListener(redir.listenerName, r.parserType, r.ProxyPort, r.ingress, wg)
 
 		return redir, nil
 	}
