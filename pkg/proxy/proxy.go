@@ -222,6 +222,17 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	//         fixedProxyPort = true // needed if `to` was overridden above
 	// }
 
+	if l4.L7Parser == policy.ParserTypeHTTP {
+		if l4.Ingress {
+			listenerName = "cilium-http-ingress"
+			to = 6773
+		} else {
+			listenerName = "cilium-http-egress"
+			to = 6769
+		}
+		fixedProxyPort = true
+	}
+
 	redir = newRedirect(localEndpoint, listenerName)
 	redir.endpointID = localEndpoint.GetID()
 	redir.ingress = l4.Ingress
