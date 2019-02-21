@@ -34,24 +34,42 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-maps")
+
+	globalSweeper = newMapSweeper(&realEPManager{})
 )
 
-// CollectStaleMapGarbage cleans up stale content in the BPF maps from the
-// datapath.
-func CollectStaleMapGarbage() {
-	if option.Config.DryMode {
-		return
-	}
-	walker := func(path string, _ os.FileInfo, _ error) error {
-		return staleMapWalker(path)
-	}
-
-	if err := filepath.Walk(bpf.MapPrefixPath(), walker); err != nil {
-		log.WithError(err).Warn("Error while scanning for stale maps")
-	}
+// endpointManager checks against its list of the current endpoints to determine
+// whether map paths should be removed, and implements map removal.
+//
+// This interface is provided to abstract epmanager/filesystem access for unit
+// testing.
+type endpointManager interface {
+	endpointExists(endpointID uint16) bool
+	removeDatapathMapping(endpointID uint16) error
+	removeMapPath(path string)
 }
 
-func removeStaleMap(path string) {
+// realEPManager provides an implementatino of endpointManager that is backed
+// by the endpointmanager and policymap packages, and when removeMapPath is
+// invoked, it cleans up paths on the actual filesystem.
+type realEPManager struct{}
+
+func (gw *realEPManager) endpointExists(endpointID uint16) bool {
+	if ep := endpointmanager.LookupCiliumID(endpointID); ep != nil {
+		return true
+	}
+	return false
+}
+
+// removeDatapathMapping unlinks the endpointID from the global policy map, preventing
+// packets that arrive on this node from being forwarded to the endpoint that
+// used to exist with the specified ID.
+func (gw *realEPManager) removeDatapathMapping(endpointID uint16) error {
+	return policymap.RemoveGlobalMapping(uint32(endpointID))
+}
+
+// removeMapPath removes the specified path from the filesystem.
+func (gw *realEPManager) removeMapPath(path string) {
 	if err := os.RemoveAll(path); err != nil {
 		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
 	} else {
@@ -59,27 +77,45 @@ func removeStaleMap(path string) {
 	}
 }
 
-func checkStaleMap(path string, filename string, id string) {
-	if tmp, err := strconv.ParseUint(id, 0, 16); err == nil {
-		if ep := endpointmanager.LookupCiliumID(uint16(tmp)); ep == nil {
-			err2 := policymap.RemoveGlobalMapping(uint32(tmp))
+// mapSweeper is responsible for checking stale map paths on the filesystem
+// and garbage collecting the endpoint if the corresponding endpoint no longer
+// exists.
+type mapSweeper struct {
+	endpointManager
+}
+
+// newMapSweeper creates an object that walks map paths and garbage-collects
+// them.
+func newMapSweeper(g endpointManager) *mapSweeper {
+	return &mapSweeper{
+		endpointManager: g,
+	}
+}
+
+// deleteMapIfStale uses the endpointManager implementation to determine for
+// the given path whether it should be deleted, and if so deletes the path.
+func (ms *mapSweeper) deleteMapIfStale(path string, filename string, endpointID string) {
+	if tmp, err := strconv.ParseUint(endpointID, 0, 16); err == nil {
+		epID := uint16(tmp)
+		if !ms.endpointExists(epID) {
+			err2 := ms.removeDatapathMapping(epID)
 			if err2 != nil {
 				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)
 			}
-			removeStaleMap(path)
+			ms.removeMapPath(path)
 		}
 	}
 }
 
-func checkStaleGlobalMap(path string, filename string) {
+func (ms *mapSweeper) checkStaleGlobalMap(path string, filename string) {
 	globalCTinUse := endpointmanager.HasGlobalCT()
 
 	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
-		removeStaleMap(path)
+		ms.removeMapPath(path)
 	}
 }
 
-func staleMapWalker(path string) error {
+func (ms *mapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
 	mapPrefix := []string{
@@ -93,17 +129,25 @@ func staleMapWalker(path string) error {
 		endpoint.IpvlanMapName,
 	}
 
-	checkStaleGlobalMap(path, filename)
+	ms.checkStaleGlobalMap(path, filename)
 
 	for _, m := range mapPrefix {
 		if strings.HasPrefix(filename, m) {
-			if id := strings.TrimPrefix(filename, m); id != filename {
-				checkStaleMap(path, filename, id)
+			if endpointID := strings.TrimPrefix(filename, m); endpointID != filename {
+				ms.deleteMapIfStale(path, filename, endpointID)
 			}
 		}
 	}
 
 	return nil
+}
+
+// CollectStaleMapGarbage cleans up stale content in the BPF maps from the
+// datapath.
+func CollectStaleMapGarbage() {
+	if err := filepath.Walk(bpf.MapPrefixPath(), globalSweeper.walk); err != nil {
+		log.WithError(err).Warn("Error while scanning for stale maps")
+	}
 }
 
 // RemoveDisabledMaps removes BPF maps in the filesystem for features that have
@@ -135,7 +179,7 @@ func RemoveDisabledMaps() {
 	for _, m := range maps {
 		p := path.Join(bpf.MapPrefixPath(), m)
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
-			removeStaleMap(p)
+			globalSweeper.removeMapPath(p)
 		}
 	}
 }
