@@ -9,6 +9,34 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
+type SessionUDPFactory interface {
+	// InitConn set's up 'conn' to be used with a SessionUDP.
+	// Must be called before 'conn' is passed to SessionUDP.ReadRequest()
+	InitConn(conn *net.UDPConn) error
+
+	// CreateSessionUDP creates a SessionUDP object which can manage the state
+	// of a single UDP transaction at a time.
+	// Multiple SessionUDP objects may be created on the same underlying 'conn' by
+	// calling this multiple times with the same 'conn'.
+	CreateSessionUDP(msgSize int) SessionUDP
+}
+
+// SessionUDP holds manages a UDP Request/Response transaction.
+type SessionUDP interface {
+	// Clear re-initializes SessionUDP to the same state it was when new.
+	// This is required to enable pooling.
+	Clear() SessionUDP
+	// ReadRequest reads a single request from the UDPSession
+	ReadRequest(conn *net.UDPConn) ([]byte, error)
+	// RemoteAddr returns the remote address of the last read UDP request
+	RemoteAddr() net.Addr
+	// LocalAddr returns the local address of the last read UDP request
+	LocalAddr() net.Addr
+	// WriteResponse writes a response to the last read UDP request.
+	// The response is sent to the UDP address the request came from.
+	WriteResponse(b []byte) (int, error)
+}
+
 // This is the required size of the OOB buffer to pass to ReadMsgUDP.
 var udpOOBSize = func() int {
 	// We can't know whether we'll get an IPv4 control message or an
@@ -25,35 +53,27 @@ var udpOOBSize = func() int {
 	return len(oob6)
 }()
 
-// SessionUDP holds the remote address and the associated
+// sessionUDP implements the SessionUDP, holding the remote address and the associated
 // out-of-band data.
-type SessionUDP struct {
-	raddr   *net.UDPAddr
-	context []byte
+type sessionUDP struct {
+	conn  *net.UDPConn
+	raddr *net.UDPAddr
+	m     []byte
+	oob   []byte
 }
 
-// RemoteAddr returns the remote network address.
-func (s *SessionUDP) RemoteAddr() net.Addr { return s.raddr }
+type sessionUDPFactory struct{}
 
-// ReadFromSessionUDP acts just like net.UDPConn.ReadFrom(), but returns a session object instead of a
-// net.UDPAddr.
-func ReadFromSessionUDP(conn *net.UDPConn, b []byte) (int, *SessionUDP, error) {
-	oob := make([]byte, udpOOBSize)
-	n, oobn, _, raddr, err := conn.ReadMsgUDP(b, oob)
-	if err != nil {
-		return n, nil, err
+var defaultSessionUDPFactory *sessionUDPFactory
+
+func (f *sessionUDPFactory) CreateSessionUDP(msgSize int) SessionUDP {
+	return &sessionUDP{
+		m:   make([]byte, msgSize),
+		oob: make([]byte, udpOOBSize),
 	}
-	return n, &SessionUDP{raddr, oob[:oobn]}, err
 }
 
-// WriteToSessionUDP acts just like net.UDPConn.WriteTo(), but uses a *SessionUDP instead of a net.Addr.
-func WriteToSessionUDP(conn *net.UDPConn, b []byte, session *SessionUDP) (int, error) {
-	oob := correctSource(session.context)
-	n, _, err := conn.WriteMsgUDP(b, oob, session.raddr)
-	return n, err
-}
-
-func setUDPSocketOptions(conn *net.UDPConn) error {
+func (s *sessionUDPFactory) InitConn(conn *net.UDPConn) error {
 	// Try setting the flags for both families and ignore the errors unless they
 	// both error.
 	err6 := ipv6.NewPacketConn(conn).SetControlMessage(ipv6.FlagDst|ipv6.FlagInterface, true)
@@ -62,6 +82,41 @@ func setUDPSocketOptions(conn *net.UDPConn) error {
 		return err4
 	}
 	return nil
+}
+
+// Clear re-initializes sessionUDP to the same state it was when new.
+// Returns the interface for convenience.
+func (s *sessionUDP) Clear() SessionUDP {
+	s.conn = nil
+	s.raddr = nil
+	s.m = s.m[:cap(s.m)]
+	s.oob = s.oob[:cap(s.oob)]
+	return s
+}
+
+// RemoteAddr returns the remote network address for the current request.
+func (s *sessionUDP) RemoteAddr() net.Addr { return s.raddr }
+
+// LocalAddr returns the local network address for the current request.
+func (s *sessionUDP) LocalAddr() net.Addr { return s.conn.LocalAddr() }
+
+// ReadRequest reads a single request from the session and keeps the request context
+func (s *sessionUDP) ReadRequest(conn *net.UDPConn) ([]byte, error) {
+	n, oobn, _, raddr, err := conn.ReadMsgUDP(s.m, s.oob)
+	if err == nil {
+		s.conn = conn
+		s.raddr = raddr
+		s.m = s.m[:n]        // Re-slice to the actual size
+		s.oob = s.oob[:oobn] // Re-slice to the actual size
+	}
+	return s.m, err
+}
+
+// WriteResponse writes a response to a request received earlier
+func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
+	oob := correctSource(s.oob)
+	n, _, err := s.conn.WriteMsgUDP(b, oob, s.raddr)
+	return n, err
 }
 
 // parseDstFromOOB takes oob data and returns the destination IP.

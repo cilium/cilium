@@ -55,7 +55,7 @@ func (f HandlerFunc) ServeDNS(w ResponseWriter, r *Msg) {
 // A ResponseWriter interface is used by an DNS handler to
 // construct an DNS response.
 type ResponseWriter interface {
-	// LocalAddr returns the net.Addr of the server
+	// LocalAddr returns the net.Addr of the server for the current request.
 	LocalAddr() net.Addr
 	// RemoteAddr returns the net.Addr of the client that sent the current request.
 	RemoteAddr() net.Addr
@@ -90,7 +90,7 @@ type response struct {
 	tsigSecret     map[string]string // the tsig secrets
 	udp            *net.UDPConn      // i/o connection if UDP was used
 	tcp            net.Conn          // i/o connection if TCP was used
-	udpSession     *SessionUDP       // oob data to get egress interface right
+	udpSession     SessionUDP        // UDP request context to get egress interface right
 	writer         Writer            // writer to output the raw DNS bits
 	wg             *sync.WaitGroup   // for gracefull shutdown
 }
@@ -153,6 +153,7 @@ type Reader interface {
 	ReadTCP(conn net.Conn, timeout time.Duration) ([]byte, error)
 	// ReadUDP reads a raw message from a UDP connection. Implementations may alter
 	// connection properties, for example the read-deadline.
+	// Returns a pointer to the SessionUDP interface for backwards compatibility
 	ReadUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *SessionUDP, error)
 }
 
@@ -217,6 +218,9 @@ type Server struct {
 	// AcceptMsgFunc will check the incoming message and will reject it early in the process.
 	// By default DefaultMsgAcceptFunc will be used.
 	MsgAcceptFunc MsgAcceptFunc
+	// SessionUDPFactory creates SessionUDP instances. The default implementation will be
+	// used if nil.
+	SessionUDPFactory SessionUDPFactory
 
 	// UDP packet or TCP connection queue
 	queue chan *response
@@ -285,10 +289,8 @@ func (srv *Server) spawnWorker(w *response) {
 	}
 }
 
-func makeUDPBuffer(size int) func() interface{} {
-	return func() interface{} {
-		return make([]byte, size)
-	}
+func (srv *Server) makeSessionUDP() interface{} {
+	return srv.SessionUDPFactory.CreateSessionUDP(srv.UDPSize)
 }
 
 func (srv *Server) init() {
@@ -303,8 +305,11 @@ func (srv *Server) init() {
 	if srv.MsgAcceptFunc == nil {
 		srv.MsgAcceptFunc = defaultMsgAcceptFunc
 	}
+	if srv.SessionUDPFactory == nil {
+		srv.SessionUDPFactory = defaultSessionUDPFactory
+	}
 
-	srv.udpPool.New = makeUDPBuffer(srv.UDPSize)
+	srv.udpPool.New = srv.makeSessionUDP
 }
 
 func unlockOnce(l sync.Locker) func() {
@@ -360,7 +365,7 @@ func (srv *Server) ListenAndServe() error {
 			return err
 		}
 		u := l.(*net.UDPConn)
-		if e := setUDPSocketOptions(u); e != nil {
+		if e := srv.SessionUDPFactory.InitConn(u); e != nil {
 			return e
 		}
 		srv.PacketConn = l
@@ -391,7 +396,7 @@ func (srv *Server) ActivateAndServe() error {
 		// Check PacketConn interface's type is valid and value
 		// is not nil
 		if t, ok := pConn.(*net.UDPConn); ok && t != nil {
-			if e := setUDPSocketOptions(t); e != nil {
+			if e := srv.SessionUDPFactory.InitConn(t); e != nil {
 				return e
 			}
 			srv.started = true
@@ -542,8 +547,8 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 			return err
 		}
 		if len(m) < headerSize {
-			if cap(m) == srv.UDPSize {
-				srv.udpPool.Put(m[:srv.UDPSize])
+			if s != nil && (*s) != nil {
+				srv.udpPool.Put((*s).Clear())
 			}
 			continue
 		}
@@ -552,7 +557,7 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 			msg:        m,
 			tsigSecret: srv.TsigSecret,
 			udp:        l,
-			udpSession: s,
+			udpSession: *s,
 			wg:         &wg,
 		})
 	}
@@ -625,8 +630,8 @@ func (srv *Server) serve(w *response) {
 }
 
 func (srv *Server) disposeBuffer(w *response) {
-	if w.udp != nil && cap(w.msg) == srv.UDPSize {
-		srv.udpPool.Put(w.msg[:srv.UDPSize])
+	if w.udpSession != nil {
+		srv.udpPool.Put(w.udpSession.Clear())
 	}
 	w.msg = nil
 }
@@ -677,14 +682,13 @@ func (srv *Server) serveDNS(w *response) {
 		}
 	}
 
-	srv.disposeBuffer(w)
-
 	handler := srv.Handler
 	if handler == nil {
 		handler = DefaultServeMux
 	}
 
 	handler.ServeDNS(w, req) // Writes back to the client
+	srv.disposeBuffer(w)
 }
 
 func (srv *Server) readTCP(conn net.Conn, timeout time.Duration) ([]byte, error) {
@@ -739,14 +743,13 @@ func (srv *Server) readUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *S
 	}
 	srv.lock.RUnlock()
 
-	m := srv.udpPool.Get().([]byte)
-	n, s, err := ReadFromSessionUDP(conn, m)
+	s := srv.udpPool.Get().(SessionUDP)
+	m, err := s.ReadRequest(conn)
 	if err != nil {
-		srv.udpPool.Put(m)
+		srv.udpPool.Put(s.Clear())
 		return nil, nil, err
 	}
-	m = m[:n]
-	return m, s, nil
+	return m, &s, nil
 }
 
 // WriteMsg implements the ResponseWriter.WriteMsg method.
@@ -781,8 +784,8 @@ func (w *response) Write(m []byte) (int, error) {
 	}
 
 	switch {
-	case w.udp != nil:
-		return WriteToSessionUDP(w.udp, m, w.udpSession)
+	case w.udpSession != nil:
+		return w.udpSession.WriteResponse(m)
 	case w.tcp != nil:
 		lm := len(m)
 		if lm < 2 {
@@ -806,7 +809,7 @@ func (w *response) Write(m []byte) (int, error) {
 func (w *response) LocalAddr() net.Addr {
 	switch {
 	case w.udp != nil:
-		return w.udp.LocalAddr()
+		return w.udpSession.LocalAddr()
 	case w.tcp != nil:
 		return w.tcp.LocalAddr()
 	default:
