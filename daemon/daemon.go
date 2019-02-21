@@ -554,7 +554,7 @@ func (d *Daemon) compileBase() error {
 		fmt.Println("err1", err1)
 		enc := base64.StdEncoding.EncodeToString([]byte(data))
 		fmt.Println(enc)
-		data, err1 = ioutil.ReadFile("/var/lib/cilium/bpf/init.sh")
+		data, err1 = ioutil.ReadFile("/var/run/cilium/state/bpf_compile.log")
 		fmt.Println(err1, string(data))
 
 		log.WithError(err).Fatal("C and Go structs alignment check failed")

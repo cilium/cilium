@@ -448,4 +448,5 @@ fi
 
 # Compile dummy BPF file containing all shared struct definitions used by
 # pkg/alignchecker
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""
+OPTS=""
+bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj "$OPTS"
