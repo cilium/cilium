@@ -1177,8 +1177,10 @@ func runDaemon() {
 	}
 
 	bootstrapStats.cleanup.Start()
-	maps.CollectStaleMapGarbage()
-	maps.RemoveDisabledMaps()
+	if !option.Config.DryMode {
+		maps.CollectStaleMapGarbage()
+		maps.RemoveDisabledMaps()
+	}
 	bootstrapStats.cleanup.End(true)
 
 	// The workload event listener *must* be enabled *after* restored endpoints
