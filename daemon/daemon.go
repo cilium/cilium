@@ -1260,6 +1260,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Error("Error while initializing daemon")
 		return nil, restoredEndpoints, err
 	}
+	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
+		log.WithError(err).Error("Unable to restore previous BPF templates")
+	}
 
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
