@@ -1403,9 +1403,13 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 	}
 	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
+
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, pod := range pods {
+		foo := kub.Exec(fmt.Sprintf("%s logs %s -n kube-system", KubectlCmd, pod))
+		ginkgoext.GinkgoPrint(foo.GetDebugMessage())
+
 		for _, cmd := range commands {
 			res = kub.ExecPodCmd(namespace, pod, cmd, ExecOptions{SkipLog: true})
 			ginkgoext.GinkgoPrint(res.GetDebugMessage())

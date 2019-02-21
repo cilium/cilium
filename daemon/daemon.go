@@ -17,7 +17,9 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -548,6 +550,13 @@ func (d *Daemon) compileBase() error {
 		"ep_config":            reflect.TypeOf(configmap.EndpointConfig{}),
 	}
 	if err := alignchecker.CheckStructAlignments("bpf_alignchecker.o", toCheck); err != nil {
+		data, err1 := ioutil.ReadFile("bpf_alignchecker.o")
+		fmt.Println("err1", err1)
+		enc := base64.StdEncoding.EncodeToString([]byte(data))
+		fmt.Println(enc)
+		data, err1 = ioutil.ReadFile("/var/lib/cilium/bpf/init.sh")
+		fmt.Println(err1, string(data))
+
 		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
