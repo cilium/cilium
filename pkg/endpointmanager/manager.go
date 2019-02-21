@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -365,23 +366,50 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 
 	log.Infof("regenerating all endpoints due to %s", regenMetadata.Reason)
 	for _, ep := range eps {
-		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-				ep.Unlock()
-				if regen {
-					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, regenMetadata)
-				}
-			}
-			wg.Done()
-		}(ep, &wg)
+		go regenerateEndpoint(owner, ep, regenMetadata, &wg)
 	}
 
 	return &wg
+}
+
+func regenerateEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
+	if err := ep.LockAlive(); err != nil {
+		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		ep.Unlock()
+		if regen {
+			// Regenerate logs status according to the build success/failure
+			<-ep.Regenerate(owner, regenMetadata)
+		}
+	}
+	wg.Done()
+}
+
+// RegenerateEndpointSet is similar to RegenerateAllEndpoints, except it only
+// regenerates all endpoints with IDs in endpointIDs.
+func RegenerateEndpointSet(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	wg.Add(len(endpointIDs))
+
+	for endpointID := range endpointIDs {
+		ep := endpoints[endpointID]
+		go regenerateEndpoint(owner, ep, regenMetadata, &wg)
+	}
+	return &wg
+}
+
+// EndpointIdentityMapping returns the mapping of all endpoint IDs to their
+// corresponding security identity which are being managed by the endpointmanager.
+func EndpointIdentityMapping() map[uint16]*identity.Identity {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	endpointIDs := make(map[uint16]*identity.Identity, len(endpoints))
+	for id, ep := range endpoints {
+		endpointIDs[id] = ep.SecurityIdentity
+	}
+	return endpointIDs
 }
 
 // HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
