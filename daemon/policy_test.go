@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/cilium/proxy/go/cilium/api"
@@ -165,6 +166,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		os.RemoveAll("1_backup")
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
+
+	wg := ds.d.policy.UpdateLocalConsumers([]policy.IdentityConsumer{e})
+	wg.Wait()
 	e.UnconditionalLock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
@@ -182,7 +186,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	e.IPv4 = ProdIPv4Addr
 	e.LXCMAC = ProdHardAddr
 	e.SetNodeMACLocked(ProdHardAddr)
+	identityChangedWG := ds.d.ClearPolicyConsumers(e.ID)
+	identityChangedWG.Wait()
 	e.SetIdentity(prodBarSecLblsCtx)
+	wg = ds.d.policy.UpdateLocalConsumers([]policy.IdentityConsumer{e})
+	wg.Wait()
 	e.UnconditionalLock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
