@@ -42,12 +42,17 @@ var (
 		LabelArray: lbls.LabelArray(),
 	}
 	identityCache = cache.IdentityCache{303: lblsArray}
+	fooEndpointId = 9001
 )
 
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
-	repo.AddList(GenerateNumRules(1000))
+	//repo.AddList(GenerateNumRules(1000))
+	identityMap := map[uint16]*identity.Identity{
+		9001: fooIdentity,
+	}
+	repo.AddListWithIdentityMap(GenerateNumRules(1000), identityMap)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
@@ -122,11 +127,19 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		repo.ResolvePolicy(1, lblsArray, DummyOwner{}, identityCache)
+		repo.ResolvePolicy(9001, fooIdentity, DummyOwner{}, identityCache)
 	}
 }
 
 func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
+
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+
 	repo := NewPolicyRepository()
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -149,14 +162,13 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, err := repo.Add(rule1)
+	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-
 	identityCache = cache.GetIdentityCache()
-	policy, err := repo.ResolvePolicy(10, labels.ParseSelectLabelArray("id=foo"), DummyOwner{}, identityCache)
+	policy, err := repo.ResolvePolicy(10, fooIdentity, DummyOwner{}, identityCache)
 	c.Assert(err, IsNil)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -198,6 +210,14 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+
 	// Emulate Kubernetes mode with allow from localhost
 	oldLocalhostOpt := option.Config.AllowLocalhost
 	option.Config.AllowLocalhost = option.AllowLocalhostAlways
@@ -225,14 +245,14 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, err := repo.Add(rule1)
+	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 
 	identityCache = cache.GetIdentityCache()
-	policy, err := repo.ResolvePolicy(10, labels.ParseSelectLabelArray("id=foo"), DummyOwner{}, identityCache)
+	policy, err := repo.ResolvePolicy(10, fooIdentity, DummyOwner{}, identityCache)
 	c.Assert(err, IsNil)
 
 	expectedEndpointPolicy := EndpointPolicy{

@@ -17,7 +17,9 @@ package policy
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -27,6 +29,19 @@ import (
 
 type rule struct {
 	api.Rule
+
+	// mutex protects everything below it (i.e., not the rule itself).
+	mutex lock.RWMutex
+
+	// localRuleConsumers is the set of the numeric identifiers which this rule
+	// selects which are node-local (e.g., Endpoint).
+	localRuleConsumers map[uint16]*identity.Identity
+
+	// processedConsumers tracks which consumers have been 'processed' - that is,
+	// it determines whether the consumer has actually been processed in relation
+	// to this rule. It does *not* encode whether the rule selects the consumer;
+	// that is what localRuleConsumers is for.
+	processedConsumers map[uint16]struct{}
 }
 
 func (r *rule) String() string {
@@ -408,6 +423,29 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 	}
 
 	return api.Undecided
+}
+
+func (r *rule) matches(id uint16, securityIdentity *identity.Identity) bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	var ruleMatches bool
+
+	// Rule has already been processed, we can check the caches in the rule.
+	if _, ok := r.processedConsumers[id]; ok {
+		if _, ok := r.localRuleConsumers[id]; ok {
+			return true
+		}
+		return false
+	}
+	// Fall back to costly matching.
+	if ruleMatches = r.EndpointSelector.Matches(securityIdentity.LabelArray); ruleMatches {
+		// Update cache so we don't have to do costly matching again.
+		r.localRuleConsumers[id] = securityIdentity
+	}
+
+	r.processedConsumers[id] = struct{}{}
+
+	return ruleMatches
 }
 
 // ****************** EGRESS POLICY ******************

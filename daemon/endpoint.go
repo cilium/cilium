@@ -586,9 +586,15 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	// in its event queue.
 	ep.CloseEventQueue()
 
+	// Since the endpoint is being deleted, we need to update the caches within
+	// the policy rules.
+	// TODO - if endpoint is being regenerated here, rules cache may be updated
+	//  :( - maybe clear all policy rules in cache upon endpoint add to be safe?
+	wg := d.policy.RemoveIdentifierFromRuleCaches(ep.ID)
+
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	endpointmanager.Remove(ep, nil)
+	endpointmanager.Remove(ep, wg)
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {

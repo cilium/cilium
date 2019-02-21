@@ -294,7 +294,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		return nil, err
 	}
 	if !ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "initial build of health endpoint") {
-		endpointmanager.Remove(ep, nil)
+		wg := owner.ClearPolicyConsumers(ep.ID)
+		endpointmanager.Remove(ep, wg)
 		ep.Unlock()
 		return nil, fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
 	}
@@ -305,7 +306,8 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		Reason: "health daemon bootstrap",
 	})
 	if !buildSuccessful {
-		endpointmanager.Remove(ep, nil)
+		wg := owner.ClearPolicyConsumers(ep.ID)
+		endpointmanager.Remove(ep, wg)
 		return nil, fmt.Errorf("unable to build health endpoint")
 	}
 
