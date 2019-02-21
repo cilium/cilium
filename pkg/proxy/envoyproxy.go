@@ -46,7 +46,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 
 	if envoyProxy != nil {
 		redir := &envoyRedirect{
-			listenerName: fmt.Sprintf("%s:%d", r.id, r.ProxyPort),
+			listenerName: fmt.Sprintf("%s:%d", r.listenerName, r.ProxyPort),
 			xdsServer:    xdsServer,
 		}
 
@@ -55,7 +55,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		return redir, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.id)
+	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.listenerName)
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the
