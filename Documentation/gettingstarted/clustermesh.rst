@@ -243,7 +243,7 @@ chapter into all of your clusters:
 
 .. code:: bash
 
-    kubectl -n kube-system delete -l k8s-app=cilium
+    kubectl -n kube-system delete pod -l k8s-app=cilium
 
 Test pod connectivity between clusters
 ======================================
