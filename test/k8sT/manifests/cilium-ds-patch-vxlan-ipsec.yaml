@@ -1,0 +1,31 @@
+---
+metadata:
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - image: k8s1:5000/cilium/cilium-dev:latest
+        imagePullPolicy: Always
+        name: cilium-agent
+        args:
+        - "--tunnel=vxlan"
+        - "--kvstore=etcd"
+        - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
+        - "--k8s-require-ipv4-pod-cidr"
+        - "--pprof=true"
+        - "--log-system-load"
+        - "--config-dir=/tmp/cilium/config-map"
+        - "--enable-ipsec"
+        - "--ipsec-key-file=/etc/ipsec/keys"
+        volumeMounts:
+          - name: cilium-ipsec-secrets
+            mountPath: /etc/ipsec
+      volumes:
+      - name: cilium-ipsec-secrets
+        secret:
+          secretName: cilium-ipsec-keys
+      - name: etcd-secrets
+        secret:
+          secretName: cilium-etcd-client-tls
+      dnsPolicy: ClusterFirstWithHostNet

@@ -16,6 +16,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -29,10 +30,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
+	var ipsecDSPath string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
+		ipsecDSPath = helpers.ManifestGet("ipsec_ds.yaml")
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 
@@ -41,11 +44,13 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	BeforeEach(func() {
 		kubectl.Apply(demoDSPath).ExpectSuccess("cannot install Demo application")
+		kubectl.Apply(ipsecDSPath).ExpectSuccess("cannot install IPsec keys")
 		kubectl.NodeCleanMetadata()
 	})
 
 	AfterEach(func() {
 		kubectl.Delete(demoDSPath)
+		kubectl.Delete(ipsecDSPath)
 		ExpectAllPodsTerminated(kubectl)
 
 		// Do not assert on success in AfterEach intentionally to avoid
@@ -104,6 +109,29 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(status.IntOutput()).Should(Equal(3), "Did not find expected number of entries in BPF tunnel map")
 		}
 
+		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
+			switch helpers.GetCurrentIntegration() {
+			case helpers.CIIntegrationFlannel:
+				Skip(fmt.Sprintf(
+					"Cilium in %q mode is not supported with transparent encryption and VxLAN. Skipping test.",
+					helpers.CIIntegrationFlannel))
+				return
+			}
+
+			netnext := os.Getenv("NETNEXT")
+			if netnext != "true" {
+				Skip(fmt.Sprintf(
+					"Cilium transparent encryption not supported on CI kernel 4.9.7 please upgrade to latest 4.9.x kernel.",
+				))
+				return
+			}
+
+			deployCilium("cilium-ds-patch-vxlan-ipsec.yaml")
+			validateBPFTunnelMap()
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
+			cleanService()
+		}, 600)
+
 		It("Check connectivity with VXLAN encapsulation", func() {
 			switch helpers.GetCurrentIntegration() {
 			case helpers.CIIntegrationFlannel:
@@ -146,6 +174,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 
 			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
+
+	Context("Transparent encryption with IPv4Only", func() {
+		It("Check connectivity with transparent encryption enabled and IPv6 disabled", func() {
+			deployCilium("cilium-ds-patch-ipv4-only-ipsec.yaml")
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
