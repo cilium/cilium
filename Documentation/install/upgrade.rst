@@ -1097,7 +1097,7 @@ Upgrade steps - :ref:`DNS Polling`
 
 #. Add ``tofqdns-pre-cache: "/var/run/cilium/dns-precache-upgrade.json"``
    to the ConfigMap. Alternatively, pass
-   ``tofqdns-pre-cache="/var/run/cilium/dns-precache-upgrade.json"`` to
+   ``--tofqdns-pre-cache="/var/run/cilium/dns-precache-upgrade.json"`` to
    cilium-agent.
 
 #. Deploy the cilium :ref:`pre_flight` helper. This will download the cilium
