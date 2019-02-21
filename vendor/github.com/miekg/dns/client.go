@@ -413,7 +413,7 @@ func ExchangeContext(ctx context.Context, m *Msg, a string) (r *Msg, err error) 
 
 // ExchangeConn performs a synchronous query. It sends the message m via the connection
 // c and waits for a reply. The connection c is not closed by ExchangeConn.
-// This function is going away, but can easily be mimicked:
+// Deprecated: This function is going away, but can easily be mimicked:
 //
 //	co := &dns.Conn{Conn: c} // c is your net.Conn
 //	co.WriteMsg(m)
