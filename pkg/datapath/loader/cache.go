@@ -65,6 +65,17 @@ func Init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
 	elfCache.Update(nodeCfg)
 }
 
+// RestoreTemplates populates the object cache from templates on the filesystem
+// at the specified path.
+func RestoreTemplates(stateDir string) error {
+	// Simplest implementation: Just garbage-collect everything.
+	err := os.RemoveAll(filepath.Join(stateDir, defaults.TemplatesDir))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
 // ObjectCache is a map from a hash of the datapath to the path on the
 // filesystem where its corresponding BPF object file exists.
 type ObjectCache struct {
