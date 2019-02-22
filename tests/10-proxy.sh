@@ -297,7 +297,7 @@ function proxy_test {
 }
 
 proxy_init
-for state in "false" "true"; do
+for state in "false"; do
   cilium config ConntrackLocal=$state
 
   for service in "none" "lb"; do

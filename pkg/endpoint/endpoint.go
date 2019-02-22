@@ -885,6 +885,13 @@ func (e *Endpoint) HasSidecarProxy() bool {
 	return e.hasSidecarProxy
 }
 
+func (e *Endpoint) ConntrackName() string {
+	if e.ConntrackLocalLocked() {
+		return e.StringID()
+	}
+	return ""
+}
+
 // StringID returns the endpoint's ID in a string.
 func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))

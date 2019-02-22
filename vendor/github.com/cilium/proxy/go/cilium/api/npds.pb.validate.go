@@ -76,6 +76,8 @@ func (m *NetworkPolicy) Validate() error {
 
 	}
 
+	// no validation rules for ConntrackMapName
+
 	return nil
 }
 
