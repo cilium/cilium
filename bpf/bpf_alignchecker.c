@@ -16,14 +16,7 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #include <stdio.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <linux/byteorder.h>
-#include <linux/unistd.h>
-#include <linux/bpf.h>
-#include <linux/perf_event.h>
-#include <sys/resource.h>
 #include "node_config.h"
 #include "lib/conntrack.h"
 #include "lib/maps.h"
