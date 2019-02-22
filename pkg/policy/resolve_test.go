@@ -45,14 +45,26 @@ var (
 	fooEndpointId = 9001
 )
 
+type dummyEndpoint struct {
+	ID               uint16
+	SecurityIdentity *identity.Identity
+}
+
+func (d *dummyEndpoint) GetID16() uint16 {
+	return d.ID
+}
+
+func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
+	return d.SecurityIdentity
+}
+
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
-	//repo.AddList(GenerateNumRules(1000))
-	identityMap := map[uint16]*identity.Identity{
-		9001: fooIdentity,
-	}
-	repo.AddListWithIdentityMap(GenerateNumRules(1000), identityMap)
+	repo.AddListWithIdentityMap(GenerateNumRules(1000), []IdentityConsumer{&dummyEndpoint{
+		ID:               9001,
+		SecurityIdentity: fooIdentity,
+	}})
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
@@ -162,7 +174,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
+	_, _, err := repo.Add(rule1, []IdentityConsumer{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -245,7 +257,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
+	_, _, err := repo.Add(rule1, []IdentityConsumer{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()

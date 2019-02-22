@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -234,7 +233,14 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := endpointmanager.EndpointIdentityMapping()
+	allEndpoints := endpointmanager.GetEndpoints()
+	epsIdentityConsumers := make([]policy.IdentityConsumer, len(allEndpoints))
+
+	// Need to explicitly convert endpoints to IdentityConsumers.
+	for _, ep := range allEndpoints {
+		epsIdentityConsumers = append(epsIdentityConsumers, ep)
+	}
+
 	endpointsToRegen := policy.NewIdSet()
 
 	if opts != nil {
@@ -244,7 +250,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					d.policy.DeleteByLabelsLocked(r.Labels, allEndpoints, endpointsToRegen, &policySelectionWG)
+					d.policy.DeleteByLabelsLocked(r.Labels, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 				}
 			}
 		}
@@ -253,12 +259,12 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels, allEndpoints, endpointsToRegen, &policySelectionWG)
+				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 			}
 		}
 	}
 
-	rev := d.policy.AddListLocked(rules, allEndpoints, endpointsToRegen, &policySelectionWG)
+	rev := d.policy.AddListLocked(rules, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
 
@@ -285,7 +291,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	// Only regenerate endpoints which are needed to be regenerated as a result
 	// of the rule update. The rules which were imported most likely do not select
 	// all endpoints in the policy repository (and may not select any at all).
-	go d.ReactToRuleUpdates(&policySelectionWG, allEndpoints, endpointsToRegen, rev)
+	go d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, rev)
 
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
@@ -305,7 +311,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 // * regenerate all endpoints in epsToRegen
 // * bump the policy revision of all endpoints not in epsToRegen, but which are
 //   in allEps, to revision rev.
-func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps map[uint16]*identity.Identity, epsToRegen *policy.IdSet, rev uint64) {
+func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.IdentityConsumer, epsToRegen *policy.IdSet, rev uint64) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
 	wg.Wait()
@@ -317,9 +323,10 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps map[uint16]*ident
 	// policy revision for the endpoint needs to be bumped so we can reflect that
 	// said endpoint realizes the state of the policy repository at revision rev.
 	endpointsToBumpRevision := map[uint16]struct{}{}
-	for ep := range allEps {
-		if _, ok := epsToRegen.IDs[ep]; !ok {
-			endpointsToBumpRevision[ep] = struct{}{}
+	for _, ep := range allEps {
+		epID := ep.GetID16()
+		if _, ok := epsToRegen.IDs[epID]; !ok {
+			endpointsToBumpRevision[epID] = struct{}{}
 		}
 	}
 	go bumpEndpointRevisions(endpointsToBumpRevision, rev)
@@ -367,10 +374,16 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := endpointmanager.EndpointIdentityMapping()
+	allEndpoints := endpointmanager.GetEndpoints()
+	epsIdentityConsumers := make([]policy.IdentityConsumer, len(allEndpoints))
+
+	// Need to explicitly convert endpoints to IdentityConsumers.
+	for _, ep := range allEndpoints {
+		epsIdentityConsumers = append(epsIdentityConsumers, ep)
+	}
 	endpointsToRegen := policy.NewIdSet()
 
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels, allEndpoints, endpointsToRegen, &policySelectionWG)
+	rev, deleted := d.policy.DeleteByLabelsLocked(labels, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
 
@@ -399,7 +412,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	// Only regenerate endpoints which are needed to be regenerated as a result
 	// of the rule update. The rules which were imported most likely do not select
 	// all endpoints in the policy repository (and may not select any at all).
-	go d.ReactToRuleUpdates(&policySelectionWG, allEndpoints, endpointsToRegen, rev)
+	go d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, rev)
 
 	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {

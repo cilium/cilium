@@ -160,15 +160,6 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 	p.rules.wildcardL3L4Rules(ctx, ingress, l4Policy)
 }
 
-// AnalyzeWhetherRulesSelectEndpoint iterates over a given list of rules to
-// update the cache within the rule which determines whether or not the given
-// identity is selected by that rule. If a rule in the list does select said
-// identity, it is added to epIDSet. Signals to the given WaitGroup that
-// all rules have been parsed in relation to said identity.
-func (p *Repository) AnalyzeWhetherRulesSelectEndpoint(id uint16, securityIdentity *identity.Identity, epIDSet *IdSet, wg *sync.WaitGroup) {
-	p.rules.analyzeWhetherRulesSelectEndpoint(id, securityIdentity, epIDSet, wg)
-}
-
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
 // by searching the policy repository for `PortRule` rules that are attached to
 // a `Rule` where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
@@ -362,7 +353,7 @@ nextLabel:
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
-func (p *Repository) Add(r api.Rule, localRuleConsumers map[uint16]*identity.Identity) (uint64, map[uint16]struct{}, error) {
+func (p *Repository) Add(r api.Rule, localRuleConsumers []IdentityConsumer) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 
@@ -382,9 +373,14 @@ func NewIdSet() *IdSet {
 	}
 }
 
+type IdentityConsumer interface {
+	GetID16() uint16
+	GetSecurityIdentity() *identity.Identity
+}
+
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers map[uint16]*identity.Identity, consumersToUpdate *IdSet, policySelectionWG *sync.WaitGroup) uint64 {
+func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers []IdentityConsumer, consumersToUpdate *IdSet, policySelectionWG *sync.WaitGroup) uint64 {
 	policySelectionWG.Add(len(localRuleConsumers))
 
 	newList := make(ruleSlice, len(rules))
@@ -397,9 +393,9 @@ func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers map[uint1
 		newList[i] = newRule
 	}
 
-	for identifier, securityIdentity := range localRuleConsumers {
+	for _, identityConsumer := range localRuleConsumers {
 		// Spawn goroutine per rule to avoid blocking on matching via API
-		go newList.analyzeWhetherRulesSelectEndpoint(identifier, securityIdentity, consumersToUpdate, policySelectionWG)
+		go newList.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
 	}
 
 	p.rules = append(p.rules, newList...)
@@ -413,11 +409,11 @@ func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers map[uint1
 // UpdateLocalConsumers updates the cache within each rule in the given repository
 // which specifies whether said rule selects said identity. Returns a wait group
 // which can be used to wait until all rules have had said caches updated.
-func (p *Repository) UpdateLocalConsumers(identifiers map[uint16]*identity.Identity) *sync.WaitGroup {
+func (p *Repository) UpdateLocalConsumers(identifiers []IdentityConsumer) *sync.WaitGroup {
 	var policySelectionWG sync.WaitGroup
-	for identifier, securityIdentity := range identifiers {
+	for _, identityConsumer := range identifiers {
 		policySelectionWG.Add(1)
-		go p.rules.analyzeWhetherRulesSelectEndpoint(identifier, securityIdentity, NewIdSet(), &policySelectionWG)
+		go p.rules.analyzeWhetherRulesSelectEndpoint(identityConsumer, NewIdSet(), &policySelectionWG)
 	}
 	return &policySelectionWG
 }
@@ -448,16 +444,16 @@ func (p *Repository) RemoveIdentifierFromRuleCaches(identifier uint16) *sync.Wai
 func (p *Repository) AddList(rules api.Rules) uint64 {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.AddListLocked(rules, map[uint16]*identity.Identity{}, NewIdSet(), &sync.WaitGroup{})
+	return p.AddListLocked(rules, []IdentityConsumer{}, NewIdSet(), &sync.WaitGroup{})
 }
 
 // AddListWithIdentityMap inserts a rule into the policy repository. It is used
 // for unit-testing purposes only.
-func (p *Repository) AddListWithIdentityMap(rules api.Rules, identityMap map[uint16]*identity.Identity) uint64 {
+func (p *Repository) AddListWithIdentityMap(rules api.Rules, identityConsumers []IdentityConsumer) uint64 {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 	var wg sync.WaitGroup
-	rev := p.AddListLocked(rules, identityMap, NewIdSet(), &wg)
+	rev := p.AddListLocked(rules, identityConsumers, NewIdSet(), &wg)
 	wg.Wait()
 	return rev
 }
@@ -470,7 +466,7 @@ type IdSet struct {
 // DeleteByLabelsLocked deletes all rules in the policy repository which
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
-func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsumers map[uint16]*identity.Identity, consumersToUpdate *IdSet, policySelectionWG *sync.WaitGroup) (uint64, int) {
+func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsumers []IdentityConsumer, consumersToUpdate *IdSet, policySelectionWG *sync.WaitGroup) (uint64, int) {
 	policySelectionWG.Add(len(localConsumers))
 
 	deleted := 0
@@ -486,9 +482,9 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsume
 		}
 	}
 
-	for identifier, securityIdentity := range localConsumers {
+	for _, identityConsumer := range localConsumers {
 		// Update each rule in parallel.
-		go deletedRules.analyzeWhetherRulesSelectEndpoint(identifier, securityIdentity, consumersToUpdate, policySelectionWG)
+		go deletedRules.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
 	}
 
 	if deleted > 0 {
@@ -506,7 +502,7 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsume
 func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.DeleteByLabelsLocked(labels, map[uint16]*identity.Identity{}, NewIdSet(), &sync.WaitGroup{})
+	return p.DeleteByLabelsLocked(labels, []IdentityConsumer{}, NewIdSet(), &sync.WaitGroup{})
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON

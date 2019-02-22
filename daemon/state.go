@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	identity2 "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -307,7 +306,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 
 			// We don't need to hold the policy repository mutex here because
 			// the content of the rules themselves are not being changed.
-			wg := d.policy.UpdateLocalConsumers(map[uint16]*identity2.Identity{ep.ID: ep.SecurityIdentity})
+			wg := d.policy.UpdateLocalConsumers([]policy.IdentityConsumer{ep})
 			wg.Wait()
 
 			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {

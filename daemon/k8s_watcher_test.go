@@ -107,7 +107,7 @@ func (ds *DaemonSuite) Test_missingK8sNetworkPolicyV1(c *C) {
 					EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=a")),
 					Labels: labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, "bar", labels.LabelSourceK8s),
 						labels.NewLabel(k8sConst.PolicyLabelNamespace, "foo", labels.LabelSourceK8s)},
-				}, map[uint16]*identity.Identity{})
+				}, []policy.IdentityConsumer{})
 				c.Assert(err, IsNil)
 
 				m := versioned.NewMap()
@@ -206,7 +206,7 @@ func (ds *DaemonSuite) Test_missingCNPv2(c *C) {
 					Labels: utils.GetPolicyLabels(
 						"foo", "bar", uuid,
 						utils.ResourceTypeCiliumNetworkPolicy),
-				}, map[uint16]*identity.Identity{})
+				}, []policy.IdentityConsumer{})
 				c.Assert(err, IsNil)
 
 				m := versioned.NewMap()

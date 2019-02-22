@@ -24,10 +24,10 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/cilium/proxy/go/cilium/api"
@@ -167,7 +167,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	}()
 	e.SetIdentity(qaBarSecLblsCtx)
 
-	wg := ds.d.policy.UpdateLocalConsumers(map[uint16]*identity.Identity{e.ID: e.SecurityIdentity})
+	wg := ds.d.policy.UpdateLocalConsumers([]policy.IdentityConsumer{e})
 	wg.Wait()
 	e.UnconditionalLock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
@@ -189,7 +189,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	identityChangedWG := ds.d.ClearPolicyConsumers(e.ID)
 	identityChangedWG.Wait()
 	e.SetIdentity(prodBarSecLblsCtx)
-	wg = ds.d.policy.UpdateLocalConsumers(map[uint16]*identity.Identity{e.ID: e.SecurityIdentity})
+	wg = ds.d.policy.UpdateLocalConsumers([]policy.IdentityConsumer{e})
 	wg.Wait()
 	e.UnconditionalLock()
 	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")

@@ -17,7 +17,6 @@
 package k8s
 
 import (
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
@@ -68,7 +67,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 
 	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{}, nil)
 
-	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
+	_, _, err := repo.Add(rule1, []policy.IdentityConsumer{})
 	c.Assert(err, IsNil)
 
 	result, err := repo.TranslateRules(translator)
@@ -167,7 +166,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 
 	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, nil)
 
-	_, _, err := repo.Add(rule1, map[uint16]*identity.Identity{})
+	_, _, err := repo.Add(rule1, []policy.IdentityConsumer{})
 	c.Assert(err, IsNil)
 
 	result, err := repo.TranslateRules(translator)

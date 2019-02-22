@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -260,7 +259,9 @@ egressLoop:
 // identity is selected by that rule. If a rule in the list does select said
 // identity, it is added to epIDSet. Signals to the given WaitGroup that
 // all rules have been parsed in relation to said identity.
-func (rules ruleSlice) analyzeWhetherRulesSelectEndpoint(id uint16, securityIdentity *identity.Identity, epIDSet *IdSet, wg *sync.WaitGroup) {
+func (rules ruleSlice) analyzeWhetherRulesSelectEndpoint(identityConsumer IdentityConsumer, epIDSet *IdSet, wg *sync.WaitGroup) {
+	id := identityConsumer.GetID16()
+	securityIdentity := identityConsumer.GetSecurityIdentity()
 
 	for _, r := range rules {
 		if ruleMatches := r.matches(id, securityIdentity); ruleMatches {
