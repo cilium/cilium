@@ -194,6 +194,10 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 	writeIncludes(w)
 	l.writeStaticData(fw, e)
 
+	return l.writeTemplateConfig(fw, e)
+}
+
+func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.EndpointConfiguration) error {
 	if !e.HasIpvlanDataPath() {
 		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
 		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
@@ -218,4 +222,10 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 	l.writeNetdevConfig(fw, e)
 
 	return fw.Flush()
+}
+
+// WriteEndpointConfig writes the BPF configuration for the template to a writer.
+func (l *linuxDatapath) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+	fw := bufio.NewWriter(w)
+	return l.writeTemplateConfig(fw, e)
 }
