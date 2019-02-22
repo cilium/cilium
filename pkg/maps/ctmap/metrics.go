@@ -18,10 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-
-	"github.com/sirupsen/logrus"
 )
 
 type gcStats struct {
@@ -124,17 +121,4 @@ func (s *gcStats) finish() {
 	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
 	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
 	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family, proto).Add(float64(s.KeyFallback))
-
-	log.WithFields(logrus.Fields{
-		logfields.StartTime: s.Started,
-		logfields.Duration:  duration,
-		logfields.Protocol:  proto,
-		logfields.Family:    s.family,
-		"numDeleted":        s.deleted,
-		"numLookups":        s.Lookup,
-		"numLookupsFailed":  s.LookupFailed,
-		"numKeyFallbacks":   s.KeyFallback,
-		"completed":         s.Completed,
-		"maxEntries":        s.MaxEntries,
-	}).Infof("Conntrack garbage collection statistics")
 }
