@@ -35,9 +35,11 @@ SKIP_DOCS ?= $(shell if mount | grep -q "/home/vagrant/go/src/github.com/cilium/
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
-	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR)"
+	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
+	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890"
 TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml \
-	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR)"
+	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
+	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890"
 
 all: precheck build postcheck
 	@echo "Build finished."
