@@ -84,6 +84,22 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 	return n, nil
 }
 
+// useNodeCIDR sets the ipv4-range and ipv6-range values values from the
+// addresses defined in the given node.
+func useNodeCIDR(n *node.Node) {
+	if n.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
+		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
+	}
+	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
+		if err := node.SetIPv6NodeRange(n.IPv6AllocCIDR.IPNet); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.Node:     n.Name,
+				logfields.V6Prefix: n.IPv6AllocCIDR,
+			}).Warn("k8s: Can't use IPv6 CIDR range from k8s")
+		}
+	}
+}
+
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
@@ -110,18 +126,31 @@ func Init() error {
 		node.SetName(nodeName)
 
 		if n := waitForNodeInformation(nodeName); n != nil {
+			nodeIP4 := n.GetNodeIP(false)
+			nodeIP6 := n.GetNodeIP(true)
+
 			log.WithFields(logrus.Fields{
 				logfields.NodeName:         n.Name,
-				logfields.IPAddr + ".ipv4": n.GetNodeIP(false),
-				logfields.IPAddr + ".ipv6": n.GetNodeIP(true),
+				logfields.IPAddr + ".ipv4": nodeIP4,
+				logfields.IPAddr + ".ipv6": nodeIP6,
+				logfields.V4Prefix:         n.IPv4AllocCIDR,
+				logfields.V6Prefix:         n.IPv6AllocCIDR,
 			}).Info("Received own node information from API server")
 
-			if err := node.UseNodeCIDR(n); err != nil {
-				return fmt.Errorf("unable to use k8s node CIDRs: %s", err)
+			useNodeCIDR(n)
+
+			// Note: Node IPs are derived regardless of
+			// option.Config.EnableIPv4 and
+			// option.Config.EnableIPv6. This is done to enable
+			// underlay addressing to be different from overlay
+			// addressing, e.g. an IPv6 only PodCIDR running over
+			// IPv4 encapsulation.
+			if nodeIP4 != nil {
+				node.SetExternalIPv4(nodeIP4)
 			}
 
-			if err := node.UseNodeAddresses(n); err != nil {
-				return fmt.Errorf("unable to use k8s node addresses: %s", err)
+			if nodeIP6 != nil {
+				node.SetIPv6(nodeIP6)
 			}
 		} else {
 			// if node resource could not be received, fail if
