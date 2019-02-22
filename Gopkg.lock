@@ -1244,7 +1244,7 @@
   revision = "56440b844dfe139a8ac053f4ecac0b20b79058f4"
 
 [[projects]]
-  digest = "1:77f0df0a744220ea2d96c636686811a7888c1297ff4ecce5cc97b30df4e3a78f"
+  digest = "1:e10b2fc351acc7685b214f37d683594eef61a74f8f8d178168a37298aaf136da"
   name = "golang.org/x/net"
   packages = [
     "bpf",
