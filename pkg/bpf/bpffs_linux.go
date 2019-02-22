@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/mountinfo"
 )
 
@@ -130,6 +131,16 @@ var (
 
 // mountFS mounts the BPFFS filesystem into the desired mapRoot directory.
 func mountFS() error {
+	if k8s.IsEnabled() {
+		log.Warning("================================= WARNING ==========================================")
+		log.Warning("BPF filesystem is not mounted. This will lead to network disruption when Cilium pods")
+		log.Warning("are restarted. Ensure that the BPF filesystem is mounted in the host.")
+		log.Warning("https://docs.cilium.io/en/stable/kubernetes/requirements/#mounted-bpf-filesystem")
+		log.Warning("====================================================================================")
+	}
+
+	log.Infof("Mounting BPF filesystem at %s", mapRoot)
+
 	mapRootStat, err := os.Stat(mapRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -185,6 +196,8 @@ func checkOrMountCustomLocation(bpfRoot string) error {
 		if err := mountFS(); err != nil {
 			return err
 		}
+
+		return nil
 	}
 
 	// If the custom location already has a mount with some other filesystem than
@@ -192,6 +205,8 @@ func checkOrMountCustomLocation(bpfRoot string) error {
 	if !bpffsInstance {
 		return fmt.Errorf("mount in the custom directory %s has a different filesystem than BPFFS", bpfRoot)
 	}
+
+	log.Infof("Detected mounted BPF filesystem at %s", mapRoot)
 
 	return nil
 }
@@ -221,7 +236,11 @@ func checkOrMountDefaultLocations() error {
 		if err := mountFS(); err != nil {
 			return err
 		}
-	} else if !bpffsInstance {
+
+		return nil
+	}
+
+	if !bpffsInstance {
 		// If /sys/fs/bpf has a mount but with some other filesystem
 		// than BPFFS, it means that Cilium is running inside container
 		// and /sys/fs/bpf is not mounted on host. We should mount BPFFS
@@ -251,6 +270,8 @@ func checkOrMountDefaultLocations() error {
 			log.Fatalf("%s is mounted but has a different filesystem than BPFFS", defaults.DefaultMapRootFallback)
 		}
 	}
+
+	log.Infof("Detected mounted BPF filesystem at %s", mapRoot)
 
 	return nil
 }
@@ -285,7 +306,5 @@ func CheckOrMountFS(bpfRoot string) {
 		if err := checkOrMountFS(bpfRoot); err != nil {
 			log.WithError(err).Fatal("Unable to mount BPF filesystem")
 		}
-
-		log.Infof("Mounted BPF filesystem %s", mapRoot)
 	})
 }
