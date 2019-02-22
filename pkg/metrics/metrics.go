@@ -70,6 +70,9 @@ var (
 	// Agent is the subsystem to cope metrics related to the cilium agent itself.
 	Agent = "agent"
 
+	// K8sClient is the subsystem to scope metrics related to the kubernetes client.
+	K8sClient = "k8s_client"
+
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
@@ -481,6 +484,26 @@ var (
 		Help:      "Number of Kubernetes events received labeled by scope, action and execution result",
 	}, []string{LabelScope, LabelAction, LabelStatus})
 
+	// Kubernetes interactions
+
+	// KubernetesAPIInteractions is the total time taken to process an API call made
+	// to the kube-apiserver
+	KubernetesAPIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: K8sClient,
+		Name:      "api_latency_time_seconds",
+		Help:      "Duration of processed API calls labeled by path and method.",
+	}, []string{LabelPath, LabelMethod})
+
+	// KubernetesAPICalls is the counter for all API calls made to
+	// kube-apiserver.
+	KubernetesAPICalls = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: K8sClient,
+		Name:      "api_calls_counter",
+		Help:      "Number of API calls made to kube-apiserver labeled by host, method and return code.",
+	}, []string{"host", LabelMethod, LabelAPIReturnCode})
+
 	// IPAM events
 
 	// IpamEvent is the number of IPAM events received labeled by action and
@@ -524,6 +547,8 @@ func init() {
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
 	MustRegister(APIInteractions)
+	MustRegister(KubernetesAPIInteractions)
+	MustRegister(KubernetesAPICalls)
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
