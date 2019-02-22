@@ -35,6 +35,7 @@ PROXY_RT_TABLE=2005
 
 set -e
 set -x
+set -o pipefail
 
 if [[ ! $(command -v cilium) ]]; then
 	echo "Can't be initialized because 'cilium' is not in the path."
