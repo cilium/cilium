@@ -79,7 +79,8 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	timeout := time.NewTimer(time.Minute)
 	defer timeout.Stop()
 	wait.Until(func() {
-		log.Info("Waiting for k8s api-server to be ready...")
+		// FIXME: Use config.String() when we rebase to latest go-client
+		log.WithField("host", config.Host).Info("Establishing connection to apiserver")
 		err = isConnReady(cs)
 		if err == nil {
 			close(stop)
@@ -93,7 +94,7 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		}
 	}, 5*time.Second, stop)
 	if err == nil {
-		log.WithField(logfields.IPAddr, config.Host).Info("Connected to k8s api-server")
+		log.Info("Connected to apiserver")
 	}
 	return cs, err
 }
