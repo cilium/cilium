@@ -362,6 +362,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				// Note: We need to fixup minTTL to be consistent with how we insert it
 				// elsewhere i.e. we don't want to lose the lower bound for DNS data
 				// TTL if we reboot twice.
+
 				log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
 				effectiveTTL := int(TTL)
 				if effectiveTTL < option.Config.ToFQDNsMinTTL {
@@ -372,14 +373,13 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 					ep.SyncEndpointHeaderFile(d)
 				}
 
-				log.Debug("Updating DNS name in cache from response to to query")
 				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 					qname: {
 						IPs: responseIPs,
 						TTL: int(effectiveTTL),
 					}})
 				if err != nil {
-					log.WithError(err).Error("error updating internal DNS cache for rule generation")
+					log.WithError(err).Error("Error updating internal DNS cache for rule generation")
 				}
 				endMetric()
 			}

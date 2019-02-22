@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -75,7 +76,7 @@ type RuleGen struct {
 
 	// allRules is the global source of truth for rules we are managing. It maps
 	// UUID to the rule copy.
-	allRules map[string]*api.Rule
+	allRules map[string][]*api.Rule
 
 	// cache is a private copy of the pointer from config.
 	cache *DNSCache
@@ -97,7 +98,7 @@ func NewRuleGen(config Config) *RuleGen {
 		config:      config,
 		namesToPoll: make(map[string]struct{}),
 		sourceRules: regexpmap.NewRegexpMap(),
-		allRules:    make(map[string]*api.Rule),
+		allRules:    make(map[string][]*api.Rule),
 		cache:       config.Cache,
 	}
 
@@ -108,25 +109,34 @@ func NewRuleGen(config Config) *RuleGen {
 // when they are regenerated with IPs. It will also include the generated IPs
 // (in the ToCIDRSet) section for DNS names already present in the cache.
 // NOTE: It edits the rules in-place
-func (gen *RuleGen) MarkToFQDNRules(sourceRules []*api.Rule) {
+func (gen *RuleGen) MarkToFQDNRules(sourceRules []*api.Rule) ([]*api.Rule, []*api.Rule) {
 	gen.Lock()
 	defer gen.Unlock()
+	result := []*api.Rule{}
+	toDelete := []*api.Rule{}
 
-perRule:
-	for _, sourceRule := range sourceRules {
-		// This rule has already been seen, and has a UUID label OR it has no
-		// ToFQDN rules. Do no more processing on it.
-		// Note: this label can only come from us. An external rule add or replace
-		// would lack the UUID-tagged rule and we would add a new UUID label in
-		// this function. Cleanup for existing rules with UUIDs is handled in
-		// StopManageDNSName
-		if !hasToFQDN(sourceRule) || sourceRule.Labels.Has(uuidLabelSearchKey) {
-			continue perRule
+	for _, rule := range sourceRules {
+		sourceRule := rule.DeepCopy()
+		result = append(result, sourceRule)
+		uuidOriginal := getRuleUUIDLabel(sourceRule)
+		if !hasToFQDN(sourceRule) {
+			// @TODO need to validate multiple rules with the same UUID here.
+			if uuidOriginal != "" {
+				toDelete = append(toDelete, sourceRule)
+			}
+			continue
 		}
 
-		// add a unique ID that we can use later to replace this rule.
-		uuidLabel := generateUUIDLabel()
-		sourceRule.Labels = append(sourceRule.Labels, uuidLabel)
+		// If the source Rule has the Kubernetes UUID use that instead of a new
+		// one.
+		key := labels.NewLabel(k8sConst.PolicyLabelUID, "", labels.LabelSourceK8s)
+		if !sourceRule.Labels.Has(key.GetExtendedKey()) {
+			if !sourceRule.Labels.Has(uuidLabelSearchKey) {
+				// add a unique ID that we can use later to replace this rule.
+				uuidLabel := generateUUIDLabel()
+				sourceRule.Labels = append(sourceRule.Labels, uuidLabel)
+			}
+		}
 
 		// Strip out toCIDRSet
 		// Note: See Hack 1 above. When we generate rules, we add them and this
@@ -143,47 +153,134 @@ perRule:
 				Debug("No IPs to inject on initial rule insert")
 		}
 	}
+	return result, toDelete
 }
 
-// StartManageDNSName begins managing sourceRules that contain toFQDNs
-// sections. When the DNS data of the included matchNames changes, RuleGen will
-// emit a replacement rule that contains the IPs for each matchName.
-// It only adds rules with the ToFQDN-UUID label, added by MarkToFQDNRules, and
-// repeat inserts are effectively no-ops.
-func (gen *RuleGen) StartManageDNSName(sourceRules []*api.Rule) error {
+func (gen *RuleGen) PushRules(sourceRules []*api.Rule, toDeleteRules []*api.Rule) {
 	gen.Lock()
 	defer gen.Unlock()
 
-perRule:
-	for _, sourceRule := range sourceRules {
-		// Note: we rely on MarkToFQDNRules to insert this label.
-		if !sourceRule.Labels.Has(uuidLabelSearchKey) {
-			continue perRule
+	namesAlreadyPresent := []string{}
+	newNamesAdded := []string{}
+
+	for _, rule := range toDeleteRules {
+		uuidKey := getRuleUUIDLabel(rule)
+		delete(gen.allRules, uuidKey)
+	}
+
+	newRules := make(map[string][]*api.Rule)
+	for _, rule := range sourceRules {
+		uuidKey := getRuleUUIDLabel(rule)
+		newRules[uuidKey] = append(newRules[uuidKey], rule)
+	}
+
+	for uuidKey, rules := range newRules {
+		toRemove := []string{}
+		oldDNSNames := map[string]bool{}
+		oldDNSMatches := map[string]bool{}
+
+		// Retrieve data from old rules if it is present
+		oldRules, ok := gen.allRules[uuidKey]
+		if ok {
+			oldDNSNames, oldDNSMatches = retrieveFQDNData(oldRules)
 		}
 
-		// Make a copy to avoid breaking the input rules. Strip ToCIDRSet to avoid
-		// re-including IPs we optimistically inserted in MarkToFQDNRules
-		sourceRuleCopy := sourceRule.DeepCopy()
-		stripToCIDRSet(sourceRuleCopy)
+		newDNSNames, newDNSMatches := retrieveFQDNData(rules)
 
-		uuid := getRuleUUIDLabel(sourceRuleCopy)
-		newDNSNames, alreadyExistsDNSNames, err := gen.addRule(uuid, sourceRuleCopy)
-		if err != nil {
-			return err
+		for name := range newDNSNames {
+			delete(oldDNSNames, name)
+			gen.namesToPoll[name] = struct{}{}
+			isNewEntry, err := gen.addSourceRule(name, uuidKey)
+			if err != nil {
+				log.WithError(err).Warnf(
+					"Entry '%s' cannot be added into ToFQDN rules",
+					name)
+				continue
+			}
+
+			if isNewEntry {
+				newNamesAdded = append(newNamesAdded, name)
+			} else {
+				namesAlreadyPresent = append(namesAlreadyPresent, name)
+			}
 		}
 
-		// only debug print for new names since this function is called
-		// unconditionally, even when we insert generated rules (which aren't new)
-		if len(newDNSNames) > 0 {
-			log.WithFields(logrus.Fields{
-				"newDNSNames":           newDNSNames,
-				"alreadyExistsDNSNames": alreadyExistsDNSNames,
-				"numRules":              len(sourceRules),
-			}).Debug("Added FQDN to managed list")
+		for name := range oldDNSNames {
+			toRemove = append(toRemove, name)
+		}
+
+		for dnsMatch := range newDNSMatches {
+			delete(oldDNSMatches, dnsMatch)
+			gen.sourceRules.Add(dnsMatch, uuidKey)
+
+			isNewEntry, err := gen.addSourceRule(dnsMatch, uuidKey)
+			if err != nil {
+				log.WithError(err).Warnf(
+					"DNSMatch '%s' cannot be added into ToFQDN rules",
+					dnsMatch)
+				continue
+			}
+			if isNewEntry {
+				newNamesAdded = append(newNamesAdded, dnsMatch)
+			} else {
+				namesAlreadyPresent = append(namesAlreadyPresent, dnsMatch)
+			}
+		}
+
+		for oldDNSMatch := range oldDNSMatches {
+			toRemove = append(toRemove, oldDNSMatch)
+		}
+
+		for _, DNSName := range toRemove {
+			if gen.removeFromDNSName(DNSName, uuidKey) {
+				delete(gen.namesToPoll, DNSName) // A no-op for matchPattern
+			}
+		}
+		gen.allRules[uuidKey] = rules
+	}
+
+	if len(newNamesAdded) > 0 {
+		log.WithFields(logrus.Fields{
+			"newDNSNames":           newNamesAdded,
+			"alreadyExistsDNSNames": namesAlreadyPresent,
+			"numRules":              len(sourceRules),
+		}).Debug("Added FQDN to managed list")
+	}
+}
+
+func (gen *RuleGen) addSourceRule(reStr string, lookupValue string) (bool, error) {
+	exists := gen.sourceRules.LookupContainsValue(reStr, lookupValue)
+	if exists {
+		return false, nil
+	}
+	err := gen.sourceRules.Add(reStr, lookupValue)
+	return true, err
+}
+
+func retrieveFQDNData(sourceRules []*api.Rule) (map[string]bool, map[string]bool) {
+	dnsNames := map[string]bool{}
+	dnsMatches := map[string]bool{}
+
+	for _, rule := range sourceRules {
+		for _, egressRule := range rule.Egress {
+
+			for _, ToFQDN := range egressRule.ToFQDNs {
+				if len(ToFQDN.MatchName) > 0 {
+					dnsName := prepareMatchName(ToFQDN.MatchName)
+					dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+					dnsNames[dnsName] = true
+					dnsMatches[dnsNameAsRE] = true
+				}
+				if len(ToFQDN.MatchPattern) > 0 {
+					dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
+					dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+					dnsMatches[dnsPatternAsRE] = true
+				}
+			}
 		}
 	}
 
-	return nil
+	return dnsNames, dnsMatches
 }
 
 // StopManageDNSName runs the bookkeeping to remove each api.Rule from
@@ -348,14 +445,14 @@ func (gen *RuleGen) GetRulesByUUID(uuids []string) (sourceRules []*api.Rule, not
 	defer gen.Unlock()
 
 	for _, uuid := range uuids {
-		rule, ok := gen.allRules[uuid]
+		rules, ok := gen.allRules[uuid]
 		// This may happen if a rule was deleted during, other processing, like the DNS lookups
 		if !ok {
 			notFoundUUIDs = append(notFoundUUIDs, uuid)
 			continue
 		}
 
-		sourceRules = append(sourceRules, rule)
+		sourceRules = append(sourceRules, rules...)
 	}
 
 	return sourceRules, notFoundUUIDs
@@ -385,90 +482,6 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 		namesMissingIPs = append(namesMissingIPs, missing)
 	}
 	return generatedRules, namesMissingIPs
-}
-
-// addRule places an api.Rule in the source list for a DNS name.
-// uuid must be the unique identifier generated for the ToFQDN-UUID label.
-// newDNSNames and oldDNSNames indicate names that were newly added from this
-// rule, or that were seen in this rule but were already managed.
-// If newDNSNames and oldDNSNames are both empty, the rule was not added to the
-// managed list.
-func (gen *RuleGen) addRule(uuid string, sourceRule *api.Rule) (newDNSNames, oldDNSNames []string, err error) {
-	// if we are updating a rule, track which old dnsNames are removed. We store
-	// possible names to stop managing in namesToStopManaging. As we add names
-	// from the new rule below, these are cleared.
-	namesToStopManaging := make(map[string]struct{})
-	if oldRule, exists := gen.allRules[uuid]; exists {
-		for _, egressRule := range oldRule.Egress {
-			for _, ToFQDN := range egressRule.ToFQDNs {
-				if len(ToFQDN.MatchName) > 0 {
-					dnsName := prepareMatchName(ToFQDN.MatchName)
-					dnsNameAsRE := matchpattern.ToRegexp(dnsName)
-					namesToStopManaging[dnsNameAsRE] = struct{}{}
-				}
-				if len(ToFQDN.MatchPattern) > 0 {
-					dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
-					dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-					namesToStopManaging[dnsPatternAsRE] = struct{}{}
-				}
-			}
-		}
-	}
-
-	// Always add to allRules
-	gen.allRules[uuid] = sourceRule
-
-	// Add a dnsname -> rule reference. We track old/new names by the literal
-	// value in matchName/Pattern. They are inserted into the sourceRules
-	// RegexpMap as regexeps, however, so we can match against them later.
-	for _, egressRule := range sourceRule.Egress {
-		for _, ToFQDN := range egressRule.ToFQDNs {
-			REsToAddForUUID := map[string]string{}
-
-			if len(ToFQDN.MatchName) > 0 {
-				dnsName := prepareMatchName(ToFQDN.MatchName)
-				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
-				REsToAddForUUID[ToFQDN.MatchName] = dnsNameAsRE
-				gen.namesToPoll[dnsName] = struct{}{}
-			}
-
-			if len(ToFQDN.MatchPattern) > 0 {
-				dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
-				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-				REsToAddForUUID[ToFQDN.MatchPattern] = dnsPatternAsRE
-			}
-
-			for policyMatchStr, dnsPatternAsRE := range REsToAddForUUID {
-				delete(namesToStopManaging, dnsPatternAsRE) // keep managing this matchName/Pattern
-				// check if this is already managed or not
-				if exists := gen.sourceRules.LookupContainsValue(dnsPatternAsRE, uuid); exists {
-					oldDNSNames = append(oldDNSNames, policyMatchStr)
-				} else {
-					// This ToFQDNs.MatchName/Pattern has not been seen before
-					newDNSNames = append(newDNSNames, policyMatchStr)
-					// Add this egress rule as a dependent on ToFQDNs.MatchPattern, but fixup the literal
-					// name so it can work as a regex
-					if err = gen.sourceRules.Add(dnsPatternAsRE, uuid); err != nil {
-						return nil, nil, err
-					}
-				}
-			}
-		}
-	}
-
-	// Stop managing names/patterns that remain in shouldStopManaging (i.e. not
-	// seen when iterating .ToFQDNs rules above). The net result is to remove
-	// dnsName -> uuid associations that existed in the older version of the rule
-	// with this UUID, but did not re-occur in the new instance.
-	// When a dnsName has no uuid associations, we remove it from the poll list
-	// outright.
-	for dnsName := range namesToStopManaging {
-		if shouldStopManaging := gen.removeFromDNSName(dnsName, uuid); shouldStopManaging {
-			delete(gen.namesToPoll, dnsName) // A no-op for matchPattern
-		}
-	}
-
-	return newDNSNames, oldDNSNames, nil
 }
 
 // removeRule removes an api.Rule from the source rule set for each DNS name,

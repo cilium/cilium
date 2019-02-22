@@ -184,11 +184,12 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	} else {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
 	}
-	// These must be marked before actually adding them to the repository since a
-	// copy may be made and we won't be able to add the ToFQDN tracking labels
-	d.dnsRuleGen.MarkToFQDNRules(rules)
 
-	prefixes := policy.GetCIDRPrefixes(rules)
+	// Mark the original rules with the new FQDN data. To avoid issues of
+	// updating fqdn rules, this rules need to be pushed if all goes ok.
+	markedRules, toDeleteRules := d.dnsRuleGen.MarkToFQDNRules(rules)
+
+	prefixes := policy.GetCIDRPrefixes(markedRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
 	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
@@ -225,11 +226,11 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	var removedPrefixes []*net.IPNet
 	if opts != nil {
 		if opts.Replace {
-			for _, r := range rules {
+			for _, r := range markedRules {
 				oldRules := d.policy.SearchRLocked(r.Labels)
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
-					d.dnsRuleGen.StopManageDNSName(oldRules)
+					// d.dnsRuleGen.StopManageDNSName(oldRules)
 					d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
@@ -238,12 +239,14 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
-				d.dnsRuleGen.StopManageDNSName(oldRules)
+				// d.dnsRuleGen.StopManageDNSName(oldRules)
 				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
 	}
-	rev := d.policy.AddListLocked(rules)
+
+	rev := d.policy.AddListLocked(markedRules)
+	d.dnsRuleGen.PushRules(markedRules, toDeleteRules)
 	d.policy.Mutex.Unlock()
 
 	// remove prefixes of replaced rules above. This potentially blocks on the
@@ -255,13 +258,6 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
-	}
-
-	// The rules are added, we can begin ToFQDN DNS polling for them
-	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
-	// valid. This error should never happen (of course).
-	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
-		logger.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
 	logger.WithField(logfields.PolicyRevision, rev).Info("Policy imported via API, recalculating...")

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/ip"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/uuid"
@@ -31,7 +32,12 @@ import (
 
 // getUUIDFromRuleLabels returns the value of the UUID label
 func getRuleUUIDLabel(rule *api.Rule) (uuid string) {
-	return rule.Labels.Get(uuidLabelSearchKey)
+	keyb := labels.NewLabel(k8sConst.PolicyLabelUID, "", labels.LabelSourceK8s)
+	key := keyb.GetExtendedKey()
+	if !rule.Labels.Has(key) {
+		return rule.Labels.Get(uuidLabelSearchKey)
+	}
+	return rule.Labels.Get(key)
 }
 
 // generateUUIDLabel builds a random UUID label that can be used to uniquely identify
