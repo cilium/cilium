@@ -21,7 +21,6 @@ import (
 	"math"
 	"net"
 	"os"
-	"path"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -459,12 +458,7 @@ func NameIsGlobal(filename string) bool {
 func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	var mapEntriesTCP, mapEntriesAny int
 	for _, m := range maps(e, true, true) {
-		filepath, err := m.Path()
-		if err != nil {
-			log.WithError(err).Warningf("Cannot define BPF macro for %s", m.define)
-			continue
-		}
-		fmt.Fprintf(fw, "#define %s %s\n", m.define, path.Base(filepath))
+		fmt.Fprintf(fw, "#define %s %s\n", m.define, m.Name())
 		if m.mapType.isTCP() {
 			mapEntriesTCP = mapInfo[m.mapType].maxEntries
 		} else {
