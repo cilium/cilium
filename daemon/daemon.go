@@ -1161,17 +1161,18 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
 	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
 	log.Infof("  Local node-name: %s", node.GetName())
+	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
 	if option.Config.EnableIPv6 {
-		log.Infof("  Node-IPv6: %s", node.GetIPv6())
 		log.Infof("  IPv6 node prefix: %s", node.GetIPv6NodeRange())
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 	}
 
+	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
+	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
+
 	if option.Config.EnableIPv4 {
-		log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
-		log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
 		log.Infof("  Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
