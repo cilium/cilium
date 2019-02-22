@@ -35,14 +35,14 @@ var (
 	lbls     = labels.Labels{
 		"foo": fooLabel,
 	}
-	lblsArray   = lbls.LabelArray()
-	repo        = &Repository{}
-	fooIdentity = &identity.Identity{
+	lblsArrayWithHash = lbls.LabelArrayWithHash()
+	repo              = &Repository{}
+	fooIdentity       = &identity.Identity{
 		ID:         303,
 		Labels:     lbls,
-		LabelArray: lbls.LabelArray(),
+		LabelArray: lblsArrayWithHash,
 	}
-	identityCache = cache.IdentityCache{303: lblsArray}
+	identityCache = cache.IdentityCache{303: lblsArrayWithHash}
 	fooEndpointId = 9001
 )
 
@@ -107,7 +107,7 @@ func GenerateNumIdentities(numIdentities int) {
 		bumpedIdentity := i + 1000
 		numericIdentity := identity.NumericIdentity(bumpedIdentity)
 
-		identityCache[numericIdentity] = identityLabels.LabelArray()
+		identityCache[numericIdentity] = identityLabels.LabelArrayWithHash()
 	}
 }
 

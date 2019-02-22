@@ -77,13 +77,13 @@ func (s *PolicyAPITestSuite) TestLabelSelectorToRequirements(c *C) {
 	c.Assert(labelSelectorToRequirements(labelSelector), checker.DeepEquals, &expRequirements)
 }
 
-func benchmarkMatchesSetup(match string, count int) (EndpointSelector, labels.LabelArray) {
+func benchmarkMatchesSetup(match string, count int) (EndpointSelector, *labels.LabelArrayWithHash) {
 	stringLabels := []string{}
 	for i := 0; i < count; i++ {
 		stringLabels = append(stringLabels, fmt.Sprintf("%d", i))
 	}
 	lbls := labels.NewLabelsFromModel(stringLabels)
-	return NewESFromLabels(lbls.ToSlice()...), labels.ParseLabelArray(match)
+	return NewESFromLabels(lbls.ToSlice()...), labels.ParseLabelArrayWithHash(match)
 }
 
 func BenchmarkMatchesValid1000(b *testing.B) {

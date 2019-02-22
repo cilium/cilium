@@ -47,9 +47,9 @@ type K8sSuite struct{}
 var _ = Suite(&K8sSuite{})
 
 var (
-	labelsA = labels.LabelArray{
-		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	labelsA = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("id", "a", labels.LabelSourceK8s)},
 	}
 
 	labelSelectorA = metav1.LabelSelector{
@@ -58,10 +58,11 @@ var (
 		},
 	}
 
-	labelsB = labels.LabelArray{
-		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
-		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
+	labelsB = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("id1", "b", labels.LabelSourceK8s),
+			labels.NewLabel("id2", "c", labels.LabelSourceK8s)},
 	}
 
 	labelSelectorB = metav1.LabelSelector{
@@ -71,9 +72,9 @@ var (
 		},
 	}
 
-	labelsC = labels.LabelArray{
-		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-		labels.NewLabel("id", "c", labels.LabelSourceK8s),
+	labelsC = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("id", "c", labels.LabelSourceK8s)},
 	}
 
 	labelSelectorC = metav1.LabelSelector{
@@ -139,18 +140,21 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	_, err := ParseNetworkPolicy(netPolicy)
 	c.Assert(err, IsNil)
 
-	fromEndpoints := labels.LabelArray{
-		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+	fromEndpoints := &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+		},
 	}
 
 	ctx := policy.SearchContext{
 		From: fromEndpoints,
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
-			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+				labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+			},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -163,7 +167,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
-	epSelector := api.NewESFromLabels(fromEndpoints...)
+	epSelector := api.NewESFromLabels(fromEndpoints.LabelArray...)
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
@@ -185,21 +189,20 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 		},
 	})
 
-	ctx.To = labels.LabelArray{
-		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+	ctx.To = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s)},
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
 	c.Assert(repo.CanReachIngressRLocked(&ctx), Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
-			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
-		},
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+				labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s)}},
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
@@ -324,16 +327,18 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
 
-	fromEndpoints := labels.LabelArray{
-		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-		labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
-		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+	fromEndpoints := &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s)},
 	}
 
-	toEndpoints := labels.LabelArray{
-		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-		labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-		labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+	toEndpoints := &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+			labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s)},
 	}
 
 	ctx := policy.SearchContext{
@@ -348,7 +353,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	// expected.
 	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
 
-	epSelector := api.NewESFromLabels(toEndpoints...)
+	epSelector := api.NewESFromLabels(toEndpoints.LabelArray...)
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
@@ -370,20 +375,23 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 		},
 	})
 
-	ctx.From = labels.LabelArray{
-		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+	ctx.From = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{
+			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s)},
 	}
 
 	// ctx.From needs to have all labels from the policy in order to be accepted
 	c.Assert(repo.CanReachEgressRLocked(&ctx), Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
-		To: labels.LabelArray{
-			labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s)},
 		},
-		From: labels.LabelArray{
-			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
-			labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+				labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -540,13 +548,15 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	ctx := policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -595,13 +605,15 @@ func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	ctx := policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("foo0", "bar0", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -720,25 +732,14 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
 	ctx := policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
-		},
-		Trace: policy.TRACE_VERBOSE,
-	}
-	// Doesn't share the same namespace
-	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
-
-	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
-		To: labels.LabelArray{
-			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel("role", "backend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -746,13 +747,30 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel("role", "backend", labels.LabelSourceK8s)},
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+	// Doesn't share the same namespace
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+
+	ctx = policy.SearchContext{
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
+		},
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+				labels.NewLabel("role", "backend", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -854,13 +872,15 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo = policy.NewPolicyRepository()
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -874,9 +894,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -884,10 +905,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Protocol: models.PortProtocolTCP,
 			},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
-		},
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+			}},
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT sense the traffic comes from Bob's namespaces
@@ -921,13 +943,15 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo = policy.NewPolicyRepository()
 	repo.AddList(rules)
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "backend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -935,13 +959,15 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "backend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -949,13 +975,15 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "backend", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1071,9 +1099,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	repo.AddList(rules)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1081,9 +1110,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Port:     8080,
 			},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -1091,9 +1121,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "bob", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1101,9 +1132,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Protocol: models.PortProtocolTCP,
 			},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -1111,9 +1143,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "alice", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "user"), "alice", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1121,9 +1154,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Port:     8080,
 			},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
-			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+				labels.NewLabel("role", "frontend", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -1215,17 +1249,18 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	//  If omitted, this selector selects no namespaces.
 	//  If present but empty, this selector selects all namespaces.
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			// doesn't matter the namespace.
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-			// component==redis is in the policy
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
-			// tier==cache is in the policy
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
-			// environment is not in `dev` which is in the policy
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "production", labels.LabelSourceK8s),
-			// doesn't matter, there isn't any matchExpression denying traffic from any zone.
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				// doesn't matter the namespace.
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+				// component==redis is in the policy
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+				// tier==cache is in the policy
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+				// environment is not in `dev` which is in the policy
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "production", labels.LabelSourceK8s),
+				// doesn't matter, there isn't any matchExpression denying traffic from any zone.
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1233,36 +1268,39 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Protocol: models.PortProtocolUDP,
 			},
 		},
-		To: labels.LabelArray{
-			// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
-			// component==redis is in the policy.
-			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
-			// tier==cache is in the policy
-			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+				// component==redis is in the policy.
+				labels.NewLabel("component", "redis", labels.LabelSourceK8s),
+				// tier==cache is in the policy
+				labels.NewLabel("tier", "cache", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// Should be ACCEPT since the SearchContext is being covered by the rules.
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
-	ctx.To = labels.LabelArray{
-		// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
-		labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
-		// component==redis is in the policy.
-		labels.NewLabel("component", "redis", labels.LabelSourceK8s),
-		// tier==cache is in the policy
-		labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
+	ctx.To = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{
+			// Namespace needs to be in `expressions` since the policy is being enforced for that namespace.
+			labels.NewLabel(k8sConst.PodNamespaceLabel, "myns", labels.LabelSourceK8s),
+			// component==redis is in the policy.
+			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
+			// tier==cache is in the policy
+			labels.NewLabel("tier", "cache", labels.LabelSourceK8s)},
 	}
 	// Should be DENY since the namespace doesn't belong to the policy.
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "dev", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "environment"), "dev", labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "zone"), "eu-1", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1270,10 +1308,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Protocol: models.PortProtocolUDP,
 			},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
-			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
-			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+				labels.NewLabel("component", "redis", labels.LabelSourceK8s),
+				labels.NewLabel("tier", "cache", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}
@@ -1281,9 +1320,10 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	ctx = policy.SearchContext{
-		From: labels.LabelArray{
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
-			labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s),
+		From: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "component"), "redis", labels.LabelSourceK8s),
+				labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "tier"), "cache", labels.LabelSourceK8s)},
 		},
 		DPorts: []*models.Port{
 			{
@@ -1291,10 +1331,11 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 				Protocol: models.PortProtocolUDP,
 			},
 		},
-		To: labels.LabelArray{
-			labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
-			labels.NewLabel("component", "redis", labels.LabelSourceK8s),
-			labels.NewLabel("tier", "cache", labels.LabelSourceK8s),
+		To: &labels.LabelArrayWithHash{
+			LabelArray: labels.LabelArray{
+				labels.NewLabel(k8sConst.PodNamespaceLabel, "expressions", labels.LabelSourceK8s),
+				labels.NewLabel("component", "redis", labels.LabelSourceK8s),
+				labels.NewLabel("tier", "cache", labels.LabelSourceK8s)},
 		},
 		Trace: policy.TRACE_VERBOSE,
 	}

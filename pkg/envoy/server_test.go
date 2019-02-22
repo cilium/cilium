@@ -113,23 +113,22 @@ var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTT
 var L7Rules2 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1}}
 
 var IdentityCache = cache.IdentityCache{
-	1001: labels.LabelArray{
-		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
-		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
+	1001: &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
+			labels.NewLabel("version", "v1", labels.LabelSourceK8s)},
 	},
-	1002: labels.LabelArray{
-		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
-		labels.NewLabel("version", "v2", labels.LabelSourceK8s),
+	1002: &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
+			labels.NewLabel("version", "v2", labels.LabelSourceK8s)},
 	},
-	1003: labels.LabelArray{
-		labels.NewLabel("app", "cassandra", labels.LabelSourceK8s),
-		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
+	1003: &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("app", "cassandra", labels.LabelSourceK8s), labels.NewLabel("version", "v1", labels.LabelSourceK8s)},
 	},
 }
 
 var DeniedIdentitiesNone = make(cache.IdentityCache)
 
-var DeniedIdentities1001 = cache.IdentityCache{1001: labels.LabelArray{}}
+var DeniedIdentities1001 = cache.IdentityCache{1001: &labels.LabelArrayWithHash{}}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},

@@ -496,8 +496,8 @@ func (ds *PolicyTestSuite) TestCanReachIngress(c *C) {
 	repo := NewPolicyRepository()
 
 	fooToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	repo.Mutex.RLock()
@@ -557,32 +557,32 @@ func (ds *PolicyTestSuite) TestCanReachIngress(c *C) {
 
 	// foo=>bar2 is OK
 	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar2"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar2"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar inside groupA is OK
 	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupA"),
-		To:   labels.ParseSelectLabelArray("bar", "groupA"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "groupA"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar", "groupA"),
 	}), Equals, api.Allowed)
 
 	// groupB can't talk to groupA => Denied
 	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
-		To:   labels.ParseSelectLabelArray("bar", "groupA"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "groupB"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar", "groupA"),
 	}), Equals, api.Denied)
 
 	// no restriction on groupB, unused label => OK
 	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
-		To:   labels.ParseSelectLabelArray("bar", "groupB"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "groupB"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar", "groupB"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar3, no rule => Denied
 	c.Assert(repo.AllowsIngressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar3"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar3"),
 	}), Equals, api.Denied)
 }
 
@@ -590,8 +590,8 @@ func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
 	repo := NewPolicyRepository()
 
 	fooToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	repo.Mutex.RLock()
@@ -650,21 +650,21 @@ func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
 
 	// foo=>bar2 is OK
 	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar2"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar2"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar inside groupA is OK
 	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupA"),
-		To:   labels.ParseSelectLabelArray("bar", "groupA"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "groupA"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar", "groupA"),
 	}), Equals, api.Allowed)
 
 	buffer := new(bytes.Buffer)
 	// groupB can't talk to groupA => Denied
 	ctx := &SearchContext{
-		To:      labels.ParseSelectLabelArray("foo", "groupB"),
-		From:    labels.ParseSelectLabelArray("bar", "groupA"),
+		To:      labels.ParseSelectLabelArrayWithHash("foo", "groupB"),
+		From:    labels.ParseSelectLabelArrayWithHash("bar", "groupA"),
 		Logging: logging.NewLogBackend(buffer, "", 0),
 		Trace:   TRACE_VERBOSE,
 	}
@@ -673,14 +673,14 @@ func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
 
 	// no restriction on groupB, unused label => OK
 	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "groupB"),
-		To:   labels.ParseSelectLabelArray("bar", "groupB"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "groupB"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar", "groupB"),
 	}), Equals, api.Allowed)
 
 	// foo=>bar3, no rule => Denied
 	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar3"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar3"),
 	}), Equals, api.Denied)
 }
 
@@ -776,7 +776,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
+		To: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -936,7 +936,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
+		To: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1014,7 +1014,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
+		To: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1077,7 +1077,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
+		From: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1179,7 +1179,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
+		From: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1320,7 +1320,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
+		From: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1437,7 +1437,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		To: labels.ParseSelectLabelArray("id=foo"),
+		To: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1559,7 +1559,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	c.Assert(err, IsNil)
 
 	ctx := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=foo"),
+		From: labels.ParseSelectLabelArrayWithHash("id=foo"),
 	}
 
 	repo.Mutex.RLock()
@@ -1615,17 +1615,17 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	repo := NewPolicyRepository()
 
-	app2Selector := labels.ParseSelectLabelArray("id=app2")
+	app2Selector := labels.ParseSelectLabelArrayWithHash("id=app2")
 
 	fromApp2 := &SearchContext{
 		From:  app2Selector,
-		To:    labels.ParseSelectLabelArray("id=app1"),
+		To:    labels.ParseSelectLabelArrayWithHash("id=app1"),
 		Trace: TRACE_VERBOSE,
 	}
 
 	fromApp3 := &SearchContext{
-		From: labels.ParseSelectLabelArray("id=app3"),
-		To:   labels.ParseSelectLabelArray("id=app1"),
+		From: labels.ParseSelectLabelArrayWithHash("id=app3"),
+		To:   labels.ParseSelectLabelArrayWithHash("id=app1"),
 	}
 
 	repo.Mutex.RLock()
@@ -1760,8 +1760,8 @@ func buildSearchCtx(from, to string, port uint16) *SearchContext {
 		ports = []*models.Port{{Port: port}}
 	}
 	return &SearchContext{
-		From:   labels.ParseSelectLabelArray(from),
-		To:     labels.ParseSelectLabelArray(to),
+		From:   labels.ParseSelectLabelArrayWithHash(from),
+		To:     labels.ParseSelectLabelArrayWithHash(to),
 		DPorts: ports,
 		Trace:  TRACE_ENABLED,
 	}

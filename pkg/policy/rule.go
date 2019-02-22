@@ -265,7 +265,7 @@ func (state *traceState) selectRule(ctx *SearchContext, r *rule) {
 	state.selectedRules++
 }
 
-func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArray, r *rule) {
+func (state *traceState) unSelectRule(ctx *SearchContext, labels *labels.LabelArrayWithHash, r *rule) {
 	ctx.PolicyTraceVerbose("  Rule %s: did not select %+v\n", r, labels)
 }
 
@@ -345,7 +345,7 @@ func mergeCIDR(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels la
 func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *CIDRPolicy) *CIDRPolicy {
 	// Don't select rule if it doesn't apply to the given context.
 	if !ctx.rulesSelect {
-		if !r.EndpointSelector.Matches(ctx.To) {
+		if ctx.To != nil && !r.EndpointSelector.Matches(ctx.To) {
 			state.unSelectRule(ctx, ctx.To, r)
 			return nil
 		}

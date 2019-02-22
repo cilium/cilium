@@ -82,7 +82,7 @@ var (
 type EntitySlice []Entity
 
 // Matches returns true if the entity matches the labels
-func (e Entity) Matches(ctx labels.LabelArray) bool {
+func (e Entity) Matches(ctx *labels.LabelArrayWithHash) bool {
 	if selectors, ok := EntitySelectorMapping[e]; ok {
 		return selectors.Matches(ctx)
 	}
@@ -91,7 +91,7 @@ func (e Entity) Matches(ctx labels.LabelArray) bool {
 }
 
 // Matches returns true if any of the entities in the slice match the labels
-func (s EntitySlice) Matches(ctx labels.LabelArray) bool {
+func (s EntitySlice) Matches(ctx *labels.LabelArrayWithHash) bool {
 	for _, entity := range s {
 		if entity.Matches(ctx) {
 			return true

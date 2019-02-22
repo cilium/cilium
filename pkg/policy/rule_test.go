@@ -41,12 +41,12 @@ var (
 
 func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	fooFoo2ToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "foo2"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "foo2"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 	fooToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	rule1 := rule{
@@ -94,12 +94,12 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 	}
 
 	fooBazToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "baz"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", "baz"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 	bazToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("baz"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("baz"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	state = traceState{}
@@ -119,10 +119,10 @@ func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
-	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
-	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("bar")}
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArrayWithHash("bar")}
+	toFoo := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("foo")}
+	fromFoo := &SearchContext{From: labels.ParseSelectLabelArrayWithHash("foo")}
 
 	rule1 := &rule{
 		Rule: api.Rule{
@@ -335,7 +335,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("bar")}
 	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
 	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
@@ -385,7 +385,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 
 	buffer := new(bytes.Buffer)
 	fromBar := &SearchContext{
-		From:    labels.ParseSelectLabelArray("bar"),
+		From:    labels.ParseSelectLabelArrayWithHash("bar"),
 		Logging: logging.NewLogBackend(buffer, "", 0),
 		Trace:   TRACE_VERBOSE,
 	}
@@ -436,8 +436,8 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("bar")}
+	toFoo := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("foo")}
 
 	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 
@@ -663,8 +663,8 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
-	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArrayWithHash("bar")}
+	fromFoo := &SearchContext{From: labels.ParseSelectLabelArrayWithHash("foo")}
 
 	fooSelector := []api.EndpointSelector{
 		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
@@ -972,7 +972,7 @@ func (ds *PolicyTestSuite) TestL3Policy(c *C) {
 	expected.Egress.Map["2001:dbf::/64"] = &CIDRPolicyMapRule{Prefix: net.IPNet{IP: []byte{0x20, 1, 0xd, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: []byte{255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0}}, DerivedFromRules: labels.LabelArrayList{nil}}
 	expected.Egress.IPv6PrefixCount[64] = 1
 
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("bar")}
 	state := traceState{}
 	res := rule1.resolveCIDRPolicy(toBar, &state, NewCIDRPolicy())
 	c.Assert(res, Not(IsNil))
@@ -1097,18 +1097,18 @@ func (ds *PolicyTestSuite) TestEgressRuleRestrictions(c *C) {
 
 func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
 	fromWorld := &SearchContext{
-		From: labels.ParseSelectLabelArray("reserved:world"),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("reserved:world"),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	fromCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", localClusterLabel),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", localClusterLabel),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	fromOtherCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", otherClusterLabel),
-		To:   labels.ParseSelectLabelArray("bar"),
+		From: labels.ParseSelectLabelArrayWithHash("foo", otherClusterLabel),
+		To:   labels.ParseSelectLabelArrayWithHash("bar"),
 	}
 
 	rule1 := rule{
@@ -1145,18 +1145,18 @@ func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
 	api.InitEntities(option.Config.ClusterName)
 
 	toWorld := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("reserved:world"),
+		From: labels.ParseSelectLabelArrayWithHash("bar"),
+		To:   labels.ParseSelectLabelArrayWithHash("reserved:world"),
 	}
 
 	toCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo", localClusterLabel),
+		From: labels.ParseSelectLabelArrayWithHash("bar"),
+		To:   labels.ParseSelectLabelArrayWithHash("foo", localClusterLabel),
 	}
 
 	toOtherCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
+		From: labels.ParseSelectLabelArrayWithHash("bar"),
+		To:   labels.ParseSelectLabelArrayWithHash("foo", otherClusterLabel),
 	}
 
 	rule1 := rule{
@@ -1193,16 +1193,16 @@ func BenchmarkRuleCanReachEntity(b *testing.B) {
 	api.InitEntities(option.Config.ClusterName)
 
 	toOtherCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
+		From: labels.ParseSelectLabelArrayWithHash("bar"),
+		To:   labels.ParseSelectLabelArrayWithHash("foo", otherClusterLabel),
 	}
 	toFooBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("k8s:app=bar", "k8s:namespace=default"),
-		To:   labels.ParseSelectLabelArray("k8s:app=FooBar", "k8s:namespace=default"),
+		From: labels.ParseSelectLabelArrayWithHash("k8s:app=bar", "k8s:namespace=default"),
+		To:   labels.ParseSelectLabelArrayWithHash("k8s:app=FooBar", "k8s:namespace=default"),
 	}
 	toFooBar2 := &SearchContext{
-		From: labels.ParseSelectLabelArray("k8s:app=bar", "k8s:namespace=default"),
-		To:   labels.ParseSelectLabelArray("k8s:app=FooBar2", "k8s:namespace=default2"),
+		From: labels.ParseSelectLabelArrayWithHash("k8s:app=bar", "k8s:namespace=default"),
+		To:   labels.ParseSelectLabelArrayWithHash("k8s:app=FooBar2", "k8s:namespace=default2"),
 	}
 
 	rule1 := rule{
@@ -1393,7 +1393,7 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 		}}
 
 	// endpoint selector for all tests
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("bar")}
 
 	for _, test := range testCases {
 		finalPolicy := NewCIDRPolicy()
@@ -1506,8 +1506,8 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 		}}
 
 	// endpoint selector for all tests
-	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
-	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
+	toBar := &SearchContext{To: labels.ParseSelectLabelArrayWithHash("bar")}
+	fromBar := &SearchContext{From: labels.ParseSelectLabelArrayWithHash("bar")}
 
 	for _, test := range testCases {
 		finalPolicy := NewL4Policy()
@@ -1542,19 +1542,19 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 }
 
 var (
-	labelsA = labels.LabelArray{
-		labels.NewLabel("id", "a", labels.LabelSourceK8s),
+	labelsA = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("id", "a", labels.LabelSourceK8s)},
 	}
 
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
 
-	labelsB = labels.LabelArray{
-		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
-		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
+	labelsB = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("id1", "b", labels.LabelSourceK8s),
+			labels.NewLabel("id2", "c", labels.LabelSourceK8s)},
 	}
 
-	labelsC = labels.LabelArray{
-		labels.NewLabel("id", "c", labels.LabelSourceK8s),
+	labelsC = &labels.LabelArrayWithHash{
+		LabelArray: labels.LabelArray{labels.NewLabel("id", "c", labels.LabelSourceK8s)},
 	}
 
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=c"))
@@ -1778,7 +1778,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.ParseSelectLabelArrayWithHash("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
@@ -1788,7 +1788,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
 	checkEgress(c, repo, &ctxAToWorld90, api.Denied)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.ParseSelectLabelArrayWithHash("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(c, repo, &ctxAToFoo, api.Denied)
@@ -1839,7 +1839,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.ParseSelectLabelArrayWithHash("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
@@ -1849,7 +1849,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
 	checkEgress(c, repo, &ctxAToWorld90, api.Denied)
 
 	// Pod to pod must be allowed on port 80, denied on port 90 (all identity)
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.ParseSelectLabelArrayWithHash("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(c, repo, &ctxAToFoo, api.Allowed)
@@ -1895,7 +1895,7 @@ func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.ParseSelectLabelArrayWithHash("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
@@ -1905,7 +1905,7 @@ func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
 	checkEgress(c, repo, &ctxAToWorld90, api.Allowed)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.ParseSelectLabelArrayWithHash("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(c, repo, &ctxAToFoo, api.Denied)
@@ -1939,7 +1939,7 @@ func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
 		},
 	})
 
-	worldLabel := labels.ParseSelectLabelArray("reserved:world")
+	worldLabel := labels.ParseSelectLabelArrayWithHash("reserved:world")
 	ctxAToWorld80 := SearchContext{From: labelsA, To: worldLabel, Trace: TRACE_VERBOSE}
 	ctxAToWorld80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
 	checkEgress(c, repo, &ctxAToWorld80, api.Allowed)
@@ -1949,7 +1949,7 @@ func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
 	checkEgress(c, repo, &ctxAToWorld90, api.Allowed)
 
 	// Pod to pod must be allowed on both port 80 and 90 (L3 only rule)
-	fooLabel := labels.ParseSelectLabelArray("k8s:app=foo")
+	fooLabel := labels.ParseSelectLabelArrayWithHash("k8s:app=foo")
 	ctxAToFoo := SearchContext{From: labelsA, To: fooLabel, Trace: TRACE_VERBOSE,
 		DPorts: []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}}
 	checkEgress(c, repo, &ctxAToFoo, api.Allowed)

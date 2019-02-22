@@ -94,7 +94,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels) (*identity.Ident
 	id := &identity.Identity{
 		ID:             numericIdentity,
 		Labels:         lbls,
-		LabelArray:     lbls.LabelArray(),
+		LabelArray:     lbls.LabelArrayWithHash(),
 		ReferenceCount: 1,
 	}
 

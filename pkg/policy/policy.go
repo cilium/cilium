@@ -65,8 +65,8 @@ type SearchContext struct {
 	Trace   Tracing
 	Depth   int
 	Logging *logging.LogBackend
-	From    labels.LabelArray
-	To      labels.LabelArray
+	From    *labels.LabelArrayWithHash
+	To      *labels.LabelArrayWithHash
 	DPorts  []*models.Port
 	// rulesSelect specifies whether or not to check whether a rule which is
 	// being analyzed using this SearchContext matches either From or To.
@@ -85,10 +85,10 @@ func (s *SearchContext) String() string {
 	from := []string{}
 	to := []string{}
 	dports := []string{}
-	for _, fromLabel := range s.From {
+	for _, fromLabel := range s.From.LabelArray {
 		from = append(from, fromLabel.String())
 	}
-	for _, toLabel := range s.To {
+	for _, toLabel := range s.To.LabelArray {
 		to = append(to, toLabel.String())
 	}
 	for _, dport := range s.DPorts {

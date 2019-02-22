@@ -28,38 +28,38 @@ import (
 func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 	InitEntities("cluster1")
 
-	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
-	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host", "id:foo")), Equals, true)
-	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
-	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
-	c.Assert(EntityHost.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, true)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArrayWithHash("reserved:host", "id:foo")), Equals, true)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, false)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArrayWithHash("reserved:none")), Equals, false)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, false)
 
-	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
-	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
-	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:none")), Equals, true) // in a white-list model, All trumps None
-	c.Assert(EntityAll.Matches(labels.ParseLabelArray("id=foo")), Equals, true)
+	c.Assert(EntityAll.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, true)
+	c.Assert(EntityAll.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, true)
+	c.Assert(EntityAll.Matches(labels.ParseLabelArrayWithHash("reserved:none")), Equals, true) // in a white-list model, All trumps None
+	c.Assert(EntityAll.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, true)
 
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:init")), Equals, true)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash("reserved:init")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, false)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash("reserved:none")), Equals, false)
 
 	clusterLabel := fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "cluster1")
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray(clusterLabel, "id=foo")), Equals, true)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray(clusterLabel, "id=foo", "id=bar")), Equals, true)
-	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash(clusterLabel, "id=foo")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash(clusterLabel, "id=foo", "id=bar")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, false)
 
-	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
-	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
-	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
-	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
-	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo", "id=bar")), Equals, false)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, false)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, true)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArrayWithHash("reserved:none")), Equals, false)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, false)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArrayWithHash("id=foo", "id=bar")), Equals, false)
 
-	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
-	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
-	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:init")), Equals, false)
-	c.Assert(EntityNone.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
-	c.Assert(EntityNone.Matches(labels.ParseLabelArray(clusterLabel, "id=foo", "id=bar")), Equals, false)
+	c.Assert(EntityNone.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, false)
+	c.Assert(EntityNone.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, false)
+	c.Assert(EntityNone.Matches(labels.ParseLabelArrayWithHash("reserved:init")), Equals, false)
+	c.Assert(EntityNone.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, false)
+	c.Assert(EntityNone.Matches(labels.ParseLabelArrayWithHash(clusterLabel, "id=foo", "id=bar")), Equals, false)
 
 }
 
@@ -67,15 +67,15 @@ func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
 	InitEntities("cluster1")
 
 	slice := EntitySlice{EntityHost, EntityWorld}
-	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
-	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
-	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
-	c.Assert(slice.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
+	c.Assert(slice.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, true)
+	c.Assert(slice.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, true)
+	c.Assert(slice.Matches(labels.ParseLabelArrayWithHash("reserved:none")), Equals, false)
+	c.Assert(slice.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, false)
 
 	// result must be identical if matched via endpoint selector
 	selector := slice.GetAsEndpointSelectors()
-	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
-	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
-	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
-	c.Assert(selector.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
+	c.Assert(selector.Matches(labels.ParseLabelArrayWithHash("reserved:host")), Equals, true)
+	c.Assert(selector.Matches(labels.ParseLabelArrayWithHash("reserved:world")), Equals, true)
+	c.Assert(selector.Matches(labels.ParseLabelArrayWithHash("reserved:none")), Equals, false)
+	c.Assert(selector.Matches(labels.ParseLabelArrayWithHash("id=foo")), Equals, false)
 }

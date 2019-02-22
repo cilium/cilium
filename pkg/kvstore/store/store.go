@@ -459,8 +459,9 @@ func (s *SharedStore) watcher(listDone chan bool) {
 
 			case kvstore.EventTypeDelete:
 				if localKey := s.lookupLocalKey(keyName); localKey != nil {
-					logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
-
+					if !option.Config.DryMode {
+						logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
+					}
 					s.syncLocalKey(localKey)
 				} else {
 					s.deleteKey(keyName)

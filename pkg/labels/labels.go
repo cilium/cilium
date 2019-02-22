@@ -395,6 +395,17 @@ func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	return lbls
 }
 
+// NewSelectLabelArrayWithHashFromModel parses a slice of strings and converts them
+// into an array of selecting labels.
+func NewSelectLabelArrayWithHashFromModel(base []string) *LabelArrayWithHash {
+	lbls := make(LabelArray, 0, len(base))
+	for i := range base {
+		lbls = append(lbls, ParseSelectLabel(base[i]))
+	}
+
+	return &LabelArrayWithHash{LabelArray: lbls}
+}
+
 // GetModel returns model with all the values of the labels.
 func (l Labels) GetModel() []string {
 	res := make([]string, 0, len(l))
@@ -461,6 +472,16 @@ func (l Labels) LabelArray() LabelArray {
 		labels = append(labels, v)
 	}
 	return labels
+}
+
+// LabelArray returns the labels as label array with hash
+func (l Labels) LabelArrayWithHash() *LabelArrayWithHash {
+	labels := []Label{}
+	for _, v := range l {
+		labels = append(labels, v)
+	}
+
+	return &LabelArrayWithHash{LabelArray: labels, hash: l.SHA256Sum()}
 }
 
 // FindReserved locates all labels with reserved source in the labels and

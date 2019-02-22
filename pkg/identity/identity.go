@@ -34,7 +34,7 @@ type Identity struct {
 
 	// LabelArray contains the same labels as Labels in a form of a list, used
 	// for faster lookup.
-	LabelArray labels.LabelArray `json:"-"`
+	LabelArray *labels.LabelArrayWithHash `json:"-"`
 
 	// CIDRLabel is the primary identity label when the identity represents
 	// a CIDR. The Labels field will consist of all matching prefixes, e.g.
@@ -83,7 +83,7 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 	}
 
 	if id.Labels != nil {
-		id.LabelArray = id.Labels.LabelArray()
+		id.LabelArray = id.Labels.LabelArrayWithHash()
 	}
 
 	return id
@@ -142,12 +142,16 @@ func (id *Identity) IsWellKnown() bool {
 
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
-	var lblArray labels.LabelArray
+	var lblArray *labels.LabelArrayWithHash
 
 	if lbls != nil {
-		lblArray = lbls.LabelArray()
+		lblArray = lbls.LabelArrayWithHash()
 	}
-	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
+	return &Identity{ID: id,
+		Labels:       lbls,
+		LabelArray:   lblArray,
+		LabelsSHA256: lbls.SHA256Sum(),
+	}
 }
 
 // IsHost determines whether the IP in the pair represents a host (true) or a

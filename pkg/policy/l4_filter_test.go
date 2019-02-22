@@ -31,7 +31,7 @@ import (
 var (
 	barSelector  = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 	hostSelector = api.ReservedEndpointSelectors[labels.IDNameHost]
-	toFoo        = &SearchContext{To: labels.ParseSelectLabelArray("foo")}
+	toFoo        = &SearchContext{To: labels.ParseSelectLabelArrayWithHash("foo")}
 )
 
 // Tests in this file:

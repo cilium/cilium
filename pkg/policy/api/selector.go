@@ -15,6 +15,7 @@
 package api
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -39,6 +40,9 @@ type EndpointSelector struct {
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
 	requirements *k8sLbls.Requirements
+
+	// hash is the hash of the contents of the LabelSelector and its requirements.
+	hash string
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -272,7 +276,7 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.
 // Returns always true if the endpoint selector contains the reserved label for
 // "all".
-func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
+func (n *EndpointSelector) Matches(lblsToMatch labels.LabelsWithHash) bool {
 
 	// Try to update cached requirements for this EndpointSelector if possible.
 	if n.requirements == nil {
@@ -325,11 +329,15 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []metav1.Lab
 }
 
 // sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
+// It also populates fields internal to the EndpointSelector (e.g., the hash of
+// the LabelSelector).
 func (n *EndpointSelector) sanitize() error {
 	errList := validation.ValidateLabelSelector(n.LabelSelector, nil)
 	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %s", errList.ToAggregate().Error())
 	}
+	n.hash = fmt.Sprintf("%x", sha512.Sum512_256(([]byte)(n.LabelSelector.String())))
+	log.Infof("hash of EndpointSelector %s: %s", n.LabelSelector, n.hash)
 	return nil
 }
 
@@ -348,7 +356,7 @@ func (s EndpointSelectorSlice) Less(i, j int) bool {
 
 // Matches returns true if any of the EndpointSelectors in the slice match the
 // provided labels
-func (s EndpointSelectorSlice) Matches(ctx labels.LabelArray) bool {
+func (s EndpointSelectorSlice) Matches(ctx *labels.LabelArrayWithHash) bool {
 	for _, selector := range s {
 		if selector.Matches(ctx) {
 			return true

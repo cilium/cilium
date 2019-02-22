@@ -530,7 +530,7 @@ func (p *Repository) GetJSON() string {
 // rule with labels matching the labels in the provided LabelArray.
 //
 // Must be called with p.Mutex held
-func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bool, egressMatch bool) {
+func (p *Repository) GetRulesMatching(labels *labels.LabelArrayWithHash) (ingressMatch bool, egressMatch bool) {
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
@@ -767,6 +767,9 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 func (p *Repository) computePolicyEnforcementAndRules(id uint16, securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
 
 	lbls := securityIdentity.LabelArray
+	if lbls == nil {
+		return true, true, ruleSlice{}
+	}
 	// Check if policy enforcement should be enabled at the daemon level.
 	switch GetPolicyEnabled() {
 	case option.AlwaysEnforce:

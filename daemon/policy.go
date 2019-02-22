@@ -95,8 +95,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		// the API request, that means that policy enforcement is not enabled
 		// for the endpoints corresponding to said sets of labels; thus, we allow
 		// traffic between these sets of labels, and do not enforce policy between them.
-		fromIngress, fromEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.TraceSelector.From.Labels))
-		toIngress, toEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.TraceSelector.To.Labels))
+		fromIngress, fromEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayWithHashFromModel(params.TraceSelector.From.Labels))
+		toIngress, toEgress := d.policy.GetRulesMatching(labels.NewSelectLabelArrayWithHashFromModel(params.TraceSelector.To.Labels))
 		if !fromIngress && !fromEgress && !toIngress && !toEgress {
 			policyEnforcementMsg = "Policy enforcement is disabled because " +
 				"no rules in the policy repository match any endpoint selector " +
@@ -112,9 +112,9 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		buffer := new(bytes.Buffer)
 		ctx := params.TraceSelector
 		searchCtx := policy.SearchContext{
-			From:    labels.NewSelectLabelArrayFromModel(ctx.From.Labels),
+			From:    labels.NewSelectLabelArrayWithHashFromModel(ctx.From.Labels),
 			Trace:   policy.TRACE_ENABLED,
-			To:      labels.NewSelectLabelArrayFromModel(ctx.To.Labels),
+			To:      labels.NewSelectLabelArrayWithHashFromModel(ctx.To.Labels),
 			DPorts:  ctx.To.Dports,
 			Logging: logging.NewLogBackend(buffer, "", 0),
 		}
@@ -139,8 +139,8 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	ingressSearchCtx := policy.SearchContext{
 		Trace:   policy.TRACE_ENABLED,
 		Logging: logging.NewLogBackend(ingressBuffer, "", 0),
-		From:    labels.NewSelectLabelArrayFromModel(ctx.From.Labels),
-		To:      labels.NewSelectLabelArrayFromModel(ctx.To.Labels),
+		From:    labels.NewSelectLabelArrayWithHashFromModel(ctx.From.Labels),
+		To:      labels.NewSelectLabelArrayWithHashFromModel(ctx.To.Labels),
 		DPorts:  ctx.To.Dports,
 	}
 	if ctx.Verbose {

@@ -38,7 +38,7 @@ func (s *PolicyAPITestSuite) TestCIDRMatchesAll(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
-	world := labels.ParseLabelArray("reserved:world")
+	world := labels.ParseLabelArrayWithHash("reserved:world")
 
 	labelWorld := labels.ParseSelectLabel("reserved:world")
 	esWorld := NewESFromLabels(labelWorld)

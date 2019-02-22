@@ -184,7 +184,7 @@ func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
 
 	if identity != nil {
 		for selector, endpointRules := range l7 {
-			if selector.Matches(identity.Labels.LabelArray()) {
+			if selector.Matches(identity.Labels.LabelArrayWithHash()) {
 				rules.HTTP = append(rules.HTTP, endpointRules.HTTP...)
 				rules.Kafka = append(rules.Kafka, endpointRules.Kafka...)
 				rules.DNS = append(rules.DNS, endpointRules.DNS...)
@@ -330,10 +330,10 @@ func (l4 L4Filter) String() string {
 	return string(b)
 }
 
-func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
+func (l4 L4Filter) matchesLabels(labels *labels.LabelArrayWithHash) bool {
 	if l4.AllowsAllAtL3() {
 		return true
-	} else if len(labels) == 0 {
+	} else if len(labels.LabelArray) == 0 {
 		return false
 	}
 
@@ -372,7 +372,7 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 // * If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
 // FromEndpoints constraints that require labels not present in `labels`.
 // Otherwise, returns api.Allowed.
-func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
+func (l4 L4PolicyMap) containsAllL3L4(labels *labels.LabelArrayWithHash, ports []*models.Port) api.Decision {
 	if len(l4) == 0 {
 		return api.Allowed
 	}
