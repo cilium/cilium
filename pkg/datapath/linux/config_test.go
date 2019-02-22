@@ -20,8 +20,10 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -98,4 +100,35 @@ func (s *DatapathSuite) TestWriteEndpointConfig(c *C) {
 	writeConfig(c, "endpoint", func(w io.Writer, dp datapath.Datapath) error {
 		return dp.WriteEndpointConfig(w, &dummyEPCfg)
 	})
+}
+
+func (s *DatapathSuite) TestWriteStaticData(c *C) {
+	dp := NewDatapath(DatapathConfiguration{}).(*linuxDatapath)
+	ep := &dummyEPCfg
+
+	varSub, stringSub := loader.ELFSubstitutions(ep)
+
+	var buf bytes.Buffer
+	dp.writeStaticData(&buf, ep)
+	b := buf.Bytes()
+	for k := range varSub {
+		for _, suffix := range []string{"_1", "_2", "_3", "_4"} {
+			// Variables with these suffixes are implemented via
+			// multiple 32-bit values. The header define doesn't
+			// include these numbers though, so strip them.
+			if strings.HasSuffix(k, suffix) {
+				k = strings.TrimSuffix(k, suffix)
+				break
+			}
+		}
+		c.Assert(bytes.Contains(b, []byte(k)), Equals, true)
+	}
+	for _, v := range stringSub {
+		c.Logf("Ensuring config has %s", v)
+		if strings.HasPrefix(v, "1/0x") {
+			// Skip tail call map name replacement
+			continue
+		}
+		c.Assert(bytes.Contains(b, []byte(v)), Equals, true)
+	}
 }
