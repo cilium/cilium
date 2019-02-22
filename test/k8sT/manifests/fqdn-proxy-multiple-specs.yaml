@@ -1,0 +1,32 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+description: "fqdn-proxy-policy.yaml"
+metadata:
+  name: "fqdn-proxy-policy.yaml"
+specs:
+- egress:
+  - toPorts:
+    - ports:
+      - port: '53'
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toFQDNs:
+    - matchPattern: "world1.cilium.test"
+  endpointSelector:
+    matchLabels:
+      id: app2
+- egress:
+  - toPorts:
+    - ports:
+      - port: '53'
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toFQDNs:
+    - matchPattern: "world2.cilium.test"
+  endpointSelector:
+    matchLabels:
+      id: app3
