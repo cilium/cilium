@@ -39,7 +39,11 @@ type Datapath interface {
 	// endpoints may have equivalent configurable options.
 	WriteNetdevConfig(io.Writer, DeviceConfiguration) error
 
+	// WriteTemplateConfig writes the implementation-specific configuration
+	// of configurable options for BPF templates to the specified writer.
+	WriteTemplateConfig(w io.Writer, cfg EndpointConfiguration) error
+
 	// WriteEndpointConfig writes the implementation-specific configuration
-	// of configurable options to the specified writer.
+	// of configurable options for the endpoint to the specified writer.
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
 }
