@@ -14,15 +14,32 @@
 
 // +build !privileged_tests
 
-package main
+package probes
 
 import (
-	go_version "github.com/hashicorp/go-version"
+	"testing"
 
+	go_version "github.com/hashicorp/go-version"
 	. "gopkg.in/check.v1"
 )
 
-func (ds *DaemonSuite) TestParseKernelVersion(c *C) {
+// Hook up gocheck into the "go test" runner.
+type KernelSuite struct{}
+
+var _ = Suite(&KernelSuite{})
+
+func Test(t *testing.T) { TestingT(t) }
+
+func (s *KernelSuite) TestGetKernelVersionStr(c *C) {
+	// No assertion is needed there. This function does not return any
+	// error, but it logs on Fatal level when uname info can not be
+	// retrieved.
+	// There is no point in checking the output, kernel versions differ
+	// everywhere.
+	getKernelVersionStr()
+}
+
+func (s *KernelSuite) TestParseKernelVersion(c *C) {
 	mustHaveVersion := func(v string) *go_version.Version {
 		ver, err := go_version.NewVersion(v)
 		c.Assert(err, IsNil)
@@ -46,4 +63,9 @@ func (ds *DaemonSuite) TestParseKernelVersion(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(tt.out.Equal(s), Equals, true)
 	}
+}
+
+func (s *KernelSuite) TestGetKernelVersion(c *C) {
+	_, err := GetKernelVersion()
+	c.Assert(err, IsNil)
 }

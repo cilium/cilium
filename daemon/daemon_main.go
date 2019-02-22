@@ -39,6 +39,7 @@ import (
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
+	"github.com/cilium/cilium/pkg/datapath/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -74,7 +75,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -137,36 +137,6 @@ func daemonMain() {
 	os.Exit(0)
 }
 
-func parseKernelVersion(ver string) (*go_version.Version, error) {
-	verStrs := strings.Split(ver, ".")
-	switch {
-	case len(verStrs) < 2:
-		return nil, fmt.Errorf("unable to get kernel version from %q", ver)
-	case len(verStrs) < 3:
-		verStrs = append(verStrs, "0")
-	}
-	// We are assuming the kernel version will be something as:
-	// 4.9.17-040917-generic
-
-	// If verStrs is []string{ "4", "9", "17-040917-generic" }
-	// then we need to retrieve patch number.
-	patch := regexp.MustCompilePOSIX(`^[0-9]+`).FindString(verStrs[2])
-	if patch == "" {
-		verStrs[2] = "0"
-	} else {
-		verStrs[2] = patch
-	}
-	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
-}
-
-func getKernelVersion() (*go_version.Version, error) {
-	var unameBuf unix.Utsname
-	if err := unix.Uname(&unameBuf); err != nil {
-		log.WithError(err).Fatal("kernel version: NOT OK")
-	}
-	return parseKernelVersion(string(unameBuf.Release[:]))
-}
-
 func getClangVersion(filePath string) (*go_version.Version, error) {
 	verOut, err := exec.Command(filePath, "--version").CombinedOutput()
 	if err != nil {
@@ -220,7 +190,7 @@ func checkBPFLogs(logType string, fatal bool) {
 }
 
 func checkMinRequirements() {
-	kernelVersion, err := getKernelVersion()
+	kernelVersion, err := probes.GetKernelVersion()
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
@@ -284,9 +254,8 @@ func checkMinRequirements() {
 	if err := os.Chdir(option.Config.LibDir); err != nil {
 		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
 	}
-	probeScript := filepath.Join(option.Config.BpfDir, "run_probes.sh")
-	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
-		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
+	if err := probes.RunProbes(option.Config.BpfDir, option.Config.StateDir); err != nil {
+		log.WithError(err).Fatal("BPF Verifier: NOT OK")
 	}
 	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
 	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {

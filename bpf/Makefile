@@ -6,7 +6,7 @@ SUBDIRS = sockops
 
 BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o bpf_ipsec.o
 BPF = bpf_lxc.o bpf_lb.o $(BPF_SIMPLE)
-SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
+SCRIPTS = init.sh join_ep.sh spawn_netns.sh
 
 TARGET=cilium-map-migrate
 
