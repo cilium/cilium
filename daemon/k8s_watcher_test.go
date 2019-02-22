@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
-	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -58,7 +57,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	k8sTesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
@@ -936,7 +934,6 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 					},
 				})
 				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
 					cnp: &v2.CiliumNetworkPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
@@ -1001,7 +998,6 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 					},
 				})
 				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
 					cnp: &v2.CiliumNetworkPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
@@ -1082,7 +1078,6 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 					},
 				})
 				return args{
-					ciliumV2Store: &cache.FakeCustomStore{},
 					cnp: &v2.CiliumNetworkPolicy{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "db",
@@ -1110,7 +1105,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		ds.d.policy = args.repo
-		err := ds.d.addCiliumNetworkPolicyV2(&fake.Clientset{}, args.ciliumV2Store, args.cnp)
+		err := ds.d.addCiliumNetworkPolicyV2(&fake.Clientset{}, args.cnp)
 		c.Assert(err, checker.DeepEquals, want.err, Commentf("Test name: %q", tt.name))
 		c.Assert(ds.d.policy.GetRulesList().Policy, checker.DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
 	}
@@ -1226,6 +1221,14 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 		ciliumNPClientFake := &fake.Clientset{}
 		ciliumNPClientFake.AddReactor("patch", "ciliumnetworkpolicies",
 			func(action k8sTesting.Action) (bool, runtime.Object, error) {
+				var statusErr *errors.StatusError
+				switch {
+				case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+					statusErr = &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonInvalid}}
+				default:
+					statusErr = &errors.StatusError{ErrStatus: metav1.Status{Code: 500}}
+				}
+
 				pa := action.(k8sTesting.PatchAction)
 				time.Sleep(1 * time.Millisecond)
 				var receivedJsonPatch []jsonPatch
@@ -1243,7 +1246,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 							// This is an attempt from k8s2 so we need
 							// to return an error because `/status` is not nil as
 							// it was previously set by k8s1
-							return true, nil, &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonInvalid}}
+							return true, nil, statusErr
 						}
 						// codepath A-1.10), C-1.10), A-1.11) and C-1.11)
 						n := nodes["k8s1"].(map[string]interface{})
@@ -1253,7 +1256,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 							// This is an attempt from k8s1 to update its status
 							// again, return an error because `/status` is not nil
 							// as it was previously set by k8s1
-							return true, nil, &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonInvalid}}
+							return true, nil, statusErr
 						}
 						// codepath A-1.10) and A-1.11)
 
@@ -1297,7 +1300,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						// "Unfortunately" the list of node is not-empty so
 						// the test value of `/status` needs to fail
 						c.Assert(cnp.Status.Nodes, Not(Equals), 0)
-						return true, nil, &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonInvalid}}
+						return true, nil, statusErr
 					}
 				case receivedJsonPatch[0].OP == "replace":
 					// codepath B-1.11) and C-1.11) 2nd attempt
@@ -1438,7 +1441,6 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 }
 
 func (k *K8sSuite) Test_updateCNPNodeStatus_1_10(c *C) {
-	c.Skip("Test not available as implementation is not made")
 	testUpdateCNPNodeStatusK8s(os.Getenv("INTEGRATION") != "", "1.10", c)
 }
 
@@ -1492,24 +1494,6 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 		c.Assert(err, IsNil)
 	}()
 
-	var cnpStore cache.Store
-	switch {
-	case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-		// k8s >= 1.11 does not require a store
-	default:
-		// TODO create a cache.Store per node
-		si := informer.NewSharedInformerFactory(ciliumNPClients[0], 5*time.Minute)
-		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
-		cnpStore = ciliumV2Controller.GetStore()
-		si.Start(wait.NeverStop)
-		var exists bool
-		// wait for the cnp created to be in the store
-		for !exists {
-			_, exists, err = cnpStore.Get(cnp)
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
-
 	wg := sync.WaitGroup{}
 	wg.Add(nNodes)
 	r := make(chan int, nNodes)
@@ -1517,7 +1501,7 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 		go func() {
 			for i := range r {
 				n := "k8s" + strconv.Itoa(i)
-				err := cnpNodeStatusController(ciliumNPClients[i], cnpStore, cnp, uint64(i), log, nil, n)
+				err := cnpNodeStatusController(ciliumNPClients[i], cnp, uint64(i), log, nil, n)
 				c.Assert(err, IsNil)
 				wg.Done()
 			}

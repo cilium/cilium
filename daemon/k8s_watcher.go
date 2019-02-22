@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -494,67 +493,55 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}
 
-	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
-
 	switch {
 	case ciliumv2VerConstr.Check(k8sServerVer):
-		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
-		var cnpStore cache.Store
-		switch {
-		case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-			// k8s >= 1.11 does not require a store
-		default:
-			cnpStore = ciliumV2Controller.GetStore()
-		}
-
-		rehf := k8sUtils.ResourceEventHandlerFactory(
-			func(i interface{}) func() error {
-				return func() error {
-					cnp := i.(*cilium_v2.CiliumNetworkPolicy)
-					if cnp.RequiresDerivative() {
-						return nil
-					}
-					err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, cnp)
-					updateK8sEventMetric(metricCNP, metricCreate, err == nil)
-					return nil
-				}
-			},
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.deleteCiliumNetworkPolicyV2(i.(*cilium_v2.CiliumNetworkPolicy))
-					updateK8sEventMetric(metricCNP, metricDelete, err == nil)
-					return nil
-				}
-			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					oldCNP := old.(*cilium_v2.CiliumNetworkPolicy)
-					newCNP := new.(*cilium_v2.CiliumNetworkPolicy)
-					if newCNP.RequiresDerivative() {
-						return nil
-					}
-
-					err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, oldCNP, newCNP)
-					updateK8sEventMetric(metricCNP, metricUpdate, err == nil)
-					return nil
-				}
-			},
-			d.missingCNPv2,
+		_, ciliumV2Controller := k8sUtils.ControllerFactory(
+			ciliumNPClient.CiliumV2().RESTClient(),
 			&cilium_v2.CiliumNetworkPolicy{},
-			ciliumNPClient,
-			reSyncPeriod,
-			metrics.EventTSK8s,
+			k8sUtils.ResourceEventHandlerFactory(
+				func(i interface{}) func() error {
+					return func() error {
+						cnp := i.(*cilium_v2.CiliumNetworkPolicy)
+						if cnp.RequiresDerivative() {
+							return nil
+						}
+						err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnp)
+						updateK8sEventMetric(metricCNP, metricCreate, err == nil)
+						return nil
+					}
+				},
+				func(i interface{}) func() error {
+					return func() error {
+						err := d.deleteCiliumNetworkPolicyV2(i.(*cilium_v2.CiliumNetworkPolicy))
+						updateK8sEventMetric(metricCNP, metricDelete, err == nil)
+						return nil
+					}
+				},
+				func(old, new interface{}) func() error {
+					return func() error {
+						oldCNP := old.(*cilium_v2.CiliumNetworkPolicy)
+						newCNP := new.(*cilium_v2.CiliumNetworkPolicy)
+						if newCNP.RequiresDerivative() {
+							return nil
+						}
+
+						err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, oldCNP, newCNP)
+						updateK8sEventMetric(metricCNP, metricUpdate, err == nil)
+						return nil
+					}
+				},
+				d.missingCNPv2,
+				&cilium_v2.CiliumNetworkPolicy{},
+				ciliumNPClient,
+				reSyncPeriod,
+				metrics.EventTSK8s,
+			),
+			fields.Everything(),
 		)
 
-		// Wrap the controller from Kubernetes so we can actually know when all
-		// objects were synchronized and processed from kubernetes.
-		cs := &k8sUtils.ControllerSyncer{Controller: ciliumV2Controller, ResourceEventHandler: rehf}
-		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, cs, "CiliumNetworkPolicy")
-
-		ciliumV2Controller.AddEventHandler(rehf)
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
+		go ciliumV2Controller.Run(wait.NeverStop)
 	}
-
-	si.Start(wait.NeverStop)
 
 	_, podsController := k8sUtils.ControllerFactory(
 		k8s.Client().CoreV1().RESTClient(),
@@ -1103,33 +1090,7 @@ func (d *Daemon) missingK8sIngressV1Beta1(m versioned.Map) versioned.Map {
 	return d.k8sSvcCache.ListMissingIngresses(m, host)
 }
 
-// getUpdatedCNPFromStore gets the most recent version of cnp from the store
-// ciliumV2Store, which is updated by the Kubernetes watcher. This reduces
-// the possibility of Cilium trying to update cnp in Kubernetes which has
-// been updated between the time the watcher in this Cilium instance has
-// received cnp, and when this function is called. This still may occur, though
-// and users of the returned CiliumNetworkPolicy may not be able to update
-// the cnp because it may become out-of-date. Returns an error if the CNP cannot
-// be retrieved from the store, or the object retrieved from the store is not of
-// the expected type.
-func getUpdatedCNPFromStore(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
-	serverRuleStore, exists, err := ciliumV2Store.Get(cnp)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err)
-	}
-	if !exists {
-		return nil, errors.New("v2.CiliumNetworkPolicy does not exist in local cache")
-	}
-
-	serverRule, ok := serverRuleStore.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		return nil, errors.New("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
-	}
-
-	return serverRule, nil
-}
-
-func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) {
+func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, cnp *cilium_v2.CiliumNetworkPolicy) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1148,13 +1109,13 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return cnpNodeStatusController(ciliumNPClient, ciliumV2Store, cnp, meta.revision, scopedLog, meta.policyImportError, node.GetName())
+				return cnpNodeStatusController(ciliumNPClient, cnp, meta.revision, scopedLog, meta.policyImportError, node.GetName())
 			},
 		})
 
 }
 
-func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) error {
+func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, cnp *cilium_v2.CiliumNetworkPolicy) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1190,7 +1151,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
-				return cnpNodeStatusController(ciliumNPClient, ciliumV2Store, cnp, rev, scopedLog, policyImportErr, node.GetName())
+				return cnpNodeStatusController(ciliumNPClient, cnp, rev, scopedLog, policyImportErr, node.GetName())
 			},
 		},
 	)
@@ -1199,7 +1160,6 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 
 func cnpNodeStatusController(
 	ciliumNPClient clientset.Interface,
-	ciliumV2Store cache.Store,
 	cnp *cilium_v2.CiliumNetworkPolicy,
 	rev uint64,
 	logger *logrus.Entry,
@@ -1223,34 +1183,7 @@ func cnpNodeStatusController(
 	)
 
 	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
-
-		var serverRuleCpy *cilium_v2.CiliumNetworkPolicy
-		var ruleCopyParseErr error
-		if ciliumV2Store != nil {
-			var fromStoreErr error
-			serverRule, fromStoreErr := getUpdatedCNPFromStore(ciliumV2Store, cnp)
-			if fromStoreErr != nil {
-				logger.WithError(fromStoreErr).Debug("error getting updated CNP from store")
-				return fromStoreErr
-			}
-
-			// Make a copy since the rule is a pointer, and any of its fields
-			// which are also pointers could be modified outside of this
-			// function.
-			serverRuleCpy = serverRule.DeepCopy()
-			_, ruleCopyParseErr = serverRuleCpy.Parse()
-			if ruleCopyParseErr != nil {
-				// If we can't parse the rule then we should signalize
-				// it in the status
-				log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
-					Warn("Error parsing new CiliumNetworkPolicy rule")
-			}
-
-			logger.WithField("cnpFromStore", serverRuleCpy.String()).Debug("copy of CNP retrieved from store which is being updated with status")
-		} else {
-			serverRuleCpy = cnp
-			_, ruleCopyParseErr = cnp.Parse()
-		}
+		_, ruleCopyParseErr := cnp.Parse()
 
 		// Update the status of whether the rule is enforced on this node.
 		// If we are unable to parse the CNP retrieved from the store,
@@ -1260,7 +1193,7 @@ func cnpNodeStatusController(
 			// OK is false here because the policy wasn't imported into
 			// cilium on this node; since it wasn't imported, it also
 			// isn't enforced.
-			cnpUpdateErr = updateCNPNodeStatus(ciliumNPClient, serverRuleCpy, false, false, policyImportErr, rev, serverRuleCpy.Annotations, nodeName)
+			cnpUpdateErr = updateCNPNodeStatus(ciliumNPClient, cnp, false, false, policyImportErr, rev, cnp.Annotations, nodeName)
 		} else if ruleCopyParseErr != nil {
 			// This handles the case where the initial instance of this
 			// rule was imported into the policy repository successfully
@@ -1269,16 +1202,16 @@ func cnpNodeStatusController(
 			// the rule is not OK because it cannot be imported due
 			// to parsing errors, and cannot be enforced because it is
 			// not OK.
-			cnpUpdateErr = updateCNPNodeStatus(ciliumNPClient, serverRuleCpy, false, false, ruleCopyParseErr, rev, serverRuleCpy.Annotations, nodeName)
+			cnpUpdateErr = updateCNPNodeStatus(ciliumNPClient, cnp, false, false, ruleCopyParseErr, rev, cnp.Annotations, nodeName)
 		} else {
 			// If the deadline by the above context, then not all
 			// endpoints are enforcing the given policy, and
 			// waitForEpsErr will be non-nil.
-			cnpUpdateErr = updateCNPNodeStatus(ciliumNPClient, serverRuleCpy, waitForEPsErr == nil, true, waitForEPsErr, rev, serverRuleCpy.Annotations, nodeName)
+			cnpUpdateErr = updateCNPNodeStatus(ciliumNPClient, cnp, waitForEPsErr == nil, true, waitForEPsErr, rev, cnp.Annotations, nodeName)
 		}
 
 		if cnpUpdateErr == nil {
-			logger.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
+			logger.WithField("status", cnp.Status).Debug("successfully updated with status")
 			break
 		}
 
@@ -1329,42 +1262,42 @@ func updateCNPNodeStatus(ciliumNPClient clientset.Interface, cnp *cilium_v2.Cili
 		}
 	}
 
+	// This is a JSON Patch used to create the `/status/nodes` field in the
+	// CNP. If we don't create, replacing the status for this node will
+	// fail as the path does not exist.
+	// Worst case scenario is that all nodes try to perform this operation
+	// and only one node will succeed. This can be moved to the
+	// cilium-operator which will create the path for all nodes. However
+	// performance tests have shown that performing 2 API calls to
+	// kube-apiserver for 1000 nodes versus performing 1 API call, where
+	// one of the nodes would "create" the `/status` path before all other
+	// nodes tried to replace their own status resulted in a gain of X %
+	createStatusAndNodePatch := []jsonPatch{
+		{
+			OP:    "test",
+			Path:  "/status",
+			Value: nil,
+		},
+		{
+			OP:   "add",
+			Path: "/status",
+			Value: cilium_v2.CiliumNetworkPolicyStatus{
+				Nodes: map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{
+					nodeName: cnpns,
+				},
+			},
+		},
+	}
+
+	createStatusAndNodePatchJSON, err := json.Marshal(createStatusAndNodePatch)
+	if err != nil {
+		return err
+	}
+
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
 	switch {
 	case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-		// This is a JSON Patch used to create the `/status/nodes` field in the
-		// CNP. If we don't create, replacing the status for this node will
-		// fail as the path does not exist.
-		// Worst case scenario is that all nodes try to perform this operation
-		// and only one node will succeed. This can be moved to the
-		// cilium-operator which will create the path for all nodes. However
-		// performance tests have shown that performing 2 API calls to
-		// kube-apiserver for 1000 nodes versus performing 1 API call, where
-		// one of the nodes would "create" the `/status` path before all other
-		// nodes tried to replace their own status resulted in a gain of X %
-		createStatusAndNodePatch := []jsonPatch{
-			{
-				OP:    "test",
-				Path:  "/status",
-				Value: nil,
-			},
-			{
-				OP:   "add",
-				Path: "/status",
-				Value: cilium_v2.CiliumNetworkPolicyStatus{
-					Nodes: map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{
-						nodeName: cnpns,
-					},
-				},
-			},
-		}
-
-		createStatusAndNodePatchJSON, err := json.Marshal(createStatusAndNodePatch)
-		if err != nil {
-			return err
-		}
-
 		_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		if err2 != nil && k8sErrors.IsInvalid(err2) {
 			// If it fails it means the test from the previous patch failed
@@ -1383,8 +1316,35 @@ func updateCNPNodeStatus(ciliumNPClient clientset.Interface, cnp *cilium_v2.Cili
 			_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		}
 	default:
-		cnp.SetPolicyStatus(nodeName, cnpns)
-		_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp)
+		// During testing it was noticed kube-apiserver got panics when this
+		// patch was performed, for this reason we will not use node PatchJson.
+		_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON)
+		if err2 != nil {
+			// If it fails it might mean the `/status` path exists.
+			// Before you ask, we can't blindly add this node status to the path
+			// `/status` because it will delete all other nodes.
+			createStatusAndNodePatch[0].Value = cilium_v2.CiliumNetworkPolicyStatus{}
+			createStatusAndNodePatchJSON, err := json.Marshal(createStatusAndNodePatch)
+			if err != nil {
+				return err
+			}
+			_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON)
+			if err2 != nil {
+				// If it fails it might mean the `/status/nodes` path exists and is not empty.
+				createStatusAndNodePatch := []jsonPatch{
+					{
+						OP:    "add",
+						Path:  "/status/nodes/" + nodeName,
+						Value: cnpns,
+					},
+				}
+				createStatusAndNodePatchJSON, err := json.Marshal(createStatusAndNodePatch)
+				if err != nil {
+					return err
+				}
+				_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON)
+			}
+		}
 	}
 	return err2
 }
@@ -1415,7 +1375,6 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 }
 
 func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
-	ciliumV2Store cache.Store,
 	oldRuleCpy, newRuleCpy *cilium_v2.CiliumNetworkPolicy) error {
 
 	_, err := oldRuleCpy.Parse()
@@ -1460,12 +1419,12 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 					log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
 				}
 			}
-			d.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
+			d.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, newRuleCpy)
 		}
 		return nil
 	}
 
-	return d.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)
+	return d.addCiliumNetworkPolicyV2(ciliumNPClient, newRuleCpy)
 }
 
 // missingCNPv2 returns all missing policies from the given map.
