@@ -11,9 +11,6 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
-log "${TEST_NAME} has been deprecated and replaced by test/runtime/lb.go:Services Policies"
-exit 0
-
 function cleanup {
   monitor_stop
   cilium service delete --all 2> /dev/null || true
@@ -297,7 +294,7 @@ function proxy_test {
 }
 
 proxy_init
-for state in "false"; do
+for state in "false" "true"; do
   cilium config ConntrackLocal=$state
 
   for service in "none" "lb"; do
