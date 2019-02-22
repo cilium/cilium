@@ -201,4 +201,40 @@ var _ = Describe("K8sFQDNTest", func() {
 		By("Testing connectivity using DNS request when cilium is restored correctly")
 		connectivityTest()
 	})
+
+	It("Validate that multiple specs are working correctly", func() {
+		// To make sure that UUID in multiple specs are plumbed correctly to
+		// Cilium Policy
+		fqdnPolicy := helpers.ManifestGet("fqdn-proxy-multiple-specs.yaml")
+		world1Target := "http://world1.cilium.test"
+		world2Target := "http://world2.cilium.test"
+
+		_, err := kubectl.CiliumPolicyAction(
+			helpers.KubeSystemNamespace, fqdnPolicy,
+			helpers.KubectlApply, helpers.HelperTimeout)
+		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
+
+		By("Validating APP2 policy connectivity")
+		res := kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail(world1Target))
+		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App2],
+			helpers.CurlFail(world2Target))
+		res.ExpectFail("Can connect to a valid target when it should NOT work")
+
+		By("Validating APP3 policy connectivity")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App3],
+			helpers.CurlFail(world2Target))
+		res.ExpectSuccess("Can't connect to to a valid target when it should work")
+
+		res = kubectl.ExecPodCmd(
+			helpers.DefaultNamespace, appPods[helpers.App3],
+			helpers.CurlFail(world1Target))
+		res.ExpectFail("Can connect to to a valid target when it should NOT work")
+	})
 })
