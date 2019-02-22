@@ -18,6 +18,7 @@ import (
 	"context"
 	"path"
 
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -37,11 +38,11 @@ const (
 // endpoint provides access to endpoint information that is necessary to
 // compile and load the datapath.
 type endpoint interface {
+	datapath.EndpointConfiguration
 	InterfaceName() string
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
 	MapPath() string
-	HasIpvlanDataPath() bool
 }
 
 func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
