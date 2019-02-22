@@ -213,7 +213,7 @@ const (
 )
 
 // NightlyStableUpgradesFrom the cilium images to update from in Nightly test.
-var NightlyStableUpgradesFrom = []string{"v1.2"}
+var NightlyStableUpgradesFrom = []string{"v1.3"}
 
 var (
 	CiliumV1_0 = versioncheck.MustCompile(">=v1.0,<v1.1")
