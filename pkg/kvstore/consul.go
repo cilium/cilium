@@ -54,7 +54,16 @@ var (
 	//consulDummyConfigFile can be overwritten from test invokers using ldflags
 	consulDummyConfigFile = "/tmp/cilium-consul-certs/cilium-consul.yaml"
 
-	module = &consulModule{
+	module = newConsulModule()
+)
+
+func init() {
+	// register consul module for use
+	registerBackend(consulName, module)
+}
+
+func newConsulModule() backendModule {
+	return &consulModule{
 		opts: backendOptions{
 			optAddress: &backendOption{
 				description: "Addresses of consul cluster",
@@ -64,16 +73,10 @@ var (
 			},
 		},
 	}
-)
-
-func init() {
-	// register consul module for use
-	registerBackend(consulName, module)
 }
 
 func (c *consulModule) createInstance() backendModule {
-	cpy := *module
-	return &cpy
+	return newConsulModule()
 }
 
 func (c *consulModule) getName() string {
