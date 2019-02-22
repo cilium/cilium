@@ -73,3 +73,11 @@ func OpenCallMap() (*PolicyPlumbingMap, error) {
 	}
 	return &PolicyPlumbingMap{Map: m}, nil
 }
+
+// CallString returns the string which indicates the calls map by index in the
+// ELF, and index into that call map for a specific endpoint.
+//
+// Derived from __section_tail(CILIUM_MAP_CALLS, NAME) per bpf/lib/tailcall.h.
+func CallString(id uint16) string {
+	return fmt.Sprintf("1/%#04x", id)
+}
