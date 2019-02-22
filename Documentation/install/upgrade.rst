@@ -283,8 +283,8 @@ New ConfigMap Options
   ConfigMap without requiring to set an environment variable in the DaemonSet.
 
 
-Deprecated ConfigMap Options
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
 
   * ``legacy-host-allows-world`` option is now removed as planned.
 
@@ -296,6 +296,9 @@ Deprecated ConfigMap Options
 
   * ``prometheus-serve-addr`` from the ``cilium-metrics-config`` ConfigMap is
    superseded by ``prometheus-serve-addr``from the ``cilium-config` ConfigMap.
+
+  * ``--auto-ipv6-node-routes`` was removed as planned. Use
+    ``--auto-direct-node-routes`` instead.
 
 .. _1.4_upgrade_notes:
 
