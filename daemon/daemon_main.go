@@ -343,10 +343,6 @@ func init() {
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 
-	flags.Bool(option.LegacyAutoIPv6NodeRoutesName, false, "Deprecatd, use --auto-direct-node-routes")
-	option.BindEnv(option.LegacyAutoIPv6NodeRoutesName)
-	flags.MarkDeprecated(option.LegacyAutoIPv6NodeRoutesName, fmt.Sprintf("please use %s", option.EnableAutoDirectRoutingName))
-
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
 

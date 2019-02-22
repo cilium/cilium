@@ -282,9 +282,6 @@ const (
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = "tofqdns-pre-cache"
 
-	// LegacyAutoIPv6NodeRoutesName is the name of the AutoIPv6NodeRoutes option
-	LegacyAutoIPv6NodeRoutesName = "auto-ipv6-node-routes"
-
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -1080,14 +1077,6 @@ func (c *DaemonConfig) Populate() {
 	c.Tunnel = viper.GetString(TunnelName)
 	c.Version = viper.GetString(Version)
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
-
-	// This is a legacy option. Provide backward compatibility by enabling
-	// automatic direct routing. Unlike the old option, it will also enable
-	// direct routing for IPv4. Better than breaking the option. The old
-	// option was not frequently used so this addition in scope is fine.
-	if viper.GetBool(LegacyAutoIPv6NodeRoutesName) {
-		c.EnableAutoDirectRouting = true
-	}
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
