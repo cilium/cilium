@@ -10,6 +10,7 @@
 
 DEFINE_U32(FOO, 0xF0F0F0F0);
 DEFINE_U32(BAR, 0xCECECECE);
+DEFINE_IPV6(GLOBAL_IPV6, 0x1, 0, 0x1, 0, 0, 0x1, 0, 0x1, 0x1, 0, 0x1, 0, 0, 0x1, 0, 0x1);
 DEFINE_MAC(LOCAL_MAC, 0, 0x1, 0, 0, 0, 0x1);
 
 #define CALLS_MAP_ID 1
@@ -36,6 +37,12 @@ int __main(struct __sk_buff *skb)
 
 	skb->mark = fetch_u32(FOO);
 	skb->cb[0] = fetch_u32(BAR);
+
+	BPF_V6(v6, GLOBAL_IPV6);
+	skb->cb[1] = v6.p1;
+	skb->cb[2] = v6.p2;
+	skb->cb[3] = v6.p3;
+	skb->cb[4] = v6.p4;
 
 	skb->priority = mac.p1;
 	skb->tc_classid = mac.p2;
