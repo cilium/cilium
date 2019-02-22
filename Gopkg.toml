@@ -521,10 +521,11 @@ required = [
 
 [[constraint]]
   name = "k8s.io/client-go"
-  revision = "kubernetes-1.13.3"
+  source = "https://github.com/cilium/client-go"
+  revision = "b5836377ae6c61ca4e81982fc253d1ef21a1ca87"
 
   # main-usage = "pkg/k8s"
-  # on-revision = ""
+  # on-revision = "TODO @aanm is on b5836377ae6c61ca4e81982fc253d1ef21a1ca87 as it contains the hotfix for the metrics path"
 
 [[constraint]]
   name = "k8s.io/code-generator"

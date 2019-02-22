@@ -469,7 +469,13 @@ func (r Request) finalURLTemplate() url.URL {
 	groupIndex := 0
 	index := 0
 	if r.URL() != nil && r.baseURL != nil && strings.Contains(r.URL().Path, r.baseURL.Path) {
-		groupIndex += len(strings.Split(r.baseURL.Path, "/"))
+		// only add baseURL path length if it is different than `/`
+		// as strings.Split("/", "/") returns length of 2
+		if r.baseURL.Path != "/" {
+			groupIndex += len(strings.Split(r.baseURL.Path, "/"))
+		} else {
+			groupIndex += 1
+		}
 	}
 	if groupIndex >= len(segments) {
 		return *url
