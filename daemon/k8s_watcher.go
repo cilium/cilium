@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -58,6 +59,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	k8s_metrics "k8s.io/client-go/tools/metrics"
 )
 
 const (
@@ -229,11 +231,26 @@ func (m *k8sAPIGroupsUsed) getGroups() []string {
 	return groups
 }
 
+// k8sMetrics implements the LatencyMetric and ResultMetric interface from
+// k8s client-go package
+type k8sMetrics struct{}
+
+func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
+	metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+}
+
+func (*k8sMetrics) Increment(code string, method string, host string) {
+	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+}
+
 func init() {
 	// Replace error handler with our own
 	runtime.ErrorHandlers = []func(error){
 		k8s.K8sErrorHandler,
 	}
+
+	k8sMetric := &k8sMetrics{}
+	k8s_metrics.Register(k8sMetric, k8sMetric)
 }
 
 // blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
