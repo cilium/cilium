@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -55,7 +56,9 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -496,7 +499,13 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	switch {
 	case ciliumv2VerConstr.Check(k8sServerVer):
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
-		cnpStore := ciliumV2Controller.GetStore()
+		var cnpStore cache.Store
+		switch {
+		case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+			// k8s >= 1.11 does not require a store
+		default:
+			cnpStore = ciliumV2Controller.GetStore()
+		}
 
 		rehf := k8sUtils.ResourceEventHandlerFactory(
 			func(i interface{}) func() error {
@@ -1215,25 +1224,33 @@ func cnpNodeStatusController(
 
 	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
 
-		serverRule, fromStoreErr := getUpdatedCNPFromStore(ciliumV2Store, cnp)
-		if fromStoreErr != nil {
-			logger.WithError(fromStoreErr).Debug("error getting updated CNP from store")
-			return fromStoreErr
-		}
+		var serverRuleCpy *cilium_v2.CiliumNetworkPolicy
+		var ruleCopyParseErr error
+		if ciliumV2Store != nil {
+			var fromStoreErr error
+			serverRule, fromStoreErr := getUpdatedCNPFromStore(ciliumV2Store, cnp)
+			if fromStoreErr != nil {
+				logger.WithError(fromStoreErr).Debug("error getting updated CNP from store")
+				return fromStoreErr
+			}
 
-		// Make a copy since the rule is a pointer, and any of its fields
-		// which are also pointers could be modified outside of this
-		// function.
-		serverRuleCpy := serverRule.DeepCopy()
-		_, ruleCopyParseErr := serverRuleCpy.Parse()
-		if ruleCopyParseErr != nil {
-			// If we can't parse the rule then we should signalize
-			// it in the status
-			log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
-				Warn("Error parsing new CiliumNetworkPolicy rule")
-		}
+			// Make a copy since the rule is a pointer, and any of its fields
+			// which are also pointers could be modified outside of this
+			// function.
+			serverRuleCpy = serverRule.DeepCopy()
+			_, ruleCopyParseErr = serverRuleCpy.Parse()
+			if ruleCopyParseErr != nil {
+				// If we can't parse the rule then we should signalize
+				// it in the status
+				log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
+					Warn("Error parsing new CiliumNetworkPolicy rule")
+			}
 
-		logger.WithField("cnpFromStore", serverRuleCpy.String()).Debug("copy of CNP retrieved from store which is being updated with status")
+			logger.WithField("cnpFromStore", serverRuleCpy.String()).Debug("copy of CNP retrieved from store which is being updated with status")
+		} else {
+			serverRuleCpy = cnp
+			_, ruleCopyParseErr = cnp.Parse()
+		}
 
 		// Update the status of whether the rule is enforced on this node.
 		// If we are unable to parse the CNP retrieved from the store,
@@ -1282,6 +1299,12 @@ func cnpNodeStatusController(
 	return overallErr
 }
 
+type jsonPatch struct {
+	OP    string      `json:"op,omitempty"`
+	Path  string      `json:"path,omitempty"`
+	Value interface{} `json:"value"`
+}
+
 func updateCNPNodeStatus(ciliumNPClient clientset.Interface, cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, annotations map[string]string, nodeName string) error {
 	var (
 		cnpns cilium_v2.CiliumNetworkPolicyNodeStatus
@@ -1306,13 +1329,61 @@ func updateCNPNodeStatus(ciliumNPClient clientset.Interface, cnp *cilium_v2.Cili
 		}
 	}
 
-	cnp.SetPolicyStatus(nodeName, cnpns)
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
 	switch {
 	case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-		_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+		// This is a JSON Patch used to create the `/status/nodes` field in the
+		// CNP. If we don't create, replacing the status for this node will
+		// fail as the path does not exist.
+		// Worst case scenario is that all nodes try to perform this operation
+		// and only one node will succeed. This can be moved to the
+		// cilium-operator which will create the path for all nodes. However
+		// performance tests have shown that performing 2 API calls to
+		// kube-apiserver for 1000 nodes versus performing 1 API call, where
+		// one of the nodes would "create" the `/status` path before all other
+		// nodes tried to replace their own status resulted in a gain of X %
+		createStatusAndNodePatch := []jsonPatch{
+			{
+				OP:    "test",
+				Path:  "/status",
+				Value: nil,
+			},
+			{
+				OP:   "add",
+				Path: "/status",
+				Value: cilium_v2.CiliumNetworkPolicyStatus{
+					Nodes: map[string]cilium_v2.CiliumNetworkPolicyNodeStatus{
+						nodeName: cnpns,
+					},
+				},
+			},
+		}
+
+		createStatusAndNodePatchJSON, err := json.Marshal(createStatusAndNodePatch)
+		if err != nil {
+			return err
+		}
+
+		_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		if err2 != nil && k8sErrors.IsInvalid(err2) {
+			// If it fails it means the test from the previous patch failed
+			// so we can safely replace this node in the CNP status.
+			createStatusAndNodePatch := []jsonPatch{
+				{
+					OP:    "replace",
+					Path:  "/status/nodes/" + nodeName,
+					Value: cnpns,
+				},
+			}
+			createStatusAndNodePatchJSON, err := json.Marshal(createStatusAndNodePatch)
+			if err != nil {
+				return err
+			}
+			_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		}
 	default:
+		cnp.SetPolicyStatus(nodeName, cnpns)
 		_, err2 = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp)
 	}
 	return err2
