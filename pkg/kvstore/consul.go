@@ -54,13 +54,7 @@ var (
 	//consulDummyAddress can be overwritten from test invokers using ldflags
 	consulDummyAddress = "127.0.0.1:8501"
 
-	module = &consulModule{
-		opts: backendOptions{
-			optAddress: &backendOption{
-				description: "Addresses of consul cluster",
-			},
-		},
-	}
+	module = newConsulModule()
 )
 
 func init() {
@@ -68,9 +62,18 @@ func init() {
 	registerBackend(consulName, module)
 }
 
+func newConsulModule() backendModule {
+	return &consulModule{
+		opts: backendOptions{
+			optAddress: &backendOption{
+				description: "Addresses of consul cluster",
+			},
+		},
+	}
+}
+
 func (c *consulModule) createInstance() backendModule {
-	cpy := *module
-	return &cpy
+	return newConsulModule()
 }
 
 func (c *consulModule) getName() string {

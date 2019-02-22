@@ -72,7 +72,15 @@ var (
 	// etcdDummyAddress can be overwritten from test invokers using ldflags
 	etcdDummyAddress = "http://127.0.0.1:4002"
 
-	etcdInstance = &etcdModule{
+	etcdInstance = newEtcdModule()
+)
+
+func EtcdDummyAddress() string {
+	return etcdDummyAddress
+}
+
+func newEtcdModule() backendModule {
+	return &etcdModule{
 		opts: backendOptions{
 			addrOption: &backendOption{
 				description: "Addresses of etcd cluster",
@@ -82,15 +90,10 @@ var (
 			},
 		},
 	}
-)
-
-func EtcdDummyAddress() string {
-	return etcdDummyAddress
 }
 
 func (e *etcdModule) createInstance() backendModule {
-	cpy := *etcdInstance
-	return &cpy
+	return newEtcdModule()
 }
 
 func (e *etcdModule) getName() string {
