@@ -70,12 +70,11 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		})
 	node1Cilium := ParseNode(&node1, node.FromAgentLocal)
 
-	err := node.UseNodeCIDR(node1Cilium)
-	c.Assert(err, IsNil)
+	useNodeCIDR(node1Cilium)
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 	// IPv6 Node range is not checked because it shouldn't be changed.
 
-	k8sCli.AnnotateNode("node1",
+	err := k8sCli.AnnotateNode("node1",
 		node.GetIPv4AllocRange(),
 		node.GetIPv6NodeRange(),
 		nil,
@@ -132,8 +131,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		})
 
 	node2Cilium := ParseNode(&node2, node.FromAgentLocal)
-	err = node.UseNodeCIDR(node2Cilium)
-	c.Assert(err, IsNil)
+	useNodeCIDR(node2Cilium)
 
 	// We use the node's annotation for the IPv4 and the PodCIDR for the
 	// IPv6.
