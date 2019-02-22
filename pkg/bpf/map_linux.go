@@ -190,6 +190,11 @@ func (m *Map) GetFd() int {
 	return m.fd
 }
 
+// Name returns the basename of this map.
+func (m *Map) Name() string {
+	return m.name
+}
+
 // Path returns the path to this map on the filesystem.
 func (m *Map) Path() (string, error) {
 	if err := m.setPathIfUnset(); err != nil {
