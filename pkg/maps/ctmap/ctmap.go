@@ -393,7 +393,7 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 			continue
 		}
 		if oldMap.CheckAndUpgrade(&newMap.Map.MapInfo) {
-			scopedLog.Info("CT Map upgraded, expect brief disruption of ongoing connections")
+			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
 		}
 		oldMap.Close()
 	}
