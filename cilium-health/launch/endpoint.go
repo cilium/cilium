@@ -114,7 +114,7 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	routeCmds := []string{}
 	for _, rt := range routes {
 		cmd := strings.Join(rt.ToIPCommand(dev), " ")
-		log.WithField("netns", netns).WithField("command", cmd).Info("Adding route")
+		log.WithField("netns", netns).WithField("command", cmd).Debug("Adding route")
 		routeCmds = append(routeCmds, cmd)
 	}
 	cmd := strings.Join(routeCmds, " && ")
