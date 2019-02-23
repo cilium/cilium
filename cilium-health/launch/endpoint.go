@@ -153,8 +153,8 @@ func (c *Client) PingEndpoint() error {
 func KillEndpoint() {
 	path := filepath.Join(option.Config.StateDir, PidfilePath)
 	if err := pidfile.Kill(path); err != nil {
-		scopedLog := log.WithField(logfields.Path, path).WithError(err)
-		scopedLog.Info("Failed to kill previous cilium-health instance")
+		log.WithField(logfields.Path, path).WithError(err).
+			Warning("Failed to kill cilium-health instance")
 	}
 }
 
@@ -171,7 +171,7 @@ func CleanupEndpoint() {
 		if link, err := netlink.LinkByName(vethName); err == nil {
 			err = netlink.LinkDel(link)
 			if err != nil {
-				scopedLog.WithError(err).Info("Couldn't delete cilium-health device")
+				scopedLog.WithError(err).Warning("Couldn't delete cilium-health device")
 			}
 		} else {
 			scopedLog.WithError(err).Debug("Didn't find existing device")
@@ -232,7 +232,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		if err != nil {
 			if errDel := netns.RemoveNetNSWithName(netNSName); errDel != nil {
 				log.WithError(errDel).WithField(logfields.NetNSName, netNSName).
-					Info("Unable to remove netns")
+					Warning("Unable to remove network namespace")
 			}
 			return nil, err
 		}
