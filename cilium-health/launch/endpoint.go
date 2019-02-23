@@ -15,7 +15,6 @@
 package launch
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -62,32 +61,6 @@ var (
 	// PidfilePath
 	PidfilePath = "health-endpoint.pid"
 )
-
-func logFromCommand(cmd *exec.Cmd, netns string) error {
-	scopedLog := log.WithField("netns", netns)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	go func() {
-		in := bufio.NewScanner(stdout)
-		for in.Scan() {
-			scopedLog.Debugf("%s", in.Text())
-		}
-	}()
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	go func() {
-		in := bufio.NewScanner(stderr)
-		for in.Scan() {
-			scopedLog.Infof("%s", in.Text())
-		}
-	}()
-
-	return nil
-}
 
 func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing, mtuConfig mtu.Configuration) error {
 	routes := []route.Route{}
