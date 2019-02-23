@@ -305,7 +305,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MapType,
 			"new": MapType(mapType),
-		}).Info("Map type mismatch for BPF map")
+		}).Warning("Map type mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -313,7 +313,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.KeySize,
 			"new": keySize,
-		}).Info("Key-size mismatch for BPF map")
+		}).Warning("Key-size mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -321,7 +321,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.ValueSize,
 			"new": valueSize,
-		}).Info("Value-size mismatch for BPF map")
+		}).Warning("Value-size mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -329,14 +329,14 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.MaxEntries,
 			"new": maxEntries,
-		}).Info("Max entries mismatch for BPF map")
+		}).Warning("Max entries mismatch for BPF map")
 		mismatch = true
 	}
 	if info.Flags != flags {
 		scopedLog.WithFields(logrus.Fields{
 			"old": info.Flags,
 			"new": flags,
-		}).Info("Flags mismatch for BPF map")
+		}).Warning("Flags mismatch for BPF map")
 		mismatch = true
 	}
 
@@ -345,7 +345,7 @@ func objCheck(fd int, path string, mapType int, keySize, valueSize, maxEntries, 
 			return false
 		}
 
-		scopedLog.Info("Removing map to allow for property upgrade (expect map data loss)")
+		scopedLog.Warning("Removing map to allow for property upgrade (expect map data loss)")
 
 		// Kernel still holds map reference count via attached prog.
 		// Only exception is prog array, but that is already resolved
