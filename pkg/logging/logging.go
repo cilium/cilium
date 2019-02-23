@@ -58,28 +58,6 @@ var (
 	}
 )
 
-// setFireLevels returns a slice of logrus.Level values higher in priority
-// and including level, excluding any levels lower in priority.
-func setFireLevels(level logrus.Level) []logrus.Level {
-	switch level {
-	case logrus.PanicLevel:
-		return []logrus.Level{logrus.PanicLevel}
-	case logrus.FatalLevel:
-		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel}
-	case logrus.ErrorLevel:
-		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel}
-	case logrus.WarnLevel:
-		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel, logrus.WarnLevel}
-	case logrus.InfoLevel:
-		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel, logrus.WarnLevel, logrus.InfoLevel}
-	case logrus.DebugLevel:
-		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel, logrus.WarnLevel, logrus.InfoLevel, logrus.DebugLevel}
-	default:
-		logrus.Infof("logrus level %v is not supported at this time; defaulting to info level", level)
-		return []logrus.Level{logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel, logrus.WarnLevel, logrus.InfoLevel}
-	}
-}
-
 // InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
 func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
