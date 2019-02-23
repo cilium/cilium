@@ -54,7 +54,7 @@ func k8sServiceHandler() {
 			"service":              event.Service.String(),
 			"endpoints":            event.Endpoints.String(),
 			"shared":               event.Service.Shared,
-		}).Info("Kubernetes service definition changed")
+		}).Debug("Kubernetes service definition changed")
 
 		if !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
