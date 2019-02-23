@@ -1147,7 +1147,7 @@ func runDaemon() {
 			}
 		}()
 	} else {
-		log.Info("No previous state to restore. Cilium will not manage existing containers")
+		log.Info("State restore is disabled. Existing endpoints on node are ignored")
 		// We need to read all docker containers so we know we won't
 		// going to allocate the same IP addresses and we will ignore
 		// these containers from reading.
