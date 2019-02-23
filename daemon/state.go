@@ -58,6 +58,7 @@ type endpointRestoreState struct {
 // If clean is true, endpoints which cannot be associated with a container
 // workloads are deleted.
 func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreState, error) {
+	failed := 0
 	state := &endpointRestoreState{
 		restored: []*endpoint.Endpoint{},
 		toClean:  []*endpoint.Endpoint{},
@@ -68,7 +69,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		return state, nil
 	}
 
-	log.Info("Restoring endpoints from former life...")
+	log.Info("Restoring endpoints...")
 
 	existingEndpoints, err := lxcmap.DumpToMap()
 	if err != nil {
@@ -90,12 +91,18 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 	for _, ep := range possibleEPs {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+		if k8s.IsEnabled() {
+			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodNameLocked())
+		}
+
 		skipRestore := false
 
 		// On each restart, the health endpoint is supposed to be recreated.
 		// Hence we need to clean health endpoint state unconditionally.
 		if ep.HasLabels(labels.LabelHealth) {
-			skipRestore = true
+			// Completely ignore health endpoint and don't report
+			// it as not restored.
+			continue
 		} else {
 			if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
 				_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
@@ -110,23 +117,24 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 				// always accessible (e.g. in k8s case "/proc" has to be bind
 				// mounted). Instead, we check whether the tail call map exists.
 				if _, err := os.Stat(ep.BPFIpvlanMapPath()); err != nil {
-					scopedLog.Infof(
+					scopedLog.Warningf(
 						"Ipvlan tail call map %s could not be found for endpoint being restored, ignoring",
 						ep.BPFIpvlanMapPath())
 					skipRestore = true
 				}
 			} else if _, err := netlink.LinkByName(ep.IfName); err != nil {
-				scopedLog.Infof("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
+				scopedLog.Warningf("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
 				skipRestore = true
 			}
 
 			if !skipRestore && option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
-				scopedLog.Info("No workload could be associated with endpoint being restored, ignoring")
+				scopedLog.Warning("No workload could be associated with endpoint being restored, ignoring")
 				skipRestore = true
 			}
 		}
 
 		if clean && skipRestore {
+			failed++
 			state.toClean = append(state.toClean, ep)
 			continue
 		}
@@ -162,8 +170,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	}
 
 	log.WithFields(logrus.Fields{
-		"count.restored": len(state.restored),
-		"count.total":    len(possibleEPs),
+		"restored": len(state.restored),
+		"failed":   failed,
 	}).Info("Endpoints restored")
 
 	if existingEndpoints != nil {
@@ -424,7 +432,7 @@ func readEPsFromDirNames(basePath string, eptsDirNames []string) map[uint16]*end
 		})
 
 		if cHeaderFile == "" {
-			scopedLog.Info("C header file not found. Ignoring endpoint")
+			scopedLog.Warning("C header file not found. Ignoring endpoint")
 			continue
 		}
 
