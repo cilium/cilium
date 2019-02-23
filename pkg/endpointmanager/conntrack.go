@@ -56,7 +56,7 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
 			msg := "Skipping CT garbage collection"
 			scopedLog := log.WithError(err).WithField(logfields.Path, path)
 			if os.IsNotExist(err) {
-				scopedLog.Info(msg)
+				scopedLog.Debug(msg)
 			} else {
 				scopedLog.Warn(msg)
 			}
