@@ -35,9 +35,6 @@ func (d *Daemon) initHealth() {
 		return
 	}
 
-	// Allocate health endpoint IPs after restoring state
-	log.Info("Building health endpoint")
-
 	// Launch cilium-health in the same namespace as cilium.
 	log.Info("Launching Cilium health daemon")
 	d.ciliumHealth = &health.CiliumHealth{}
