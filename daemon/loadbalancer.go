@@ -462,6 +462,8 @@ func openServiceMaps() error {
 }
 
 func restoreServiceIDs() {
+	failed, restored, skipped := 0, 0, 0
+
 	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true)
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occured while dumping service table from datapath")
@@ -471,6 +473,7 @@ func restoreServiceIDs() {
 		// Services where the service ID was missing in the BPF map
 		// cannot be restored
 		if uint32(svc.FE.ID) == uint32(0) {
+			skipped++
 			continue
 		}
 
@@ -486,9 +489,11 @@ func restoreServiceIDs() {
 
 			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
 			if err != nil {
+				failed++
 				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
 			} else {
-				scopedLog.Info("Restored service ID from datapath")
+				restored++
+				scopedLog.Debug("Restored service ID from datapath")
 			}
 		}
 
@@ -498,6 +503,13 @@ func restoreServiceIDs() {
 			log.WithError(err).Warning("Unable to restore service in cache")
 		}
 	}
+
+	log.WithFields(logrus.Fields{
+		"restored": restored,
+		"failed":   failed,
+		"skipped":  skipped,
+	}).Info("Restore service IDs from BPF maps")
+
 }
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
