@@ -522,7 +522,8 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	log.Info("Syncing BPF LBMaps with daemon's LB maps...")
+	log.Info("Restoring services from BPF maps...")
+
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
@@ -582,22 +583,20 @@ func (d *Daemon) SyncLBMap() error {
 
 	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false)
 	for _, err := range lbmapDumpErrors {
-		log.WithError(err).Warn("error dumping BPF map into userspace")
+		log.WithError(err).Warn("Unable to list services in services BPF map")
 	}
 	newRevNATMap, revNATMapDumpErrors := lbmap.DumpRevNATMapsToUserspace()
 	for _, err := range revNATMapDumpErrors {
-		log.WithError(err).Warn("error dumping BPF map into userspace")
+		log.WithError(err).Warn("Unable to list services in RevNat BPF map")
 	}
 
 	// Need to do this outside of parseSVCEntries to avoid deadlock, because we
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
-	log.Debug("iterating over services read from BPF LB Map and seeing if they have the same ID set in the KV store")
 	for _, svc := range newSVCList {
+		scopedLog := log.WithField(logfields.Object, logfields.Repr(svc))
 		kvL3n4AddrID, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.L3n4Addr: logfields.Repr(svc.FE.L3n4Addr),
-			}).Error("Unable to retrieve service ID from KVStore. This entry will be removed from the bpf's LB map.")
+			scopedLog.WithError(err).Error("Unable to restore service ID")
 			failedSyncSVC = append(failedSyncSVC, *svc)
 			delete(newSVCMap, svc.Sha256)
 			// Don't update the maps of services since the service failed to
@@ -608,20 +607,15 @@ func (d *Daemon) SyncLBMap() error {
 		// Mismatch detected between BPF Maps and KVstore, so we need to update
 		// the ID in the BPF Maps to reflect the ID of the KVstore.
 		if svc.FE.ID != kvL3n4AddrID.ID {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.ServiceID + ".old": svc.FE.ID,
-				logfields.ServiceID + ".new": kvL3n4AddrID.ID,
-			}).Info("Frontend service ID read from BPF map was out of sync with KVStore, got new ID")
+			scopedLog = scopedLog.WithField(logfields.ServiceID+".new", kvL3n4AddrID.ID)
+			scopedLog.WithError(err).Warning("Service ID in BPF map is out of sync with KVStore. Acquired new ID")
+
 			oldID := svc.FE.ID
 			svc.FE.ID = kvL3n4AddrID.ID
 			// If we cannot add the service to the BPF maps, update the list of
 			// services that failed to sync.
 			if err := addSVC2BPFMap(oldID, *svc); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.ServiceID + ".old": oldID,
-					logfields.ServiceID + ".new": svc.FE.ID,
-					logfields.Object:             logfields.Repr(svc),
-				}).Error("SyncLBMap")
+				scopedLog.WithError(err).Error("Unable to synchronize service to BPF map")
 
 				failedSyncSVC = append(failedSyncSVC, *svc)
 				delete(newSVCMap, svc.Sha256)
@@ -643,17 +637,13 @@ func (d *Daemon) SyncLBMap() error {
 
 	// Clean services and rev nats from BPF maps that failed to be restored.
 	for _, svc := range failedSyncSVC {
-		log.WithField(logfields.Object, logfields.Repr(svc.FE)).Debug("Unable to restore, so removing service")
 		if err := d.svcDeleteBPF(svc.FE); err != nil {
-			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc.FE)).Warn("Unable to clean service from BPF map")
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).
+				Warn("Unable to remove unrestorable service from BPF map")
 		}
 	}
 
 	for id, revNAT := range failedSyncRevNAT {
-		log.WithFields(logrus.Fields{
-			logfields.ServiceID: id,
-			"revNAT":            revNAT,
-		}).Debug("unable to restore, so removing revNAT")
 		var revNATK lbmap.RevNatKey
 		if !revNAT.IsIPv6() {
 			revNATK = lbmap.NewRevNat4Key(uint16(id))
@@ -669,7 +659,13 @@ func (d *Daemon) SyncLBMap() error {
 		}
 	}
 
-	log.Debug("updating daemon's loadbalancer maps")
+	log.WithFields(logrus.Fields{
+		"restoredServices": len(newSVCMap),
+		"restoredRevNat":   len(newRevNATMap),
+		"failedServices":   len(failedSyncSVC),
+		"failedRevNat":     len(failedSyncRevNAT),
+	}).Info("Restored services from BPF maps")
+
 	d.loadBalancer.SVCMap = newSVCMap
 	d.loadBalancer.SVCMapID = newSVCMapID
 	d.loadBalancer.RevNATMap = newRevNATMap
