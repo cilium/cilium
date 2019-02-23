@@ -78,7 +78,6 @@ func ParseService(svc *v1.Service) (ServiceID, *Service) {
 	}
 
 	if svc.Spec.ClusterIP == "" {
-		scopedLog.Info("Ignoring k8s service: empty ClusterIP")
 		return svcID, nil
 	}
 
