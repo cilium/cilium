@@ -745,7 +745,7 @@ func (d *Daemon) k8sServiceHandler() {
 			"action":    event.Action.String(),
 			"service":   event.Service.String(),
 			"endpoints": event.Endpoints.String(),
-		}).Info("Kubernetes service definition changed")
+		}).Debug("Kubernetes service definition changed")
 
 		switch event.Action {
 		case k8s.UpdateService, k8s.UpdateIngress:
