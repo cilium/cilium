@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,6 +102,26 @@ type CtKey6Global struct {
 
 func (k *CtKey6Global) String() string {
 	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
+}
+
+// ToNetwork converts ports to network byte order.
+//
+// This is necessary to prevent callers from implicitly converting the
+// CtKey6Global type here into a local key type in the nested CtKey6 field.
+func (k *CtKey6Global) ToNetwork() CtKey {
+	return &CtKey6Global{
+		CtKey6: *k.CtKey6.ToNetwork().(*CtKey6),
+	}
+}
+
+// ToHost converts CtKey6 ports to host byte order.
+//
+// This is necessary to prevent callers from implicitly converting the
+// CtKey6Global type here into a local key type in the nested CtKey6 field.
+func (k *CtKey6Global) ToHost() CtKey {
+	return &CtKey6Global{
+		CtKey6: *k.CtKey6.ToHost().(*CtKey6),
+	}
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
