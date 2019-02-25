@@ -462,11 +462,18 @@ type IDSet struct {
 	IDs   map[uint16]struct{}
 }
 
+func (r ruleSlice) UpdateEndpointsAffectedByRules(localConsumers []IdentityConsumer, consumersToUpdate *IDSet, policySelectionWG *sync.WaitGroup) {
+	policySelectionWG.Add(len(localConsumers))
+	for _, identityConsumer := range localConsumers {
+		// Update each rule in parallel.
+		go r.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
+	}
+}
+
 // DeleteByLabelsLocked deletes all rules in the policy repository which
 // contain the specified labels. Returns the revision of the policy repository
 // after deleting the rules, as well as now many rules were deleted.
-func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsumers []IdentityConsumer, consumersToUpdate *IDSet, policySelectionWG *sync.WaitGroup) (uint64, int) {
-	policySelectionWG.Add(len(localConsumers))
+func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (ruleSlice, uint64, int) {
 
 	deleted := 0
 	new := p.rules[:0]
@@ -481,11 +488,6 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsume
 		}
 	}
 
-	for _, identityConsumer := range localConsumers {
-		// Update each rule in parallel.
-		go deletedRules.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
-	}
-
 	if deleted > 0 {
 		p.revision++
 		p.rules = new
@@ -493,7 +495,7 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsume
 		metrics.PolicyRevision.Inc()
 	}
 
-	return p.revision, deleted
+	return deletedRules, p.revision, deleted
 }
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
@@ -501,7 +503,8 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray, localConsume
 func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.DeleteByLabelsLocked(labels, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+	_, rev, numDeleted := p.DeleteByLabelsLocked(labels)
+	return rev, numDeleted
 }
 
 // JSONMarshalRules returns a slice of policy rules as string in JSON

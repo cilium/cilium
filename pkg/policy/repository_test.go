@@ -19,7 +19,6 @@ package policy
 import (
 	"bytes"
 	"fmt"
-	"sync"
 	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -209,7 +208,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooIngressRule1, convertedFooIngressRule2}, Commentf("returned matching rules did not match"))
 
-	_, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label}, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
@@ -217,7 +216,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooIngressRule2}, Commentf("returned matching rules did not match"))
 
-	_, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label}, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
 	c.Assert(numDeleted, Equals, 1)
 
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
@@ -231,7 +230,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no ingress rules select"))
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules select"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooEgressRule1}, Commentf("returned matching rules did not match"))
-	_, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label}, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 
 	_, _, err = repo.Add(fooEgressRule2, []IdentityConsumer{})
@@ -241,7 +240,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules select"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooEgressRule2}, Commentf("returned matching rules did not match"))
 
-	_, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label}, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
 	c.Assert(numDeleted, Equals, 1)
 
 	_, _, err = repo.Add(combinedRule, []IdentityConsumer{})
@@ -250,7 +249,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules selects"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedCombinedRule}, Commentf("returned matching rules did not match"))
-	_, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel}, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
+	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel})
 	c.Assert(numDeleted, Equals, 1)
 
 	SetPolicyEnabled(option.AlwaysEnforce)

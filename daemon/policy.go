@@ -259,7 +259,8 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					d.policy.DeleteByLabelsLocked(r.Labels, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
+					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
+					deletedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 				}
 			}
 		}
@@ -268,7 +269,8 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
+				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				deletedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 			}
 		}
 	}
@@ -407,7 +409,8 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	}
 	endpointsToRegen := policy.NewIDSet()
 
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
+	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	deletedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
 
