@@ -291,7 +291,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
-	<-e.WaitForPolicyRevision(ctx, 0)
+	<-e.WaitForPolicyRevision(ctx, 0, nil)
 	// shouldn't get a timeout when waiting for policy revision already reached
 	c.Assert(ctx.Err(), IsNil)
 
@@ -301,7 +301,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
-	<-e.WaitForPolicyRevision(ctx, 0)
+	<-e.WaitForPolicyRevision(ctx, 0, nil)
 	// shouldn't get a timeout when waiting for policy revision already reached
 	c.Assert(ctx.Err(), IsNil)
 
@@ -311,7 +311,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	ctx, cancel = context.WithCancel(context.Background())
 
-	ch := e.WaitForPolicyRevision(ctx, 2)
+	ch := e.WaitForPolicyRevision(ctx, 2, nil)
 	cancel()
 	// context was prematurely closed on purpose the error should be nil
 	c.Assert(ctx.Err(), Equals, context.Canceled)
@@ -330,7 +330,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 	e.state = StateDisconnected
 
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = e.WaitForPolicyRevision(ctx, 99)
+	ch = e.WaitForPolicyRevision(ctx, 99, nil)
 	cancel()
 	select {
 	case <-ch:
@@ -343,7 +343,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	e.state = StateCreating
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = e.WaitForPolicyRevision(ctx, 99)
+	ch = e.WaitForPolicyRevision(ctx, 99, nil)
 
 	e.cleanPolicySignals()
 

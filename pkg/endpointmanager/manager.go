@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -408,11 +409,23 @@ func WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-eps[i].WaitForPolicyRevision(ctx, rev):
+		case <-eps[i].WaitForPolicyRevision(ctx, rev, nil):
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
 		}
+	}
+	return nil
+}
+
+// CallbackForEndpointsAtPolicyRev registers a callback on all endpoints that
+// exist when invoked. It is similar to WaitForEndpointsAtPolicyRevision but
+// each endpoint that reaches the desired revision calls 'done' independently.
+// The provided callback should not block and generally be lightweight.
+func CallbackForEndpointsAtPolicyRev(ctx context.Context, rev uint64, done func(time.Time)) error {
+	eps := GetEndpoints()
+	for i := range eps {
+		eps[i].WaitForPolicyRevision(ctx, rev, done)
 	}
 	return nil
 }
