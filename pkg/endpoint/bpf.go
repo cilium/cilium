@@ -791,14 +791,14 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 		e.Unlock()
 	} else {
 		if err := e.LockAlive(); err != nil {
-			e.getLogger().WithError(err).Debug("Skipping unnecessary restoring endpoint state")
+			e.getLogger().WithError(err).Debug("Skipping unnecessary reverting of endpoint regeneration changes")
 			return
 		}
-		e.getLogger().Error("Restoring endpoint state after BPF regeneration failed")
+		e.getLogger().Debug("Reverting endpoint changes after BPF regeneration failed")
 		if err := datapathRegenCtx.revertStack.Revert(); err != nil {
-			e.getLogger().WithError(err).Error("Restoring endpoint state failed")
+			e.getLogger().WithError(err).Error("Reverting endpoint regeneration changes failed")
 		}
-		e.getLogger().Error("Finished restoring endpoint state after BPF regeneration failed")
+		e.getLogger().Debug("Finished reverting endpoint changes after BPF regeneration failed")
 		e.Unlock()
 	}
 }
