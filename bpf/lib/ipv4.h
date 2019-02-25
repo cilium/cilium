@@ -62,7 +62,7 @@ static inline bool ipv4_is_fragment(struct iphdr *ip4)
 
 static inline void ipv4_set_dscp(struct __sk_buff *skb, struct iphdr *ip4, __u8 dscp)
 {
-       	__u8 old_tos = ip4->tos;
+	__u8 old_tos = ip4->tos;
 	__u8 new_tos = (old_tos & 0x03) | dscp << 2;
 	ip4->tos = new_tos;
 	// tos is in the higher bits of a U16 in the header, so it must be shifted accordingly.
