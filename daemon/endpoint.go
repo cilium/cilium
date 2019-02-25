@@ -320,7 +320,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// positive policy revision (>0). As long as at least one BPF
 	// regeneration is successful, the endpoint has network connectivity
 	// so we can return from the creation API call.
-	revCh := ep.WaitForPolicyRevision(ctx, 1)
+	revCh := ep.WaitForPolicyRevision(ctx, 1, nil)
 
 	for {
 		select {
