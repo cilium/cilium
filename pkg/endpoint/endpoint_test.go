@@ -291,30 +291,39 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
-	<-e.WaitForPolicyRevision(ctx, 0)
+	cbRan := false
+	<-e.WaitForPolicyRevision(ctx, 0, func(time.Time) { cbRan = true })
 	// shouldn't get a timeout when waiting for policy revision already reached
 	c.Assert(ctx.Err(), IsNil)
+	// Should see a callback when waiting for a policy revision already reached
+	c.Assert(cbRan, Equals, true)
 
 	cancel()
 
 	e.policyRevision = 1
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+	cbRan = false
 
-	<-e.WaitForPolicyRevision(ctx, 0)
+	<-e.WaitForPolicyRevision(ctx, 0, func(time.Time) { cbRan = true })
 	// shouldn't get a timeout when waiting for policy revision already reached
 	c.Assert(ctx.Err(), IsNil)
+	// Should see a callback because the channel returned
+	c.Assert(cbRan, Equals, true)
 
 	cancel()
 
 	e.policyRevision = 1
 
 	ctx, cancel = context.WithCancel(context.Background())
+	cbRan = false
 
-	ch := e.WaitForPolicyRevision(ctx, 2)
+	ch := e.WaitForPolicyRevision(ctx, 2, func(time.Time) { cbRan = true })
 	cancel()
 	// context was prematurely closed on purpose the error should be nil
 	c.Assert(ctx.Err(), Equals, context.Canceled)
+	// Should not see a callback when we don't close the channel
+	c.Assert(cbRan, Equals, false)
 
 	e.setPolicyRevision(3)
 
@@ -330,20 +339,23 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 	e.state = StateDisconnected
 
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = e.WaitForPolicyRevision(ctx, 99)
+	cbRan = false
+	ch = e.WaitForPolicyRevision(ctx, 99, func(time.Time) { cbRan = true })
 	cancel()
 	select {
 	case <-ch:
 	default:
 		c.Fatalf("channel should have been closed since the endpoint is in disconnected state")
 	}
+	// Should see a callback because the channel was closed
+	c.Assert(cbRan, Equals, true)
 
 	// Number of policy revision signals should be 0
 	c.Assert(len(e.policyRevisionSignals), Equals, 0)
 
 	e.state = StateCreating
 	ctx, cancel = context.WithCancel(context.Background())
-	ch = e.WaitForPolicyRevision(ctx, 99)
+	ch = e.WaitForPolicyRevision(ctx, 99, func(time.Time) { cbRan = true })
 
 	e.cleanPolicySignals()
 
@@ -352,6 +364,8 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 	default:
 		c.Fatalf("channel should have been closed since all policy signals were closed")
 	}
+	// Should see a callback because the channel was closed
+	c.Assert(cbRan, Equals, true)
 	cancel()
 
 	// Number of policy revision signals should be 0
