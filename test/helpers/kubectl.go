@@ -1524,12 +1524,15 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 		}
 	}()
 
+	before := time.Now()
 	for _, message := range checkLogsMessages {
 		if strings.Contains(logs, message) {
 			fmt.Fprintf(CheckLogs, "⚠️  Found a '%s' in logs\n", message)
 			ginkgoext.Fail(fmt.Sprintf("Found a '%s' in Cilium Logs", message))
 		}
 	}
+	fmt.Fprintf(CheckLogs, "!!! took: %s", time.Now().Sub(before))
+
 	// Count part
 	for _, message := range countLogsMessages {
 		var prefix = ""

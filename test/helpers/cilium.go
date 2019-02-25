@@ -656,12 +656,14 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 		}
 	}()
 
+	before := time.Now()
 	for _, message := range checkLogsMessages {
 		if strings.Contains(logs, message) {
 			fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", message)
 			ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", message))
 		}
 	}
+	fmt.Fprintf(CheckLogs, "!!! took: %s", time.Now().Sub(before))
 
 	// Count part
 	for _, message := range countLogsMessages {
