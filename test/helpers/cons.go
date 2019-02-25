@@ -236,7 +236,16 @@ const CiliumDefaultPreFlight = "cilium-pre-flight.yaml"
 // CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
 const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
 
-var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived, RunInitFailed}
+//var checkLogsMessages = []string{panicMessage, deadLockHeader, segmentationFault, NACKreceived, RunInitFailed}
+
+var checkLogsMessages = map[string][]string{
+	panicMessage:      nil,
+	deadLockHeader:    nil,
+	segmentationFault: nil,
+	NACKreceived:      nil,
+	RunInitFailed:     []string{"signal: terminated", "signal: killed"},
+}
+
 var countLogsMessages = []string{contextDeadlineExceeded, ErrorLogs, WarningLogs, APIPanicked, selfishThresholdMsg}
 
 var ciliumCLICommands = map[string]string{
