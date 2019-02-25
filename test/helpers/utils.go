@@ -393,3 +393,26 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 	}
 	return constraint.Check(k8sVersion), nil
 }
+
+// failIfContainsBadLogMsg makes a test case to fail if any message from
+// given log messages contains an entry from badLogMessages (map key) AND
+// does not contain ignore messages (map value).
+func failIfContainsBadLogMsg(logs string) {
+	for _, msg := range strings.Split(logs, "\n") {
+		for fail, ignoreMessages := range badLogMessages {
+			if strings.Contains(msg, fail) {
+				ok := false
+				for _, ignore := range ignoreMessages {
+					if strings.Contains(msg, ignore) {
+						ok = true
+						break
+					}
+				}
+				if !ok {
+					fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", fail)
+					ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", fail))
+				}
+			}
+		}
+	}
+}
