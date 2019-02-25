@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -43,6 +42,10 @@ const (
 	fieldID = "id"
 )
 
+// The maps holding kafkaListeners (and kafkaRedirects), as well as
+// the reference `count` field are protected by `mutex`. `socket` safe
+// to be used from multiple goroutines and the other fields below are
+// immutable after initialization.
 type kafkaListener struct {
 	socket               *proxySocket
 	proxyPort            uint16
@@ -52,10 +55,11 @@ type kafkaListener struct {
 	count                int
 }
 
-// mutex protects accesses to the configuration resources.
-var mutex lock.RWMutex
-var kafkaListeners map[uint16]*kafkaListener // key: proxy port
-var kafkaRedirects map[uint64]*kafkaRedirect // key: dst port | ingress << 16 | endpoint ID << 32
+var (
+	mutex lock.RWMutex // mutex protects accesses to the configuration resources.
+	kafkaListeners = make(map[uint16]*kafkaListener) // key: proxy port
+	kafkaRedirects = make(map[uint64]*kafkaRedirect) // key: dst port | dir << 16 | endpoint ID << 32
+)
 
 func mapKey(dstPort uint16, ingress bool, eID uint64) uint64 {
 	var dir uint64
@@ -64,8 +68,6 @@ func mapKey(dstPort uint16, ingress bool, eID uint64) uint64 {
 	}
 	return uint64(dstPort) | dir<<16 | eID<<32
 }
-
-var kafkaOnce sync.Once
 
 // kafkaRedirect implements the Redirect interface for an l7 proxy
 // This can be shared accross multiple redirects, but 'redirect' is
@@ -135,11 +137,6 @@ func (l *kafkaListener) Listen() {
 // createKafkaRedirect creates a redirect to the kafka proxy. The redirect structure passed
 // in is safe to access for reading and writing.
 func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
-	kafkaOnce.Do(func() {
-		kafkaListeners = make(map[uint16]*kafkaListener)
-		kafkaRedirects = make(map[uint64]*kafkaRedirect)
-	})
-
 	redir := &kafkaRedirect{
 		redirect:             r,
 		conf:                 conf,

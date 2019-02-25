@@ -179,8 +179,6 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	defer log.Logger.SetLevel(oldLevel)
 	log.Logger.SetLevel(logrus.DebugLevel)
 
-	flowdebug.Enable()
-
 	server := NewServer()
 	server.Start()
 	defer server.Close()
