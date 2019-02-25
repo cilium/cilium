@@ -18,6 +18,7 @@ package policy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -59,12 +60,15 @@ func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
 }
 
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
+	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
-	repo.AddListWithIdentityMap(GenerateNumRules(1000), []IdentityConsumer{&dummyEndpoint{
+	rulez, _ := repo.AddList(GenerateNumRules(1000))
+	rulez.UpdateEndpointsAffectedByRules([]IdentityConsumer{&dummyEndpoint{
 		ID:               9001,
 		SecurityIdentity: fooIdentity,
-	}})
+	}}, NewIDSet(), &wg)
+	wg.Wait()
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
