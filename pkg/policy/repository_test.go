@@ -1813,7 +1813,7 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 	// Add rules to allow foo=>bar
 	l3rule := buildRule("foo", "bar", "")
 	rules := api.Rules{&l3rule}
-	_ = repo.AddList(rules)
+	_, _ = repo.AddList(rules)
 
 	// foo=>bar is OK
 	expectedOut := `

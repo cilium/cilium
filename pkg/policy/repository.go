@@ -363,7 +363,7 @@ func (p *Repository) Add(r api.Rule, localRuleConsumers []IdentityConsumer) (uin
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	rev := p.AddListLocked(newList, localRuleConsumers, NewIDSet(), &sync.WaitGroup{})
+	_, rev := p.AddListLocked(newList)
 	return rev, map[uint16]struct{}{}, nil
 }
 
@@ -381,8 +381,7 @@ type IdentityConsumer interface {
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers []IdentityConsumer, consumersToUpdate *IDSet, policySelectionWG *sync.WaitGroup) uint64 {
-	policySelectionWG.Add(len(localRuleConsumers))
+func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 
 	newList := make(ruleSlice, len(rules))
 	for i := range rules {
@@ -393,17 +392,12 @@ func (p *Repository) AddListLocked(rules api.Rules, localRuleConsumers []Identit
 		newList[i] = newRule
 	}
 
-	for _, identityConsumer := range localRuleConsumers {
-		// Spawn goroutine per rule to avoid blocking on matching via API
-		go newList.analyzeWhetherRulesSelectEndpoint(identityConsumer, consumersToUpdate, policySelectionWG)
-	}
-
 	p.rules = append(p.rules, newList...)
 	p.revision++
 	metrics.PolicyCount.Add(float64(len(newList)))
 	metrics.PolicyRevision.Inc()
 
-	return p.revision
+	return newList, p.revision
 }
 
 // UpdateLocalConsumers updates the cache within each rule in the given repository
@@ -438,21 +432,10 @@ func (p *Repository) RemoveIdentifierFromRuleCaches(identifier uint16) *sync.Wai
 
 // AddList inserts a rule into the policy repository. It is used for
 // unit-testing purposes only.
-func (p *Repository) AddList(rules api.Rules) uint64 {
+func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.AddListLocked(rules, []IdentityConsumer{}, NewIDSet(), &sync.WaitGroup{})
-}
-
-// AddListWithIdentityMap inserts a rule into the policy repository. It is used
-// for unit-testing purposes only.
-func (p *Repository) AddListWithIdentityMap(rules api.Rules, identityConsumers []IdentityConsumer) uint64 {
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
-	var wg sync.WaitGroup
-	rev := p.AddListLocked(rules, identityConsumers, NewIDSet(), &wg)
-	wg.Wait()
-	return rev
+	return p.AddListLocked(rules)
 }
 
 // IDSet is a wrapper type around a set of unsigned 16-bit integers, with

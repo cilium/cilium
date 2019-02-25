@@ -275,7 +275,9 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		}
 	}
 
-	newRev = d.policy.AddListLocked(rules, epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
+	addedRules, newRev := d.policy.AddListLocked(rules)
+	addedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
+
 	d.policy.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
