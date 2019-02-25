@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -431,18 +430,6 @@ func RegenerateEndpointSet(owner endpoint.Owner, regenMetadata *endpoint.Externa
 		go regenerateEndpoint(owner, ep, regenMetadata, &wg)
 	}
 	return &wg
-}
-
-// EndpointIdentityMapping returns the mapping of all endpoint IDs to their
-// corresponding security identity which are being managed by the endpointmanager.
-func EndpointIdentityMapping() map[uint16]*identity.Identity {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	endpointIDs := make(map[uint16]*identity.Identity, len(endpoints))
-	for id, ep := range endpoints {
-		endpointIDs[id] = ep.SecurityIdentity
-	}
-	return endpointIDs
 }
 
 // HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
