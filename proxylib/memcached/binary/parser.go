@@ -95,7 +95,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 	}
 
 	logEntry := &cilium.LogEntry_GenericL7{
-		&cilium.L7LogEntry{
+		GenericL7: &cilium.L7LogEntry{
 			Proto: "binarymemcached",
 			Fields: map[string]string{
 				"opcode": strconv.Itoa(int(opcode)),

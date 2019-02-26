@@ -271,7 +271,7 @@ func (p *CassandraParser) OnData(reply, endStream bool, dataArray [][]byte) (OpT
 
 		p.connection.Log(access_log_entry_type,
 			&cilium.LogEntry_GenericL7{
-				&cilium.L7LogEntry{
+				GenericL7: &cilium.L7LogEntry{
 					Proto:  "cassandra",
 					Fields: fields,
 				},

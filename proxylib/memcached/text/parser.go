@@ -161,7 +161,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 			return proxylib.ERROR, 0
 		}
 		logEntry := &cilium.LogEntry_GenericL7{
-			&cilium.L7LogEntry{
+			GenericL7: &cilium.L7LogEntry{
 				Proto: "textmemcached",
 				Fields: map[string]string{
 					"command": meta.Command,
@@ -203,7 +203,7 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 	intent := p.replyQueue[0]
 
 	logEntry := &cilium.LogEntry_GenericL7{
-		&cilium.L7LogEntry{
+		GenericL7: &cilium.L7LogEntry{
 			Proto: "textmemcached",
 			Fields: map[string]string{
 				"command": string(intent.command),
