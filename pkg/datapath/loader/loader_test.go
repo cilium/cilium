@@ -41,6 +41,7 @@ var (
 
 	dirInfo *directoryInfo
 	ep      = testutils.NewTestEndpoint()
+	bpfDir  = filepath.Join(testutils.CiliumRootDir, "bpf")
 )
 
 func Test(t *testing.T) {
@@ -78,9 +79,7 @@ func runTests(m *testing.M) (int, error) {
 		return 1, fmt.Errorf("Failed to create temporary directory: %s", err)
 	}
 	defer os.RemoveAll(tmpDir)
-	if dirInfo, err = getDirs(tmpDir); err != nil {
-		return 1, err
-	}
+	dirInfo = getDirs(tmpDir)
 
 	cleanup, err := prepareEnv(&ep)
 	if err != nil {
@@ -123,20 +122,13 @@ func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
 	return cleanupFn, nil
 }
 
-func getDirs(tmpDir string) (*directoryInfo, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get working directory: %s", err)
-	}
-	bpfdir := filepath.Join(wd, "..", "..", "..", "bpf")
-	dirs := directoryInfo{
-		Library: bpfdir,
-		Runtime: bpfdir,
-		State:   bpfdir,
+func getDirs(tmpDir string) *directoryInfo {
+	return &directoryInfo{
+		Library: bpfDir,
+		Runtime: bpfDir,
+		State:   bpfDir,
 		Output:  tmpDir,
 	}
-
-	return &dirs, nil
 }
 
 // TestCompileAndLoad checks that the datapath can be compiled and loaded.
