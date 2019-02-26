@@ -227,7 +227,8 @@ export ETCD_CLEAN="${ETCD_CLEAN}"
 
 # Stop cilium before until we install kubelet. This prevents cilium from
 # allocating its own podCIDR without using the kubernetes allocated podCIDR.
-sudo service cilium stop
+sudo systemctl stop cilium-health
+sudo systemctl stop cilium
 EOF
     cat <<EOF >> "${filename}"
 if [[ "\$(hostname)" == "${VM_BASENAME}1" ]]; then
@@ -341,6 +342,7 @@ echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
 echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
 chmod 644 /etc/sysconfig/cilium
+chmod 644 /etc/sysconfig/cilium-health
 
 # Wait for the node to have a podCIDR so that cilium can use the podCIDR
 # allocated by k8s
@@ -355,7 +357,8 @@ if [ -n "\${K8S}" ]; then
     done
 fi
 
-service cilium restart
+systemctl restart cilium
+systemctl restart cilium-health
 /home/vagrant/go/src/github.com/cilium/cilium/test/provision/wait-cilium.sh
 EOF
 }
