@@ -59,6 +59,10 @@ func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
 	return d.SecurityIdentity
 }
 
+func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
+	return
+}
+
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
