@@ -136,6 +136,41 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
+      - args:
+        - "-d"
+        command:
+        - "cilium-health"
+        image: docker.io/cilium/cilium:latest
+        imagePullPolicy: Always
+        livenessProbe:
+          exec:
+            command:
+            - cilium-health
+            - status
+            - --succinct
+          # The initial delay for the liveness probe is intentionally large to
+          # avoid an endless kill & restart cycle if in the event that the initial
+          # bootstrapping takes longer than expected.
+          initialDelaySeconds: 150
+          failureThreshold: 10
+          periodSeconds: 10
+        name: cilium-health
+        readinessProbe:
+          exec:
+            command:
+            - cilium-health
+            - status
+            - --succinct
+          initialDelaySeconds: 150
+          periodSeconds: 5
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+        volumeMounts:
+        - name: cilium-run
+          mountPath: /var/run/cilium
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: false
