@@ -1,0 +1,13 @@
+[Unit]
+Description=cilium-health
+Documentation=http://docs.cilium.io
+Requires=cilium.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sysconfig/cilium-health
+ExecStart=/usr/bin/cilium-health $CILIUM_HEALTH_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
