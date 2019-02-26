@@ -38,11 +38,6 @@ func (d *Daemon) initHealth() {
 	// Allocate health endpoint IPs after restoring state
 	log.Info("Building health endpoint")
 
-	// Launch cilium-health in the same namespace as cilium.
-	log.Info("Launching Cilium health daemon")
-	d.ciliumHealth = &health.CiliumHealth{}
-	go d.ciliumHealth.Run()
-
 	// Launch another cilium-health as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
 	if k8s.IsEnabled() {
