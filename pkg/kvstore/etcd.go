@@ -287,7 +287,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 
 	// create session in parallel as this is a blocking operation
 	go func() {
-		session, err := concurrency.NewSession(c)
+		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(LeaseTTL.Seconds())))
 		errorChan <- err
 		sessionChan <- session
 		close(sessionChan)
