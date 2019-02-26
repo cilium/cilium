@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,8 +90,14 @@ var (
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{Conntrack},
 		Verify: func(key string, val string) error {
-			if IPv4Disabled {
-				return ErrNAT46ReqIPv4
+			opt, err := NormalizeBool(val)
+			if err != nil {
+				return err
+			}
+			if opt == OptionEnabled {
+				if IPv4Disabled {
+					return ErrNAT46ReqIPv4
+				}
 			}
 			return nil
 		},
