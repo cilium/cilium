@@ -22,49 +22,50 @@
 #include "lib/maps.h"
 #include "sockops/bpf_sockops.h"
 
-#ifndef barrier_data
-#define barrier_data(ptr) __asm__ __volatile__("": :"r"(ptr) :"memory")
-#endif
-
+// This function is a placeholder for C struct definitions shared with Go, and
+// it's never being executed.
 int main() {
     struct ipv4_ct_tuple s0 = {};
-    barrier_data(&s0);
+    // To prevent compiler from optimizing away the var, we pass a reference
+    // to the var to a BPF helper function which accepts a reference as
+    // an argument.
+    trace_printk("%p", 1, &s0);
     struct ipv6_ct_tuple s1 = {};
-    barrier_data(&s1);
+    trace_printk("%p", 1, &s1);
     struct ct_entry s2 = {};
-    barrier_data(&s2);
+    trace_printk("%p", 1, &s2);
     struct ipcache_key s3 = {};
-    barrier_data(&s3);
+    trace_printk("%p", 1, &s3);
     struct remote_endpoint_info s4 = {};
-    barrier_data(&s4);
+    trace_printk("%p", 1, &s4);
     struct lb4_key s5 = {};
-    barrier_data(&s5);
+    trace_printk("%p", 1, &s5);
     struct lb4_service s6 = {};
-    barrier_data(&s6);
+    trace_printk("%p", 1, &s6);
     struct lb6_key s7 = {};
-    barrier_data(&s7);
-    struct lb6_service s9 = {};
-    barrier_data(&s9);
-    struct endpoint_key s10 = {};
-    barrier_data(&s10);
-    struct endpoint_info s11 = {};
-    barrier_data(&s11);
-    struct metrics_key s12 = {};
-    barrier_data(&s12);
-    struct metrics_value s13 = {};
-    barrier_data(&s13);
-    struct proxy4_tbl_key s14 = {};
-    barrier_data(&s14);
-    struct proxy4_tbl_value s15 = {};
-    barrier_data(&s15);
-    struct proxy6_tbl_key s16 = {};
-    barrier_data(&s16);
-    struct proxy6_tbl_value s17 = {};
-    barrier_data(&s17);
-    struct sock_key s18 = {};
-    barrier_data(&s18);
-    struct ep_config s19 = {};
-    barrier_data(&s19);
+    trace_printk("%p", 1, &s7);
+    struct lb6_service s8 = {};
+    trace_printk("%p", 1, &s8);
+    struct endpoint_key s9 = {};
+    trace_printk("%p", 1, &s9);
+    struct endpoint_info s10 = {};
+    trace_printk("%p", 1, &s10);
+    struct metrics_key s11 = {};
+    trace_printk("%p", 1, &s11);
+    struct metrics_value s12 = {};
+    trace_printk("%p", 1, &s12);
+    struct proxy4_tbl_key s13 = {};
+    trace_printk("%p", 1, &s13);
+    struct proxy4_tbl_value s14 = {};
+    trace_printk("%p", 1, &s14);
+    struct proxy6_tbl_key s15 = {};
+    trace_printk("%p", 1, &s15);
+    struct proxy6_tbl_value s16 = {};
+    trace_printk("%p", 1, &s16);
+    struct sock_key s17 = {};
+    trace_printk("%p", 1, &s17);
+    struct ep_config s18 = {};
+    trace_printk("%p", 1, &s18);
 
     return 0;
 }
