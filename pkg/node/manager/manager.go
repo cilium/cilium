@@ -104,7 +104,7 @@ func NewManager(name string, datapath datapath.NodeHandler) (*Manager, error) {
 		Subsystem: "nodes",
 		Name:      name + "_events_received_total",
 		Help:      "Number of node events received",
-	}, []string{"eventType"})
+	}, []string{"eventType", "source"})
 
 	m.metricNumNodes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metrics.Namespace,
@@ -259,7 +259,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
 	if oldNodeExists {
-		m.metricEventsReceived.WithLabelValues("update").Inc()
+		m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
 		if !overwriteAllowed(entry.node.Source, n.Source) {
 			m.mutex.Unlock()
@@ -273,7 +273,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		m.datapath.NodeUpdate(oldNode, entry.node)
 		entry.mutex.Unlock()
 	} else {
-		m.metricEventsReceived.WithLabelValues("add").Inc()
+		m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 		m.metricNumNodes.Inc()
 
 		entry = &nodeEntry{node: n}
@@ -290,7 +290,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 // orgins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *Manager) NodeDeleted(n node.Node) {
-	m.metricEventsReceived.WithLabelValues("delete").Inc()
+	m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	log.Debugf("Received node delete event from %s", n.Source)
 
