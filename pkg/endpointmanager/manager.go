@@ -227,10 +227,8 @@ type RuleCacheOwner interface {
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
 func WaitEndpointRemoved(ep *endpoint.Endpoint, owner RuleCacheOwner) {
-	epRemovedChan := Remove(ep, owner)
-
 	select {
-	case <-epRemovedChan:
+	case <-Remove(ep, owner):
 		return
 	}
 }
