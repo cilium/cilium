@@ -1982,3 +1982,48 @@ Label verdict: undecided
 	repo.Mutex.RUnlock()
 	c.Assert(verdict, Equals, api.Allowed)
 }
+
+func (ds *PolicyTestSuite) TestRemoveIdentifierFromRuleCaches(c *C) {
+
+	testRepo := parseAndAddRules(c, api.Rules{&api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+			},
+		},
+	}})
+
+	addedRule := testRepo.rules[0]
+
+	selectedEndpointID := uint16(12345)
+	selectedEpLabels := labels.ParseSelectLabel("id=a")
+	selectedEndpointIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
+
+	notSelectedEndpointID := uint16(6789)
+	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
+	notSelectedEndpointIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
+
+	// selectedEndpoint is selected by rule, so we it should be added to
+	// EndpointsSelected.
+	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
+	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{selectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{selectedEndpointID: selectedEndpointIdentity})
+
+	wg := testRepo.RemoveIdentifierFromRuleCaches(selectedEndpointID)
+	wg.Wait()
+
+	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{})
+	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{})
+
+	c.Assert(addedRule.matches(notSelectedEndpointID, notSelectedEndpointIdentity), Equals, false)
+	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{})
+
+	wg = testRepo.RemoveIdentifierFromRuleCaches(notSelectedEndpointID)
+	wg.Wait()
+
+	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{})
+	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{})
+
+}
