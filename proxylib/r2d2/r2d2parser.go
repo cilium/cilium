@@ -187,7 +187,7 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 
 	p.connection.Log(access_log_entry_type,
 		&cilium.LogEntry_GenericL7{
-			&cilium.L7LogEntry{
+			GenericL7: &cilium.L7LogEntry{
 				Proto: "r2d2",
 				Fields: map[string]string{
 					"cmd":  reqData.cmd,
