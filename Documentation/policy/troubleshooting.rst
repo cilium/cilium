@@ -39,7 +39,7 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
 
     # Policy trace using pod name and service labels
 
-    $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium policy trace --src-k8s-pod default:xwing -d any:class=deathstar,k8s:org=empire,k8s:io.kubernetes.pod.namespace=default --dport 80
+    $ kubectl exec -ti cilium-88k78 -c cilium-agent -n kube-system -- cilium policy trace --src-k8s-pod default:xwing -d any:class=deathstar,k8s:org=empire,k8s:io.kubernetes.pod.namespace=default --dport 80
     level=info msg="Waiting for k8s api-server to be ready..." subsys=k8s
     level=info msg="Connected to k8s api-server" ipAddr="https://10.96.0.1:443" subsys=k8s
     ----------------------------------------------------------------
@@ -64,7 +64,7 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
     
     # Get the Cilium security id
 
-    $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium endpoint list | egrep  'deathstar|xwing|tiefighter'
+    $ kubectl exec -ti cilium-88k78 -c cilium-agent -n kube-system -- cilium endpoint list | egrep  'deathstar|xwing|tiefighter'
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                              IPv6                 IPv4            STATUS   
                ENFORCEMENT        ENFORCEMENT
     568        Enabled            Disabled          22133      k8s:class=deathstar                                      f00d::a0f:0:0:238    10.15.65.193    ready   
@@ -74,7 +74,7 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
 
     # Policy trace using Cilium security ids
 
-    $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium policy trace --src-identity 53208 --dst-identity 22133  --dport 80
+    $ kubectl exec -ti cilium-88k78 -c cilium-agent -n kube-system -- cilium policy trace --src-identity 53208 --dst-identity 22133  --dport 80
     ----------------------------------------------------------------
     Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [any:class=deathstar, k8s:org=empire, k8s:io.kubernetes.pod.namespace=default] Ports: [80/ANY]
     * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
@@ -112,7 +112,7 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
 
     # Get a shell on the Cilium pod
 
-    $ kubectl exec -ti cilium-88k78 -n kube-system /bin/bash
+    $ kubectl exec -ti cilium-88k78 -c cilium-agent -n kube-system /bin/bash
 
     # print out the Layer 4 ingress labels
     # clean up the data
