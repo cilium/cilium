@@ -346,28 +346,18 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Identity
 	// If an endpoint is not in the list of endpoints to regenerate, then the
 	// policy revision for the endpoint needs to be bumped so we can reflect that
 	// said endpoint realizes the state of the policy repository at revision rev.
-	endpointsToBumpRevision := map[uint16]struct{}{}
 	for _, ep := range allEps {
 		if ep == nil {
 			continue
 		}
 		epID := ep.GetID16()
 		if _, ok := epsToRegen.IDs[epID]; !ok {
-			endpointsToBumpRevision[epID] = struct{}{}
-		}
-	}
-	go bumpEndpointRevisions(endpointsToBumpRevision, rev)
-
-	// Regenerate all other endpoints.
-	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs)
-}
-
-func bumpEndpointRevisions(epsToBumpRev map[uint16]struct{}, rev uint64) {
-	for epID := range epsToBumpRev {
-		if ep := endpointmanager.LookupCiliumID(epID); ep != nil {
 			go ep.PolicyRevisionBumpEvent(rev)
 		}
 	}
+
+	// Regenerate all other endpoints.
+	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs)
 }
 
 // PolicyDelete deletes the policy set in the given path from the policy tree.

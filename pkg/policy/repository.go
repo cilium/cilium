@@ -377,6 +377,7 @@ func NewIDSet() *IDSet {
 type IdentityConsumer interface {
 	GetID16() uint16
 	GetSecurityIdentity() *identity.Identity
+	PolicyRevisionBumpEvent(rev uint64)
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
