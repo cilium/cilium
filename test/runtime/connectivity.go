@@ -33,12 +33,7 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 				if !helpers.RunsOnNetNext() {
 					Skip("ipvlan tests can be run only on >= 4.12 Linux kernel")
 				}
-				var config = `
-PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load \
-	--tunnel=disabled --datapath-mode=ipvlan --ipvlan-master-device=` + ipvlanMasterDevice + `
-INITSYSTEM=SYSTEMD`
-				vm.SetUpCiliumWithOptions(config)
+				vm.SetUpCiliumInIpvlanMode(ipvlanMasterDevice)
 				// cilium-docker has to be restarted because the datapath mode
 				// has changed
 				vm.Exec("sudo systemctl restart cilium-docker")
@@ -324,417 +319,441 @@ INITSYSTEM=SYSTEMD`
 	}
 }
 
-var _ = Describe("RuntimeConntrackTest", func() {
-	var (
-		vm          *helpers.SSHMeta
-		monitorStop = func() error { return nil }
+var _ = Describe("RuntimeConntrackInVethModeTest", runtimeConntrackTest("veth"))
+var _ = Describe("RuntimeConntrackInIpvlanModeTest", runtimeConntrackTest("ipvlan"))
 
-		curl1ContainerName             = "curl"
-		curl2ContainerName             = "curl2"
-		CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
-	)
+var runtimeConntrackTest = func(datapathMode string) func() {
+	return func() {
+		var (
+			vm          *helpers.SSHMeta
+			monitorStop = func() error { return nil }
 
-	type conntestCases struct {
-		from        string
-		to          string
-		destination string
-		assert      func() types.GomegaMatcher
-	}
+			curl1ContainerName             = "curl"
+			curl2ContainerName             = "curl2"
+			CTPolicyConntrackLocalDisabled = "ct-test-policy-conntrack-local-disabled.json"
+		)
 
-	BeforeAll(func() {
-		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
-		ExpectCiliumReady(vm)
-
-		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
-	})
-
-	clientServerConnectivity := func() {
-		By("============= Starting Connectivity Test ============= ")
-
-		By("Getting IPs of each spawned container")
-		clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Client)
-		By("client container Docker networking: %q", clientDockerNetworking)
-
-		serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Server)
-		By("server container Docker networking: %q", serverDockerNetworking)
-
-		httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Httpd1)
-		By("httpd1 container Docker networking: %q", httpdDockerNetworking)
-
-		httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Httpd2)
-		By("httpd2 container Docker networking: %q", httpd2DockerNetworking)
-
-		curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", curl1ContainerName)
-		By("curl1 container Docker networking: %q", curl1DockerNetworking)
-
-		curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", curl2ContainerName)
-		By("httpd1 container Docker networking: %q", curl2DockerNetworking)
-
-		By("Showing policies imported to Cilium")
-		res := vm.PolicyGetAll()
-		GinkgoPrint(res.CombineOutput().String())
-
-		testCases := []conntestCases{
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd1,
-				assert:      BeTrue,
-			},
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd1,
-				assert:      BeTrue,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd1,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd1,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Ping6(serverDockerNetworking[helpers.IPv6]),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Ping(serverDockerNetworking[helpers.IPv4]),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netcat("%s 777", serverDockerNetworking[helpers.IPv6]),
-				destination: helpers.Server,
-				assert:      BeFalse,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netcat("%s 777", serverDockerNetworking[helpers.IPv4]),
-				destination: helpers.Server,
-				assert:      BeFalse,
-			},
-
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
+		type conntestCases struct {
+			from        string
+			to          string
+			destination string
+			assert      func() types.GomegaMatcher
 		}
 
-		for _, test := range testCases {
-			By("Container %q test connectivity to %q", test.from, test.destination)
-			res = vm.ContainerExec(test.from, test.to)
-			ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
-				"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
+		BeforeAll(func() {
+			vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+
+			if datapathMode == "ipvlan" {
+				if !helpers.RunsOnNetNext() {
+					Skip("ipvlan tests can be run only on >= 4.12 Linux kernel")
+				}
+				vm.SetUpCiliumInIpvlanMode(ipvlanMasterDevice)
+				// cilium-docker has to be restarted because the datapath mode
+				// has changed
+				vm.Exec("sudo systemctl restart cilium-docker")
+			}
+
+			ExpectCiliumReady(vm)
+
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
+		})
+
+		AfterAll(func() {
+			// Restore the datapath mode and cilium-docker
+			if datapathMode == "ipvlan" {
+				vm.SetUpCilium()
+				vm.Exec("sudo systemctl restart cilium-docker")
+			}
+		})
+
+		clientServerConnectivity := func() {
+			By("============= Starting Connectivity Test ============= ")
+
+			By("Getting IPs of each spawned container")
+			clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Client)
+			By("client container Docker networking: %q", clientDockerNetworking)
+
+			serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Server)
+			By("server container Docker networking: %q", serverDockerNetworking)
+
+			httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Httpd1)
+			By("httpd1 container Docker networking: %q", httpdDockerNetworking)
+
+			httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Httpd2)
+			By("httpd2 container Docker networking: %q", httpd2DockerNetworking)
+
+			curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", curl1ContainerName)
+			By("curl1 container Docker networking: %q", curl1DockerNetworking)
+
+			curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", curl2ContainerName)
+			By("httpd1 container Docker networking: %q", curl2DockerNetworking)
+
+			By("Showing policies imported to Cilium")
+			res := vm.PolicyGetAll()
+			GinkgoPrint(res.CombineOutput().String())
+
+			testCases := []conntestCases{
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd1,
+					assert:      BeTrue,
+				},
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd1,
+					assert:      BeTrue,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd1,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd1,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Ping6(serverDockerNetworking[helpers.IPv6]),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Ping(serverDockerNetworking[helpers.IPv4]),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netcat("%s 777", serverDockerNetworking[helpers.IPv6]),
+					destination: helpers.Server,
+					assert:      BeFalse,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netcat("%s 777", serverDockerNetworking[helpers.IPv4]),
+					destination: helpers.Server,
+					assert:      BeFalse,
+				},
+
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+			}
+
+			for _, test := range testCases {
+				By("Container %q test connectivity to %q", test.from, test.destination)
+				res = vm.ContainerExec(test.from, test.to)
+				ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
+					"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
+			}
+
+			By("Testing bidirectional connectivity from client to server")
+
+			By("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client)
+			res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+				"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
+
+			By("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client)
+			res = vm.ContainerExec(helpers.Server, helpers.Ping(clientDockerNetworking[helpers.IPv4]))
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+				"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
+
+			By("============= Finished Connectivity Test ============= ")
 		}
 
-		By("Testing bidirectional connectivity from client to server")
+		clientServerL3Connectivity := func() {
+			By("============= Starting Connectivity Test ============= ")
 
-		By("container %s pinging %s IPv6 (should NOT work)", helpers.Server, helpers.Client)
-		res = vm.ContainerExec(helpers.Server, helpers.Ping6(clientDockerNetworking[helpers.IPv6]))
-		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-			"container %q unexpectedly was able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv6])
+			By("Getting IPs of each spawned container")
+			clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Client)
+			By("client container Docker networking: %s", clientDockerNetworking)
 
-		By("container %s pinging %s IPv4 (should NOT work)", helpers.Server, helpers.Client)
-		res = vm.ContainerExec(helpers.Server, helpers.Ping(clientDockerNetworking[helpers.IPv4]))
-		ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-			"%q was unexpectedly able to ping to %q IP:%q", helpers.Server, helpers.Client, clientDockerNetworking[helpers.IPv4])
+			serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Server)
+			By("server container Docker networking: %s", serverDockerNetworking)
 
-		By("============= Finished Connectivity Test ============= ")
-	}
+			httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Httpd1)
+			By("httpd1 container Docker networking: %s", httpdDockerNetworking)
 
-	clientServerL3Connectivity := func() {
-		By("============= Starting Connectivity Test ============= ")
+			httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", helpers.Httpd2)
+			By("httpd2 container Docker networking: %s", httpd2DockerNetworking)
 
-		By("Getting IPs of each spawned container")
-		clientDockerNetworking, err := vm.ContainerInspectNet(helpers.Client)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Client)
-		By("client container Docker networking: %s", clientDockerNetworking)
+			curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", curl1ContainerName)
+			By("curl1 container Docker networking: %s", curl1DockerNetworking)
 
-		serverDockerNetworking, err := vm.ContainerInspectNet(helpers.Server)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Server)
-		By("server container Docker networking: %s", serverDockerNetworking)
+			curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
+			ExpectWithOffset(1, err).Should(BeNil(),
+				"could not get metadata for container %q", curl2ContainerName)
+			By("httpd1 container Docker networking: %s", curl2DockerNetworking)
 
-		httpdDockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Httpd1)
-		By("httpd1 container Docker networking: %s", httpdDockerNetworking)
+			By("Showing policies imported to Cilium")
+			res := vm.PolicyGetAll()
+			GinkgoPrint(res.CombineOutput().String())
 
-		httpd2DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd2)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", helpers.Httpd2)
-		By("httpd2 container Docker networking: %s", httpd2DockerNetworking)
+			testCases := []conntestCases{
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd1,
+					assert:      BeTrue,
+				},
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd1,
+					assert:      BeTrue,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd1,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd1,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl1ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        curl2ContainerName,
+					to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
+					destination: helpers.Httpd2,
+					assert:      BeFalse,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Ping6(serverDockerNetworking[helpers.IPv6]),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Ping(serverDockerNetworking[helpers.IPv4]),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+				{
+					from:        helpers.Client,
+					to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR),
+					destination: helpers.Server,
+					assert:      BeTrue,
+				},
+			}
 
-		curl1DockerNetworking, err := vm.ContainerInspectNet(curl1ContainerName)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", curl1ContainerName)
-		By("curl1 container Docker networking: %s", curl1DockerNetworking)
+			for _, test := range testCases {
+				By("Container %q test connectivity to %q", test.from, test.destination)
+				res = vm.ContainerExec(test.from, test.to)
+				ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
+					"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
+			}
 
-		curl2DockerNetworking, err := vm.ContainerInspectNet(curl2ContainerName)
-		ExpectWithOffset(1, err).Should(BeNil(),
-			"could not get metadata for container %q", curl2ContainerName)
-		By("httpd1 container Docker networking: %s", curl2DockerNetworking)
-
-		By("Showing policies imported to Cilium")
-		res := vm.PolicyGetAll()
-		GinkgoPrint(res.CombineOutput().String())
-
-		testCases := []conntestCases{
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd1,
-				assert:      BeTrue,
-			},
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd1,
-				assert:      BeTrue,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpdDockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd1,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpdDockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd1,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl1ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://[%s]:80", httpd2DockerNetworking[helpers.IPv6]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        curl2ContainerName,
-				to:          helpers.CurlFail("http://%s:80", httpd2DockerNetworking[helpers.IPv4]),
-				destination: helpers.Httpd2,
-				assert:      BeFalse,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Ping6(serverDockerNetworking[helpers.IPv6]),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Ping(serverDockerNetworking[helpers.IPv4]),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.TCP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.TCP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv6], helpers.UDP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
-			{
-				from:        helpers.Client,
-				to:          helpers.Netperf(serverDockerNetworking[helpers.IPv4], helpers.UDP_RR),
-				destination: helpers.Server,
-				assert:      BeTrue,
-			},
+			By("============= Finished Connectivity Test ============= ")
 		}
 
-		for _, test := range testCases {
-			By("Container %q test connectivity to %q", test.from, test.destination)
-			res = vm.ContainerExec(test.from, test.to)
-			ExpectWithOffset(1, res.WasSuccessful()).To(test.assert(),
-				"The result of %q from container %q to %s does not match", test.to, test.from, test.destination)
-		}
+		BeforeEach(func() {
+			// TODO: provide map[string]string instead of one string representing KV pair.
+			vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
+			vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
+			vm.ContainerCreate(helpers.Httpd1, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
+			vm.ContainerCreate(helpers.Httpd2, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
+			vm.ContainerCreate(curl1ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
+			vm.ContainerCreate(curl2ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
 
-		By("============= Finished Connectivity Test ============= ")
-	}
+			vm.PolicyDelAll().ExpectSuccess("cannot delete all policies")
 
-	BeforeEach(func() {
-		// TODO: provide map[string]string instead of one string representing KV pair.
-		vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")
-		vm.ContainerCreate(helpers.Server, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.server")
-		vm.ContainerCreate(helpers.Httpd1, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd")
-		vm.ContainerCreate(helpers.Httpd2, constants.HttpdImage, helpers.CiliumDockerNetwork, "-l id.httpd_deny")
-		vm.ContainerCreate(curl1ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl")
-		vm.ContainerCreate(curl2ContainerName, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.curl2")
+			_, err := vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy.json"), helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
 
-		vm.PolicyDelAll().ExpectSuccess("cannot delete all policies")
+		})
 
-		_, err := vm.PolicyImportAndWait(vm.GetFullPath("ct-test-policy.json"), helpers.HelperTimeout)
-		Expect(err).Should(BeNil())
+		JustBeforeEach(func() {
+			monitorStop = vm.MonitorStart()
+		})
 
-	})
+		AfterEach(func() {
+			containersToRm := []string{helpers.Client, helpers.Server, helpers.Httpd1, helpers.Httpd2, curl1ContainerName, curl2ContainerName}
+			for _, containerToRm := range containersToRm {
+				vm.ContainerRm(containerToRm)
+			}
+			vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 
-	JustBeforeEach(func() {
-		monitorStop = vm.MonitorStart()
-	})
+			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
+		})
 
-	AfterEach(func() {
-		containersToRm := []string{helpers.Client, helpers.Server, helpers.Httpd1, helpers.Httpd2, curl1ContainerName, curl2ContainerName}
-		for _, containerToRm := range containersToRm {
-			vm.ContainerRm(containerToRm)
-		}
-		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
+		JustAfterEach(func() {
+			vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+			Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
+		})
 
-		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
-	})
+		AfterFailed(func() {
+			vm.ReportFailed("cilium policy get")
+		})
 
-	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
-		Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
-	})
+		It("Conntrack-related configuration options for endpoints", func() {
+			By("Getting Endpoint IDs")
+			endpoints, err := vm.GetEndpointsIds()
+			Expect(err).Should(BeNil(), "could not get endpoint IDs")
 
-	AfterFailed(func() {
-		vm.ReportFailed("cilium policy get")
-	})
+			// Check that endpoint IDs exist in map.
+			for _, endpointName := range []string{helpers.Server, helpers.Client} {
+				_, exists := endpoints[endpointName]
+				Expect(exists).To(BeTrue(), "unable to retrieve endpoint ID for endpoint %s", endpointName)
+				By("Endpoint ID for %q = %q", endpointName, endpoints[endpointName])
 
-	It("Conntrack-related configuration options for endpoints", func() {
-		By("Getting Endpoint IDs")
-		endpoints, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil(), "could not get endpoint IDs")
+			}
 
-		// Check that endpoint IDs exist in map.
-		for _, endpointName := range []string{helpers.Server, helpers.Client} {
-			_, exists := endpoints[endpointName]
-			Expect(exists).To(BeTrue(), "unable to retrieve endpoint ID for endpoint %s", endpointName)
-			By("Endpoint ID for %q = %q", endpointName, endpoints[endpointName])
+			endpointsToConfigure := []string{endpoints[helpers.Server], endpoints[helpers.Client]}
 
-		}
+			// Iterate through possible values to configure ConntrackLocal option,
+			// apply to both endpoints, verify the option configuration change matches
+			// what was performed, and then run connectivity test with endpoints.
+			conntrackLocalOptionModes := []string{helpers.OptionDisabled, helpers.OptionEnabled}
+			for _, conntrackLocalOptionMode := range conntrackLocalOptionModes {
+				By("Testing with endpoint configuration option: ConntrackLocal=%s", conntrackLocalOptionMode)
 
-		endpointsToConfigure := []string{endpoints[helpers.Server], endpoints[helpers.Client]}
+				for _, endpointToConfigure := range endpointsToConfigure {
+					err := vm.SetAndWaitForEndpointConfiguration(
+						endpointToConfigure, helpers.OptionConntrackLocal, conntrackLocalOptionMode)
+					Expect(err).To(BeNil(), "Cannot set ConnTrackLocal=%q for endpoint %q",
+						conntrackLocalOptionMode, endpointToConfigure)
+				}
+				areEndpointsReady := vm.WaitEndpointsReady()
+				Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
+				clientServerConnectivity()
+			}
 
-		// Iterate through possible values to configure ConntrackLocal option,
-		// apply to both endpoints, verify the option configuration change matches
-		// what was performed, and then run connectivity test with endpoints.
-		conntrackLocalOptionModes := []string{helpers.OptionDisabled, helpers.OptionEnabled}
-		for _, conntrackLocalOptionMode := range conntrackLocalOptionModes {
-			By("Testing with endpoint configuration option: ConntrackLocal=%s", conntrackLocalOptionMode)
+			By("Testing Conntrack endpoint configuration option disabled")
+
+			// Delete all L4 policy so we can disable connection tracking
+			vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
 
 			for _, endpointToConfigure := range endpointsToConfigure {
-				err := vm.SetAndWaitForEndpointConfiguration(
-					endpointToConfigure, helpers.OptionConntrackLocal, conntrackLocalOptionMode)
-				Expect(err).To(BeNil(), "Cannot set ConnTrackLocal=%q for endpoint %q",
-					conntrackLocalOptionMode, endpointToConfigure)
+				// ConntrackLocal must be disabled as it depends on Conntrack
+				err := vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrackLocal, helpers.OptionDisabled)
+				Expect(err).To(BeNil(), "Cannot disable ConntrackLocal for the endpoint %q", endpointToConfigure)
+				err = vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
+				Expect(err).To(BeNil(), "Cannot disable ConnTrack for the endpoint %q", endpointToConfigure)
 			}
-			areEndpointsReady := vm.WaitEndpointsReady()
-			Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
-			clientServerConnectivity()
-		}
 
-		By("Testing Conntrack endpoint configuration option disabled")
+			// Need to add policy that allows communication in both directions.
+			_, err = vm.PolicyImportAndWait(
+				vm.GetFullPath(CTPolicyConntrackLocalDisabled),
+				helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "cannot import %s", CTPolicyConntrackLocalDisabled)
 
-		// Delete all L4 policy so we can disable connection tracking
-		vm.PolicyDelAll().ExpectSuccess("Policies cannot be deleted")
+			clientServerL3Connectivity()
+		})
 
-		for _, endpointToConfigure := range endpointsToConfigure {
-			// ConntrackLocal must be disabled as it depends on Conntrack
-			err := vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrackLocal, helpers.OptionDisabled)
-			Expect(err).To(BeNil(), "Cannot disable ConntrackLocal for the endpoint %q", endpointToConfigure)
-			err = vm.SetAndWaitForEndpointConfiguration(endpointToConfigure, helpers.OptionConntrack, helpers.OptionDisabled)
-			Expect(err).To(BeNil(), "Cannot disable ConnTrack for the endpoint %q", endpointToConfigure)
-		}
-
-		// Need to add policy that allows communication in both directions.
-		_, err = vm.PolicyImportAndWait(
-			vm.GetFullPath(CTPolicyConntrackLocalDisabled),
-			helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), "cannot import %s", CTPolicyConntrackLocalDisabled)
-
-		clientServerL3Connectivity()
-	})
-
-})
+	}
+}
