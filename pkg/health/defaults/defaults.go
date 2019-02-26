@@ -15,6 +15,8 @@
 package defaults
 
 import (
+	"time"
+
 	daemon "github.com/cilium/cilium/pkg/defaults"
 )
 
@@ -36,4 +38,8 @@ const (
 
 	// ServiceL7PathPort is used for probing service redirect path connectivity with L7
 	ServiceL7PathPort = 4243
+
+	// CiliumAgentTimeout is the timeout which cilium-health waits for cilium-agent
+	// availability.
+	CiliumAgentTimeout = 150 * time.Second
 )

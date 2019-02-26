@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/api"
+	ciliumPkg "github.com/cilium/cilium/pkg/client"
 	clientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	serverPkg "github.com/cilium/cilium/pkg/health/server"
@@ -37,7 +38,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-const targetName = "cilium-health"
+const (
+	targetName = "cilium-health"
+
+	connectErrMsg = "Cannot establish connection to local cilium instance"
+)
 
 var (
 	cfgFile   string
@@ -46,6 +51,8 @@ var (
 	server    *serverPkg.Server
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)
 	logOpts   = make(map[string]string)
+
+	connectRetryInterval = 1 * time.Second
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -138,11 +145,26 @@ func initConfig() {
 	}
 }
 
+// waitForCiliumAPI waits until cilium-agent API is available.
+func waitForCiliumAPI() {
+	if _, err := ciliumPkg.NewDefaultClientWithTimeout(defaults.CiliumAgentTimeout); err != nil {
+		log.WithError(err).Fatal(connectErrMsg)
+	}
+}
+
 func runServer() {
 	common.RequireRootPrivilege(targetName)
 
+	// Wait until Cilium API is available
+	waitForCiliumAPI()
+
 	// Write the pidfile (if specified)
 	if path := viper.GetString("pidfile"); path != "" {
+		if err := pidfile.Kill(path); err != nil {
+			log.WithError(err).WithField(
+				logfields.Path, path,
+			).Fatal("Failed to kill existing cilium-health daemon")
+		}
 		if err := pidfile.Write(path); err != nil {
 			log.WithError(err).WithField(
 				logfields.Path, path,
