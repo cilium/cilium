@@ -26,6 +26,8 @@ import (
 	"runtime"
 
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -245,4 +247,59 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 	}
 
 	return err
+}
+
+// compileDatapath invokes the compiler and linker to create all state files for
+// the BPF datapath, with the primary target being the BPF ELF binary.
+//
+// If debug is enabled, create also the following output files:
+// * Preprocessed C
+// * Assembly
+// * Object compiled with debug symbols
+func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debug bool) error {
+	// TODO: Consider logging kernel/clang versions here too
+	epLog := ep.Logger(Subsystem)
+
+	// Write out assembly and preprocessing files for debugging purposes
+	if debug {
+		for _, p := range debugProgs {
+			if err := compile(ctx, p, dirs, debug); err != nil {
+				scopedLog := epLog.WithFields(logrus.Fields{
+					logfields.Params: logfields.Repr(p),
+					logfields.Debug:  debug,
+				})
+				scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
+				return err
+			}
+		}
+	}
+
+	// Compile the new program
+	if err := compile(ctx, datapathProg, dirs, debug); err != nil {
+		scopedLog := epLog.WithFields(logrus.Fields{
+			logfields.Params: logfields.Repr(datapathProg),
+			logfields.Debug:  false,
+		})
+		scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+		return err
+	}
+
+	return nil
+}
+
+// Compile compiles a BPF program generating an object file.
+func Compile(ctx context.Context, src string, out string) error {
+	debug := option.Config.BPFCompilationDebug
+	prog := progInfo{
+		Source:     src,
+		Output:     out,
+		OutputType: outputObject,
+	}
+	dirs := directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
+	}
+	return compile(ctx, &prog, &dirs, debug)
 }
