@@ -91,14 +91,20 @@ var (
 		Description: "Enable automatic NAT46 translation",
 		Requires:    []string{Conntrack},
 		Verify: func(key string, val string) error {
-			if !Config.EnableIPv4 {
-				return ErrNAT46ReqIPv4
+			opt, err := NormalizeBool(val)
+			if err != nil {
+				return err
 			}
-			if !Config.EnableIPv6 {
-				return ErrNAT46ReqIPv6
-			}
-			if Config.DatapathMode == DatapathModeIpvlan {
-				return ErrNAT46ReqVeth
+			if opt == OptionEnabled {
+				if !Config.EnableIPv4 {
+					return ErrNAT46ReqIPv4
+				}
+				if !Config.EnableIPv6 {
+					return ErrNAT46ReqIPv6
+				}
+				if Config.DatapathMode == DatapathModeIpvlan {
+					return ErrNAT46ReqVeth
+				}
 			}
 			return nil
 		},
