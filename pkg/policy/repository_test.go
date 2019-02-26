@@ -2007,23 +2007,23 @@ func (ds *PolicyTestSuite) TestRemoveIdentifierFromRuleCaches(c *C) {
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
 	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{selectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{selectedEndpointID: selectedEndpointIdentity})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{selectedEndpointID: selectedEndpointIdentity})
 
 	wg := testRepo.RemoveIdentifierFromRuleCaches(selectedEndpointID)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{})
 
 	c.Assert(addedRule.matches(notSelectedEndpointID, notSelectedEndpointIdentity), Equals, false)
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{})
 
 	wg = testRepo.RemoveIdentifierFromRuleCaches(notSelectedEndpointID)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity.Identity{})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{})
 
 }

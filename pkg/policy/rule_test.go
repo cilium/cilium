@@ -2295,24 +2295,24 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
 	c.Assert(addedRule.matches(notSelectedEndpointID, notSelectedEndpointIdentity), Equals, false)
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity2.Identity{})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{})
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
 	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity2.Identity{selectedEndpointID: selectedEndpointIdentity})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{selectedEndpointID: selectedEndpointIdentity})
 
 	// Test again to check for caching working correctly.
 	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity2.Identity{selectedEndpointID: selectedEndpointIdentity})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{selectedEndpointID: selectedEndpointIdentity})
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
 	c.Assert(addedRule.matches(selectedEndpointID, notSelectedEndpointIdentity), Equals, false)
-	c.Assert(addedRule.metadata.AllEndpoints, DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, DeepEquals, map[uint16]*identity2.Identity{})
+	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
+	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{})
 }
