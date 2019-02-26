@@ -33,6 +33,12 @@ UTC_DATE=$(shell date -u "+%Y-%m-%d")
 # is running in the developer VM.
 SKIP_DOCS ?= $(shell if mount | grep -q "/home/vagrant/go/src/github.com/cilium/cilium type nfs"; then echo "true"; else echo "false"; fi)
 
+TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
+	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
+	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR)"
+TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml \
+	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR)"
+
 all: precheck build postcheck
 	@echo "Build finished."
 
@@ -51,8 +57,6 @@ clean-jenkins-precheck:
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER rm
 	# remove the networks
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
-
-TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 -X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
 PRIV_TEST_PKGS ?= $(shell grep --include='*.go' -ril '+build privileged_tests' | xargs dirname | sort | uniq)
 tests-privileged:
@@ -94,8 +98,6 @@ stop-kvstores:
 
 tests: force
 	$(MAKE) unit-tests
-
-TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml"
 
 generate-cov:
 	# Remove generated code from coverage
