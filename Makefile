@@ -109,6 +109,7 @@ generate-cov:
 unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C test/bpf/
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
+	$(MAKE) govet
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
@@ -273,7 +274,25 @@ gofmt:
 
 govet:
 	@$(ECHO_CHECK) vetting all GOFILES...
-	$(QUIET)$(GO) tool vet api pkg test $(SUBDIRS)
+	$(QUIET)$(GO) vet \
+    ./api/... \
+    ./bugtool/... \
+    ./cilium/... \
+    ./cilium-health/... \
+    ./common/... \
+    ./daemon/... \
+    ./monitor/... \
+    ./operator/... \
+    ./pkg/... \
+    ./plugins/... \
+    ./proxylib/... \
+    ./test/. \
+    ./test/config/... \
+    ./test/ginkgo-ext/... \
+    ./test/helpers/... \
+    ./test/runtime/... \
+    ./test/k8sT/... \
+    ./tools/...
 
 ineffassign:
 	@$(ECHO_CHECK) ineffassign
@@ -306,7 +325,7 @@ microk8s: check-microk8s
 	@echo "Or, redeploy the Cilium pods:"
 	@echo "    kubectl -n kube-system delete pod -l k8s-app=cilium"
 
-precheck: govet ineffassign logging-subsys-field
+precheck: ineffassign logging-subsys-field
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
