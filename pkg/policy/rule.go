@@ -461,9 +461,9 @@ func (r *rule) matches(id uint16, securityIdentity *identity.Identity) bool {
 			return true
 		}
 
-		// If the cached identity is the same, but wasn't in localRuleConsumers,
-		// then rule doesn't match ; return false. We fall back to label-based
-		// matching.
+		// If the cached identity is the same, but wasn't in EndpointsSelected,
+		// then rule doesn't match ; return false. If the identities aren't
+		// equal, then we have to fall back to label-based matching.
 		if cachedIdentity == securityIdentity {
 			return false
 		}
