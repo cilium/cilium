@@ -23,6 +23,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -355,16 +356,31 @@ func (d *Daemon) startStatusCollector() {
 		{
 			Name: "cilium-health",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				if d.ciliumHealth == nil {
-					return nil, nil
-				}
-				return d.ciliumHealth.GetStatus(), nil
-			},
-			OnStatusUpdate: func(status status.Status) {
-				if d.ciliumHealth == nil {
-					return
+				var healthClient *healthClientPkg.Client
+				var err error
+				// Check whether cilium-health client was already cached.
+				if d.healthClient == nil {
+					healthClient, err = healthClientPkg.NewDefaultClient()
+					if err != nil {
+						return nil, err
+					}
+				} else {
+					healthClient = d.healthClient
 				}
 
+				status, err := healthClient.Connectivity.GetStatus(nil)
+				if err != nil {
+					return nil, err
+				}
+
+				// Caching of cilium-health client happens here, after status was
+				// get successfully - that's the only guarantee that it will work
+				// properly next time.
+				d.healthClient = healthClient
+
+				return status.Payload, nil
+			},
+			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()
 				defer d.statusCollectMutex.Unlock()
 

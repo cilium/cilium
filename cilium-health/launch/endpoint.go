@@ -34,6 +34,7 @@ import (
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -52,6 +53,8 @@ const (
 )
 
 var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-launcher")
+
 	// vethName is the host-side veth link device name for cilium-health EP
 	// (veth mode only).
 	vethName = "cilium_health"

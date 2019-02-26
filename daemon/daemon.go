@@ -28,7 +28,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
@@ -53,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
+	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
@@ -131,8 +131,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]context.CancelFunc
 
-	nodeMonitor  *monitorLaunch.NodeMonitor
-	ciliumHealth *health.CiliumHealth
+	nodeMonitor *monitorLaunch.NodeMonitor
 
 	// dnsRuleGen manages toFQDNs rules
 	dnsRuleGen *fqdn.RuleGen
@@ -188,6 +187,10 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
+
+	// healthClient is a client of cilium-health deamon. It's used to get
+	// cilium-health daemon status.
+	healthClient *healthClientPkg.Client
 }
 
 // Datapath returns a reference to the datapath implementation.
