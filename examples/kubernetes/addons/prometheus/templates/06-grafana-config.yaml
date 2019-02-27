@@ -26,39 +26,13 @@ data:
       "gnetId": 6658,
       "graphTooltip": 1,
       "id": null,
-      "iteration": 1549903472871,
+      "iteration": 1551289267113,
       "links": [],
       "panels": [
         {
-          "collapsed": false,
-          "gridPos": {
-            "h": 1,
-            "w": 24,
-            "x": 0,
-            "y": 0
-          },
-          "id": 72,
-          "panels": [],
-          "title": "Cilium",
-          "type": "row"
-        },
-        {
-          "content": "",
-          "gridPos": {
-            "h": 1,
-            "w": 24,
-            "x": 0,
-            "y": 1
-          },
-          "id": 77,
-          "links": [],
-          "mode": "markdown",
-          "title": "Generic",
-          "type": "text"
-        },
-        {
           "aliasColors": {
-            "MAX_resident_memory_bytes_max": "#e5ac0e"
+            "error": "#890f02",
+            "warning": "#c15c17"
           },
           "bars": false,
           "dashLength": 10,
@@ -66,19 +40,17 @@ data:
           "datasource": "prometheus",
           "fill": 1,
           "gridPos": {
-            "h": 4,
+            "h": 5,
             "w": 12,
             "x": 0,
-            "y": 2
+            "y": 0
           },
-          "id": 24,
+          "id": 76,
           "legend": {
-            "alignAsTable": false,
             "avg": false,
             "current": false,
             "max": false,
             "min": false,
-            "rightSide": false,
             "show": true,
             "total": false,
             "values": false
@@ -91,39 +63,29 @@ data:
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
-          "seriesOverrides": [],
+          "seriesOverrides": [
+            {
+              "alias": "error",
+              "yaxis": 2
+            }
+          ],
           "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "sum(rate(cilium_errors_warnings_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, level) * 60",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "AVG_resident_memory_bytes",
-              "refId": "C"
-            },
-            {
-              "expr": "max(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
-              "format": "time_series",
-              "interval": "",
-              "intervalFactor": 1,
-              "legendFormat": "MAX_resident_memory_bytes_max",
-              "refId": "D"
-            },
-            {
-              "expr": "min(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "MIN_resident_memory_bytes_min",
-              "refId": "E"
+              "legendFormat": "{{level}}",
+              "refId": "A"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Resident memory status",
+          "title": "Errors & Warnings",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -139,7 +101,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "bytes",
+              "format": "opm",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -147,7 +109,7 @@ data:
               "show": true
             },
             {
-              "format": "short",
+              "format": "opm",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -170,10 +132,10 @@ data:
           "datasource": "prometheus",
           "fill": 0,
           "gridPos": {
-            "h": 4,
+            "h": 5,
             "w": 12,
             "x": 12,
-            "y": 2
+            "y": 0
           },
           "id": 96,
           "legend": {
@@ -272,6 +234,19 @@ data:
           }
         },
         {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 5
+          },
+          "id": 161,
+          "panels": [],
+          "title": "Generic",
+          "type": "row"
+        },
+        {
           "aliasColors": {
             "AVG_virtual_memory_bytes": "#508642",
             "Average Virtual Memory": "#f9d9f9",
@@ -285,7 +260,7 @@ data:
           "fill": 0,
           "gridPos": {
             "h": 5,
-            "w": 12,
+            "w": 8,
             "x": 0,
             "y": 6
           },
@@ -387,6 +362,110 @@ data:
         },
         {
           "aliasColors": {
+            "MAX_resident_memory_bytes_max": "#e5ac0e"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 8,
+            "y": 6
+          },
+          "id": 24,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "AVG_resident_memory_bytes",
+              "refId": "C"
+            },
+            {
+              "expr": "max(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "MAX_resident_memory_bytes_max",
+              "refId": "D"
+            },
+            {
+              "expr": "min(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "MIN_resident_memory_bytes_min",
+              "refId": "E"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Resident memory status",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
             "all nodes": "#e5a8e2"
           },
           "bars": false,
@@ -396,8 +475,8 @@ data:
           "fill": 1,
           "gridPos": {
             "h": 5,
-            "w": 12,
-            "x": 12,
+            "w": 8,
+            "x": 16,
             "y": 6
           },
           "id": 98,
@@ -499,30 +578,44 @@ data:
           }
         },
         {
-          "aliasColors": {
-            "error": "#890f02",
-            "warning": "#c15c17"
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 11
           },
+          "id": 155,
+          "panels": [],
+          "title": "API",
+          "type": "row"
+        },
+        {
+          "aliasColors": {},
           "bars": false,
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
           "fill": 1,
           "gridPos": {
-            "h": 5,
+            "h": 6,
             "w": 12,
             "x": 0,
-            "y": 11
+            "y": 12
           },
-          "id": 76,
+          "id": 152,
           "legend": {
-            "avg": false,
+            "alignAsTable": true,
+            "avg": true,
             "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
             "max": false,
             "min": false,
+            "rightSide": true,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 1,
@@ -532,21 +625,16 @@ data:
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "alias": "error",
-              "yaxis": 2
-            }
-          ],
+          "seriesOverrides": [],
           "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_errors_warnings_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, level) * 60",
+              "expr": "avg(rate(cilium_agent_api_process_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{level}}",
+              "legendFormat": "{{method}} {{path}}",
               "refId": "A"
             }
           ],
@@ -554,7 +642,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Errors & Warnings",
+          "title": "API call latency (average node)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -570,7 +658,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "opm",
+              "format": "s",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -578,7 +666,7 @@ data:
               "show": true
             },
             {
-              "format": "opm",
+              "format": "short",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -599,17 +687,849 @@ data:
           "datasource": "prometheus",
           "fill": 1,
           "gridPos": {
-            "h": 5,
+            "h": 6,
             "w": 12,
             "x": 12,
-            "y": 11
+            "y": 12
           },
-          "id": 83,
+          "id": 153,
           "legend": {
+            "alignAsTable": true,
             "avg": false,
             "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(cilium_agent_api_process_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{path}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "API call latency (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 18
+          },
+          "id": 156,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
             "max": false,
             "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{path}} ",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "# API calls (average node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 18
+          },
+          "id": 157,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{path}} ",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "# API calls (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 24
+          },
+          "id": 159,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path, return_code)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{return_code}} ({{method}} {{path}} )",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "API return codes (average node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 24
+          },
+          "id": 158,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path, return_code)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{return_code}} ({{method}} {{path}} )",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "API return codes (sum all nodes)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 30
+          },
+          "id": 72,
+          "panels": [],
+          "title": "Cilium",
+          "type": "row"
+        },
+        {
+          "content": "",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 31
+          },
+          "id": 144,
+          "links": [],
+          "mode": "markdown",
+          "title": "BPF",
+          "type": "text"
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 32
+          },
+          "id": 146,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{operation}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "# system calls (average node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "decimals": 2,
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 32
+          },
+          "id": 145,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{operation}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "# system calls (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 2,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "decimals": 0,
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 40
+          },
+          "id": 140,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_bpf_syscall_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/ rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{operation}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "system call latency (avg node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 40
+          },
+          "id": 148,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(cilium_bpf_syscall_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/ rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{operation}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "system call latency (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 0,
+            "y": 46
+          },
+          "id": 142,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": true,
+            "max": false,
+            "min": false,
+            "rightSide": false,
             "show": true,
             "total": false,
             "values": false
@@ -628,10 +1548,10 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(kvstore_operations_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope, action)",
+              "expr": "topk(5, avg(rate(cilium_bpf_map_ops_total{kubernetes_pod_name=~\"$pod\"}[5m])) by (pod, mapName, operation))",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{scope}} {{action}}",
+              "legendFormat": "{{mapName}} {{operation}}",
               "refId": "A"
             }
           ],
@@ -639,7 +1559,185 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "kvstore Operations",
+          "title": "map ops (average node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 8,
+            "y": 46
+          },
+          "id": 147,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": false,
+            "hideZero": true,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "topk(5, max(rate(cilium_bpf_map_ops_total{kubernetes_pod_name=~\"$pod\"}[5m])) by (pod, mapName, operation))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{mapName}} {{operation}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "map ops (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 8,
+            "x": 16,
+            "y": 46
+          },
+          "id": 143,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(cilium_bpf_map_ops_total{kubernetes_pod_name=~\"$pod\",outcome=\"fail\"}[5m])) by (pod, mapName, operation)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{mapName}} {{operation}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "map ops (sum failures)",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -682,7 +1780,381 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 16
+            "y": 52
+          },
+          "id": 137,
+          "links": [],
+          "mode": "markdown",
+          "title": "kvstore",
+          "type": "text"
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "decimals": 2,
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 53
+          },
+          "id": 83,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(kvstore_operations_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope, action)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{scope}} {{action}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "# operations (sum all nodes)",
+          "tooltip": {
+            "shared": true,
+            "sort": 2,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "decimals": 0,
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "decimals": 2,
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 53
+          },
+          "id": 150,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(kvstore_operations_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope, action)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{scope}} {{action}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "# operations (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 2,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "decimals": 0,
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 58
+          },
+          "id": 136,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "topk(5, avg(rate(cilium_kvstore_operations_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action, scope) / avg(rate(cilium_kvstore_operations_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action, scope))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}} {{scope}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "latency (average node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 58
+          },
+          "id": 149,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "topk(5, max(rate(cilium_kvstore_operations_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action, scope) / avg(rate(cilium_kvstore_operations_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action, scope))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}} {{scope}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "latency (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "content": "",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 63
           },
           "id": 47,
           "links": [],
@@ -701,7 +2173,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 64
           },
           "id": 81,
           "legend": {
@@ -786,7 +2258,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 64
           },
           "id": 111,
           "legend": {
@@ -868,13 +2340,22 @@ data:
         {
           "aliasColors": {
             "Alive  ipv4": "#0a50a1",
+            "Alive  ipv4 non-TCP": "#f9d9f9",
             "Alive  ipv6": "#614d93",
+            "Alive  ipv6 TCP": "#806eb7",
+            "Alive  ipv6 non-TCP": "#614d93",
             "Alive CT entries ipv6": "#badff4",
             "Deleted CT entries ipv4": "#bf1b00",
-            "Deleted ipv4": "#e24d42",
-            "Deleted ipv6": "#c15c17",
+            "Deleted ipv4": "#890f02",
+            "Deleted ipv4 non-TCP": "#890f02",
+            "Deleted ipv6": "#bf1b00",
             "L7 denied request": "#890f02",
-            "L7 forwarded request": "#7eb26d"
+            "L7 forwarded request": "#7eb26d",
+            "avg": "#e0f9d7",
+            "deleted": "#6ed0e0",
+            "deleted max": "#447ebc",
+            "max": "#629e51",
+            "min": "#629e51"
           },
           "bars": false,
           "dashLength": 10,
@@ -885,7 +2366,7 @@ data:
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 70
           },
           "id": 56,
           "legend": {
@@ -907,11 +2388,24 @@ data:
           "renderer": "flot",
           "seriesOverrides": [
             {
-              "alias": "Deleted ipv6",
+              "alias": "deleted",
               "yaxis": 2
             },
             {
-              "alias": "Deleted ipv4",
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            },
+            {
+              "alias": "deleted max",
+              "yaxis": 2
+            },
+            {
+              "alias": "deleted min",
               "yaxis": 2
             }
           ],
@@ -920,26 +2414,47 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\"}) by (family,status)",
+              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "Alive  {{family}}",
+              "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "sum(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "Deleted {{family}}",
+              "legendFormat": "avg",
               "refId": "B"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted",
+              "refId": "D"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted max",
+              "refId": "E"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Conntrack_GC",
+          "title": "IPv4 Conntrack TCP",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -978,8 +2493,23 @@ data:
         },
         {
           "aliasColors": {
-            "dump_interrupts conntrack ipv4": "#ea6460",
-            "dump_interrupts conntrack ipv6": "#58140c"
+            "Alive  ipv4": "#0a50a1",
+            "Alive  ipv4 non-TCP": "#f9d9f9",
+            "Alive  ipv6": "#614d93",
+            "Alive  ipv6 TCP": "#806eb7",
+            "Alive  ipv6 non-TCP": "#614d93",
+            "Alive CT entries ipv6": "#badff4",
+            "Deleted CT entries ipv4": "#bf1b00",
+            "Deleted ipv4": "#890f02",
+            "Deleted ipv4 non-TCP": "#890f02",
+            "Deleted ipv6": "#bf1b00",
+            "L7 denied request": "#890f02",
+            "L7 forwarded request": "#7eb26d",
+            "avg": "#e0f9d7",
+            "deleted": "#6ed0e0",
+            "deleted max": "#447ebc",
+            "max": "#629e51",
+            "min": "#629e51"
           },
           "bars": false,
           "dashLength": 10,
@@ -990,9 +2520,9 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 70
           },
-          "id": 79,
+          "id": 128,
           "legend": {
             "avg": false,
             "current": false,
@@ -1010,24 +2540,383 @@ data:
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
-          "seriesOverrides": [],
+          "seriesOverrides": [
+            {
+              "alias": "deleted",
+              "yaxis": 2
+            },
+            {
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            },
+            {
+              "alias": "deleted max",
+              "yaxis": 2
+            },
+            {
+              "alias": "deleted min",
+              "yaxis": 2
+            }
+          ],
           "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_datapath_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod, area, family, name)",
+              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "min",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{name}} {{area}} {{family}}",
-              "refId": "A"
+              "legendFormat": "avg",
+              "refId": "B"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted",
+              "refId": "D"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted max",
+              "refId": "E"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Datapath Errors",
+          "title": "IPv6 Conntrack TCP",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "Alive  ipv4": "#0a50a1",
+            "Alive  ipv4 non-TCP": "#f9d9f9",
+            "Alive  ipv6": "#614d93",
+            "Alive  ipv6 TCP": "#806eb7",
+            "Alive  ipv6 non-TCP": "#614d93",
+            "Alive CT entries ipv6": "#badff4",
+            "Deleted CT entries ipv4": "#bf1b00",
+            "Deleted ipv4": "#890f02",
+            "Deleted ipv4 non-TCP": "#890f02",
+            "Deleted ipv6": "#bf1b00",
+            "L7 denied request": "#890f02",
+            "L7 forwarded request": "#7eb26d",
+            "avg": "#e0f9d7",
+            "deleted": "#6ed0e0",
+            "deleted max": "#447ebc",
+            "max": "#629e51",
+            "min": "#629e51"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 76
+          },
+          "id": 129,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "deleted",
+              "yaxis": 2
+            },
+            {
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            },
+            {
+              "alias": "deleted max",
+              "yaxis": 2
+            },
+            {
+              "alias": "deleted min",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "min",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "avg",
+              "refId": "B"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted",
+              "refId": "D"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted max",
+              "refId": "E"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "IPv4 Conntrack Non-TCP",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "Alive  ipv4": "#0a50a1",
+            "Alive  ipv4 non-TCP": "#f9d9f9",
+            "Alive  ipv6": "#614d93",
+            "Alive  ipv6 TCP": "#806eb7",
+            "Alive  ipv6 non-TCP": "#614d93",
+            "Alive CT entries ipv6": "#badff4",
+            "Deleted CT entries ipv4": "#bf1b00",
+            "Deleted ipv4": "#890f02",
+            "Deleted ipv4 non-TCP": "#890f02",
+            "Deleted ipv6": "#bf1b00",
+            "L7 denied request": "#890f02",
+            "L7 forwarded request": "#7eb26d",
+            "avg": "#e0f9d7",
+            "deleted": "#6ed0e0",
+            "deleted max": "#447ebc",
+            "max": "#629e51",
+            "min": "#629e51"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 76
+          },
+          "id": 130,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "deleted",
+              "yaxis": 2
+            },
+            {
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            },
+            {
+              "alias": "deleted max",
+              "yaxis": 2
+            },
+            {
+              "alias": "deleted min",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "min",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "avg",
+              "refId": "B"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
+            },
+            {
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted",
+              "refId": "D"
+            },
+            {
+              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "deleted max",
+              "refId": "E"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "IPv6 Conntrack Non-TCP",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1079,7 +2968,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 29
+            "y": 82
           },
           "id": 87,
           "legend": {
@@ -1160,6 +3049,94 @@ data:
           }
         },
         {
+          "aliasColors": {
+            "dump_interrupts conntrack ipv4": "#ea6460",
+            "dump_interrupts conntrack ipv6": "#58140c"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 82
+          },
+          "id": 79,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(cilium_datapath_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod, area, family, name)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{name}} {{area}} {{family}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Datapath Errors",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
           "aliasColors": {},
           "bars": false,
           "dashLength": 10,
@@ -1167,10 +3144,95 @@ data:
           "datasource": "prometheus",
           "fill": 1,
           "gridPos": {
-            "h": 6,
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 87
+          },
+          "id": 106,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_services_events_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Service Updates",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
             "w": 12,
             "x": 12,
-            "y": 29
+            "y": 87
           },
           "id": 89,
           "legend": {
@@ -1271,9 +3333,9 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 34
+            "y": 92
           },
-          "id": 106,
+          "id": 39,
           "legend": {
             "avg": false,
             "current": false,
@@ -1297,10 +3359,10 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_services_events_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action)",
+              "expr": "sum(rate(cilium_drop_count_total{direction=\"EGRESS\", kubernetes_pod_name=~\"$pod\"}[1m])) by (reason)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{action}}",
+              "legendFormat": "{{reason}}",
               "refId": "A"
             }
           ],
@@ -1308,7 +3370,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "Service Updates",
+          "title": "Dropped Egress Packets",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1359,14 +3421,16 @@ data:
             "h": 5,
             "w": 6,
             "x": 12,
-            "y": 35
+            "y": 92
           },
           "id": 91,
           "legend": {
+            "alignAsTable": false,
             "avg": false,
             "current": false,
             "max": false,
             "min": false,
+            "rightSide": false,
             "show": true,
             "total": false,
             "values": false
@@ -1471,7 +3535,7 @@ data:
             "h": 5,
             "w": 6,
             "x": 18,
-            "y": 35
+            "y": 92
           },
           "id": 93,
           "legend": {
@@ -1561,7 +3625,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 40
+            "y": 97
           },
           "id": 28,
           "links": [],
@@ -1580,177 +3644,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 41
-          },
-          "id": 39,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "sum(rate(cilium_drop_count_total{direction=\"EGRESS\", kubernetes_pod_name=~\"$pod\"}[1m])) by (reason)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "{{reason}}",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Dropped Egress Packets",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "ops",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 1,
-          "gridPos": {
-            "h": 5,
-            "w": 12,
-            "x": 12,
-            "y": 41
-          },
-          "id": 37,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "sum(rate(cilium_drop_count_total{direction=\"INGRESS\", kubernetes_pod_name=~\"$pod\"}[5m])) by (reason)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "{{reason}}",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Cilium drops Ingress",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "ops",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 1,
-          "gridPos": {
-            "h": 5,
-            "w": 12,
-            "x": 0,
-            "y": 46
+            "y": 98
           },
           "id": 113,
           "legend": {
@@ -1835,7 +3729,204 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 46
+            "y": 98
+          },
+          "id": 37,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(cilium_drop_count_total{direction=\"INGRESS\", kubernetes_pod_name=~\"$pod\"}[5m])) by (reason)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{reason}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Cilium drops Ingress",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "L7 denied request": "#ea6460",
+            "L7 forwarded request": "#7eb26d",
+            "denied": "#bf1b00"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 103
+          },
+          "id": 53,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "L7 denied request",
+              "yaxis": 2
+            },
+            {
+              "alias": "denied",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(cilium_policy_l7_denied_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "denied",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(cilium_policy_l7_forwarded_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "forwarded",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(rate(cilium_policy_l7_received_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "received",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "L7 forwarded request",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "reqps",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "reqps",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 103
           },
           "id": 114,
           "legend": {
@@ -1911,10 +4002,12 @@ data:
         },
         {
           "aliasColors": {
-            "L7 denied request": "#ea6460",
-            "L7 forwarded request": "#7eb26d"
+            "Max per node processingTime": "#e24d42",
+            "Max per node upstreamTime": "#58140c",
+            "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})": "#bf1b00",
+            "parse errors": "#bf1b00"
           },
-          "bars": false,
+          "bars": true,
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
@@ -1923,9 +4016,229 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 51
+            "y": 108
           },
-          "id": 53,
+          "id": 94,
+          "legend": {
+            "alignAsTable": false,
+            "avg": true,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "Max per node processingTime",
+              "yaxis": 2
+            },
+            {
+              "alias": "Max per node upstreamTime",
+              "yaxis": 2
+            },
+            {
+              "alias": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})",
+              "yaxis": 2
+            },
+            {
+              "alias": "parse errors",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{scope}}",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "parse errors",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Proxy response time (Avg)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "Max per node processingTime": "#e24d42",
+            "Max per node upstreamTime": "#58140c",
+            "parse errors": "#bf1b00"
+          },
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 108
+          },
+          "id": 66,
+          "legend": {
+            "alignAsTable": false,
+            "avg": true,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "parse errors",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(cilium_proxy_upstream_reply_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "Max {{scope}}",
+              "refId": "B"
+            },
+            {
+              "expr": "max(rate(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "parse errors",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Proxy response time (Max)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "avg": "#64b0c8",
+            "count": "#9ac48a",
+            "max": "#5195ce",
+            "min": "#6ed0e0"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 0,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 113
+          },
+          "id": 104,
           "legend": {
             "avg": false,
             "current": false,
@@ -1945,34 +4258,57 @@ data:
           "renderer": "flot",
           "seriesOverrides": [
             {
-              "alias": "L7 denied request",
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            },
+            {
+              "alias": "avg count",
               "yaxis": 2
+            },
+            {
+              "alias": "max count",
+              "yaxis": 2
+            },
+            {
+              "alias": "avg count"
             }
           ],
           "spaceLength": 10,
-          "stack": true,
+          "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_policy_l7_denied_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "min(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "L7 denied request",
+              "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_forwarded_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "avg(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "L7 forwarded request",
+              "legendFormat": "avg",
               "refId": "B"
+            },
+            {
+              "expr": "max(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
             }
           ],
           "thresholds": [],
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "L7 forwarded request",
+          "title": "Policy Trigger Duration",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1988,7 +4324,7 @@ data:
           },
           "yaxes": [
             {
-              "format": "reqps",
+              "format": "s",
               "label": null,
               "logBase": 1,
               "max": null,
@@ -1996,12 +4332,446 @@ data:
               "show": true
             },
             {
-              "format": "reqps",
+              "format": "opm",
               "label": null,
               "logBase": 1,
               "max": null,
               "min": null,
               "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "average duration": "#d683ce",
+            "folds": "#614d93",
+            "max duration": "#614d93",
+            "max trigger": "#967302",
+            "min duration": "#584477",
+            "min trigger": "#fceaca"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 2,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 113
+          },
+          "id": 102,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "max",
+              "fillBelowTo": "min trigger",
+              "lines": false
+            },
+            {
+              "alias": "min trigger",
+              "lines": false
+            },
+            {
+              "alias": "folds",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "min(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "min trigger",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "average trigger",
+              "refId": "B"
+            },
+            {
+              "expr": "max(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max trigger",
+              "refId": "C"
+            },
+            {
+              "expr": "max(rate(cilium_triggers_policy_update_folds{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "folds",
+              "refId": "D"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Policy Trigger Runs",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "both": "#7eb26d",
+            "egress": "#e5ac0e",
+            "ingress": "#e0752d",
+            "none": "#bf1b00"
+          },
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 0,
+            "y": 118
+          },
+          "id": 33,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": true,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "sideWidth": null,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(cilium_policy_endpoint_enforcement_status{kubernetes_pod_name=~\"$pod\"}) by (enforcement)",
+              "format": "time_series",
+              "hide": false,
+              "instant": true,
+              "interval": "1s",
+              "intervalFactor": 1,
+              "legendFormat": "{{enforcement}}",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Endpoints policy enforcement status",
+          "tooltip": {
+            "shared": false,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "series",
+            "name": null,
+            "show": true,
+            "values": [
+              "total"
+            ]
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "avg": "#b7dbab",
+            "max": "rgba(89, 132, 76, 0.54)",
+            "min": "#2f575e"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 6,
+            "x": 6,
+            "y": 118
+          },
+          "id": 100,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            }
+          ],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "min(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "min",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "avg",
+              "refId": "B"
+            },
+            {
+              "expr": "max(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Proxy Redirects",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "Max per node processingTime": "#e24d42",
+            "Max per node upstreamTime": "#58140c",
+            "parse errors": "#bf1b00"
+          },
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 118
+          },
+          "id": 123,
+          "legend": {
+            "alignAsTable": false,
+            "avg": true,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "parse errors",
+              "yaxis": 2
+            }
+          ],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{scope}}",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "DNS proxy requests",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
             }
           ],
           "yaxis": {
@@ -2023,8 +4793,8 @@ data:
           "gridPos": {
             "h": 5,
             "w": 12,
-            "x": 12,
-            "y": 51
+            "x": 0,
+            "y": 123
           },
           "id": 85,
           "legend": {
@@ -2141,666 +4911,9 @@ data:
         },
         {
           "aliasColors": {
-            "Max per node processingTime": "#e24d42",
-            "Max per node upstreamTime": "#58140c",
-            "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})": "#bf1b00",
-            "parse errors": "#bf1b00"
-          },
-          "bars": true,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 1,
-          "gridPos": {
-            "h": 5,
-            "w": 12,
-            "x": 0,
-            "y": 56
-          },
-          "id": 94,
-          "legend": {
-            "alignAsTable": false,
-            "avg": true,
-            "current": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": false,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "alias": "Max per node processingTime",
-              "yaxis": 2
-            },
-            {
-              "alias": "Max per node upstreamTime",
-              "yaxis": 2
-            },
-            {
-              "alias": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})",
-              "yaxis": 2
-            },
-            {
-              "alias": "parse errors",
-              "yaxis": 2
-            }
-          ],
-          "spaceLength": 10,
-          "stack": true,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
-              "format": "time_series",
-              "interval": "",
-              "intervalFactor": 1,
-              "legendFormat": "{{scope}}",
-              "refId": "A"
-            },
-            {
-              "expr": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "parse errors",
-              "refId": "B"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Proxy response time (Avg)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "s",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {
-            "Max per node processingTime": "#e24d42",
-            "Max per node upstreamTime": "#58140c",
-            "parse errors": "#bf1b00"
-          },
-          "bars": true,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 1,
-          "gridPos": {
-            "h": 5,
-            "w": 12,
-            "x": 12,
-            "y": 56
-          },
-          "id": 66,
-          "legend": {
-            "alignAsTable": false,
-            "avg": true,
-            "current": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": false,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "alias": "parse errors",
-              "yaxis": 2
-            }
-          ],
-          "spaceLength": 10,
-          "stack": true,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "max(rate(cilium_proxy_upstream_reply_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "Max {{scope}}",
-              "refId": "B"
-            },
-            {
-              "expr": "max(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "parse errors",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Proxy response time (Max)",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "s",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "s",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": false
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {
-            "avg": "#64b0c8",
-            "max": "#0a50a1",
-            "min": "#6ed0e0"
-          },
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 2,
-          "gridPos": {
-            "h": 5,
-            "w": 12,
-            "x": 0,
-            "y": 61
-          },
-          "id": 104,
-          "legend": {
-            "avg": true,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "alias": "max",
-              "fillBelowTo": "min",
-              "lines": false
-            },
-            {
-              "alias": "min",
-              "lines": false
-            }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "min(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "min",
-              "refId": "A"
-            },
-            {
-              "expr": "avg(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "avg",
-              "refId": "B"
-            },
-            {
-              "expr": "max(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "max",
-              "refId": "C"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Policy Trigger Duration",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "s",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {
-            "average duration": "#d683ce",
-            "max duration": "#614d93",
-            "max trigger": "#967302",
-            "min duration": "#584477",
-            "min trigger": "#fceaca"
-          },
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 2,
-          "gridPos": {
-            "h": 5,
-            "w": 12,
-            "x": 12,
-            "y": 61
-          },
-          "id": 102,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "alias": "max",
-              "fillBelowTo": "min trigger",
-              "lines": false
-            },
-            {
-              "alias": "min trigger",
-              "lines": false
-            }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "min(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "min trigger",
-              "refId": "A"
-            },
-            {
-              "expr": "avg(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "average trigger",
-              "refId": "B"
-            },
-            {
-              "expr": "max(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "max trigger",
-              "refId": "C"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Policy Trigger Runs",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "opm",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "s",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": false
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {
-            "both": "#7eb26d",
-            "egress": "#f9934e",
-            "ingress": "#962d82",
-            "none": "#f29191"
-          },
-          "bars": true,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 1,
-          "gridPos": {
-            "h": 5,
-            "w": 6,
-            "x": 0,
-            "y": 66
-          },
-          "id": 33,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "rightSide": true,
-            "show": true,
-            "sideWidth": null,
-            "total": false,
-            "values": true
-          },
-          "lines": false,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "sum(cilium_policy_endpoint_enforcement_status{kubernetes_pod_name=~\"$pod\"}) by (enforcement)",
-              "format": "time_series",
-              "hide": false,
-              "instant": true,
-              "interval": "1s",
-              "intervalFactor": 1,
-              "legendFormat": "{{enforcement}}",
-              "refId": "B"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Endpoints policy enforcement status",
-          "tooltip": {
-            "shared": false,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "series",
-            "name": null,
-            "show": true,
-            "values": [
-              "total"
-            ]
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {
-            "avg": "#b7dbab",
-            "max": "rgba(89, 132, 76, 0.54)"
-          },
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": "prometheus",
-          "fill": 1,
-          "gridPos": {
-            "h": 5,
-            "w": 6,
-            "x": 6,
-            "y": 66
-          },
-          "id": 100,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "links": [],
-          "nullPointMode": "null",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "alias": "max",
-              "fillBelowTo": "min",
-              "lines": false
-            },
-            {
-              "alias": "min",
-              "lines": false
-            }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "min(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "min",
-              "refId": "A"
-            },
-            {
-              "expr": "avg(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "avg",
-              "refId": "B"
-            },
-            {
-              "expr": "max(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "max",
-              "refId": "C"
-            }
-          ],
-          "thresholds": [],
-          "timeFrom": null,
-          "timeRegions": [],
-          "timeShift": null,
-          "title": "Proxy Redirects",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            },
-            {
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
-        },
-        {
-          "aliasColors": {
             "avg": "#f9d9f9",
-            "max": "#806eb7"
+            "max": "#806eb7",
+            "min": "#806eb7"
           },
           "bars": false,
           "dashLength": 10,
@@ -2811,7 +4924,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 66
+            "y": 123
           },
           "id": 117,
           "legend": {
@@ -2915,7 +5028,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 71
+            "y": 128
           },
           "id": 73,
           "links": [],
@@ -2935,7 +5048,7 @@ data:
             "h": 9,
             "w": 12,
             "x": 0,
-            "y": 72
+            "y": 129
           },
           "id": 55,
           "legend": {
@@ -3023,7 +5136,7 @@ data:
             "h": 9,
             "w": 12,
             "x": 12,
-            "y": 72
+            "y": 129
           },
           "id": 115,
           "legend": {
@@ -3115,7 +5228,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 81
+            "y": 138
           },
           "id": 49,
           "legend": {
@@ -3213,7 +5326,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 81
+            "y": 138
           },
           "id": 51,
           "legend": {
@@ -3294,7 +5407,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 86
+            "y": 143
           },
           "id": 74,
           "links": [],
@@ -3317,7 +5430,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 87
+            "y": 144
           },
           "id": 70,
           "legend": {
@@ -3426,7 +5539,7 @@ data:
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 87
+            "y": 144
           },
           "id": 68,
           "legend": {
@@ -3520,7 +5633,7 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 92
+            "y": 149
           },
           "id": 60,
           "links": [],
@@ -3539,16 +5652,18 @@ data:
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 93
+            "y": 150
           },
-          "id": 108,
+          "id": 163,
           "legend": {
-            "alignAsTable": false,
+            "alignAsTable": true,
             "avg": false,
             "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
             "max": false,
             "min": false,
-            "rightSide": false,
+            "rightSide": true,
             "show": true,
             "total": false,
             "values": false
@@ -3567,6 +5682,360 @@ data:
           "steppedLine": false,
           "targets": [
             {
+              "expr": "avg(rate(cilium_k8s_client_api_latency_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_k8s_client_api_latency_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{path}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "apiserver latency (average node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 150
+          },
+          "id": 165,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "max(rate(cilium_k8s_client_api_latency_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_k8s_client_api_latency_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{path}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "apiserver latency (max node)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "s",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 157
+          },
+          "id": 168,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(cilium_k8s_client_api_latency_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{path}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "apiserver #calls (sum all nodes)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 157
+          },
+          "id": 166,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": false,
+            "hideEmpty": true,
+            "hideZero": true,
+            "max": true,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "sum(rate(cilium_k8s_client_api_calls_counter{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, return_code)",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{method}} {{return_code}}",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "apiserver calls (sum all nodes)",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "ops",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 165
+          },
+          "id": 108,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
               "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"CiliumNetworkPolicy\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
@@ -3578,7 +6047,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "CNP Events",
+          "title": "CiliumNetworkPolicy Events",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -3621,7 +6090,7 @@ data:
             "delete avg": "#e24d42",
             "update avg": "#e0f9d7"
           },
-          "bars": false,
+          "bars": true,
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
@@ -3630,7 +6099,98 @@ data:
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 93
+            "y": 165
+          },
+          "id": 119,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"NetworkPolicy\"}[1m])) by (pod, action) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}} avg",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "NetworkPolicy Events",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "create avg": "#70dbed",
+            "delete avg": "#e24d42",
+            "update avg": "#e0f9d7"
+          },
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 172
           },
           "id": 109,
           "legend": {
@@ -3644,7 +6204,7 @@ data:
             "total": false,
             "values": false
           },
-          "lines": true,
+          "lines": false,
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
@@ -3654,7 +6214,7 @@ data:
           "renderer": "flot",
           "seriesOverrides": [],
           "spaceLength": 10,
-          "stack": false,
+          "stack": true,
           "steppedLine": false,
           "targets": [
             {
@@ -3670,6 +6230,358 @@ data:
           "timeRegions": [],
           "timeShift": null,
           "title": "Pod Events",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "create avg": "#70dbed",
+            "delete avg": "#e24d42",
+            "update avg": "#e0f9d7"
+          },
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 172
+          },
+          "id": 122,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Node\"}[1m])) by (pod, action) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}} avg",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Node Events",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 179
+          },
+          "id": 118,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Service\"}[1m])) by (pod, action) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}}",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Service Events",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 179
+          },
+          "id": 120,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Endpoint\"}[1m])) by (pod, action) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}}",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Endpoints Events",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "opm",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": true,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fill": 1,
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 186
+          },
+          "id": 121,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": false,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": true,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Namespace\"}[1m])) by (pod, action) * 60",
+              "format": "time_series",
+              "intervalFactor": 1,
+              "legendFormat": "{{action}}",
+              "refId": "B"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Namespace Events",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -3741,7 +6653,7 @@ data:
         ]
       },
       "time": {
-        "from": "now-3h",
+        "from": "now-5m",
         "to": "now"
       },
       "timepicker": {
@@ -3772,7 +6684,7 @@ data:
       "timezone": "utc",
       "title": "Cilium Metrics",
       "uid": "vtuWtdumz",
-      "version": 17
+      "version": 43
     }
   prometheus-datasource.json: |
     {
