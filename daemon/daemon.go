@@ -1059,10 +1059,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.ipam.Start()
 	log.Info("Initializing node addressing")
 
-	if err := node.AutoComplete(); err != nil {
-		log.WithError(err).Fatal("Cannot autocomplete node addresses")
-	}
-
 	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
 
 	if option.Config.IPv4Range != AutoCIDR {
@@ -1082,6 +1078,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		if err := node.SetIPv6NodeRange(net); err != nil {
 			log.WithError(err).WithField(logfields.V6Prefix, net).Fatal("Invalid per node IPv6 allocation prefix")
 		}
+	}
+
+	if err := node.AutoComplete(); err != nil {
+		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
