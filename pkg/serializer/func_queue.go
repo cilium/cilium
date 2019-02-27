@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 // limitations under the License.
 
 package serializer
+
+import (
+	"context"
+)
 
 var (
 	// NoRetry always returns false independently of the number of retries.
@@ -79,6 +83,17 @@ func (fq *FunctionQueue) run() {
 // won't be executed.
 func (fq *FunctionQueue) Stop() {
 	close(fq.stopCh)
+}
+
+// Wait until the FunctionQueue is stopped, or the specified context deadline
+// expires. Returns the error from the context, or nil if the FunctionQueue
+// was completed before the context deadline.
+func (fq *FunctionQueue) Wait(ctx context.Context) error {
+	select {
+	case <-fq.stopCh:
+	case <-ctx.Done():
+	}
+	return ctx.Err()
 }
 
 // Enqueue enqueues the receiving function `f` to be executed by the function
