@@ -668,7 +668,9 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error 
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
 	opts := AddOptions{Replace: true}
-	if _, err := d.PolicyAdd(rules, &opts); err != nil {
+	policyAddRequest := d.policyAddToQueue(rules, &opts, false)
+	<-policyAddRequest.done
+	if policyAddRequest.err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
 		}).Error("Unable to add NetworkPolicy rules to policy repository")
@@ -1164,9 +1166,14 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumV2Store cache.Store, cnp *cilium
 		policyImportErr = k8s.PreprocessRules(rules, &d.k8sSvcCache)
 		// Replace all rules with the same name, namespace and
 		// resourceTypeCiliumNetworkPolicy
-		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
-			ReplaceWithLabels: cnp.GetIdentityLabels(),
-		})
+
+		policyRequest := d.policyAddToQueue(
+			rules,
+			&AddOptions{ReplaceWithLabels: cnp.GetIdentityLabels()},
+			false)
+		<-policyRequest.done
+		rev = policyRequest.policyRevision
+		policyImportErr = policyRequest.err
 	}
 
 	if policyImportErr != nil {

@@ -1190,6 +1190,8 @@ func runDaemon() {
 		d.workloadsEventsCh = eventsCh
 	}
 
+	go d.PolicyQueueWorker()
+
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		d.initHealth()

@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -216,7 +217,11 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
-		return d.policy.GetRevision(), err
+
+		d.policy.Mutex.Lock()
+		rev := d.policy.GetRevision()
+		d.policy.Mutex.Unlock()
+		return rev, err
 	}
 
 	d.policy.Mutex.Lock()
@@ -280,6 +285,75 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (uint64, err
 	}
 
 	return rev, nil
+}
+
+type policyAddQueueOptions struct {
+	rules   policyAPI.Rules
+	opts    *AddOptions
+	context *policyQueueContext
+	reFetch bool
+}
+
+type policyQueueContext struct {
+	policyRevision uint64
+	err            error
+	done           chan bool
+	totalTime      spanstat.SpanStat
+	queueTime      spanstat.SpanStat
+}
+
+var policyAddQueueRequests = make(chan policyAddQueueOptions, 100)
+
+// policyAddToQueue adds the request to policyAdd in the queue and return a
+// context that will be updated when the done channel is closed.
+func (d *Daemon) policyAddToQueue(rules policyAPI.Rules, opts *AddOptions, reFetch bool) *policyQueueContext {
+	result := &policyQueueContext{
+		policyRevision: 0,
+		err:            nil,
+		done:           make(chan bool),
+	}
+	result.totalTime.Start()
+	result.queueTime.Start()
+
+	policyAddQueueRequests <- policyAddQueueOptions{
+		rules:   rules,
+		opts:    opts,
+		reFetch: reFetch,
+		context: result,
+	}
+
+	return result
+}
+
+// PolicyQueueWorker is a queue worker that taking care of PolicyAdd for
+// DNSProxy and Kubernetes watcher to avoid multiples races and lock all policy
+// repo.
+func (d *Daemon) PolicyQueueWorker() {
+	log.Error("Initialize Policy Queue Worker")
+	for {
+		select {
+		case policyRequest, _ := <-policyAddQueueRequests:
+			policyRequest.context.queueTime.End(true)
+			var rules []*policyAPI.Rule
+			rules = policyRequest.rules
+			if policyRequest.reFetch {
+				newRules := policyAPI.Rules{}
+				d.policy.Mutex.Lock()
+				for _, sourceRule := range policyRequest.rules {
+					repoRules := d.policy.SearchRLocked(sourceRule.Labels)
+					newRules = append(newRules, repoRules...)
+				}
+
+				d.policy.Mutex.Unlock()
+				rules = newRules
+			}
+			rev, err := d.PolicyAdd(rules, policyRequest.opts)
+			policyRequest.context.policyRevision = rev
+			policyRequest.context.err = err
+			close(policyRequest.context.done)
+			policyRequest.context.totalTime.End(err != nil)
+		}
+	}
 }
 
 // PolicyDelete deletes the policy set in the given path from the policy tree.
