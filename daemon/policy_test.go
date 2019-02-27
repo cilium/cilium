@@ -488,3 +488,43 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
 	c.Assert(networkPolicies, HasLen, 0)
 }
+
+func (ds *DaemonSuite) TestPolicyAddQueue(c *C) {
+	lblBar := labels.ParseLabel("bar")
+	lblFoo := labels.ParseLabel("bar")
+	lbls := labels.ParseLabelArray("foo", "bar")
+	originalRules := api.Rules{
+		{
+			Labels:           lbls,
+			EndpointSelector: api.NewESFromLabels(lblBar),
+			Egress:           []api.EgressRule{{ToCIDR: []api.CIDR{"1.1.1.1/32", "2.2.2.0/24"}}},
+		},
+	}
+
+	newRules := originalRules.DeepCopy()
+	newRules[0].EndpointSelector = api.NewESFromLabels(lblFoo)
+	// 1) insert the normal rule.
+	// 2) create the update rule.
+	// 3) Taking care that the rule is fetched and updated correctly.
+	requestA := ds.d.policyAddToQueue(originalRules, nil, false)
+	requestB := ds.d.policyAddToQueue(newRules, &AddOptions{Replace: true}, false)
+	requestC := ds.d.policyAddToQueue(originalRules, &AddOptions{Replace: true}, true)
+
+	<-requestA.done
+	c.Assert(requestA.err, IsNil)
+
+	<-requestB.done
+	c.Assert(requestB.err, IsNil)
+
+	<-requestC.done
+	c.Assert(requestC.err, IsNil)
+
+	daemonRules := api.Rules{}
+	ds.d.policy.Mutex.Lock()
+	for _, sourceRule := range originalRules {
+		repoRules := ds.d.policy.SearchRLocked(sourceRule.Labels)
+		daemonRules = append(daemonRules, repoRules...)
+	}
+	ds.d.policy.Mutex.Unlock()
+	c.Assert(daemonRules, checker.DeepEquals, originalRules)
+}

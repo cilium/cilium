@@ -38,10 +38,15 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/op/go-logging"
+)
+
+const (
+	POLICY_REQUEST_CHANNEL_SIZE int = 100
 )
 
 func (d *Daemon) policyUpdateTrigger(reasons []string) {
@@ -194,6 +199,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	}
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
+
 	d.dnsRuleGen.MarkToFQDNRules(rules)
 
 	prefixes := policy.GetCIDRPrefixes(rules)
@@ -302,6 +308,86 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	return newRev, nil
 }
 
+type policyAddQueueOptions struct {
+	rules   policyAPI.Rules
+	opts    *AddOptions
+	context *policyQueueContext
+	reFetch bool
+}
+
+type policyQueueContext struct {
+	policyRevision uint64
+	err            error
+	done           chan bool
+	totalTime      spanstat.SpanStat
+	queueTime      spanstat.SpanStat
+}
+
+// policyAddToQueue adds the request to policyAdd in the queue and return a
+// context that will be updated when the done channel is closed.
+func (d *Daemon) policyAddToQueue(rules policyAPI.Rules, opts *AddOptions, reFetch bool) *policyQueueContext {
+	result := &policyQueueContext{
+		policyRevision: 0,
+		err:            nil,
+		done:           make(chan bool),
+	}
+	result.totalTime.Start()
+	result.queueTime.Start()
+
+	d.policyAddQueueRequests <- policyAddQueueOptions{
+		rules:   rules,
+		opts:    opts,
+		reFetch: reFetch,
+		context: result,
+	}
+
+	return result
+}
+
+// PolicyQueueRequestInitilize initialize the daemon request channel and start
+// in backgrond the queue worker
+func (d *Daemon) PolicyQueueRequestInitilize(ctx context.Context) {
+	if d.policyAddQueueRequests == nil {
+		d.policyAddQueueRequests = make(chan policyAddQueueOptions, POLICY_REQUEST_CHANNEL_SIZE)
+	}
+	go d.policyQueueWorker(ctx)
+}
+
+// policyQueueWorker is a queue worker that taking care of PolicyAdd for
+// DNSProxy and Kubernetes watcher to avoid multiples races and lock all policy
+// repo.
+// In case that the channel event has a refetch set to true, the rule will be
+// retrieved from policyRepo to make sure that the newest version is installed
+// correctly and old rules do not overwritte the new ones.
+func (d *Daemon) policyQueueWorker(ctx context.Context) {
+	log.Info("Initialize Policy Queue Worker")
+	for {
+		select {
+		case policyRequest, _ := <-d.policyAddQueueRequests:
+			policyRequest.context.queueTime.End(true)
+			var rules []*policyAPI.Rule
+			rules = policyRequest.rules
+			if policyRequest.reFetch {
+				newRules := policyAPI.Rules{}
+				d.policy.Mutex.Lock()
+				for _, sourceRule := range policyRequest.rules {
+					repoRules := d.policy.SearchRLocked(sourceRule.Labels)
+					newRules = append(newRules, repoRules.DeepCopy()...)
+				}
+				d.policy.Mutex.Unlock()
+				rules, _ = d.dnsRuleGen.GenerateRulesFromSources(newRules)
+			}
+			rev, err := d.PolicyAdd(rules, policyRequest.opts)
+			policyRequest.context.policyRevision = rev
+			policyRequest.context.err = err
+			close(policyRequest.context.done)
+			policyRequest.context.totalTime.End(err != nil)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // PolicyDelete deletes the policy set in the given path from the policy tree.
 // If cover256Sum is set it finds the rule with the respective coverage that
 // rule from the node. If the path's node becomes ruleless it is removed from
@@ -408,13 +494,17 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		}
 	}
 
-	rev, err := d.PolicyAdd(rules, &AddOptions{Source: metrics.LabelEventSourceAPI})
-	if err != nil {
-		return api.Error(PutPolicyFailureCode, err)
+	policyRequest := d.policyAddToQueue(
+		rules,
+		&AddOptions{Source: metrics.LabelEventSourceAPI},
+		false)
+	<-policyRequest.done
+	if policyRequest.err != nil {
+		return api.Error(PutPolicyFailureCode, policyRequest.err)
 	}
 
 	policy := &models.Policy{
-		Revision: int64(rev),
+		Revision: int64(policyRequest.policyRevision),
 		Policy:   policy.JSONMarshalRules(rules),
 	}
 	return NewPutPolicyOK().WithPayload(policy)

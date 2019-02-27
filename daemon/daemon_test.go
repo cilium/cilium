@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -71,6 +72,8 @@ type DaemonSuite struct {
 	OnGetCompilationLock      func() *lock.RWMutex
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
 	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
+	cancel                    context.CancelFunc
+	ctx                       context.Context
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -125,6 +128,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
+
+	ds.ctx, ds.cancel = context.WithCancel(context.Background())
+	go ds.d.PolicyQueueRequestInitilize(ds.ctx)
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -138,6 +144,7 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 		kvstore.DeletePrefix(common.OperationalPath)
 		kvstore.DeletePrefix(kvstore.BaseKeyPrefix)
 	}
+	ds.cancel()
 
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)

@@ -182,6 +182,9 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
+
+	// policyAddQueueRequests is a channel that feeds the PolicyAdd synchronously
+	policyAddQueueRequests chan policyAddQueueOptions
 }
 
 // Datapath returns a reference to the datapath implementation.
