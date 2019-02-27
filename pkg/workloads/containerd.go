@@ -144,7 +144,7 @@ func (c *containerDClient) Status() *models.Status {
 }
 
 const (
-	syncRateContainerD = 30 * time.Second
+	syncRateContainerD = 5 * time.Minute
 )
 
 // EnableEventListener watches for containerD events. Performs the plumbing for

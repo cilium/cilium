@@ -268,7 +268,7 @@ func (d *dockerClient) Status() *models.Status {
 }
 
 const (
-	syncRateDocker = 30 * time.Second
+	syncRateDocker = 5 * time.Minute
 
 	eventQueueBufferSize = 100
 )
