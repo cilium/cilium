@@ -1082,6 +1082,9 @@ func runDaemon() {
 		return
 	}
 
+	// Start the policy queue add worker to make sure that the restore of new
+	// policies or CNP are updated correctly and we wait with the worker started.
+	go d.PolicyQueueWorker(context.Background())
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
