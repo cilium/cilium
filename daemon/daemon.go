@@ -164,6 +164,14 @@ type Daemon struct {
 	// components. See GH-5038 and GH-4457.
 	k8sResourceSyncWaitGroup sync.WaitGroup
 
+	// k8sResourceSyncedMu protects the k8sResourceSynced map.
+	k8sResourceSyncedMu lock.RWMutex
+
+	// k8sResourceSynced maps a resource name to a channel. Once the given
+	// resource name is synchronized with k8s, the channel for which that
+	// resource name maps to is closed.
+	k8sResourceSynced map[string]chan struct{}
+
 	// k8sSvcCache is a cache of all Kubernetes services and endpoints
 	k8sSvcCache k8s.ServiceCache
 
@@ -928,12 +936,13 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	d := Daemon{
-		loadBalancer:  loadbalancer.NewLoadBalancer(),
-		k8sSvcCache:   k8s.NewServiceCache(),
-		policy:        policy.NewPolicyRepository(),
-		uniqueID:      map[uint64]context.CancelFunc{},
-		nodeMonitor:   monitorLaunch.NewNodeMonitor(option.Config.MonitorQueueSize),
-		prefixLengths: createPrefixLengthCounter(),
+		loadBalancer:      loadbalancer.NewLoadBalancer(),
+		k8sSvcCache:       k8s.NewServiceCache(),
+		policy:            policy.NewPolicyRepository(),
+		uniqueID:          map[uint64]context.CancelFunc{},
+		nodeMonitor:       monitorLaunch.NewNodeMonitor(option.Config.MonitorQueueSize),
+		prefixLengths:     createPrefixLengthCounter(),
+		k8sResourceSynced: map[string]chan struct{}{},
 
 		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex: new(lock.RWMutex),

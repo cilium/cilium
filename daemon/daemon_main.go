@@ -1110,7 +1110,7 @@ func runDaemon() {
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
 	bootstrapStats.k8sInit.Start()
-	d.initK8sSubsystem()
+	<-d.initK8sSubsystem()
 	bootstrapStats.k8sInit.End(true)
 
 	// If K8s is enabled we can do the service translation automagically by
