@@ -129,7 +129,6 @@ func (ws *watcherState) syncWithRuntime() {
 			wg.Add(1)
 			go func(wg *sync.WaitGroup, id string) {
 				defer wg.Done()
-				ws.enqueueByContainerID(id, nil) // ensure a handler is running for future events
 				Client().handleCreateWorkload(id, false)
 			}(&wg, contID)
 		}
