@@ -62,6 +62,8 @@ extract_pr_title () {
 
 ###############################################################################
 # Get merged PRs that match a specified label and exclude a specified label
+#
+# Each returned array entry is in the form "$merged_at#$prnumber"
 get_prs () {
   local label=$1
   local label_exclude=$2
@@ -83,7 +85,23 @@ get_prs () {
   num_pages=$(((total + prs_per_page - 1) / prs_per_page ))
 
   for current_page in `seq 1 $num_pages`; do
-    prs+=($($GHCURL "${CILIUM_GITHUB_SEARCHAPI}$label_opt$label_exclude_opt&page=$current_page" | jq -r '.items[] | (.number | tostring)'))
+    local page_json
+    local merged_at
+    local pr_url
+    local pr_list
+
+    page_json=$($GHCURL "$url&page=$current_page")
+    pr_list=$(echo -n $page_json | jq -r '.items[] | (.number | tostring)')
+    for pr in $pr_list; do
+      pr_url="https://api.github.com/repos/cilium/cilium/pulls/$pr"
+      merged_at=$($GHCURL "$pr_url" | jq -r '.merged_at')
+
+      # Never merged ...
+      if [[ "$merged_at" = "null" ]]; then
+        continue
+      fi
+      prs+=("$merged_at#$pr ")
+    done
   done
 
   echo "${prs[@]}"
@@ -93,10 +111,10 @@ get_prs () {
 # Generates the release notes for one particular PR
 generate_commit_list_for_pr () {
   local pr=$1
+  local merged_at=$2
   local url
   local pr_json
   local merge_sha
-  local merge_at
   local commits
   local remote
   local branch
@@ -112,22 +130,9 @@ generate_commit_list_for_pr () {
 
   remote=`git remote -v | grep "github.com.cilium/cilium" | head -n1 | cut -f1`
 
-  url="https://api.github.com/repos/cilium/cilium/pulls/$pr"
-  pr_json="$($GHCURL $url)"
-  merge_sha="$(echo -n $pr_json | jq -r '.merge_commit_sha')"
-  merged_at="$(echo -n $pr_json | jq -r '.merged_at')"
-
   url="https://api.github.com/repos/cilium/cilium/pulls/$pr/commits"
   pr_json="$($GHCURL $url)"
   commits="$(echo -n $pr_json | jq -r '.[] | (.sha | tostring)')"
-
-  if [[ "$merge_sha" = "null" ]]; then
-    return
-  fi
-  # Never merged ...
-  if [[ "$merged_at" = "null" ]]; then
-    return
-  fi
 
   SAVEIFS=$IFS
   IFS=$'\n'
@@ -178,14 +183,22 @@ echo "Checking for backports on branch '${STABLE_BRANCH}'"
 stable_prs=($(get_prs "needs-backport/${STABLE_BRANCH}" "backport-done/${STABLE_BRANCH}"))
 echo -e "v$STABLE_BRANCH backports $(date +%Y-%m-%d)\n" | tee $SUMMARY_LOG
 echo -e "PRs for stable backporting: ${#stable_prs[@]}\n"
+
 if [[ ${#stable_prs[@]} > 0 ]]; then
-  for pr in "${stable_prs[@]}"; do
+  SAVEIFS=$IFS
+  IFS=$'\n' sorted_prs=($(sort <<<"${stable_prs[*]}"))
+  IFS=$'\n' stable_prs=($(cut -d'#' -f 2 <<<"${sorted_prs[*]}"))
+  IFS=$SAVEIFS
+
+  for dated_pr in "${sorted_prs[@]}"; do
+    merged_at=$(echo "$dated_pr" | cut -d'#' -f 1)
+    pr=$(echo "$dated_pr" | cut -d'#' -f 2)
     title=$(extract_pr_title "$pr")
     echo " * PR: $pr -- $title -- https://github.com/cilium/cilium/pull/$pr"
     if [[ ! -z $SUMMARY_LOG ]]; then
       echo " * #$pr -- $title" >> $SUMMARY_LOG
     fi
-    generate_commit_list_for_pr $pr
+    generate_commit_list_for_pr $pr $merged_at
     echo ""
   done
   echo "When you have backported the above commits, you can update the PR labels via this command:"
