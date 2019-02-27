@@ -1110,14 +1110,21 @@ func runDaemon() {
 	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
 	bootstrapStats.k8sInit.Start()
-	<-d.initK8sSubsystem()
-	bootstrapStats.k8sInit.End(true)
+	// We need to set up etcd in parallel so we will init the k8s subsystem
+	// and wait for all caches to be synced before restoring any endpoints.
+	// This is required because CNP with CIDRs rely on the allocator which
+	// itself relies on the kvstore to be setup and the caches will not be
+	// synced unless we setup the kvstore at the same time.
+	k8sCachesSynced := d.initK8sSubsystem()
 
 	// If K8s is enabled we can do the service translation automagically by
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
 	var goopts *kvstore.ExtraOptions
 	if k8s.IsEnabled() {
+		// Wait services and endpoints cache are synced with k8s before setting
+		// up etcd.
+		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
 		goopts = &kvstore.ExtraOptions{}
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
@@ -1151,6 +1158,8 @@ func runDaemon() {
 		}).Fatal("Unable to setup kvstore")
 	}
 
+	<-k8sCachesSynced
+	bootstrapStats.k8sInit.End(true)
 	bootstrapStats.restore.Start()
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
