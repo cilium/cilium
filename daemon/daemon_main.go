@@ -1081,7 +1081,7 @@ func runDaemon() {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
 	}
-
+	go d.PolicyQueueWorker()
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
