@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -532,6 +533,11 @@ func (d *Daemon) compileBase() error {
 	cmd.Env = bpf.Environment()
 	if _, err := cmd.CombinedOutput(log, true); err != nil {
 		return err
+	}
+
+	// Validate alignments of C and Go equivalent structs
+	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
+		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
 	if !option.Config.IsFlannelMasterDeviceSet() {
