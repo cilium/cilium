@@ -39,22 +39,22 @@ const (
 	MaxEntries = 65535
 )
 
-type endpointKey struct{ bpf.EndpointKey }
-type epPolicyFd struct{ Fd uint32 }
+type EndpointKey struct{ bpf.EndpointKey }
+type EPPolicyValue struct{ Fd uint32 }
 
 var (
 	buildMap sync.Once
 
 	EpPolicyMap = bpf.NewMap(MapName,
 		bpf.MapTypeHashOfMaps,
-		int(unsafe.Sizeof(endpointKey{})),
-		int(unsafe.Sizeof(epPolicyFd{})),
+		int(unsafe.Sizeof(EndpointKey{})),
+		int(unsafe.Sizeof(EPPolicyValue{})),
 		MaxEntries,
 		0,
 		0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k := endpointKey{}
-			v := epPolicyFd{}
+			k := EndpointKey{}
+			v := EPPolicyValue{}
 
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
@@ -89,17 +89,17 @@ func CreateEPPolicyMap() {
 	}
 }
 
-func (v epPolicyFd) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v EPPolicyValue) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
 
 // GetValuePtr returns the unsafe value pointer to the Endpoint Policy fd
-func (v epPolicyFd) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v.Fd) }
+func (v EPPolicyValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v.Fd) }
 
 // NewValue returns a new empty instance of the Endpoint Policy fd
-func (k endpointKey) NewValue() bpf.MapValue { return &epPolicyFd{} }
+func (k EndpointKey) NewValue() bpf.MapValue { return &EPPolicyValue{} }
 
 // newEndpointKey return a new key from the IP address.
-func newEndpointKey(ip net.IP) *endpointKey {
-	return &endpointKey{
+func newEndpointKey(ip net.IP) *EndpointKey {
+	return &EndpointKey{
 		EndpointKey: bpf.NewEndpointKey(ip),
 	}
 }
@@ -114,7 +114,7 @@ func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 	}
 
 	/* Casting file desriptor into uint32 required by BPF syscall */
-	epFd := &epPolicyFd{Fd: uint32(fd)}
+	epFd := &EPPolicyValue{Fd: uint32(fd)}
 
 	for _, v := range keys {
 		if err := EpPolicyMap.Update(v, epFd); err != nil {
@@ -125,7 +125,7 @@ func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 }
 
 // WriteEndpoint writes the policy map file descriptor into the map so that
-// the datapath side can do a lookup from endpointKey->PolicyMap. Locking is
+// the datapath side can do a lookup from EndpointKey->PolicyMap. Locking is
 // handled in the usual way via Map lock. If sockops is disabled this will be
 // a nop.
 func WriteEndpoint(keys []*lxcmap.EndpointKey, pm *policymap.PolicyMap) error {
