@@ -33,5 +33,6 @@ Direct access to local BPF maps
 * [cilium bpf metrics](../cilium_bpf_metrics)	 - BPF datapath traffic metrics
 * [cilium bpf policy](../cilium_bpf_policy)	 - Manage policy related BPF maps
 * [cilium bpf proxy](../cilium_bpf_proxy)	 - Proxy configuration
+* [cilium bpf sha](../cilium_bpf_sha)	 - Manage compiled BPF template objects
 * [cilium bpf tunnel](../cilium_bpf_tunnel)	 - Tunnel endpoint map
 
