@@ -1296,7 +1296,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 	bootstrapStats.fqdn.End(true)
 
-	return &d, restoredEndpoints, nil
+	return nil, nil, fmt.Errorf("Testing failure")
 }
 
 // Close shuts down a daemon
