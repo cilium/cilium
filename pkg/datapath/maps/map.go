@@ -99,7 +99,7 @@ func (ms *mapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 		epID := uint16(tmp)
 		if ms.endpointExists(epID) {
 			prefix := strings.TrimSuffix(filename, endpointID)
-			if filename != bpf.LocalMapName(prefix, uint16(tmp)) {
+			if filename != bpf.LocalMapName(prefix, epID) {
 				ms.removeMapPath(path)
 			}
 		} else {
