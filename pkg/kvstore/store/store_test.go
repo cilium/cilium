@@ -241,6 +241,31 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	c.Assert(expect(func() bool { return localKey2.deleted() >= 1 }), IsNil)
 }
 
+func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
+	store, err := JoinSharedStore(Configuration{
+		Prefix:                  testutils.RandomRune(),
+		KeyCreator:              newTestType,
+		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfer
+		Observer:                &observer{},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(store, Not(IsNil))
+	defer store.Close()
+
+	localKey1 := initTestType("local1")
+
+	err = store.UpdateLocalKeySync(&localKey1)
+	c.Assert(err, IsNil)
+
+	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
+	// delete all keys
+	kvstore.DeletePrefix(store.conf.Prefix)
+	c.Assert(expect(func() bool {
+		v, err := kvstore.Get(store.keyPath(&localKey1))
+		return err == nil && string(v) != ""
+	}), IsNil)
+}
+
 func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 	store, err := JoinSharedStore(Configuration{
 		Prefix:                  storePrefix,
