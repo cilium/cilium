@@ -32,7 +32,6 @@ import (
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
-	"github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -42,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -63,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -526,29 +525,7 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	// Validate alignments of C and Go equivalent structs
-	toCheck := map[string]reflect.Type{
-		"ipv4_ct_tuple":        reflect.TypeOf(ctmap.CtKey4{}),
-		"ipv6_ct_tuple":        reflect.TypeOf(ctmap.CtKey6{}),
-		"ct_entry":             reflect.TypeOf(ctmap.CtEntry{}),
-		"ipcache_key":          reflect.TypeOf(ipcachemap.Key{}),
-		"remote_endpoint_info": reflect.TypeOf(ipcachemap.RemoteEndpointInfo{}),
-		"lb4_key":              reflect.TypeOf(lbmap.Service4Key{}),
-		"lb4_service":          reflect.TypeOf(lbmap.Service4Value{}),
-		"lb6_key":              reflect.TypeOf(lbmap.Service6Key{}),
-		"lb6_service":          reflect.TypeOf(lbmap.Service6Value{}),
-		"endpoint_key":         reflect.TypeOf(bpf.EndpointKey{}),
-		"endpoint_info":        reflect.TypeOf(lxcmap.EndpointInfo{}),
-		"metrics_key":          reflect.TypeOf(metricsmap.Key{}),
-		"metrics_value":        reflect.TypeOf(metricsmap.Value{}),
-		"proxy4_tbl_key":       reflect.TypeOf(proxymap.Proxy4Key{}),
-		"proxy4_tbl_value":     reflect.TypeOf(proxymap.Proxy4Value{}),
-		"proxy6_tbl_key":       reflect.TypeOf(proxymap.Proxy6Key{}),
-		"proxy6_tbl_value":     reflect.TypeOf(proxymap.Proxy6Value{}),
-		"sock_key":             reflect.TypeOf(sockmap.SockmapKey{}),
-		"ep_config":            reflect.TypeOf(configmap.EndpointConfig{}),
-	}
-	if err := alignchecker.CheckStructAlignments("bpf_alignchecker.o", toCheck); err != nil {
+	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
