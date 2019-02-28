@@ -13,3 +13,4 @@ sudo systemctl restart ssh
 
 "${PROVISIONSRC}"/dns.sh
 "${PROVISIONSRC}"/compile.sh
+"${PROVISIONSRC}"/wait-cilium.sh
