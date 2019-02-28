@@ -700,16 +700,16 @@ func (d *Daemon) init() error {
 	sockops.SockmapDisable()
 	sockops.SkmsgDisable()
 
-	if option.Config.SockopsEnable {
-		eppolicymap.CreateEPPolicyMap()
-		sockops.SockmapEnable()
-		sockops.SkmsgEnable()
-		sockmap.SockmapCreate()
-	}
-
 	if !option.Config.DryMode {
 		if err := d.createNodeConfigHeaderfile(); err != nil {
 			return err
+		}
+
+		if option.Config.SockopsEnable {
+			eppolicymap.CreateEPPolicyMap()
+			sockops.SockmapEnable()
+			sockops.SkmsgEnable()
+			sockmap.SockmapCreate()
 		}
 
 		if err := d.compileBase(); err != nil {
