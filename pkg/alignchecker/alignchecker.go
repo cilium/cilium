@@ -23,7 +23,7 @@ import (
 
 // CheckStructAlignments checks whether size and offsets match of the given
 // C and Go structs which are listed in the given toCheck map (C struct name =>
-// Go struct reflect.Type).
+// Go struct []reflect.Type).
 //
 // C struct size info is extracted from the given ELF object file debug section
 // encoded in DWARF.
@@ -32,7 +32,7 @@ import (
 // `align:"field_name_in_c_struct". In the case of unnamed union field, such
 // union fields can be referred with special tags - `align:"$union0"`,
 // `align:"$union1"`, etc.
-func CheckStructAlignments(pathToObj string, toCheck map[string]reflect.Type) error {
+func CheckStructAlignments(pathToObj string, toCheck map[string][]reflect.Type) error {
 	f, err := elf.Open(pathToObj)
 	if err != nil {
 		return fmt.Errorf("elf failed to open %s: %s", pathToObj, err)
@@ -44,12 +44,17 @@ func CheckStructAlignments(pathToObj string, toCheck map[string]reflect.Type) er
 		return fmt.Errorf("cannot parse DWARF debug info %s: %s", pathToObj, err)
 	}
 
-	structs, err := getStructInfosFromDWARF(d, toCheck)
+	structInfo, err := getStructInfosFromDWARF(d, toCheck)
 	if err != nil {
 		return fmt.Errorf("cannot extract struct info from DWARF %s: %s", pathToObj, err)
 	}
 
-	return check(toCheck, structs)
+	for cName, goStructs := range toCheck {
+		if err := check(cName, goStructs, structInfo); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // structInfo contains C struct info
@@ -58,7 +63,7 @@ type structInfo struct {
 	fieldOffsets map[string]int64
 }
 
-func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string]reflect.Type) (map[string]structInfo, error) {
+func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string][]reflect.Type) (map[string]structInfo, error) {
 	structs := make(map[string]structInfo)
 
 	r := d.Reader()
@@ -104,8 +109,8 @@ func getStructInfosFromDWARF(d *dwarf.Data, toCheck map[string]reflect.Type) (ma
 	return structs, nil
 }
 
-func check(toCheck map[string]reflect.Type, structs map[string]structInfo) error {
-	for name, g := range toCheck {
+func check(name string, toCheck []reflect.Type, structs map[string]structInfo) error {
+	for _, g := range toCheck {
 		c, found := structs[name]
 		if !found {
 			return fmt.Errorf("C struct %s not found", name)
