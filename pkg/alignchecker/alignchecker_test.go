@@ -41,6 +41,10 @@ type foo struct {
 	pad5 uint16    `align:"pad5"`
 }
 
+type foo2 struct {
+	foo
+}
+
 type fooInvalidSize struct {
 	ipv6 uint32
 }
@@ -53,32 +57,55 @@ type fooInvalidOffset struct {
 	pad5 uint8     `align:"pad5"`
 }
 
-type toCheck map[string]reflect.Type
+type toCheck map[string][]reflect.Type
 
 func (t *AlignCheckerSuite) TestCheckStructAlignments(c *C) {
 	testCases := []struct {
 		cName   string
-		goTypes reflect.Type
+		goTypes []reflect.Type
 		err     string
 	}{
 		{
 			"foo",
-			reflect.TypeOf(foo{}),
+			[]reflect.Type{
+				reflect.TypeOf(foo{}),
+			},
 			"",
 		},
 		{
 			"foo",
-			reflect.TypeOf(fooInvalidSize{}),
+			[]reflect.Type{
+				reflect.TypeOf(foo2{}),
+			},
+			"",
+		},
+		{
+			"foo",
+			[]reflect.Type{
+				reflect.TypeOf(foo{}),
+				reflect.TypeOf(foo2{}),
+			},
+			"",
+		},
+		{
+			"foo",
+			[]reflect.Type{
+				reflect.TypeOf(fooInvalidSize{}),
+			},
 			`*.fooInvalidSize\(4\) size does not match foo\(24\)`,
 		},
 		{
 			"foo",
-			reflect.TypeOf(fooInvalidOffset{}),
+			[]reflect.Type{
+				reflect.TypeOf(fooInvalidOffset{}),
+			},
 			`*.fooInvalidOffset.pad4 offset\(22\) does not match foo.pad4\(21\)`,
 		},
 		{
 			"bar",
-			reflect.TypeOf(foo{}),
+			[]reflect.Type{
+				reflect.TypeOf(foo{}),
+			},
 			"C struct bar not found",
 		},
 	}
