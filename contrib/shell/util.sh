@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copyright 2016 The Kubernetes Authors All rights reserved.
-# Copyright 2018 Authors of Cilium
+# Copyright 2018-2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -93,13 +93,11 @@ function relative() {
 function rebase-bindata
 {
     (
+        local dir
         set -x
         while ! git rebase --continue ; do
-            grep -A 5 "=====" daemon/bpf.sha >daemon/bpf.sha.new
-            sed -i '/^[<=>][<=>]*.*$/d' daemon/bpf.sha.new
-            sed -i '/^$/d' daemon/bpf.sha.new
-            mv -f daemon/bpf.sha.new daemon/bpf.sha
-            make -C daemon apply-bindata
+            dir=$(cd $(dirname ${BASH_SOURCE})/../.. && pwd)
+            $dir/contrib/scripts/fix-sha.sh
             git add daemon/bpf.sha
             if [ $(git diff --diff-filter=U | wc -l) -ne 0 ]; then
                 echo "Files that need manual merge:"
