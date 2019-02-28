@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -225,6 +225,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf proxy list",
 		"cilium bpf ipcache list",
 		"cilium bpf policy get --all --numeric",
+		"cilium bpf sha list",
 		"cilium map list --verbose",
 		"cilium status --verbose",
 		"cilium identity list",
