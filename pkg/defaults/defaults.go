@@ -158,4 +158,7 @@ const (
 
 	// KVstorePeriodicSync is the default kvstore periodic sync interval
 	KVstorePeriodicSync = 5 * time.Minute
+
+	// AlignCheckerName is the BPF object name for the alignchecker.
+	AlignCheckerName = "bpf_alignchecker.o"
 )
