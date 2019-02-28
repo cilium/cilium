@@ -56,17 +56,39 @@ type fooInvalidOffset struct {
 type toCheck map[string]reflect.Type
 
 func (t *AlignCheckerSuite) TestCheckStructAlignments(c *C) {
-	err := CheckStructAlignments(path, toCheck{"foo": reflect.TypeOf(foo{})})
-	c.Assert(err, IsNil)
+	testCases := []struct {
+		cName   string
+		goTypes reflect.Type
+		err     string
+	}{
+		{
+			"foo",
+			reflect.TypeOf(foo{}),
+			"",
+		},
+		{
+			"foo",
+			reflect.TypeOf(fooInvalidSize{}),
+			`*.fooInvalidSize\(4\) size does not match foo\(24\)`,
+		},
+		{
+			"foo",
+			reflect.TypeOf(fooInvalidOffset{}),
+			`*.fooInvalidOffset.pad4 offset\(22\) does not match foo.pad4\(21\)`,
+		},
+		{
+			"bar",
+			reflect.TypeOf(foo{}),
+			"C struct bar not found",
+		},
+	}
 
-	err = CheckStructAlignments(path, toCheck{"foo": reflect.TypeOf(fooInvalidSize{})})
-	c.Assert(err, ErrorMatches,
-		`*.fooInvalidSize\(4\) size does not match foo\(24\)`)
-
-	err = CheckStructAlignments(path, toCheck{"foo": reflect.TypeOf(fooInvalidOffset{})})
-	c.Assert(err, ErrorMatches,
-		`*.fooInvalidOffset.pad4 offset\(22\) does not match foo.pad4\(21\)`)
-
-	err = CheckStructAlignments(path, toCheck{"bar": reflect.TypeOf(foo{})})
-	c.Assert(err, ErrorMatches, "C struct bar not found")
+	for _, tt := range testCases {
+		err := CheckStructAlignments(path, toCheck{tt.cName: tt.goTypes})
+		if tt.err == "" {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(err, ErrorMatches, tt.err)
+		}
+	}
 }
