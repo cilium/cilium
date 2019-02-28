@@ -21,12 +21,15 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/maps/tunnel"
 )
 
 // CheckStructAlignments checks whether size and offsets of the C and Go
@@ -51,16 +54,22 @@ func CheckStructAlignments(path string) error {
 		"lb4_service":          []reflect.Type{reflect.TypeOf(lbmap.Service4Value{})},
 		"lb6_key":              []reflect.Type{reflect.TypeOf(lbmap.Service6Key{})},
 		"lb6_service":          []reflect.Type{reflect.TypeOf(lbmap.Service6Value{})},
-		"endpoint_key":         []reflect.Type{reflect.TypeOf(bpf.EndpointKey{})},
 		"endpoint_info":        []reflect.Type{reflect.TypeOf(lxcmap.EndpointInfo{})},
 		"metrics_key":          []reflect.Type{reflect.TypeOf(metricsmap.Key{})},
 		"metrics_value":        []reflect.Type{reflect.TypeOf(metricsmap.Value{})},
+		"policy_key":           []reflect.Type{reflect.TypeOf(policymap.PolicyKey{})},
+		"policy_entry":         []reflect.Type{reflect.TypeOf(policymap.PolicyEntry{})},
 		"proxy4_tbl_key":       []reflect.Type{reflect.TypeOf(proxymap.Proxy4Key{})},
 		"proxy4_tbl_value":     []reflect.Type{reflect.TypeOf(proxymap.Proxy4Value{})},
 		"proxy6_tbl_key":       []reflect.Type{reflect.TypeOf(proxymap.Proxy6Key{})},
 		"proxy6_tbl_value":     []reflect.Type{reflect.TypeOf(proxymap.Proxy6Value{})},
 		"sock_key":             []reflect.Type{reflect.TypeOf(sockmap.SockmapKey{})},
 		"ep_config":            []reflect.Type{reflect.TypeOf(configmap.EndpointConfig{})},
+		"endpoint_key": []reflect.Type{
+			reflect.TypeOf(bpf.EndpointKey{}),
+			reflect.TypeOf(eppolicymap.EndpointKey{}),
+			reflect.TypeOf(tunnel.TunnelEndpoint{}),
+		},
 	}
 	return check.CheckStructAlignments(path, toCheck)
 }
