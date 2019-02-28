@@ -340,6 +340,9 @@ restart:
 						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}
 					globalMap.Unlock()
+				} else if _, ok := globalMap.keys[path.Join(IPIdentitiesPath, AddressSpace, ip)]; ok {
+					log.WithField("ip", ip).Warning("Received kvstore delete notification with mismatching key but alive IP. Ignoring")
+					globalMap.Unlock()
 				} else {
 					globalMap.Unlock()
 
