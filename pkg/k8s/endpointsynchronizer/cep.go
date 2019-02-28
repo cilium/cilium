@@ -133,8 +133,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 	var (
 		lastMdl      *cilium_v2.EndpointStatus
-		firstRun     = true
-		k8sServerVer *go_version.Version // CEPs are not supported with certain versions
+		localCEP     *cilium_v2.CiliumEndpoint // the local copy of the CEP object. Reused.
+		needInit     = true                    // needInit indicates that we may need to create the CEP
+		k8sServerVer *go_version.Version       // CEPs are not supported with certain versions
 	)
 
 	// NOTE: The controller functions do NOT hold the endpoint locks
@@ -167,6 +168,8 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil // silently return when k8s is incompatible
 				}
 
+				// K8sPodName and K8sNamespace are not always available when an
+				// endpoint is first created, so we collect them here.
 				podName := e.GetK8sPodName()
 				if podName == "" {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s pod name")
@@ -179,55 +182,54 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
+				// Serialize the endpoint into a model. It is compared with the one
+				// from before, only updating on changes.
 				mdl := e.GetCiliumEndpointStatus()
 				if reflect.DeepEqual(mdl, lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
 
-				cep, err := ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
-				switch {
-				// The CEP doesn't exist. We will fall through to the create code below
-				case err != nil && k8serrors.IsNotFound(err):
-					break
-
-				// Delete the CEP on the first ever run. We will fall through to the create code below
-				case firstRun:
-					firstRun = false
-					scopedLog.Debug("Deleting CEP on first run")
+				if needInit {
+					scopedLog.Debug("Deleting CEP during an initialization")
 					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
-					if err != nil {
+					// It's only an error if it exists but something else happened
+					if err != nil && !k8serrors.IsNotFound(err) {
 						scopedLog.WithError(err).Warn("Error deleting CEP")
 						return err
 					}
 
-				// Delete an invalid CEP. We will fall through to the create code below
-				case err != nil && k8serrors.IsInvalid(err):
-					scopedLog.WithError(err).Warn("Invalid CEP during update")
-					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
+					// We can't create localCEP directly, it must come from the k8s server.
+					cep := &cilium_v2.CiliumEndpoint{
+						ObjectMeta: meta_v1.ObjectMeta{
+							Name: podName,
+						},
+						Status: *mdl,
+					}
+					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
 					if err != nil {
-						scopedLog.WithError(err).Warn("Error deleting invalid CEP during update")
+						scopedLog.WithError(err).Error("Cannot create CEP")
 						return err
 					}
 
-				// A real error
-				case err != nil && !k8serrors.IsNotFound(err):
-					scopedLog.WithError(err).Error("Cannot get CEP for update")
-					return err
+					needInit = false
+				}
 
-				// do an update
-				case err == nil:
+				// We have an object to reuse. Update it and push it up.
+				if localCEP != nil {
+					scopedLog.Debug("Updating CEP from local copy")
 					// Update the copy of the cep
-					mdl.DeepCopyInto(&cep.Status)
+					mdl.DeepCopyInto(&localCEP.Status)
 					var err2 error
 					switch {
 					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-						_, err2 = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(cep)
+						localCEP, err2 = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
 					default:
-						_, err2 = ciliumClient.CiliumEndpoints(namespace).Update(cep)
+						localCEP, err2 = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)
 					}
 					if err2 != nil {
 						scopedLog.WithError(err2).Error("Cannot update CEP")
+						localCEP = nil
 						return err2
 					}
 
@@ -235,17 +237,28 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
-				// The CEP was not found, this is the first creation of the endpoint
-				cep = &cilium_v2.CiliumEndpoint{
-					ObjectMeta: meta_v1.ObjectMeta{
-						Name: podName,
-					},
-					Status: *mdl,
-				}
+				// We cannot use the localCEP copy. We need to refetch and update. We
+				// fetch the remote copy and return. The next iteration will update.
+				// Note: this is unexpected as there should be only 1 writer per CEP
+				localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
+				switch {
+				// The CEP doesn't exist. This means it was garbage collected (this is
+				// unexpected unless this agent was down long enough for GC).
+				// Mark the CEP for creation and return. The controller will run again.
+				case err != nil && k8serrors.IsNotFound(err):
+					needInit = true
+					return err
 
-				_, err = ciliumClient.CiliumEndpoints(namespace).Create(cep)
-				if err != nil {
-					scopedLog.WithError(err).Error("Cannot create CEP")
+				// Delete an invalid CEP and recreate it. Mark the CEP for creation and
+				// return. The controller will run again.
+				case err != nil && k8serrors.IsInvalid(err):
+					scopedLog.WithError(err).Warn("Invalid CEP during update")
+					needInit = true
+					return nil
+
+				// A real error
+				case err != nil && !k8serrors.IsNotFound(err):
+					scopedLog.WithError(err).Error("Cannot get CEP during update")
 					return err
 				}
 
