@@ -557,12 +557,25 @@ func (d *Daemon) compileBase() error {
 
 	if option.Config.EnableIPv4 {
 		// Always remove masquerade rule and then re-add it if required
-		iptables.RemoveRules()
+		iptables.Remove4Rules()
 		if option.Config.InstallIptRules {
-			if err := iptables.InstallRules(option.Config.HostDevice); err != nil {
+			if err := iptables.Install4Rules(option.Config.HostDevice); err != nil {
 				return err
 			}
 		}
+	}
+	if option.Config.EnableIPv6 {
+		// Always remove masquerade rule and then re-add it if required
+		iptables.Remove6Rules()
+		if option.Config.InstallIptRules {
+			if err := iptables.Install6Rules(option.Config.HostDevice); err != nil {
+				return err
+			}
+		}
+	}
+	// Reinstall proxy rules for any running proxies
+	if d.l7Proxy != nil {
+		d.l7Proxy.ReinstallRules()
 	}
 
 	log.Info("Setting sysctl net.core.bpf_jit_enable=1")
@@ -1268,7 +1281,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-		option.Config.AccessLog, &d, option.Config.AgentLabels)
+		option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath)
 	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.fqdn.Start()

@@ -73,13 +73,18 @@ func getFeedRule(name, args string) []string {
 	return append(argsList, ruleTail...)
 }
 
-func (c *customChain) add() error {
+func (c *customChain) add4() error {
 	var err error
 	if node.GetIPv4AllocRange() != nil {
 		err = runProg("iptables", []string{"-t", c.table, "-N", c.name}, false)
 		useIp4tables = (err == nil)
 	}
-	if err == nil && c.ipv6 == true && node.GetIPv6AllocRange() != nil {
+	return err
+}
+
+func (c *customChain) add6() error {
+	var err error
+	if c.ipv6 == true && node.GetIPv6AllocRange() != nil {
 		err = runProg("ip6tables", []string{"-t", c.table, "-N", c.name}, false)
 		useIp6tables = (err == nil)
 	}
@@ -138,7 +143,7 @@ func removeCiliumRules(table, prog string) {
 	}
 }
 
-func (c *customChain) remove() {
+func (c *customChain) remove4() {
 	runProg("iptables", []string{
 		"-t", c.table,
 		"-F", c.name}, true)
@@ -146,6 +151,9 @@ func (c *customChain) remove() {
 	runProg("iptables", []string{
 		"-t", c.table,
 		"-X", c.name}, true)
+}
+
+func (c *customChain) remove6() {
 	if c.ipv6 == true {
 		runProg("ip6tables", []string{
 			"-t", c.table,
@@ -157,23 +165,35 @@ func (c *customChain) remove() {
 	}
 }
 
-func (c *customChain) installFeeder() error {
-	installMode := "-A"
-	if option.Config.PrependIptablesChains {
-		installMode = "-I"
+func (c *customChain) install4Feeder() error {
+	if useIp4tables {
+		installMode := "-A"
+		if option.Config.PrependIptablesChains {
+			installMode = "-I"
+		}
+
+		for _, feedArgs := range c.feederArgs {
+			err := runProg("iptables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
+			if err != nil {
+				return err
+			}
+		}
 	}
+	return nil
+}
 
-	for _, feedArgs := range c.feederArgs {
-		var err error
-		if useIp4tables {
-			err = runProg("iptables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
-		}
-		if err == nil && useIp6tables && c.ipv6 == true {
-			err = runProg("ip6tables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
+func (c *customChain) install6Feeder() error {
+	if useIp6tables && c.ipv6 == true {
+		installMode := "-A"
+		if option.Config.PrependIptablesChains {
+			installMode = "-I"
 		}
 
-		if err != nil {
-			return err
+		for _, feedArgs := range c.feederArgs {
+			err := runProg("ip6tables", append([]string{"-t", c.table, installMode, c.hook}, getFeedRule(c.name, feedArgs)...), true)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -233,13 +253,23 @@ var ciliumChains = []customChain{
 	},
 }
 
-// RemoveRules removes iptables rules installed by Cilium.
-func RemoveRules() {
+// Remove4Rules removes iptables rules installed by Cilium.
+func Remove4Rules() {
 	// Set of tables that has had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
 		removeCiliumRules(t, "iptables")
 	}
+
+	for _, c := range ciliumChains {
+		c.remove4()
+	}
+
+	removeCiliumXfrmRules()
+}
+
+// Remove6Rules removes iptables rules installed by Cilium.
+func Remove6Rules() {
 	// Set of tables that has had ip6tables rules in any Cilium version
 	tables6 := []string{"mangle", "raw"}
 	for _, t := range tables6 {
@@ -247,81 +277,84 @@ func RemoveRules() {
 	}
 
 	for _, c := range ciliumChains {
-		c.remove()
+		c.remove6()
 	}
 
 	removeCiliumXfrmRules()
 }
 
-func installIngressProxyRule(l4proto string, proxyPort uint16) error {
+func ingressProxyRule(cmd, destMatch, l4Match, dscpMatch, mark, port, name string) []string {
+	ret := []string{
+		"-t", "mangle",
+		cmd, ciliumPreMangleChain,
+		"-i", defaults.HostDevice,
+		"-d", destMatch,
+		"-p", l4Match,
+		"-m", "dscp", "--dscp", dscpMatch,
+		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy on " + defaults.HostDevice,
+		"-j", "TPROXY",
+		"--tproxy-mark", mark,
+		"--on-port", port}
+	log.Debugf("IPT rule: %v", ret)
+	return ret
+}
+
+func iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
 	// Match
-	dscp := proxyPort & 0x3F
-	ingressDSCPMatch := fmt.Sprintf("%d", dscp)
+	dscp := proxyPort & proxy.DSCPMask
+	ingressDSCPMatch := fmt.Sprintf("%#02x", dscp)
 	// TPROXY params
 	ingressProxyMark := fmt.Sprintf("%#08x", proxy.MagicMarkIsToProxy)
 	ingressProxyPort := fmt.Sprintf("%d", proxyPort)
 
 	var err error
 	if useIp4tables {
-		err = runProg("iptables", []string{
-			"-t", "mangle",
-			"-A", ciliumPreMangleChain,
-			"-i", defaults.HostDevice,
-			"-d", node.GetIPv4AllocRange().String(),
-			"-p", l4proto,
-			"-m", "dscp", "--dscp", ingressDSCPMatch,
-			"-m", "comment", "--comment", "cilium: TPROXY to host ingress proxy on " + defaults.HostDevice,
-			"-j", "TPROXY",
-			"--tproxy-mark", ingressProxyMark,
-			"--on-port", ingressProxyPort}, false)
+		err = runProg("iptables",
+			ingressProxyRule(cmd, node.GetIPv4AllocRange().String(), l4proto, ingressDSCPMatch,
+				ingressProxyMark, ingressProxyPort, name),
+			false)
 	}
 	if err == nil && useIp6tables {
-		err = runProg("ip6tables", []string{
-			"-t", "mangle",
-			"-A", ciliumPreMangleChain,
-			"-i", defaults.HostDevice,
-			"-d", node.GetIPv6AllocRange().String(),
-			"-p", l4proto,
-			"-m", "dscp", "--dscp", ingressDSCPMatch,
-			"-m", "comment", "--comment", "cilium: TPROXY to host ingress proxy on " + defaults.HostDevice,
-			"-j", "TPROXY",
-			"--tproxy-mark", ingressProxyMark,
-			"--on-port", ingressProxyPort}, false)
+		err = runProg("ip6tables",
+			ingressProxyRule(cmd, node.GetIPv6AllocRange().String(), l4proto, ingressDSCPMatch,
+				ingressProxyMark, ingressProxyPort, name),
+			false)
 	}
 	return err
 }
 
-func installEgressProxyRule(l4proto string, proxyPort uint16) error {
+func egressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string {
+	return []string{
+		"-t", "mangle",
+		cmd, ciliumPreMangleChain,
+		"-i", "lxc+",
+		"-p", l4Match,
+		"-m", "mark", "--mark", markMatch,
+		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy on lxc+",
+		"-j", "TPROXY",
+		"--tproxy-mark", mark,
+		"--on-port", port}
+}
+
+func iptEgressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
 	// Match
-	dscp := int(proxyPort & 0x3F)
+	dscp := int(proxyPort & proxy.DSCPMask)
 	egressMarkMatch := fmt.Sprintf("%#08x", proxy.MagicMarkIsToProxy|dscp)
 	// TPROXY params
 	egressProxyMark := fmt.Sprintf("%#08x", proxy.MagicMarkIsToProxy)
 	egressProxyPort := fmt.Sprintf("%d", proxyPort)
 	var err error
 	if useIp4tables {
-		err = runProg("iptables", []string{
-			"-t", "mangle",
-			"-A", ciliumPreMangleChain,
-			"-i", "lxc+",
-			"-p", l4proto,
-			"-m", "mark", "--mark", egressMarkMatch,
-			"-m", "comment", "--comment", "cilium: TPROXY to host egress proxy on lxc+",
-			"-j", "TPROXY",
-			"--tproxy-mark", egressProxyMark,
-			"--on-port", egressProxyPort}, false)
+		err = runProg("iptables",
+			egressProxyRule(cmd, l4proto, egressMarkMatch,
+				egressProxyMark, egressProxyPort, name),
+			false)
 	}
 	if err == nil && useIp6tables {
-		err = runProg("ip6tables", []string{
-			"-t", "mangle",
-			"-A", ciliumPreMangleChain,
-			"-i", "lxc+",
-			"-p", l4proto,
-			"-m", "mark", "--mark", egressMarkMatch,
-			"-m", "comment", "--comment", "cilium: TPROXY to host egress proxy on lxc+",
-			"-j", "TPROXY",
-			"--tproxy-mark", egressProxyMark,
-			"--on-port", egressProxyPort}, false)
+		err = runProg("ip6tables",
+			egressProxyRule(cmd, l4proto, egressMarkMatch,
+				egressProxyMark, egressProxyPort, name),
+			false)
 	}
 	return err
 }
@@ -335,11 +368,12 @@ func iptRange(cidr *cidr.CIDR) string {
 	return start.String() + "-" + end.String()
 }
 
-func installProxyNotrackRules() error {
-	// match return traffic from an ingress proxy (identity is all zeroes).
-	matchIngressProxyReply := fmt.Sprintf("%#08x", proxy.MagicMarkIngress)
+func install4ProxyNotrackRules() error {
 	var err error
 	if useIp4tables {
+		// match return traffic from an ingress proxy (identity is all zeroes).
+		matchIngressProxyReply := fmt.Sprintf("%#08x", proxy.MagicMarkIngress)
+
 		// No conntrack for traffic to ingress proxy
 		err = runProg("iptables", []string{
 			"-t", "raw",
@@ -363,7 +397,15 @@ func installProxyNotrackRules() error {
 				"-j", "NOTRACK"}, false)
 		}
 	}
-	if err == nil && useIp6tables {
+	return err
+}
+
+func install6ProxyNotrackRules() error {
+	var err error
+	if useIp6tables {
+		// match return traffic from an ingress proxy (identity is all zeroes).
+		matchIngressProxyReply := fmt.Sprintf("%#08x", proxy.MagicMarkIngress)
+
 		// No conntrack for traffic to ingress proxy
 		err = runProg("ip6tables", []string{
 			"-t", "raw",
@@ -390,44 +432,47 @@ func installProxyNotrackRules() error {
 	return err
 }
 
-func installProxyRules() error {
-	if err := installProxyNotrackRules(); err != nil {
-		return err
-	}
-
-	for _, v := range proxy.ProxyPorts {
-		// Redirect packets to the host proxy via TPROXY, as directed by the Cilium
-		// datapath bpf programs via skb marks (egress) or DSCP (ingress).
-		if v.Ingress {
-			if err := installIngressProxyRule("tcp", v.ProxyPort); err != nil {
-				return err
-			}
-			if err := installIngressProxyRule("udp", v.ProxyPort); err != nil {
-				return err
-			}
-		} else {
-			if err := installEgressProxyRule("tcp", v.ProxyPort); err != nil {
-				return err
-			}
-			if err := installEgressProxyRule("udp", v.ProxyPort); err != nil {
-				return err
-			}
+// install or remove rules for a single proxy port
+func iptProxyRules(cmd string, proxyPort uint16, ingress bool, name string) error {
+	// Redirect packets to the host proxy via TPROXY, as directed by the Cilium
+	// datapath bpf programs via skb marks (egress) or DSCP (ingress).
+	if ingress {
+		if err := iptIngressProxyRule(cmd, "tcp", proxyPort, name); err != nil {
+			return err
+		}
+		if err := iptIngressProxyRule(cmd, "udp", proxyPort, name); err != nil {
+			return err
+		}
+	} else {
+		if err := iptEgressProxyRule(cmd, "tcp", proxyPort, name); err != nil {
+			return err
+		}
+		if err := iptEgressProxyRule(cmd, "udp", proxyPort, name); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
+func InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+	return iptProxyRules("-I", proxyPort, ingress, name)
+}
+
+func RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
+	return iptProxyRules("-D", proxyPort, ingress, name)
+}
+
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func InstallRules(ifName string) error {
+func Install4Rules(ifName string) error {
 	for _, c := range ciliumChains {
-		if err := c.add(); err != nil {
+		if err := c.add4(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
 		}
 	}
 
-	if err := installProxyRules(); err != nil {
-		return fmt.Errorf("cannot add proxy rules: %s", err)
+	if err := install4ProxyNotrackRules(); err != nil {
+		return fmt.Errorf("cannot add proxy NOTRACK rules: %s", err)
 	}
 
 	if useIp4tables {
@@ -650,7 +695,7 @@ func InstallRules(ifName string) error {
 		}
 	}
 	for _, c := range ciliumChains {
-		if err := c.installFeeder(); err != nil {
+		if err := c.install4Feeder(); err != nil {
 			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
 		}
 	}
@@ -659,6 +704,27 @@ func InstallRules(ifName string) error {
 		return fmt.Errorf("cannot install xfrm rules: %s", err)
 	}
 
+	return nil
+}
+
+// Install6Rules installs iptables rules for Cilium in specific use-cases
+// (most specifically, interaction with kube-proxy).
+func Install6Rules(ifName string) error {
+	for _, c := range ciliumChains {
+		if err := c.add6(); err != nil {
+			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
+		}
+	}
+
+	if err := install6ProxyNotrackRules(); err != nil {
+		return fmt.Errorf("cannot add proxy NOTRACK rules: %s", err)
+	}
+
+	for _, c := range ciliumChains {
+		if err := c.install6Feeder(); err != nil {
+			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
+		}
+	}
 	return nil
 }
 

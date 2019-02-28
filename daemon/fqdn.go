@@ -208,7 +208,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	port, _, err := proxy.FindProxyPort(policy.ParserTypeDNS, false)
+	port, listenerName, err := proxy.GetProxyPort(policy.ParserTypeDNS, false)
 	if err != nil {
 		return err
 	}
@@ -408,6 +408,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			return nil
 		})
 	if err == nil {
+		// Increase the ProxyPort reference count so that it will never get released.
+		d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
+
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 	}
 	return err // filled by StartDNSProxy

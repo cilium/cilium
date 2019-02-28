@@ -56,7 +56,7 @@ type kafkaListener struct {
 }
 
 var (
-	mutex lock.RWMutex // mutex protects accesses to the configuration resources.
+	mutex          lock.RWMutex                      // mutex protects accesses to the configuration resources.
 	kafkaListeners = make(map[uint16]*kafkaListener) // key: proxy port
 	kafkaRedirects = make(map[uint64]*kafkaRedirect) // key: dst port | dir << 16 | endpoint ID << 32
 )
