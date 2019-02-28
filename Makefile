@@ -360,5 +360,8 @@ postcheck: build
 	$(QUIET) contrib/scripts/lock-check.sh
 	@$(SKIP_DOCS) || $(MAKE) check-docs
 
+minikube:
+	$(QUIET) contrib/scripts/minikube.sh
+
 .PHONY: force generate-api generate-health-api
 force :;
