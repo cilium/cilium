@@ -63,7 +63,7 @@ function copy_binaries_cilium_docker() {
   echo "target_dir: $TARGET_DIR"
   mkdir -p $TARGET_DIR
   SHA=$(docker create docker.io/cilium/docker-plugin:$REV)
-  docker cp $SHA:/usr/bin/cilium-docker/cilium-docker $TARGET_DIR/cilium-docker-$ARCH
+  docker cp $SHA:/usr/bin/cilium-docker $TARGET_DIR/cilium-docker-$ARCH
   docker rm -f $SHA
 }
 
