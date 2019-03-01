@@ -1,7 +1,6 @@
 ---
 kind: ConfigMap
 metadata:
-  creationTimestamp: null
   name: prometheus
   namespace: cilium-monitoring
 apiVersion: v1
@@ -128,78 +127,87 @@ data:
             regex: (.+)
             target_label: __metrics_path__
             replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: prometheus
-  namespace: cilium-monitoring
   labels:
     app: prometheus
+  name: prometheus
+  namespace: cilium-monitoring
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
-      name: prometheus-main
       labels:
         app: prometheus
+      name: prometheus-main
     spec:
-      serviceAccountName: prometheus-k8s
-      terminationGracePeriodSeconds: 0
       containers:
-      - name: prometheus
+      - args:
+        - --config.file=/etc/prometheus/prometheus.yaml
+        - --storage.tsdb.path=/prometheus/
+        - --log.level=debug
         image: docker.io/prom/prometheus:v2.6.1
-        args:
-          - "--config.file=/etc/prometheus/prometheus.yaml"
-          - "--storage.tsdb.path=/prometheus/"
-          - "--log.level=debug"
+        imagePullPolicy: IfNotPresent
+        name: prometheus
         ports:
-        - name: webui
-          containerPort: 9090
+        - containerPort: 9090
+          name: webui
+          protocol: TCP
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/prometheus
-        - name: storage
-          mountPath: /prometheus/
+        - mountPath: /etc/prometheus
+          name: config-volume
+          readOnly: true
+        - mountPath: /prometheus/
+          name: storage
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      serviceAccount: prometheus-k8s
       volumes:
-      - name: config-volume
-        configMap:
-          defaultMode: 0777
+      - configMap:
           name: prometheus
-      - name: storage
-        emptyDir: {}
+        name: config-volume
+      - emptyDir: {}
+        name: storage
 ---
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    app: prometheus
   name: prometheus
   namespace: cilium-monitoring
-  labels:
-    app: prometheus
 spec:
   ports:
-    - port: 9090
-      protocol: TCP
-      name: webui
+  - name: webui
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
   selector:
     app: prometheus
+  type: ClusterIP
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-open
-  namespace: cilium-monitoring
   labels:
     app: prometheus
+  name: prometheus-open
+  namespace: cilium-monitoring
 spec:
-  type: NodePort
   ports:
-  - port: 9090
+  - name: open
     nodePort: 31001
-    name: open
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
   selector:
     app: prometheus
+  type: NodePort
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -219,20 +227,28 @@ kind: ClusterRole
 metadata:
   name: prometheus
 rules:
-- apiGroups: [""]
+- apiGroups:
+  - ""
   resources:
   - nodes
   - nodes/proxy
   - services
   - endpoints
   - pods
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
   resources:
   - configmaps
-  verbs: ["get"]
-- nonResourceURLs: ["/metrics"]
-  verbs: ["get"]
+  verbs:
+  - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 ---
 apiVersion: v1
 kind: ServiceAccount
