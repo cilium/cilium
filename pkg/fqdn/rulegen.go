@@ -377,7 +377,6 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 		for _, missing := range namesMissingIPs {
 			namesMissingMap[missing] = struct{}{}
 		}
-
 		generatedRules = append(generatedRules, newRule)
 	}
 
