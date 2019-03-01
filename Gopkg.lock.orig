@@ -1588,7 +1588,11 @@
   revision = "kubernetes-1.13.4"
 
 [[projects]]
+<<<<<<< HEAD
   digest = "1:2e0db0993d1819519f385317e824e7b1211dc6aef62ff80acaaf1a0fa529dc6b"
+=======
+  digest = "1:9352499b5a673c75ce2564db8d01111166a1981677a5b364b950f1060b930e20"
+>>>>>>> vendor: update to k8s 1.13.4
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1689,7 +1693,11 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "60fd330ab8a9fa8a11df5fa716c7f72534bbc4fc"
+<<<<<<< HEAD
+  revision = "d6e8092c18ae2c82e6bbad0b04b89fa76b5e69d5"
+=======
+  revision = "e9ad73fd4b571c8cfd5d9df8bdfe7b030e68bc92"
+>>>>>>> vendor: update to k8s 1.13.4
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
