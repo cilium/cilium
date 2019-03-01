@@ -52,9 +52,7 @@ func (ev *EndpointRevisionBumpEvent) Handle() interface{} {
 	// regeneration failed, so there is no way that we can
 	// realize the policy revision yet. Should this be signaled
 	// to the routine waiting for the result of this event?
-	ev.ep.getLogger().Debug("received endpoint revision bump event")
 	ev.ep.SetPolicyRevision(ev.Rev)
-	ev.ep.getLogger().Debug("sending endpoint revision bump result")
 	return struct{}{}
 }
 
