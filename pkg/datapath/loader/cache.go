@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 )
 
@@ -99,6 +101,9 @@ type objectCache struct {
 	workingDirectory string
 	baseHash         *datapathHash
 
+	// newTemplates is notified whenever template is added to the objectCache.
+	newTemplates chan string
+
 	// toPath maps a hash to the filesystem path of the corresponding object.
 	toPath map[string]string
 
@@ -111,17 +116,24 @@ func newObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfigurati
 	oc := &objectCache{
 		Datapath:         dp,
 		workingDirectory: workingDir,
+		newTemplates:     make(chan string),
 		toPath:           make(map[string]string),
 		compileQueue:     make(map[string]*serializer.FunctionQueue),
 	}
 	oc.Update(nodeCfg)
+	controller.NewManager().UpdateController("template-dir-watcher",
+		controller.ControllerParams{
+			DoFunc: oc.watchTemplatesDirectory,
+			// No run interval but needs to re-run on errors.
+		})
+
 	return oc
 }
 
 // NewObjectCache creates a new cache for datapath objects, basing the hash
 // upon the configuration of the datapath and the specified node configuration.
 func NewObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) *objectCache {
-	return newObjectCache(dp, nodeCfg, ".")
+	return newObjectCache(dp, nodeCfg, option.Config.StateDir)
 }
 
 // Update may be called to update the base hash for configuration of datapath
@@ -156,10 +168,27 @@ func (o *objectCache) lookup(hash string) (string, bool) {
 	return path, exists
 }
 
-func (o *objectCache) insert(hash, objectPath string) {
+func (o *objectCache) insert(hash, objectPath string) error {
 	o.Lock()
 	defer o.Unlock()
 	o.toPath[hash] = objectPath
+	select {
+	case o.newTemplates <- objectPath:
+	default:
+		// This probably means that the controller was stopped and
+		// Cilium is shutting down; don't bother complaining too loudly.
+		log.WithField(logfields.Path, objectPath).
+			Debug("Failed to watch for template filesystem changes")
+		break
+	}
+	return nil
+}
+
+func (o *objectCache) delete(hash string) {
+	o.Lock()
+	defer o.Unlock()
+	delete(o.toPath, hash)
+	delete(o.compileQueue, hash)
 }
 
 // build attempts to compile and cache a datapath template object file
@@ -250,6 +279,46 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 	}
 
 	return path, !compiled, nil
+}
+
+func (o *objectCache) watchTemplatesDirectory(ctx context.Context) error {
+	templateWatcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer templateWatcher.Close()
+
+	for {
+		select {
+		// Watch for new templates being compiled and add to the filesystem watcher
+		case templatePath := <-o.newTemplates:
+			if err = templateWatcher.Add(templatePath); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.Path: templatePath,
+				}).WithError(err).Warning("Failed to watch templates directory")
+			} else {
+				log.WithFields(logrus.Fields{
+					logfields.Path: templatePath,
+				}).Debug("Watching template path")
+			}
+		// Handle filesystem deletes for current templates
+		case event, open := <-templateWatcher.Events:
+			if !open {
+				break
+			}
+			if event.Op&fsnotify.Remove != 0 {
+				log.WithField(logfields.Path, event.Name).Debug("Detected template removal")
+				templateHash := filepath.Base(filepath.Dir(event.Name))
+				o.delete(templateHash)
+			} else {
+				log.WithField("event", event).Debug("Ignoring template FS event")
+			}
+		case err, _ = <-templateWatcher.Errors:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 // EndpointHash hashes the specified endpoint configuration with the current
