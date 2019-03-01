@@ -17,7 +17,6 @@
 package main
 
 import (
-	"context"
 	"os"
 	"sort"
 	"time"
@@ -504,9 +503,6 @@ func (ds *DaemonSuite) TestPolicyAddQueue(c *C) {
 
 	newRules := originalRules.DeepCopy()
 	newRules[0].EndpointSelector = api.NewESFromLabels(lblFoo)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go ds.d.PolicyQueueWorker(ctx)
 	// 1) insert the normal rule.
 	// 2) create the update rule.
 	// 3) Taking care that the rule is fetched and updated correctly.
