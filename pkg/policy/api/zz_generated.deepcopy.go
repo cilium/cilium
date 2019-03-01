@@ -179,6 +179,13 @@ func (in *EgressRule) DeepCopyInto(out *EgressRule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.aggregatedSelectors != nil {
+		in, out := &in.aggregatedSelectors, &out.aggregatedSelectors
+		*out = make(EndpointSelectorSlice, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
@@ -342,6 +349,13 @@ func (in *IngressRule) DeepCopyInto(out *IngressRule) {
 		in, out := &in.FromEntities, &out.FromEntities
 		*out = make(EntitySlice, len(*in))
 		copy(*out, *in)
+	}
+	if in.aggregatedSelectors != nil {
+		in, out := &in.aggregatedSelectors, &out.aggregatedSelectors
+		*out = make(EndpointSelectorSlice, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }
