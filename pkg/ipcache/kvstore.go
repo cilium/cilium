@@ -382,10 +382,12 @@ var (
 func InitIPIdentityWatcher() {
 	setupIPIdentityWatcher.Do(func() {
 		globalMap = newKVReferenceCounter(kvstoreImplementation{})
-		log.Info("Starting IP identity watcher")
-		watcher = NewIPIdentityWatcher(kvstore.Client())
-		close(initialized)
-		go watcher.Watch()
+		go func() {
+			log.Info("Starting IP identity watcher")
+			watcher = NewIPIdentityWatcher(kvstore.Client())
+			close(initialized)
+			watcher.Watch()
+		}()
 	})
 }
 
