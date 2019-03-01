@@ -66,7 +66,7 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	select {
 	case _, ok := <-epBumpEvent.EventResults:
 		if ok {
-			e.getLogger().Infof("bumped endpoint revision to %d", rev)
+			e.getLogger().Debugf("bumped endpoint revision to %d", rev)
 		}
 	case <-epBumpEvent.Cancelled:
 	}
