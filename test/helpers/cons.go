@@ -31,7 +31,7 @@ var (
 	HelperTimeout = 5 * time.Minute
 
 	// CiliumStartTimeout is a predefined timeout value for Cilium startup.
-	CiliumStartTimeout = 100 * time.Second
+	CiliumStartTimeout = 180 * time.Second
 
 	// CiliumBasePath is the absolute path to the cilium source repository
 	// in the guest VMs
