@@ -101,8 +101,18 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		// On each restart, the health endpoint is supposed to be recreated.
 		// Hence we need to clean health endpoint state unconditionally.
 		if ep.HasLabels(labels.LabelHealth) {
-			// Completely ignore health endpoint and don't report
-			// it as not restored.
+			// Ignore health endpoint and don't report
+			// it as not restored. But we need to clean up the old
+			// state files, so do this now.
+			healthStateDir := ep.StateDirectoryPath()
+			scopedLog.WithFields(logrus.Fields{
+				logfields.Path: healthStateDir,
+			}).Debug("Removing old health endpoint state directory")
+			if err := os.RemoveAll(healthStateDir); err != nil {
+				scopedLog.WithFields(logrus.Fields{
+					logfields.Path: healthStateDir,
+				}).Warning("Cannot clean up old health state directory")
+			}
 			continue
 		} else {
 			if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
