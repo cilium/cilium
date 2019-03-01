@@ -269,6 +269,7 @@ func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, res
 				ruleCopy.FromEndpoints[idx].MatchExpressions = append(ruleCopy.FromEndpoints[idx].MatchExpressions, requirements...)
 				ruleCopy.FromEndpoints[idx].SyncRequirementsWithLabelSelector()
 			}
+			ruleCopy.SetAggregatedSelectors()
 		}
 
 		cnt, err := mergeL4Ingress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Ingress)
@@ -571,6 +572,7 @@ func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, resu
 				ruleCopy.ToEndpoints[idx].MatchExpressions = append(ruleCopy.ToEndpoints[idx].MatchExpressions, requirements...)
 				ruleCopy.ToEndpoints[idx].SyncRequirementsWithLabelSelector()
 			}
+			ruleCopy.SetAggregatedSelectors()
 		}
 		cnt, err := mergeL4Egress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)
 		if err != nil {
