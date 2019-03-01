@@ -14,6 +14,7 @@ $NETNEXT_SERVER_VERSION= "15"
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 $CNI_INTEGRATION=(ENV['CNI_INTEGRATION'] || "")
+$CHECK_GUEST_ADDITIONS = true
 
 # RAM and CPU settings
 $MEMORY = (ENV['MEMORY'] || "4096").to_i
@@ -22,11 +23,16 @@ $CPU = (ENV['CPUS'] || "2").to_i
 if ENV['NETNEXT'] == "true"
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
+    $CHECK_GUEST_ADDITIONS = false
     puts "Vagrant to use net-next version"
 end
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
+
+    if Vagrant.has_plugin?("vagrant-vbguest") then
+        config.vbguest.auto_update = $CHECK_GUEST_ADDITIONS
+    end
 
     config.vm.define "runtime" do |server|
         server.vm.provider "virtualbox" do |vb|
@@ -34,6 +40,7 @@ Vagrant.configure("2") do |config|
             vb.cpus = $CPU
             vb.memory= $MEMORY
             vb.linked_clone = true
+            vb.check_guest_additions = $CHECK_GUEST_ADDITIONS
 
             # Prevent VirtualBox from interfering with host audio stack
             vb.customize ["modifyvm", :id, "--audio", "none"]
@@ -66,6 +73,7 @@ Vagrant.configure("2") do |config|
                 vb.cpus = $CPU
                 vb.memory= $MEMORY
                 vb.linked_clone = true
+                vb.check_guest_additions = $CHECK_GUEST_ADDITIONS
 
                 # Prevent VirtualBox from interfering with host audio stack
                 vb.customize ["modifyvm", :id, "--audio", "none"]
