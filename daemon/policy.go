@@ -230,7 +230,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
-		return d.policy.GetRevision(), err
+		d.policy.Mutex.Lock()
+		rev := d.policy.GetRevision()
+		d.policy.Mutex.Unlock()
+		return rev, err
 	}
 
 	d.policy.Mutex.Lock()
