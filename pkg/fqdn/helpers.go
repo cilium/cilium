@@ -110,6 +110,7 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 			// empty to clean old entries in case of TTL expires.
 			egressRule.ToCIDRSet = api.IPsToCIDRRules(ip.KeepUniqueIPs(allIPs))
 		}
+		egressRule.SetAggregatedSelectors()
 
 	}
 

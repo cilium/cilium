@@ -285,6 +285,9 @@ func Test_ParseToCiliumRule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
+
+			// Sanitize to set aggregatedSelectors field.
+			tt.want.Sanitize()
 			args := []interface{}{got, tt.want}
 			names := []string{"obtained", "expected"}
 			if equal, err := checker.DeepEquals.Check(args, names); !equal {

@@ -124,6 +124,8 @@ func parseToCiliumIngressRule(namespace string, inRule, retRule *api.Rule) {
 				retRule.Ingress[i].FromEntities = make([]api.Entity, len(ing.FromEntities))
 				copy(retRule.Ingress[i].FromEntities, ing.FromEntities)
 			}
+
+			retRule.Ingress[i].SetAggregatedSelectors()
 		}
 	}
 }
@@ -182,6 +184,8 @@ func parseToCiliumEgressRule(namespace string, inRule, retRule *api.Rule) {
 				retRule.Egress[i].ToGroups = make([]api.ToGroups, len(egr.ToGroups))
 				copy(retRule.Egress[i].ToGroups, egr.ToGroups)
 			}
+
+			retRule.Egress[i].SetAggregatedSelectors()
 		}
 	}
 }

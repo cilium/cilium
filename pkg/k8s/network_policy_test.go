@@ -250,29 +250,33 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
-	expectedRules := api.Rules{
-		&api.Rule{
-			EndpointSelector: epSelector,
-			Ingress: []api.IngressRule{
-				{
-					FromCIDRSet: []api.CIDRRule{
-						{
-							Cidr: api.CIDR("10.0.0.0/8"),
-							ExceptCIDRs: []api.CIDR{
-								"10.96.0.0/12",
-							},
+	expectedRule := &api.Rule{
+		EndpointSelector: epSelector,
+		Ingress: []api.IngressRule{
+			{
+				FromCIDRSet: []api.CIDRRule{
+					{
+						Cidr: api.CIDR("10.0.0.0/8"),
+						ExceptCIDRs: []api.CIDR{
+							"10.96.0.0/12",
 						},
 					},
 				},
 			},
-			Egress: []api.EgressRule{},
-			Labels: labels.ParseLabelArray(
-				"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
-				"k8s:"+k8sConst.PolicyLabelUID+"=11bba160-ddca-11e8-b697-0800273b04ff",
-				"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
-				"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
-			),
 		},
+		Egress: []api.EgressRule{},
+		Labels: labels.ParseLabelArray(
+			"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
+			"k8s:"+k8sConst.PolicyLabelUID+"=11bba160-ddca-11e8-b697-0800273b04ff",
+			"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
+			"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
+		),
+	}
+
+	expectedRule.Sanitize()
+
+	expectedRules := api.Rules{
+		expectedRule,
 	}
 
 	rules, err := ParseNetworkPolicy(&np)

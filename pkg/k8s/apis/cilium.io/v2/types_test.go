@@ -304,6 +304,9 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	)
 	expectedSpecRule.EndpointSelector = expectedES
 
+	// Sanitize rule to populate aggregated selectors.
+	expectedSpecRule.Sanitize()
+
 	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
@@ -314,6 +317,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	c.Assert(err, IsNil)
+	expectedPolicyRuleUnmarshalled.Parse()
 	c.Assert(expectedPolicyRuleUnmarshalled, checker.DeepEquals, *expectedPolicyRule)
 
 	cnpl := CiliumNetworkPolicy{}
@@ -367,6 +371,10 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	)
 	expectedSpecRule.EndpointSelector = expectedES
 	expectedSpecRules := api.Rules{&expectedSpecRule, &expectedSpecRule}
+	expectedSpecRule.Sanitize()
+	for i := range expectedSpecRules {
+		expectedSpecRules[i].Sanitize()
+	}
 
 	rules, err := expectedPolicyRuleList.Parse()
 	c.Assert(err, IsNil)
@@ -380,6 +388,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	var expectedPolicyRuleUnmarshalled CiliumNetworkPolicy
 	err = json.Unmarshal(b, &expectedPolicyRuleUnmarshalled)
 	c.Assert(err, IsNil)
+	expectedPolicyRuleUnmarshalled.Parse()
 	c.Assert(expectedPolicyRuleUnmarshalled, checker.DeepEquals, *expectedPolicyRuleList)
 
 	cnpl := CiliumNetworkPolicy{}
