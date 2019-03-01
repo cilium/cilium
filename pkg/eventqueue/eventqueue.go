@@ -91,7 +91,10 @@ func NewEvent(meta interface{}) *Event {
 }
 
 // WasCancelled returns whether the Cancelled channel for the given Event has
-// been closed or not.
+// been closed or not. Cancellation occurs if the event was not processed yet
+// by an EventQueue onto which this Event was Enqueued, and the queue is closed,
+// or if the event was attempted to be scheduled onto an EventQueue which has
+// already been closed.
 func (q *Event) WasCancelled() bool {
 	select {
 	case <-q.Cancelled:
