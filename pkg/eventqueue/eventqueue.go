@@ -161,7 +161,6 @@ func (q *EventQueue) Run() {
 						select {
 						case drainEvent := <-q.events:
 							close(drainEvent.Cancelled)
-							log.Info("event cancelled!")
 							// TODO close results channel here??
 						default:
 							// No more events are in events channel, so we can close
