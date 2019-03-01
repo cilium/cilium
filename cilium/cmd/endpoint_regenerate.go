@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/api/v1/models"
+
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +29,8 @@ var endpointRegenerateCmd = &cobra.Command{
 	PreRun: requireEndpointID,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		if err := client.EndpointConfigPatch(id, nil); err != nil {
+		cfg := &models.EndpointConfigurationSpec{}
+		if err := client.EndpointConfigPatch(id, cfg); err != nil {
 			Fatalf("Cannot regenerate endpoint %s: %s\n", id, err)
 		} else {
 			fmt.Printf("Endpoint %s successfully regenerated\n", id)
