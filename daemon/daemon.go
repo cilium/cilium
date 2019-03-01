@@ -526,30 +526,34 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	// Validate alignments of C and Go equivalent structs
-	toCheck := map[string]reflect.Type{
-		"ipv4_ct_tuple":        reflect.TypeOf(ctmap.CtKey4{}),
-		"ipv6_ct_tuple":        reflect.TypeOf(ctmap.CtKey6{}),
-		"ct_entry":             reflect.TypeOf(ctmap.CtEntry{}),
-		"ipcache_key":          reflect.TypeOf(ipcachemap.Key{}),
-		"remote_endpoint_info": reflect.TypeOf(ipcachemap.RemoteEndpointInfo{}),
-		"lb4_key":              reflect.TypeOf(lbmap.Service4Key{}),
-		"lb4_service":          reflect.TypeOf(lbmap.Service4Value{}),
-		"lb6_key":              reflect.TypeOf(lbmap.Service6Key{}),
-		"lb6_service":          reflect.TypeOf(lbmap.Service6Value{}),
-		"endpoint_key":         reflect.TypeOf(bpf.EndpointKey{}),
-		"endpoint_info":        reflect.TypeOf(lxcmap.EndpointInfo{}),
-		"metrics_key":          reflect.TypeOf(metricsmap.Key{}),
-		"metrics_value":        reflect.TypeOf(metricsmap.Value{}),
-		"proxy4_tbl_key":       reflect.TypeOf(proxymap.Proxy4Key{}),
-		"proxy4_tbl_value":     reflect.TypeOf(proxymap.Proxy4Value{}),
-		"proxy6_tbl_key":       reflect.TypeOf(proxymap.Proxy6Key{}),
-		"proxy6_tbl_value":     reflect.TypeOf(proxymap.Proxy6Value{}),
-		"sock_key":             reflect.TypeOf(sockmap.SockmapKey{}),
-		"ep_config":            reflect.TypeOf(configmap.EndpointConfig{}),
-	}
-	if err := alignchecker.CheckStructAlignments("bpf_alignchecker.o", toCheck); err != nil {
-		log.WithError(err).Fatal("C and Go structs alignment check failed")
+	if canDisableDwarfRelocations {
+		// Validate alignments of C and Go equivalent structs
+		toCheck := map[string]reflect.Type{
+			"ipv4_ct_tuple":        reflect.TypeOf(ctmap.CtKey4{}),
+			"ipv6_ct_tuple":        reflect.TypeOf(ctmap.CtKey6{}),
+			"ct_entry":             reflect.TypeOf(ctmap.CtEntry{}),
+			"ipcache_key":          reflect.TypeOf(ipcachemap.Key{}),
+			"remote_endpoint_info": reflect.TypeOf(ipcachemap.RemoteEndpointInfo{}),
+			"lb4_key":              reflect.TypeOf(lbmap.Service4Key{}),
+			"lb4_service":          reflect.TypeOf(lbmap.Service4Value{}),
+			"lb6_key":              reflect.TypeOf(lbmap.Service6Key{}),
+			"lb6_service":          reflect.TypeOf(lbmap.Service6Value{}),
+			"endpoint_key":         reflect.TypeOf(bpf.EndpointKey{}),
+			"endpoint_info":        reflect.TypeOf(lxcmap.EndpointInfo{}),
+			"metrics_key":          reflect.TypeOf(metricsmap.Key{}),
+			"metrics_value":        reflect.TypeOf(metricsmap.Value{}),
+			"proxy4_tbl_key":       reflect.TypeOf(proxymap.Proxy4Key{}),
+			"proxy4_tbl_value":     reflect.TypeOf(proxymap.Proxy4Value{}),
+			"proxy6_tbl_key":       reflect.TypeOf(proxymap.Proxy6Key{}),
+			"proxy6_tbl_value":     reflect.TypeOf(proxymap.Proxy6Value{}),
+			"sock_key":             reflect.TypeOf(sockmap.SockmapKey{}),
+			"ep_config":            reflect.TypeOf(configmap.EndpointConfig{}),
+		}
+		if err := alignchecker.CheckStructAlignments("bpf_alignchecker.o", toCheck); err != nil {
+			log.WithError(err).Fatal("C and Go structs alignment check failed")
+		}
+	} else {
+		log.Warning("Cannot check matching of C and Go common struct alignments due to old LLVM/clang version")
 	}
 
 	if !option.Config.IsFlannelMasterDeviceSet() {
