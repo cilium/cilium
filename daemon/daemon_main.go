@@ -83,6 +83,10 @@ var (
 
 	recKernelVer = versioncheck.MustCompile(">= 4.9.0")
 	recClangVer  = versioncheck.MustCompile(">= 3.9.0")
+
+	// LLVM/clang version which supports `-mattr=dwarfris`
+	dwarfrisClangVer           = versioncheck.MustCompile(">= 7.0.0")
+	canDisableDwarfRelocations bool
 )
 
 const (
@@ -252,6 +256,7 @@ func checkMinRequirements() {
 				"your kernel version to at least %s",
 				clangVersion, kernelVersion, recKernelVer)
 		}
+		canDisableDwarfRelocations = dwarfrisClangVer.Check(clangVersion)
 		log.Infof("clang (%s) and kernel (%s) versions: OK!", clangVersion, kernelVersion)
 	}
 
