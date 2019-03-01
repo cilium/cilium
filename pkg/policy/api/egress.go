@@ -144,15 +144,27 @@ type EgressRule struct {
 	//     - 'sg-XXXXXXXXXXXXX'
 	// +optional
 	ToGroups []ToGroups `json:"toGroups,omitempty"`
+
+	aggregatedSelectors EndpointSelectorSlice
+}
+
+func (e *EgressRule) SetAggregatedSelectors() {
+	res := make(EndpointSelectorSlice, 0, len(e.ToCIDR)+len(e.ToFQDNs)+len(e.ToCIDRSet)+len(e.ToEndpoints)+len(e.ToEntities))
+	res = append(res, e.ToEndpoints...)
+	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
+	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
+	e.aggregatedSelectors = res
 }
 
 // GetDestinationEndpointSelectors returns a slice of endpoints selectors
 // covering all L3 destination selectors of the egress rule
 func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
-	res := append(e.ToEndpoints, e.ToEntities.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
-	return append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
+	if e.aggregatedSelectors == nil {
+		e.SetAggregatedSelectors()
+	}
+	return e.aggregatedSelectors
 }
 
 // IsLabelBased returns true whether the L3 destination endpoints are selected

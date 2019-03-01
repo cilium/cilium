@@ -107,7 +107,7 @@ func GenerateNumRules(numRules int) api.Rules {
 			EndpointSelector: fooSelector,
 			Ingress:          []api.IngressRule{ingRule},
 		}
-
+		rule.Sanitize()
 		rules = append(rules, &rule)
 	}
 	return rules

@@ -104,14 +104,26 @@ type IngressRule struct {
 	//
 	// +optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
+
+	aggregatedSelectors EndpointSelectorSlice
+}
+
+func (i *IngressRule) SetAggregatedSelectors() {
+	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.FromEntities)+len(i.FromCIDRSet)+len(i.FromCIDR))
+	res = append(res, i.FromEndpoints...)
+	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
+	i.aggregatedSelectors = res
 }
 
 // GetSourceEndpointSelectors returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (i *IngressRule) GetSourceEndpointSelectors() EndpointSelectorSlice {
-	res := append(i.FromEndpoints, i.FromEntities.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
-	return append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
+	if i.aggregatedSelectors == nil {
+		i.SetAggregatedSelectors()
+	}
+	return i.aggregatedSelectors
 }
 
 // IsLabelBased returns true whether the L3 source endpoints are selected based
