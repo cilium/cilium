@@ -19,7 +19,8 @@ kind: ClusterRole
 metadata:
   name: kube-state-metrics
 rules:
-- apiGroups: [""]
+- apiGroups:
+  - ""
   resources:
   - configmaps
   - secrets
@@ -33,69 +34,122 @@ rules:
   - persistentvolumes
   - namespaces
   - endpoints
-  verbs: ["list", "watch"]
-- apiGroups: ["extensions"]
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - extensions
   resources:
   - daemonsets
   - deployments
   - replicasets
-  verbs: ["list", "watch"]
-- apiGroups: ["apps"]
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - apps
   resources:
   - statefulsets
-  verbs: ["list", "watch"]
-- apiGroups: ["batch"]
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - batch
   resources:
   - cronjobs
   - jobs
-  verbs: ["list", "watch"]
-- apiGroups: ["autoscaling"]
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - autoscaling
   resources:
   - horizontalpodautoscalers
-  verbs: ["list", "watch"]
-- apiGroups: ["policy"]
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - policy
   resources:
   - poddisruptionbudgets
-  verbs: ["list", "watch"]
+  verbs:
+  - list
+  - watch
 ---
-apiVersion: apps/v1beta2
+apiVersion: apps/v1beta1
 # Kubernetes versions after 1.9.0 should use apps/v1
 # Kubernetes versions before 1.8.0 should use apps/v1beta1 or extensions/v1beta1
 kind: Deployment
 metadata:
+  labels:
+    k8s-app: kube-state-metrics
   name: kube-state-metrics
   namespace: kube-system
 spec:
   selector:
     matchLabels:
       k8s-app: kube-state-metrics
-  replicas: 1
   template:
     metadata:
+      annotations:
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+        prometheus.io/target: metrics
       labels:
         k8s-app: kube-state-metrics
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
-        prometheus.io/target: "metrics"
     spec:
-      serviceAccountName: kube-state-metrics
       containers:
-      - name: kube-state-metrics
-        image: quay.io/coreos/kube-state-metrics:v1.5.0
+      - image: quay.io/coreos/kube-state-metrics:v1.5.0
+        imagePullPolicy: IfNotPresent
+        name: kube-state-metrics
         ports:
-        - name: prometheus
-          containerPort: 8080
-        - name: telemetry
-          containerPort: 8081
+        - containerPort: 8080
+          name: prometheus
+          protocol: TCP
+        - containerPort: 8081
+          name: telemetry
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /healthz
             port: 8080
+            scheme: HTTP
           initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
           timeoutSeconds: 5
-      - name: addon-resizer
+        resources:
+          limits:
+            cpu: 102m
+            memory: 104Mi
+          requests:
+            cpu: 102m
+            memory: 104Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - command:
+        - /pod_nanny
+        - --container=kube-state-metrics
+        - --cpu=100m
+        - --extra-cpu=1m
+        - --memory=100Mi
+        - --extra-memory=2Mi
+        - --threshold=5
+        - --deployment=kube-state-metrics
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
         image: k8s.gcr.io/addon-resizer:1.8.3
+        imagePullPolicy: IfNotPresent
+        name: addon-resizer
         resources:
           limits:
             cpu: 150m
@@ -103,24 +157,9 @@ spec:
           requests:
             cpu: 150m
             memory: 50Mi
-        env:
-          - name: MY_POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: MY_POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-        command:
-          - /pod_nanny
-          - --container=kube-state-metrics
-          - --cpu=100m
-          - --extra-cpu=1m
-          - --memory=100Mi
-          - --extra-memory=2Mi
-          - --threshold=5
-          - --deployment=kube-state-metrics
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      serviceAccount: kube-state-metrics
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 # kubernetes versions before 1.8.0 should use rbac.authorization.k8s.io/v1beta1
@@ -141,18 +180,24 @@ apiVersion: rbac.authorization.k8s.io/v1
 # kubernetes versions before 1.8.0 should use rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
-  namespace: kube-system
   name: kube-state-metrics-resizer
+  namespace: kube-system
 rules:
-- apiGroups: [""]
+- apiGroups:
+  - ""
   resources:
   - pods
-  verbs: ["get"]
-- apiGroups: ["extensions"]
+  verbs:
+  - get
+- apiGroups:
+  - extensions
+  resourceNames:
+  - kube-state-metrics
   resources:
   - deployments
-  resourceNames: ["kube-state-metrics"]
-  verbs: ["get", "update"]
+  verbs:
+  - get
+  - update
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -163,22 +208,23 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kube-state-metrics
-  namespace: kube-system
+  annotations:
+    prometheus.io/port: "8080"
+    prometheus.io/probe: "true"
   labels:
     k8s-app: kube-state-metrics
-  annotations:
-    prometheus.io/probe: "true"
-    prometheus.io/port: "8080"
+  name: kube-state-metrics
+  namespace: kube-system
 spec:
   ports:
   - name: http-metrics
     port: 8080
-    targetPort: prometheus
     protocol: TCP
+    targetPort: prometheus
   - name: telemetry
     port: 8081
-    targetPort: telemetry
     protocol: TCP
+    targetPort: telemetry
   selector:
     k8s-app: kube-state-metrics
+  type: ClusterIP

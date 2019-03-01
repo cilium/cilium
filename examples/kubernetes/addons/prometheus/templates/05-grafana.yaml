@@ -1,56 +1,71 @@
 ---
-kind: ConfigMap
-metadata:
-  creationTimestamp: null
-  name: grafana-config
-  namespace: cilium-monitoring
-  labels:
-    app: grafana
-apiVersion: v1
-data:
-  GF_AUTH_BASIC_ENABLED: "false"
-  GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
-  GF_AUTH_ANONYMOUS_ENABLED: "true"
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: grafana
-  namespace: cilium-monitoring
   labels:
     app: grafana
     component: core
+  name: grafana
+  namespace: cilium-monitoring
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
   template:
     metadata:
       labels:
         app: grafana
     spec:
-      terminationGracePeriodSeconds: 0
       containers:
-      - image: docker.io/grafana/grafana:5.4.3
-        name: grafana-core
+      - env:
+        - name: GF_PATHS_CONFIG
+          value: /configmap/grafana/grafana-config.ini
+        - name: GF_PATHS_PROVISIONING
+          value: /configmap/grafana/provisioning
+        image: docker.io/grafana/grafana:6.0.0
         imagePullPolicy: IfNotPresent
-        envFrom:
-          - configMapRef:
-              name: grafana-config
+        name: grafana-core
         readinessProbe:
+          failureThreshold: 3
           httpGet:
             path: /login
             port: 3000
+            scheme: HTTP
+        volumeMounts:
+        - mountPath: /configmap/grafana
+          name: grafana-config
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      volumes:
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: grafana-config
+            path: grafana-config.ini
+          - key: prometheus-datasource
+            path: provisioning/datasources/prometheus.yaml
+          - key: cilium-dashboard
+            path: provisioning/cilium/cilium-dashboard.json
+          - key: dashboard-config
+            path: provisioning/dashboards/config.yaml
+          name: grafana-config
+        name: grafana-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: grafana
-  namespace: cilium-monitoring
   labels:
     app: grafana
+  name: grafana
+  namespace: cilium-monitoring
 spec:
-  type: NodePort
   ports:
-    - port: 3000
-      nodePort: 31000
+  - nodePort: 31000
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
   selector:
     app: grafana
+  type: NodePort
