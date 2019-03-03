@@ -75,6 +75,14 @@ func GetCurrentIntegration() string {
 	}
 }
 
+func IsTransparentEncryptionEnabled() bool {
+	if os.Getenv("CILIUM_ENCRYPT") == "" {
+		return false
+	} else {
+		return true
+	}
+}
+
 // Kubectl is a wrapper around an SSHMeta. It is used to run Kubernetes-specific
 // commands on the node which is accessible via the SSH metadata stored in its
 // SSHMeta.
@@ -888,6 +896,22 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 
 	if err := kub.DeployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
 		return err
+	}
+	return nil
+}
+
+// CiliumEncryptionKeysApply applies keys as secrects for running tansparent encryption tests
+func (kub *Kubectl) CiliumEncryptionKeysApply() error {
+	filename := "ipsec_ds.yaml"
+	ginkgoVersionedPath := filepath.Join(manifestsPath, filename)
+	_, err := os.Stat(ginkgoVersionedPath)
+	if err != nil {
+		return fmt.Errorf("Cilium encryption keys file not found")
+	}
+	cm := filepath.Join(BasePath, ginkgoVersionedPath)
+	cmdRes := kub.Apply(cm)
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Cilium apply encryption keys failed: %s", cmdRes.err)
 	}
 	return nil
 }

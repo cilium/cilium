@@ -16,7 +16,6 @@ package k8sTest
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -115,14 +114,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Skip(fmt.Sprintf(
 					"Cilium in %q mode is not supported with transparent encryption and VxLAN. Skipping test.",
 					helpers.CIIntegrationFlannel))
-				return
-			}
-
-			netnext := os.Getenv("NETNEXT")
-			if netnext != "true" {
-				Skip(fmt.Sprintf(
-					"Cilium transparent encryption not supported on CI kernel 4.9.7 please upgrade to latest 4.9.x kernel.",
-				))
 				return
 			}
 

@@ -108,7 +108,13 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	Expect(err).To(BeNil(), "Unable to deploy etcd operator")
 
 	By("Installing Cilium")
-	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+	if helpers.IsTransparentEncryptionEnabled() == true {
+		err = vm.CiliumEncryptionKeysApply()
+		Expect(err).To(BeNil(), "Cilium encryption keys cannot be installed")
+		err = vm.CiliumInstall(helpers.CiliumEncryptDSPatch, helpers.CiliumConfigMapPatch)
+	} else {
+		err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+	}
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 	switch helpers.GetCurrentIntegration() {

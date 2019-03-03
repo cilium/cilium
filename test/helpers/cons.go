@@ -227,6 +227,9 @@ var (
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
 const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
 
+// CiliumEncryptDSPatch is the Cilium DaemonSet patch to used for encryption tests.
+const CiliumEncryptDSPatch = "cilium-ds-encrypt-patch.yaml"
+
 // CiliumDefaultPreFlightPatch is the default Cilium Pre-flight DaemonSet patch to be used in all tests.
 const CiliumDefaultPreFlightPatch = "cilium-pre-flight-patch.yaml"
 
