@@ -233,8 +233,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	if err := endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT"); err != nil {
-		log.WithError(err).Warn("Aborting endpoint join")
+	err = endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT")
+	logger := ep.Logger(daemonSubsys)
+	if err != nil {
+		logger.WithError(err).Warn("Aborting endpoint join")
 		return nil, err
 	}
 
@@ -242,13 +244,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	select {
 	case <-ctx.Done():
-		log.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
+		logger.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
 		d.deleteEndpoint(ep)
 		return nil, fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
 	default:
 	}
 
 	if err := ep.LockAlive(); err != nil {
+		logger.Warn("endpoint was deleted while waiting for the identity")
 		d.deleteEndpoint(ep)
 		return nil, fmt.Errorf("endpoint was deleted while waiting for the identity")
 	}
@@ -256,9 +259,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// Now that we have ep.ID we can pin the map from this point. This
 	// also has to happen before the first build took place.
 	if err = ep.PinDatapathMap(); err != nil {
+		logger.WithError(err).Warn("Aborting endpoint tail call map pin")
 		ep.Unlock()
 		d.deleteEndpoint(ep)
-		log.WithError(err).Warn("Aborting endpoint tail call map pin")
 		return nil, err
 	}
 
@@ -300,7 +303,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return ep, nil
 	}
 
-	ep.Logger(daemonSubsys).Debug("Synchronously waiting for endpoint to regenerate")
+	logger.Debug("Synchronously waiting for endpoint to regenerate")
 
 	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
 	// in this function a bit below that timeout. If the timeout for clients
@@ -341,7 +344,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 				// If the endpoint is determined to have a sidecar proxy,
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
-				ep.Logger(daemonSubsys).Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
+				logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
 				return ep, nil
 			}
 		}
@@ -349,7 +352,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		if ctx.Err() != nil {
 			// Delete endpoint because PUT operation fails if timeout is
 			// exceeded.
-			ep.Logger(daemonSubsys).Warning("Endpoint did not synchronously regenerate after timeout")
+			logger.Warning("Endpoint did not synchronously regenerate after timeout")
 			d.deleteEndpoint(ep)
 			return nil, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
 		}
