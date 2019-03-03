@@ -179,6 +179,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		validateEndpointsConnection := func() {
+			By("Validate that endpoints are ready before making any connection")
 			err := kubectl.CiliumEndpointWaitReady()
 			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
 
@@ -186,9 +187,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 			err = kubectl.WaitForKubeDNSEntry(app1Service, helpers.DefaultNamespace)
 			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
-
-			err = kubectl.CiliumEndpointWaitReady()
-			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			appPods := helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
