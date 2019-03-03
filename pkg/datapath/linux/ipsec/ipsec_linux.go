@@ -94,7 +94,7 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Reqid = keys.ReqID
 }
 
-func ipSecReplaceState(remoteIP, localIP net.IP, spi int) error {
+func ipSecReplaceState(remoteIP, localIP net.IP, spi int, mark uint32) error {
 	state := ipSecNewState()
 
 	key := getIPSecKeys(localIP)
@@ -105,6 +105,11 @@ func ipSecReplaceState(remoteIP, localIP net.IP, spi int) error {
 	ipSecJoinState(state, key)
 	state.Src = localIP
 	state.Dst = remoteIP
+	state.Mark = &netlink.XfrmMark{
+		Value: mark,
+		Mask:  linux_defaults.RouteMarkMask,
+	}
+
 	return netlink.XfrmStateAdd(state)
 }
 
@@ -228,7 +233,7 @@ func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int, dir IPSecDir) error 
 	 */
 	if !local.IP.Equal(remote.IP) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if err := ipSecReplaceState(local.IP, remote.IP, spi); err != nil {
+			if err := ipSecReplaceState(local.IP, remote.IP, spi, linux_defaults.RouteMarkDecrypt); err != nil {
 				if !os.IsExist(err) {
 					return fmt.Errorf("unable to replace local state: %s", err)
 				}
@@ -241,7 +246,7 @@ func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int, dir IPSecDir) error 
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirBoth {
-			if err := ipSecReplaceState(remote.IP, local.IP, spi); err != nil {
+			if err := ipSecReplaceState(remote.IP, local.IP, spi, linux_defaults.RouteMarkEncrypt); err != nil {
 				if !os.IsExist(err) {
 					return fmt.Errorf("unable to replace remote state: %s", err)
 				}
