@@ -902,6 +902,8 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 
 	ep, err := endpointmanager.Lookup(params.ID)
 	if err != nil {
+		return api.Error(PutEndpointIDInvalidCode, err)
+	} else if ep == nil {
 		return NewPatchEndpointIDLabelsNotFound()
 	}
 
