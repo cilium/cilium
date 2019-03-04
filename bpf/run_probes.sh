@@ -41,7 +41,7 @@ function probe_kernel_config()
     local RESULT=0
     # Coreos kernel config is on /proc/config (module configs).
     # Other distros in /boot/config-*
-    local config_locations=("/proc/config" "/proc/config.gz",
+    local config_locations=("/proc/config" "/proc/config.gz"
         "/boot/config-$(uname -r)")
     local REQ_PARAMS=(
         "CONFIG_BPF=y" "CONFIG_BPF_SYSCALL=y" "CONFIG_NET_SCH_INGRESS=[m|y]"
