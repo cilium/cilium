@@ -1,8 +1,38 @@
 @Library('cilium') _
 
+def triggerNetNext(){
+    def causes = currentBuild.rawBuild.getCauses()
+    println("Causes-->${causes}")
+    println("Build->${currentBuild.rawBuild.class}")
+
+    def ghprbCause = currentBuild.rawBuild.findCause(org.jenkinsci.plugins.ghprb.GhprbCause)
+    println("GHPRBCause ---> ${ghprbCause}")
+
+    def ghprbCauseB = currentBuild.rawBuild.getCause(org.jenkinsci.plugins.ghprb.GhprbCause.class)
+    println("GHPRBCause ---> ${ghprbCauseB}")
+
+    def UpstreamCause = currentBuild.rawBuild.getCause(hudson.model.Cause.UpstreamCause)
+    if (UpstreamCause) {
+        return
+    }
+
+    def jobparams = this.params.collect{
+        if (it.key == "NETNEXT") {
+            string(name: it.key, value: "true")
+        }else {
+            string(name: it.key, value: it.value)
+        }
+    }
+    build(job: 'Cilium-PR-Ginkgo-Tests-Validated', parameters: jobparams, wait: false)
+}
+
 pipeline {
     agent {
-        label 'baremetal'
+        label 'eloy'
+    }
+
+    parameters {
+        string(name: 'NETNEXT', defaultValue: 'false')
     }
 
     environment {
@@ -10,7 +40,6 @@ pipeline {
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
-        NETNEXT=setIfLabel("ci/net-next", "true", "false")
     }
 
     options {
@@ -26,6 +55,9 @@ pipeline {
             }
 
             steps {
+                Status("PENDING", "${env.JOB_NAME}")
+                /* build(job: "Cilium-PR-Ginkgo-Tests-Validated") */
+                triggerNetNext()
                 BuildIfLabel('area/k8s', 'Cilium-PR-Kubernetes-Upstream')
                 BuildIfLabel('integration/cni-flannel', 'Cilium-PR-K8s-Flannel')
                 BuildIfLabel('area/k8s', 'Cilium-PR-Ginkgo-Tests-K8s')
@@ -38,6 +70,10 @@ pipeline {
             }
         }
         stage('Precheck') {
+            when {
+                environment name: 'NETNEXT', value: 'true'
+            }
+
             options {
                 timeout(time: 20, unit: 'MINUTES')
             }
@@ -55,6 +91,9 @@ pipeline {
             }
         }
         stage('Boot VMs'){
+            when {
+                environment name: 'NETNEXT', value: 'true'
+            }
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -67,6 +106,9 @@ pipeline {
             }
         }
         stage('BDD-Test-PR') {
+            when {
+                environment name: 'NETNEXT', value: 'true'
+            }
             environment {
                 GOPATH="${WORKSPACE}"
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
