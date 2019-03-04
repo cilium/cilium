@@ -133,19 +133,7 @@ func (c *criClient) EnableEventListener() (chan<- *EventMessage, error) {
 	}
 	log.Info("Enabling CRI event listener")
 
-	ws := newWatcherState(eventQueueBufferSize)
-	// start a go routine which periodically synchronizes containers
-	// managed by the local container runtime and checks if any of them
-	// need to be managed by Cilium. This is a fall back mechanism in case
-	// an event notification has been lost.
-	// Note: We do the sync before the first sleep
-	go func(state *watcherState) {
-		for {
-			state.reapEmpty()
-			ws.syncWithRuntime()
-			time.Sleep(syncRateContainerD)
-		}
-	}(ws)
+	ws := newWatcherState()
 
 	eventsCh := make(chan *EventMessage, 100)
 	go func(state *watcherState, eventsCh <-chan *EventMessage) {

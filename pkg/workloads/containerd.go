@@ -143,10 +143,6 @@ func (c *containerDClient) Status() *models.Status {
 	}
 }
 
-const (
-	syncRateContainerD = 5 * time.Minute
-)
-
 // EnableEventListener watches for containerD events. Performs the plumbing for
 // the containers started or dead.
 func (c *containerDClient) EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
@@ -156,19 +152,7 @@ func (c *containerDClient) EnableEventListener() (eventsCh chan<- *EventMessage,
 	}
 	log.Info("Enabling containerD event listener")
 
-	ws := newWatcherState(eventQueueBufferSize)
-	// start a go routine which periodically synchronizes containers
-	// managed by the local container runtime and checks if any of them
-	// need to be managed by Cilium. This is a fall back mechanism in case
-	// an event notification has been lost.
-	// Note: We do the sync before the first sleep
-	go func(state *watcherState) {
-		for {
-			state.reapEmpty()
-			ws.syncWithRuntime()
-			time.Sleep(syncRateContainerD)
-		}
-	}(ws)
+	ws := newWatcherState()
 
 	// Note: We do the sync before the first sleep
 	go func(state *watcherState) {
