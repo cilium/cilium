@@ -1140,18 +1140,20 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	// suceeding.
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
-	needToRegenerateBPF := e.updateAndOverrideEndpointOptions(om) || (e.Status.CurrentStatus() != OK)
-
-	reason := "endpoint was updated via API"
+	regenCtx := &ExternalRegenerationMetadata{
+		Reason: "endpoint was updated via API",
+	}
 
 	// If configuration options are provided, we only regenerate if necessary.
 	// Otherwise always regenerate.
 	if cfg.Options == nil {
-		needToRegenerateBPF = true
-		reason = "endpoint was manually regenerated via API"
+		regenCtx.RegenerationLevel = RegenerateWithDatapathRebuild
+		regenCtx.Reason = "endpoint was manually regenerated via API"
+	} else if e.updateAndOverrideEndpointOptions(om) || e.Status.CurrentStatus() != OK {
+		regenCtx.RegenerationLevel = RegenerateWithDatapathRebuild
 	}
 
-	if needToRegenerateBPF {
+	if regenCtx.RegenerationLevel > RegenerateWithoutDatapath {
 		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
 
@@ -1177,10 +1179,10 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 				// Check endpoint state before attempting configuration update because
 				// configuration updates can only be applied when the endpoint is in
 				// specific states. See GH-3058.
-				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, reason)
+				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, regenCtx.Reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
-					e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: reason})
+					e.Regenerate(owner, regenCtx)
 					return nil
 				}
 				e.Unlock()
