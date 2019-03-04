@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,10 +34,6 @@ const (
 	// listTimeoutDefault is the default timeout to wait while performing
 	// the initial list operation of objects from the kvstore
 	listTimeoutDefault = 3 * time.Minute
-
-	// synchronizationIntervalDefault is the default interval to
-	// synchronize keys with the kvstore
-	synchronizationIntervalDefault = time.Minute
 
 	// watcherChanSize is the size of the channel to buffer kvstore events
 	watcherChanSize = 100
@@ -90,7 +87,7 @@ func (c *Configuration) validate() error {
 	}
 
 	if c.SynchronizationInterval == 0 {
-		c.SynchronizationInterval = synchronizationIntervalDefault
+		c.SynchronizationInterval = option.Config.KVstorePeriodicSync
 	}
 
 	if c.Backend == nil {

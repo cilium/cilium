@@ -75,6 +75,7 @@ cilium-agent [flags]
       --keep-config                                 When restoring state, keeps containers' configuration in place
       --kvstore string                              Key-value store type
       --kvstore-opt map                             Key-value store options (default map[])
+      --kvstore-periodic-sync duration              Periodic KVstore synchronization interval (default 5m0s)
       --label-prefix-file string                    Valid label prefixes file path
       --labels strings                              List of label prefixes used to determine identity of an endpoint
       --lb string                                   Enables load balancer mode where load balancer bpf program is attached to the given interface

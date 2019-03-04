@@ -519,6 +519,9 @@ func init() {
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)
 
+	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
+	option.BindEnv(option.KVstorePeriodicSync)
+
 	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &option.Config.KVStoreOpt, nil),
 		option.KVStoreOpt, "Key-value store options")
 	option.BindEnv(option.KVStoreOpt)
