@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
@@ -762,7 +763,7 @@ func (a *Allocator) startGC() {
 				log.WithFields(logrus.Fields{fieldPrefix: a.idPrefix}).
 					Debug("Stopped master key sync routine")
 				return
-			case <-time.After(localKeySyncInterval):
+			case <-time.After(option.Config.KVstorePeriodicSync):
 			}
 		}
 	}(a)

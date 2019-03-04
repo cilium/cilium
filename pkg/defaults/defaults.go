@@ -155,4 +155,7 @@ const (
 
 	// EnableHealthChecking is the default value for EnableHealthChecking
 	EnableHealthChecking = true
+
+	// KVstorePeriodicSync is the default kvstore periodic sync interval
+	KVstorePeriodicSync = 5 * time.Minute
 )
