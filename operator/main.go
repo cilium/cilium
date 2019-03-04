@@ -99,6 +99,7 @@ func init() {
 
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
+	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
@@ -170,6 +171,10 @@ func runOperator(cmd *cobra.Command) {
 
 	if enableCepGC {
 		enableCiliumEndpointSyncGC()
+	}
+
+	if identityGCInterval != time.Duration(0) {
+		startIdentityGC()
 	}
 
 	if option.Config.DisableCiliumEndpointCRD {

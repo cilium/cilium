@@ -219,7 +219,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should not evict any entries
-	allocator.runGC()
+	allocator.RunGC()
 
 	v, err := kvstore.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
@@ -236,7 +236,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	allocator.runGC()
+	allocator.RunGC()
 
 	v, err = kvstore.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
@@ -369,7 +369,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 //	}
 //
 //	// running the GC should evict all entries
-//	allocator.runGC()
+//	allocator.RunGC()
 //
 //	v, err := kvstore.ListPrefix(allocator.idPrefix)
 //	c.Assert(err, IsNil)
