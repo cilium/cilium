@@ -16,7 +16,10 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"runtime/debug"
+
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/sirupsen/logrus"
 )
@@ -38,7 +41,9 @@ func (h *APIPanicHandler) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 				"client":        req.RemoteAddr,
 			}
 			log.WithFields(fields).Warn("Cilium API handler panicked")
-			log.Debugf("%s", debug.Stack())
+			if logging.DefaultLogger.IsLevelEnabled(logrus.DebugLevel) {
+				os.Stdout.Write(debug.Stack())
+			}
 			wr.WriteHeader(http.StatusInternalServerError)
 			if _, err := wr.Write([]byte("Internal error occurred, check Cilium logs for details.")); err != nil {
 				log.WithError(err).Debug("Failed to write API response")
