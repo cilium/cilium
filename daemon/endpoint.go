@@ -677,29 +677,24 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 	if err != nil {
 		return api.Error(PatchEndpointIDInvalidCode, err)
 	} else if ep == nil {
-		return api.New(PatchEndpointIDNotFoundCode, "endpoint %s not found", id)
-	}
-	if err = endpoint.APICanModify(ep); err != nil {
+		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
+	} else if err = endpoint.APICanModify(ep); err != nil {
 		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 
-	if ep != nil {
-		if err := ep.Update(d, cfg); err != nil {
-			switch err.(type) {
-			case endpoint.UpdateValidationError:
-				return api.Error(PatchEndpointIDConfigInvalidCode, err)
-			default:
-				return api.Error(PatchEndpointIDConfigFailedCode, err)
-			}
+	if err := ep.Update(d, cfg); err != nil {
+		switch err.(type) {
+		case endpoint.UpdateValidationError:
+			return api.Error(PatchEndpointIDConfigInvalidCode, err)
+		default:
+			return api.Error(PatchEndpointIDConfigFailedCode, err)
 		}
-		if err := ep.RLockAlive(); err != nil {
-			return api.Error(PatchEndpointIDNotFoundCode, err)
-		}
-		endpointmanager.UpdateReferences(ep)
-		ep.RUnlock()
-	} else {
-		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
 	}
+	if err := ep.RLockAlive(); err != nil {
+		return api.Error(PatchEndpointIDNotFoundCode, err)
+	}
+	endpointmanager.UpdateReferences(ep)
+	ep.RUnlock()
 
 	return nil
 }
