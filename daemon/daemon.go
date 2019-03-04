@@ -1339,8 +1339,8 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 	}
 
 	regenRequest := &endpoint.ExternalRegenerationMetadata{
-		Reason:         reason,
-		ReloadDatapath: true,
+		Reason:            reason,
+		RegenerationLevel: endpoint.RegenerateWithDatapathLoad,
 	}
 	return endpointmanager.RegenerateAllEndpoints(d, regenRequest), nil
 }
