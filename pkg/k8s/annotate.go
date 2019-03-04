@@ -15,7 +15,6 @@
 package k8s
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -35,27 +33,6 @@ type K8sClient struct {
 	// kubernetes.Interface is the object through which interactions with
 	// Kubernetes are performed.
 	kubernetes.Interface
-}
-
-// AnnotatePod adds a Kubernetes annotation with key annotationKey and value
-// annotationValue
-func (k8sCli K8sClient) AnnotatePod(k8sNamespace, k8sPodName, annotationKey, annotationValue string) error {
-
-	pod, err := k8sCli.CoreV1().Pods(k8sNamespace).Get(k8sPodName, meta_v1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to annotate pod, cannot retrieve pod: %s", err)
-	}
-
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
-	}
-
-	pod.Annotations[annotationKey] = annotationValue
-	pod, err = k8sCli.CoreV1().Pods(k8sNamespace).Update(pod)
-	if err != nil {
-		return fmt.Errorf("unable to annotate pod, cannot update pod: %s", err)
-	}
-	return nil
 }
 
 func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) (*v1.Node, error) {
