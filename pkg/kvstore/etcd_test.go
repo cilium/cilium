@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"path"
 	"time"
 
 	etcdAPI "github.com/coreos/etcd/clientv3"
@@ -178,4 +180,90 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 	}
 
 	c.Assert(client.checkMinVersion(), Not(IsNil))
+}
+
+type EtcdHelpersSuite struct{}
+
+var _ = Suite(&EtcdHelpersSuite{})
+
+func (s *EtcdHelpersSuite) TestIsEtcdOperator(c *C) {
+	temp := c.MkDir()
+	etcdConfigByte := []byte(`---
+endpoints:
+- https://cilium-etcd-client.kube-system.svc:2379
+`)
+	etcdTempFile := path.Join(temp, "etcd-config.yaml")
+	err := ioutil.WriteFile(etcdTempFile, etcdConfigByte, 0600)
+	c.Assert(err, IsNil)
+	type args struct {
+		backend      string
+		opts         map[string]string
+		k8sNamespace string
+	}
+	tests := []struct {
+		args args
+		want bool
+	}{
+		{
+			args: args{
+				backend: consulName,
+			},
+			// it is not etcd
+			want: false,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+			},
+			// misses configuration
+			want: false,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address": "http://cilium-etcd-client.kube-system.svc",
+				},
+				k8sNamespace: "kube-system",
+			},
+			// everything valid
+			want: true,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address": "cilium-etcd-client.kube-system.svc",
+				},
+				k8sNamespace: "kube-system",
+			},
+			// domain name misses protocol
+			want: false,
+		},
+		{
+			args: args{
+				opts: map[string]string{
+					"etcd.address": "cilium-etcd-client.kube-system.svc",
+				},
+				k8sNamespace: "kube-system",
+			},
+			// backend not specified
+			want: false,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.config": etcdTempFile,
+				},
+				k8sNamespace: "kube-system",
+			},
+			// config file with everything setup
+			want: true,
+		},
+	}
+	for i, tt := range tests {
+		got := IsEtcdOperator(tt.args.backend, tt.args.opts, tt.args.k8sNamespace)
+		c.Assert(got, Equals, tt.want, Commentf("Test %d", i))
+	}
 }

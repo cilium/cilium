@@ -1121,7 +1121,7 @@ func runDaemon() {
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
 	var goopts *kvstore.ExtraOptions
-	if k8s.IsEnabled() {
+	if k8s.IsEnabled() && kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace) {
 		// Wait services and endpoints cache are synced with k8s before setting
 		// up etcd.
 		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
