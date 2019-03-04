@@ -33,9 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -51,7 +49,6 @@ import (
 	"github.com/vishvananda/netlink"
 	ctx "golang.org/x/net/context"
 	"golang.org/x/sys/unix"
-	k8sDockerLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 const (
@@ -413,8 +410,6 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 	})
 
 	for try := 1; try <= EndpointCorrelationMaxRetries; try++ {
-		var ciliumID uint16
-
 		retryLog := scopedLog.WithField("retry", try)
 
 		if try > 1 {
@@ -426,7 +421,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			}
 		}
 
-		dockerContainer, identityLabels, informationLabels, err := d.retrieveDockerLabels(id)
+		dockerContainer, err := d.ContainerInspect(ctx.Background(), id)
 		if err != nil {
 			retryLog.WithError(err).Debug("Unable to inspect container after container create event")
 			continue
@@ -441,18 +436,8 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
-			ep = d.getEndpointByIP(dockerContainer)
+			ep = d.getEndpointByIP(&dockerContainer)
 		}
-
-		if ep != nil {
-			ciliumID = ep.ID
-		}
-
-		retryLog.WithFields(logrus.Fields{
-			logfields.EndpointID:     ciliumID,
-			"containerName":          containerName,
-			logfields.IdentityLabels: identityLabels,
-		}).Debug("Trying to associate container with existing endpoint")
 
 		if ep == nil {
 			// Endpoint does not exist yet. This indicates that the
@@ -460,11 +445,16 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			// networking for this container yet (or never will).
 			// We will retry a couple of times to wait for this to
 			// happen.
-			retryLog.Debug("Matching cilium endpoint for container create event does not exist yet")
+			retryLog.WithFields(logrus.Fields{
+				"containerName": containerName,
+			}).Debug("Container event could not be associated with endpoint yet")
 			continue
 		}
 
-		ep.SetContainerID(id)
+		retryLog.WithFields(logrus.Fields{
+			"containerName":      containerName,
+			logfields.EndpointID: ep.ID,
+		}).Debug("Associated container event with endpoint")
 
 		if dockerContainer.NetworkSettings != nil {
 			sandboxKey = dockerContainer.NetworkSettings.SandboxKey
@@ -477,14 +467,6 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 		// Docker appends '/' to container names.
 		ep.SetContainerName(strings.Trim(containerName, "/"))
 
-		// FIXME: Remove this in 2019-06: GH-6526
-		if k8s.IsEnabled() {
-			if dockerContainer.Config != nil {
-				ep.SetK8sNamespace(k8sDockerLbls.GetPodNamespace(dockerContainer.Config.Labels))
-				ep.SetK8sPodName(k8sDockerLbls.GetPodName(dockerContainer.Config.Labels))
-			}
-		}
-
 		// Finish ipvlan initialization if endpoint is connected via Docker libnetwork (cilium-docker)
 		if ep.GetDockerNetworkID() != "" && d.datapathMode == option.DatapathModeIpvlan {
 			if err := finishIpvlanInit(ep, sandboxKey); err != nil {
@@ -493,36 +475,19 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			}
 		}
 
-		// Update map allowing to lookup endpoint by endpoint
-		// attributes with new attributes set on endpoint
-		endpointmanager.UpdateReferences(ep)
+		allLabels := map[string]string{}
+		if dockerContainer.Config != nil {
+			allLabels = dockerContainer.Config.Labels
+		}
 
-		ep.UpdateLabels(Owner(), identityLabels, informationLabels, false)
+		processCreateWorkload(ep, id, allLabels)
+
 		return
 	}
 
 	startIgnoringContainer(id)
 
 	scopedLog.Info("No request received to manage networking for container")
-}
-
-// retrieveDockerLabels returns the metadata for the container with ID dockerID,
-// and two sets of labels: the labels that are utilized in computing the security
-// identity for an endpoint, and the set of labels that are not utilized in
-// computing the security identity for an endpoint.
-func (d *dockerClient) retrieveDockerLabels(dockerID string) (*dTypes.ContainerJSON, labels.Labels, labels.Labels, error) {
-	dockerCont, err := d.ContainerInspect(ctx.Background(), dockerID)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", dockerID, err)
-	}
-
-	newLabels := labels.Labels{}
-	informationLabels := labels.Labels{}
-	if dockerCont.Config != nil {
-		newLabels, informationLabels = getFilteredLabels(dockerID, dockerCont.Config.Labels)
-	}
-
-	return &dockerCont, newLabels, informationLabels, nil
 }
 
 // IgnoreRunningWorkloads checks for already running containers and checks

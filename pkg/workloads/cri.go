@@ -26,8 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/containerd/containerd/namespaces"
@@ -35,7 +33,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	criRuntime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
-	k8sLbls "k8s.io/kubernetes/pkg/kubelet/types"
 	"k8s.io/kubernetes/pkg/kubelet/util"
 )
 
@@ -210,9 +207,10 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 	})
 
 	for try := 1; try <= EndpointCorrelationMaxRetries; try++ {
-		var ciliumID uint16
-
-		retryLog := scopedLog.WithField("retry", try)
+		retryLog := scopedLog.WithFields(logrus.Fields{
+			"retry": try,
+			"podID": id,
+		})
 
 		if try > 1 {
 			if retry {
@@ -223,14 +221,18 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 			}
 		}
 
-		pod, identityLabels, informationLabels, err := c.retrieveCRIPodLabels(id)
+		ctx := namespaces.WithNamespace(context.Background(), k8sContainerdNamespace)
+		pssr := criRuntime.PodSandboxStatusRequest{
+			PodSandboxId: id,
+		}
+		cont, err := c.RuntimeServiceClient.PodSandboxStatus(ctx, &pssr)
 		if err != nil {
-			retryLog.WithError(err).Debug("Unable to inspect pod after pod create event")
+			retryLog.WithError(err).Debugf("Unable to inspect pod %s after pod create event", id)
 			continue
 		}
 
-		podID := pod.GetId()
-		if podID == "" {
+		pod := cont.GetStatus()
+		if pod.GetId() == "" {
 			retryLog.Warn("Container name not set in event from containerD")
 		}
 
@@ -241,64 +243,27 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 			ep = c.getEndpointByPodIP(pod)
 		}
 
-		if ep != nil {
-			ciliumID = ep.ID
-		}
-
-		retryLog.WithFields(logrus.Fields{
-			logfields.EndpointID:     ciliumID,
-			"podID":                  podID,
-			logfields.IdentityLabels: identityLabels,
-		}).Debug("Trying to associate pod with existing endpoint")
-
 		if ep == nil {
 			// Endpoint does not exist yet. This indicates that the
 			// orchestration system has not requested us to handle
 			// networking for this pod yet (or never will).
 			// We will retry a couple of times to wait for this to
 			// happen.
-			retryLog.Debug("Matching cilium endpoint for pod create event does not exist yet")
+			retryLog.Debug("Container event could not be associated with endpoint yet")
 			continue
 		}
 
-		ep.SetContainerID(id)
+		retryLog.WithFields(logrus.Fields{
+			logfields.EndpointID: ep.ID,
+		}).Debug("Associated container event with endpoint")
 
-		// FIXME: Remove this in 2019-06: GH-6526
-		if k8s.IsEnabled() {
-			ep.SetK8sNamespace(k8sLbls.GetPodNamespace(pod.Labels))
-			ep.SetK8sPodName(k8sLbls.GetPodName(pod.Labels))
-		}
-
-		// Update map allowing to lookup endpoint by endpoint
-		// attributes with new attributes set on endpoint
-		endpointmanager.UpdateReferences(ep)
-
-		ep.UpdateLabels(Owner(), identityLabels, informationLabels, false)
+		processCreateWorkload(ep, id, pod.Labels)
 		return
 	}
 
 	startIgnoringContainer(id)
 
 	scopedLog.Info("No request received to manage networking for container")
-}
-
-// retrieveCRIPodLabels returns the metadata for the container with the given ID,
-// and two sets of labels: the labels that are utilized in computing the security
-// identity for an endpoint, and the set of labels that are not utilized in
-// computing the security identity for an endpoint.
-func (c *criClient) retrieveCRIPodLabels(podID string) (*criRuntime.PodSandboxStatus, labels.Labels, labels.Labels, error) {
-	ctx := namespaces.WithNamespace(context.Background(), k8sContainerdNamespace)
-	pssr := criRuntime.PodSandboxStatusRequest{
-		PodSandboxId: podID,
-	}
-	cont, err := c.RuntimeServiceClient.PodSandboxStatus(ctx, &pssr)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to inspect container '%s': %s", podID, err)
-	}
-
-	newLabels, informationLabels := getFilteredLabels(podID, cont.GetStatus().Labels)
-
-	return cont.GetStatus(), newLabels, informationLabels, nil
 }
 
 // IgnoreRunningWorkloads checks for already running containers and checks
