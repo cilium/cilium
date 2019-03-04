@@ -16,6 +16,7 @@ package kvstore
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -801,4 +802,52 @@ func (e *etcdClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
 	go e.Watch(w)
 
 	return w
+}
+
+// IsEtcdOperator returns true if the configuration is setting up an
+// etcd-operator and false otherwise.
+func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace string) bool {
+	if selectedBackend != EtcdBackendName {
+		return false
+	}
+
+	fqdnIsEtcdOperator := func(address string) bool {
+		u, err := url.Parse(address)
+		if err != nil {
+			return false
+		}
+		// typical service name "cilium-etcd-client.kube-system.svc"
+		names := strings.Split(u.Hostname(), ".")
+		return len(names) >= 2 &&
+			names[0] == "cilium-etcd-client" &&
+			names[1] == k8sNamespace
+	}
+
+	fqdn := opts[addrOption]
+	if len(fqdn) != 0 {
+		return fqdnIsEtcdOperator(fqdn)
+	}
+
+	bm := newEtcdModule()
+	err := bm.setConfig(opts)
+	if err != nil {
+		return false
+	}
+	etcdConfig := bm.getConfig()[EtcdOptionConfig]
+	if len(etcdConfig) == 0 {
+		return false
+	}
+
+	cfg, err := clientyaml.NewConfig(etcdConfig)
+	if err != nil {
+		log.WithError(err).Error("Unable to read etcd configuration.")
+		return false
+	}
+	for _, endpoint := range cfg.Endpoints {
+		if fqdnIsEtcdOperator(endpoint) {
+			return true
+		}
+	}
+
+	return false
 }
