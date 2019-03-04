@@ -268,12 +268,6 @@ func (d *dockerClient) Status() *models.Status {
 	return &models.Status{State: models.StatusStateOk, Msg: "docker daemon: OK"}
 }
 
-const (
-	syncRateDocker = 5 * time.Minute
-
-	eventQueueBufferSize = 100
-)
-
 // EnableEventListener watches for docker events. Performs the plumbing for the
 // containers started or dead.
 func (d *dockerClient) EnableEventListener() (eventsCh chan<- *EventMessage, err error) {
@@ -283,19 +277,7 @@ func (d *dockerClient) EnableEventListener() (eventsCh chan<- *EventMessage, err
 	}
 	log.Info("Enabling docker event listener")
 
-	ws := newWatcherState(eventQueueBufferSize)
-	// start a go routine which periodically synchronizes containers
-	// managed by the local container runtime and checks if any of them
-	// need to be managed by Cilium. This is a fall back mechanism in case
-	// an event notification has been lost.
-	// Note: We do the sync before the first sleep
-	go func(state *watcherState) {
-		for {
-			state.reapEmpty()
-			ws.syncWithRuntime()
-			time.Sleep(syncRateDocker)
-		}
-	}(ws)
+	ws := newWatcherState()
 
 	since := time.Now()
 	eo := dTypes.EventsOptions{Since: strconv.FormatInt(since.Unix(), 10)}

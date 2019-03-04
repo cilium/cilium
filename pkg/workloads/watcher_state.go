@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -32,6 +33,10 @@ const (
 	EventTypeStart eventType = "start"
 	// EventTypeDelete represents when a workload was deleted
 	EventTypeDelete eventType = "delete"
+
+	periodicSyncRate = 5 * time.Minute
+
+	eventQueueBufferSize = 100
 )
 
 // EventMessage is the structure use for the different workload events.
@@ -45,15 +50,38 @@ type EventMessage struct {
 type watcherState struct {
 	lock.Mutex
 
-	eventQueueBufferSize int
-	events               map[string]chan EventMessage
+	events map[string]chan EventMessage
 }
 
-func newWatcherState(eventQueueBufferSize int) *watcherState {
-	return &watcherState{
-		eventQueueBufferSize: eventQueueBufferSize,
-		events:               make(map[string]chan EventMessage),
+func newWatcherState() *watcherState {
+	ws := &watcherState{
+		events: make(map[string]chan EventMessage),
 	}
+
+	go func(state *watcherState) {
+		for {
+			// Clean up empty event handling channels
+			state.reapEmpty()
+
+			// periodically synchronize containers managed by the
+			// local container runtime and checks if any of them
+			// need to be managed by Cilium. This is a fall back
+			// mechanism in case an event notification has been
+			// lost.
+			//
+			// This is only required when *NOT* running in
+			// Kubernetes mode as kubelet will keep containers and
+			// pods in sync and will make CNI ADD and CNI DEL calls
+			// as required.
+			if !k8s.IsEnabled() {
+				ws.syncWithRuntime()
+			}
+
+			time.Sleep(periodicSyncRate)
+		}
+	}(ws)
+
+	return ws
 }
 
 // enqueueByContainerID starts a handler for this container, if needed, and
