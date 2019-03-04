@@ -62,7 +62,7 @@ func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels 
 	ep.SetContainerID(containerID)
 
 	// FIXME: Remove this in 2019-06: GH-6526
-	if k8s.IsEnabled() {
+	if k8s.IsEnabled() && ep.GetK8sPodName() == "" {
 		ep.SetK8sNamespace(k8sLbls.GetPodNamespace(allLabels))
 		ep.SetK8sPodName(k8sLbls.GetPodName(allLabels))
 	}
