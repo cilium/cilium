@@ -1019,8 +1019,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			option.Config.HostAllowsWorld = false
 		}
 
-		// Inject K8s dependency into packages which need to annotate K8s resources.
-		endpoint.EpAnnotator = k8s.Client()
 		bootstrapStats.k8sInit.End(true)
 	}
 
