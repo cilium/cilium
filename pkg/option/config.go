@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
@@ -396,6 +397,10 @@ const (
 
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
+
+	// KVstorePeriodicSync is the time interval in which periodic
+	// synchronization with the kvstore occurs
+	KVstorePeriodicSync = "kvstore-periodic-sync"
 )
 
 // FQDNS variables
@@ -780,6 +785,10 @@ type DaemonConfig struct {
 	// EnableHealthChecking enables health checking between nodes and
 	// health endpoints
 	EnableHealthChecking bool
+
+	// KVstorePeriodicSync is the time interval in which periodic
+	// synchronization with the kvstore occurs
+	KVstorePeriodicSync time.Duration
 }
 
 var (
@@ -794,6 +803,7 @@ var (
 		EnableIPv4:               defaults.EnableIPv4,
 		EnableIPv6:               defaults.EnableIPv6,
 		ToFQDNsMaxIPsPerHost:     defaults.ToFQDNsMaxIPsPerHost,
+		KVstorePeriodicSync:      defaults.KVstorePeriodicSync,
 		ContainerRuntimeEndpoint: make(map[string]string),
 		FixedIdentityMapping:     make(map[string]string),
 		KVStoreOpt:               make(map[string]string),
@@ -1045,6 +1055,7 @@ func (c *DaemonConfig) Populate() {
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)
+	c.KVstorePeriodicSync = viper.GetDuration(KVstorePeriodicSync)
 	c.LabelPrefixFile = viper.GetString(LabelPrefixFile)
 	c.Labels = viper.GetStringSlice(Labels)
 	c.LBInterface = viper.GetString(LB)

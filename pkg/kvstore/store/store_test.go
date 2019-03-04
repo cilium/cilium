@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
@@ -146,14 +147,14 @@ func (s *StoreSuite) TestStoreCreation(c *C) {
 	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
-	c.Assert(store.conf.SynchronizationInterval, Equals, synchronizationIntervalDefault)
+	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
 	store.Close()
 
 	// Test with kvstore client specified
 	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Backend: kvstore.Client()})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
-	c.Assert(store.conf.SynchronizationInterval, Equals, synchronizationIntervalDefault)
+	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
 	store.Close()
 }
 
