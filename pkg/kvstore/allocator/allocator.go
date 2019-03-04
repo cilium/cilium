@@ -46,10 +46,6 @@ const (
 	// succeed when creating a new allocator
 	listTimeout = 3 * time.Minute
 
-	// gcInterval is the interval in which allocator identities are
-	// attempted to be expired from the kvstore
-	gcInterval = time.Duration(10) * time.Minute
-
 	// localKeySyncInterval is the interval in which local keys are being
 	// synced to the kvstore in case master keys get lost
 	localKeySyncInterval = 1 * time.Minute
@@ -208,6 +204,15 @@ func locklessCapability() bool {
 // AllocatorOption is the base type for allocator options
 type AllocatorOption func(*Allocator)
 
+// NewAllocatorForGC returns an allocator  that can be used to run RunGC()
+func NewAllocatorForGC(basePath string) *Allocator {
+	return &Allocator{
+		idPrefix:    path.Join(basePath, "id"),
+		valuePrefix: path.Join(basePath, "value"),
+		lockPrefix:  path.Join(basePath, "locks"),
+	}
+}
+
 // NewAllocator creates a new Allocator. Any type can be used as key as long as
 // the type implements the AllocatorKey interface. A variable of the type has
 // to be passed into NewAllocator() to make the type known.  The specified base
@@ -277,7 +282,7 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 			case <-time.After(listTimeout):
 				log.Fatalf("Timeout while waiting for initial allocator state")
 			}
-			a.startGC()
+			a.startLocalKeySync()
 		}()
 	}
 
@@ -632,7 +637,8 @@ func (a *Allocator) Release(key AllocatorKey) (lastUse bool, err error) {
 	return
 }
 
-func (a *Allocator) runGC() error {
+// RunGC scans the kvstore for unused master keys and removes them
+func (a *Allocator) RunGC() error {
 	// fetch list of all /id/ keys
 	allocated, err := kvstore.ListPrefix(a.idPrefix)
 	if err != nil {
@@ -717,25 +723,7 @@ func (a *Allocator) syncLocalKeys() error {
 	return nil
 }
 
-func (a *Allocator) startGC() {
-	go func(a *Allocator) {
-		for {
-			if err := a.runGC(); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{fieldPrefix: a.idPrefix}).
-					Warning("Unable to run allocator garbage collector")
-			}
-
-			select {
-			case <-a.stopGC:
-				log.WithFields(logrus.Fields{fieldPrefix: a.idPrefix}).
-					Debug("Stopped garbage collector")
-				return
-			case <-time.After(gcInterval):
-			}
-
-		}
-	}(a)
-
+func (a *Allocator) startLocalKeySync() {
 	go func(a *Allocator) {
 		for {
 			if err := a.syncLocalKeys(); err != nil {
