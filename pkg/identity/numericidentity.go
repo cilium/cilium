@@ -102,6 +102,9 @@ const (
 
 	// ReservedCiliumEtcdOperator is the reserved identity used for the Cilium etcd operator
 	ReservedCiliumEtcdOperator NumericIdentity = 107
+
+	// ReserverDex is the reserved identity used for dex
+	ReservedDex NumericIdentity = 108
 )
 
 type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
@@ -256,6 +259,18 @@ func InitWellKnownIdentities() {
 		"k8s:io.cilium/app=etcd-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, namespace),
 		fmt.Sprintf("k8s:%s=cilium-etcd-operator", api.PolicyLabelServiceAccount),
+		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
+	})
+
+	// Dex labels
+	//   k8s:io.cilium.k8s.policy.serviceaccount=dex
+	//   k8s:io.kubernetes.pod.namespace=kube-system
+	//   k8s:app=dex
+	//   k8s:io.cilium.k8s.policy.cluster=default
+	WellKnown.add(ReservedDex, []string{
+		"k8s:app=dex",
+		fmt.Sprintf("k8s:%s=kube-system", api.PodNamespaceLabel),
+		fmt.Sprintf("k8s:%s=default", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, option.Config.ClusterName),
 	})
 }
