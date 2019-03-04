@@ -676,6 +676,8 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 	ep, err := endpointmanager.Lookup(id)
 	if err != nil {
 		return api.Error(PatchEndpointIDInvalidCode, err)
+	} else if ep == nil {
+		return api.New(PatchEndpointIDNotFoundCode, "endpoint %s not found", id)
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
 		return api.Error(PatchEndpointIDInvalidCode, err)
