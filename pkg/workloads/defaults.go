@@ -17,7 +17,12 @@ package workloads
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+
+	k8sLbls "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
 const (
@@ -51,4 +56,21 @@ func getFilteredLabels(containerID string, allLabels map[string]string) (identit
 	}
 
 	return labels.FilterLabels(combinedLabels)
+}
+
+func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string) {
+	ep.SetContainerID(containerID)
+
+	// FIXME: Remove this in 2019-06: GH-6526
+	if k8s.IsEnabled() {
+		ep.SetK8sNamespace(k8sLbls.GetPodNamespace(allLabels))
+		ep.SetK8sPodName(k8sLbls.GetPodName(allLabels))
+	}
+
+	// Update map allowing to lookup endpoint by endpoint
+	// attributes with new attributes set on endpoint
+	endpointmanager.UpdateReferences(ep)
+
+	identityLabels, informationLabels := getFilteredLabels(containerID, allLabels)
+	ep.UpdateLabels(Owner(), identityLabels, informationLabels, false)
 }
