@@ -49,6 +49,16 @@ type Exponential struct {
 	attempt int
 }
 
+// CalculateDuration calculates the backoff duration based on minimum base
+// interval, exponential factor and number of failures.
+func CalculateDuration(min, max time.Duration, factor float64, failures int) time.Duration {
+	t := time.Duration(float64(min) * math.Pow(factor, float64(failures)))
+	if max != time.Duration(0) && t > max {
+		t = max
+	}
+	return t
+}
+
 // Wait waits for the required time using an exponential backoff
 func (b *Exponential) Wait() {
 	b.attempt++
@@ -67,11 +77,7 @@ func (b *Exponential) Wait() {
 		factor = b.Factor
 	}
 
-	t := time.Duration(float64(min) * math.Pow(factor, float64(b.attempt)))
-
-	if b.Max != time.Duration(0) && t > b.Max {
-		t = b.Max
-	}
+	t := CalculateDuration(min, b.Max, factor, b.attempt)
 
 	log.WithFields(logrus.Fields{
 		"time":    t,
