@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cilium-ipsec-keys
+  namespace: kube-system
+type: Opaque
+stringData:
+  keys: "hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef"
