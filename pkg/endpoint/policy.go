@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -402,10 +403,14 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 }
 
+func (e *Endpoint) RegenerateAndSignalWhenEnqueued(owner Owner, regenMetadata *ExternalRegenerationMetadata, wg *sync.WaitGroup) <-chan bool {
+	return e.Regenerate(owner, regenMetadata, wg)
+}
+
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMetadata) <-chan bool {
+func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMetadata, wg ...*sync.WaitGroup) <-chan bool {
 	done := make(chan bool, 1)
 
 	regenContext := regenMetadata.toRegenerationContext()
@@ -414,11 +419,13 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 		owner:        owner,
 		regenContext: regenContext,
 		ep:           e,
-		successChan:  done,
 	})
 
 	// This may block if the Endpoint's EventQueue is full.
 	e.Enqueue(epEvent)
+	for _, wgg := range wg {
+		wgg.Done()
+	}
 
 	go func() {
 

@@ -417,17 +417,29 @@ func regenerateEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetada
 	wg.Done()
 }
 
+func regenerateEndpointSignalWhenEnqueued(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
+	if err := ep.LockAlive(); err != nil {
+		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		ep.Unlock()
+		if regen {
+			// Regenerate logs status according to the build success/failure
+			ep.Regenerate(owner, regenMetadata, wg)
+		}
+	}
+}
+
 // RegenerateEndpointSet is similar to RegenerateAllEndpoints, except it only
 // regenerates all endpoints with IDs in endpointIDs.
-func RegenerateEndpointSet(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}) *sync.WaitGroup {
-	var wg sync.WaitGroup
+func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
 	wg.Add(len(endpointIDs))
 
 	for endpointID := range endpointIDs {
 		ep := endpoints[endpointID]
-		go regenerateEndpoint(owner, ep, regenMetadata, &wg)
+		go regenerateEndpointSignalWhenEnqueued(owner, ep, regenMetadata, wg)
 	}
-	return &wg
 }
 
 // HasGlobalCT returns true if the endpoints have a global CT, false otherwise.

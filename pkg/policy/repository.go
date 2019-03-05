@@ -47,9 +47,11 @@ type Repository struct {
 
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
+	q := eventqueue.NewEventQueueBuffered(100)
+	go q.Run()
 	return &Repository{
 		revision:   1,
-		EventQueue: eventqueue.NewEventQueueBuffered(100),
+		EventQueue: q,
 	}
 }
 
@@ -381,7 +383,7 @@ func NewIDSet() *IDSet {
 type IdentityConsumer interface {
 	GetID16() uint16
 	GetSecurityIdentity() *identity.Identity
-	PolicyRevisionBumpEvent(rev uint64)
+	PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup)
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
