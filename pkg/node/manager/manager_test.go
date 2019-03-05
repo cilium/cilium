@@ -315,7 +315,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	c.StopTimer()
 }
 
-func (s *managerTestSuite) TestBackgroundSyncInterval(c *check.C) {
+func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	mngr, err := NewManager("test", fake.NewNodeHandler())
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
@@ -325,7 +325,7 @@ func (s *managerTestSuite) TestBackgroundSyncInterval(c *check.C) {
 	for i := 0; i < 1000; i++ {
 		n := node.Node{Name: fmt.Sprintf("%d", i), Source: node.FromAgentLocal}
 		mngr.NodeUpdated(n)
-		newInterval := mngr.backgroundSyncInterval()
+		newInterval := mngr.ClusterSizeDependantInterval(time.Minute)
 		c.Assert(newInterval > prevInterval, check.Equals, true)
 	}
 }
@@ -336,7 +336,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	// set the base background sync interval to a very low value so the
 	// background sync runs aggressively
 	baseBackgroundSyncIntervalBackup := baseBackgroundSyncInterval
-	baseBackgroundSyncInterval = float64((10 * time.Millisecond).Nanoseconds())
+	baseBackgroundSyncInterval = 10 * time.Millisecond
 	defer func() { baseBackgroundSyncInterval = baseBackgroundSyncIntervalBackup }()
 
 	signalNodeHandler := newSignalNodeHandler()
