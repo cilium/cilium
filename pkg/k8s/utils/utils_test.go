@@ -17,8 +17,19 @@
 package utils
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type FactorySuite struct{}
+
+var _ = Suite(&FactorySuite{})
 
 func (s *FactorySuite) TestIsInfraContainer(c *C) {
 	type args struct {

@@ -46,9 +46,9 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/versioncheck"
-	"github.com/cilium/cilium/pkg/versioned"
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
@@ -337,42 +337,56 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unable to create cilium network policy client: %s", err)
 	}
 
+	serKNPs := serializer.NewFunctionQueue(1024)
+	serSvcs := serializer.NewFunctionQueue(1024)
+	serEps := serializer.NewFunctionQueue(1024)
+	serIngresses := serializer.NewFunctionQueue(1024)
+	serCNPs := serializer.NewFunctionQueue(1024)
+	serPods := serializer.NewFunctionQueue(1024)
+	serNodes := serializer.NewFunctionQueue(1024)
+	serNamespaces := serializer.NewFunctionQueue(1024)
+
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
-		_, policyController := k8sUtils.ControllerFactory(
-			k8s.Client().NetworkingV1().RESTClient(),
+		_, policyController := cache.NewInformer(
+			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
+				"networkpolicies", v1.NamespaceAll, fields.Everything()),
 			&networkingv1.NetworkPolicy{},
-			k8sUtils.ResourceEventHandlerFactory(
-				func(i interface{}) func() error {
-					return func() error {
-						err := d.addK8sNetworkPolicyV1(i.(*networkingv1.NetworkPolicy))
-						updateK8sEventMetric(metricKNP, metricCreate, err == nil)
-						return nil
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
+						serKNPs.Enqueue(func() error {
+							err := d.addK8sNetworkPolicyV1(k8sNP)
+							updateK8sEventMetric(metricKNP, metricCreate, err == nil)
+							return nil
+						}, serializer.NoRetry)
 					}
 				},
-				func(i interface{}) func() error {
-					return func() error {
-						err := d.deleteK8sNetworkPolicyV1(i.(*networkingv1.NetworkPolicy))
-						updateK8sEventMetric(metricKNP, metricDelete, err == nil)
-						return nil
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if oldK8sNP := k8s.CopyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
+						if newK8sNP := k8s.CopyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+							serKNPs.Enqueue(func() error {
+								err := d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+								updateK8sEventMetric(metricKNP, metricUpdate, err == nil)
+								return nil
+							}, serializer.NoRetry)
+						}
 					}
 				},
-				func(old, new interface{}) func() error {
-					return func() error {
-						err := d.updateK8sNetworkPolicyV1(
-							old.(*networkingv1.NetworkPolicy),
-							new.(*networkingv1.NetworkPolicy))
-						updateK8sEventMetric(metricKNP, metricUpdate, err == nil)
-						return nil
+				DeleteFunc: func(obj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
+						serKNPs.Enqueue(func() error {
+							err := d.deleteK8sNetworkPolicyV1(k8sNP)
+							updateK8sEventMetric(metricKNP, metricDelete, err == nil)
+							return nil
+						}, serializer.NoRetry)
 					}
 				},
-				d.missingK8sNetworkPolicyV1,
-				&networkingv1.NetworkPolicy{},
-				k8s.Client(),
-				reSyncPeriod,
-				metrics.EventTSK8s,
-			),
-			fields.Everything(),
+			},
 		)
 		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, policyController, "NetworkPolicy")
 		go policyController.Run(wait.NeverStop)
@@ -380,114 +394,137 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 	}
 
-	_, svcController := k8sUtils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
+	_, svcController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
-		k8sUtils.ResourceEventHandlerFactory(
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.addK8sServiceV1(i.(*v1.Service))
-					updateK8sEventMetric(metricService, metricCreate, err == nil)
-					return nil
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
+					serSvcs.Enqueue(func() error {
+						err := d.addK8sServiceV1(k8sSvc)
+						updateK8sEventMetric(metricService, metricCreate, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.deleteK8sServiceV1(i.(*v1.Service))
-					updateK8sEventMetric(metricService, metricDelete, err == nil)
-					return nil
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
+					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
+						serSvcs.Enqueue(func() error {
+							err := d.updateK8sServiceV1(oldk8sSvc, newk8sSvc)
+							updateK8sEventMetric(metricService, metricUpdate, err == nil)
+							return nil
+						}, serializer.NoRetry)
+					}
 				}
 			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					err := d.updateK8sServiceV1(old.(*v1.Service), new.(*v1.Service))
-					updateK8sEventMetric(metricService, metricUpdate, err == nil)
-					return nil
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
+					serSvcs.Enqueue(func() error {
+						err := d.deleteK8sServiceV1(k8sSvc)
+						updateK8sEventMetric(metricService, metricDelete, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
-			d.k8sSvcCache.ListMissingServices,
-			&v1.Service{},
-			k8s.Client(),
-			reSyncPeriod,
-			metrics.EventTSK8s,
-		),
-		fields.Everything(),
+		},
 	)
 	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, svcController, "Service")
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
-	_, endpointController := k8sUtils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
-		&v1.Endpoints{},
-		k8sUtils.ResourceEventHandlerFactory(
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.addK8sEndpointV1(i.(*v1.Endpoints))
-					updateK8sEventMetric(metricEndpoint, metricCreate, err == nil)
-					return nil
-				}
-			},
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.deleteK8sEndpointV1(i.(*v1.Endpoints))
-					updateK8sEventMetric(metricEndpoint, metricDelete, err == nil)
-					return nil
-				}
-			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					err := d.updateK8sEndpointV1(old.(*v1.Endpoints), new.(*v1.Endpoints))
-					updateK8sEventMetric(metricEndpoint, metricUpdate, err == nil)
-					return nil
-				}
-			},
-			d.k8sSvcCache.ListMissingEndpoints,
-			&v1.Endpoints{},
-			k8s.Client(),
-			reSyncPeriod,
-			metrics.EventTSK8s,
+	_, endpointController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"endpoints", v1.NamespaceAll,
+			// Don't get any events from kubernetes endpoints.
+			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
 		),
-		// Don't get any events from kubernetes endpoints.
-		fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
+		&v1.Endpoints{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
+					serEps.Enqueue(func() error {
+						err := d.addK8sEndpointV1(k8sEP)
+						updateK8sEventMetric(metricEndpoint, metricCreate, err == nil)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
+					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
+						serEps.Enqueue(func() error {
+							err := d.updateK8sEndpointV1(oldk8sEP, newk8sEP)
+							updateK8sEventMetric(metricEndpoint, metricUpdate, err == nil)
+							return nil
+						}, serializer.NoRetry)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
+					serEps.Enqueue(func() error {
+						err := d.deleteK8sEndpointV1(k8sEP)
+						updateK8sEventMetric(metricEndpoint, metricDelete, err == nil)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+		},
 	)
 	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, endpointController, "Endpoint")
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
 	if option.Config.IsLBEnabled() {
-		_, ingressController := k8sUtils.ControllerFactory(
-			k8s.Client().ExtensionsV1beta1().RESTClient(),
+		_, ingressController := cache.NewInformer(
+			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
+				"ingresses", v1.NamespaceAll, fields.Everything()),
 			&v1beta1.Ingress{},
-			k8sUtils.ResourceEventHandlerFactory(
-				func(i interface{}) func() error {
-					return func() error {
-						err := d.addIngressV1beta1(i.(*v1beta1.Ingress))
-						updateK8sEventMetric(metricIngress, metricCreate, err == nil)
-						return nil
+			reSyncPeriod,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if k8sIngress := k8s.CopyObjToV1beta1Ingress(obj); k8sIngress != nil {
+						serIngresses.Enqueue(func() error {
+							err := d.addIngressV1beta1(k8sIngress)
+							updateK8sEventMetric(metricIngress, metricCreate, err == nil)
+							return nil
+						}, serializer.NoRetry)
 					}
 				},
-				func(i interface{}) func() error {
-					return func() error {
-						err := d.deleteIngressV1beta1(i.(*v1beta1.Ingress))
-						updateK8sEventMetric(metricIngress, metricDelete, err == nil)
-						return nil
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if oldk8sIngress := k8s.CopyObjToV1beta1Ingress(oldObj); oldk8sIngress != nil {
+						if newk8sIngress := k8s.CopyObjToV1beta1Ingress(newObj); newk8sIngress != nil {
+							serIngresses.Enqueue(func() error {
+								err := d.updateIngressV1beta1(oldk8sIngress, newk8sIngress)
+								updateK8sEventMetric(metricIngress, metricUpdate, err == nil)
+								return nil
+							}, serializer.NoRetry)
+						}
 					}
 				},
-				func(old, new interface{}) func() error {
-					return func() error {
-						err := d.updateIngressV1beta1(old.(*v1beta1.Ingress), new.(*v1beta1.Ingress))
-						updateK8sEventMetric(metricIngress, metricUpdate, err == nil)
-						return nil
+				DeleteFunc: func(obj interface{}) {
+					metrics.EventTSK8s.SetToCurrentTime()
+					if k8sIngress := k8s.CopyObjToV1beta1Ingress(obj); k8sIngress != nil {
+						serIngresses.Enqueue(func() error {
+							err := d.deleteIngressV1beta1(k8sIngress)
+							updateK8sEventMetric(metricIngress, metricDelete, err == nil)
+							return nil
+						}, serializer.NoRetry)
 					}
 				},
-				d.missingK8sIngressV1Beta1,
-				&v1beta1.Ingress{},
-				k8s.Client(),
-				reSyncPeriod,
-				metrics.EventTSK8s,
-			),
-			fields.Everything(),
+			},
 		)
 		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ingressController, "Ingress")
 		go ingressController.Run(wait.NeverStop)
@@ -507,153 +544,164 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			cnpStore = ciliumV2Controller.GetStore()
 		}
 
-		rehf := k8sUtils.ResourceEventHandlerFactory(
-			func(i interface{}) func() error {
-				return func() error {
-					cnp := i.(*cilium_v2.CiliumNetworkPolicy)
-					if cnp.RequiresDerivative() {
+		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
+					serCNPs.Enqueue(func() error {
+						if cnp.RequiresDerivative() {
+							return nil
+						}
+						err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, cnp)
+						updateK8sEventMetric(metricCNP, metricCreate, err == nil)
 						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
+					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+						serCNPs.Enqueue(func() error {
+							if newCNP.RequiresDerivative() {
+								return nil
+							}
+
+							err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, oldCNP, newCNP)
+							updateK8sEventMetric(metricCNP, metricUpdate, err == nil)
+							return nil
+						}, serializer.NoRetry)
 					}
-					err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, cnp)
-					updateK8sEventMetric(metricCNP, metricCreate, err == nil)
-					return nil
 				}
 			},
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.deleteCiliumNetworkPolicyV2(i.(*cilium_v2.CiliumNetworkPolicy))
-					updateK8sEventMetric(metricCNP, metricDelete, err == nil)
-					return nil
-				}
-			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					oldCNP := old.(*cilium_v2.CiliumNetworkPolicy)
-					newCNP := new.(*cilium_v2.CiliumNetworkPolicy)
-					if newCNP.RequiresDerivative() {
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
+					serCNPs.Enqueue(func() error {
+						err := d.deleteCiliumNetworkPolicyV2(cnp)
+						updateK8sEventMetric(metricCNP, metricDelete, err == nil)
 						return nil
-					}
-
-					err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, oldCNP, newCNP)
-					updateK8sEventMetric(metricCNP, metricUpdate, err == nil)
-					return nil
+					}, serializer.NoRetry)
 				}
 			},
-			d.missingCNPv2,
-			&cilium_v2.CiliumNetworkPolicy{},
-			ciliumNPClient,
-			reSyncPeriod,
-			metrics.EventTSK8s,
-		)
+		})
 
-		// Wrap the controller from Kubernetes so we can actually know when all
-		// objects were synchronized and processed from kubernetes.
-		cs := &k8sUtils.ControllerSyncer{Controller: ciliumV2Controller, ResourceEventHandler: rehf}
-		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, cs, "CiliumNetworkPolicy")
-
-		ciliumV2Controller.AddEventHandler(rehf)
+		blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, ciliumV2Controller, "CiliumNetworkPolicy")
 	}
 
 	si.Start(wait.NeverStop)
 
-	_, podsController := k8sUtils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
+	_, podController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"pods", v1.NamespaceAll, fields.Everything()),
 		&v1.Pod{},
-		k8sUtils.ResourceEventHandlerFactory(
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.addK8sPodV1(i.(*v1.Pod))
-					updateK8sEventMetric(metricPod, metricCreate, err == nil)
-					return nil
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
+					serPods.Enqueue(func() error {
+						err := d.addK8sPodV1(pod)
+						updateK8sEventMetric(metricPod, metricCreate, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.deleteK8sPodV1(i.(*v1.Pod))
-					updateK8sEventMetric(metricPod, metricDelete, err == nil)
-					return nil
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
+					if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
+						serPods.Enqueue(func() error {
+							err := d.updateK8sPodV1(oldPod, newPod)
+							updateK8sEventMetric(metricPod, metricUpdate, err == nil)
+							return nil
+						}, serializer.NoRetry)
+					}
 				}
 			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					err := d.updateK8sPodV1(old.(*v1.Pod), new.(*v1.Pod))
-					updateK8sEventMetric(metricPod, metricUpdate, err == nil)
-					return nil
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
+					serPods.Enqueue(func() error {
+						err := d.deleteK8sPodV1(pod)
+						updateK8sEventMetric(metricPod, metricDelete, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
-			missingK8sPodV1,
-			&v1.Pod{},
-			k8s.Client(),
-			reSyncPeriod,
-			metrics.EventTSK8s,
-		),
-		fields.Everything(),
+		},
 	)
-
-	go podsController.Run(wait.NeverStop)
+	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, podController, "Pod")
+	go podController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
-	_, nodesController := k8sUtils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
+	_, nodeController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"nodes", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},
-		k8sUtils.ResourceEventHandlerFactory(
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.addK8sNodeV1(i.(*v1.Node))
-					updateK8sEventMetric(metricNode, metricCreate, err == nil)
-					return nil
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if Node := k8s.CopyObjToV1Node(obj); Node != nil {
+					serNodes.Enqueue(func() error {
+						err := d.addK8sNodeV1(Node)
+						updateK8sEventMetric(metricNode, metricCreate, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
-			func(i interface{}) func() error {
-				return func() error {
-					err := d.deleteK8sNodeV1(i.(*v1.Node))
-					updateK8sEventMetric(metricNode, metricDelete, err == nil)
-					return nil
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
+					if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
+						serNodes.Enqueue(func() error {
+							err := d.updateK8sNodeV1(oldNode, newNode)
+							updateK8sEventMetric(metricNode, metricUpdate, err == nil)
+							return nil
+						}, serializer.NoRetry)
+					}
 				}
 			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					err := d.updateK8sNodeV1(old.(*v1.Node), new.(*v1.Node))
-					updateK8sEventMetric(metricNode, metricUpdate, err == nil)
-					return nil
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if Node := k8s.CopyObjToV1Node(obj); Node != nil {
+					serNodes.Enqueue(func() error {
+						err := d.deleteK8sNodeV1(Node)
+						updateK8sEventMetric(metricNode, metricDelete, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				}
 			},
-			d.missingK8sNodeV1,
-			&v1.Node{},
-			k8s.Client(),
-			reSyncPeriod,
-			metrics.EventTSK8s,
-		),
-		fields.Everything(),
+		},
 	)
-
-	go nodesController.Run(wait.NeverStop)
+	blockWaitGroupToSyncResources(&d.k8sResourceSyncWaitGroup, nodeController, "Node")
+	go nodeController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 
-	_, namespaceController := k8sUtils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
-		&v1.Namespace{},
-		k8sUtils.ResourceEventHandlerFactory(
+	_, namespaceController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"namespaces", v1.NamespaceAll, fields.Everything()),
+		&v1.Node{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
 			// AddFunc does not matter since the endpoint will fetch
 			// namespace labels when the endpoint is created
-			nil,
 			// DelFunc does not matter since, when a namespace is deleted, all
 			// pods belonging to that namespace are also deleted.
-			nil,
-			func(old, new interface{}) func() error {
-				return func() error {
-					err := d.updateK8sV1Namespace(old.(*v1.Namespace), new.(*v1.Namespace))
-					updateK8sEventMetric(metricNS, metricUpdate, err == nil)
-					return nil
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldNS := k8s.CopyObjToV1Namespace(oldObj); oldNS != nil {
+					if newNS := k8s.CopyObjToV1Namespace(newObj); newNS != nil {
+						serNamespaces.Enqueue(func() error {
+							err := d.updateK8sV1Namespace(oldNS, newNS)
+							updateK8sEventMetric(metricNS, metricUpdate, err == nil)
+							return nil
+						}, serializer.NoRetry)
+					}
 				}
 			},
-			d.missingK8sNamespaceV1,
-			&v1.Namespace{},
-			k8s.Client(),
-			reSyncPeriod,
-			metrics.EventTSK8s,
-		),
-		fields.Everything(),
+		},
 	)
 
 	go namespaceController.Run(wait.NeverStop)
@@ -717,20 +765,6 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) err
 
 	scopedLog.Info("NetworkPolicy successfully removed")
 	return nil
-}
-
-func (d *Daemon) missingK8sNetworkPolicyV1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	d.policy.Mutex.RLock()
-	for k, v := range m {
-		v1NP := v.Data.(*networkingv1.NetworkPolicy)
-		ruleLabels := k8s.GetPolicyLabelsv1(v1NP)
-		if !d.policy.ContainsAllRLocked(labels.LabelArrayList{ruleLabels}) {
-			missing.Add(k, v)
-		}
-	}
-	d.policy.Mutex.RUnlock()
-	return missing
 }
 
 func (d *Daemon) k8sServiceHandler() {
@@ -1089,18 +1123,6 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 	}
 
 	return nil
-}
-
-func (d *Daemon) missingK8sIngressV1Beta1(m versioned.Map) versioned.Map {
-	var host net.IP
-	switch {
-	case option.Config.EnableIPv4:
-		host = option.Config.HostV4Addr
-	case option.Config.EnableIPv6:
-		host = option.Config.HostV6Addr
-	}
-
-	return d.k8sSvcCache.ListMissingIngresses(m, host)
 }
 
 // getUpdatedCNPFromStore gets the most recent version of cnp from the store
@@ -1478,21 +1500,6 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	return d.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)
 }
 
-// missingCNPv2 returns all missing policies from the given map.
-func (d *Daemon) missingCNPv2(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	d.policy.Mutex.RLock()
-	for k, v := range m {
-		cnp := v.Data.(*cilium_v2.CiliumNetworkPolicy)
-		ruleLabels := cnp.GetIdentityLabels()
-		if !d.policy.ContainsAllRLocked(labels.LabelArrayList{ruleLabels}) {
-			missing.Add(k, v)
-		}
-	}
-	d.policy.Mutex.RUnlock()
-	return missing
-}
-
 func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 	if pod.Spec.HostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
@@ -1632,48 +1639,6 @@ func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) error {
 	return err
 }
 
-// missingK8sPodV1 returns all pods considered missing, if the IP doesn't exist in
-// the cache or if there is an endpoint associated with that pod that doesn't
-// contain all labels from the pod.
-func missingK8sPodV1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	for k, v := range m {
-		pod := v.Data.(*v1.Pod)
-		_, exists := ipcache.IPIdentityCache.LookupByIP(pod.Status.PodIP)
-		// As we also look at pod events to populate ipcache we can only
-		// consider that a pods is missing if it doesn't exist in the
-		// identity cache.
-		if !exists {
-			missing.Add(k, v)
-			continue
-		}
-		podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
-
-		podEP := endpointmanager.LookupPodName(podNSName)
-		// Only 1 endpoint in the whole cluster is managing this pod, if it's
-		// not found is due:
-		// - pod is not being managed by this node;
-		// - pod is running on this node but there are no endpoints associated
-		//   with it. This association pod to endpoint association occurs when
-		//   the endpoint is created, by the pkg/workload.
-		if podEP == nil {
-			continue
-		}
-
-		// If it doesn't contain all pod labels for an endpoint that is managing
-		// that pod then the pod is also considered missing.
-		k8sEPPodLabels := podEP.GetK8sPodLabels()
-
-		podLabels := labels.Map2Labels(pod.GetLabels(), labels.LabelSourceK8s)
-		podFilteredLabels, _ := labels.FilterLabels(podLabels)
-
-		if !k8sEPPodLabels.Equals(podFilteredLabels) {
-			missing.Add(k, v)
-		}
-	}
-	return missing
-}
-
 func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) error {
 	if oldNS == nil || newNS == nil {
 		return nil
@@ -1717,35 +1682,6 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) error {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
 	return nil
-}
-
-// missingK8sNamespaceV1 returns all namespaces that don't have all of their
-// labels in the namespace's endpoints.
-func (d *Daemon) missingK8sNamespaceV1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	eps := endpointmanager.GetEndpoints()
-	for k, v := range m {
-		ns := v.Data.(*v1.Namespace)
-
-		nsK8sLabels := map[string]string{}
-
-		for k, v := range ns.GetLabels() {
-			nsK8sLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
-		}
-
-		nsLabels := labels.Map2Labels(nsK8sLabels, labels.LabelSourceK8s)
-
-		nsFilteredLabels, _ := labels.FilterLabels(nsLabels)
-
-		for _, ep := range eps {
-			epNS := ep.GetK8sNamespace()
-			if ns.Name == epNS && !ep.HasLabels(nsFilteredLabels) {
-				missing.Add(k, v)
-				break
-			}
-		}
-	}
-	return missing
 }
 
 func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
@@ -1887,45 +1823,4 @@ func updateK8sEventMetric(scope string, action string, status bool) {
 	}
 
 	metrics.KubernetesEvent.WithLabelValues(scope, action, result).Inc()
-}
-
-// missingK8sNodeV1 checks if all nodes from the possible missing nodes have
-// their CiliumHostIP missing from the ipcache or if the CiliumHostIP is
-// associated with the right node.
-func (d *Daemon) missingK8sNodeV1(m versioned.Map) versioned.Map {
-	missing := versioned.NewMap()
-	nodes := d.nodeDiscovery.Manager.GetNodes()
-	for k, v := range m {
-		n := v.Data.(*v1.Node)
-		ciliumHostIPStr := n.GetAnnotations()[annotation.CiliumHostIP]
-		if ciliumHostIPStr == "" {
-			continue
-		}
-		_, exists := ipcache.IPIdentityCache.LookupByIP(ciliumHostIPStr)
-		// The node is considered missing if the Cilium HostIP of that
-		// node doesn't exist in the identity cache.
-		if !exists {
-			missing.Add(k, v)
-			continue
-		}
-
-		ciliumHostIP := net.ParseIP(ciliumHostIPStr)
-		if ciliumHostIP == nil {
-			continue
-		}
-
-		// Or if the CiliumHostIP is the right one for this node.
-		nodeIdentity := node.Identity{Name: n.GetName(), Cluster: option.Config.ClusterName}
-		var found bool
-		for _, v := range nodes[nodeIdentity].IPAddresses {
-			if v.IP.Equal(ciliumHostIP) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			missing.Add(k, v)
-		}
-	}
-	return missing
 }
