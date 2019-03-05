@@ -17,6 +17,8 @@
 #       spec file
 #   K8S_CLUSTER_API_SERVER_IP the cluster api service IP to be set up in the
 #       certificates generated
+#   WGET, if set https_proxy, it will set https_proxy for the command's wget,
+#       otherwise alias for wget
 #######################################
 
 if [[ -n "${IPV6_EXT}" ]]; then
@@ -104,7 +106,7 @@ function download_to {
     if [ ! -f "${cache_dir}/${component}" ]; then
         log "Downloading ${component}..."
 
-        wget -O "${cache_dir}/${component}" -nv "${url}"
+        ${WGET} -O "${cache_dir}/${component}" -nv "${url}"
 
         log "Downloading ${component}... Done!"
     fi
