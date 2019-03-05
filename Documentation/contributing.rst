@@ -118,6 +118,7 @@ brought up by vagrant:
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
   set, it defaults to ``docker``.
 * ``VAGRANT_DEFAULT_PROVIDER={virtualbox \| libvirt \| ...}``
+* ``VM_SET_PROXY=https://127.0.0.1:80/`` Sets up VM's ``https_proxy``.
 
 If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
@@ -125,6 +126,11 @@ kubernetes installed and plus a worker, run:
 ::
 
 	$ RUNTIME=containerd K8S=1 NWORKERS=1 contrib/vagrant/start.sh
+
+If you want to get VM status, run:
+::
+
+  $ RUNTIME=containerd K8S=1 NWORKERS=1 vagrant status
 
 If you want to connect to the Kubernetes cluster running inside the developer VM via ``kubectl`` from your host machine, set ``KUBECONFIG`` environment variable to include new kubeconfig file:
 

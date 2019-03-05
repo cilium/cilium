@@ -51,6 +51,9 @@ export 'CILIUM_SCRIPT'=true
 # Sets the directory where the temporary setup scripts are created
 export 'CILIUM_TEMP'="${dir}"
 
+# Sets VM's Command wget with HTTPS_PROXY
+export 'VM_PROXY'="${VM_SET_PROXY}"
+
 # Sets the RELOAD env variable with 1 if there is any VM printed by
 # vagrant status.
 function set_reload_if_vm_exists(){
@@ -223,6 +226,12 @@ export RUNTIME="${RUNTIME}"
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
 fi
+
+if [ -n "${VM_PROXY}" ]; then
+    export WGET="HTTPS_PROXY=${VM_PROXY} wget"
+else
+    export WGET="wget"
+fi
 export ETCD_CLEAN="${ETCD_CLEAN}"
 
 # Stop cilium before until we install kubelet. This prevents cilium from
@@ -259,6 +268,12 @@ export NWORKERS="${NWORKERS}"
 # Only do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
+fi
+
+if [ -n "${VM_PROXY}" ]; then
+    export WGET="HTTPS_PROXY=${VM_PROXY} wget"
+else
+    export WGET="wget"
 fi
 export ETCD_CLEAN="${ETCD_CLEAN}"
 
