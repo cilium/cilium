@@ -42,14 +42,14 @@ type Repository struct {
 	// Always positive (>0).
 	revision uint64
 
-	eventQueue *eventqueue.EventQueue
+	EventQueue *eventqueue.EventQueue
 }
 
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
 	return &Repository{
 		revision:   1,
-		eventQueue: eventqueue.NewEventQueueBuffered(100),
+		EventQueue: eventqueue.NewEventQueueBuffered(100),
 	}
 }
 

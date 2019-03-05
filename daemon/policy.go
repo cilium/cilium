@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -179,20 +180,57 @@ type AddOptions struct {
 	Source string
 }
 
+type PolicyAddEvent struct {
+	rules policyAPI.Rules
+	opts  *AddOptions
+	d     *Daemon
+}
+
+func (p *PolicyAddEvent) Handle() interface{} {
+	newRev, err := p.d.policyAdd(p.rules, p.opts)
+	return &PolicyAddResult{
+		newRev: newRev,
+		err:    err,
+	}
+}
+
+type PolicyAddResult struct {
+	newRev uint64
+	err    error
+}
+
+func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
+	polAddEvent := eventqueue.NewEvent(&PolicyAddEvent{
+		rules: rules,
+		opts:  opts,
+		d:     d,
+	})
+	d.policy.EventQueue.Enqueue(polAddEvent)
+
+	select {
+	case result := <-polAddEvent.EventResults:
+		addRes := result.(*PolicyAddResult)
+		return addRes.newRev, addRes.err
+	case <-polAddEvent.Cancelled:
+		return 0, fmt.Errorf("policy addition event cancelled")
+	}
+}
+
 // PolicyAdd adds a slice of rules to the policy repository owned by the
 // daemon. Eventual changes in policy rules are propagated to all locally
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
 	policyAddStartTime := time.Now()
-	logger := log.WithField("PolicyAddRequest", uuid.NewUUID().String())
+	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
 	} else {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
 	}
+
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
 	d.dnsRuleGen.MarkToFQDNRules(rules)
@@ -360,13 +398,47 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Identity
 	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs)
 }
 
-// PolicyDelete deletes the policy set in the given path from the policy tree.
+type PolicyDeleteEvent struct {
+	labels labels.LabelArray
+	d      *Daemon
+}
+
+func (p *PolicyDeleteEvent) Handle() interface{} {
+	newRev, err := p.d.policyDelete(p.labels)
+	return &PolicyDeleteResult{
+		newRev: newRev,
+		err:    err,
+	}
+}
+
+type PolicyDeleteResult struct {
+	newRev uint64
+	err    error
+}
+
+func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err error) {
+	policyDeleteEvent := eventqueue.NewEvent(&PolicyDeleteEvent{
+		labels: labels,
+		d:      d,
+	})
+	d.policy.EventQueue.Enqueue(policyDeleteEvent)
+
+	select {
+	case result := <-policyDeleteEvent.EventResults:
+		addRes := result.(*PolicyDeleteResult)
+		return addRes.newRev, addRes.err
+	case <-policyDeleteEvent.Cancelled:
+		return 0, fmt.Errorf("policy deletion event cancelled")
+	}
+}
+
+// policyDelete deletes the policy set in the given path from the policy tree.
 // If cover256Sum is set it finds the rule with the respective coverage that
 // rule from the node. If the path's node becomes ruleless it is removed from
 // the tree.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
+func (d *Daemon) policyDelete(labels labels.LabelArray) (uint64, error) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()
