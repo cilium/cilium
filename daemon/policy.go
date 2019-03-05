@@ -199,6 +199,11 @@ type PolicyAddResult struct {
 	err    error
 }
 
+// PolicyAdd adds a slice of rules to the policy repository owned by the
+// daemon. Eventual changes in policy rules are propagated to all locally
+// managed endpoints. Returns the policy revision number of the repository after
+// adding the rules into the repository, or an error if the updated policy
+// was not able to be imported.
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
 	p := &PolicyAddEvent{
 		rules: rules,
