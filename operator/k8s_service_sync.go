@@ -96,7 +96,7 @@ func startSynchronizingServices() {
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
@@ -134,7 +134,7 @@ func startSynchronizingServices() {
 			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
 		),
 		&v1.Endpoints{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
