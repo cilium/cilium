@@ -33,6 +33,7 @@ import (
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/sirupsen/logrus"
@@ -1526,7 +1527,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 
 	failIfContainsBadLogMsg(logs)
 
-	fmt.Fprintf(CheckLogs, logErrorsSummary(logs))
+	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
