@@ -17,6 +17,7 @@ package linux
 import (
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -603,6 +604,10 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
 		}
 	}
 
+	if n.nodeConfig.EnableIPSec {
+		n.deleteIPsec(oldNode)
+	}
+
 	return nil
 }
 
@@ -638,6 +643,30 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 		}
 	}
 
+	return nil
+}
+
+func (n *linuxNodeHandler) removeEncryptRules() error {
+	if err := route.DeleteRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("Delete previous IPv4 decrypt rule failed: %s", err)
+		}
+	}
+	if err := route.DeleteRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("Delete previousa IPv4 encrypt rule failed: %s", err)
+		}
+	}
+	if err := route.DeleteRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("Delete previous IPv6 decrypt rule failed: %s", err)
+		}
+	}
+	if err := route.DeleteRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("Delete previous IPv6 encrypt rule failed: %s", err)
+		}
+	}
 	return nil
 }
 
@@ -699,6 +728,26 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
+func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	if err := route.Delete(n.createNodeIPSecOutRoute(ip)); err != nil {
+		log.WithError(err).Error("Unable to delete the IPsec route OUT from the host routing table")
+	}
+}
+
 // replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing table
 // with the new route. If no route exists the route is installed on the host.
 func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
@@ -722,6 +771,18 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 	}
 }
 
+func (n *linuxNodeHandler) deleteIPsec(oldNode *node.Node) {
+	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
+		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
+		n.deleteNodeIPSecOutRoute(old4RouteNet)
+	}
+
+	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
+		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
+		n.deleteNodeIPSecOutRoute(old6RouteNet)
+	}
+}
+
 // NodeConfigurationChanged is called when the LocalNodeConfiguration has changed
 func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNodeConfiguration) error {
 	n.mutex.Lock()
@@ -731,6 +792,17 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	n.nodeConfig = newConfig
 
 	n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes)
+
+	if newConfig.EnableIPSec {
+		if err := n.replaceHostRules(); err != nil {
+			log.WithError(err).Warning("Cannot replace Host rules")
+		}
+	} else {
+		err := n.removeEncryptRules()
+		if err != nil {
+			log.WithError(err).Warning("Cannot cleanup previous encryption rule state.")
+		}
+	}
 
 	if newConfig.UseSingleClusterRoute {
 		n.updateOrRemoveClusterRoute(n.nodeAddressing.IPv4(), newConfig.EnableIPv4)
