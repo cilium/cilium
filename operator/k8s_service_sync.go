@@ -18,18 +18,17 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
-	"github.com/cilium/cilium/pkg/versioned"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
 )
 
 var (
@@ -93,77 +92,71 @@ func startSynchronizingServices() {
 	}()
 
 	// Watch for v1.Service changes and push changes into ServiceCache
-	_, svcController := utils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
+	_, svcController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
-		utils.ResourceEventHandlerFactory(
-			func(new interface{}) func() error {
-				return func() error {
-					log.Debugf("Received service addition %+v", new)
-					k8sSvcCache.UpdateService(new.(*v1.Service))
-					return nil
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
+					log.Debugf("Received service addition %+v", k8sSvc)
+					k8sSvcCache.UpdateService(k8sSvc)
 				}
 			},
-			func(old interface{}) func() error {
-				return func() error {
-					log.Debugf("Received service deletion %+v", old)
-					k8sSvcCache.DeleteService(old.(*v1.Service))
-					return nil
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
+					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
+						log.Debugf("Received service update %+v", newk8sSvc)
+						k8sSvcCache.UpdateService(newk8sSvc)
+					}
 				}
 			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					log.Debugf("Received service update %+v", new)
-					k8sSvcCache.UpdateService(new.(*v1.Service))
-					return nil
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
+					log.Debugf("Received service deletion %+v", k8sSvc)
+					k8sSvcCache.DeleteService(k8sSvc)
 				}
 			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
-			&v1.Service{},
-			k8s.Client(),
-			0,
-			nil,
-		),
-		fields.Everything(),
+		},
 	)
 
 	go svcController.Run(wait.NeverStop)
 
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
-	_, endpointController := utils.ControllerFactory(
-		k8s.Client().CoreV1().RESTClient(),
-		&v1.Endpoints{},
-		utils.ResourceEventHandlerFactory(
-			func(new interface{}) func() error {
-				return func() error {
-					k8sSvcCache.UpdateEndpoints(new.(*v1.Endpoints))
-					return nil
-				}
-			},
-			func(old interface{}) func() error {
-				return func() error {
-					k8sSvcCache.DeleteEndpoints(old.(*v1.Endpoints))
-					return nil
-				}
-			},
-			func(old, new interface{}) func() error {
-				return func() error {
-					k8sSvcCache.UpdateEndpoints(new.(*v1.Endpoints))
-					return nil
-				}
-			},
-			func(m versioned.Map) versioned.Map {
-				return m
-			},
-			&v1.Endpoints{},
-			k8s.Client(),
-			0,
-			nil,
+	_, endpointController := cache.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+			"endpoints", v1.NamespaceAll,
+			// Don't get any events from kubernetes endpoints.
+			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
 		),
-		// Don't get any events from kubernetes endpoints.
-		fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
+		&v1.Endpoints{},
+		reSyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
+					k8sSvcCache.UpdateEndpoints(k8sEP)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
+					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
+						k8sSvcCache.UpdateEndpoints(newk8sEP)
+					}
+				}
+			},
+			DeleteFunc: func(obj interface{}) {
+				metrics.EventTSK8s.SetToCurrentTime()
+				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
+					k8sSvcCache.DeleteEndpoints(k8sEP)
+				}
+			},
+		},
 	)
 
 	go endpointController.Run(wait.NeverStop)

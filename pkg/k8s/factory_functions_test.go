@@ -21,88 +21,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-func (s *K8sSuite) Test_missingK8sNetworkPolicyV1(c *C) {
-	type args struct {
-		o1 *v1.NetworkPolicy
-		o2 *v1.NetworkPolicy
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "KNP with the same name",
-			args: args{
-				o1: &v1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-				},
-				o2: &v1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "KNP with the different spec",
-			args: args{
-				o1: &v1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Spec: v1.NetworkPolicySpec{
-						PodSelector: metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"foo": "bar",
-							},
-						},
-					},
-				},
-				o2: &v1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "KNP with the same spec",
-			args: args{
-				o1: &v1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Spec: v1.NetworkPolicySpec{},
-				},
-				o2: &v1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Spec: v1.NetworkPolicySpec{},
-				},
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		got := equalV1NetworkPolicy(tt.args.o1, tt.args.o2)
-		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
 
 func (s *K8sSuite) Test_equalV2CNP(c *C) {
 	type args struct {
