@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -40,12 +41,15 @@ type Repository struct {
 	// incremented whenever the policy repository is changed.
 	// Always positive (>0).
 	revision uint64
+
+	eventQueue *eventqueue.EventQueue
 }
 
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
 	return &Repository{
-		revision: 1,
+		revision:   1,
+		eventQueue: eventqueue.NewEventQueueBuffered(100),
 	}
 }
 
