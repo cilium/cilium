@@ -1526,17 +1526,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 
 	failIfContainsBadLogMsg(logs)
 
-	// Count part
-	for _, message := range countLogsMessages {
-		var prefix = ""
-		result := strings.Count(logs, message)
-		if result > 5 {
-			// Added a warning emoji just in case that are more than 5 warning in the logs.
-			prefix = "⚠️  "
-		}
-		fmt.Fprintf(CheckLogs, "%sNumber of '%s' in logs: %d\n", prefix, message, result)
-	}
-
+	fmt.Fprintf(CheckLogs, logErrorsSummary(logs))
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder
