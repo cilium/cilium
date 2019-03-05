@@ -26,10 +26,12 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	"github.com/cilium/cilium/pkg/tuple"
 )
 
 // CheckStructAlignments checks whether size and offsets of the C and Go
@@ -45,8 +47,8 @@ import (
 func CheckStructAlignments(path string) error {
 	// Validate alignments of C and Go equivalent structs
 	toCheck := map[string][]reflect.Type{
-		"ipv4_ct_tuple":        {reflect.TypeOf(ctmap.CtKey4{})},
-		"ipv6_ct_tuple":        {reflect.TypeOf(ctmap.CtKey6{})},
+		"ipv4_ct_tuple":        {reflect.TypeOf(tuple.TupleKey4{})},
+		"ipv6_ct_tuple":        {reflect.TypeOf(tuple.TupleKey6{})},
 		"ct_entry":             {reflect.TypeOf(ctmap.CtEntry{})},
 		"ipcache_key":          {reflect.TypeOf(ipcachemap.Key{})},
 		"remote_endpoint_info": {reflect.TypeOf(ipcachemap.RemoteEndpointInfo{})},
@@ -65,6 +67,8 @@ func CheckStructAlignments(path string) error {
 		"proxy6_tbl_value":     {reflect.TypeOf(proxymap.Proxy6Value{})},
 		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
 		"ep_config":            {reflect.TypeOf(configmap.EndpointConfig{})},
+		"ipv4_nat_entry":       {reflect.TypeOf(nat.NatEntry4{})},
+		"ipv6_nat_entry":       {reflect.TypeOf(nat.NatEntry6{})},
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
