@@ -110,6 +110,7 @@ const (
 	initArgModePreFilter
 	initArgMTU
 	initArgIPSec
+	initArgMasquerade
 	initArgMax
 )
 
@@ -480,6 +481,12 @@ func (d *Daemon) compileBase() error {
 		args[initArgIPSec] = "true"
 	} else {
 		args[initArgIPSec] = "false"
+	}
+
+	if !option.Config.InstallIptRules && option.Config.Masquerade {
+		args[initArgMasquerade] = "true"
+	} else {
+		args[initArgMasquerade] = "false"
 	}
 
 	if option.Config.Device != "undefined" {
