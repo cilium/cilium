@@ -22,6 +22,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/tuple"
 
 	. "gopkg.in/check.v1"
 )
@@ -40,11 +41,11 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 	for mapType := MapType(0); mapType < MapTypeMax; mapType++ {
 		info := mapInfo[mapType]
 		if mapType.isIPv6() {
-			c.Assert(info.keySize, Equals, int(unsafe.Sizeof(CtKey6{})))
+			c.Assert(info.keySize, Equals, int(unsafe.Sizeof(tuple.TupleKey6{})))
 			c.Assert(strings.Contains(info.bpfDefine, "6"), Equals, true)
 		}
 		if mapType.isIPv4() {
-			c.Assert(info.keySize, Equals, int(unsafe.Sizeof(CtKey4{})))
+			c.Assert(info.keySize, Equals, int(unsafe.Sizeof(tuple.TupleKey4{})))
 			c.Assert(strings.Contains(info.bpfDefine, "4"), Equals, true)
 		}
 		if mapType.isTCP() {

@@ -95,6 +95,10 @@ static inline __u32 bpf_ktime_get_sec(void)
 # define __fetch(x) (__u32)(&(x))
 #endif
 
+#ifndef build_bug_on
+# define build_bug_on(e) ((void)sizeof(char[1 - 2*!!(e)]))
+#endif
+
 /* fetch_* macros assist in fetching variously sized static data */
 #define fetch_u32(x) __fetch(x)
 #define fetch_u32_i(x, i) __fetch(x ## _ ## i)
