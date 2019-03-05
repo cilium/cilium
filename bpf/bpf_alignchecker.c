@@ -20,6 +20,7 @@
 #include "node_config.h"
 #include "lib/conntrack.h"
 #include "lib/maps.h"
+#include "lib/nat.h"
 #include "sockops/bpf_sockops.h"
 
 // DECLARE_STRUCT declares a unique usage of the struct 'x' on the stack.
@@ -60,6 +61,8 @@ int main() {
     DECLARE_STRUCT(ep_config, iter);
     DECLARE_STRUCT(policy_key, iter);
     DECLARE_STRUCT(policy_entry, iter);
+    DECLARE_STRUCT(ipv4_nat_entry, iter);
+    DECLARE_STRUCT(ipv6_nat_entry, iter);
 
     return 0;
 }
