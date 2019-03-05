@@ -168,6 +168,7 @@ func RemoveDisabledMaps() {
 			"cilium_lb6_reverse_nat",
 			"cilium_lb6_rr_seq",
 			"cilium_lb6_services",
+			"cilium_snat_v6_external",
 			"cilium_proxy6"}...)
 	}
 
@@ -178,6 +179,7 @@ func RemoveDisabledMaps() {
 			"cilium_lb4_reverse_nat",
 			"cilium_lb4_rr_seq",
 			"cilium_lb4_services",
+			"cilium_snat_v4_external",
 			"cilium_proxy4"}...)
 	}
 

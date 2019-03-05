@@ -26,8 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/tuple"
 )
 
 var (
@@ -90,14 +92,16 @@ type mapAttributes struct {
 	maxEntries int
 	parser     bpf.DumpParser
 	bpfDefine  string
+	natMap     *nat.Map
 }
 
-func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parser bpf.DumpParser) {
+func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parser bpf.DumpParser, nat *nat.Map) {
 	mapInfo[mapType] = mapAttributes{
 		bpfDefine:  define,
 		keySize:    keySize,
 		maxEntries: maxEntries,
 		parser:     parser,
+		natMap:     nat,
 	}
 }
 
@@ -106,22 +110,29 @@ func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parse
 // maps.
 func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
 	mapInfo = make(map[MapType]mapAttributes)
+	natMaps := nat.GlobalMaps(true, true)
+	natV4 := natMaps[0]
+	natV6 := natMaps[1]
 
 	mapType := MapTypeIPv4TCPLocal
 	for _, maxEntries := range []int{MapNumEntriesLocal, tcpMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
-			int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
+			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
+			ct4DumpParser, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP6",
-			int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
+			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
+			ct6DumpParser, natV6)
 		mapType++
 	}
 	for _, maxEntries := range []int{MapNumEntriesLocal, anyMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
-			int(unsafe.Sizeof(CtKey4{})), maxEntries, ct4DumpParser)
+			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
+			ct4DumpParser, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY6",
-			int(unsafe.Sizeof(CtKey6{})), maxEntries, ct6DumpParser)
+			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
+			ct6DumpParser, natV6)
 		mapType++
 	}
 }
@@ -144,20 +155,6 @@ type Map struct {
 	// define maps to the macro used in the datapath portion for the map
 	// name, for example 'CT_MAP4'.
 	define string
-}
-
-// CtKey is the interface describing keys to the conntrack maps.
-type CtKey interface {
-	bpf.MapKey
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() CtKey
-
-	// ToHost converts fields to host byte order.
-	ToHost() CtKey
-
-	// Dumps contents of key to buffer. Returns true if successful.
-	Dump(buffer *bytes.Buffer) bool
 }
 
 // GCFilter contains the necessary fields to filter the CT maps.
@@ -187,7 +184,7 @@ func (m *Map) DumpEntries() (string, error) {
 	var buffer bytes.Buffer
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(CtKey)
+		key := k.(tuple.TupleKey)
 		if !key.ToHost().Dump(&buffer) {
 			return
 		}
@@ -200,7 +197,7 @@ func (m *Map) DumpEntries() (string, error) {
 }
 
 func ct4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := CtKey4Global{}, CtEntry{}
+	k, v := tuple.TupleKey4Global{}, CtEntry{}
 
 	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 		return nil, nil, err
@@ -209,7 +206,7 @@ func ct4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
 }
 
 func ct6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := CtKey6Global{}, CtEntry{}
+	k, v := tuple.TupleKey6Global{}, CtEntry{}
 
 	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 		return nil, nil, err
@@ -234,14 +231,30 @@ func NewMap(mapName string, mapType MapType) *Map {
 	return result
 }
 
+func purgeCtEntry6(m *Map, key *tuple.TupleKey6Global, natMap *nat.Map) error {
+	err := m.Delete(key)
+	if err == nil && natMap != nil {
+		natMap.DeleteMapping(key)
+	}
+	return err
+}
+
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
+	natMap := mapInfo[m.mapType].natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
+	err := natMap.Open()
+	if err == nil {
+		defer natMap.Close()
+	} else {
+		natMap = nil
+	}
+
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		currentKey := key.(*CtKey6Global)
+		currentKey := key.(*tuple.TupleKey6Global)
 		entry := value.(*CtEntry)
 
 		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
@@ -252,7 +265,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 
 		switch action {
 		case deleteEntry:
-			err := m.Delete(currentKey)
+			err := purgeCtEntry6(m, currentKey, natMap)
 			if err != nil {
 				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {
@@ -267,14 +280,30 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
+func purgeCtEntry4(m *Map, key *tuple.TupleKey4Global, natMap *nat.Map) error {
+	err := m.Delete(key)
+	if err == nil && natMap != nil {
+		natMap.DeleteMapping(key)
+	}
+	return err
+}
+
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
+	natMap := mapInfo[m.mapType].natMap
 	stats := statStartGc(m)
 	defer stats.finish()
 
+	err := natMap.Open()
+	if err == nil {
+		defer natMap.Close()
+	} else {
+		natMap = nil
+	}
+
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		currentKey := key.(*CtKey4Global)
+		currentKey := key.(*tuple.TupleKey4Global)
 		entry := value.(*CtEntry)
 
 		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
@@ -285,7 +314,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 
 		switch action {
 		case deleteEntry:
-			err := m.Delete(currentKey)
+			err := purgeCtEntry4(m, currentKey, natMap)
 			if err != nil {
 				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
 			} else {

@@ -43,6 +43,9 @@
 #endif
 
 #define __inline__ __attribute__((always_inline))
+#ifndef __always_inline
+#define __always_inline inline __inline__
+#endif
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -73,6 +76,9 @@ union v6addr {
         };
         __u8 addr[16];
 };
+
+#define TUPLE_F_OUT	0	/* Outgoing flow */
+#define TUPLE_F_IN	1	/* Incoming flow */
 
 static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 				     void **data_end_, void **l3,
@@ -281,6 +287,8 @@ enum {
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
 #define DROP_NO_CONFIG		-165
+#define DROP_NAT_NO_MAPPING	-166
+#define DROP_NAT_UNSUPP_PROTO	-167
 
 /* Cilium metrics reason for forwarding packet.
  * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
