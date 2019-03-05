@@ -109,6 +109,10 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
 					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
+						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc) {
+							return
+						}
+
 						log.Debugf("Received service update %+v", newk8sSvc)
 						k8sSvcCache.UpdateService(newk8sSvc)
 					}
@@ -158,6 +162,9 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
+						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
+							return
+						}
 						k8sSvcCache.UpdateEndpoints(newk8sEP)
 					}
 				}

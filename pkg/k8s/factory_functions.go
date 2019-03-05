@@ -109,17 +109,7 @@ func CopyObjToV1Namespace(obj interface{}) *v1.Namespace {
 	return ns.DeepCopy()
 }
 
-func equalV1NetworkPolicy(o1, o2 interface{}) bool {
-	np1, ok := o1.(*networkingv1.NetworkPolicy)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o1))
-		return false
-	}
-	np2, ok := o2.(*networkingv1.NetworkPolicy)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *networkingv1.NetworkPolicy", reflect.TypeOf(o2))
-		return false
-	}
+func EqualV1NetworkPolicy(np1, np2 *networkingv1.NetworkPolicy) bool {
 	// As Cilium uses all of the Spec from a NP it's not probably not worth
 	// it to create a dedicated deep equal	 function to compare both network
 	// policies.
@@ -128,18 +118,7 @@ func equalV1NetworkPolicy(o1, o2 interface{}) bool {
 		reflect.DeepEqual(np1.Spec, np2.Spec)
 }
 
-func equalV1Services(o1, o2 interface{}) bool {
-	svc1, ok := o1.(*v1.Service)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o1))
-		return false
-	}
-	svc2, ok := o2.(*v1.Service)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Service", reflect.TypeOf(o2))
-		return false
-	}
-
+func EqualV1Services(svc1, svc2 *v1.Service) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(svc1.GetAnnotations(), svc2.GetAnnotations()) {
 		return false
@@ -164,17 +143,7 @@ func equalV1Services(o1, o2 interface{}) bool {
 	return si1.DeepEquals(si2)
 }
 
-func equalV1Endpoints(o1, o2 interface{}) bool {
-	ep1, ok := o1.(*v1.Endpoints)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o1))
-		return false
-	}
-	ep2, ok := o2.(*v1.Endpoints)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Endpoints", reflect.TypeOf(o2))
-		return false
-	}
+func EqualV1Endpoints(ep1, ep2 *v1.Endpoints) bool {
 	// We only care about the Name, Namespace and Subsets of a particular
 	// endpoint.
 	return ep1.Name == ep2.Name &&
@@ -182,18 +151,7 @@ func equalV1Endpoints(o1, o2 interface{}) bool {
 		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
 }
 
-func equalV1beta1Ingress(o1, o2 interface{}) bool {
-	ing1, ok := o1.(*v1beta1.Ingress)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o1))
-		return false
-	}
-	ing2, ok := o2.(*v1beta1.Ingress)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1beta1.Ingress", reflect.TypeOf(o2))
-		return false
-	}
-
+func EqualV1beta1Ingress(ing1, ing2 *v1beta1.Ingress) bool {
 	if ing1.Name != ing2.Name || ing1.Namespace != ing2.Namespace {
 		return false
 	}
@@ -210,17 +168,7 @@ func equalV1beta1Ingress(o1, o2 interface{}) bool {
 			ing2.Spec.Backend.ServicePort.StrVal
 }
 
-func equalV2CNP(o1, o2 interface{}) bool {
-	cnp1, ok := o1.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o1))
-		return false
-	}
-	cnp2, ok := o2.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o2))
-		return false
-	}
+func EqualV2CNP(cnp1, cnp2 *cilium_v2.CiliumNetworkPolicy) bool {
 	return cnp1.Name == cnp2.Name &&
 		cnp1.Namespace == cnp2.Namespace &&
 		comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
@@ -228,18 +176,7 @@ func equalV2CNP(o1, o2 interface{}) bool {
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
 
-func equalV1Pod(o1, o2 interface{}) bool {
-	pod1, ok := o1.(*v1.Pod)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o1))
-		return false
-	}
-	pod2, ok := o2.(*v1.Pod)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Pod", reflect.TypeOf(o2))
-		return false
-	}
-
+func EqualV1Pod(pod1, pod2 *v1.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
 	if pod1.Status.PodIP != pod2.Status.PodIP ||
 		pod1.Status.HostIP != pod2.Status.HostIP {
@@ -250,34 +187,14 @@ func equalV1Pod(o1, o2 interface{}) bool {
 	return comparator.MapStringEquals(oldPodLabels, newPodLabels)
 }
 
-func equalV1Node(o1, o2 interface{}) bool {
-	node1, ok := o1.(*v1.Node)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o1))
-		return false
-	}
-	node2, ok := o2.(*v1.Node)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o2))
-		return false
-	}
+func EqualV1Node(node1, node2 *v1.Node) bool {
 	// The only information we care about the node is it's annotations, in
 	// particularly the CiliumHostIP annotation.
 	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
 		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
 }
 
-func equalV1Namespace(o1, o2 interface{}) bool {
-	ns1, ok := o1.(*v1.Namespace)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o1))
-		return false
-	}
-	ns2, ok := o2.(*v1.Namespace)
-	if !ok {
-		log.Panicf("Invalid resource type %q, expecting *v1.Namespace", reflect.TypeOf(o2))
-		return false
-	}
+func EqualV1Namespace(ns1, ns2 *v1.Namespace) bool {
 	// we only care about namespace labels.
 	return ns1.Name == ns2.Name &&
 		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())

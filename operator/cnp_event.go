@@ -48,6 +48,10 @@ func enableCNPWatcher() error {
 			metrics.EventTSK8s.SetToCurrentTime()
 			if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
 				if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+					if k8s.EqualV2CNP(oldCNP, newCNP) {
+						return
+					}
+
 					groups.UpdateDerivativeCNPIfNeeded(newCNP, oldCNP)
 				}
 			}
