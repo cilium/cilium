@@ -941,6 +941,7 @@ int tail_ipv6_policy(struct __sk_buff *skb)
 
 	struct ep_config *cfg = lookup_ep_config();
 
+	skb->cb[CB_SRC_LABEL] = 0;
 	if (cfg)
 		ret = ipv6_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
 	else
@@ -1092,6 +1093,7 @@ int tail_ipv4_policy(struct __sk_buff *skb)
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
 
+	skb->cb[CB_SRC_LABEL] = 0;
 	if (cfg)
 		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
 	else
