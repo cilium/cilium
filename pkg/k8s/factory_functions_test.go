@@ -21,13 +21,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (s *K8sSuite) Test_missingK8sNetworkPolicyV1(c *C) {
