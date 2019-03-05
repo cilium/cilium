@@ -268,6 +268,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(newVersion)
+		ExpectCiliumReady(kubectl)
 
 		validateEndpointsConnection()
 
