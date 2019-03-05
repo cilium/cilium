@@ -408,68 +408,42 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
+	regenContext := regenMetadata.toRegenerationContext()
+
+	epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
+		owner:        owner,
+		regenContext: regenContext,
+		ep:           e,
+		successChan:  done,
+	})
+
+	// This may block if the Endpoint's EventQueue is full.
+	e.Enqueue(epEvent)
+
 	go func() {
+
 		var buildSuccess bool
+		var regenError error
 
-		regenContext := regenMetadata.toRegenerationContext()
+		select {
+		case result, ok := <-epEvent.EventResults:
+			if ok {
+				regenResult := result.(*EndpointRegenerationResult)
+				regenError = regenResult.err
 
-		defer func() {
-			done <- buildSuccess
-			close(done)
-		}()
-
-		err := e.RLockAlive()
-		if err != nil {
-			e.LogDisconnectedMutexAction(err, "before regeneration")
-			return
-		}
-		e.RUnlock()
-
-		// We should only queue the request after we use all the endpoint's
-		// lock/unlock. Otherwise this can get a deadlock if the endpoint is
-		// being deleted at the same time. More info PR-1777.
-		doneFunc := owner.QueueEndpointBuild(uint64(e.ID))
-		if doneFunc != nil {
-			e.getLogger().Debug("Dequeued endpoint from build queue")
-
-			regenContext.DoneFunc = doneFunc
-
-			epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
-				owner:        owner,
-				regenContext: regenContext,
-				ep:           e,
-			})
-
-			e.Enqueue(epEvent)
-
-			select {
-			case result, ok := <-epEvent.EventResults:
-				var regenError error
-				if ok {
-					// Regeneration is done, allow other builds to occur.
-					doneFunc()
-					regenResult := result.(*EndpointRegenerationResult)
-					regenError = regenResult.err
-
-					// Build was successful whether regeneration errored out of not.
-					buildSuccess = regenError == nil
-				} else {
-					// This may be unnecessary(?) since 'closing' of the results
-					// channel means that event has been cancelled?
-					e.getLogger().Debug("regeneration was cancelled")
-					doneFunc()
-				}
-				// Notify monitor of result of regeneration.
-				e.notifyEndpointRegeneration(owner, regenError)
-			case <-epEvent.Cancelled:
+				// Build was successful whether regeneration errored out of not.
+				buildSuccess = regenError == nil
+			} else {
+				// This may be unnecessary(?) since 'closing' of the results
+				// channel means that event has been cancelled?
 				e.getLogger().Debug("regeneration was cancelled")
-				// Still call doneFunc to allow other endpoint builds to occur.
-				doneFunc()
 			}
-		} else {
-			buildSuccess = false
-			e.getLogger().Debug("My request was cancelled because I'm already in line")
+		case <-epEvent.Cancelled:
+			e.getLogger().Debug("regeneration was cancelled")
 		}
+
+		done <- buildSuccess
+		close(done)
 	}()
 
 	return done

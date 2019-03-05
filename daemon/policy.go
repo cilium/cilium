@@ -390,7 +390,7 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Identity
 		}
 		epID := ep.GetID16()
 		if _, ok := epsToRegen.IDs[epID]; !ok {
-			go ep.PolicyRevisionBumpEvent(rev)
+			ep.PolicyRevisionBumpEvent(rev)
 		}
 	}
 
