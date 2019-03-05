@@ -180,10 +180,10 @@ type AddOptions struct {
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
-// daemon.  Policy enforcement is automatically enabled if currently disabled if
-// k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
-// pods which are selected. Eventual changes in policy rules are propagated to
-// all locally managed endpoints.
+// daemon. Eventual changes in policy rules are propagated to all locally
+// managed endpoints. Returns the policy revision number of the repository after
+// adding the rules into the repository, or an error if the updated policy
+// was not able to be imported.
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
 	policyAddStartTime := time.Now()
 	logger := log.WithField("PolicyAddRequest", uuid.NewUUID().String())
