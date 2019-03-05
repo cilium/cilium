@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
 	"github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -658,7 +659,7 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 
 	failIfContainsBadLogMsg(logs)
 
-	fmt.Fprintf(CheckLogs, logErrorsSummary(logs))
+	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }
 
 // PprofReport runs pprof each 5 minutes and saves the data into the test
