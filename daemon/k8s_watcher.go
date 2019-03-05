@@ -274,7 +274,7 @@ func blockWaitGroupToSyncResources(waitGroup *sync.WaitGroup, informer cache.Con
 }
 
 func (d *Daemon) initK8sSubsystem() {
-	if err := d.EnableK8sWatcher(5 * time.Minute); err != nil {
+	if err := d.EnableK8sWatcher(); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
@@ -295,9 +295,8 @@ func (d *Daemon) initK8sSubsystem() {
 }
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
-// api server defined in the receiver's daemon k8sClient. Re-syncs all state from the
-// Kubernetes api server at the given reSyncPeriod duration.
-func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
+// api server defined in the receiver's daemon k8sClient.
+func (d *Daemon) EnableK8sWatcher() error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
@@ -351,7 +350,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
 				"networkpolicies", v1.NamespaceAll, fields.Everything()),
 			&networkingv1.NetworkPolicy{},
-			reSyncPeriod,
+			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					metrics.EventTSK8s.SetToCurrentTime()
@@ -397,7 +396,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
@@ -444,7 +443,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
 		),
 		&v1.Endpoints{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
@@ -489,7 +488,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
 				"ingresses", v1.NamespaceAll, fields.Everything()),
 			&v1beta1.Ingress{},
-			reSyncPeriod,
+			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					metrics.EventTSK8s.SetToCurrentTime()
@@ -530,7 +529,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}
 
-	si := informer.NewSharedInformerFactory(ciliumNPClient, reSyncPeriod)
+	si := informer.NewSharedInformerFactory(ciliumNPClient, 0)
 
 	switch {
 	case ciliumv2VerConstr.Check(k8sServerVer):
@@ -587,7 +586,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"pods", v1.NamespaceAll, fields.Everything()),
 		&v1.Pod{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
@@ -631,7 +630,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"nodes", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
@@ -675,7 +674,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},
-		reSyncPeriod,
+		0,
 		cache.ResourceEventHandlerFuncs{
 			// AddFunc does not matter since the endpoint will fetch
 			// namespace labels when the endpoint is created

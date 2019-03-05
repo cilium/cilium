@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,10 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-const (
-	reSyncPeriod = 5 * time.Minute
-)
-
 func init() {
 	runtime.ErrorHandlers = []func(error){
 		k8s.K8sErrorHandler,
@@ -38,7 +34,7 @@ func init() {
 }
 
 func enableCNPWatcher() error {
-	si := informer.NewSharedInformerFactory(ciliumK8sClient, reSyncPeriod)
+	si := informer.NewSharedInformerFactory(ciliumK8sClient, 0)
 	ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 	ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
