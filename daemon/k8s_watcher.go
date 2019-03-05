@@ -35,6 +35,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
+	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -241,6 +242,7 @@ func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
 	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+	k8smetrics.LastInteraction.Reset()
 }
 
 func init() {

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/versioned"
 
@@ -273,6 +274,7 @@ func ResourceEventHandlerFactory(
 
 	if addFunc != nil {
 		rehf.AddFunc = func(obj interface{}) {
+			k8smetrics.LastInteraction.Reset()
 			if gauge != nil {
 				gauge.SetToCurrentTime()
 			}
@@ -286,6 +288,7 @@ func ResourceEventHandlerFactory(
 	}
 	if updateFunc != nil {
 		rehf.UpdateFunc = func(oldObj, newObj interface{}) {
+			k8smetrics.LastInteraction.Reset()
 			if gauge != nil {
 				gauge.SetToCurrentTime()
 			}
@@ -302,6 +305,7 @@ func ResourceEventHandlerFactory(
 
 	if delFunc != nil {
 		rehf.DeleteFunc = func(obj interface{}) {
+			k8smetrics.LastInteraction.Reset()
 			if gauge != nil {
 				gauge.SetToCurrentTime()
 			}
