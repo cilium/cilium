@@ -15,7 +15,7 @@ cherry_pick () {
   git format-patch -1 $FULL_ID --stdout | sed '/^$/Q' > $TMPF
   echo "" >> $TMPF
   echo "[ upstream commit $FULL_ID ]" >> $TMPF
-  git format-patch -1 $FULL_ID --stdout | sed -n '/^$/,/$ a/p' >> $TMPF
+  git format-patch -1 $FULL_ID --stdout | sed -n '/^$/,$p' >> $TMPF
   echo "Applying: $(git log -1 --oneline $FULL_ID)"
   git am --quiet -3 --signoff $TMPF
   rm $TMPF
