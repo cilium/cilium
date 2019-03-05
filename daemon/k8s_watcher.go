@@ -367,6 +367,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 					metrics.EventTSK8s.SetToCurrentTime()
 					if oldK8sNP := k8s.CopyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
 						if newK8sNP := k8s.CopyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+							if k8s.EqualV1NetworkPolicy(oldK8sNP, newK8sNP) {
+								return
+							}
+
 							serKNPs.Enqueue(func() error {
 								err := d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
 								updateK8sEventMetric(metricKNP, metricUpdate, err == nil)
@@ -426,6 +430,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
 					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
+						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc) {
+							return
+						}
+
 						serSvcs.Enqueue(func() error {
 							err := d.updateK8sServiceV1(oldk8sSvc, newk8sSvc)
 							updateK8sEventMetric(metricService, metricUpdate, err == nil)
@@ -486,6 +494,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
+						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
+							return
+						}
+
 						serEps.Enqueue(func() error {
 							err := d.updateK8sEndpointV1(oldk8sEP, newk8sEP)
 							updateK8sEventMetric(metricEndpoint, metricUpdate, err == nil)
@@ -543,6 +555,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 					metrics.EventTSK8s.SetToCurrentTime()
 					if oldk8sIngress := k8s.CopyObjToV1beta1Ingress(oldObj); oldk8sIngress != nil {
 						if newk8sIngress := k8s.CopyObjToV1beta1Ingress(newObj); newk8sIngress != nil {
+							if k8s.EqualV1beta1Ingress(oldk8sIngress, newk8sIngress) {
+								return
+							}
+
 							serIngresses.Enqueue(func() error {
 								err := d.updateIngressV1beta1(oldk8sIngress, newk8sIngress)
 								updateK8sEventMetric(metricIngress, metricUpdate, err == nil)
@@ -611,6 +627,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+						if k8s.EqualV2CNP(oldCNP, newCNP) {
+							return
+						}
+
 						serCNPs.Enqueue(func() error {
 							if newCNP.RequiresDerivative() {
 								return nil
@@ -672,6 +692,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
 					if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
+						if k8s.EqualV1Pod(oldPod, newPod) {
+							return
+						}
+
 						serPods.Enqueue(func() error {
 							err := d.updateK8sPodV1(oldPod, newPod)
 							updateK8sEventMetric(metricPod, metricUpdate, err == nil)
@@ -716,6 +740,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
 					if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
+						if k8s.EqualV1Node(oldNode, newNode) {
+							return
+						}
+
 						serNodes.Enqueue(func() error {
 							err := d.updateK8sNodeV1(oldNode, newNode)
 							updateK8sEventMetric(metricNode, metricUpdate, err == nil)
@@ -766,6 +794,10 @@ func (d *Daemon) EnableK8sWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldNS := k8s.CopyObjToV1Namespace(oldObj); oldNS != nil {
 					if newNS := k8s.CopyObjToV1Namespace(newObj); newNS != nil {
+						if k8s.EqualV1Namespace(oldNS, newNS) {
+							return
+						}
+
 						serNamespaces.Enqueue(func() error {
 							err := d.updateK8sV1Namespace(oldNS, newNS)
 							updateK8sEventMetric(metricNS, metricUpdate, err == nil)
