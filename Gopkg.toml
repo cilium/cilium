@@ -522,10 +522,10 @@ required = [
 [[constraint]]
   name = "k8s.io/client-go"
   source = "https://github.com/cilium/client-go"
-  revision = "b5836377ae6c61ca4e81982fc253d1ef21a1ca87"
+  revision = "d6e8092c18ae2c82e6bbad0b04b89fa76b5e69d5"
 
   # main-usage = "pkg/k8s"
-  # on-revision = "TODO @aanm is on b5836377ae6c61ca4e81982fc253d1ef21a1ca87 as it contains the hotfix for the metrics path"
+  # on-revision = "TODO @aanm is on d6e8092c18ae2c82e6bbad0b04b89fa76b5e69d5 as it contains the hotfix for the metrics path"
 
 [[constraint]]
   name = "k8s.io/code-generator"
