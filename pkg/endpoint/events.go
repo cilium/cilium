@@ -21,11 +21,51 @@ type EndpointRegenerationEvent struct {
 	owner        Owner
 	regenContext *regenerationContext
 	ep           *Endpoint
+	successChan  chan bool
 }
 
 // Handle handles the regeneration event for the endpoint.
 func (ev *EndpointRegenerationEvent) Handle() interface{} {
-	err := ev.ep.regenerate(ev.owner, ev.regenContext)
+	e := ev.ep
+	owner := ev.owner
+	regenContext := ev.regenContext
+	done := ev.successChan
+
+	var buildSuccess bool
+
+	defer func() {
+		done <- buildSuccess
+		close(done)
+	}()
+
+	err := e.RLockAlive()
+	if err != nil {
+		e.LogDisconnectedMutexAction(err, "before regeneration")
+		return &EndpointRegenerationResult{
+			err: err,
+		}
+	}
+	e.RUnlock()
+
+	// We should only queue the request after we use all the endpoint's
+	// lock/unlock. Otherwise this can get a deadlock if the endpoint is
+	// being deleted at the same time. More info PR-1777.
+	doneFunc := owner.QueueEndpointBuild(uint64(e.ID))
+	if doneFunc != nil {
+		e.getLogger().Debug("Dequeued endpoint from build queue")
+
+		regenContext.DoneFunc = doneFunc
+
+		err = ev.ep.regenerate(ev.owner, ev.regenContext)
+		buildSuccess = err == nil
+
+		doneFunc()
+		e.notifyEndpointRegeneration(owner, err)
+	} else {
+		buildSuccess = false
+		e.getLogger().Debug("My request was cancelled because I'm already in line")
+	}
+
 	return &EndpointRegenerationResult{
 		err: err,
 	}
@@ -63,11 +103,13 @@ func (ev *EndpointRevisionBumpEvent) Handle() interface{} {
 func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
 	e.Enqueue(epBumpEvent)
-	select {
-	case _, ok := <-epBumpEvent.EventResults:
-		if ok {
-			e.getLogger().Debugf("bumped endpoint revision to %d", rev)
+	go func() {
+		select {
+		case _, ok := <-epBumpEvent.EventResults:
+			if ok {
+				e.getLogger().Debugf("bumped endpoint revision to %d", rev)
+			}
+		case <-epBumpEvent.Cancelled:
 		}
-	case <-epBumpEvent.Cancelled:
-	}
+	}()
 }

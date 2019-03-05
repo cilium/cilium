@@ -417,7 +417,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
-		eventQueue:    eventqueue.NewEventQueue(),
+		eventQueue:    eventqueue.NewEventQueueBuffered(25),
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
@@ -451,7 +451,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		desiredPolicy:    &policy.EndpointPolicy{},
 		realizedPolicy:   &policy.EndpointPolicy{},
 		controllers:      controller.NewManager(),
-		eventQueue:       eventqueue.NewEventQueue(),
+		eventQueue:       eventqueue.NewEventQueueBuffered(25),
 	}
 	ep.UpdateLogger(nil)
 
@@ -1057,7 +1057,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = &policy.EndpointPolicy{}
 	ep.realizedPolicy = &policy.EndpointPolicy{}
 	ep.controllers = controller.NewManager()
-	ep.eventQueue = eventqueue.NewEventQueue()
+	ep.eventQueue = eventqueue.NewEventQueueBuffered(25)
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
