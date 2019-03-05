@@ -184,10 +184,11 @@ type PolicyAddEvent struct {
 	rules policyAPI.Rules
 	opts  *AddOptions
 	d     *Daemon
+	res   chan *PolicyAddResult
 }
 
 func (p *PolicyAddEvent) Handle() interface{} {
-	newRev, err := p.d.policyAdd(p.rules, p.opts)
+	newRev, err := p.d.policyAdd(p.rules, p.opts, p.res)
 	return &PolicyAddResult{
 		newRev: newRev,
 		err:    err,
@@ -200,19 +201,29 @@ type PolicyAddResult struct {
 }
 
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
-	polAddEvent := eventqueue.NewEvent(&PolicyAddEvent{
+	p := &PolicyAddEvent{
 		rules: rules,
 		opts:  opts,
 		d:     d,
-	})
+		res:   make(chan *PolicyAddResult),
+	}
+	polAddEvent := eventqueue.NewEvent(p)
 	d.policy.EventQueue.Enqueue(polAddEvent)
 
+	go func() {
+		select {
+		case result := <-polAddEvent.EventResults:
+			_ = result.(*PolicyAddResult)
+			log.Debug("policy add completed")
+		case <-polAddEvent.Cancelled:
+			log.Errorf("policy addition event cancelled")
+		}
+	}()
+
 	select {
-	case result := <-polAddEvent.EventResults:
-		addRes := result.(*PolicyAddResult)
-		return addRes.newRev, addRes.err
-	case <-polAddEvent.Cancelled:
-		return 0, fmt.Errorf("policy addition event cancelled")
+	case res := <-p.res:
+		log.Info("Received from p.res")
+		return res.newRev, res.err
 	}
 }
 
@@ -221,7 +232,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan *PolicyAddResult) (newRev uint64, err error) {
 	policyAddStartTime := time.Now()
 	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
@@ -243,6 +254,10 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
+		resChan <- &PolicyAddResult{
+			newRev: 0,
+			err:    api.Error(PutPolicyFailureCode, err),
+		}
 		return 0, api.Error(PutPolicyFailureCode, err)
 	}
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
@@ -254,6 +269,10 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
 			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to recompile base programs due to prefix length count change")
+			resChan <- &PolicyAddResult{
+				newRev: 0,
+				err:    api.Error(PutPolicyFailureCode, err),
+			}
 			return 0, api.Error(PutPolicyFailureCode, err)
 		}
 	}
@@ -263,8 +282,14 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
-		return d.policy.GetRevision(), err
+		resChan <- &PolicyAddResult{
+			newRev: 0,
+			err:    err,
+		}
+		return 0, err
 	}
+
+	// No errors past this point!
 
 	d.policy.Mutex.Lock()
 
@@ -316,6 +341,11 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	addedRules, newRev := d.policy.AddListLocked(rules)
 	addedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 
+	resChan <- &PolicyAddResult{
+		newRev: newRev,
+		err:    nil,
+	}
+
 	d.policy.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
@@ -353,7 +383,9 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	// Only regenerate endpoints which are needed to be regenerated as a result
 	// of the rule update. The rules which were imported most likely do not select
 	// all endpoints in the policy repository (and may not select any at all).
-	go d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, newRev)
+	// The "reacting" to rule updates enqueues events for all endpoints. Once
+	// all endpoints have events queued up, this function will return.
+	d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, newRev)
 
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
@@ -381,6 +413,8 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Identity
 	epsToRegen.Mutex.RLock()
 	defer epsToRegen.Mutex.RUnlock()
 
+	var enqueueWaitGroup sync.WaitGroup
+
 	// If an endpoint is not in the list of endpoints to regenerate, then the
 	// policy revision for the endpoint needs to be bumped so we can reflect that
 	// said endpoint realizes the state of the policy repository at revision rev.
@@ -390,21 +424,25 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Identity
 		}
 		epID := ep.GetID16()
 		if _, ok := epsToRegen.IDs[epID]; !ok {
-			ep.PolicyRevisionBumpEvent(rev)
+			enqueueWaitGroup.Add(1)
+			go ep.PolicyRevisionBumpEvent(rev, &enqueueWaitGroup)
 		}
 	}
 
 	// Regenerate all other endpoints.
-	endpointmanager.RegenerateEndpointSet(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs)
+	endpointmanager.RegenerateEndpointSetSignalWhenEnqueued(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs, &enqueueWaitGroup)
+
+	enqueueWaitGroup.Wait()
 }
 
 type PolicyDeleteEvent struct {
 	labels labels.LabelArray
 	d      *Daemon
+	res    chan *PolicyDeleteResult
 }
 
 func (p *PolicyDeleteEvent) Handle() interface{} {
-	newRev, err := p.d.policyDelete(p.labels)
+	newRev, err := p.d.policyDelete(p.labels, p.res)
 	return &PolicyDeleteResult{
 		newRev: newRev,
 		err:    err,
@@ -417,18 +455,26 @@ type PolicyDeleteResult struct {
 }
 
 func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err error) {
-	policyDeleteEvent := eventqueue.NewEvent(&PolicyDeleteEvent{
+
+	p := &PolicyDeleteEvent{
 		labels: labels,
 		d:      d,
-	})
+		res:    make(chan *PolicyDeleteResult),
+	}
+	policyDeleteEvent := eventqueue.NewEvent(p)
 	d.policy.EventQueue.Enqueue(policyDeleteEvent)
 
+	go func() {
+		select {
+		case <-policyDeleteEvent.EventResults:
+		case <-policyDeleteEvent.Cancelled:
+			log.Error("policy deletion event cancelled")
+		}
+	}()
+
 	select {
-	case result := <-policyDeleteEvent.EventResults:
-		addRes := result.(*PolicyDeleteResult)
-		return addRes.newRev, addRes.err
-	case <-policyDeleteEvent.Cancelled:
-		return 0, fmt.Errorf("policy deletion event cancelled")
+	case res := <-p.res:
+		return res.newRev, res.err
 	}
 }
 
@@ -438,7 +484,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 // the tree.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) policyDelete(labels labels.LabelArray) (uint64, error) {
+func (d *Daemon) policyDelete(labels labels.LabelArray, res chan *PolicyDeleteResult) (uint64, error) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()
@@ -453,7 +499,14 @@ func (d *Daemon) policyDelete(labels labels.LabelArray) (uint64, error) {
 	if len(rules) == 0 && len(labels) != 0 {
 		rev := d.policy.GetRevision()
 		d.policy.Mutex.Unlock()
-		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
+
+		err := api.New(DeletePolicyNotFoundCode, "policy not found")
+
+		res <- &PolicyDeleteResult{
+			newRev: rev,
+			err:    err,
+		}
+		return rev, err
 	}
 
 	// policySelectionWG is used to signal when the updating of all of the
@@ -475,6 +528,11 @@ func (d *Daemon) policyDelete(labels labels.LabelArray) (uint64, error) {
 
 	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	deletedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
+
+	res <- &PolicyDeleteResult{
+		newRev: rev,
+		err:    nil,
+	}
 
 	d.policy.Mutex.Unlock()
 
@@ -503,7 +561,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray) (uint64, error) {
 	// Only regenerate endpoints which are needed to be regenerated as a result
 	// of the rule update. The rules which were imported most likely do not select
 	// all endpoints in the policy repository (and may not select any at all).
-	go d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, rev)
+	d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, rev)
 
 	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {

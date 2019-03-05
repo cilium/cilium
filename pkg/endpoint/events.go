@@ -14,14 +14,17 @@
 
 package endpoint
 
-import "github.com/cilium/cilium/pkg/eventqueue"
+import (
+	"sync"
+
+	"github.com/cilium/cilium/pkg/eventqueue"
+)
 
 // EndpointRegenerationEvent contains all fields necessary to regenerate an endpoint.
 type EndpointRegenerationEvent struct {
 	owner        Owner
 	regenContext *regenerationContext
 	ep           *Endpoint
-	successChan  chan bool
 }
 
 // Handle handles the regeneration event for the endpoint.
@@ -29,14 +32,6 @@ func (ev *EndpointRegenerationEvent) Handle() interface{} {
 	e := ev.ep
 	owner := ev.owner
 	regenContext := ev.regenContext
-	done := ev.successChan
-
-	var buildSuccess bool
-
-	defer func() {
-		done <- buildSuccess
-		close(done)
-	}()
 
 	err := e.RLockAlive()
 	if err != nil {
@@ -57,12 +52,10 @@ func (ev *EndpointRegenerationEvent) Handle() interface{} {
 		regenContext.DoneFunc = doneFunc
 
 		err = ev.ep.regenerate(ev.owner, ev.regenContext)
-		buildSuccess = err == nil
 
 		doneFunc()
 		e.notifyEndpointRegeneration(owner, err)
 	} else {
-		buildSuccess = false
 		e.getLogger().Debug("My request was cancelled because I'm already in line")
 	}
 
@@ -100,9 +93,10 @@ func (ev *EndpointRevisionBumpEvent) Handle() interface{} {
 // realized policy revision to rev. This may block depending on if events have
 // been queued up for the given endpoint. It blocks until the event has
 // succeeded, or if the event has been cancelled.
-func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
+func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
 	e.Enqueue(epBumpEvent)
+	wg.Done()
 	go func() {
 		select {
 		case _, ok := <-epBumpEvent.EventResults:

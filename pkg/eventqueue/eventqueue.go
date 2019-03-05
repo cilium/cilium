@@ -48,6 +48,10 @@ type EventQueue struct {
 	// eventQueueOnce is used to ensure that the EventQueue business logic can
 	// only be ran once.
 	eventQueueOnce sync.Once
+
+	// need context that is handled across all queue users.
+	// revision in case of policy needs to be generic - it's the EventQueue that
+	// owns this.
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
