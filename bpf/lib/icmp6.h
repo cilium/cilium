@@ -123,6 +123,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icm
 	int ret, nh_off = skb->cb[0];
 	__u8 direction  = skb->cb[1];
 
+	skb->cb[0] = 0;
 	ret = __icmp6_send_echo_reply(skb, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
@@ -308,6 +309,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
 	int ret, nh_off = skb->cb[0];
 	__u8 direction  = skb->cb[1];
 
+	skb->cb[0] = 0;
 	ret = __icmp6_send_time_exceeded(skb, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
@@ -363,6 +365,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_han
 	int ret, nh_off = skb->cb[0];
 	__u8 direction  = skb->cb[1];
 
+	skb->cb[0] = 0;
 	ret = __icmp6_handle_ns(skb, nh_off);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
