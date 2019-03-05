@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ctmap
+package tuple
 
 import (
 	"bytes"
@@ -25,10 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-//CtKey4 represents the key for IPv4 entries in the local BPF conntrack map.
-type CtKey4 struct {
-	DestAddr   types.IPv4      `align:"daddr"`
-	SourceAddr types.IPv4      `align:"saddr"`
+// TupleKey6 represents the key for IPv6 entries in the local BPF conntrack map.
+type TupleKey6 struct {
+	DestAddr   types.IPv6      `align:"daddr"`
+	SourceAddr types.IPv6      `align:"saddr"`
 	DestPort   uint16          `align:"dport"`
 	SourcePort uint16          `align:"sport"`
 	NextHeader u8proto.U8proto `align:"nexthdr"`
@@ -36,34 +36,40 @@ type CtKey4 struct {
 }
 
 // GetKeyPtr returns the unsafe.Pointer for k.
-func (k *CtKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *TupleKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
-//NewValue creates a new bpf.MapValue.
-func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
+// NewValue creates a new bpf.MapValue.
+func (k *TupleKey6) NewValue() bpf.MapValue { return &TupleValStub{} }
 
-// ToNetwork converts CtKey4 ports to network byte order.
-func (k *CtKey4) ToNetwork() CtKey {
+// ToNetwork converts TupleKey6 ports to network byte order.
+func (k *TupleKey6) ToNetwork() TupleKey {
 	n := *k
 	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
 	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
 	return &n
 }
 
-// ToHost converts CtKey4 ports to host byte order.
-func (k *CtKey4) ToHost() CtKey {
+// ToHost converts TupleKey6 ports to network byte order.
+func (k *TupleKey6) ToHost() TupleKey {
 	n := *k
 	n.SourcePort = byteorder.NetworkToHost(n.SourcePort).(uint16)
 	n.DestPort = byteorder.NetworkToHost(n.DestPort).(uint16)
 	return &n
 }
 
-func (k *CtKey4) String() string {
-	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
+// GetFlags returns the tuple's flags.
+func (k *TupleKey6) GetFlags() uint8 {
+	return k.Flags
+}
+
+// String returns the tuple's string representation, doh.
+func (k *TupleKey6) String() string {
+	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
 // next header in the key is nonzero.
-func (k CtKey4) Dump(buffer *bytes.Buffer) bool {
+func (k TupleKey6) Dump(buffer *bytes.Buffer) bool {
 	if k.NextHeader == 0 {
 		return false
 	}
@@ -97,45 +103,52 @@ func (k CtKey4) Dump(buffer *bytes.Buffer) bool {
 	return true
 }
 
-//CtKey4Global represents the key for IPv4 entries in the global BPF conntrack
-// map.
-type CtKey4Global struct {
-	CtKey4
+// TupleKey6Global represents the key for IPv6 entries in the global BPF conntrack map.
+type TupleKey6Global struct {
+	TupleKey6
 }
 
-func (k *CtKey4Global) String() string {
-	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
+// GetFlags returns the tuple's flags.
+func (k *TupleKey6Global) GetFlags() uint8 {
+	return k.Flags
+}
+
+// String returns the tuple's string representation, doh.
+func (k *TupleKey6Global) String() string {
+	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
 }
 
 // ToNetwork converts ports to network byte order.
 //
-// This is necessary to prevent callers from implicitly converting the
-// CtKey4Global type here into a local key type in the nested CtKey4 field.
-func (k *CtKey4Global) ToNetwork() CtKey {
-	return &CtKey4Global{
-		CtKey4: *k.CtKey4.ToNetwork().(*CtKey4),
+// This is necessary to prevent callers from implicitly converting
+// the TupleKey6Global type here into a local key type in the nested
+// TupleKey6 field.
+func (k *TupleKey6Global) ToNetwork() TupleKey {
+	return &TupleKey6Global{
+		TupleKey6: *k.TupleKey6.ToNetwork().(*TupleKey6),
 	}
 }
 
-// ToHost converts CtKey4 ports to host byte order.
+// ToHost converts ports to host byte order.
 //
-// This is necessary to prevent callers from implicitly converting the
-// CtKey4Global type here into a local key type in the nested CtKey4 field.
-func (k *CtKey4Global) ToHost() CtKey {
-	return &CtKey4Global{
-		CtKey4: *k.CtKey4.ToHost().(*CtKey4),
+// This is necessary to prevent callers from implicitly converting
+// the TupleKey6Global type here into a local key type in the nested
+// TupleKey6 field.
+func (k *TupleKey6Global) ToHost() TupleKey {
+	return &TupleKey6Global{
+		TupleKey6: *k.TupleKey6.ToHost().(*TupleKey6),
 	}
 }
 
 // Dump writes the contents of key to buffer and returns true if the value for
 // next header in the key is nonzero.
-func (k CtKey4Global) Dump(buffer *bytes.Buffer) bool {
+func (k TupleKey6Global) Dump(buffer *bytes.Buffer) bool {
 	if k.NextHeader == 0 {
 		return false
 	}
 
 	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+		buffer.WriteString(fmt.Sprintf("%s IN [%s]:%d -> [%s]:%d ",
 			k.NextHeader.String(),
 			// Addresses swapped, see issue #5848
 			k.DestAddr.IP().String(), k.SourcePort,
@@ -143,7 +156,7 @@ func (k CtKey4Global) Dump(buffer *bytes.Buffer) bool {
 		)
 
 	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+		buffer.WriteString(fmt.Sprintf("%s OUT [%s]:%d -> [%s]:%d ",
 			k.NextHeader.String(),
 			// Addresses swapped, see issue #5848
 			k.DestAddr.IP().String(), k.SourcePort,
