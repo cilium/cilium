@@ -54,11 +54,23 @@ func enableCNPWatcher() error {
 		},
 		DeleteFunc: func(obj interface{}) {
 			metrics.EventTSK8s.SetToCurrentTime()
-			if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
-				// The derivative policy will be deleted by the parent but need
-				// to delete the cnp from the pooling.
-				groups.DeleteDerivativeFromCache(cnp)
+			cnp := k8s.CopyObjToV2CNP(obj)
+			if cnp == nil {
+				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					return
+				}
+				// Delete was not observed by the watcher but is
+				// removed from kube-apiserver. This is the last
+				// known state and the object no longer exists.
+				cnp = k8s.CopyObjToV2CNP(deletedObj.Obj)
+				if cnp == nil {
+					return
+				}
 			}
+			// The derivative policy will be deleted by the parent but need
+			// to delete the cnp from the pooling.
+			groups.DeleteDerivativeFromCache(cnp)
 		},
 	})
 	si.Start(wait.NeverStop)

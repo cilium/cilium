@@ -116,10 +116,22 @@ func startSynchronizingServices() {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
-					log.Debugf("Received service deletion %+v", k8sSvc)
-					k8sSvcCache.DeleteService(k8sSvc)
+				k8sSvc := k8s.CopyObjToV1Services(obj)
+				if k8sSvc == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					k8sSvc = k8s.CopyObjToV1Services(deletedObj.Obj)
+					if k8sSvc == nil {
+						return
+					}
 				}
+				log.Debugf("Received service deletion %+v", k8sSvc)
+				k8sSvcCache.DeleteService(k8sSvc)
 			},
 		},
 	)
@@ -152,9 +164,21 @@ func startSynchronizingServices() {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
-					k8sSvcCache.DeleteEndpoints(k8sEP)
+				k8sEP := k8s.CopyObjToV1Endpoints(obj)
+				if k8sEP == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					k8sEP = k8s.CopyObjToV1Endpoints(deletedObj.Obj)
+					if k8sEP == nil {
+						return
+					}
 				}
+				k8sSvcCache.DeleteEndpoints(k8sEP)
 			},
 		},
 	)

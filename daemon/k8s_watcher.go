@@ -377,13 +377,26 @@ func (d *Daemon) EnableK8sWatcher() error {
 				},
 				DeleteFunc: func(obj interface{}) {
 					metrics.EventTSK8s.SetToCurrentTime()
-					if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
-						serKNPs.Enqueue(func() error {
-							err := d.deleteK8sNetworkPolicyV1(k8sNP)
-							updateK8sEventMetric(metricKNP, metricDelete, err == nil)
-							return nil
-						}, serializer.NoRetry)
+					k8sNP := k8s.CopyObjToV1NetworkPolicy(obj)
+					if k8sNP == nil {
+						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+						if !ok {
+							return
+						}
+						// Delete was not observed by the watcher but is
+						// removed from kube-apiserver. This is the last
+						// known state and the object no longer exists.
+						k8sNP = k8s.CopyObjToV1NetworkPolicy(deletedObj.Obj)
+						if k8sNP == nil {
+							return
+						}
 					}
+
+					serKNPs.Enqueue(func() error {
+						err := d.deleteK8sNetworkPolicyV1(k8sNP)
+						updateK8sEventMetric(metricKNP, metricDelete, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				},
 			},
 		)
@@ -423,13 +436,26 @@ func (d *Daemon) EnableK8sWatcher() error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
-					serSvcs.Enqueue(func() error {
-						err := d.deleteK8sServiceV1(k8sSvc)
-						updateK8sEventMetric(metricService, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
+				k8sSvc := k8s.CopyObjToV1Services(obj)
+				if k8sSvc == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					k8sSvc = k8s.CopyObjToV1Services(deletedObj.Obj)
+					if k8sSvc == nil {
+						return
+					}
 				}
+
+				serSvcs.Enqueue(func() error {
+					err := d.deleteK8sServiceV1(k8sSvc)
+					updateK8sEventMetric(metricService, metricDelete, err == nil)
+					return nil
+				}, serializer.NoRetry)
 			},
 		},
 	)
@@ -470,13 +496,25 @@ func (d *Daemon) EnableK8sWatcher() error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
-					serEps.Enqueue(func() error {
-						err := d.deleteK8sEndpointV1(k8sEP)
-						updateK8sEventMetric(metricEndpoint, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
+				k8sEP := k8s.CopyObjToV1Endpoints(obj)
+				if k8sEP == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					k8sEP = k8s.CopyObjToV1Endpoints(deletedObj.Obj)
+					if k8sEP == nil {
+						return
+					}
 				}
+				serEps.Enqueue(func() error {
+					err := d.deleteK8sEndpointV1(k8sEP)
+					updateK8sEventMetric(metricEndpoint, metricDelete, err == nil)
+					return nil
+				}, serializer.NoRetry)
 			},
 		},
 	)
@@ -515,13 +553,25 @@ func (d *Daemon) EnableK8sWatcher() error {
 				},
 				DeleteFunc: func(obj interface{}) {
 					metrics.EventTSK8s.SetToCurrentTime()
-					if k8sIngress := k8s.CopyObjToV1beta1Ingress(obj); k8sIngress != nil {
-						serIngresses.Enqueue(func() error {
-							err := d.deleteIngressV1beta1(k8sIngress)
-							updateK8sEventMetric(metricIngress, metricDelete, err == nil)
-							return nil
-						}, serializer.NoRetry)
+					k8sIngress := k8s.CopyObjToV1beta1Ingress(obj)
+					if k8sIngress == nil {
+						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+						if !ok {
+							return
+						}
+						// Delete was not observed by the watcher but is
+						// removed from kube-apiserver. This is the last
+						// known state and the object no longer exists.
+						k8sIngress = k8s.CopyObjToV1beta1Ingress(deletedObj.Obj)
+						if k8sIngress == nil {
+							return
+						}
 					}
+					serEps.Enqueue(func() error {
+						err := d.deleteIngressV1beta1(k8sIngress)
+						updateK8sEventMetric(metricIngress, metricDelete, err == nil)
+						return nil
+					}, serializer.NoRetry)
 				},
 			},
 		)
@@ -575,13 +625,25 @@ func (d *Daemon) EnableK8sWatcher() error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
-					serCNPs.Enqueue(func() error {
-						err := d.deleteCiliumNetworkPolicyV2(cnp)
-						updateK8sEventMetric(metricCNP, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
+				cnp := k8s.CopyObjToV2CNP(obj)
+				if cnp == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					cnp = k8s.CopyObjToV2CNP(deletedObj.Obj)
+					if cnp == nil {
+						return
+					}
 				}
+				serCNPs.Enqueue(func() error {
+					err := d.deleteCiliumNetworkPolicyV2(cnp)
+					updateK8sEventMetric(metricCNP, metricDelete, err == nil)
+					return nil
+				}, serializer.NoRetry)
 			},
 		})
 
@@ -664,13 +726,25 @@ func (d *Daemon) EnableK8sWatcher() error {
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if Node := k8s.CopyObjToV1Node(obj); Node != nil {
-					serNodes.Enqueue(func() error {
-						err := d.deleteK8sNodeV1(Node)
-						updateK8sEventMetric(metricNode, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
+				node := k8s.CopyObjToV1Node(obj)
+				if node == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					node = k8s.CopyObjToV1Node(deletedObj.Obj)
+					if node == nil {
+						return
+					}
 				}
+				serNodes.Enqueue(func() error {
+					err := d.deleteK8sNodeV1(node)
+					updateK8sEventMetric(metricNode, metricDelete, err == nil)
+					return nil
+				}, serializer.NoRetry)
 			},
 		},
 	)
