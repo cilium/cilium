@@ -43,19 +43,21 @@ var (
 	templateWatcherQueueSize = 10
 
 	ignoredELFPrefixes = []string{
-		"2/",             // Calls within the endpoint
-		"HOST_IP",        // Global
-		"ROUTER_IP",      // Global
-		"cilium_ct",      // All CT maps, including local
-		"cilium_events",  // Global
-		"cilium_ipcache", // Global
-		"cilium_lb",      // Global
-		"cilium_lxc",     // Global
-		"cilium_metrics", // Global
-		"cilium_proxy",   // Global
-		"cilium_tunnel",  // Global
-		"cilium_policy",  // Global
-		"from-container", // Prog name
+		"2/",                 // Calls within the endpoint
+		"HOST_IP",            // Global
+		"ROUTER_IP",          // Global
+		"SNAT_IPV6_EXTERNAL", // Global
+		"cilium_ct",          // All CT maps, including local
+		"cilium_snat",        // All SNAT maps
+		"cilium_events",      // Global
+		"cilium_ipcache",     // Global
+		"cilium_lb",          // Global
+		"cilium_lxc",         // Global
+		"cilium_metrics",     // Global
+		"cilium_proxy",       // Global
+		"cilium_tunnel",      // Global
+		"cilium_policy",      // Global
+		"from-container",     // Prog name
 	}
 )
 

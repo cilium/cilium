@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
@@ -132,6 +133,25 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	}
 	if option.Config.EnableIPSec {
 		fmt.Fprintf(fw, "#define ENABLE_IPSEC 1\n")
+	}
+	if !option.Config.InstallIptRules && option.Config.Masquerade {
+		fmt.Fprintf(fw, "#define ENABLE_MASQUERADE 1\n")
+		fmt.Fprintf(fw, "#define SNAT_MAPPING_MIN_PORT %d\n", nat.MinPortSnatDefault)
+		fmt.Fprintf(fw, "#define SNAT_MAPPING_MAX_PORT %d\n", nat.MaxPortSnatDefault)
+		fmt.Fprintf(fw, "#define SNAT_COLLISION_RETRIES %d\n", nat.CollisionRetriesDefault)
+		// SNAT_DIRECTION is defined by init.sh
+		if option.Config.EnableIPv4 {
+			ipv4Addr := node.GetExternalIPv4()
+			fmt.Fprintf(fw, "#define SNAT_IPV4_EXTERNAL %#x\n", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
+			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV4 %s\n", nat.MapNameSnat4Global)
+			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV4_SIZE %d\n", nat.MaxEntries)
+		}
+		if option.Config.EnableIPv6 {
+			fw.WriteString(defineIPv6("SNAT_IPV6_EXTERNAL", hostIP))
+			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6 %s\n", nat.MapNameSnat6Global)
+			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6_SIZE %d\n", nat.MaxEntries)
+		}
+		ctmap.WriteBPFMacros(fw, nil)
 	}
 
 	return fw.Flush()

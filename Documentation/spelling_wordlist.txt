@@ -369,6 +369,8 @@ Mythbusters
 Namespace
 namespace
 namespaces
+NAT
+nat
 natively
 Netdev
 netdev
