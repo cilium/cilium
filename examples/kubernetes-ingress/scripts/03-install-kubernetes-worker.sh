@@ -24,7 +24,7 @@ EOF
    sudo apt-get update
    sudo apt-get remove cri-o-1.* -y || true
    sudo apt-get install cri-o-1.13 -y || true
-   sudo ln -s /usr/sbin/runc /usr/local/sbin/runc
+   sudo ln -s /usr/sbin/runc /usr/local/sbin/runc || true
 }
 
 function install_containerd() {
@@ -102,23 +102,6 @@ if [ -n "${INSTALL}" ]; then
 
     sudo cp kubelet kubectl kube-proxy /usr/bin/
 
-    case "${RUNTIME}" in
-    "containerd" | "containerD")
-        install_containerd
-        cat <<EOF > /etc/crictl.yaml
-runtime-endpoint: unix:///var/run/containerd/containerd.sock
-EOF
-        ;;
-    "crio" | "cri-o")
-        install_crio
-        cat <<EOF > /etc/crictl.yaml
-runtime-endpoint: /var/run/crio/crio.sock
-EOF
-        ;;
-    *)
-        ;;
-    esac
-
 fi
 
 case "${RUNTIME}" in
@@ -129,7 +112,7 @@ EOF
         ;;
     "crio" | "cri-o")
         cat <<EOF > /etc/crictl.yaml
-runtime-endpoint: /var/run/crio/crio.sock
+runtime-endpoint: unix:///var/run/crio/crio.sock
 EOF
         ;;
     *)
