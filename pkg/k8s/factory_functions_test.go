@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func (s *K8sSuite) Test_equalV2CNP(c *C) {
+func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 	type args struct {
 		o1 *v2.CiliumNetworkPolicy
 		o2 *v2.CiliumNetworkPolicy
@@ -95,12 +95,12 @@ func (s *K8sSuite) Test_equalV2CNP(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV2CNP(tt.args.o1, tt.args.o2)
+		got := EqualV2CNP(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
 
-func (s *K8sSuite) Test_equalV1Endpoints(c *C) {
+func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 	type args struct {
 		o1 *core_v1.Endpoints
 		o2 *core_v1.Endpoints
@@ -227,15 +227,15 @@ func (s *K8sSuite) Test_equalV1Endpoints(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV1Endpoints(tt.args.o1, tt.args.o2)
+		got := EqualV1Endpoints(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
 
-func (s *K8sSuite) Test_equalV1Pod(c *C) {
+func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 	type args struct {
-		o1 interface{}
-		o2 interface{}
+		o1 *core_v1.Pod
+		o2 *core_v1.Pod
 	}
 	tests := []struct {
 		name string
@@ -366,15 +366,15 @@ func (s *K8sSuite) Test_equalV1Pod(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV1Pod(tt.args.o1, tt.args.o2)
+		got := EqualV1Pod(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
 
-func (s *K8sSuite) Test_equalV1Node(c *C) {
+func (s *K8sSuite) Test_EqualV1Node(c *C) {
 	type args struct {
-		o1 interface{}
-		o2 interface{}
+		o1 *core_v1.Node
+		o2 *core_v1.Node
 	}
 	tests := []struct {
 		name string
@@ -509,15 +509,15 @@ func (s *K8sSuite) Test_equalV1Node(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV1Node(tt.args.o1, tt.args.o2)
+		got := EqualV1Node(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
 
-func (s *K8sSuite) Test_equalV1Namespace(c *C) {
+func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 	type args struct {
-		o1 interface{}
-		o2 interface{}
+		o1 *core_v1.Namespace
+		o2 *core_v1.Namespace
 	}
 	tests := []struct {
 		name string
@@ -650,15 +650,15 @@ func (s *K8sSuite) Test_equalV1Namespace(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV1Namespace(tt.args.o1, tt.args.o2)
+		got := EqualV1Namespace(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
 
-func (s *K8sSuite) Test_equalV1beta1Ingress(c *C) {
+func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 	type args struct {
-		o1 interface{}
-		o2 interface{}
+		o1 *v1beta1.Ingress
+		o2 *v1beta1.Ingress
 	}
 	tests := []struct {
 		name string
@@ -804,15 +804,15 @@ func (s *K8sSuite) Test_equalV1beta1Ingress(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV1beta1Ingress(tt.args.o1, tt.args.o2)
+		got := EqualV1beta1Ingress(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
 
-func (s *K8sSuite) Test_equalV1Service(c *C) {
+func (s *K8sSuite) Test_EqualV1Service(c *C) {
 	type args struct {
-		o1 interface{}
-		o2 interface{}
+		o1 *core_v1.Service
+		o2 *core_v1.Service
 	}
 	tests := []struct {
 		name string
@@ -839,7 +839,7 @@ func (s *K8sSuite) Test_equalV1Service(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := equalV1Services(tt.args.o1, tt.args.o2)
+		got := EqualV1Services(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
