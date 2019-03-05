@@ -416,17 +416,3 @@ func failIfContainsBadLogMsg(logs string) {
 		}
 	}
 }
-
-func logErrorsSummary(logs string) string {
-	var sb strings.Builder
-	for _, message := range countLogsMessages {
-		var prefix = ""
-		result := strings.Count(logs, message)
-		if result > 5 {
-			// Added a warning emoji just in case that are more than 5 warning in the logs.
-			prefix = "⚠️  "
-		}
-		fmt.Fprintf(&sb, "%sNumber of %q in logs: %d\n", prefix, message, result)
-	}
-	return sb.String()
-}
