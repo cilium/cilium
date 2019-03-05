@@ -62,6 +62,18 @@ func NewEventQueue() *EventQueue {
 
 }
 
+// NewEventQueueBuffered returns an EventQueue with a capacity for only one event at
+// a time, and all other needed fields initialized.
+func NewEventQueueBuffered(numBufferedEvents int) *EventQueue {
+	return &EventQueue{
+		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
+		events:  make(chan *Event, numBufferedEvents),
+		close:   make(chan struct{}),
+		drained: make(chan struct{}),
+	}
+
+}
+
 // Event is an event that can be enqueued onto an EventQueue.
 type Event struct {
 	// Metadata is the information about the event which is sent
