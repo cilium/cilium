@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -249,6 +250,33 @@ func (d *Daemon) startStatusCollector() {
 		},
 		{
 			Name: "kubernetes",
+			Interval: func(failures int) time.Duration {
+				if failures > 0 {
+					// While failing, we want an initial
+					// quick retry with exponential backoff
+					// to avoid continous load on the
+					// apiserver
+					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, failures)
+				}
+
+				// The base interval is dependant on the
+				// cluster size. One status interval does not
+				// automatically translate to an apiserver
+				// interaction as any regular apiserver
+				// interaction is also used as an indication of
+				// successfull connectivity so we can continue
+				// to be fairly aggressive.
+				//
+				// 1     |    7s
+				// 2     |   12s
+				// 4     |   15s
+				// 64    |   42s
+				// 512   | 1m02s
+				// 2048  | 1m15s
+				// 8192  | 1m30s
+				// 16384 | 1m32s
+				return d.nodeDiscovery.Manager.ClusterSizeDependantInterval(10 * time.Second)
+			},
 			Probe: func(ctx context.Context) (interface{}, error) {
 				return d.getK8sStatus(), nil
 			},
