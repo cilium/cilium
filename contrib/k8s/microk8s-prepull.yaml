@@ -1,0 +1,28 @@
+apiVersion: apps/v1beta2
+kind: DaemonSet
+metadata:
+  name: prepull
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: prepull
+  template:
+    metadata:
+      labels:
+        name: prepull
+    spec:
+      initContainers:
+      - name: prepull
+        image: docker
+        command: ["docker", "pull", "localhost:32000/cilium/cilium:local"]
+        volumeMounts:
+        - name: docker
+          mountPath: /var/run
+      volumes:
+      - name: docker
+        hostPath:
+          path: /var/snap/microk8s/current/
+      containers:
+      - name: pause
+        image: gcr.io/google_containers/pause
