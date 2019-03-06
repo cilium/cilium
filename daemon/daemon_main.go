@@ -526,6 +526,9 @@ func init() {
 		option.KVStoreOpt, "Key-value store options")
 	option.BindEnv(option.KVStoreOpt)
 
+	flags.Uint(option.K8sWatcherQueueSize, 1024, "Queue size used to serialize each k8s event type")
+	option.BindEnv(option.K8sWatcherQueueSize)
+
 	flags.String(option.LabelPrefixFile, "", "Valid label prefixes file path")
 	option.BindEnv(option.LabelPrefixFile)
 
