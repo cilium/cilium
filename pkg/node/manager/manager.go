@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	baseBackgroundSyncInterval = float64(time.Minute.Nanoseconds())
+	baseBackgroundSyncInterval = time.Minute
 )
 
 type nodeEntry struct {
@@ -149,10 +149,12 @@ func (m *Manager) Close() {
 	}
 }
 
-// backgroundSyncInterval returns the sync interval based on the number of
-// nodes being managed
+// ClusterSizeDependantInterval returns a time.Duration that is dependant on
+// the cluster size, i.e. the number of nodes that have been discovered. This
+// can be used to control sync intervals of shared or centralized resources to
+// avoid overloading these resources as the cluster grows.
 //
-// Example sync interval with baseBackgroundSyncInterval = 1 * time.Minute
+// Example sync interval with baseInterval = 1 * time.Minute
 //
 // nodes | sync interval
 // ------+-----------------
@@ -171,20 +173,24 @@ func (m *Manager) Close() {
 // 4096  | 8m19.080616652s
 // 8192  | 9m00.662124608s
 // 16384 | 9m42.247293667s
-func (m *Manager) backgroundSyncInterval() time.Duration {
+func (m *Manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
 	m.mutex.RLock()
 	numNodes := len(m.nodes)
 	m.mutex.RUnlock()
 
-	// no nodes are being managed, no work will be performed, return 1
-	// minute to check again in a reasonable timeframe
+	// no nodes are being managed, no work will be performed, return
+	// baseInterval to check again in a reasonable timeframe
 	if numNodes == 0 {
-		return time.Minute
+		return baseInterval
 	}
 
-	waitNanoseconds := baseBackgroundSyncInterval * math.Log1p(float64(numNodes))
+	waitNanoseconds := float64(baseInterval.Nanoseconds()) * math.Log1p(float64(numNodes))
 	return time.Duration(int64(waitNanoseconds))
 
+}
+
+func (m *Manager) backgroundSyncInterval() time.Duration {
+	return m.ClusterSizeDependantInterval(baseBackgroundSyncInterval)
 }
 
 func (m *Manager) backgroundSync() {
