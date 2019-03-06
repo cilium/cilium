@@ -993,7 +993,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		kub.logger.WithError(err).Error("cannot get Cilium pods")
 		return err
 	}
-
+	ginkgoext.GinkgoPrint("Number of ciliumPods %v", ciliumPods)
 	body := func(ctx context.Context) (bool, error) {
 		var wg sync.WaitGroup
 		queue := make(chan bool, len(ciliumPods))
@@ -1005,6 +1005,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 			}()
 			logCtx := kub.logger.WithField("pod", pod)
 			status, err := kub.CiliumEndpointsList(ctx, pod).Filter(`{range [*]}{.status.state}{"="}{.status.identity.id}{"\n"}{end}`)
+			ginkgoext.GinkgoPrint("Pod %v status %v err: %v", pod, status, err)
 			if err != nil {
 				logCtx.WithError(err).Errorf("cannot get endpoints states on Cilium pod")
 				return
