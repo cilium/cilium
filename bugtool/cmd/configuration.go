@@ -73,6 +73,11 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip rule",
 		"ip -4 route show table 2005",
 		"ip -6 route show table 2005",
+		"ip -4 route show table 200",
+		"ip -6 route show table 200",
+		// xfrm
+		"ip xfrm policy",
+		"ip -s xfrm state",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
 		fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName),
@@ -125,6 +130,7 @@ func loadConfigFile(path string) (*BugtoolConfiguration, error) {
 
 func catCommands() []string {
 	files := []string{
+		"/proc/net/xfrm_stat",
 		"/proc/sys/net/core/bpf_jit_enable",
 		"/proc/kallsyms",
 		"/etc/resolv.conf",
