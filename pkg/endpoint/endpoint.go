@@ -1757,7 +1757,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 	e.Unlock()
 
 	if changed {
-		e.runLabelsResolver(owner, rev, false)
+		e.runLabelsResolver(context.Background(), owner, rev, false)
 	}
 	return nil
 }
@@ -1794,7 +1794,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, owner Owner, identityLabels
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.Unlock()
 	if rev != 0 {
-		e.runLabelsResolver(owner, rev, blocking)
+		e.runLabelsResolver(ctx, owner, rev, blocking)
 	}
 }
 
@@ -1815,7 +1815,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool) {
+func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeRev int, blocking bool) {
 	if err := e.RLockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -1832,7 +1832,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 	// of regenerations for the endpoint during its initialization.
 	if blocking || cache.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
-		err := e.identityLabelsChanged(owner, myChangeRev)
+		err := e.identityLabelsChanged(ctx, owner, myChangeRev)
 		switch err {
 		case ErrNotAlive:
 			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1848,7 +1848,8 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func() error {
-				err := e.identityLabelsChanged(owner, myChangeRev)
+				// FIXME GH-7320: Pass in context from controller once provided
+				err := e.identityLabelsChanged(context.Background(), owner, myChangeRev)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1862,7 +1863,7 @@ func (e *Endpoint) runLabelsResolver(owner Owner, myChangeRev int, blocking bool
 	)
 }
 
-func (e *Endpoint) identityLabelsChanged(owner Owner, myChangeRev int) error {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myChangeRev int) error {
 	if err := e.RLockAlive(); err != nil {
 		return ErrNotAlive
 	}
