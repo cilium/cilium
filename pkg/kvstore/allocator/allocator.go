@@ -353,7 +353,7 @@ func (a *Allocator) WaitForInitialSync(ctx context.Context) error {
 }
 
 // lockPath locks a key in the scope of an allocator
-func (a *Allocator) lockPath(key string) (*kvstore.Lock, error) {
+func (a *Allocator) lockPath(ctx context.Context, key string) (*kvstore.Lock, error) {
 	suffix := strings.TrimPrefix(key, a.basePrefix)
 	return kvstore.LockPath(path.Join(a.lockPrefix, suffix))
 }
@@ -424,11 +424,11 @@ type AllocatorKey interface {
 	String() string
 }
 
-func (a *Allocator) lockedAllocate(key AllocatorKey) (idpool.ID, bool, error) {
+func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, error) {
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
 	k := key.GetKey()
-	lock, err := a.lockPath(k)
+	lock, err := a.lockPath(ctx, k)
 	if err != nil {
 		return 0, false, err
 	}
@@ -557,10 +557,17 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 
 	for attempt := 0; attempt < maxAllocAttempts; attempt++ {
 		// FIXME: Add non-locking variant
-		value, isNew, err = a.lockedAllocate(key)
+		value, isNew, err = a.lockedAllocate(ctx, key)
 		if err == nil {
 			a.mainCache.insert(key, value)
 			return value, isNew, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			log.WithError(ctx.Err()).WithField(fieldKey, key).Warning("Ongoing identity allocation has been cancelled")
+			return 0, false, fmt.Errorf("identity allocation cancelled: %s", ctx.Err())
+		default:
 		}
 
 		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
@@ -655,7 +662,7 @@ func (a *Allocator) RunGC() error {
 		// FIXME: Add DeleteOnZeroCount support
 		// }
 
-		lock, err := a.lockPath(key)
+		lock, err := a.lockPath(context.Background(), key)
 		if err != nil {
 			log.WithError(err).WithField(fieldKey, key).Warning("allocator garbage collector was unable to lock key")
 			continue
