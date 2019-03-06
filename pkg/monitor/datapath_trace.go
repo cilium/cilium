@@ -55,6 +55,7 @@ const (
 	TraceFromHost
 	TraceFromStack
 	TraceFromOverlay
+	TraceFromNetwork
 )
 
 var traceObsPoints = map[uint8]string{
@@ -68,6 +69,7 @@ var traceObsPoints = map[uint8]string{
 	TraceFromHost:    "from-host",
 	TraceFromStack:   "from-stack",
 	TraceFromOverlay: "from-overlay",
+	TraceFromNetwork: "from-network",
 }
 
 func obsPoint(obsPoint uint8) string {
@@ -133,6 +135,8 @@ func (n *TraceNotify) traceSummary() string {
 		return "<- stack"
 	case TraceFromOverlay:
 		return "<- overlay"
+	case TraceFromNetwork:
+		return "<- network"
 	default:
 		return "unknown trace"
 	}

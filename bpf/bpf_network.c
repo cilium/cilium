@@ -113,6 +113,18 @@ int from_network(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
+#ifdef ENABLE_IPSEC
+	if ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
+		send_trace_notify(skb, TRACE_FROM_NETWORK, get_identity(skb), 0, 0,
+				  skb->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN);
+	} else
+#endif
+	{
+		send_trace_notify(skb, TRACE_FROM_NETWORK, 0, 0, 0,
+				  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+	}
+
 	if (!validate_ethertype(skb, &proto)) {
 		/* Pass unknown traffic to the stack */
 		ret = TC_ACT_OK;
