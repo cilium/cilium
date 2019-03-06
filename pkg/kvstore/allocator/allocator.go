@@ -15,6 +15,7 @@
 package allocator
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path"
@@ -341,8 +342,14 @@ func (a *Allocator) Delete() {
 }
 
 // WaitForInitialSync waits until the initial sync is complete
-func (a *Allocator) WaitForInitialSync() {
-	<-a.initialListDone
+func (a *Allocator) WaitForInitialSync(ctx context.Context) error {
+	select {
+	case <-a.initialListDone:
+	case <-ctx.Done():
+		return fmt.Errorf("identity sync with kvstore was cancelled: %s", ctx.Err())
+	}
+
+	return nil
 }
 
 // lockPath locks a key in the scope of an allocator
