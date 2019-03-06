@@ -240,7 +240,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return nil, err
 	}
 
-	ep.UpdateLabels(d, addLabels, infoLabels, true)
+	ep.UpdateLabels(ctx, d, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
