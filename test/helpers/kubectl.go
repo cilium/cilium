@@ -1793,7 +1793,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 		if err := kub.ciliumPreFlightCheck(); err != nil {
 			newError := err.Error()
 			if lastError != newError || consecutiveFailures >= 5 {
-				ginkgoext.By("Cilium is not ready yet: %s", newError)
+				ginkgoext.GinkgoPrint("Cilium is not ready yet: %s", newError)
 				lastError = newError
 				consecutiveFailures = 0
 			} else {
