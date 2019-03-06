@@ -15,6 +15,7 @@
 package launch
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -238,7 +239,7 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 	}
 
 	// Give the endpoint a security identity
-	ep.UpdateLabels(owner, labels.LabelHealth, nil, true)
+	ep.UpdateLabels(context.Background(), owner, labels.LabelHealth, nil, true)
 
 	// Wait until the cilium-health endpoint is running before setting up routes
 	deadline := time.Now().Add(1 * time.Minute)
