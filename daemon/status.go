@@ -17,34 +17,85 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	versionapi "k8s.io/apimachinery/pkg/version"
 )
+
+const (
+	// k8sVersionCheckInterval is the interval in which the Kubernetes
+	// version is verified even if connectivity is given
+	k8sVersionCheckInterval = 5 * time.Minute
+
+	// k8sMinimumEventHearbeat is the time interval in which any received
+	// event will be considered proof that the apiserver connectivity is
+	// healthty
+	k8sMinimumEventHearbeat = time.Minute
+)
+
+type k8sVersion struct {
+	version          string
+	lastVersionCheck time.Time
+	lock             lock.Mutex
+}
+
+func (k *k8sVersion) cachedVersion() (string, bool) {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+
+	if time.Since(k8smetrics.LastInteraction.Time()) > k8sMinimumEventHearbeat {
+		return "", false
+	}
+
+	if k.version == "" || time.Since(k.lastVersionCheck) > k8sVersionCheckInterval {
+		return "", false
+	}
+
+	return k.version, true
+}
+
+func (k *k8sVersion) update(version *versionapi.Info) string {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+
+	k.version = fmt.Sprintf("%s.%s (%s) [%s]", version.Major, version.Minor, version.GitVersion, version.Platform)
+	k.lastVersionCheck = time.Now()
+	return k.version
+}
+
+var k8sVersionCache k8sVersion
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
 	if !k8s.IsEnabled() {
 		return &models.K8sStatus{State: models.StatusStateDisabled}
-
 	}
 
-	version, err := k8s.Client().Discovery().ServerVersion()
-	if err != nil {
-		return &models.K8sStatus{State: models.StatusStateFailure, Msg: err.Error()}
+	version, valid := k8sVersionCache.cachedVersion()
+	if !valid {
+		k8sVersion, err := k8s.Client().Discovery().ServerVersion()
+		if err != nil {
+			return &models.K8sStatus{State: models.StatusStateFailure, Msg: err.Error()}
+		}
+
+		version = k8sVersionCache.update(k8sVersion)
 	}
 
 	k8sStatus := &models.K8sStatus{
 		State:          models.StatusStateOk,
-		Msg:            fmt.Sprintf("%s.%s (%s) [%s]", version.Major, version.Minor, version.GitVersion, version.Platform),
+		Msg:            version,
 		K8sAPIVersions: d.k8sAPIGroups.getGroups(),
 	}
 
