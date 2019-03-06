@@ -283,6 +283,29 @@ logging-subsys-field:
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
 	$(QUIET) contrib/scripts/check-logging-subsys-field.sh
 
+check-microk8s:
+	@$(ECHO_CHECK) microk8s is ready...
+	$(QUIET)microk8s.status >/dev/null \
+		|| (echo "Error: Microk8s is not running" && exit 1)
+	$(QUIET)microk8s.status -o yaml | grep -q "registry.*enabled" \
+		|| (echo "Error: Microk8s registry must be enabled" && exit 1)
+
+LOCAL_IMAGE_TAG=local
+LOCAL_IMAGE=localhost:32000/cilium/cilium:$(LOCAL_IMAGE_TAG)
+microk8s: check-microk8s
+	$(QUIET)$(MAKE) dev-docker-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	@echo "  DPLOY image to microk8s ($(LOCAL_IMAGE))"
+	$(CONTAINER_ENGINE_FULL) tag cilium/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
+	$(CONTAINER_ENGINE_FULL) push $(LOCAL_IMAGE)
+	$(QUIET)kubectl apply -f contrib/k8s/microk8s-prepull.yaml
+	$(QUIET)kubectl -n kube-system delete pod -l name=prepull
+	$(QUIET)kubectl -n kube-system rollout status ds/prepull
+	@echo
+	@echo "Update image tag like this when ready:"
+	@echo "    kubectl -n kube-system set image ds/cilium cilium-agent=$(LOCAL_IMAGE)"
+	@echo "Or, redeploy the Cilium pods:"
+	@echo "    kubectl -n kube-system delete pod -l k8s-app=cilium"
+
 precheck: govet ineffassign logging-subsys-field
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
