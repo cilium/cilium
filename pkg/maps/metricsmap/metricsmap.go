@@ -158,7 +158,7 @@ func (v *Value) RequestBytes() string {
 
 // IsDrop checks if the reason is drop or not.
 func (k *Key) IsDrop() bool {
-	return k.Reason != 0
+	return k.Reason == monitorAPI.DropInvalid || k.Reason >= monitorAPI.DropMin
 }
 
 // CountFloat converts the request count to float
