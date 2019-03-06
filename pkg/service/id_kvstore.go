@@ -15,6 +15,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -38,7 +39,7 @@ func updateL3n4AddrIDRef(id loadbalancer.ServiceID, l3n4AddrID loadbalancer.L3n4
 func initializeFreeID(path string, firstID uint32) error {
 
 	client := kvstore.Client()
-	kvLocker, err := client.LockPath(path)
+	kvLocker, err := client.LockPath(context.Background(), path)
 	if err != nil {
 		return err
 	}
@@ -157,7 +158,7 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 	acquireFreeID := func(firstID uint32, incID *uint32) (bool, error) {
 		keyPath := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(*incID), 10))
 
-		locker, err := client.LockPath(keyPath)
+		locker, err := client.LockPath(context.Background(), keyPath)
 		if err != nil {
 			return false, err
 		}
@@ -210,7 +211,7 @@ func acquireGlobalID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalanc
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 
 	// Lock that sha256Sum
-	lockKey, err := kvstore.LockPath(svcPath)
+	lockKey, err := kvstore.LockPath(context.Background(), svcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func deleteL3n4AddrIDBySHA256(sha256Sum string) error {
 	}
 	svcPath := path.Join(common.ServicesKeyPath, sha256Sum)
 	// Lock that sha256Sum
-	lockKey, err := kvstore.LockPath(svcPath)
+	lockKey, err := kvstore.LockPath(context.Background(), svcPath)
 	if err != nil {
 		return err
 	}
