@@ -62,6 +62,11 @@ func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
 		default:
 			continue
 		}
+		// If the address is not set let's not parse it at all.
+		// This can be the case for v1.NodeExternalIPs
+		if addr.Address == "" {
+			continue
+		}
 		ip := net.ParseIP(addr.Address)
 		if ip == nil {
 			scopedLog.WithFields(logrus.Fields{
