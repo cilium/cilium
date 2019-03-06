@@ -157,6 +157,9 @@ const (
 	// K8sKubeConfigPath is the absolute path of the kubernetes kubeconfig file
 	K8sKubeConfigPath = "k8s-kubeconfig-path"
 
+	// K8sWatcherQueueSize is the queue size used to serialize each k8s event type
+	K8sWatcherQueueSize = "k8s-watcher-queue-size"
+
 	// KeepConfig when restoring state, keeps containers' configuration in place
 	KeepConfig = "keep-config"
 
@@ -588,6 +591,10 @@ type DaemonConfig struct {
 	// IPv6 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
 	K8sRequireIPv6PodCIDR bool
+
+	// K8sWatcherQueueSize is the queue size used to serialize each k8s event
+	// type.
+	K8sWatcherQueueSize uint
 
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
@@ -1052,6 +1059,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
+	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)

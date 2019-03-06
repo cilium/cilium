@@ -275,7 +275,7 @@ func blockWaitGroupToSyncResources(waitGroup *sync.WaitGroup, informer cache.Con
 }
 
 func (d *Daemon) initK8sSubsystem() {
-	if err := d.EnableK8sWatcher(); err != nil {
+	if err := d.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
 
@@ -297,7 +297,8 @@ func (d *Daemon) initK8sSubsystem() {
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
-func (d *Daemon) EnableK8sWatcher() error {
+// queueSize specifies the queue length used to serialize k8s events.
+func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
@@ -336,14 +337,14 @@ func (d *Daemon) EnableK8sWatcher() error {
 		return fmt.Errorf("Unable to create cilium network policy client: %s", err)
 	}
 
-	serKNPs := serializer.NewFunctionQueue(1024)
-	serSvcs := serializer.NewFunctionQueue(1024)
-	serEps := serializer.NewFunctionQueue(1024)
-	serIngresses := serializer.NewFunctionQueue(1024)
-	serCNPs := serializer.NewFunctionQueue(1024)
-	serPods := serializer.NewFunctionQueue(1024)
-	serNodes := serializer.NewFunctionQueue(1024)
-	serNamespaces := serializer.NewFunctionQueue(1024)
+	serKNPs := serializer.NewFunctionQueue(queueSize)
+	serSvcs := serializer.NewFunctionQueue(queueSize)
+	serEps := serializer.NewFunctionQueue(queueSize)
+	serIngresses := serializer.NewFunctionQueue(queueSize)
+	serCNPs := serializer.NewFunctionQueue(queueSize)
+	serPods := serializer.NewFunctionQueue(queueSize)
+	serNodes := serializer.NewFunctionQueue(queueSize)
+	serNamespaces := serializer.NewFunctionQueue(queueSize)
 
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
