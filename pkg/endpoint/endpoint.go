@@ -1284,7 +1284,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	}
 
 	if e.SecurityIdentity != nil {
-		_, err := cache.Release(e.SecurityIdentity)
+		_, err := cache.Release(context.Background(), e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1894,15 +1894,23 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	identity, _, err := cache.AllocateIdentity(newLabels)
+	identity, _, err := cache.AllocateIdentity(ctx, newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
 		return err
 	}
 
+	// When releasing identities after allocation due to either failure of
+	// allocation or due a no longer used identity we want to operation to
+	// continue even if the parent has given up. Enforce a timeout of two
+	// minutes to avoid blocking forever but give plenty of time to release
+	// the identity.
+	releaseCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := cache.Release(identity)
+		_, err := cache.Release(releaseCtx, identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -1962,7 +1970,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
-		_, err := cache.Release(oldIdentity)
+		_, err := cache.Release(releaseCtx, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")
