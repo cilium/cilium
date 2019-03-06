@@ -17,6 +17,8 @@
 package cache
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -37,7 +39,7 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 		labels.IDNameHost: labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 	}
 	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(lbls)
+	i, isNew, err = AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityHost)
 	c.Assert(isNew, Equals, false)
@@ -46,13 +48,13 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
 	}
 	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(lbls)
+	i, isNew, err = AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityWorld)
 	c.Assert(isNew, Equals, false)
 
 	c.Assert(IdentityAllocationIsLocal(labels.LabelHealth), Equals, true)
-	i, isNew, err = AllocateIdentity(labels.LabelHealth)
+	i, isNew, err = AllocateIdentity(context.Background(), labels.LabelHealth)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityHealth)
 	c.Assert(isNew, Equals, false)
@@ -61,7 +63,7 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
 	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(lbls)
+	i, isNew, err = AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityInit)
 	c.Assert(isNew, Equals, false)
@@ -70,7 +72,7 @@ func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
 		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
 	}
 	c.Assert(IdentityAllocationIsLocal(lbls), Equals, true)
-	i, isNew, err = AllocateIdentity(lbls)
+	i, isNew, err = AllocateIdentity(context.Background(), lbls)
 	c.Assert(err, IsNil)
 	c.Assert(i.ID, Equals, identity.ReservedIdentityUnmanaged)
 	c.Assert(isNew, Equals, false)
@@ -126,26 +128,26 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
-	id1a, isNew, err := AllocateIdentity(lbls1)
+	id1a, isNew, err := AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id1a, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 
 	// reuse the same identity
-	id1b, isNew, err := AllocateIdentity(lbls1)
+	id1b, isNew, err := AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id1b, Not(IsNil))
 	c.Assert(isNew, Equals, false)
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Equals, id1b.ID)
 
-	released, err := Release(id1a)
+	released, err := Release(context.Background(), id1a)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
-	released, err = Release(id1b)
+	released, err = Release(context.Background(), id1b)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
-	id1b, isNew, err = AllocateIdentity(lbls1)
+	id1b, isNew, err = AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id1b, Not(IsNil))
 	c.Assert(err, IsNil)
 	// the value key should not have been removed so the same ID should be
@@ -157,26 +159,26 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(identity, Not(IsNil))
 	c.Assert(lbls1, checker.DeepEquals, identity.Labels)
 
-	id2, isNew, err := AllocateIdentity(lbls2)
+	id2, isNew, err := AllocateIdentity(context.Background(), lbls2)
 	c.Assert(id2, Not(IsNil))
 	c.Assert(isNew, Equals, true)
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Not(Equals), id2.ID)
 
-	id3, isNew, err := AllocateIdentity(lbls3)
+	id3, isNew, err := AllocateIdentity(context.Background(), lbls3)
 	c.Assert(id3, Not(IsNil))
 	c.Assert(isNew, Equals, true)
 	c.Assert(err, IsNil)
 	c.Assert(id1a.ID, Not(Equals), id3.ID)
 	c.Assert(id2.ID, Not(Equals), id3.ID)
 
-	released, err = Release(id1b)
+	released, err = Release(context.Background(), id1b)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
-	released, err = Release(id2)
+	released, err = Release(context.Background(), id2)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
-	released, err = Release(id3)
+	released, err = Release(context.Background(), id3)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 }
@@ -188,14 +190,14 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocationr(c *C) {
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
-	id, isNew, err := AllocateIdentity(lbls1)
+	id, isNew, err := AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 	c.Assert(id.ID.HasLocalScope(), Equals, true)
 
 	// reuse the same identity
-	id, isNew, err = AllocateIdentity(lbls1)
+	id, isNew, err = AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, false)
@@ -203,23 +205,23 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocationr(c *C) {
 	cache := GetIdentityCache()
 	c.Assert(cache[id.ID], Not(IsNil))
 
-	released, err := Release(id)
+	released, err := Release(context.Background(), id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
-	released, err = Release(id)
+	released, err = Release(context.Background(), id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
 	cache = GetIdentityCache()
 	c.Assert(cache[id.ID], IsNil)
 
-	id, isNew, err = AllocateIdentity(lbls1)
+	id, isNew, err = AllocateIdentity(context.Background(), lbls1)
 	c.Assert(id, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, true)
 	c.Assert(id.ID.HasLocalScope(), Equals, true)
 
-	released, err = Release(id)
+	released, err = Release(context.Background(), id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 }
