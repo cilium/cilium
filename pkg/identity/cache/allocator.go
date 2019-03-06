@@ -145,9 +145,15 @@ func Close() {
 
 // WaitForInitialIdentities waits for the initial set of security identities to
 // have been received and populated into the allocator cache
-func WaitForInitialIdentities() {
-	<-identityAllocatorInitialized
+func WaitForInitialIdentities(ctx context.Context) error {
+	select {
+	case <-identityAllocatorInitialized:
+	case <-ctx.Done():
+		return fmt.Errorf("initial identity sync was cancelled: %s", ctx.Err())
+	}
+
 	IdentityAllocator.WaitForInitialSync()
+	return nil
 }
 
 // IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
@@ -188,7 +194,7 @@ func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identi
 
 	// This will block until the kvstore can be accessed and all identities
 	// were succesfully synced
-	WaitForInitialIdentities()
+	WaitForInitialIdentities(ctx)
 
 	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
@@ -224,7 +230,7 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 
 	// This will block until the kvstore can be accessed and all identities
 	// were succesfully synced
-	WaitForInitialIdentities()
+	WaitForInitialIdentities(ctx)
 
 	if IdentityAllocator == nil {
 		return false, fmt.Errorf("allocator not initialized")
