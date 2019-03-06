@@ -55,6 +55,8 @@ enum {
 	TRACE_REASON_CT_RELATED = CT_RELATED,
 };
 
+#define TRACE_REASON_ENCRYPTED	    0x80
+
 /* Trace aggregation levels. */
 enum {
 	TRACE_AGGREGATE_NONE = 0,      /* Trace every packet on rx & tx */
@@ -97,6 +99,8 @@ static inline void
 send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		  __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
+	__u8 encrypted;
+
 	switch (obs_point) {
 		case TRACE_TO_LXC:
 			update_metrics(skb->len, METRIC_INGRESS, REASON_FORWARDED);
@@ -115,6 +119,14 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		case TRACE_TO_STACK:
 		case TRACE_TO_OVERLAY:
 			update_metrics(skb->len, METRIC_EGRESS, REASON_FORWARDED);
+			break;
+		case TRACE_FROM_OVERLAY:
+			encrypted = reason & TRACE_REASON_ENCRYPTED;
+			if (!encrypted)
+				update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
+			else
+				update_metrics(skb->len, METRIC_INGRESS, REASON_DECRYPT);
+			break;
 	}
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_RX) {
 		switch (obs_point) {
@@ -159,6 +171,8 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 				     __u16 dst_id, __u32 ifindex, __u8 reason, __u32 monitor)
 {
+	__u8 encrypted;
+
 	switch (obs_point) {
 		case TRACE_TO_LXC:
 			update_metrics(skb->len, METRIC_INGRESS, REASON_FORWARDED);
@@ -177,6 +191,14 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 		case TRACE_TO_STACK:
 		case TRACE_TO_OVERLAY:
 			update_metrics(skb->len, METRIC_EGRESS, REASON_FORWARDED);
+			break;
+		case TRACE_FROM_OVERLAY:
+			encrypted = reason & TRACE_REASON_ENCRYPTED;
+			if (!encrypted)
+				update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
+			else
+				update_metrics(skb->len, METRIC_INGRESS, REASON_DECRYPT);
+			break;
 	}
 }
 

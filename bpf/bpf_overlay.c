@@ -62,8 +62,10 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		/* IPSec is not currently enforce (feature coming soon)
 		 * so for now just handle normally
 		 */
-		if (ip6->nexthdr != IPPROTO_ESP)
+		if (ip6->nexthdr != IPPROTO_ESP) {
+			update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
 			goto not_esp;
+		}
 
 		/* Decrypt "key" is determined by SPI */
 		skb->mark = MARK_MAGIC_DECRYPT;
@@ -148,9 +150,11 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		/* IPSec is not currently enforce (feature coming soon)
 		 * so for now just handle normally
 		 */
-		if (ip4->protocol != IPPROTO_ESP)
+		if (ip4->protocol != IPPROTO_ESP) {
+			update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
 			goto not_esp;
-		/* Decrypt "key" is determined by SPI */
+		}
+
 		skb->mark = MARK_MAGIC_DECRYPT;
 		set_identity(skb, key.tunnel_id);
 		/* To IPSec stack on cilium_vxlan we are going to pass
@@ -219,8 +223,17 @@ int from_overlay(struct __sk_buff *skb)
 
 	bpf_clear_cb(skb);
 
-	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
-			  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+#ifdef ENABLE_IPSEC
+	if ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
+		send_trace_notify(skb, TRACE_FROM_OVERLAY, get_identity(skb), 0, 0,
+				  skb->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN);
+	} else
+#endif
+	{
+		send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
+				  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+	}
 
 	if (!validate_ethertype(skb, &proto)) {
 		/* Pass unknown traffic to the stack */

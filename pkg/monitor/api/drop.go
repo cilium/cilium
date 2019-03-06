@@ -18,9 +18,14 @@ import (
 	"fmt"
 )
 
+var DropMin uint8 = 130
+var DropInvalid uint8 = 2
+
 var errors = map[uint8]string{
 	0:   "Success",
 	2:   "Invalid packet",
+	3:   "Interface",
+	4:   "Interface Decrypted",
 	130: "Invalid source mac",
 	131: "Invalid destination mac",
 	132: "Invalid source ip",

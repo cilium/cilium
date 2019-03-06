@@ -278,9 +278,12 @@ enum {
 #define DROP_NAT_UNSUPP_PROTO	-168
 
 /* Cilium metrics reason for forwarding packet.
- * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
+ * If reason > REASON_DECRYPT then this is a drop reason and value corresponds
+ * to -(DROP_*)
  */
 #define REASON_FORWARDED  0
+#define REASON_PLAINTEXT  3
+#define REASON_DECRYPT    4
 
 /* Cilium metrics direction for dropping/forwarding packet */
 #define METRIC_INGRESS  1

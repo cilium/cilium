@@ -22,6 +22,8 @@ import (
 const (
 	// TraceNotifyLen is the amount of packet data provided in a trace notification
 	TraceNotifyLen = 32
+	// TraceEncryptMask is the bit used to indicate encryption or not
+	TraceReasonEncryptMask uint8 = 0x80
 )
 
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
@@ -91,10 +93,22 @@ var traceReasons = map[uint8]string{
 }
 
 func connState(reason uint8) string {
-	if str, ok := traceReasons[reason]; ok {
+	r := reason & ^TraceReasonEncryptMask
+	if str, ok := traceReasons[r]; ok {
 		return str
 	}
 	return fmt.Sprintf("%d", reason)
+}
+
+func (n *TraceNotify) encryptReason() string {
+	if (n.Reason & TraceReasonEncryptMask) != 0 {
+		return fmt.Sprintf("encrypted ")
+	}
+	return ""
+}
+
+func (n *TraceNotify) traceReason() string {
+	return connState(n.Reason)
 }
 
 func (n *TraceNotify) traceSummary() string {
@@ -126,9 +140,9 @@ func (n *TraceNotify) traceSummary() string {
 
 // DumpInfo prints a summary of the trace messages.
 func (n *TraceNotify) DumpInfo(data []byte) {
-	fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s: %s\n",
-		n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
-		connState(n.Reason), ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
+	fmt.Printf("%s %sflow %#x identity %d->%d state %s ifindex %s: %s\n",
+		n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
+		n.traceReason(), ifname(int(n.Ifindex)), GetConnectionSummary(data[TraceNotifyLen:]))
 }
 
 // DumpVerbose prints the trace notification in human readable form

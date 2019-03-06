@@ -126,6 +126,10 @@ func GetConnectionSummary(data []byte) string {
 		case layers.LayerTypeUDP:
 			proto = "udp"
 			srcPort, dstPort = strconv.Itoa(int(cache.udp.SrcPort)), strconv.Itoa(int(cache.udp.DstPort))
+		case layers.LayerTypeIPSecAH:
+			proto = "IPsecAH"
+		case layers.LayerTypeIPSecESP:
+			proto = "IPsecESP"
 		case layers.LayerTypeICMPv4:
 			icmpCode = cache.icmp4.TypeCode.String()
 		case layers.LayerTypeICMPv6:
@@ -137,10 +141,16 @@ func GetConnectionSummary(data []byte) string {
 	case icmpCode != "":
 		return fmt.Sprintf("%s -> %s %s", srcIP, dstIP, icmpCode)
 	case proto != "":
-		s := fmt.Sprintf("%s -> %s %s",
-			net.JoinHostPort(srcIP.String(), srcPort),
-			net.JoinHostPort(dstIP.String(), dstPort),
-			proto)
+		var s string
+
+		if proto == "esp" {
+			s = fmt.Sprintf("%s", proto)
+		} else {
+			s = fmt.Sprintf("%s -> %s %s",
+				net.JoinHostPort(srcIP.String(), srcPort),
+				net.JoinHostPort(dstIP.String(), dstPort),
+				proto)
+		}
 		if proto == "tcp" {
 			s += " " + getTCPInfo()
 		}
