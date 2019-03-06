@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
 
 	"github.com/sirupsen/logrus"
@@ -60,7 +61,14 @@ var (
 func Init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
 	once.Do(func() {
 		templateCache = NewObjectCache(dp, nodeCfg)
-		elf.IgnoreSymbolPrefixes(ignoredELFPrefixes)
+		ignorePrefixes := ignoredELFPrefixes
+		if !option.Config.EnableIPv4 {
+			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
+		}
+		if !option.Config.EnableIPv6 {
+			ignorePrefixes = append(ignorePrefixes, "LXC_IP_")
+		}
+		elf.IgnoreSymbolPrefixes(ignorePrefixes)
 	})
 	templateCache.Update(nodeCfg)
 }
