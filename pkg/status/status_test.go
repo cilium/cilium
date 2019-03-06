@@ -47,6 +47,47 @@ func (s *StatusTestSuite) SetUpTest(c *C) {
 	}
 }
 
+func (s *StatusTestSuite) TestVariableProbeInterval(c *C) {
+	var runs, ok uint64
+
+	p := []Probe{
+		{
+			Interval: func(failures int) time.Duration {
+				// While failing, retry every millisecond
+				if failures > 0 {
+					return time.Millisecond
+				}
+
+				// Ensure that the regular interval would never retry
+				return time.Minute
+			},
+			Probe: func(ctx context.Context) (interface{}, error) {
+				// Let 5 runs fail and then succeed
+				atomic.AddUint64(&runs, 1)
+				if atomic.LoadUint64(&runs) < 5 {
+					return nil, fmt.Errorf("still failing")
+				}
+
+				return nil, nil
+			},
+			OnStatusUpdate: func(status Status) {
+				if status.Data == nil && status.Err == nil {
+					atomic.AddUint64(&ok, 1)
+				}
+			},
+		},
+	}
+
+	collector := NewCollector(p, s.config)
+	defer collector.Close()
+
+	// wait for 5 probe intervals to occur with 1 millisecond interval
+	// until we reach success
+	c.Assert(testutils.WaitUntil(func() bool {
+		return atomic.LoadUint64(&ok) >= 1
+	}, 1*time.Second), IsNil)
+}
+
 func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 	var ok uint64
 
