@@ -530,7 +530,7 @@ func (a *Allocator) lockedAllocate(key AllocatorKey) (idpool.ID, bool, error) {
 //
 // Returns the ID allocated to the key, if the ID had to be allocated, then
 // true is returned. An error is returned in case of failure.
-func (a *Allocator) Allocate(key AllocatorKey) (idpool.ID, bool, error) {
+func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, error) {
 	var (
 		err   error
 		value idpool.ID
@@ -616,7 +616,7 @@ func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
 // Release releases the use of an ID associated with the provided key. After
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
-func (a *Allocator) Release(key AllocatorKey) (lastUse bool, err error) {
+func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool, err error) {
 	k := key.GetKey()
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark

@@ -199,7 +199,7 @@ func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identi
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	id, isNew, err := IdentityAllocator.Allocate(globalIdentity{lbls})
+	id, isNew, err := IdentityAllocator.Allocate(ctx, globalIdentity{lbls})
 	if err != nil {
 		return nil, false, err
 	}
@@ -235,7 +235,7 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 		return false, fmt.Errorf("allocator not initialized")
 	}
 
-	return IdentityAllocator.Release(globalIdentity{id.Labels})
+	return IdentityAllocator.Release(ctx, globalIdentity{id.Labels})
 }
 
 // ReleaseSlice attempts to release a set of identities. It is a helper
