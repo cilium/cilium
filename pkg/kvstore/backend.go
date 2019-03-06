@@ -14,6 +14,10 @@
 
 package kvstore
 
+import (
+	"context"
+)
+
 type backendOption struct {
 	// description is the description of the option
 	description string
@@ -90,7 +94,7 @@ type BackendOperations interface {
 	Status() (string, error)
 
 	// LockPath locks the provided path
-	LockPath(path string) (kvLocker, error)
+	LockPath(ctx context.Context, path string) (kvLocker, error)
 
 	// Get returns value of key
 	Get(key string) ([]byte, error)

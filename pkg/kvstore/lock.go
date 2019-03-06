@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -101,10 +102,10 @@ type Lock struct {
 // returned also contains a patch specific local Mutex which will be held.
 //
 // It is required to call Unlock() on the returned Lock to unlock
-func LockPath(path string) (l *Lock, err error) {
+func LockPath(ctx context.Context, path string) (l *Lock, err error) {
 	kvstoreLocks.lock(path)
 
-	lock, err := Client().LockPath(path)
+	lock, err := Client().LockPath(ctx, path)
 	if err != nil {
 		kvstoreLocks.unlock(path)
 		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
