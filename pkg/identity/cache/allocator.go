@@ -15,6 +15,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"path"
 
@@ -165,7 +166,7 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
-func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
+func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identity, bool, error) {
 	log.WithFields(logrus.Fields{
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Resolving identity")
@@ -210,7 +211,7 @@ func AllocateIdentity(lbls labels.Labels) (*identity.Identity, bool, error) {
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func Release(id *identity.Identity) (bool, error) {
+func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 	if id.IsReserved() {
 		return false, nil
 	}
@@ -236,13 +237,13 @@ func Release(id *identity.Identity) (bool, error) {
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
 // should all be released.
-func ReleaseSlice(identities []*identity.Identity) error {
+func ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
 	var err error
 	for _, id := range identities {
 		if id == nil {
 			continue
 		}
-		if _, err2 := Release(id); err2 != nil {
+		if _, err2 := Release(ctx, id); err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
 			}).Error("Failed to release identity")

@@ -15,6 +15,7 @@
 package ipcache
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -45,9 +46,9 @@ func AllocateCIDRs(impl Implementation, prefixes []*net.IPNet) error {
 			continue
 		}
 
-		id, isNew, err := cache.AllocateIdentity(cidr.GetCIDRLabels(prefix))
+		id, isNew, err := cache.AllocateIdentity(context.Background(), cidr.GetCIDRLabels(prefix))
 		if err != nil {
-			cache.ReleaseSlice(usedIdentities)
+			cache.ReleaseSlice(context.Background(), usedIdentities)
 			return fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix.String(), err)
 		}
 
@@ -78,7 +79,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 		}
 
 		if id := cache.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
-			released, err := cache.Release(id)
+			released, err := cache.Release(context.Background(), id)
 			if err != nil {
 				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}

@@ -1282,7 +1282,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	}
 
 	if e.SecurityIdentity != nil {
-		_, err := cache.Release(e.SecurityIdentity)
+		_, err := cache.Release(context.Background(), e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1892,7 +1892,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	identity, _, err := cache.AllocateIdentity(newLabels)
+	identity, _, err := cache.AllocateIdentity(ctx, newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -1900,7 +1900,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	}
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := cache.Release(identity)
+		_, err := cache.Release(ctx, identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -1960,7 +1960,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
-		_, err := cache.Release(oldIdentity)
+		_, err := cache.Release(ctx, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")

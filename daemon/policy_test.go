@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"sort"
 	"time"
@@ -125,29 +126,29 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	c.Assert(err3, Equals, nil)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(qaBarLbls)
+	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(qaBarSecLblsCtx)
+	defer cache.Release(context.Background(), qaBarSecLblsCtx)
 
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := cache.AllocateIdentity(prodBarLbls)
+	prodBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), prodBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(prodBarSecLblsCtx)
+	defer cache.Release(context.Background(), prodBarSecLblsCtx)
 
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(qaFooLbls)
+	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), qaFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(qaFooSecLblsCtx)
+	defer cache.Release(context.Background(), qaFooSecLblsCtx)
 
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := cache.AllocateIdentity(prodFooLbls)
+	prodFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), prodFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(prodFooSecLblsCtx)
+	defer cache.Release(context.Background(), prodFooSecLblsCtx)
 
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := cache.AllocateIdentity(prodFooJoeLbls)
+	prodFooJoeSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(prodFooJoeSecLblsCtx)
+	defer cache.Release(context.Background(), prodFooJoeSecLblsCtx)
 
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
@@ -445,9 +446,9 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(err3, Equals, nil)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(qaBarLbls)
+	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(qaBarSecLblsCtx)
+	defer cache.Release(context.Background(), qaBarSecLblsCtx)
 
 	// Create the endpoint and generate its policy.
 	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
