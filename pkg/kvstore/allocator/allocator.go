@@ -355,7 +355,7 @@ func (a *Allocator) WaitForInitialSync(ctx context.Context) error {
 // lockPath locks a key in the scope of an allocator
 func (a *Allocator) lockPath(ctx context.Context, key string) (*kvstore.Lock, error) {
 	suffix := strings.TrimPrefix(key, a.basePrefix)
-	return kvstore.LockPath(path.Join(a.lockPrefix, suffix))
+	return kvstore.LockPath(ctx, path.Join(a.lockPrefix, suffix))
 }
 
 // DeleteAllKeys will delete all keys

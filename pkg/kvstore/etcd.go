@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -406,13 +407,18 @@ func (e *etcdClient) checkMinVersion() error {
 	return nil
 }
 
-func (e *etcdClient) LockPath(path string) (kvLocker, error) {
-	<-e.firstSession
+func (e *etcdClient) LockPath(ctx context.Context, path string) (kvLocker, error) {
+	select {
+	case <-e.firstSession:
+	case <-ctx.Done():
+		return nil, fmt.Errorf("lock cancelled via context: %s", ctx.Err())
+	}
+
 	e.RLock()
 	mu := concurrency.NewMutex(e.session, path)
 	e.RUnlock()
 
-	ctx, cancel := ctx.WithTimeout(ctx.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	err := mu.Lock(ctx)
 	if err != nil {
