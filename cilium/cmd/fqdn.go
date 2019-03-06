@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -119,15 +121,18 @@ func listFQDNCache() {
 		if err := command.PrintOutput(lookups); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}
-	} else {
-		fmt.Println("Endpoint\tFQDN\tTTL\tExpirationTime\tIPs")
-		for _, lookup := range lookups {
-			fmt.Printf("%d\t%s\t%d\t%s\t%s\n",
-				lookup.EndpointID,
-				lookup.Fqdn,
-				lookup.TTL,
-				lookup.ExpirationTime.String(),
-				strings.Join(lookup.Ips, ","))
-		}
+		return
 	}
+
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "Endpoint\tFQDN\tTTL\tExpirationTime\tIPs\t")
+	for _, lookup := range lookups {
+		fmt.Fprintf(w, "%d\t%s\t%d\t%s\t%s\t\n",
+			lookup.EndpointID,
+			lookup.Fqdn,
+			lookup.TTL,
+			lookup.ExpirationTime.String(),
+			strings.Join(lookup.Ips, ","))
+	}
+	w.Flush()
 }
