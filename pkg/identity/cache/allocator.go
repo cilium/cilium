@@ -152,8 +152,7 @@ func WaitForInitialIdentities(ctx context.Context) error {
 		return fmt.Errorf("initial identity sync was cancelled: %s", ctx.Err())
 	}
 
-	IdentityAllocator.WaitForInitialSync()
-	return nil
+	return IdentityAllocator.WaitForInitialSync(ctx)
 }
 
 // IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
