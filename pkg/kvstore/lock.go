@@ -53,7 +53,7 @@ type pathLocks struct {
 	lockPaths map[string]int
 }
 
-func (pl *pathLocks) lock(path string) {
+func (pl *pathLocks) lock(ctx context.Context, path string) {
 	started := time.Now()
 
 	for {
@@ -80,8 +80,12 @@ func (pl *pathLocks) lock(path string) {
 
 		pl.mutex.Unlock()
 
-		// Sleep for a short while to retry
-		time.Sleep(time.Duration(10) * time.Millisecond)
+		select {
+		case <-time.After(time.Duration(10) * time.Millisecond):
+		case <-ctx.Done():
+			log.WithError(ctx.Err()).WithField("path", path).Warning("Operation to wait for local lock has been cancelled")
+			return
+		}
 	}
 }
 
@@ -103,7 +107,7 @@ type Lock struct {
 //
 // It is required to call Unlock() on the returned Lock to unlock
 func LockPath(ctx context.Context, path string) (l *Lock, err error) {
-	kvstoreLocks.lock(path)
+	kvstoreLocks.lock(ctx, path)
 
 	lock, err := Client().LockPath(ctx, path)
 	if err != nil {
