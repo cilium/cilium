@@ -57,6 +57,16 @@ type Probe struct {
 
 	// OnStatusUpdate is called whenever the status of the probe changes
 	OnStatusUpdate func(status Status)
+
+	// Interval allows to specify a probe specific interval that can be
+	// mutated based on whether the probe is failing or based on external
+	// factors such as current cluster size
+	Interval func(failures int) time.Duration
+
+	// consecutiveFailures is the number of consecutive failures in the
+	// probe becoming stale or failing. It is managed by
+	// updateProbeStatus()
+	consecutiveFailures int
 }
 
 // Collector concurrently runs probes used to check status of various subsystems
@@ -134,11 +144,16 @@ func (c *Collector) spawnProbe(p *Probe) {
 		for {
 			c.runProbe(p)
 
+			interval := c.config.Interval
+			if p.Interval != nil {
+				interval = p.Interval(p.consecutiveFailures)
+			}
+
 			select {
 			case <-c.stop:
 				// collector is closed, stop looping
 				return
-			case <-time.After(c.config.Interval):
+			case <-time.After(interval):
 				// keep looping
 			}
 		}
@@ -224,8 +239,14 @@ func (c *Collector) updateProbeStatus(p *Probe, data interface{}, stale bool, er
 	startTime := c.probeStartTime[p.Name]
 	if stale {
 		c.staleProbes[p.Name] = struct{}{}
+		p.consecutiveFailures++
 	} else {
 		delete(c.staleProbes, p.Name)
+		if err == nil {
+			p.consecutiveFailures = 0
+		} else {
+			p.consecutiveFailures++
+		}
 	}
 	c.Unlock()
 
