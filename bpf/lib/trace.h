@@ -45,6 +45,7 @@ enum {
 	TRACE_FROM_HOST,
 	TRACE_FROM_STACK,
 	TRACE_FROM_OVERLAY,
+	TRACE_FROM_NETWORK,
 };
 
 /* Reasons for forwarding a packet. */
@@ -121,6 +122,7 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 			update_metrics(skb->len, METRIC_EGRESS, REASON_FORWARDED);
 			break;
 		case TRACE_FROM_OVERLAY:
+		case TRACE_FROM_NETWORK:
 			encrypted = reason & TRACE_REASON_ENCRYPTED;
 			if (!encrypted)
 				update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
@@ -193,6 +195,7 @@ static inline void send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u3
 			update_metrics(skb->len, METRIC_EGRESS, REASON_FORWARDED);
 			break;
 		case TRACE_FROM_OVERLAY:
+		case TRACE_FROM_NETWORK:
 			encrypted = reason & TRACE_REASON_ENCRYPTED;
 			if (!encrypted)
 				update_metrics(skb->len, METRIC_INGRESS, REASON_PLAINTEXT);
