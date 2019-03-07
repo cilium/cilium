@@ -624,7 +624,9 @@ func (d *Daemon) initMaps() error {
 	//       desired/realized state implementation for the bpf maps.
 	controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
 		controller.ControllerParams{
-			DoFunc:      func() error { return d.syncLXCMap() },
+			DoFunc: func(ctx context.Context) error {
+				return d.syncLXCMap()
+			},
 			RunInterval: 5 * time.Second,
 		})
 

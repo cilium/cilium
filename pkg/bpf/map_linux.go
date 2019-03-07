@@ -19,6 +19,7 @@ package bpf
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -920,7 +921,7 @@ func (m *Map) GetModel() *models.BPFMap {
 // resolveErrors is schedule by scheduleErrorResolver() and runs periodically.
 // It resolves up to maxSyncErrors discrepancies between cache and BPF map in
 // the kernel.
-func (m *Map) resolveErrors() error {
+func (m *Map) resolveErrors(ctx context.Context) error {
 	started := time.Now()
 
 	m.lock.Lock()

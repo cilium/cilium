@@ -15,6 +15,7 @@
 package nodediscovery
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -160,7 +161,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		<-n.Registered
 		controller.NewManager().UpdateController("propagating local node change to kv-store",
 			controller.ControllerParams{
-				DoFunc: func() error {
+				DoFunc: func(ctx context.Context) error {
 					err := n.Registrar.UpdateLocalKeySync(&n.LocalNode)
 					if err != nil {
 						log.WithError(err).Error("Unable to propagate local node change to kvstore")

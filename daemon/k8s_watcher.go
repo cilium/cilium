@@ -1309,7 +1309,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				return cnpNodeStatusController(ciliumNPClient, ciliumV2Store, cnp, meta.revision, scopedLog, meta.policyImportError, node.GetName())
 			},
 		})
@@ -1352,7 +1352,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	ctrlName := cnp.GetControllerName()
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				return cnpNodeStatusController(ciliumNPClient, ciliumV2Store, cnp, rev, scopedLog, policyImportErr, node.GetName())
 			},
 		},

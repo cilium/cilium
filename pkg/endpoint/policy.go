@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -480,7 +481,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				if err := e.RLockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
@@ -504,7 +505,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				}
 				return nil
 			},
-			StopFunc: func() error {
+			StopFunc: func(ctx context.Context) error {
 				ip := endpointIP.String()
 				if err := ipcache.DeleteIPFromKVStore(ip); err != nil {
 					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %s", ip, err)

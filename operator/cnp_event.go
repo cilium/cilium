@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -81,7 +82,7 @@ func enableCNPWatcher() error {
 
 	controller.NewManager().UpdateController("cnp-to-groups",
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation()
 				return nil
 			},

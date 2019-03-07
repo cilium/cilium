@@ -1182,7 +1182,7 @@ func runDaemon() {
 				// not be cleaned up by the daemon until it restarts.
 				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
-						DoFunc: func() error {
+						DoFunc: func(ctx context.Context) error {
 							return d.syncLBMapsWithK8s()
 						},
 					},

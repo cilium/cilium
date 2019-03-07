@@ -1845,7 +1845,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeR
 	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				// FIXME GH-7320: Pass in context from controller once provided
 				err := e.identityLabelsChanged(context.Background(), owner, myChangeRev)
 				switch err {

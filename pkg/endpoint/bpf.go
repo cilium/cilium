@@ -1002,7 +1002,7 @@ func (e *Endpoint) syncPolicyMapController() {
 	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
-			DoFunc: func() (reterr error) {
+			DoFunc: func(ctx context.Context) (reterr error) {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we
 				// should exit gracefully.
