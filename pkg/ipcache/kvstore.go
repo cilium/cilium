@@ -59,10 +59,10 @@ var (
 type store interface {
 	// update will insert the {key, value} tuple into the underlying
 	// kvstore.
-	upsert(key string, value []byte, lease bool) error
+	upsert(ctx context.Context, key string, value []byte, lease bool) error
 
 	// delete will remove the key from the underlying kvstore.
-	release(key string) error
+	release(ctx context.Context, key string) error
 }
 
 // kvstoreImplementation is a store implementation backed by the kvstore.
@@ -70,12 +70,12 @@ type kvstoreImplementation struct{}
 
 // upsert places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
-func (k kvstoreImplementation) upsert(key string, value []byte, lease bool) error {
-	return kvstore.Update(context.TODO(), key, value, lease)
+func (k kvstoreImplementation) upsert(ctx context.Context, key string, value []byte, lease bool) error {
+	return kvstore.Update(ctx, key, value, lease)
 }
 
 // release removes the specified key from the kvstore.
-func (k kvstoreImplementation) release(key string) error {
+func (k kvstoreImplementation) release(ctx context.Context, key string) error {
 	return kvstore.Delete(key)
 }
 
@@ -115,7 +115,7 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 // the key has previously been upserted, increments a reference on the key.
 // Always updates the underlying store with this {key, ipIDPair} tuple.
 // Only adds a reference to the key if the upsert is successful.
-func (r *kvReferenceCounter) upsert(ipKey string, ipIDPair identity.IPIdentityPair) error {
+func (r *kvReferenceCounter) upsert(ctx context.Context, ipKey string, ipIDPair identity.IPIdentityPair) error {
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func (r *kvReferenceCounter) upsert(ipKey string, ipIDPair identity.IPIdentityPa
 	defer r.Unlock()
 	refcnt := r.keys[ipKey] // 0 if not found
 	refcnt++
-	err = r.store.upsert(ipKey, marshaledIPIDPair, true)
+	err = r.store.upsert(ctx, ipKey, marshaledIPIDPair, true)
 	if err == nil {
 		r.keys[ipKey] = refcnt
 		r.marshaledIPIDPairs[ipKey] = marshaledIPIDPair
@@ -142,7 +142,7 @@ func (r *kvReferenceCounter) upsert(ipKey string, ipIDPair identity.IPIdentityPa
 
 // release removes a reference to the specified key. If the number of
 // references reaches 0, the key is removed from the underlying kvstore.
-func (r *kvReferenceCounter) release(key string) (err error) {
+func (r *kvReferenceCounter) release(ctx context.Context, key string) (err error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -157,7 +157,7 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 	if refcnt == 0 {
 		delete(r.keys, key)
 		delete(r.marshaledIPIDPairs, key)
-		err = r.store.release(key)
+		err = r.store.release(ctx, key)
 	} else {
 		r.keys[key] = refcnt
 	}
@@ -166,7 +166,7 @@ func (r *kvReferenceCounter) release(key string) (err error) {
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(IP, hostIP net.IP, ID identity.NumericIdentity, metadata string) error {
+func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, metadata string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:       IP,
@@ -186,7 +186,7 @@ func UpsertIPToKVStore(IP, hostIP net.IP, ID identity.NumericIdentity, metadata 
 		logfields.Modification: Upsert,
 	}).Debug("upserting IP->ID mapping to kvstore")
 
-	return globalMap.store.upsert(ipKey, marshaledIPIDPair, true)
+	return globalMap.store.upsert(ctx, ipKey, marshaledIPIDPair, true)
 }
 
 // keyToIPNet returns the IPNet describing the key, whether it is a host, and
@@ -226,9 +226,9 @@ func keyToIPNet(key string) (parsedPrefix *net.IPNet, host bool, err error) {
 // DeleteIPFromKVStore removes the IP->Identity mapping for the specified ip
 // from the kvstore, which will subsequently trigger an event in
 // NewIPIdentityWatcher().
-func DeleteIPFromKVStore(ip string) error {
+func DeleteIPFromKVStore(ctx context.Context, ip string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, ip)
-	return globalMap.store.release(ipKey)
+	return globalMap.store.release(ctx, ipKey)
 }
 
 // IPIdentityWatcher is a watcher that will notify when IP<->identity mappings
@@ -336,7 +336,7 @@ restart:
 
 				if m, ok := globalMap.marshaledIPIDPairs[event.Key]; ok {
 					log.WithField("ip", ip).Warning("Received kvstore delete notification for alive ipcache entry")
-					err := globalMap.store.upsert(event.Key, m, true)
+					err := globalMap.store.upsert(context.TODO(), event.Key, m, true)
 					if err != nil {
 						log.WithError(err).WithField("ip", ip).Warning("Unable to re-create alive ipcache entry")
 					}

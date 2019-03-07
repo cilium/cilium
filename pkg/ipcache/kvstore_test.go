@@ -17,6 +17,7 @@
 package ipcache
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,7 +27,7 @@ import (
 
 type testStore map[string]int
 
-func (ts testStore) upsert(key string, value []byte, lease bool) error {
+func (ts testStore) upsert(ctx context.Context, key string, value []byte, lease bool) error {
 	refcnt, ok := ts[key]
 	if ok {
 		ts[key] = refcnt + 1
@@ -36,7 +37,7 @@ func (ts testStore) upsert(key string, value []byte, lease bool) error {
 	return nil
 }
 
-func (ts testStore) release(key string) error {
+func (ts testStore) release(ctx context.Context, key string) error {
 	_, ok := ts[key]
 	if !ok {
 		return fmt.Errorf("Unexpected delete from underlying store")
@@ -51,34 +52,34 @@ func (s *IPCacheTestSuite) TestKVReferenceCounter(c *C) {
 
 	// Add two references to "foo"; we should see two updates.
 	key1 := "foo"
-	err := refcnt.upsert(key1, identity.IPIdentityPair{})
+	err := refcnt.upsert(context.Background(), key1, identity.IPIdentityPair{})
 	c.Assert(err, IsNil)
 	c.Assert(ts[key1], Equals, 1)
-	err = refcnt.upsert(key1, identity.IPIdentityPair{})
+	err = refcnt.upsert(context.Background(), key1, identity.IPIdentityPair{})
 	c.Assert(err, IsNil)
 	c.Assert(ts[key1], Equals, 2)
 
 	// Remove one reference, "foo" should still map to 2
-	err = refcnt.release(key1)
+	err = refcnt.release(context.Background(), key1)
 	c.Assert(err, IsNil)
 	c.Assert(ts[key1], Equals, 2)
 	// Remove the second reference, "foo" should be deleted from the store.
-	err = refcnt.release(key1)
+	err = refcnt.release(context.Background(), key1)
 	c.Assert(err, IsNil)
 	_, ok := ts[key1]
 	c.Assert(ok, Equals, false)
 
 	// Create two keys at once
 	key2 := "bar"
-	err = refcnt.upsert(key1, identity.IPIdentityPair{})
+	err = refcnt.upsert(context.Background(), key1, identity.IPIdentityPair{})
 	c.Assert(err, IsNil)
 	c.Assert(ts[key1], Equals, 1)
-	err = refcnt.upsert(key2, identity.IPIdentityPair{})
+	err = refcnt.upsert(context.Background(), key2, identity.IPIdentityPair{})
 	c.Assert(err, IsNil)
 	c.Assert(ts[key2], Equals, 1)
 
 	// Remove one of the keys. The other remains.
-	err = refcnt.release(key1)
+	err = refcnt.release(context.Background(), key1)
 	c.Assert(err, IsNil)
 	_, ok = ts[key1]
 	c.Assert(ok, Equals, false)
