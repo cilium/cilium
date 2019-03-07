@@ -62,44 +62,6 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Boot VMs 1.9-1.10'){
-            options {
-                timeout(time: 30, unit: 'MINUTES')
-            }
-            steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-            }
-        }
-        stage('BDD-Test-k8s-1.9-and-1.10') {
-            environment {
-                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
-            }
-            options {
-                timeout(time: 100, unit: 'MINUTES')
-            }
-            steps {
-                script {
-                    parallel(
-                        "K8s-1.9":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        "K8s-1.10":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        failFast: "${FAILFAST}".toBoolean()
-                    )
-                }
-            }
-            post {
-                always {
-                    sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: '*.zip'
-                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
-                    sh 'cd test/; ./post_build_agent.sh || true'
-                }
-            }
-        }
         stage('Boot VMs 1.{11,12}'){
 
             options {
@@ -183,8 +145,6 @@ pipeline {
     }
     post {
         always {
-            sh "cd ${TESTDIR}; K8S_VERSION=1.9 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.14 vagrant destroy -f || true"
@@ -199,4 +159,3 @@ pipeline {
         }
     }
 }
-
