@@ -1846,8 +1846,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeR
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				// FIXME GH-7320: Pass in context from controller once provided
-				err := e.identityLabelsChanged(context.Background(), owner, myChangeRev)
+				err := e.identityLabelsChanged(ctx, owner, myChangeRev)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
