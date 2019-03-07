@@ -462,7 +462,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 // the tree.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) (uint64, error) {
+func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()
@@ -484,7 +484,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) (u
 			newRev: rev,
 			err:    err,
 		}
-		return rev, err
+		return
 	}
 
 	// policySelectionWG is used to signal when the updating of all of the
@@ -548,7 +548,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) (u
 		d.SendNotification(monitorAPI.AgentNotifyPolicyDeleted, repr)
 	}
 
-	return rev, nil
+	return
 }
 
 type deletePolicy struct {
