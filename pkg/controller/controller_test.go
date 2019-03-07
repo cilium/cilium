@@ -151,6 +151,38 @@ func (b *ControllerSuite) TestRunController(c *C) {
 	c.Assert(mngr.RemoveController("test"), IsNil)
 }
 
+func (b *ControllerSuite) TestCancellation(c *C) {
+	mngr := NewManager()
+
+	started := make(chan struct{})
+	cancelled := make(chan struct{})
+
+	mngr.UpdateController("test", ControllerParams{
+		DoFunc: func(ctx context.Context) error {
+			close(started)
+			<-ctx.Done()
+			close(cancelled)
+			return nil
+		},
+	})
+
+	// wait for the controller to be running
+	select {
+	case <-started:
+	case <-time.After(time.Minute):
+		c.Fatalf("timeout while waiting for controller to start")
+	}
+
+	mngr.RemoveAll()
+
+	// wait for the controller to be cancelled
+	select {
+	case <-cancelled:
+	case <-time.After(time.Minute):
+		c.Fatalf("timeout while waiting for controller to be cancelled")
+	}
+}
+
 func (b *ControllerSuite) TestWaitForTermination(c *C) {
 	mngr := NewManager()
 	mngr.UpdateController("test1", ControllerParams{})
