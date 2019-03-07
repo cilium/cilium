@@ -105,13 +105,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}
 
 		It("Check connectivity with VXLAN encapsulation", func() {
-			switch helpers.GetCurrentIntegration() {
-			case helpers.CIIntegrationFlannel:
-				Skip(fmt.Sprintf(
-					"Cilium in %q mode is not supported with VxLAN. Skipping test.",
-					helpers.CIIntegrationFlannel))
-				return
-			}
+			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-vxlan.yaml")
 			validateBPFTunnelMap()
@@ -120,13 +114,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}, 600)
 
 		It("Check connectivity with Geneve encapsulation", func() {
-			switch helpers.GetCurrentIntegration() {
-			case helpers.CIIntegrationFlannel:
-				Skip(fmt.Sprintf(
-					"Cilium in %q mode is not supported with Geneve. Skipping test.",
-					helpers.CIIntegrationFlannel))
-				return
-			}
+			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-geneve.yaml")
 			validateBPFTunnelMap()
@@ -137,13 +125,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("DirectRouting", func() {
 		It("Check connectivity with automatic direct nodes routes", func() {
-			switch helpers.GetCurrentIntegration() {
-			case helpers.CIIntegrationFlannel:
-				Skip(fmt.Sprintf(
-					"Cilium in %q mode is not supported with direct node routes. Skipping test.",
-					helpers.CIIntegrationFlannel))
-				return
-			}
+			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")

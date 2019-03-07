@@ -69,13 +69,7 @@ var _ = Describe("K8sHealthTest", func() {
 	}
 
 	It("checks cilium-health status between nodes", func() {
-		switch helpers.GetCurrentIntegration() {
-		case helpers.CIIntegrationFlannel:
-			Skip(fmt.Sprintf(
-				"Cilium in %q mode does not support cilium-health. Skipping cilium-health status between nodes.",
-				helpers.CIIntegrationFlannel))
-			return
-		}
+		SkipIfFlannel()
 
 		cilium1, cilium1IP := getCilium(helpers.K8s1)
 		cilium2, cilium2IP := getCilium(helpers.K8s2)
