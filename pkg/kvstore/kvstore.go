@@ -15,6 +15,8 @@
 package kvstore
 
 import (
+	"context"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -57,8 +59,8 @@ func ListPrefix(prefix string) (KeyValuePairs, error) {
 }
 
 // CreateOnly atomically creates a key or fails if it already exists
-func CreateOnly(key string, value []byte, lease bool) error {
-	err := Client().CreateOnly(key, value, lease)
+func CreateOnly(ctx context.Context, key string, value []byte, lease bool) error {
+	err := Client().CreateOnly(ctx, key, value, lease)
 	Trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
 	return err
 }

@@ -426,7 +426,7 @@ func (c *consulClient) Update(key string, value []byte, lease bool) error {
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
+func (c *consulClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) error {
 	k := &consulAPI.KVPair{
 		Key:         key,
 		Value:       value,
@@ -436,9 +436,10 @@ func (c *consulClient) CreateOnly(key string, value []byte, lease bool) error {
 	if lease {
 		k.Session = c.lease
 	}
+	opts := &consulAPI.WriteOptions{}
 
 	duration := spanstat.Start()
-	success, _, err := c.KV().CAS(k, nil)
+	success, _, err := c.KV().CAS(k, opts.WithContext(ctx))
 	increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	if err != nil {
 		return fmt.Errorf("unable to compare-and-swap: %s", err)
@@ -466,7 +467,7 @@ func (c *consulClient) createIfExists(condKey, key string, value []byte, lease b
 	defer l.Unlock()
 
 	// Create the key if it does not exist
-	if err := c.CreateOnly(key, value, lease); err != nil {
+	if err := c.CreateOnly(context.TODO(), key, value, lease); err != nil {
 		return err
 	}
 

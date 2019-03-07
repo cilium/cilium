@@ -699,11 +699,11 @@ func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) error {
 	duration := spanstat.Start()
 	req := e.createOpPut(key, value, lease)
 	cond := client.Compare(client.Version(key), "=", 0)
-	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
+	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
 	increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	if err != nil {
 		return Hint(err)
