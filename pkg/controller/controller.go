@@ -146,6 +146,8 @@ type Controller struct {
 	uuid              string
 	stop              chan struct{}
 	update            chan struct{}
+	ctxDoFunc         context.Context
+	cancelDoFunc      context.CancelFunc
 
 	// terminated is closed after the controller has been terminated
 	terminated chan struct{}
@@ -198,7 +200,7 @@ func (c *Controller) runController() {
 			interval = params.RunInterval
 
 			start := time.Now()
-			err = params.DoFunc(context.TODO())
+			err = params.DoFunc(c.ctxDoFunc)
 			duration := time.Since(start)
 
 			c.mutex.Lock()
@@ -309,6 +311,10 @@ func (c *Controller) updateParamsLocked(params ControllerParams) {
 }
 
 func (c *Controller) stopController() {
+	if c.cancelDoFunc != nil {
+		c.cancelDoFunc()
+	}
+
 	close(c.stop)
 	close(c.update)
 }
