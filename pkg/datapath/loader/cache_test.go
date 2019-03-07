@@ -133,20 +133,28 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		}
 
 		// First result will always be a compilation for the new set of options
-		compiled := make(map[int]string, t.builds)
+		compiled := make(map[string]int, t.builds)
+		used := make(map[string]int, t.builds)
 		for i := 0; i < t.builds; i++ {
 			result, err := receiveResult(c, results)
 			c.Assert(err, IsNil)
 
-			opt := result.goroutine / t.divisor
-			basePath, exists := compiled[opt]
-			if exists {
-				c.Assert(result.compiled, Equals, false)
-				c.Assert(result.path, Equals, basePath)
-			} else {
-				c.Assert(result.compiled, Equals, true)
-				compiled[opt] = result.path
+			used[result.path] = used[result.path] + 1
+			if result.compiled {
+				compiled[result.path] = compiled[result.path] + 1
 			}
+		}
+
+		c.Assert(len(compiled), Equals, t.builds/t.divisor)
+		c.Assert(len(used), Equals, t.builds/t.divisor)
+		for _, templateCompileCount := range compiled {
+			// Only one goroutine compiles each template
+			c.Assert(templateCompileCount, Equals, 1)
+		}
+		for _, templateUseCount := range used {
+			// Based on the test parameters, a number of goroutines
+			// may share the same template.
+			c.Assert(templateUseCount, Equals, t.divisor)
 		}
 	}
 }
