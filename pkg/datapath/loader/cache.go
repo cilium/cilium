@@ -80,7 +80,7 @@ func RestoreTemplates(stateDir string) error {
 	// In future we should make this smarter.
 	path := filepath.Join(stateDir, defaults.TemplatesDir)
 	err := os.RemoveAll(path)
-	if os.IsNotExist(err) {
+	if err == nil || os.IsNotExist(err) {
 		return nil
 	}
 	return &os.PathError{
