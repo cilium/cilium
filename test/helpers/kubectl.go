@@ -733,7 +733,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		res := kub.Exec(fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 		serviceIPFromDNS := res.SingleOut()
 		if !govalidator.IsIP(serviceIPFromDNS) {
-			logger.Debugf("output of dig (%s) did not return an IP")
+			logger.Debugf("output of dig (%s) did not return an IP", serviceIPFromDNS)
 			return false
 		}
 
