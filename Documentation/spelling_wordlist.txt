@@ -582,6 +582,8 @@ vader
 Vagrantcloud
 Vagrantfile
 validator
+vbguest
+vbox
 vCPUs
 ve
 Verifier
@@ -595,6 +597,7 @@ virtio
 virtualbox
 vlan
 VM
+vm
 vmlinux
 vX
 vxlan

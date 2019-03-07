@@ -661,6 +661,30 @@ supported version of Kubernetes, run the test suite with the following format:
 
     K8S_VERSION=<version> ginkgo --focus="K8s*" -noColor
 
+.. note::
+
+   When provisioning VMs with the net-next kernel (``NETNEXT=true``) on
+   VirtualBox which version does not match a version of the VM image
+   VirtualBox Guest Additions, Vagrant will install a new version of
+   the Additions with ``mount.vboxsf``. The latter is not compatible with
+   ``vboxsf.ko`` shipped within the VM image, and thus syncing of shared
+   folders will not work.
+
+   To avoid this, one can prevent Vagrant from installing the Additions by
+   putting the following into ``$HOME/.vagrant.d/Vagrantfile``:
+
+   .. code:: ruby
+
+      Vagrant.configure('2') do |config|
+	if Vagrant.has_plugin?("vagrant-vbguest") then
+	  config.vbguest.auto_update = false
+	end
+
+	config.vm.provider :virtualbox do |vbox|
+	  vbox.check_guest_additions = false
+	end
+      end
+
 Running Nightly Tests
 ^^^^^^^^^^^^^^^^^^^^^
 
