@@ -16,6 +16,7 @@ package serializer
 
 import (
 	"context"
+	"fmt"
 )
 
 var (
@@ -93,7 +94,10 @@ func (fq *FunctionQueue) Wait(ctx context.Context) error {
 	case <-fq.stopCh:
 	case <-ctx.Done():
 	}
-	return ctx.Err()
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("serializer %s", err)
+	}
+	return nil
 }
 
 // Enqueue enqueues the receiving function `f` to be executed by the function
