@@ -9,7 +9,7 @@ SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst github.com/cilium/cilium/,,$(shell $(GO) list ./... | grep -v -e /api/v1 -e /vendor/ -e /contrib/ -e test))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
-GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor)
+GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | grep -v .gitignore | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
@@ -135,7 +135,7 @@ clean-tags:
 	@$(ECHO_CLEAN) tags
 	@-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
 
-tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES)
+tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files
 	ctags $(GOLANG_SRCFILES) $(BPF_SRCFILES)
 	@ echo $(GOLANG_SRCFILES) $(BPF_SRCFILES) | sed 's/ /\n/g' | sort > cscope.files
 	cscope -R -b -q
