@@ -87,7 +87,11 @@ func Open(path string) (*ELF, error) {
 
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, &os.PathError{
+			Op:   "failed to open ELF file",
+			Path: path,
+			Err:  err,
+		}
 	}
 
 	result, err := NewELF(f, scopedLog)
@@ -95,10 +99,14 @@ func Open(path string) (*ELF, error) {
 		if err2 := f.Close(); err2 != nil {
 			scopedLog.WithError(err).Warning("Failed to close ELF")
 		}
-		return nil, err
+		return nil, &os.PathError{
+			Op:   "failed to parse ELF file",
+			Path: path,
+			Err:  err,
+		}
 	}
 	result.file = f
-	return result, err
+	return result, nil
 }
 
 // Close closes the ELF. If the File was created using NewELF directly instead
@@ -244,7 +252,11 @@ func (elf *ELF) Write(path string, intOptions map[string]uint32, strOptions map[
 
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return &os.PathError{
+			Op:   "failed to create ELF file",
+			Path: path,
+			Err:  err,
+		}
 	}
 	defer func() {
 		if err2 := f.Close(); err2 != nil {
@@ -259,10 +271,18 @@ func (elf *ELF) Write(path string, intOptions map[string]uint32, strOptions map[
 
 	reader := newReader(elf.file)
 	if err = elf.copy(f, reader, intOptions, strOptions); err != nil {
-		return err
+		return &os.PathError{
+			Op:   "failed to write ELF file:",
+			Path: path,
+			Err:  err,
+		}
 	}
 	if err = f.Sync(); err != nil {
-		return err
+		return &os.PathError{
+			Op:   "failed to sync ELF file:",
+			Path: path,
+			Err:  err,
+		}
 	}
 
 	scopedLog.WithError(err).Debugf("Finished writing ELF")
