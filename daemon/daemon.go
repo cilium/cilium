@@ -1223,7 +1223,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	d.nodeDiscovery.StartDiscovery()
+	d.nodeDiscovery.StartDiscovery(node.GetName())
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
