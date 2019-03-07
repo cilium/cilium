@@ -57,6 +57,12 @@ For Docker as container runtime:
 --------------------------------
 
 .. tabs::
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -81,22 +87,16 @@ For Docker as container runtime:
 
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
 
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
-
 For CRI-O as container runtime:
 -------------------------------
 
 .. tabs::
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-crio.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -120,15 +120,3 @@ For CRI-O as container runtime:
     .. parsed-literal::
 
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-crio.yaml

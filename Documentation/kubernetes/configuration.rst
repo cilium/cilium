@@ -164,7 +164,7 @@ already exists on a worker node and only creates it if it does not exist yet.
 Enabling hostPort Support via CNI configuration
 -----------------------------------------------
 
-Some users may want to enable ``hostPort``. Currently, cilium does not natively 
+Some users may want to enable ``hostPort``. Currently, cilium does not natively
 support ``hostPort``. However, users can utilize ``hostPort`` via a CNI plugin
 chain, by putting it in their ``cni-conf-dir`` (default ``/etc/cni/net.d``), e.g.:
 
@@ -310,6 +310,13 @@ CRIO
 If you want to use CRIO, use the following YAML instead:
 
 .. tabs::
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-crio.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -334,17 +341,6 @@ If you want to use CRIO, use the following YAML instead:
 
       kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
 
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-crio.yaml
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the
