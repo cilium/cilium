@@ -89,13 +89,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			oldVersion, helpers.GetCurrentK8SEnv()))
 		return func() {}, func() {}
 	}
-	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationFlannel:
-		Skip(fmt.Sprintf(
-			"Cilium %q and %q mode are not supported in K8s %q. Skipping upgrade/downgrade tests.",
-			oldVersion, helpers.CIIntegrationFlannel, helpers.GetCurrentK8SEnv()))
-		return func() {}, func() {}
-	}
+
+	SkipIfFlannel()
 
 	demoPath := helpers.ManifestGet("demo.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
