@@ -162,13 +162,13 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
-	c.Assert(CreateOnly(testKey(prefix, 0), testValue(0), false), IsNil)
+	c.Assert(CreateOnly(context.Background(), testKey(prefix, 0), testValue(0), false), IsNil)
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 
-	c.Assert(CreateOnly(testKey(prefix, 0), testValue(1), false), Not(IsNil))
+	c.Assert(CreateOnly(context.Background(), testKey(prefix, 0), testValue(1), false), Not(IsNil))
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
@@ -220,7 +220,7 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	DeletePrefix("foo2/")
 	defer DeletePrefix("foo2/")
 
-	err := CreateOnly(key1, val1, false)
+	err := CreateOnly(context.Background(), key1, val1, false)
 	c.Assert(err, IsNil)
 
 	w := ListAndWatch("testWatcher2", "foo2/", 100)
@@ -229,7 +229,7 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	expectEvent(c, w, EventTypeCreate, key1, val1)
 	expectEvent(c, w, EventTypeListDone, "", []byte{})
 
-	err = CreateOnly(key2, val2, false)
+	err = CreateOnly(context.Background(), key2, val2, false)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeCreate, key2, val2)
 
@@ -237,7 +237,7 @@ func (s *BaseTests) TestListAndWatch(c *C) {
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeDelete, key1, val1)
 
-	err = CreateOnly(key1, val1, false)
+	err = CreateOnly(context.Background(), key1, val1, false)
 	c.Assert(err, IsNil)
 	expectEvent(c, w, EventTypeCreate, key1, val1)
 
