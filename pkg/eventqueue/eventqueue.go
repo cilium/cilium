@@ -89,12 +89,12 @@ type Event struct {
 	// It is populated by the EventQueue itself, not by the queuer.
 	eventResults chan interface{}
 
-	// Cancelled signals that the given Event was not ran. This can happen
+	// cancelled signals that the given Event was not ran. This can happen
 	// if the EventQueue processing this Event was closed before the Event was
 	// Enqueued onto the Event queue, or if the Event was Enqueued onto an
 	// EventQueue, and the EventQueue on which the Event was scheduled was
 	// closed.
-	Cancelled chan struct{}
+	cancelled chan struct{}
 }
 
 // NewEvent returns an Event with all fields initialized.
@@ -102,18 +102,18 @@ func NewEvent(meta interface{}) *Event {
 	return &Event{
 		Metadata:     meta,
 		eventResults: make(chan interface{}, 1),
-		Cancelled:    make(chan struct{}),
+		cancelled:    make(chan struct{}),
 	}
 }
 
-// WasCancelled returns whether the Cancelled channel for the given Event has
+// WasCancelled returns whether the cancelled channel for the given Event has
 // been closed or not. Cancellation occurs if the event was not processed yet
 // by an EventQueue onto which this Event was Enqueued, and the queue is closed,
 // or if the event was attempted to be scheduled onto an EventQueue which has
 // already been closed.
 func (q *Event) WasCancelled() bool {
 	select {
-	case <-q.Cancelled:
+	case <-q.cancelled:
 		return true
 	default:
 		return false
@@ -128,7 +128,7 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 
 	select {
 	case <-q.close:
-		close(ev.Cancelled)
+		close(ev.cancelled)
 		close(ev.eventResults)
 		return nil
 	default:
@@ -179,8 +179,8 @@ func (q *EventQueue) Run() {
 					for {
 						select {
 						case drainEvent := <-q.events:
-							close(drainEvent.Cancelled)
-							// TODO close results channel here??
+							close(drainEvent.cancelled)
+							close(drainEvent.eventResults)
 						default:
 							// No more events are in events channel, so we can close
 							// it and exit. It is guaranteed that no more events

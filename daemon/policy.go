@@ -187,7 +187,7 @@ type PolicyAddEvent struct {
 }
 
 func (p *PolicyAddEvent) Handle(res chan interface{}) {
-	_, _ = p.d.policyAdd(p.rules, p.opts, res)
+	p.d.policyAdd(p.rules, p.opts, res)
 }
 
 type PolicyAddResult struct {
@@ -205,12 +205,13 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	resChan := d.policy.EventQueue.Enqueue(polAddEvent)
 
 	select {
-	case res := <-resChan:
-		pRes := res.(*PolicyAddResult)
-		log.Info("Received from p.res")
-		return pRes.newRev, pRes.err
-	case <-polAddEvent.Cancelled:
-		return 0, fmt.Errorf("policy addition event cancelled")
+	case res, ok := <-resChan:
+		if ok {
+			pRes := res.(*PolicyAddResult)
+			log.Info("Received from p.res")
+			return pRes.newRev, pRes.err
+		}
+		return 0, fmt.Errorf("policy addition event was cancelled")
 	}
 }
 
@@ -427,12 +428,8 @@ type PolicyDeleteEvent struct {
 	d      *Daemon
 }
 
-func (p *PolicyDeleteEvent) Handle(res chan interface{}) interface{} {
-	newRev, err := p.d.policyDelete(p.labels, res)
-	return &PolicyDeleteResult{
-		newRev: newRev,
-		err:    err,
-	}
+func (p *PolicyDeleteEvent) Handle(res chan interface{}) {
+	p.d.policyDelete(p.labels, res)
 }
 
 type PolicyDeleteResult struct {
@@ -450,9 +447,12 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 	resChan := d.policy.EventQueue.Enqueue(policyDeleteEvent)
 
 	select {
-	case res := <-resChan:
-		ress := res.(*PolicyDeleteResult)
-		return ress.newRev, ress.err
+	case res, ok := <-resChan:
+		if ok {
+			ress := res.(*PolicyDeleteResult)
+			return ress.newRev, ress.err
+		}
+		return 0, fmt.Errorf("policy deletion event cancelled")
 	}
 }
 
