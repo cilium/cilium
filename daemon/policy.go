@@ -220,7 +220,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) (newRev uint64, err error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
 	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
@@ -246,7 +246,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 			newRev: 0,
 			err:    api.Error(PutPolicyFailureCode, err),
 		}
-		return 0, api.Error(PutPolicyFailureCode, err)
+		return
 	}
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
 		// Only recompile if configuration has changed.
@@ -261,7 +261,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 				newRev: 0,
 				err:    api.Error(PutPolicyFailureCode, err),
 			}
-			return 0, api.Error(PutPolicyFailureCode, err)
+			return
 		}
 	}
 
@@ -274,7 +274,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 			newRev: 0,
 			err:    err,
 		}
-		return 0, err
+		return
 	}
 
 	// No errors past this point!
@@ -386,7 +386,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
 
-	return newRev, nil
+	return
 }
 
 // ReactToRuleUpdates waits until wg is complete to do the following
