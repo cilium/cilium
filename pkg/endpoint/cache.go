@@ -53,7 +53,7 @@ type epInfoCache struct {
 	ipv6                                   addressing.CiliumIPv6
 	conntrackLocal                         bool
 	cidr4PrefixLengths, cidr6PrefixLengths []int
-	options                                option.IntOptions
+	options                                *option.IntOptions
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -84,7 +84,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		conntrackLocal:     e.ConntrackLocalLocked(),
 		cidr4PrefixLengths: cidr4,
 		cidr6PrefixLengths: cidr6,
-		options:            *e.Options,
+		options:            e.Options.DeepCopy(),
 
 		endpoint: e,
 	}
@@ -170,5 +170,5 @@ func (ep *epInfoCache) GetCIDRPrefixLengths() ([]int, []int) {
 }
 
 func (ep *epInfoCache) GetOptions() *option.IntOptions {
-	return &ep.options
+	return ep.options
 }
