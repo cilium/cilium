@@ -181,7 +181,7 @@ Your Cilium spec will need these annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-The reference Cilium Kubernetes DaemonSet Kubernetes descriptor :git-tree:`examples/kubernetes/1.8/cilium.yaml`
+The reference Cilium Kubernetes DaemonSet Kubernetes descriptor :git-tree:`examples/kubernetes/1.13/cilium.yaml`
 is an example of how to configure ``cilium-agent`` and set the appropriate labels.
 
 *Note: the port can be configured per-pod to any value and the label set
