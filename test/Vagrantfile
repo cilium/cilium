@@ -22,7 +22,6 @@ $CPU = (ENV['CPUS'] || "2").to_i
 if ENV['NETNEXT'] == "true"
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
-    puts "Vagrant to use net-next version"
 end
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
