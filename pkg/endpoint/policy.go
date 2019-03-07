@@ -442,8 +442,6 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 				// channel means that event has been cancelled?
 				e.getLogger().Debug("regeneration was cancelled")
 			}
-		case <-epEvent.Cancelled:
-			e.getLogger().Debug("regeneration was cancelled")
 		}
 
 		done <- buildSuccess

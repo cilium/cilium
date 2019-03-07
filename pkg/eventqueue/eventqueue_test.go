@@ -48,7 +48,7 @@ func (s *EventQueueSuite) TestNewEvent(c *C) {
 	e := NewEvent(struct{}{})
 	c.Assert(e.Metadata, Not(IsNil))
 	c.Assert(e.EventResults, Not(IsNil))
-	c.Assert(e.Cancelled, Not(IsNil))
+	c.Assert(e.cancelled, Not(IsNil))
 }
 
 type DummyEvent struct{}
