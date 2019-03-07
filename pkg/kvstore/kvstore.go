@@ -66,8 +66,8 @@ func CreateOnly(ctx context.Context, key string, value []byte, lease bool) error
 }
 
 // Update creates or updates a key value pair
-func Update(key string, value []byte, lease bool) error {
-	err := Client().Update(key, value, lease)
+func Update(ctx context.Context, key string, value []byte, lease bool) error {
+	err := Client().Update(ctx, key, value, lease)
 	Trace("Update", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
 	return err
 }

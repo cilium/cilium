@@ -15,6 +15,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
@@ -263,7 +264,7 @@ func (s *SharedStore) syncLocalKey(key LocalKey) error {
 
 	// Update key in kvstore, overwrite an eventual existing key, attach
 	// lease to expire entry when agent dies and never comes back up.
-	if err := s.backend.Update(s.keyPath(key), jsonValue, true); err != nil {
+	if err := s.backend.Update(context.TODO(), s.keyPath(key), jsonValue, true); err != nil {
 		return err
 	}
 

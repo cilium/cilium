@@ -413,15 +413,17 @@ func (c *consulClient) GetPrefix(ctx context.Context, prefix string) ([]byte, er
 }
 
 // Update creates or updates a key with the value
-func (c *consulClient) Update(key string, value []byte, lease bool) error {
+func (c *consulClient) Update(ctx context.Context, key string, value []byte, lease bool) error {
 	k := &consulAPI.KVPair{Key: key, Value: value}
 
 	if lease {
 		k.Session = c.lease
 	}
 
+	opts := &consulAPI.WriteOptions{}
+
 	duration := spanstat.Start()
-	_, err := c.KV().Put(k, nil)
+	_, err := c.KV().Put(k, opts.WithContext(ctx))
 	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return err
 }

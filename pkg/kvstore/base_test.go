@@ -138,14 +138,14 @@ func (s *BaseTests) TestUpdate(c *C) {
 	c.Assert(val, IsNil)
 
 	// create
-	c.Assert(Update(testKey(prefix, 0), testValue(0), true), IsNil)
+	c.Assert(Update(context.Background(), testKey(prefix, 0), testValue(0), true), IsNil)
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
 	c.Assert(val, checker.DeepEquals, testValue(0))
 
 	// update
-	c.Assert(Update(testKey(prefix, 0), testValue(0), true), IsNil)
+	c.Assert(Update(context.Background(), testKey(prefix, 0), testValue(0), true), IsNil)
 
 	val, err = Get(testKey(prefix, 0))
 	c.Assert(err, IsNil)
