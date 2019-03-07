@@ -334,7 +334,7 @@ spec:
               key: auto-direct-node-routes
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.1
+        image: docker.io/cilium/cilium:v1.4.2
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
