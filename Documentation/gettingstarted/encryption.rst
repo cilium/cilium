@@ -28,7 +28,7 @@ keys may be manually distributed but that is not shown here.
 
     * Only works in tunnel mode
     * Not compatible with the etcd-operator
-    
+
     Both limitations will be resolved in 1.4.1.
 
 Generate & import the PSK
@@ -60,6 +60,13 @@ Enable Encryption in Cilium
 First step is to download the Cilium Kubernetes descriptor:
 
 .. tabs::
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-ds.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -84,17 +91,6 @@ First step is to download the Cilium Kubernetes descriptor:
 
       curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
 
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-ds.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
 
 You can also use your existing definition DaemonSet running in your cluster:
 
@@ -174,7 +170,7 @@ Troubleshooting
 ===============
 
  * Make sure that the Cilium pods have kvstore connectivity:
-   
+
    .. code:: bash
 
       cilium status
@@ -183,18 +179,18 @@ Troubleshooting
 
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
  * Run a ``bash`` in a Cilium and validate the following:
- 
+
    * Routing rules matching on fwmark:
 
      .. code:: bash
-        
+
         ip rule list
         1:	from all fwmark 0xd00/0xf00 lookup 200
         1:	from all fwmark 0xe00/0xf00 lookup 200
         [...]
 
    * Content of routing table 200
-   
+
      .. code:: bash
 
         ip route list table 200

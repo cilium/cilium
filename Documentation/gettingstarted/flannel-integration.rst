@@ -40,6 +40,12 @@ Download Cilium kubernetes descriptor for your Kubernetes version.
 
 
 .. tabs::
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -63,18 +69,6 @@ Download Cilium kubernetes descriptor for your Kubernetes version.
     .. parsed-literal::
 
       curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
 
 Edit the ConfigMap in that file and set the option ``flannel-master-device`` with ``"cni0"``.
 

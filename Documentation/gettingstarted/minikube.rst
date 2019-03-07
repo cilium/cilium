@@ -18,7 +18,7 @@ that run on Linux, macOS, and Windows.
 Install kubectl & minikube
 ==========================
 
-1. Install ``kubectl`` version >= v1.8.0 as described in the `Kubernetes Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
+1. Install ``kubectl`` version >= v1.10.0 as described in the `Kubernetes Docs <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 
 2. Install ``minikube`` >= v0.33.1 as per minikube documentation: `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
 
@@ -47,6 +47,13 @@ your new Kubernetes cluster. The DaemonSet will automatically install itself as
 Kubernetes CNI plugin.
 
 .. tabs::
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-minikube.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -71,17 +78,6 @@ Kubernetes CNI plugin.
 
       kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-minikube.yaml
 
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-minikube.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-minikube.yaml
 
 Next steps
 ==========

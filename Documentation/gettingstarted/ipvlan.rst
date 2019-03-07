@@ -35,6 +35,13 @@ datapath instead of the default veth-based one.
 First step is to download the Cilium Kubernetes descriptor:
 
 .. tabs::
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -58,18 +65,6 @@ First step is to download the Cilium Kubernetes descriptor:
     .. parsed-literal::
 
       curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.9/cilium.yaml
-
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.8/cilium.yaml
 
 Edit the ``cilium-config`` ConfigMap in that file with the etcd server
 that is running in your cluster and set the option ``datapath-mode`` to

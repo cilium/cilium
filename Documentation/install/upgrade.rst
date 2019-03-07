@@ -30,18 +30,6 @@ be pre-pulled. It also verifies that the new image version can be pulled and
 avoids ErrImagePull errors during the rollout.
 
 .. tabs::
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-pre-flight.yaml
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-pre-flight.yaml
-
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
@@ -65,6 +53,12 @@ avoids ErrImagePull errors during the rollout.
     .. parsed-literal::
 
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-pre-flight.yaml
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight.yaml
 
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
@@ -141,27 +135,11 @@ Step 3: Apply new RBAC and DaemonSet definitions
 As minor versions typically introduce new functionality which require changes
 to the `DaemonSet` and `RBAC` definitions, the YAML definitions have to be
 upgraded. The following links refer to version specific DaemonSet files which
-automatically 
+automatically
 
 Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
 .. tabs::
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-operator.yaml
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-operator.yaml
-
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
@@ -193,6 +171,15 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-rbac.yaml
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-ds.yaml
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-operator.yaml
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator.yaml
+
 
 Below we will show examples of how Cilium should be upgraded using Kubernetes
 rolling upgrade functionality in order to preserve any existing Cilium
@@ -324,7 +311,7 @@ Changes that may require action
    upgrade, users may opt to enable the :ref:`DNS Polling` in v1.4.x by adding
    the ``--tofqdns-enable-poller`` option to cilium-agent without changing
    policies. For instructions on how to safely upgrade see
-   :ref:`dns_upgrade_poller`. 
+   :ref:`dns_upgrade_poller`.
 
  * The DaemonSet now uses ``dnsPolicy: ClusterFirstWithHostNet`` in order for
    Cilium to look up Kubernetes service names via DNS. This in turn requires
@@ -703,7 +690,7 @@ Upgrading a ConfigMap
 ---------------------
 
 This section describes the procedure to upgrade an existing `ConfigMap` to the
-template of another version. 
+template of another version.
 
 Export the current ConfigMap
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -746,18 +733,6 @@ Download the ConfigMap with the changes for |SCM_BRANCH|
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. tabs::
-  .. group-tab:: K8s 1.8
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.8/cilium-cm.yaml
-
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-cm.yaml
-
   .. group-tab:: K8s 1.10
 
     .. parsed-literal::
@@ -782,9 +757,15 @@ Download the ConfigMap with the changes for |SCM_BRANCH|
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-cm.yaml
 
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-cm.yaml
+
 Verify its contents:
 
-.. literalinclude:: ../../examples/kubernetes/1.8/cilium-cm.yaml
+.. literalinclude:: ../../examples/kubernetes/1.13/cilium-cm.yaml
 
 Add new options
 ~~~~~~~~~~~~~~~
@@ -1029,7 +1010,7 @@ Upgrading :ref:`DNS Polling` deployments to :ref:`DNS Proxy`
 
 In cilium versions 1.2 and 1.3 :ref:`DNS Polling` was automatically used to
 obtain IP information for use in ``toFQDNs.matchName`` rules in :ref:`DNS Based`
-policies. 
+policies.
 Cilium 1.4 and later have switched to a :ref:`DNS Proxy <DNS Proxy>` scheme - the
 :ref:`DNS Polling` behaviour may be enabled via the a CLI option - and expect a
 pod to make a DNS request that can be intercepted. Existing pods may have
