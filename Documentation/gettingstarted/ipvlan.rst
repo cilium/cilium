@@ -35,6 +35,13 @@ datapath instead of the default veth-based one.
 First step is to download the Cilium Kubernetes descriptor:
 
 .. tabs::
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::

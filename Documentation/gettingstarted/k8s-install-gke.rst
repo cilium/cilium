@@ -91,6 +91,13 @@ The following all-in-one YAML will deploy all required components to bring up
 Cilium including an etcd cluster managed by the cilium-etcd-operator.
 
 .. tabs::
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-with-node-init.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
