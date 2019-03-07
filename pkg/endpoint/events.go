@@ -28,7 +28,7 @@ type EndpointRegenerationEvent struct {
 }
 
 // Handle handles the regeneration event for the endpoint.
-func (ev *EndpointRegenerationEvent) Handle() interface{} {
+func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	e := ev.ep
 	owner := ev.owner
 	regenContext := ev.regenContext
@@ -36,9 +36,10 @@ func (ev *EndpointRegenerationEvent) Handle() interface{} {
 	err := e.RLockAlive()
 	if err != nil {
 		e.LogDisconnectedMutexAction(err, "before regeneration")
-		return &EndpointRegenerationResult{
+		res <- &EndpointRegenerationResult{
 			err: err,
 		}
+		return
 	}
 	e.RUnlock()
 
@@ -59,9 +60,10 @@ func (ev *EndpointRegenerationEvent) Handle() interface{} {
 		e.getLogger().Debug("My request was cancelled because I'm already in line")
 	}
 
-	return &EndpointRegenerationResult{
+	res <- &EndpointRegenerationResult{
 		err: err,
 	}
+	return
 }
 
 // EndpointRegenerationResult contains the results of an endpoint regeneration.
@@ -77,7 +79,7 @@ type EndpointRevisionBumpEvent struct {
 }
 
 // Handle handles the revision bump event for the Endpoint.
-func (ev *EndpointRevisionBumpEvent) Handle() interface{} {
+func (ev *EndpointRevisionBumpEvent) Handle(res chan interface{}) {
 	// TODO: if the endpoint is not in a 'ready' state that means that
 	// we cannot set the policy revision, as something else has
 	// changed endpoint state which necessitates regeneration,
@@ -86,7 +88,7 @@ func (ev *EndpointRevisionBumpEvent) Handle() interface{} {
 	// realize the policy revision yet. Should this be signaled
 	// to the routine waiting for the result of this event?
 	ev.ep.SetPolicyRevision(ev.Rev)
-	return struct{}{}
+	res <- struct{}{}
 }
 
 // PolicyRevisionBumpEvent queues an event for the given endpoint to set its
@@ -95,15 +97,7 @@ func (ev *EndpointRevisionBumpEvent) Handle() interface{} {
 // succeeded, or if the event has been cancelled.
 func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
-	e.Enqueue(epBumpEvent)
+	// Don't care about policy revision event results - it is best effort.
+	_ = e.Enqueue(epBumpEvent)
 	wg.Done()
-	go func() {
-		select {
-		case _, ok := <-epBumpEvent.EventResults:
-			if ok {
-				e.getLogger().Debugf("bumped endpoint revision to %d", rev)
-			}
-		case <-epBumpEvent.Cancelled:
-		}
-	}()
 }

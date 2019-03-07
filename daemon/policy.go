@@ -184,15 +184,10 @@ type PolicyAddEvent struct {
 	rules policyAPI.Rules
 	opts  *AddOptions
 	d     *Daemon
-	res   chan *PolicyAddResult
 }
 
-func (p *PolicyAddEvent) Handle() interface{} {
-	newRev, err := p.d.policyAdd(p.rules, p.opts, p.res)
-	return &PolicyAddResult{
-		newRev: newRev,
-		err:    err,
-	}
+func (p *PolicyAddEvent) Handle(res chan interface{}) {
+	_, _ = p.d.policyAdd(p.rules, p.opts, res)
 }
 
 type PolicyAddResult struct {
@@ -205,25 +200,17 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		rules: rules,
 		opts:  opts,
 		d:     d,
-		res:   make(chan *PolicyAddResult),
 	}
 	polAddEvent := eventqueue.NewEvent(p)
-	d.policy.EventQueue.Enqueue(polAddEvent)
-
-	go func() {
-		select {
-		case result := <-polAddEvent.EventResults:
-			_ = result.(*PolicyAddResult)
-			log.Debug("policy add completed")
-		case <-polAddEvent.Cancelled:
-			log.Errorf("policy addition event cancelled")
-		}
-	}()
+	resChan := d.policy.EventQueue.Enqueue(polAddEvent)
 
 	select {
-	case res := <-p.res:
+	case res := <-resChan:
+		pRes := res.(*PolicyAddResult)
 		log.Info("Received from p.res")
-		return res.newRev, res.err
+		return pRes.newRev, pRes.err
+	case <-polAddEvent.Cancelled:
+		return 0, fmt.Errorf("policy addition event cancelled")
 	}
 }
 
@@ -232,7 +219,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan *PolicyAddResult) (newRev uint64, err error) {
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) (newRev uint64, err error) {
 	policyAddStartTime := time.Now()
 	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
@@ -438,11 +425,10 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Identity
 type PolicyDeleteEvent struct {
 	labels labels.LabelArray
 	d      *Daemon
-	res    chan *PolicyDeleteResult
 }
 
-func (p *PolicyDeleteEvent) Handle() interface{} {
-	newRev, err := p.d.policyDelete(p.labels, p.res)
+func (p *PolicyDeleteEvent) Handle(res chan interface{}) interface{} {
+	newRev, err := p.d.policyDelete(p.labels, res)
 	return &PolicyDeleteResult{
 		newRev: newRev,
 		err:    err,
@@ -459,22 +445,14 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 	p := &PolicyDeleteEvent{
 		labels: labels,
 		d:      d,
-		res:    make(chan *PolicyDeleteResult),
 	}
 	policyDeleteEvent := eventqueue.NewEvent(p)
-	d.policy.EventQueue.Enqueue(policyDeleteEvent)
-
-	go func() {
-		select {
-		case <-policyDeleteEvent.EventResults:
-		case <-policyDeleteEvent.Cancelled:
-			log.Error("policy deletion event cancelled")
-		}
-	}()
+	resChan := d.policy.EventQueue.Enqueue(policyDeleteEvent)
 
 	select {
-	case res := <-p.res:
-		return res.newRev, res.err
+	case res := <-resChan:
+		ress := res.(*PolicyDeleteResult)
+		return ress.newRev, ress.err
 	}
 }
 
@@ -484,7 +462,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 // the tree.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) policyDelete(labels labels.LabelArray, res chan *PolicyDeleteResult) (uint64, error) {
+func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) (uint64, error) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()

@@ -87,7 +87,7 @@ type Event struct {
 
 	// EventResults is a channel on which the results of the event are sent.
 	// It is populated by the EventQueue itself, not by the queuer.
-	EventResults chan interface{}
+	eventResults chan interface{}
 
 	// Cancelled signals that the given Event was not ran. This can happen
 	// if the EventQueue processing this Event was closed before the Event was
@@ -101,7 +101,7 @@ type Event struct {
 func NewEvent(meta interface{}) *Event {
 	return &Event{
 		Metadata:     meta,
-		EventResults: make(chan interface{}, 1),
+		eventResults: make(chan interface{}, 1),
 		Cancelled:    make(chan struct{}),
 	}
 }
@@ -124,16 +124,20 @@ func (q *Event) WasCancelled() bool {
 // stopped, the Event will not be enqueued, and its cancel channel will be
 // closed, indicating that the Event was not ran. This function may block if
 // there is an event being processed by the queue.
-func (q *EventQueue) Enqueue(ev *Event) {
+func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
+
 	select {
 	case <-q.close:
 		close(ev.Cancelled)
+		close(ev.eventResults)
+		return nil
 	default:
 		// The events channel may be closed even if an event has been pushed
 		// onto the events channel, as events are consumed off of the events
 		// channel asynchronously! If the EventQueue is closed before this
 		// event is processed, then it will be cancelled.
 		q.events <- ev
+		return ev.eventResults
 	}
 }
 
@@ -158,8 +162,7 @@ func (q *EventQueue) Run() {
 					switch t := e.Metadata.(type) {
 					case EventHandler:
 						ev := e.Metadata.(EventHandler)
-						evRes := ev.Handle()
-						e.EventResults <- evRes
+						ev.Handle(e.eventResults)
 					default:
 						log.Errorf("unsupported function type provided to event queue: %T", t)
 						// TODO - cancel the event here?
@@ -167,7 +170,7 @@ func (q *EventQueue) Run() {
 
 					// Ensures that no more results can be sent as the event has
 					// already been processed.
-					close(e.EventResults)
+					close(e.eventResults)
 				}
 			// Cancel all events that were not yet consumed.
 			case <-q.close:
@@ -221,5 +224,5 @@ func (q *EventQueue) WaitDrained() {
 // in a generic way. To be processed by the EventQueue, all event types must
 // implement any function specified in this interface.
 type EventHandler interface {
-	Handle() interface{}
+	Handle(chan interface{})
 }

@@ -422,7 +422,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 	})
 
 	// This may block if the Endpoint's EventQueue is full.
-	e.Enqueue(epEvent)
+	resChan := e.Enqueue(epEvent)
 	for _, wgg := range wg {
 		wgg.Done()
 	}
@@ -433,7 +433,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 		var regenError error
 
 		select {
-		case result, ok := <-epEvent.EventResults:
+		case result, ok := <-resChan:
 			if ok {
 				regenResult := result.(*EndpointRegenerationResult)
 				regenError = regenResult.err

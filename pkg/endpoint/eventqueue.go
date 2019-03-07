@@ -29,8 +29,8 @@ func (e *Endpoint) initializeEventQueue() {
 // the current event being processed by the endpoint's event queue is finished.
 // If the event queue has been closed, then it is signalled to the event that
 // the event is not ran (i.e., it has been "cancelled").
-func (e *Endpoint) Enqueue(epEvent *eventqueue.Event) {
-	e.eventQueue.Enqueue(epEvent)
+func (e *Endpoint) Enqueue(epEvent *eventqueue.Event) <-chan interface{} {
+	return e.eventQueue.Enqueue(epEvent)
 }
 
 // CloseEventQueue closes the event queue for the given endpoint if it hasn't
