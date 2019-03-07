@@ -15,6 +15,7 @@
 package fqdn
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -36,7 +37,7 @@ func StartDNSPoller(poller *DNSPoller) {
 	controller.NewManager().UpdateController("dns-poller", controller.ControllerParams{
 		RunInterval: DNSPollerInterval,
 		DoFunc:      poller.LookupUpdateDNS,
-		StopFunc: func() error {
+		StopFunc: func(ctx context.Context) error {
 			log.Debug("Stopping DNS poller for ToFQDN rules")
 			return nil
 		},
@@ -88,7 +89,7 @@ func NewDNSPoller(config Config, ruleManager *RuleGen) *DNSPoller {
 // 2- Do a DNS lookup for each DNS name (map key) in poller via LookupDNSNames
 // 3- Update IPs for each dnsName in .ruleManager. If the IPs have changed for the
 // name, it will generate and emit them.
-func (poller *DNSPoller) LookupUpdateDNS() error {
+func (poller *DNSPoller) LookupUpdateDNS(ctx context.Context) error {
 	// Collect the DNS names that need lookups. This avoids locking
 	// poller during lookups.
 	dnsNamesToPoll := poller.ruleManager.GetDNSNames()

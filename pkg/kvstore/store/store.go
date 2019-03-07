@@ -15,6 +15,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
@@ -201,7 +202,7 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 
 	controllers.UpdateController(s.controllerName,
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				return s.syncLocalKeys()
 			},
 			RunInterval: s.conf.SynchronizationInterval,

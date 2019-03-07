@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -59,7 +60,9 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 
 	// ensure the callbacks are valid
 	if params.DoFunc == nil {
-		params.DoFunc = func() error { return undefinedDoFunc(name) }
+		params.DoFunc = func(ctx context.Context) error {
+			return undefinedDoFunc(name)
+		}
 	}
 	if params.StopFunc == nil {
 		params.StopFunc = NoopFunc

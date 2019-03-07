@@ -115,7 +115,9 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 	for i := 0; i < 50; i++ {
 		e.controllers.UpdateController(fmt.Sprintf("controller-%d", i),
 			controller.ControllerParams{
-				DoFunc:      func() error { return nil },
+				DoFunc: func(ctx context.Context) error {
+					return nil
+				},
 				RunInterval: 10 * time.Millisecond,
 			},
 		)

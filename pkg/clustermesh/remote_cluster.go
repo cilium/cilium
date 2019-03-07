@@ -15,6 +15,7 @@
 package clustermesh
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"time"
@@ -131,7 +132,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 func (rc *remoteCluster) restartRemoteConnection() {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				rc.mutex.Lock()
 				if rc.backend != nil {
 					rc.releaseOldConnection()
@@ -204,7 +205,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				return nil
 			},
-			StopFunc: func() error {
+			StopFunc: func(ctx context.Context) error {
 				rc.mutex.Lock()
 				rc.releaseOldConnection()
 				rc.mutex.Unlock()

@@ -15,6 +15,7 @@
 package ipcache
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -193,7 +194,7 @@ func shuffleMaps(realized, backup, pending string) error {
 //   BPF programs so that they pick up the new map.
 //
 // Returns an error if garbage collection failed to occur.
-func (l *BPFListener) garbageCollect() error {
+func (l *BPFListener) garbageCollect(ctx context.Context) error {
 	log.Debug("Running garbage collection for BPF IPCache")
 
 	// Since controllers run asynchronously, need to make sure

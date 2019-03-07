@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -140,7 +141,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	dnsGCJobName := "dns-garbage-collector-job"
 	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
 		RunInterval: 1 * time.Minute,
-		DoFunc: func() error {
+		DoFunc: func(ctx context.Context) error {
 
 			namesToClean := []string{}
 			endpoints := endpointmanager.GetEndpoints()

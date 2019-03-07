@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -39,7 +40,7 @@ func enableUnmanagedKubeDNSController() {
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{
 			RunInterval: time.Duration(unmanagedKubeDnsWatcherInterval) * time.Second,
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				for podName, lastRestart := range lastPodRestart {
 					if time.Since(lastRestart) > 2*minimalPodRestartInterval {
 						delete(lastPodRestart, podName)

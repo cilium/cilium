@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -35,7 +36,7 @@ const (
 
 // ControllerFunc is a function that the controller runs. This type is used for
 // DoFunc and StopFunc.
-type ControllerFunc func() error
+type ControllerFunc func(ctx context.Context) error
 
 // ExitReason is a returnable type from DoFunc that causes the
 // controller to exit. This reason is recorded in the controller's status. The
@@ -92,7 +93,7 @@ func undefinedDoFunc(name string) error {
 // NoopFunc is a no-op placeholder for DoFunc & StopFunc.
 // It is automatically used when StopFunc is undefined, and can be used as a
 // DoFunc stub when the controller should only run StopFunc.
-func NoopFunc() error {
+func NoopFunc(ctx context.Context) error {
 	return nil
 }
 
@@ -197,7 +198,7 @@ func (c *Controller) runController() {
 			interval = params.RunInterval
 
 			start := time.Now()
-			err = params.DoFunc()
+			err = params.DoFunc(context.TODO())
 			duration := time.Since(start)
 
 			c.mutex.Lock()
@@ -283,7 +284,7 @@ func (c *Controller) runController() {
 shutdown:
 	c.getLogger().Debug("Shutting down controller")
 
-	if err := params.StopFunc(); err != nil {
+	if err := params.StopFunc(context.TODO()); err != nil {
 		c.mutex.Lock()
 		c.recordError(err)
 		c.mutex.Unlock()

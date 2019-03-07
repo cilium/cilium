@@ -15,6 +15,7 @@
 package endpointsynchronizer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -141,7 +142,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
-			DoFunc: func() (err error) {
+			DoFunc: func(ctx context.Context) (err error) {
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
 				scopedLog = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
@@ -251,7 +252,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				return nil
 			},
-			StopFunc: func() error {
+			StopFunc: func(ctx context.Context) error {
 				podName := e.GetK8sPodName()
 				namespace := e.GetK8sNamespace()
 				if err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{}); err != nil {

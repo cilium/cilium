@@ -225,7 +225,7 @@ func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
 
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				_, _, err := c.Session().Renew(lease, nil)
 				return err
 			},

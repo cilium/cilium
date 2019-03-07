@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"path/filepath"
 	"time"
 
@@ -54,7 +55,7 @@ func (d *Daemon) initHealth() {
 
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				var err error
 
 				if client != nil {
@@ -68,7 +69,7 @@ func (d *Daemon) initHealth() {
 				}
 				return err
 			},
-			StopFunc: func() error {
+			StopFunc: func(ctx context.Context) error {
 				log.Info("Stopping health endpoint")
 				err := client.PingEndpoint()
 				d.cleanupHealthEndpoint()

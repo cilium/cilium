@@ -15,6 +15,7 @@
 package metricsmap
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -174,7 +175,7 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 // SyncMetricsMap is called periodically to sync off the metrics map by
 // aggregating it into drops (by drop reason and direction) and
 // forwards (by direction) with the prometheus server.
-func SyncMetricsMap() error {
+func SyncMetricsMap(ctx context.Context) error {
 	entry := make([]Value, possibleCpus)
 	file := bpf.MapPath(MapName)
 	metricsmap, err := bpf.OpenMap(file)
