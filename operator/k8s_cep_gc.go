@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -76,7 +77,7 @@ func enableCiliumEndpointSyncGC() {
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: ciliumEndpointGCInterval,
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				var (
 					listOpts = meta_v1.ListOptions{Limit: 10}
 					loopStop = time.Now().Add(ciliumEndpointGCInterval)

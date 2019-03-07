@@ -15,6 +15,7 @@
 package groups
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -51,7 +52,7 @@ func AddDerivativeCNPIfNeeded(cnp *cilium_v2.CiliumNetworkPolicy) bool {
 	}
 	controllerManager.UpdateController(fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				return addDerivativeCNP(cnp)
 			},
 		})
@@ -71,7 +72,7 @@ func UpdateDerivativeCNPIfNeeded(newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *
 
 		controllerManager.UpdateController(fmt.Sprintf("delete-derivatve-cnp-%s", oldCNP.ObjectMeta.Name),
 			controller.ControllerParams{
-				DoFunc: func() error {
+				DoFunc: func(ctx context.Context) error {
 					return DeleteDerivativeCNP(oldCNP)
 				},
 			})
@@ -84,7 +85,7 @@ func UpdateDerivativeCNPIfNeeded(newCNP *cilium_v2.CiliumNetworkPolicy, oldCNP *
 
 	controllerManager.UpdateController(fmt.Sprintf("CNP-Derivative-update-%s", newCNP.ObjectMeta.Name),
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				return addDerivativeCNP(newCNP)
 			},
 		})

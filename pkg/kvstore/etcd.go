@@ -351,7 +351,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
-			DoFunc: func() error {
+			DoFunc: func(ctx context.Context) error {
 				return ec.renewSession()
 			},
 			RunInterval: time.Duration(10) * time.Millisecond,

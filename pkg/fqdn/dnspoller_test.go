@@ -17,6 +17,8 @@
 package fqdn
 
 import (
+	"context"
+
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
 
@@ -187,7 +189,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 
 		gen.StartManageDNSName(rulesToAdd)
 		for i := testCase.lookupIterationsAfterAdd; i > 0; i-- {
-			err := poller.LookupUpdateDNS()
+			err := poller.LookupUpdateDNS(context.Background())
 			c.Assert(err, IsNil, Commentf("Error running DNS lookups"))
 		}
 
@@ -195,7 +197,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 		// they are listed)
 		gen.StopManageDNSName(rulesToDelete)
 		for i := testCase.lookupIterationsAfterDelete; i > 0; i-- {
-			err := poller.LookupUpdateDNS()
+			err := poller.LookupUpdateDNS(context.Background())
 			c.Assert(err, IsNil, Commentf("Error running DNS lookups"))
 		}
 
