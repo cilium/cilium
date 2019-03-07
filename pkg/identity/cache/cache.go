@@ -15,6 +15,7 @@
 package cache
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -147,7 +148,7 @@ func LookupIdentity(lbls labels.Labels) *identity.Identity {
 		return nil
 	}
 
-	id, err := IdentityAllocator.Get(globalIdentity{lbls})
+	id, err := IdentityAllocator.Get(context.TODO(), globalIdentity{lbls})
 	if err != nil {
 		return nil
 	}

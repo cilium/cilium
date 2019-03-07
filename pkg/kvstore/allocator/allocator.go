@@ -437,7 +437,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	// fetch first key that matches /value/<key> while ignoring the
 	// node suffix
-	value, err := a.Get(key)
+	value, err := a.Get(ctx, key)
 	if err != nil {
 		return 0, false, err
 	}
@@ -488,7 +488,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, fmt.Errorf("another writer has allocated this key")
 	}
 
-	value, err = a.GetNoCache(key)
+	value, err = a.GetNoCache(ctx, key)
 	if err != nil {
 		releaseKeyAndID()
 		return 0, false, err
@@ -580,18 +580,18 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
-func (a *Allocator) Get(key AllocatorKey) (idpool.ID, error) {
+func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
 	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
-	return a.GetNoCache(key)
+	return a.GetNoCache(ctx, key)
 }
 
 // Get returns the ID which is allocated to a key in the kvstore
-func (a *Allocator) GetNoCache(key AllocatorKey) (idpool.ID, error) {
+func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
 	prefix := path.Join(a.valuePrefix, key.GetKey())
-	value, err := kvstore.GetPrefix(prefix)
+	value, err := kvstore.GetPrefix(ctx, prefix)
 	kvstore.Trace("AllocateGet", err, logrus.Fields{fieldPrefix: prefix, fieldValue: value})
 	if err != nil || value == nil {
 		return 0, err

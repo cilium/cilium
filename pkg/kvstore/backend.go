@@ -112,7 +112,7 @@ type BackendOperations interface {
 	Get(key string) ([]byte, error)
 
 	// GetPrefix returns the first key which matches the prefix
-	GetPrefix(prefix string) ([]byte, error)
+	GetPrefix(ctx context.Context, prefix string) ([]byte, error)
 
 	// Set sets value of key
 	Set(key string, value []byte) error
