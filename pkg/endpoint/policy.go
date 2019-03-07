@@ -500,14 +500,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				// store operations resulting in lock being held for a long time.
 				e.RUnlock()
 
-				if err := ipcache.UpsertIPToKVStore(IP, hostIP, ID, metadata); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, metadata); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
 				ip := endpointIP.String()
-				if err := ipcache.DeleteIPFromKVStore(ip); err != nil {
+				if err := ipcache.DeleteIPFromKVStore(ctx, ip); err != nil {
 					return fmt.Errorf("unable to delete endpoint IP '%s' from ipcache: %s", ip, err)
 				}
 				return nil
