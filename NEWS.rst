@@ -2,6 +2,47 @@
 NEWS
 ******
 
+v1.3.4
+======
+
+::
+
+    André Martins (4):
+          k8s/utils: make the ControllerSynced fields public
+          k8s/utils: wrap kubernetes controller with ControllerSyncer
+          pkg/kvstore: do not use default instance to create new instance module
+          pkg/kvstore: add 15 min TTL for the first session lease
+    
+    Joe Stringer (7):
+          ctmap: Print source addresses in ctmap cli
+          check-stable: Sort PRs by merge date
+          cherry-pick: Print sha when applying patch.
+          contrib: Add new script to auto-fix bpf.sha
+          contrib: Update rebase-bindata to use fix-sha.sh
+          test: Wait for cilium to start in runtime provision
+          api: Return 500 when API handlers panic.
+    
+    Maciej Kwiek (1):
+          Change endpoint policy status map to regular map
+    
+    Martynas Pumputis (7):
+          docs: Add note about triggering builds with net-next
+          ctmap: Fix order of CtKey{4,6} struct fields
+          bpf: Enable pipefail option in init.sh
+          test: Get rid of JoinEP flakes
+          endpoint: Fix ENABLE_NAT46 endpoint config validation
+          contrib: Fix cherry-pick to avoid omitting parts of patch
+          contrib: Update backporting README
+    
+    Thomas Graf (6):
+          ipcache: Provide WaitForInitialSync() to wait for kvstore sync
+          agent: Wait to regenerate restore endpoints until ipcache has been populated
+          workloads: Synchroneous handling of container events
+          workloads: Change watcher interval from 30 seconds to 5 minutes
+          workloads: Don't spin up receive queue in periodic watcher
+          policy: Fix ipcache synchronization on startup
+    
+
 
 v1.3.3
 ======
