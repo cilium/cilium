@@ -77,7 +77,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip -6 route show table 200",
 		// xfrm
 		"ip xfrm policy",
-		"ip -s xfrm state",
+		"ip -s xfrm state | awk '!/auth|enc/'",
 		// gops
 		fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName),
 		fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName),
