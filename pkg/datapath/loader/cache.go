@@ -78,11 +78,16 @@ func Init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
 func RestoreTemplates(stateDir string) error {
 	// Simplest implementation: Just garbage-collect everything.
 	// In future we should make this smarter.
-	err := os.RemoveAll(filepath.Join(stateDir, defaults.TemplatesDir))
+	path := filepath.Join(stateDir, defaults.TemplatesDir)
+	err := os.RemoveAll(path)
 	if os.IsNotExist(err) {
 		return nil
 	}
-	return err
+	return &os.PathError{
+		Op:   "failed to remove old BPF templates",
+		Path: path,
+		Err:  err,
+	}
 }
 
 // objectCache is a map from a hash of the datapath to the path on the
@@ -165,7 +170,11 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 	objectPath := filepath.Join(templatePath, endpointObj)
 
 	if err := os.MkdirAll(templatePath, defaults.StateDirRights); err != nil {
-		return err
+		return &os.PathError{
+			Op:   "failed to create template directory",
+			Path: templatePath,
+			Err:  err,
+		}
 	}
 
 	f, err := os.Create(headerPath)
@@ -189,7 +198,11 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 	err = compileTemplate(ctx, templatePath)
 	cfg.stats.bpfCompilation.End(err == nil)
 	if err != nil {
-		return err
+		return &os.PathError{
+			Op:   "failed to compile template program",
+			Path: templatePath,
+			Err:  err,
+		}
 	}
 
 	log.WithFields(logrus.Fields{
@@ -227,13 +240,13 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 
 	// Wait until the build completes.
 	if err = fq.Wait(ctx); err != nil {
-		return "", false, fmt.Errorf("context cancelled while waiting for template compilation: %s", err)
+		return "", false, fmt.Errorf("BPF template compilation failed: %s", err)
 	}
 
 	// Fetch the result of the compilation.
 	path, ok := o.lookup(hash)
 	if !ok {
-		return "", false, fmt.Errorf("peer compilation for this template failed")
+		return "", false, fmt.Errorf("BPF template compilation unsuccessful")
 	}
 
 	return path, !compiled, nil
