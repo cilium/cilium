@@ -60,7 +60,7 @@ func (s *BaseTests) TestGetSet(c *C) {
 	DeletePrefix(prefix)
 	defer DeletePrefix(prefix)
 
-	val, err := GetPrefix(prefix)
+	val, err := GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
@@ -69,7 +69,7 @@ func (s *BaseTests) TestGetSet(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		val, err = GetPrefix(testKey(prefix, i))
+		val, err = GetPrefix(context.Background(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
@@ -91,12 +91,12 @@ func (s *BaseTests) TestGetSet(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		val, err = GetPrefix(testKey(prefix, i))
+		val, err = GetPrefix(context.Background(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 	}
 
-	val, err = GetPrefix(prefix)
+	val, err = GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 }
@@ -133,7 +133,7 @@ func (s *BaseTests) TestUpdate(c *C) {
 	DeletePrefix(prefix)
 	defer DeletePrefix(prefix)
 
-	val, err := GetPrefix(prefix)
+	val, err := GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 
@@ -158,7 +158,7 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 	DeletePrefix(prefix)
 	defer DeletePrefix(prefix)
 
-	val, err := GetPrefix(prefix)
+	val, err := GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
 

@@ -45,8 +45,8 @@ func Get(key string) ([]byte, error) {
 }
 
 // GetPrefix returns the first key which matches the prefix
-func GetPrefix(prefix string) ([]byte, error) {
-	v, err := Client().GetPrefix(prefix)
+func GetPrefix(ctx context.Context, prefix string) ([]byte, error) {
+	v, err := Client().GetPrefix(ctx, prefix)
 	Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldValue: string(v)})
 	return v, err
 }
