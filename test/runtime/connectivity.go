@@ -104,7 +104,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 			policyID, err := vm.PolicyImportAndWait(
 				fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150)
 			Expect(err).Should(BeNil())
-			logger.Debug("New policy created with id '%d'", policyID)
+			logger.Debugf("New policy created with id '%d'", policyID)
 
 			serverData := vm.ContainerInspect(helpers.Server)
 			serverIP, err := serverData.Filter(fmt.Sprintf("{[0].NetworkSettings.Networks.%s.IPAddress}", helpers.CiliumDockerNetwork))
