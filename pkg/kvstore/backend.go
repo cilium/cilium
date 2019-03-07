@@ -123,7 +123,7 @@ type BackendOperations interface {
 	DeletePrefix(path string) error
 
 	// Update atomically creates a key or fails if it already exists
-	Update(key string, value []byte, lease bool) error
+	Update(ctx context.Context, key string, value []byte, lease bool) error
 
 	// CreateOnly atomically creates a key or fails if it already exists
 	CreateOnly(ctx context.Context, key string, value []byte, lease bool) error

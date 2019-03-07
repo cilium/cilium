@@ -399,11 +399,11 @@ func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
 	return 0, "", 0
 }
 
-func (a *Allocator) createValueNodeKey(key string, newID idpool.ID) error {
+func (a *Allocator) createValueNodeKey(ctx context.Context, key string, newID idpool.ID) error {
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(a.valuePrefix, key, a.suffix)
-	if err := kvstore.Update(valueKey, []byte(newID.String()), true); err != nil {
+	if err := kvstore.Update(ctx, valueKey, []byte(newID.String()), true); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
@@ -450,7 +450,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 			return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
 		}
 
-		if err = a.createValueNodeKey(k, value); err != nil {
+		if err = a.createValueNodeKey(ctx, k, value); err != nil {
 			a.localKeys.release(k)
 			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
 		}
@@ -512,7 +512,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	// Notify pool that leased ID is now in-use.
 	a.idPool.Use(unmaskedID)
 
-	if err = a.createValueNodeKey(k, id); err != nil {
+	if err = a.createValueNodeKey(ctx, k, id); err != nil {
 		// We will leak the master key here as the key has already been
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.

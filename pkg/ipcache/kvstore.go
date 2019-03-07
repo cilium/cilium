@@ -15,6 +15,7 @@
 package ipcache
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -70,7 +71,7 @@ type kvstoreImplementation struct{}
 // upsert places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
 func (k kvstoreImplementation) upsert(key string, value []byte, lease bool) error {
-	return kvstore.Update(key, value, lease)
+	return kvstore.Update(context.TODO(), key, value, lease)
 }
 
 // release removes the specified key from the kvstore.

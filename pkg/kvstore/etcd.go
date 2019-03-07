@@ -683,17 +683,22 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 }
 
 // Update creates or updates a key
-func (e *etcdClient) Update(key string, value []byte, lease bool) error {
-	<-e.firstSession
+func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease bool) error {
+	select {
+	case <-e.firstSession:
+	case <-ctx.Done():
+		return fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	}
+
 	if lease {
 		duration := spanstat.Start()
-		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
+		_, err := e.client.Put(ctx, key, string(value), client.WithLease(e.GetLeaseID()))
 		increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 		return Hint(err)
 	}
 
 	duration := spanstat.Start()
-	_, err := e.client.Put(ctx.Background(), key, string(value))
+	_, err := e.client.Put(ctx, key, string(value))
 	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return Hint(err)
 }
