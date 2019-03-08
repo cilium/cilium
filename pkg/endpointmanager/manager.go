@@ -417,7 +417,7 @@ func regenerateEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetada
 	wg.Done()
 }
 
-func regenerateEndpointSignalWhenEnqueued(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
+func regenerateEndpointSignalWhenEnqueued(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata) {
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
@@ -426,7 +426,7 @@ func regenerateEndpointSignalWhenEnqueued(owner endpoint.Owner, ep *endpoint.End
 		ep.Unlock()
 		if regen {
 			// Regenerate logs status according to the build success/failure
-			ep.Regenerate(owner, regenMetadata, wg)
+			ep.Regenerate(owner, regenMetadata)
 		}
 	}
 }
@@ -438,7 +438,10 @@ func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata
 
 	for endpointID := range endpointIDs {
 		ep := endpoints[endpointID]
-		go regenerateEndpointSignalWhenEnqueued(owner, ep, regenMetadata, wg)
+		go func() {
+			regenerateEndpointSignalWhenEnqueued(owner, ep, regenMetadata)
+			wg.Done()
+		}()
 	}
 }
 

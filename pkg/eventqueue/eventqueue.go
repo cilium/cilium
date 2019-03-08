@@ -15,10 +15,13 @@
 package eventqueue
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -52,6 +55,7 @@ type EventQueue struct {
 	// need context that is handled across all queue users.
 	// revision in case of policy needs to be generic - it's the EventQueue that
 	// owns this.
+
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
@@ -95,6 +99,21 @@ type Event struct {
 	// EventQueue, and the EventQueue on which the Event was scheduled was
 	// closed.
 	cancelled chan struct{}
+
+	stats eventStatistics
+}
+
+type eventStatistics struct {
+
+	// waitEnqueue shows how long a given event was waiting on the queue before
+	// it was actually processed.
+	waitEnqueue spanstat.SpanStat
+
+	// durationStat shows how long the actual processing of the event took. This
+	// is the time for how long Handle() takes for the event.
+	durationStat spanstat.SpanStat
+
+	waitConsumeOffQueue spanstat.SpanStat
 }
 
 // NewEvent returns an Event with all fields initialized.
@@ -103,6 +122,7 @@ func NewEvent(meta interface{}) *Event {
 		Metadata:     meta,
 		eventResults: make(chan interface{}, 1),
 		cancelled:    make(chan struct{}),
+		stats:        eventStatistics{},
 	}
 }
 
@@ -136,9 +156,22 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 		// onto the events channel, as events are consumed off of the events
 		// channel asynchronously! If the EventQueue is closed before this
 		// event is processed, then it will be cancelled.
+
+		ev.stats.waitEnqueue.Start()
 		q.events <- ev
+		ev.stats.waitEnqueue.End(true)
+		ev.stats.waitConsumeOffQueue.Start()
 		return ev.eventResults
 	}
+}
+
+func (ev *Event) printStats() {
+	log.WithFields(logrus.Fields{
+		"eventType":                    reflect.TypeOf(ev.Metadata).String(),
+		"eventHandlingDuration":        ev.stats.durationStat.Total(),
+		"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
+		"eventConsumeOffQueueWaitTime": ev.stats.waitConsumeOffQueue.Total(),
+	}).Info("EventQueue event processing statistics")
 }
 
 // Run consumes events that have been queued for this EventQueue. It
@@ -159,17 +192,21 @@ func (q *EventQueue) Run() {
 			// events off of this channel!
 			case e := <-q.events:
 				{
+					e.stats.waitConsumeOffQueue.End(true)
 					switch t := e.Metadata.(type) {
 					case EventHandler:
 						ev := e.Metadata.(EventHandler)
+						e.stats.durationStat.Start()
 						ev.Handle(e.eventResults)
+						// Always indicate success for now.s
+						e.stats.durationStat.End(true)
 					default:
-						log.Errorf("unsupported function type provided to event queue: %T", t)
-						// TODO - cancel the event here?
+						log.Errorf("unsupported event type provided to event queue: %T", t)
 					}
 
 					// Ensures that no more results can be sent as the event has
 					// already been processed.
+					e.printStats()
 					close(e.eventResults)
 				}
 			// Cancel all events that were not yet consumed.
@@ -179,8 +216,10 @@ func (q *EventQueue) Run() {
 					for {
 						select {
 						case drainEvent := <-q.events:
+							drainEvent.stats.waitConsumeOffQueue.End(false)
 							close(drainEvent.cancelled)
 							close(drainEvent.eventResults)
+							drainEvent.printStats()
 						default:
 							// No more events are in events channel, so we can close
 							// it and exit. It is guaranteed that no more events
