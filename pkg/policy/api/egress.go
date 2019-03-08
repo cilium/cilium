@@ -77,7 +77,7 @@ type EgressRule struct {
 
 	// ToCIDRSet is a list of IP blocks which the endpoint subject to the rule
 	// is allowed to initiate connections to in addition to connections
-	// which are allowed via FromEndpoints, along with a list of subnets contained
+	// which are allowed via ToEndpoints, along with a list of subnets contained
 	// within their corresponding IP block to which traffic should not be
 	// allowed. This will match on the destination IP address of outgoing
 	// connections. Adding a prefix into ToCIDR or into ToCIDRSet with no
