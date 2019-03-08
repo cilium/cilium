@@ -56,13 +56,13 @@ enabled.
         # In case you want to use TLS in etcd, uncomment the 'ca-file' line
         # and create a kubernetes secret by following the tutorial in
         # https://cilium.link/etcd-config
-        ca-file: '/var/lib/etcd-secrets/etcd-ca'
+        ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
         #
         # In case you want client to server authentication, uncomment the following
         # lines and create a kubernetes secret by following the tutorial in
         # https://cilium.link/etcd-config
-        key-file: '/var/lib/etcd-secrets/etcd-client-key'
-        cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+        key-file: '/var/lib/etcd-secrets/etcd-client.key'
+        cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
 
       # If you want to run cilium in debug mode change this value to true
       debug: "false"

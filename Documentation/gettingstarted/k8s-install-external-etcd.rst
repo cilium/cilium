@@ -81,9 +81,9 @@ Kubernetes you are using:
 .. code:: bash
 
    kubectl create secret generic -n kube-system cilium-etcd-secrets \
-        --from-file=etcd-ca=ca.crt \
-        --from-file=etcd-client-key=client.key \
-        --from-file=etcd-client-crt=client.crt
+        --from-file=etcd-client-ca.crt=ca.crt \
+        --from-file=etcd-client.key=client.key \
+        --from-file=etcd-client.crt=client.crt
 
 3. In case you are not using a TLS-enabled etcd, comment out the configuration
    options in the ConfigMap referring to the key locations like this:
@@ -93,13 +93,13 @@ Kubernetes you are using:
     # In case you want to use TLS in etcd, uncomment the 'ca-file' line
     # and create a kubernetes secret by following the tutorial in
     # https://cilium.link/etcd-config
-    #ca-file: '/var/lib/etcd-secrets/etcd-ca'
+    #ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
     #
     # In case you want client to server authentication, uncomment the following
     # lines and create a kubernetes secret by following the tutorial in
     # https://cilium.link/etcd-config
-    #key-file: '/var/lib/etcd-secrets/etcd-client-key'
-    #cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+    #key-file: '/var/lib/etcd-secrets/etcd-client.key'
+    #cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
 
 Deploy Cilium
 =============
