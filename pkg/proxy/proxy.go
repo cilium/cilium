@@ -311,6 +311,9 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, 
 	// FinalizeFunc.
 	proxyPort := r.ProxyPort
 	finalizeFunc = func() {
+		// break GC loop (implementation may point back to 'r')
+		r.implementation = nil
+
 		if implFinalizeFunc != nil {
 			implFinalizeFunc()
 		}
