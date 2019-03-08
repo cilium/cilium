@@ -25,6 +25,12 @@ func (v6 IPv6) IP() net.IP {
 	return v6[:]
 }
 
+func (v6 IPv6) DuplicateIP() net.IP {
+	dup := make([]byte, 16)
+	copy(dup, v6[:])
+	return dup
+}
+
 func (v6 IPv6) String() string {
 	return v6.IP().String()
 }

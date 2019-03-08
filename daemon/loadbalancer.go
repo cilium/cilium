@@ -33,10 +33,14 @@ import (
 // addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
 // RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
-	besBPF []lbmap.ServiceValue, addRevNAT bool) error {
+	besBPF []lbmap.ServiceValue,
+	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2, backendsV2 []lbmap.Backend,
+	addRevNAT bool) error {
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, int(feCilium.ID)); err != nil {
+	revNATID := int(feCilium.ID)
+
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
@@ -112,8 +116,12 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 		Sha256: feL3n4Addr.L3n4Addr.SHA256Sum(),
 	}
 
-	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
+	if err != nil {
+		return false, err
+	}
 
+	svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
 	if err != nil {
 		return false, err
 	}
@@ -121,7 +129,7 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, addRevNAT)
+	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT)
 	if err != nil {
 		return false, err
 	}
@@ -238,6 +246,27 @@ func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 }
 
 func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
+	if err := d.svcDeleteBPFV2(svc); err != nil {
+		return err
+	}
+	if err := d.svcDeleteBPFLegacy(svc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Daemon) svcDeleteBPFV2(svc loadbalancer.L3n4AddrID) error {
+	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps v2")
+
+	if err := lbmap.DeleteServiceV2(svc, service.DeleteBackendID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Daemon) svcDeleteBPFLegacy(svc loadbalancer.L3n4AddrID) error {
 	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
 	var svcKey lbmap.ServiceKey
 	if !svc.IsIPv6() {
@@ -432,10 +461,19 @@ func openServiceMaps() error {
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
 			return err
 		}
+		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Backend6Map.OpenOrCreate(); err != nil {
+			return err
+		}
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RRSeq6MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := proxymap.Proxy6Map.OpenOrCreate(); err != nil {
@@ -447,10 +485,19 @@ func openServiceMaps() error {
 		if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 			return err
 		}
+		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Backend4Map.OpenOrCreate(); err != nil {
+			return err
+		}
 		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RRSeq4MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := proxymap.Proxy4Map.OpenOrCreate(); err != nil {
@@ -459,57 +506,6 @@ func openServiceMaps() error {
 	}
 
 	return nil
-}
-
-func restoreServiceIDs() {
-	failed, restored, skipped := 0, 0, 0
-
-	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true)
-	for _, err := range errors {
-		log.WithError(err).Warning("Error occured while dumping service table from datapath")
-	}
-
-	for _, svc := range svcMap {
-		// Services where the service ID was missing in the BPF map
-		// cannot be restored
-		if uint32(svc.FE.ID) == uint32(0) {
-			skipped++
-			continue
-		}
-
-		// The service ID can only be restored when global service IDs
-		// are disabled. Global service IDs require kvstore access but
-		// service load-balancing needs to be enabled before the
-		// kvstore is guaranteed to be connected
-		if option.Config.LBInterface == "" {
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.ServiceID: svc.FE.ID,
-				logfields.ServiceIP: svc.FE.L3n4Addr.String(),
-			})
-
-			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
-			if err != nil {
-				failed++
-				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
-			} else {
-				restored++
-				scopedLog.Debug("Restored service ID from datapath")
-			}
-		}
-
-		// Restore the service cache to guarantee backend ordering
-		// across restarts
-		if err := lbmap.RestoreService(svc); err != nil {
-			log.WithError(err).Warning("Unable to restore service in cache")
-		}
-	}
-
-	log.WithFields(logrus.Fields{
-		"restored": restored,
-		"failed":   failed,
-		"skipped":  skipped,
-	}).Info("Restore service IDs from BPF maps")
-
 }
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
@@ -567,13 +563,19 @@ func (d *Daemon) SyncLBMap() error {
 			newRevNATMap[svc.FE.ID] = revNAT
 		}
 
-		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
 		if err != nil {
 			return fmt.Errorf("Unable to create a BPF key and values for service FE: %s and backends: %+v. Error: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
 		}
 
-		err = d.addSVC2BPFMap(svc.FE, fe, besValues, false)
+		svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
+		if err != nil {
+			return fmt.Errorf("Unable to create a BPF key and values for service v2 FE: %s and backends: %+v. Error: %s."+
+				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
+		}
+
+		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, false)
 		if err != nil {
 			return fmt.Errorf("Unable to add service FE: %s: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)
@@ -581,7 +583,7 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false)
+	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace()
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("Unable to list services in services BPF map")
 	}
@@ -693,7 +695,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true)
+	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace()
 	if len(lbmapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range lbmapDumpErrors {
@@ -778,4 +780,110 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	log.Debugf("successfully synced BPF loadbalancer and revNAT maps with in-memory Kubernetes service maps")
 
 	return nil
+}
+
+func restoreBackendIDs() (map[lbmap.BackendAddrID]uint16, error) {
+	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
+	if err != nil {
+		return nil, fmt.Errorf("Unable to dump LB backend maps: %s", err)
+	}
+
+	restoredBackendIDs := map[lbmap.BackendAddrID]uint16{}
+
+	for addrID, lbBackend := range lbBackends {
+		backendID := uint16(lbBackend.ID)
+		err := service.RestoreBackendID(lbBackend.L3n4Addr, backendID)
+		if err != nil {
+			return nil, err
+		}
+		restoredBackendIDs[addrID] = backendID
+	}
+
+	log.WithField(logfields.BackendIDs, restoredBackendIDs).
+		Debug("Restored backend IDs")
+
+	return restoredBackendIDs, nil
+}
+
+func restoreServices() {
+	// We need to restore backend IDs first to avoid from them being overwritten
+	// when creating SVC v2 from legacy
+	restoredBackendIDs, err := restoreBackendIDs()
+	if err != nil {
+		log.WithError(err).Warning("Error occurred while restoring backend IDs")
+	}
+	lbmap.AddBackendIDsToCache(restoredBackendIDs)
+
+	failed, restored, skipped := 0, 0, 0
+
+	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace()
+	for _, err := range errors {
+		log.WithError(err).Warning("Error occured while dumping service table from datapath")
+	}
+	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2()
+	for _, err := range errors {
+		log.WithError(err).Warning("Error occured while dumping service v2 table from datapath")
+	}
+
+	for feHash, svc := range svcMap {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.ServiceID: svc.FE.ID,
+			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
+		})
+		// Services where the service ID was missing in the BPF map
+		// cannot be restored
+		if uint32(svc.FE.ID) == uint32(0) {
+			skipped++
+			continue
+		}
+
+		// The service ID can only be restored when global service IDs
+		// are disabled. Global service IDs require kvstore access but
+		// service load-balancing needs to be enabled before the
+		// kvstore is guaranteed to be connected
+		if option.Config.LBInterface == "" {
+			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
+			if err != nil {
+				failed++
+				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
+			} else {
+				restored++
+				scopedLog.Debug("Restored service ID from datapath")
+			}
+		}
+
+		// Restore the service cache to guarantee backend ordering
+		// across restarts
+		_, v2Exists := svcMapV2[feHash]
+		if err := lbmap.RestoreService(svc, v2Exists); err != nil {
+			log.WithError(err).Warning("Unable to restore service in cache")
+		}
+
+		// Create the svc v2 from the legacy svc
+		if !v2Exists {
+			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
+			if err != nil {
+				failed++
+				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+					WithError(err).Warning("Unable to convert service key and values v2")
+				continue
+			}
+			// We restore only services which has the revNat enabled
+			addRevNAT := true
+			revNATID := int(svc.FE.ID)
+			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID,
+				service.AcquireBackendID, service.DeleteBackendID)
+			if err != nil {
+				failed++
+				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+					Warning("Unable to restore service v2")
+			}
+		}
+	}
+
+	log.WithFields(logrus.Fields{
+		"restored": restored,
+		"failed":   failed,
+		"skipped":  skipped,
+	}).Info("Restore service IDs from BPF maps")
 }

@@ -15,14 +15,16 @@
 package lbmap
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-type serviceValueMap map[string]ServiceValue
+type serviceValueMap map[BackendAddrID]ServiceValue
 
 type bpfBackend struct {
-	id       string
+	id       BackendAddrID
 	isHole   bool
 	bpfValue ServiceValue
 }
@@ -44,36 +46,49 @@ type bpfService struct {
 	// backend ID. A backend may be listed multiple times in
 	// backendsByMapIndex, it will only be listed once in uniqueBackends.
 	uniqueBackends serviceValueMap
+
+	// slaveSlotByBackendAddrID is a map of slot numbers within the legacy
+	// service of slaves which are identified by the legacy ID. Used to
+	// map legacy svc backends by svc v2 for the backward compatibility.
+	slaveSlotByBackendAddrID map[BackendAddrID]int
+
+	// backendsV2 is a map of all service v2 backends indexed by the legacy IDs.
+	// TODO(brb) use list instead to preserve the ordering when svc backends change.
+	backendsV2 map[BackendAddrID]ServiceValue
 }
 
 func newBpfService(key ServiceKey) *bpfService {
 	return &bpfService{
-		frontendKey:        key,
-		backendsByMapIndex: map[int]*bpfBackend{},
-		uniqueBackends:     map[string]ServiceValue{},
+		frontendKey:              key,
+		backendsByMapIndex:       map[int]*bpfBackend{},
+		uniqueBackends:           map[BackendAddrID]ServiceValue{},
+		slaveSlotByBackendAddrID: map[BackendAddrID]int{},
+		backendsV2:               map[BackendAddrID]ServiceValue{},
 	}
 }
 
-func (b *bpfService) addBackend(backend ServiceValue) {
+func (b *bpfService) addBackend(backend ServiceValue, backendID uint16) int {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
 	nextSlot := len(b.backendsByMapIndex) + 1
 	b.backendsByMapIndex[nextSlot] = &bpfBackend{
 		bpfValue: backend,
-		id:       backend.String(),
+		id:       backend.BackendAddrID(),
 	}
 
-	b.uniqueBackends[backend.String()] = backend
+	b.uniqueBackends[backend.BackendAddrID()] = backend
+
+	return nextSlot
 }
 
 func (b *bpfService) deleteBackend(backend ServiceValue) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	idToRemove := backend.String()
+	idToRemove := backend.BackendAddrID()
 	indicesToRemove := []int{}
-	duplicateCount := map[string]int{}
+	duplicateCount := map[BackendAddrID]int{}
 
 	for index, backend := range b.backendsByMapIndex {
 		// create a slice of all backend indices that match the backend
@@ -87,7 +102,7 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 
 	// select the backend with the most duplicates that is not the backend
 	var lowestCount int
-	var fillBackendID string
+	var fillBackendID BackendAddrID
 	for backendID, count := range duplicateCount {
 		if lowestCount == 0 || count < lowestCount {
 			lowestCount = count
@@ -110,6 +125,7 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 	}
 
 	delete(b.uniqueBackends, idToRemove)
+	delete(b.slaveSlotByBackendAddrID, backend.BackendAddrID())
 }
 
 func (b *bpfService) getBackends() []ServiceValue {
@@ -129,35 +145,47 @@ func (b *bpfService) getBackends() []ServiceValue {
 	return backends
 }
 
+// getSlaveSlot returns a slot number (lb{4,6}_key.slave) in the given service.
+// The slot number points to any backend identified by the addr ID in the
+// legacy service.
+//
+// As the legacy svc maps are append-only, we can point to any slot number
+// in the v2 svc.
+func (b *bpfService) getSlaveSlot(id BackendAddrID) (int, bool) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	slot, found := b.slaveSlotByBackendAddrID[id]
+	return slot, found
+}
+
 type lbmapCache struct {
-	mutex   lock.Mutex
-	entries map[string]*bpfService
+	mutex             lock.Mutex
+	entries           map[string]*bpfService
+	backendRefCount   map[BackendAddrID]int
+	backendIDByAddrID map[BackendAddrID]uint16
 }
 
 func newLBMapCache() lbmapCache {
 	return lbmapCache{
-		entries: map[string]*bpfService{},
+		entries:           map[string]*bpfService{},
+		backendRefCount:   map[BackendAddrID]int{},
+		backendIDByAddrID: map[BackendAddrID]uint16{},
 	}
 }
 
-func createBackendsMap(backends []ServiceValue) serviceValueMap {
-	m := serviceValueMap{}
-	for _, b := range backends {
-		m[b.String()] = b
-	}
-	return m
-}
-
-func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
+// restoreService restores service cache of the given legacy svc. If v2Exists
+// is set, the cache for the respective svc v2 is restored as well.
+func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	frontendID := svc.FE.String()
-
-	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(svc)
+	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(&svc)
 	if err != nil {
 		return err
 	}
+
+	frontendID := serviceKey.String()
 
 	bpfSvc, ok := l.entries[frontendID]
 	if !ok {
@@ -167,22 +195,52 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 
 	for index, backend := range serviceValues {
 		b := &bpfBackend{
-			id:       backend.String(),
+			id:       backend.BackendAddrID(),
 			bpfValue: backend,
 		}
-		if _, ok := bpfSvc.uniqueBackends[backend.String()]; ok {
+		if _, ok := bpfSvc.uniqueBackends[backend.BackendAddrID()]; ok {
 			b.isHole = true
 		} else {
-			bpfSvc.uniqueBackends[backend.String()] = backend
+			bpfSvc.uniqueBackends[backend.BackendAddrID()] = backend
+			bpfSvc.slaveSlotByBackendAddrID[backend.BackendAddrID()] = index + 1
 		}
 
 		bpfSvc.backendsByMapIndex[index+1] = b
 	}
 
+	if v2Exists {
+		for addrID, backend := range bpfSvc.uniqueBackends {
+			bpfSvc.backendsV2[addrID] = backend
+			l.addBackendV2Locked(addrID)
+		}
+	}
+
 	return nil
 }
 
-func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfService {
+func (l *lbmapCache) getSlaveSlot(fe ServiceKeyV2, addrID BackendAddrID) (int, bool) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	frontendID := fe.String()
+	bpfSvc, found := l.entries[frontendID]
+	if !found {
+		return 0, false
+	}
+
+	pos, found := bpfSvc.slaveSlotByBackendAddrID[addrID]
+	if !found {
+		return 0, false
+	}
+
+	return pos, true
+}
+
+// prepareUpdate prepares the caches to reflect the changes in the given svc.
+// The given backends should not contain a service value of a master service.
+func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (
+	*bpfService, map[uint16]ServiceValue, []uint16, error) {
+
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -195,29 +253,156 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 	}
 
 	newBackendsMap := createBackendsMap(backends)
+	toRemoveBackendIDs := []uint16{}
+	toAddBackendIDs := map[uint16]ServiceValue{}
 
 	// Step 1: Delete all backends that no longer exist. This will not
 	// actually remove the backends but overwrite all slave slots that
 	// point to the removed backend with the backend that has the least
 	// duplicated slots.
-	for key, b := range bpfSvc.uniqueBackends {
-		if _, ok := newBackendsMap[key]; !ok {
+	for addrID, b := range bpfSvc.uniqueBackends {
+		if _, ok := newBackendsMap[addrID]; !ok {
 			bpfSvc.deleteBackend(b)
+			delete(bpfSvc.slaveSlotByBackendAddrID, addrID)
+		}
+	}
+	// Step 2: Delete all backends that no longer exist in the service v2.
+	for addrID := range bpfSvc.backendsV2 {
+		if _, ok := newBackendsMap[addrID]; !ok {
+			isLastInstanceRemoved, err := l.delBackendV2Locked(addrID)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			if isLastInstanceRemoved {
+				toRemoveBackendIDs = append(toRemoveBackendIDs,
+					l.backendIDByAddrID[addrID])
+				delete(l.backendIDByAddrID, addrID)
+			}
+			delete(bpfSvc.backendsV2, addrID)
 		}
 	}
 
-	// Step 2: Add all backends that don't exist yet.
+	// Step 3: Add all backends that don't exist in the legacy service yet.
 	for _, b := range backends {
-		if _, ok := bpfSvc.uniqueBackends[b.String()]; !ok {
-			bpfSvc.addBackend(b)
+		if _, ok := bpfSvc.uniqueBackends[b.BackendAddrID()]; !ok {
+			addrID := b.BackendAddrID()
+			backendID := l.backendIDByAddrID[addrID]
+			pos := bpfSvc.addBackend(b, backendID)
+			bpfSvc.slaveSlotByBackendAddrID[addrID] = pos
+		}
+	}
+	// Step 4: Add all backends that don't exist in the service v2 yet.
+	for _, b := range backends {
+		addrID := b.BackendAddrID()
+		if _, ok := bpfSvc.backendsV2[addrID]; !ok {
+			bpfSvc.backendsV2[addrID] = b
+			isNew := l.addBackendV2Locked(addrID)
+			if isNew {
+				toAddBackendIDs[l.backendIDByAddrID[addrID]] = b
+			}
 		}
 	}
 
-	return bpfSvc
+	return bpfSvc, toAddBackendIDs, toRemoveBackendIDs, nil
 }
 
 func (l *lbmapCache) delete(fe ServiceKey) {
 	l.mutex.Lock()
 	delete(l.entries, fe.String())
 	l.mutex.Unlock()
+}
+
+func (l *lbmapCache) addBackendV2Locked(addrID BackendAddrID) bool {
+	l.backendRefCount[addrID]++
+	return l.backendRefCount[addrID] == 1
+}
+
+func (l *lbmapCache) delBackendV2Locked(addrID BackendAddrID) (bool, error) {
+	count, found := l.backendRefCount[addrID]
+	if !found {
+		return false, fmt.Errorf("backend %s not found", addrID)
+	}
+
+	if count == 1 {
+		delete(l.backendRefCount, addrID)
+		return true, nil
+	}
+
+	l.backendRefCount[addrID]--
+	return false, nil
+}
+
+func (l *lbmapCache) addBackendIDs(backendIDs map[BackendAddrID]uint16) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	for addrID, backendID := range backendIDs {
+		l.backendIDByAddrID[addrID] = backendID
+	}
+}
+
+// newBackendAddrIDs returns backend legacy IDs which did not exist before
+// in the cache.
+func (l *lbmapCache) newBackendAddrIDs(
+	backendAddrIDs map[BackendAddrID]struct{}) map[BackendAddrID]struct{} {
+
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	newIDs := map[BackendAddrID]struct{}{}
+
+	for addrID := range backendAddrIDs {
+		if _, found := l.backendIDByAddrID[addrID]; !found {
+			newIDs[addrID] = struct{}{}
+		}
+	}
+
+	return newIDs
+}
+
+func (l *lbmapCache) getBackendIDByAddrID(addrID BackendAddrID) uint16 {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	return l.backendIDByAddrID[addrID]
+}
+
+// removeServiceV2 removes the service v2 from the cache.
+func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]uint16, int, error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	frontendID := svcKey.String()
+	bpfSvc, ok := l.entries[frontendID]
+	if !ok {
+		return nil, 0, fmt.Errorf("Service %s not found", frontendID)
+	}
+
+	backendsToRemove := []uint16{}
+	count := len(bpfSvc.backendsV2)
+
+	for addrID := range bpfSvc.backendsV2 {
+		isLastInstance, err := l.delBackendV2Locked(addrID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if isLastInstance {
+			backendsToRemove = append(backendsToRemove, l.backendIDByAddrID[addrID])
+			delete(l.backendIDByAddrID, addrID)
+		}
+	}
+
+	// FIXME(brb) uncomment the following line after we removed the support for
+	// legacy svc.
+	//delete(l.entries, frontendID)
+
+	return backendsToRemove, count, nil
+}
+
+func createBackendsMap(backends []ServiceValue) serviceValueMap {
+	m := serviceValueMap{}
+	for _, b := range backends {
+		m[b.BackendAddrID()] = b
+	}
+	return m
 }

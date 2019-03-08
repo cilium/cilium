@@ -25,6 +25,12 @@ func (v4 IPv4) IP() net.IP {
 	return v4[:]
 }
 
+func (v4 IPv4) DuplicateIP() net.IP {
+	dup := make([]byte, 4)
+	copy(dup, v4[:])
+	return dup
+}
+
 func (v4 IPv4) String() string {
 	return v4.IP().String()
 }

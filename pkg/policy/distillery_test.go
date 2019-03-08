@@ -57,7 +57,7 @@ var (
 	}
 	// API rule definitions for default-deny, L3, L3L4, L3L4L7, L4, L4L7
 	rule____NoAllow = api.NewRule().
-			WithIngressRules([]api.IngressRule{api.IngressRule{}})
+			WithIngressRules([]api.IngressRule{{}})
 	ruleL3____Allow = api.NewRule().
 			WithIngressRules([]api.IngressRule{{
 			FromEndpoints: []api.EndpointSelector{allowFooL3_},
