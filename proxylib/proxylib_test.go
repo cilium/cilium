@@ -121,8 +121,10 @@ func TestOnNewConnection(t *testing.T) {
 func checkAccessLogs(t *testing.T, logServer *test.AccessLogServer, expPasses, expDrops int) {
 	t.Helper()
 	passes, drops := 0, 0
-	empty := false
-	for !empty {
+	nWaits := 0
+	done := false
+	// Loop until done or when the timeout has ticked 100 times without any logs being received
+	for !done && nWaits < 100 {
 		select {
 		case pblog := <-logServer.Logs:
 			if pblog.EntryType == cilium.EntryType_Denied {
@@ -130,8 +132,16 @@ func checkAccessLogs(t *testing.T, logServer *test.AccessLogServer, expPasses, e
 			} else {
 				passes++
 			}
-		case <-time.After(10 * time.Millisecond):
-			empty = true
+			// Start the timeout again (for upto 5 seconds)
+			nWaits = 0
+		case <-time.After(50 * time.Millisecond):
+			// Count the number of times we have waited since the last log was received
+			nWaits++
+			// Finish when expected number of passes and drops have been collected
+			// and there are no more logs in the channel for 50 milliseconds
+			if passes == expPasses && drops == expDrops {
+				done = true
+			}
 		}
 	}
 
