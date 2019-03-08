@@ -16,6 +16,7 @@ package endpointsynchronizer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -36,6 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 )
 
@@ -254,17 +256,37 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					}
 				}
 
-				// We have an object to reuse. Update and push it up. In the case of an
-				// update error, we retry in the next iteration of the controller using
-				// the copy returned by Update.
-				scopedLog.Debug("Updating CEP from local copy")
-				// Update the copy of the cep
-				mdl.DeepCopyInto(&localCEP.Status)
 				switch {
-				case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
+				case k8s.JSONPatchVerConstr.Check(k8sServerVer) || option.Config.K8sForceJSONPatch:
+					// For json patch we don't need to perform a GET for endpoints
+
+					// If it fails it means the test from the previous patch failed
+					// so we can safely replace this node in the CNP status.
+					replaceCEPStatus := []k8s.JSONPatch{
+						{
+							OP:    "replace",
+							Path:  "/status",
+							Value: mdl,
+						},
+					}
+					var createStatusPatch []byte
+					createStatusPatch, err = json.Marshal(replaceCEPStatus)
+					if err != nil {
+						return err
+					}
+					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Patch(podName, types.JSONPatchType, createStatusPatch, "status")
 				default:
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)
+					// We have an object to reuse. Update and push it up. In the case of an
+					// update error, we retry in the next iteration of the controller using
+					// the copy returned by Update.
+					scopedLog.Debug("Updating CEP from local copy")
+					mdl.DeepCopyInto(&localCEP.Status)
+					switch {
+					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
+					default:
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)
+					}
 				}
 
 				// Handle Update errors or return successfully
