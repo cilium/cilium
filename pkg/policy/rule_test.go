@@ -1592,7 +1592,7 @@ func checkEgress(c *C, repo *Repository, ctx *SearchContext, verdict api.Decisio
 
 func parseAndAddRules(c *C, rules api.Rules) *Repository {
 	repo := NewPolicyRepository()
-	_ = repo.AddList(rules)
+	_, _ = repo.AddList(rules)
 	return repo
 }
 

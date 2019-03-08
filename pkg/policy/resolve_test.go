@@ -18,6 +18,7 @@ package policy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -42,12 +43,36 @@ var (
 		LabelArray: lbls.LabelArray(),
 	}
 	identityCache = cache.IdentityCache{303: lblsArray}
+	fooEndpointId = 9001
 )
 
+type dummyEndpoint struct {
+	ID               uint16
+	SecurityIdentity *identity.Identity
+}
+
+func (d *dummyEndpoint) GetID16() uint16 {
+	return d.ID
+}
+
+func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
+	return d.SecurityIdentity
+}
+
+func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup) {
+	return
+}
+
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
+	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
-	repo.AddList(GenerateNumRules(1000))
+	rulez, _ := repo.AddList(GenerateNumRules(1000))
+	rulez.UpdateRulesEndpointsCaches([]Endpoint{&dummyEndpoint{
+		ID:               9001,
+		SecurityIdentity: fooIdentity,
+	}}, NewIDSet(), &wg)
+	wg.Wait()
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
@@ -122,11 +147,19 @@ func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		repo.ResolvePolicy(1, lblsArray, DummyOwner{}, identityCache)
+		repo.ResolvePolicy(9001, fooIdentity, DummyOwner{}, identityCache)
 	}
 }
 
 func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
+
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+
 	repo := NewPolicyRepository()
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
@@ -149,14 +182,13 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, err := repo.Add(rule1)
+	_, _, err := repo.Add(rule1, []Endpoint{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-
 	identityCache = cache.GetIdentityCache()
-	policy, err := repo.ResolvePolicy(10, labels.ParseSelectLabelArray("id=foo"), DummyOwner{}, identityCache)
+	policy, err := repo.ResolvePolicy(10, fooIdentity, DummyOwner{}, identityCache)
 	c.Assert(err, IsNil)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -198,6 +230,14 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+
 	// Emulate Kubernetes mode with allow from localhost
 	oldLocalhostOpt := option.Config.AllowLocalhost
 	option.Config.AllowLocalhost = option.AllowLocalhostAlways
@@ -225,14 +265,14 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, err := repo.Add(rule1)
+	_, _, err := repo.Add(rule1, []Endpoint{})
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 
 	identityCache = cache.GetIdentityCache()
-	policy, err := repo.ResolvePolicy(10, labels.ParseSelectLabelArray("id=foo"), DummyOwner{}, identityCache)
+	policy, err := repo.ResolvePolicy(10, fooIdentity, DummyOwner{}, identityCache)
 	c.Assert(err, IsNil)
 
 	expectedEndpointPolicy := EndpointPolicy{

@@ -252,7 +252,8 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 			}
 		}
 	}
-	newRev = d.policy.AddListLocked(rules)
+
+	_, newRev = d.policy.AddListLocked(rules)
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
 	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
@@ -327,7 +328,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		d.policy.Mutex.Unlock()
 		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
 	}
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	_, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	d.policy.Mutex.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove
