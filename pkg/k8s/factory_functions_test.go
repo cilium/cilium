@@ -93,6 +93,30 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 			},
 			want: true,
 		},
+		{
+			name: "CNP with different last applied annotations. The are ignored so they should be equal",
+			args: args{
+				o1: &v2.CiliumNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+						Annotations: map[string]string{
+							core_v1.LastAppliedConfigAnnotation: "foo",
+						},
+					},
+					Spec: &api.Rule{},
+				},
+				o2: &v2.CiliumNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "rule1",
+						Annotations: map[string]string{
+							core_v1.LastAppliedConfigAnnotation: "bar",
+						},
+					},
+					Spec: &api.Rule{},
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		got := EqualV2CNP(tt.args.o1, tt.args.o2)

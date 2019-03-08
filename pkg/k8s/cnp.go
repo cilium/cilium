@@ -32,6 +32,7 @@ import (
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
@@ -261,6 +262,10 @@ func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enfo
 		cnpns cilium_v2.CiliumNetworkPolicyNodeStatus
 		err   error
 	)
+
+	// Ignore LastAppliedConfigAnnotation as it can be really costly to upload
+	// this as part of the status.
+	delete(annotations, v1.LastAppliedConfigAnnotation)
 
 	if cnpError != nil {
 		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
