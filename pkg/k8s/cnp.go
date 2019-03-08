@@ -27,11 +27,13 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
@@ -256,11 +258,40 @@ type jsonPatch struct {
 	Value interface{} `json:"value"`
 }
 
-func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, cnpError error, rev uint64, annotations map[string]string) error {
+func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
 	var (
-		cnpns cilium_v2.CiliumNetworkPolicyNodeStatus
-		err   error
+		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
+		annotations map[string]string
+		err         error
 	)
+
+	switch {
+	case cnpAnnotations == nil:
+		// don't bother doing anything if cnpAnnotations is nil.
+	case ciliumPatchStatusVerConstr.Check(c.K8sServerVer) || option.Config.K8sForceJSONPatch:
+		// in k8s versions that support JSON Patch we can safely modify the
+		// cnpAnnotations as the CNP, along with these annotations, is not sent to
+		// k8s api-server.
+		annotations = cnpAnnotations
+		lastAppliedConfig, ok := annotations[v1.LastAppliedConfigAnnotation]
+		defer func() {
+			if ok {
+				cnpAnnotations[v1.LastAppliedConfigAnnotation] = lastAppliedConfig
+			}
+		}()
+	default:
+		// for all other k8s versions, sense the CNP is sent with the
+		// annotations we need to make a deepcopy.
+		m := make(map[string]string, len(cnpAnnotations))
+		for k, v := range cnpAnnotations {
+			m[k] = v
+		}
+		annotations = m
+	}
+
+	// Ignore LastAppliedConfigAnnotation as it can be really costly to upload
+	// this as part of the status.
+	delete(annotations, v1.LastAppliedConfigAnnotation)
 
 	if cnpError != nil {
 		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{

@@ -169,9 +169,25 @@ func EqualV1beta1Ingress(ing1, ing2 *v1beta1.Ingress) bool {
 }
 
 func EqualV2CNP(cnp1, cnp2 *cilium_v2.CiliumNetworkPolicy) bool {
-	return cnp1.Name == cnp2.Name &&
-		cnp1.Namespace == cnp2.Namespace &&
-		comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
+	if !(cnp1.Name == cnp2.Name && cnp1.Namespace == cnp2.Namespace) {
+		return false
+	}
+
+	// Ignore v1.LastAppliedConfigAnnotation annotation
+	lastAppliedCfgAnnotation1, ok1 := cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation]
+	lastAppliedCfgAnnotation2, ok2 := cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation]
+	defer func() {
+		if ok1 && cnp1.GetAnnotations() != nil {
+			cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
+		}
+		if ok2 && cnp2.GetAnnotations() != nil {
+			cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
+		}
+	}()
+	delete(cnp1.GetAnnotations(), v1.LastAppliedConfigAnnotation)
+	delete(cnp2.GetAnnotations(), v1.LastAppliedConfigAnnotation)
+
+	return comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
 		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
