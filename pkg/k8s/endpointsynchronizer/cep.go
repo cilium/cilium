@@ -16,6 +16,7 @@ package endpointsynchronizer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -36,6 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 )
 
@@ -225,46 +227,70 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
-				// We have no localCEP copy. We need to fetch it for updates, below.
-				// This is unexpected as there should be only 1 writer per CEP, this
-				// controller, and the localCEP created on startup will be used.
-				if localCEP == nil {
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
-					switch {
-					// The CEP doesn't exist in k8s. This is unexpetected but may occur
-					// if the endpoint was removed from k8s but not yet within the agent.
-					// Mark the CEP for creation on the next controller iteration. This
-					// may never occur if the controller is stopped on Endpoint delete.
-					case err != nil && k8serrors.IsNotFound(err):
-						needInit = true
-						return err
+				switch {
+				case k8s.JSONPatchVerConstr.Check(k8sServerVer):
+					// For json patch we don't need to perform a GET for endpoints
 
-					// We cannot read the upstream CEP. needInit will cause the next
-					// iteration to delete and create the CEP. This is an unexpected
-					// situation.
-					case err != nil && k8serrors.IsInvalid(err):
-						scopedLog.WithError(err).Warn("Invalid CEP during update")
-						needInit = true
-						return nil
-
-					// A real error
-					case err != nil:
-						scopedLog.WithError(err).Error("Cannot get CEP during update")
+					// If it fails it means the test from the previous patch failed
+					// so we can safely replace this node in the CNP status.
+					replaceCEPStatus := []k8s.JSONPatch{
+						{
+							OP:    "replace",
+							Path:  "/status",
+							Value: mdl,
+						},
+					}
+					var createStatusPatch []byte
+					createStatusPatch, err = json.Marshal(replaceCEPStatus)
+					if err != nil {
 						return err
 					}
-				}
-
-				// We have an object to reuse. Update and push it up. In the case of an
-				// update error, we retry in the next iteration of the controller using
-				// the copy returned by Update.
-				scopedLog.Debug("Updating CEP from local copy")
-				// Update the copy of the cep
-				mdl.DeepCopyInto(&localCEP.Status)
-				switch {
-				case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
+					_, err = ciliumClient.CiliumEndpoints(namespace).Patch(podName, types.JSONPatchType, createStatusPatch, "status")
 				default:
-					localCEP, err = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)
+					// We have no localCEP copy. We need to fetch it for updates, below.
+					// This is unexpected as there should be only 1 writer per CEP, this
+					// controller, and the localCEP created on startup will be used.
+					if localCEP == nil {
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Get(podName, meta_v1.GetOptions{})
+						switch {
+						// The CEP doesn't exist in k8s. This is unexpetected but may occur
+						// if the endpoint was removed from k8s but not yet within the agent.
+						// Mark the CEP for creation on the next controller iteration. This
+						// may never occur if the controller is stopped on Endpoint delete.
+						case err != nil && k8serrors.IsNotFound(err):
+							needInit = true
+							return err
+
+						// We cannot read the upstream CEP. needInit will cause the next
+						// iteration to delete and create the CEP. This is an unexpected
+						// situation.
+						case err != nil && k8serrors.IsInvalid(err):
+							scopedLog.WithError(err).Warn("Invalid CEP during update")
+							needInit = true
+							return nil
+
+						// A real error
+						case err != nil:
+							scopedLog.WithError(err).Error("Cannot get CEP during update")
+							return err
+						}
+					}
+
+					// We have an object to reuse. Update and push it up. In the case of an
+					// update error, we retry in the next iteration of the controller using
+					// the copy returned by Update.
+					scopedLog.Debug("Updating CEP from local copy")
+					switch {
+					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
+						mdl.DeepCopyInto(&localCEP.Status)
+						_, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
+					default:
+						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)
+						mdl.DeepCopyInto(&localCEP.Status)
+						_, err = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)
+						return err
+					}
 				}
 
 				// Handle Update errors or return successfully
