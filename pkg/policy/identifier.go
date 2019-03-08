@@ -15,8 +15,6 @@
 package policy
 
 import (
-	"sync"
-
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -42,5 +40,5 @@ func NewIDSet() *IDSet {
 type Endpoint interface {
 	GetID16() uint16
 	GetSecurityIdentity() *identity.Identity
-	PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup)
+	PolicyRevisionBumpEvent(rev uint64)
 }

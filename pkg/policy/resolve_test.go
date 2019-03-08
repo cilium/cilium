@@ -59,7 +59,7 @@ func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
 	return d.SecurityIdentity
 }
 
-func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup) {
+func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
 	return
 }
 

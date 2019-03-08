@@ -1594,6 +1594,8 @@ func (d *Daemon) GetNodeSuffix() string {
 	return ip.String()
 }
 
+// ClearPolicyConsumers removes references to the specified id from the rules in
+// the daemon's policy repository.
 func (d *Daemon) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
-	return &sync.WaitGroup{}
+	return d.policy.RemoveEndpointIDFromRuleCaches(id)
 }
