@@ -158,7 +158,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	e.prevIdentityCache = labelsMap
 
 	stats.policyCalculation.Start()
-	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity.LabelArray, e, *labelsMap)
+	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity, e, *labelsMap)
 	if err != nil {
 		return err
 	}

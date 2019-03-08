@@ -296,7 +296,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					_, _ = d.policy.DeleteByLabelsLocked(r.Labels)
+					_, _, _ = d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
 		}
@@ -305,11 +305,11 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				_, _ = d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				_, _, _ = d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
 	}
-	newRev := d.policy.AddListLocked(rules)
+	_, newRev := d.policy.AddListLocked(rules)
 
 	// The information needed by the caller is available at this point, signal
 	// accordingly.
@@ -434,7 +434,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		return
 	}
 
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	_, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 
 	res <- &PolicyDeleteResult{
 		newRev: rev,
