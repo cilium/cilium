@@ -1281,6 +1281,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		CiliumNPClient:              ciliumNPClient,
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
+		NodeManager:                 d.nodeDiscovery.Manager,
 		K8sServerVer:                k8sServerVer,
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
 	}
@@ -1331,6 +1332,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 		CiliumNPClient:              ciliumNPClient,
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
+		NodeManager:                 d.nodeDiscovery.Manager,
 		K8sServerVer:                k8sServerVer,
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
 	}
