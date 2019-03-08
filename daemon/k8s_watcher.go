@@ -639,7 +639,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		var cnpStore cache.Store
 		switch {
-		case ciliumPatchStatusVerConstr.Check(k8sServerVer):
+		case ciliumPatchStatusVerConstr.Check(k8sServerVer) || option.Config.K8sUseJSONPatch:
 			// k8s >= 1.13 does not require a store
 		default:
 			cnpStore = ciliumV2Controller.GetStore()
@@ -1495,7 +1495,7 @@ func updateCNPNodeStatus(ciliumNPClient clientset.Interface, cnp *cilium_v2.Cili
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
 	switch {
-	case ciliumPatchStatusVerConstr.Check(k8sServerVer):
+	case ciliumPatchStatusVerConstr.Check(k8sServerVer) || option.Config.K8sUseJSONPatch:
 		// This is a JSON Patch [RFC 6902] used to create the `/status/nodes`
 		// field in the CNP. If we don't create, replacing the status for this
 		// node will fail as the path does not exist.
