@@ -87,7 +87,7 @@ type Event struct {
 	// Metadata is the information about the event which is sent
 	// by its queuer. Metadata must implement the EventHandler interface in
 	// order for the Event to be successfully processed by the EventQueue.
-	Metadata interface{}
+	Metadata EventHandler
 
 	// EventResults is a channel on which the results of the event are sent.
 	// It is populated by the EventQueue itself, not by the queuer.
@@ -117,7 +117,7 @@ type eventStatistics struct {
 }
 
 // NewEvent returns an Event with all fields initialized.
-func NewEvent(meta interface{}) *Event {
+func NewEvent(meta EventHandler) *Event {
 	return &Event{
 		Metadata:     meta,
 		eventResults: make(chan interface{}, 1),
@@ -193,17 +193,11 @@ func (q *EventQueue) Run() {
 			case e := <-q.events:
 				{
 					e.stats.waitConsumeOffQueue.End(true)
-					switch t := e.Metadata.(type) {
-					case EventHandler:
-						ev := e.Metadata.(EventHandler)
-						e.stats.durationStat.Start()
-						ev.Handle(e.eventResults)
-						// Always indicate success for now.s
-						e.stats.durationStat.End(true)
-					default:
-						log.Errorf("unsupported event type provided to event queue: %T", t)
-					}
-
+					ev := e.Metadata.(EventHandler)
+					e.stats.durationStat.Start()
+					ev.Handle(e.eventResults)
+					// Always indicate success for now.s
+					e.stats.durationStat.End(true)
 					// Ensures that no more results can be sent as the event has
 					// already been processed.
 					e.printStats()

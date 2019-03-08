@@ -202,7 +202,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		d:     d,
 	}
 	polAddEvent := eventqueue.NewEvent(p)
-	resChan := d.policy.EventQueue.Enqueue(polAddEvent)
+	resChan := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
 
 	select {
 	case res, ok := <-resChan:
@@ -329,6 +329,8 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 	addedRules, newRev := d.policy.AddListLocked(rules)
 	addedRules.UpdateEndpointsAffectedByRules(epsIdentityConsumers, endpointsToRegen, &policySelectionWG)
 
+	// The information needed by the caller is available at this point, signal
+	// accordingly.
 	resChan <- &PolicyAddResult{
 		newRev: newRev,
 		err:    nil,
@@ -368,13 +370,6 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
 
-	// Only regenerate endpoints which are needed to be regenerated as a result
-	// of the rule update. The rules which were imported most likely do not select
-	// all endpoints in the policy repository (and may not select any at all).
-	// The "reacting" to rule updates enqueues events for all endpoints. Once
-	// all endpoints have events queued up, this function will return.
-	d.ReactToRuleUpdates(&policySelectionWG, epsIdentityConsumers, endpointsToRegen, newRev)
-
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
 		labels = append(labels, r.Labels.GetModel()...)
@@ -386,7 +381,39 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
 
+	// Only regenerate endpoints which are needed to be regenerated as a result
+	// of the rule update. The rules which were imported most likely do not select
+	// all endpoints in the policy repository (and may not select any at all).
+	// The "reacting" to rule updates enqueues events for all endpoints. Once
+	// all endpoints have events queued up, this function will return.
+
+	r := &PolicyReactionEvent{
+		d:                    d,
+		wg:                   &policySelectionWG,
+		epsIdentityConsumers: epsIdentityConsumers,
+		endpointsToRegen:     endpointsToRegen,
+		newRev:               newRev,
+	}
+
+	ev := eventqueue.NewEvent(r)
+	// This event may block if the RuleReactionQueue is full. We don't care
+	// about when it finishes, just that the work it does is done in a serial
+	// order.
+	d.policy.RuleReactionQueue.Enqueue(ev)
+
 	return
+}
+
+type PolicyReactionEvent struct {
+	d                    *Daemon
+	wg                   *sync.WaitGroup
+	epsIdentityConsumers []policy.IdentityConsumer
+	endpointsToRegen     *policy.IDSet
+	newRev               uint64
+}
+
+func (r *PolicyReactionEvent) Handle(res chan interface{}) {
+	r.d.ReactToRuleUpdates(r.wg, r.epsIdentityConsumers, r.endpointsToRegen, r.newRev)
 }
 
 // ReactToRuleUpdates waits until wg is complete to do the following
@@ -444,7 +471,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 		d:      d,
 	}
 	policyDeleteEvent := eventqueue.NewEvent(p)
-	resChan := d.policy.EventQueue.Enqueue(policyDeleteEvent)
+	resChan := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
 
 	select {
 	case res, ok := <-resChan:
