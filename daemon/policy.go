@@ -251,7 +251,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 			}
 		}
 	}
-	newRev = d.policy.AddListLocked(rules)
+	_, newRev = d.policy.AddListLocked(rules)
 	d.policy.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
@@ -325,7 +325,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		d.policy.Mutex.Unlock()
 		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
 	}
-	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	_, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	d.policy.Mutex.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove

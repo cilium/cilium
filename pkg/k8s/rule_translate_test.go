@@ -67,7 +67,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 
 	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, map[string]string{}, nil)
 
-	_, err := repo.Add(rule1)
+	_, _, err := repo.Add(rule1, []policy.Endpoint{})
 	c.Assert(err, IsNil)
 
 	result, err := repo.TranslateRules(translator)
@@ -166,7 +166,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 
 	translator := NewK8sTranslator(serviceInfo, endpointInfo, false, svcLabels, nil)
 
-	_, err := repo.Add(rule1)
+	_, _, err := repo.Add(rule1, []policy.Endpoint{})
 	c.Assert(err, IsNil)
 
 	result, err := repo.TranslateRules(translator)
