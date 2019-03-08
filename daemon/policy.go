@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -178,14 +179,53 @@ type AddOptions struct {
 	Source string
 }
 
-// PolicyAdd adds a slice of rules to the policy repository owned by the
-// daemon.  Policy enforcement is automatically enabled if currently disabled if
-// k8s is not enabled. Otherwise, if k8s is enabled, policy is enabled on the
-// pods which are selected. Eventual changes in policy rules are propagated to
-// all locally managed endpoints.
+// PolicyAddEvent is a wrapper around the parameters for policyAdd.
+type PolicyAddEvent struct {
+	rules policyAPI.Rules
+	opts  *AddOptions
+	d     *Daemon
+}
+
+// Handle implements pkg/eventqueue/EventHandler interface.
+func (p *PolicyAddEvent) Handle(res chan interface{}) {
+	p.d.policyAdd(p.rules, p.opts, res)
+}
+
+// PolicyAddResult is a wrapper around the values returned by policyAdd. It
+// contains the new revision of a policy repository after adding a list of rules
+// to it, and any error associated with adding rules to said repository.
+type PolicyAddResult struct {
+	newRev uint64
+	err    error
+}
+
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
+	p := &PolicyAddEvent{
+		rules: rules,
+		opts:  opts,
+		d:     d,
+	}
+	polAddEvent := eventqueue.NewEvent(p)
+	resChan := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
+
+	select {
+	case res, ok := <-resChan:
+		if ok {
+			pRes := res.(*PolicyAddResult)
+			return pRes.newRev, pRes.err
+		}
+		return 0, fmt.Errorf("policy addition event was cancelled")
+	}
+}
+
+// policyAdd adds a slice of rules to the policy repository owned by the
+// daemon. Eventual changes in policy rules are propagated to all locally
+// managed endpoints. Returns the policy revision number of the repository after
+// adding the rules into the repository, or an error if the updated policy
+// was not able to be imported.
+func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
-	logger := log.WithField("PolicyAddRequest", uuid.NewUUID().String())
+	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
@@ -205,7 +245,11 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
-		return 0, api.Error(PutPolicyFailureCode, err)
+		resChan <- &PolicyAddResult{
+			newRev: 0,
+			err:    api.Error(PutPolicyFailureCode, err),
+		}
+		return
 	}
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
 		// Only recompile if configuration has changed.
@@ -216,7 +260,11 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
 			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to recompile base programs due to prefix length count change")
-			return 0, api.Error(PutPolicyFailureCode, err)
+			resChan <- &PolicyAddResult{
+				newRev: 0,
+				err:    api.Error(PutPolicyFailureCode, err),
+			}
+			return
 		}
 	}
 
@@ -225,13 +273,21 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
-		return 0, err
+		resChan <- &PolicyAddResult{
+			newRev: 0,
+			err:    err,
+		}
+		return
 	}
 
+	// No errors past this point!
+
 	d.policy.Mutex.Lock()
+
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
 	var removedPrefixes []*net.IPNet
+
 	if opts != nil {
 		if opts.Replace {
 			for _, r := range rules {
@@ -239,7 +295,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					d.policy.DeleteByLabelsLocked(r.Labels)
+					_, _ = d.policy.DeleteByLabelsLocked(r.Labels)
 				}
 			}
 		}
@@ -248,11 +304,18 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				_, _ = d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 			}
 		}
 	}
-	newRev = d.policy.AddListLocked(rules)
+	newRev := d.policy.AddListLocked(rules)
+
+	// The information needed by the caller is available at this point, signal
+	// accordingly.
+	resChan <- &PolicyAddResult{
+		newRev: newRev,
+		err:    nil,
+	}
 
 	// The rules are added, we can begin ToFQDN DNS polling for them
 	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
@@ -301,16 +364,53 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
 
-	return newRev, nil
+	return
 }
 
-// PolicyDelete deletes the policy set in the given path from the policy tree.
-// If cover256Sum is set it finds the rule with the respective coverage that
-// rule from the node. If the path's node becomes ruleless it is removed from
-// the tree.
+// PolicyDeleteEvent is a wrapper around deletion of policy rules with a given
+// set of labels from the policy repository in the daemon.
+type PolicyDeleteEvent struct {
+	labels labels.LabelArray
+	d      *Daemon
+}
+
+// Handle implements pkg/eventqueue/EventHandler interface.
+func (p *PolicyDeleteEvent) Handle(res chan interface{}) {
+	p.d.policyDelete(p.labels, res)
+}
+
+// PolicyDeleteResult is a wrapper around the values returned by policyDelete.
+// It contains the new revision of a policy repository after deleting a list of
+// rules to it, and any error associated with adding rules to said repository.
+type PolicyDeleteResult struct {
+	newRev uint64
+	err    error
+}
+
+// PolicyDelete deletes the policy rules with the provided set of labels from
+// the policy repository of the daemon.
 // Returns the revision number and an error in case it was not possible to
 // delete the policy.
-func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
+func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err error) {
+
+	p := &PolicyDeleteEvent{
+		labels: labels,
+		d:      d,
+	}
+	policyDeleteEvent := eventqueue.NewEvent(p)
+	resChan := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
+
+	select {
+	case res, ok := <-resChan:
+		if ok {
+			ress := res.(*PolicyDeleteResult)
+			return ress.newRev, ress.err
+		}
+		return 0, fmt.Errorf("policy deletion event cancelled")
+	}
+}
+
+func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
 	d.policy.Mutex.Lock()
@@ -325,9 +425,23 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 	if len(rules) == 0 && len(labels) != 0 {
 		rev := d.policy.GetRevision()
 		d.policy.Mutex.Unlock()
-		return rev, api.New(DeletePolicyNotFoundCode, "policy not found")
+
+		err := api.New(DeletePolicyNotFoundCode, "policy not found")
+
+		res <- &PolicyDeleteResult{
+			newRev: rev,
+			err:    err,
+		}
+		return
 	}
+
 	rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+
+	res <- &PolicyDeleteResult{
+		newRev: rev,
+		err:    nil,
+	}
+
 	d.policy.Mutex.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove
@@ -361,7 +475,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (uint64, error) {
 		d.SendNotification(monitorAPI.AgentNotifyPolicyDeleted, repr)
 	}
 
-	return rev, nil
+	return
 }
 
 type deletePolicy struct {
