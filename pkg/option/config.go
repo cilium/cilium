@@ -151,6 +151,10 @@ const (
 	// K8sRequireIPv6PodCIDRName is the name of the K8sRequireIPv6PodCIDR option
 	K8sRequireIPv6PodCIDRName = "k8s-require-ipv6-pod-cidr"
 
+	// K8sForceJSONPatch when set, uses JSON Patch to update CNP and CEP
+	// status in kube-apiserver.
+	K8sForceJSONPatch = "k8s-force-json-patch"
+
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer = "k8s-api-server"
 
@@ -591,6 +595,10 @@ type DaemonConfig struct {
 	// IPv6 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
 	K8sRequireIPv6PodCIDR bool
+
+	// K8sForceJSONPatch when set, uses JSON Patch to update CNP and CEP
+	// status in kube-apiserver.
+	K8sForceJSONPatch bool
 
 	// K8sWatcherQueueSize is the queue size used to serialize each k8s event
 	// type.
@@ -1059,6 +1067,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
+	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
 	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
