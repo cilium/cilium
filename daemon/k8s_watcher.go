@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1261,11 +1261,25 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 	return overallErr
 }
 
-func updateCNPNodeStatus(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, annotations map[string]string) error {
+func updateCNPNodeStatus(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, cnpAnnotations map[string]string) error {
 	var (
-		cnpns cilium_v2.CiliumNetworkPolicyNodeStatus
-		err2  error
+		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
+		err2        error
+		annotations map[string]string
 	)
+
+	switch {
+	case cnpAnnotations == nil:
+		// don't bother doing anything if cnpAnnotations is nil.
+	default:
+		// for all other k8s versions, since the CNP is sent with the
+		// annotations we need to make a deepcopy.
+		m := make(map[string]string, len(cnpAnnotations))
+		for k, v := range cnpAnnotations {
+			m[k] = v
+		}
+		annotations = m
+	}
 
 	if err != nil {
 		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
