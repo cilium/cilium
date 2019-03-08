@@ -511,6 +511,10 @@ func init() {
 	flags.Bool(option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
 	option.BindEnv(option.K8sRequireIPv6PodCIDRName)
 
+	flags.Bool(option.K8sForceJSONPatch, false, "When set uses JSON Patch to update CNP and CEP status in kube-apiserver")
+	option.BindEnv(option.K8sForceJSONPatch)
+	flags.MarkHidden(option.K8sForceJSONPatch)
+
 	flags.Bool(option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
 	option.BindEnv(option.KeepConfig)
 

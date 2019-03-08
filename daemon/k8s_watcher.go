@@ -637,7 +637,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
 		var cnpStore cache.Store
 		switch {
-		case ciliumPatchStatusVerConstr.Check(k8sServerVer):
+		case ciliumPatchStatusVerConstr.Check(k8sServerVer) || option.Config.K8sForceJSONPatch:
 			// k8s >= 1.13 does not require a store
 		default:
 			cnpStore = ciliumV2Controller.GetStore()
