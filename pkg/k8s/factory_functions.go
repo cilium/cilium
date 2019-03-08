@@ -15,11 +15,12 @@
 package k8s
 
 import (
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/comparator"
 	"net"
 	"reflect"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/comparator"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versionedClient "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -496,9 +497,26 @@ func equalV2CNP(o1, o2 interface{}) bool {
 		log.Panicf("Invalid resource type %q, expecting *cilium_v2.CiliumNetworkPolicy", reflect.TypeOf(o2))
 		return false
 	}
-	return cnp1.Name == cnp2.Name &&
-		cnp1.Namespace == cnp2.Namespace &&
-		comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
+
+	if !(cnp1.Name == cnp2.Name && cnp1.Namespace == cnp2.Namespace) {
+		return false
+	}
+
+	// Ignore v1.LastAppliedConfigAnnotation annotation
+	lastAppliedCfgAnnotation1, ok1 := cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation]
+	lastAppliedCfgAnnotation2, ok2 := cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation]
+	defer func() {
+		if ok1 && cnp1.GetAnnotations() != nil {
+			cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
+		}
+		if ok2 && cnp2.GetAnnotations() != nil {
+			cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
+		}
+	}()
+	delete(cnp1.GetAnnotations(), v1.LastAppliedConfigAnnotation)
+	delete(cnp2.GetAnnotations(), v1.LastAppliedConfigAnnotation)
+
+	return comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
 		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }

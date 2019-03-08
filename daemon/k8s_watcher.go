@@ -1835,11 +1835,21 @@ func cnpNodeStatusController(ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNet
 	return overallErr
 }
 
-func updateCNPNodeStatus(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, annotations map[string]string) error {
+func updateCNPNodeStatus(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, err error, rev uint64, cnpAnnotations map[string]string) error {
 	var (
-		cnpns cilium_v2.CiliumNetworkPolicyNodeStatus
-		err2  error
+		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
+		err2        error
+		annotations map[string]string
 	)
+
+	if cnpAnnotations != nil {
+		m := make(map[string]string, len(cnpAnnotations))
+		for k, v := range cnpAnnotations {
+			m[k] = v
+		}
+		annotations = m
+	}
+	delete(annotations, v1.LastAppliedConfigAnnotation)
 
 	if err != nil {
 		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
