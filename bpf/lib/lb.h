@@ -91,6 +91,16 @@ struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 	.flags		= CONDITIONAL_PREALLOC,
 };
+
+struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
+    .type           = BPF_MAP_TYPE_HASH,
+    .size_key       = sizeof(__u16),
+    .size_value     = sizeof(struct lb4_backend),
+    .pinning        = PIN_GLOBAL_NS,
+    .max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
+    .flags          = CONDITIONAL_PREALLOC,
+};
+
 #endif /* ENABLE_IPV4 */
 
 

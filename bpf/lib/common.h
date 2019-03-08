@@ -476,6 +476,12 @@ struct lb_sequence {
 	__u16 idx[LB_RR_MAX_SEQ];
 };
 
+struct lb4_backend {
+    __be32 address;
+    __be16 port;
+    __be16 proto;
+};
+
 struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
