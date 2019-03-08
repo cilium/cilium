@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -40,12 +41,28 @@ type Repository struct {
 	// incremented whenever the policy repository is changed.
 	// Always positive (>0).
 	revision uint64
+
+	// RepositoryChangeQueue is a queue which serializes changes to the policy
+	// repository.
+	RepositoryChangeQueue *eventqueue.EventQueue
+
+	// RuleReactionQueue is a queue which serializes the resultant events that
+	// need to occur after updating the state of the policy repository. This
+	// can include queueing endpoint regenerations, policy revision increments
+	// for endpoints, etc.
+	RuleReactionQueue *eventqueue.EventQueue
 }
 
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
+	repoChangeQueue := eventqueue.NewEventQueueBuffered(100)
+	ruleReactionQueue := eventqueue.NewEventQueueBuffered(100)
+	repoChangeQueue.Run()
+	ruleReactionQueue.Run()
 	return &Repository{
-		revision: 1,
+		revision:              1,
+		RepositoryChangeQueue: repoChangeQueue,
+		RuleReactionQueue:     ruleReactionQueue,
 	}
 }
 

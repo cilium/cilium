@@ -334,12 +334,17 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// the identity even if has not changed.
 			ep.SetIdentity(identity)
 
+			// We don't need to hold the policy repository mutex here because
+			// the content of the rules themselves are not being changed.
+			d.policy.UpdateLocalConsumers([]policy.Endpoint{ep}).Wait()
+
 			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
 				ep.Unlock()
 				// EP is already waiting to regenerate. This is no error so no logging.
 				epRegenerated <- false
 				return
 			}
+
 			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
 
