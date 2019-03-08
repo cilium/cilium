@@ -16,6 +16,7 @@ package policy
 
 import (
 	"strconv"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -251,4 +252,30 @@ egressLoop:
 	egressState.trace(rules, egressCtx)
 
 	return egressDecision
+}
+
+// updateEndpointsCaches iterates over a given list of rules to update the cache
+// within the rule which determines whether or not the given identity is
+// selected by that rule. If a rule in the list does select said identity, it is
+// added to epIDSet. Signals to the given WaitGroup that all rules have been
+// parsed in relation to said identity. Note that epIDSet can be shared across
+// goroutines!
+func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet, wg *sync.WaitGroup) {
+	if ep == nil {
+		wg.Done()
+		return
+	}
+	id := ep.GetID16()
+	securityIdentity := ep.GetSecurityIdentity()
+
+	for _, r := range rules {
+		if ruleMatches := r.matches(id, securityIdentity); ruleMatches {
+			epIDSet.Mutex.Lock()
+			epIDSet.IDs[id] = struct{}{}
+			epIDSet.Mutex.Unlock()
+		}
+	}
+	// Work done for calculating change for this endpoint in relation to list of
+	// rules.
+	wg.Done()
 }
