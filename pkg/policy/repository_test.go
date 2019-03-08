@@ -23,8 +23,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -132,11 +134,36 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 		},
 	}
 
-	convertedFooIngressRule1 := &rule{Rule: fooIngressRule1}
-	convertedFooIngressRule2 := &rule{Rule: fooIngressRule2}
-	convertedFooEgressRule1 := &rule{Rule: fooEgressRule1}
-	convertedFooEgressRule2 := &rule{Rule: fooEgressRule2}
-	convertedCombinedRule := &rule{Rule: combinedRule}
+	convertedFooIngressRule1 := &rule{Rule: fooIngressRule1,
+		metadata: &ruleMetadata{
+			Mutex:             lock.RWMutex{},
+			EndpointsSelected: map[uint16]*identity.Identity{},
+			AllEndpoints:      map[uint16]struct{}{},
+		}}
+	convertedFooIngressRule2 := &rule{Rule: fooIngressRule2,
+		metadata: &ruleMetadata{
+			Mutex:             lock.RWMutex{},
+			EndpointsSelected: map[uint16]*identity.Identity{},
+			AllEndpoints:      map[uint16]struct{}{},
+		}}
+	convertedFooEgressRule1 := &rule{Rule: fooEgressRule1,
+		metadata: &ruleMetadata{
+			Mutex:             lock.RWMutex{},
+			EndpointsSelected: map[uint16]*identity.Identity{},
+			AllEndpoints:      map[uint16]struct{}{},
+		}}
+	convertedFooEgressRule2 := &rule{Rule: fooEgressRule2,
+		metadata: &ruleMetadata{
+			Mutex:             lock.RWMutex{},
+			EndpointsSelected: map[uint16]*identity.Identity{},
+			AllEndpoints:      map[uint16]struct{}{},
+		}}
+	convertedCombinedRule := &rule{Rule: combinedRule,
+		metadata: &ruleMetadata{
+			Mutex:             lock.RWMutex{},
+			EndpointsSelected: map[uint16]*identity.Identity{},
+			AllEndpoints:      map[uint16]struct{}{},
+		}}
 
 	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooLabelArray)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))

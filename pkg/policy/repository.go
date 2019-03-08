@@ -386,7 +386,11 @@ func (p *Repository) Add(r api.Rule) (uint64, error) {
 func (p *Repository) AddListLocked(rules api.Rules) uint64 {
 	newList := make([]*rule, len(rules))
 	for i := range rules {
-		newList[i] = &rule{Rule: *rules[i]}
+		newRule := &rule{
+			Rule:     *rules[i],
+			metadata: newRuleMetadata(),
+		}
+		newList[i] = newRule
 	}
 	p.rules = append(p.rules, newList...)
 	p.revision++

@@ -17,7 +17,9 @@ package policy
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -27,6 +29,37 @@ import (
 
 type rule struct {
 	api.Rule
+
+	metadata *ruleMetadata
+}
+
+type ruleMetadata struct {
+	// mutex protects all fields in this type.
+	Mutex lock.RWMutex
+
+	// localRuleConsumers is the set of the endpoints which this rule selects
+	// which are node-local.
+	EndpointsSelected map[uint16]*identity.Identity
+
+	// AllEndpoints tracks which node-local Endpoints have been 'processed'.
+	// That is, it determines whether the Endpoint has actually been processed
+	// in relation to this rule. It does *not* encode whether the rule selects
+	// the endpoint; that is what EndpointsSelected is for.
+	AllEndpoints map[uint16]struct{}
+}
+
+func newRuleMetadata() *ruleMetadata {
+	return &ruleMetadata{
+		EndpointsSelected: make(map[uint16]*identity.Identity),
+		AllEndpoints:      make(map[uint16]struct{}),
+	}
+}
+
+func (m *ruleMetadata) deleteID(id uint16) {
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+	delete(m.EndpointsSelected, id)
+	delete(m.AllEndpoints, id)
 }
 
 func (r *rule) String() string {
@@ -409,6 +442,43 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 	}
 
 	return api.Undecided
+}
+
+func (r *rule) matches(id uint16, securityIdentity *identity.Identity) bool {
+	r.metadata.Mutex.Lock()
+	defer r.metadata.Mutex.Unlock()
+	var ruleMatches bool
+
+	// Rule has already been processed, we can check the caches in the rule.
+	if _, ok := r.metadata.AllEndpoints[id]; ok {
+		// We can compare the pointers to the identity to see if they are
+		// equivalent here safely.
+		cachedIdentity, ok := r.metadata.EndpointsSelected[id]
+		// There could be a possibility that the same identifier mapped to a
+		// different identity in the cache previously. Ensure that identity to
+		// which identifier maps is the same.
+		if ok && cachedIdentity == securityIdentity {
+			return true
+		}
+
+		// If the cached identity is the same, but wasn't in EndpointsSelected,
+		// then rule doesn't match ; return false. If the identities aren't
+		// equal, then we have to fall back to label-based matching.
+		if cachedIdentity == securityIdentity {
+			return false
+		}
+	}
+	// Fall back to costly matching.
+	if ruleMatches = r.EndpointSelector.Matches(securityIdentity.LabelArray); ruleMatches {
+		// Update cache so we don't have to do costly matching again.
+		r.metadata.EndpointsSelected[id] = securityIdentity
+	} else {
+		delete(r.metadata.EndpointsSelected, id)
+	}
+
+	r.metadata.AllEndpoints[id] = struct{}{}
+
+	return ruleMatches
 }
 
 // ****************** EGRESS POLICY ******************
