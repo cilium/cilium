@@ -725,12 +725,12 @@ Export the current ConfigMap
             # In case you want to use TLS in etcd, uncomment the 'ca-file' line
             # and create a kubernetes secret by following the tutorial in
             # https://cilium.link/etcd-config
-            ca-file: '/var/lib/etcd-secrets/etcd-ca'
+            ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
             #
             # In case you want client to server authentication, uncomment the following
             # lines and add the certificate and key in cilium-etcd-secrets below
-            key-file: '/var/lib/etcd-secrets/etcd-client-key'
-            cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+            key-file: '/var/lib/etcd-secrets/etcd-client.key'
+            cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
         kind: ConfigMap
         metadata:
           creationTimestamp: null
@@ -818,12 +818,12 @@ new options while keeping the configuration that we wanted:
             # In case you want to use TLS in etcd, uncomment the 'ca-file' line
             # and create a kubernetes secret by following the tutorial in
             # https://cilium.link/etcd-config
-            ca-file: '/var/lib/etcd-secrets/etcd-ca'
+            ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
             #
             # In case you want client to server authentication, uncomment the following
             # lines and add the certificate and key in cilium-etcd-secrets below
-            key-file: '/var/lib/etcd-secrets/etcd-client-key'
-            cert-file: '/var/lib/etcd-secrets/etcd-client-crt'
+            key-file: '/var/lib/etcd-secrets/etcd-client.key'
+            cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
         kind: ConfigMap
         metadata:
           creationTimestamp: null
