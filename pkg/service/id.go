@@ -27,7 +27,7 @@ func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 		return acquireGlobalID(l3n4Addr, baseID)
 	}
 
-	return acquireLocalID(l3n4Addr, baseID)
+	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
 // RestoreID restores  previously used service ID
@@ -41,7 +41,7 @@ func RestoreID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 		return acquireGlobalID(l3n4Addr, 0)
 	}
 
-	return acquireLocalID(l3n4Addr, baseID)
+	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
 // GetID returns the L3n4AddrID that belongs to the given id.
@@ -50,7 +50,7 @@ func GetID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 		return getGlobalID(id)
 	}
 
-	return getLocalID(id)
+	return serviceIDAlloc.getLocalID(id)
 }
 
 // DeleteID deletes the L3n4AddrID belonging to the given id from the kvstore.
@@ -61,7 +61,7 @@ func DeleteID(id uint32) error {
 		return deleteGlobalID(id)
 	}
 
-	return deleteLocalID(id)
+	return serviceIDAlloc.deleteLocalID(id)
 }
 
 func setIDSpace(next, max uint32) error {
@@ -69,7 +69,7 @@ func setIDSpace(next, max uint32) error {
 		return setGlobalIDSpace(next, max)
 	}
 
-	return setLocalIDSpace(next, max)
+	return serviceIDAlloc.setLocalIDSpace(next, max)
 }
 
 func getMaxServiceID() (uint32, error) {
@@ -77,5 +77,22 @@ func getMaxServiceID() (uint32, error) {
 		return getGlobalMaxServiceID()
 	}
 
-	return getLocalMaxServiceID()
+	return serviceIDAlloc.getLocalMaxServiceID()
+}
+
+func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (uint16, error) {
+	return RestoreBackendID(l3n4Addr, 0)
+}
+
+func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) (uint16, error) {
+	l3n4AddrID, err := backendIDAlloc.acquireLocalID(l3n4Addr, uint32(id))
+	if err != nil {
+		return 0, err
+	}
+
+	return uint16(l3n4AddrID.ID), nil
+}
+
+func DeleteBackendID(id uint16) {
+	backendIDAlloc.deleteLocalID(uint32(id))
 }
