@@ -18,6 +18,7 @@ package endpointmanager
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,8 +38,16 @@ type EndpointManagerSuite struct{}
 
 var _ = Suite(&EndpointManagerSuite{})
 
+type DummyRuleCacheOwner struct{}
+
+func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
+	return &sync.WaitGroup{}
+}
+
+var ruleCacheOwner *DummyRuleCacheOwner
+
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(10, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id string
@@ -91,7 +100,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ID = 0
 			},
 		},
@@ -113,7 +122,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ID = 0
 			},
 		},
@@ -136,7 +145,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ContainerID = ""
 			},
 		},
@@ -159,7 +168,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.DockerEndpointID = ""
 			},
 		},
@@ -182,7 +191,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ContainerName = ""
 			},
 		},
@@ -206,7 +215,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.SetK8sPodName("")
 			},
 		},
@@ -231,7 +240,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.IPv4 = nil
 			},
 		},
@@ -284,7 +293,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(2, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id uint16
@@ -318,7 +327,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ID = 0
 			},
 		},
@@ -351,7 +360,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(3, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id string
@@ -385,7 +394,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.SetContainerID("")
 			},
 		},
@@ -418,7 +427,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(4, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ip string
@@ -454,7 +463,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.IPv4 = nil
 			},
 		},
@@ -487,7 +496,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(5, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		podName string
@@ -522,7 +531,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.IPv4 = nil
 			},
 		},
@@ -555,7 +564,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(6, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ep *endpoint.Endpoint
@@ -598,7 +607,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.SetK8sNamespace("")
 				ep.SetK8sPodName("")
 				ep.SetContainerID("")
@@ -635,7 +644,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestRemove(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(7, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 	}
@@ -675,7 +684,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(1, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ep *endpoint.Endpoint
@@ -703,7 +712,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -722,7 +731,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
+				WaitEndpointRemoved(ep, ruleCacheOwner)
 				ep.ID = 0
 				ep.Options = nil
 			},
@@ -738,7 +747,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
-	ep := &endpoint.Endpoint{}
+	ep := endpoint.NewEndpointWithState(1, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ctx    context.Context
@@ -776,8 +785,8 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
-				ep = &endpoint.Endpoint{}
+				WaitEndpointRemoved(ep, ruleCacheOwner)
+				ep = endpoint.NewEndpointWithState(1, endpoint.StateReady)
 			},
 		},
 		{
@@ -802,8 +811,8 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
-				ep = &endpoint.Endpoint{}
+				WaitEndpointRemoved(ep, ruleCacheOwner)
+				ep = endpoint.NewEndpointWithState(1, endpoint.StateReady)
 			},
 		},
 		{
@@ -828,8 +837,8 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 				}
 			},
 			postTestRun: func() {
-				Remove(ep)
-				ep = &endpoint.Endpoint{}
+				WaitEndpointRemoved(ep, ruleCacheOwner)
+				ep = endpoint.NewEndpointWithState(1, endpoint.StateReady)
 			},
 		},
 	}

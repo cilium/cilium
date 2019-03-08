@@ -200,13 +200,7 @@ func UpdateReferences(ep *endpoint.Endpoint) {
 	updateReferences(ep)
 }
 
-// Remove removes the endpoint from the global maps.
-// Must be called with ep.Mutex.RLock held.
-func Remove(ep *endpoint.Endpoint) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	delete(endpoints, ep.ID)
-
+func releaseID(ep *endpoint.Endpoint) {
 	if err := endpointid.Release(ep.ID); err != nil {
 		// While restoring, endpoint IDs may not have been reused yet.
 		// Failure to release means that the endpoint ID was not reused
@@ -220,6 +214,63 @@ func Remove(ep *endpoint.Endpoint) {
 			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 		}
 	}
+}
+
+// RuleCacheOwner is an interface representing anything which needs to be
+// notified upon endpoint removal from the endpointmanager.
+type RuleCacheOwner interface {
+	// ClearPolicyConsumers removes references to the specified id from the
+	// policy rules managed by RuleCacheOwner.
+	ClearPolicyConsumers(id uint16) *sync.WaitGroup
+}
+
+// WaitEndpointRemoved waits until all operations associated with Remove of
+// the endpoint have been completed.
+func WaitEndpointRemoved(ep *endpoint.Endpoint, owner RuleCacheOwner) {
+	select {
+	case <-Remove(ep, owner):
+		return
+	}
+}
+
+// Remove removes the endpoint from the global maps and releases the node-local
+// ID allocated for the endpoint.
+// Must be called with ep.Mutex.RLock held. Releasing of the ID of the endpoint
+// is done asynchronously. Once the ID of the endpoint is released, the returned
+// channel is closed.
+func Remove(ep *endpoint.Endpoint, owner RuleCacheOwner) <-chan struct{} {
+
+	epRemoved := make(chan struct{})
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// This must be done before the ID is released for the endpoint!
+	delete(endpoints, ep.ID)
+
+	go func(ep *endpoint.Endpoint) {
+
+		// The endpoint's EventQueue may not be stopped yet (depending on whether
+		// the caller of the EventQueue has stopped it or not). Call it here
+		// to be safe so that ep.IsDrained() does not hang forever.
+		ep.EventQueue.Stop()
+
+		// Wait for no more events (primarily regenerations) to be occurring for
+		// this endpoint.
+		<-ep.EventQueue.IsDrained()
+
+		// Now that queue is drained, no more regenerations are occurring for
+		// this endpoint. Safe to remove references to it from the policy
+		// repository
+		wg := owner.ClearPolicyConsumers(ep.ID)
+
+		// Need to wait for cleanup for consumers of endpoint ID to be done
+		// before endpoint ID is released so that there aren't stale references
+		// laying around if another endpoint with the same ID is created.
+		wg.Wait()
+		releaseID(ep)
+		close(epRemoved)
+	}(ep)
 
 	if ep.ContainerID != "" {
 		delete(endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID))
@@ -244,6 +295,7 @@ func Remove(ep *endpoint.Endpoint) {
 	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
 		delete(endpointsAux, endpointid.NewID(endpointid.PodNamePrefix, podName))
 	}
+	return epRemoved
 }
 
 // RemoveAll removes all endpoints from the global maps.
@@ -346,23 +398,54 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 
 	log.Infof("regenerating all endpoints due to %s", regenMetadata.Reason)
 	for _, ep := range eps {
-		go func(ep *endpoint.Endpoint, wg *sync.WaitGroup) {
-			if err := ep.LockAlive(); err != nil {
-				log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-				ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-			} else {
-				regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-				ep.Unlock()
-				if regen {
-					// Regenerate logs status according to the build success/failure
-					<-ep.Regenerate(owner, regenMetadata)
-				}
-			}
-			wg.Done()
-		}(ep, &wg)
+		go regenerateEndpointBlocking(owner, ep, regenMetadata, &wg)
 	}
 
 	return &wg
+}
+
+func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
+	if err := ep.LockAlive(); err != nil {
+		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		ep.Unlock()
+		if regen {
+			// Regenerate logs status according to the build success/failure
+			<-ep.Regenerate(owner, regenMetadata)
+		}
+	}
+	wg.Done()
+}
+
+func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata) {
+	if err := ep.LockAlive(); err != nil {
+		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		ep.Unlock()
+		if regen {
+			// Regenerate logs status according to the build success/failure
+			ep.Regenerate(owner, regenMetadata)
+		}
+	}
+}
+
+// RegenerateEndpointSetSignalWhenEnqueued regenerates the endpoints represented
+// by endpointIDs. It signals to the provided WaitGroup when all of the endpoints
+// in said set have had regenerations queued up.
+func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
+	wg.Add(len(endpointIDs))
+
+	for endpointID := range endpointIDs {
+		ep := endpoints[endpointID]
+		go func() {
+			regenerateEndpointNonBlocking(owner, ep, regenMetadata)
+			wg.Done()
+		}()
+	}
 }
 
 // HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
