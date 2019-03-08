@@ -61,6 +61,7 @@ type ServiceID uint16
 
 // LBBackEnd represents load balancer backend.
 type LBBackEnd struct {
+	ID ServiceID // TODO(brb)
 	L3n4Addr
 	Weight uint16
 }

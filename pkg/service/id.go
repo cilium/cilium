@@ -30,6 +30,10 @@ func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 	return acquireLocalID(l3n4Addr, baseID)
 }
 
+func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (*loadbalancer.L3n4AddrID, error) {
+	return acquireLocalID(l3n4Addr, 0)
+}
+
 // RestoreID restores  previously used service ID
 func RestoreID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n4AddrID, error) {
 	log.WithField(logfields.L3n4Addr, logfields.Repr(l3n4Addr)).Debug("Restoring service")

@@ -106,6 +106,16 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 		beCpy = append(beCpy, v)
 	}
 
+	// Acquire ID for each backend
+	for _, b := range beCpy {
+		beAddr, err := service.AcquireBackendID(b.L3n4Addr)
+		if err != nil {
+			return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
+				b, err)
+		}
+		b.ID = beAddr.ID
+	}
+
 	svc := loadbalancer.LBSVC{
 		FE:     feL3n4Addr,
 		BES:    beCpy,
