@@ -15,8 +15,6 @@
 package endpoint
 
 import (
-	"sync"
-
 	"github.com/cilium/cilium/pkg/eventqueue"
 )
 
@@ -96,9 +94,8 @@ func (ev *EndpointRevisionBumpEvent) Handle(res chan interface{}) {
 // realized policy revision to rev. This may block depending on if events have
 // been queued up for the given endpoint. It blocks until the event has
 // succeeded, or if the event has been cancelled.
-func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64, wg *sync.WaitGroup) {
+func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
 	// Don't care about policy revision event results - it is best effort.
 	_ = e.EventQueue.Enqueue(epBumpEvent)
-	wg.Done()
 }

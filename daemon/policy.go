@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -283,11 +284,31 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		return
 	}
 
+	// No errors past this point!
+
 	d.policy.Mutex.Lock()
 
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
 	var removedPrefixes []*net.IPNet
+
+	// policySelectionWG is used to signal when the updating of all of the
+	// caches of endpoints in the rules which were added / updated have been
+	// updated.
+	var policySelectionWG sync.WaitGroup
+
+	// Get all endpoints at the time rules were added / updated so we can figure
+	// out which endpoints to regenerate / bump policy revision.
+	allEndpoints := endpointmanager.GetEndpoints()
+	policyEps := make([]policy.Endpoint, len(allEndpoints))
+
+	// Need to explicitly convert endpoints to policy.Endpoint.
+	// See: https://github.com/golang/go/wiki/InterfaceSlice
+	for _, ep := range allEndpoints {
+		policyEps = append(policyEps, ep)
+	}
+
+	endpointsToRegen := policy.NewIDSet()
 
 	if opts != nil {
 		if opts.Replace {
@@ -296,7 +317,8 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
-					_, _, _ = d.policy.DeleteByLabelsLocked(r.Labels)
+					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
+					deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
 				}
 			}
 		}
@@ -305,11 +327,13 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
-				_, _, _ = d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
+				deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
 			}
 		}
 	}
-	_, newRev := d.policy.AddListLocked(rules)
+
+	addedRules, newRev := d.policy.AddListLocked(rules)
 
 	// The information needed by the caller is available at this point, signal
 	// accordingly.
@@ -325,6 +349,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
+	addedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
 	d.policy.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
@@ -352,8 +377,6 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
 
-	d.TriggerPolicyUpdates(false, "policy rules added")
-
 	labels := make([]string, 0, len(rules))
 	for _, r := range rules {
 		labels = append(labels, r.Labels.GetModel()...)
@@ -365,7 +388,80 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
 
+	// Only regenerate endpoints which are needed to be regenerated as a result
+	// of the rule update. The rules which were imported most likely do not select
+	// all endpoints in the policy repository (and may not select any at all).
+	// The "reacting" to rule updates enqueues events for all endpoints. Once
+	// all endpoints have events queued up, this function will return.
+
+	r := &PolicyReactionEvent{
+		d:                d,
+		wg:               &policySelectionWG,
+		eps:              policyEps,
+		endpointsToRegen: endpointsToRegen,
+		newRev:           newRev,
+	}
+
+	ev := eventqueue.NewEvent(r)
+	// This event may block if the RuleReactionQueue is full. We don't care
+	// about when it finishes, just that the work it does is done in a serial
+	// order.
+	d.policy.RuleReactionQueue.Enqueue(ev)
+
 	return
+}
+
+// PolicyReactionEvent is an event which needs to be serialized after changes
+// to a policy repository for a daemon. This currently consists of endpoint
+// regenerations / policy revision incrementing for a given endpoint.
+type PolicyReactionEvent struct {
+	d                *Daemon
+	wg               *sync.WaitGroup
+	eps              []policy.Endpoint
+	endpointsToRegen *policy.IDSet
+	newRev           uint64
+}
+
+// Handle implements pkg/eventqueue/EventHandler interface.
+func (r *PolicyReactionEvent) Handle(res chan interface{}) {
+	r.d.ReactToRuleUpdates(r.wg, r.eps, r.endpointsToRegen, r.newRev)
+}
+
+// ReactToRuleUpdates waits until wg is complete to do the following
+// * regenerate all endpoints in epsToRegen
+// * bump the policy revision of all endpoints not in epsToRegen, but which are
+//   in allEps, to revision rev.
+func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Endpoint, epsToRegen *policy.IDSet, rev uint64) {
+	// Wait until we have calculated which endpoints need to be selected
+	// across multiple goroutines.
+	wg.Wait()
+
+	epsToRegen.Mutex.RLock()
+	defer epsToRegen.Mutex.RUnlock()
+
+	var enqueueWaitGroup sync.WaitGroup
+
+	// If an endpoint is not in the list of endpoints to regenerate, then the
+	// policy revision for the endpoint needs to be bumped so we can reflect that
+	// said endpoint realizes the state of the policy repository at revision rev.
+	for _, ep := range allEps {
+		if ep == nil {
+			continue
+		}
+		epID := ep.GetID16()
+		if _, ok := epsToRegen.IDs[epID]; !ok {
+			enqueueWaitGroup.Add(1)
+			go func(epp policy.Endpoint) {
+				epp.PolicyRevisionBumpEvent(rev)
+				enqueueWaitGroup.Done()
+			}(ep)
+		}
+	}
+
+	// Regenerate all other endpoints.
+	endpointmanager.RegenerateEndpointSetSignalWhenEnqueued(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs, &enqueueWaitGroup)
+
+	enqueueWaitGroup.Wait()
 }
 
 // PolicyDeleteEvent is a wrapper around deletion of policy rules with a given
@@ -434,7 +530,25 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		return
 	}
 
-	_, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	// policySelectionWG is used to signal when the updating of all of the
+	// caches of allEndpoints in the rules which were added / updated have been
+	// updated.
+	var policySelectionWG sync.WaitGroup
+
+	// Get all endpoints at the time rules were added / updated so we can figure
+	// out which endpoints to regenerate / bump policy revision.
+	allEndpoints := endpointmanager.GetEndpoints()
+	policyEps := make([]policy.Endpoint, len(allEndpoints))
+
+	// Need to explicitly convert endpoints to policy.Endpoint.
+	// See: https://github.com/golang/go/wiki/InterfaceSlice .
+	for _, ep := range allEndpoints {
+		policyEps = append(policyEps, ep)
+	}
+	endpointsToRegen := policy.NewIDSet()
+
+	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
+	deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
 
 	res <- &PolicyDeleteResult{
 		newRev: rev,
@@ -465,7 +579,19 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// Stop polling for ToFQDN DNS names for these rules
 	d.dnsRuleGen.StopManageDNSName(rules)
 
-	d.TriggerPolicyUpdates(false, "policy rules deleted")
+	r := &PolicyReactionEvent{
+		d:                d,
+		wg:               &policySelectionWG,
+		eps:              policyEps,
+		endpointsToRegen: endpointsToRegen,
+		newRev:           rev,
+	}
+
+	ev := eventqueue.NewEvent(r)
+	// This event may block if the RuleReactionQueue is full. We don't care
+	// about when it finishes, just that the work it does is done in a serial
+	// order.
+	d.policy.RuleReactionQueue.Enqueue(ev)
 
 	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {
