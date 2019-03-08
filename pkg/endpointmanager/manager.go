@@ -144,7 +144,7 @@ func Lookup(id string) (*endpoint.Endpoint, error) {
 		return lookupIPv4(eid), nil
 
 	case endpointid.IPv6Prefix:
-		return lookupIPv4(eid), nil
+		return lookupIPv6(eid), nil
 
 	default:
 		return nil, ErrInvalidPrefix{InvalidPrefix: prefix.String()}
