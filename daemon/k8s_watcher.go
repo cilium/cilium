@@ -1474,6 +1474,10 @@ func updateCNPNodeStatus(ciliumNPClient clientset.Interface, cnp *cilium_v2.Cili
 		err   error
 	)
 
+	// Ignore LastAppliedConfigAnnotation as it can be really costly to upload
+	// this as part of the status.
+	delete(annotations, v1.LastAppliedConfigAnnotation)
+
 	if cnpError != nil {
 		cnpns = cilium_v2.CiliumNetworkPolicyNodeStatus{
 			Enforcing:   enforcing,
