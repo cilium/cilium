@@ -40,6 +40,8 @@ package proxy
 // 1 0 1 0 Ingress proxy
 // 1 0 1 1 Egress proxy
 // 1 1 0 0 From host
+// 0 0 1 0 To Ingress Proxy
+// 0 0 1 1 To Egress proxy
 //
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
@@ -48,10 +50,17 @@ const (
 	// MagicMarkProxyMask can be used to fetch the proxy-relevant magic
 	// bits from a mark.
 	MagicMarkProxyMask int = 0x0E00
+	// MagicMarkProxyNoIDMask can be used to fetch the proxy-relevant magic
+	// bits from a mark for proxy reply traffic.
+	MagicMarkProxyNoIDMask int = 0xFFFFFEFF
 	// MagicMarkIsProxy can be used in conjunction with MagicMarkProxyMask
-	// to determine whether the mark is indicating that traffic is peering
-	// with a proxy.
+	// to determine whether the mark is indicating that traffic is sourced
+	// from a proxy.
 	MagicMarkIsProxy int = 0x0A00
+	// MagicMarkIsToProxy can be used in conjunction with MagicMarkHostMask
+	// to determine whether the mark is indicating that traffic is destined
+	// to a proxy.
+	MagicMarkIsToProxy uint32 = 0x0200
 
 	// MagicMarkIngress determines that the traffic is sourced from the
 	// proxy which is applying Ingress policy
@@ -59,6 +68,7 @@ const (
 	// MagicMarkEgress determines that the traffic is sourced from the
 	// proxy which is applying Egress policy
 	MagicMarkEgress int = 0x0B00
+
 	// MagicMarkHost determines that the traffic is sourced from the local
 	// host and not from a proxy.
 	MagicMarkHost int = 0x0C00

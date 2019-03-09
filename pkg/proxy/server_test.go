@@ -87,7 +87,7 @@ func (srv *Server) Start() {
 	if srv.ln != nil {
 		panic("server already started")
 	}
-	ln, err := net.Listen("tcp4", "")
+	ln, err := net.Listen("tcp4", "127.0.0.1:")
 	if err != nil {
 		panic(fmt.Sprintf("cannot start server: %s", err))
 	}
