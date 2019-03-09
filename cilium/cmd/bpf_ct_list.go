@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
@@ -47,7 +48,8 @@ func dumpCt(eID string) {
 	if eID == "global" {
 		maps = ctmap.GlobalMaps(true, true)
 	} else {
-		maps = ctmap.LocalMaps(&dummyEndpoint{ID: eID}, true, true)
+		id, _ := strconv.Atoi(eID)
+		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
 	}
 
 	for _, m := range maps {

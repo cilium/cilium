@@ -133,7 +133,7 @@ func init() {
 // CtEndpoint represents an endpoint for the functions required to manage
 // conntrack maps for the endpoint.
 type CtEndpoint interface {
-	StringID() string
+	GetID() uint64
 }
 
 // Map represents an instance of a BPF connection tracking map.
@@ -413,12 +413,16 @@ func maps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 		}
 	} else {
 		if ipv4 {
-			result = append(result, NewMap(MapNameTCP4+e.StringID(), MapTypeIPv4TCPLocal))
-			result = append(result, NewMap(MapNameAny4+e.StringID(), MapTypeIPv4AnyLocal))
+			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP4, uint16(e.GetID())),
+				MapTypeIPv4TCPLocal))
+			result = append(result, NewMap(bpf.LocalMapName(MapNameAny4, uint16(e.GetID())),
+				MapTypeIPv4AnyLocal))
 		}
 		if ipv6 {
-			result = append(result, NewMap(MapNameTCP6+e.StringID(), MapTypeIPv6TCPLocal))
-			result = append(result, NewMap(MapNameAny6+e.StringID(), MapTypeIPv6AnyLocal))
+			result = append(result, NewMap(bpf.LocalMapName(MapNameTCP6, uint16(e.GetID())),
+				MapTypeIPv6TCPLocal))
+			result = append(result, NewMap(bpf.LocalMapName(MapNameAny6, uint16(e.GetID())),
+				MapTypeIPv6AnyLocal))
 		}
 	}
 	return result
