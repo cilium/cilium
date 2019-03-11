@@ -295,7 +295,7 @@ Deprecated Options
   * ``ct-global-max-entries-other``: Superseded by ``bpf-ct-global-any-max``.
 
   * ``prometheus-serve-addr`` from the ``cilium-metrics-config`` ConfigMap is
-   superseded by ``prometheus-serve-addr``from the ``cilium-config` ConfigMap.
+    superseded by ``prometheus-serve-addr`` from the ``cilium-config`` ConfigMap.
 
   * ``--auto-ipv6-node-routes`` was removed as planned. Use
     ``--auto-direct-node-routes`` instead.
