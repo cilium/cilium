@@ -1310,7 +1310,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return cnpNodeStatusController(ciliumNPClient, ciliumV2Store, cnp, meta.revision, scopedLog, meta.policyImportError, node.GetName())
+				return cnpNodeStatusController(ctx, ciliumNPClient, ciliumV2Store, cnp, meta.revision, scopedLog, meta.policyImportError, node.GetName())
 			},
 		})
 
@@ -1353,7 +1353,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return cnpNodeStatusController(ciliumNPClient, ciliumV2Store, cnp, rev, scopedLog, policyImportErr, node.GetName())
+				return cnpNodeStatusController(ctx, ciliumNPClient, ciliumV2Store, cnp, rev, scopedLog, policyImportErr, node.GetName())
 			},
 		},
 	)
@@ -1361,6 +1361,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 }
 
 func cnpNodeStatusController(
+	ctx context.Context,
 	ciliumNPClient clientset.Interface,
 	ciliumV2Store cache.Store,
 	cnp *cilium_v2.CiliumNetworkPolicy,
@@ -1371,10 +1372,10 @@ func cnpNodeStatusController(
 
 	var overallErr error
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctxEndpointWait, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	waitForEPsErr := endpointmanager.WaitForEndpointsAtPolicyRev(ctx, rev)
+	waitForEPsErr := endpointmanager.WaitForEndpointsAtPolicyRev(ctxEndpointWait, rev)
 
 	// Number of attempts to retry updating of CNP in case that Update fails
 	// due to out-of-date resource version.
@@ -1386,6 +1387,13 @@ func cnpNodeStatusController(
 	)
 
 	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
+		select {
+		case <-ctx.Done():
+			// The owning controller wants us to stop, no error is
+			// returned. This is graceful
+			return nil
+		default:
+		}
 
 		var serverRuleCpy *cilium_v2.CiliumNetworkPolicy
 		var ruleCopyParseErr error
