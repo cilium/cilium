@@ -1,4 +1,5 @@
 /*
+Copyright 2019 Authors of Cilium
 Copyright 2014 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,13 +21,30 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/pborman/uuid"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var uuidLock lock.Mutex
 var lastUUID uuid.UUID
 
+// A UUID is a 128 bit (16 byte) Universal Unique IDentifier as defined in RFC
+// 4122.
+type UUID struct {
+	uuid.UUID
+}
+
+// ToUID converts the UUID into a k8s UID.
+func (u UUID) ToUID() types.UID {
+	return types.UID(u.String())
+}
+
+// ParseUID decodes uid into a UUID or returns nil.
+func ParseUID(uid types.UID) UUID {
+	return UUID{uuid.Parse(string(uid))}
+}
+
 // NewUUID returns a new UUID
-func NewUUID() uuid.UUID {
+func NewUUID() UUID {
 	uuidLock.Lock()
 	defer uuidLock.Unlock()
 	result := uuid.NewUUID()
@@ -38,5 +56,5 @@ func NewUUID() uuid.UUID {
 		result = uuid.NewUUID()
 	}
 	lastUUID = result
-	return result
+	return UUID{result}
 }
