@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -51,6 +52,10 @@ type CNPStatusUpdateContext struct {
 	// NodeName is the name of the node, it is used to separate status
 	// field entries per node
 	NodeName string
+
+	// NodeManager implements the backoff.NodeManager interface and is used
+	// to provide cluster-size dependent backoff
+	NodeManager backoff.NodeManager
 
 	// K8sServerVer is the Kubernetes apiserver version
 	K8sServerVer *go_version.Version
@@ -92,8 +97,24 @@ func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *cilium_v2.CiliumNet
 // up.
 func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, policyImportErr error) error {
 	var (
-		updateWaitDuration       = time.Duration(200) * time.Millisecond
 		overallErr, cnpUpdateErr error
+
+		// The following is an example distribution with jitter applied:
+		//
+		// nodes      4        16       128       512      1024      2048
+		// 1:      2.6s      5.5s      8.1s        9s      9.9s     12.9s
+		// 2:      1.9s      4.2s      6.3s     11.9s     17.6s     26.2s
+		// 3:        4s     10.4s     15.7s     26.7s     20.7s     23.3s
+		// 4:       18s     12.1s     19.7s       40s    1m6.3s   1m46.3s
+		// 5:     16.2s     28.9s   1m58.2s     46.2s      2m0s      2m0s
+		// 6:     54.7s      7.9s     53.3s      2m0s      2m0s     45.8s
+		// 7:   1m55.5s     22.8s      2m0s      2m0s      2m0s      2m0s
+		// 8:   1m45.8s   1m36.7s      2m0s      2m0s      2m0s      2m0s
+		cnpBackoff = backoff.Exponential{
+			Min:         time.Second,
+			NodeManager: c.NodeManager,
+			Jitter:      true,
+		}
 
 		// Number of attempts to retry updating of CNP in case that Update fails
 		// due to out-of-date resource version.
@@ -177,8 +198,10 @@ func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *cilium_v
 			break
 		}
 
-		scopedLog.WithError(cnpUpdateErr).Debugf("Update of CNP status failed. Sleeping for %s before retrying", updateWaitDuration)
-		time.Sleep(updateWaitDuration)
+		scopedLog.WithError(cnpUpdateErr).Debugf("Update of CNP status failed")
+		cnpBackoff.Wait(ctx)
+		// error of Wait() can be ignored, if the context is cancelled,
+		// the next iteration of the loop will break out
 	}
 
 	if cnpUpdateErr != nil {
