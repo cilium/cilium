@@ -150,21 +150,27 @@ func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 		}
 	}
 
+	stats.bpfWriteELF.Start()
 	dstPath := path.Join(ep.StateDir(), endpointObj)
 	opts, strings := ELFSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
+		stats.bpfWriteELF.End(err == nil)
 		return err
 	}
+	stats.bpfWriteELF.End(err == nil)
 
-	return ReloadDatapath(ctx, ep)
+	return ReloadDatapath(ctx, ep, stats)
 }
 
-func ReloadDatapath(ctx context.Context, ep endpoint) error {
+func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
-	return reloadDatapath(ctx, ep, &dirs)
+	stats.bpfLoadProg.Start()
+	err = reloadDatapath(ctx, ep, &dirs)
+	stats.bpfLoadProg.End(err == nil)
+	return err
 }

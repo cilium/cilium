@@ -257,10 +257,20 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *SpanStat) (string, bool, error) {
-	hash, err := o.baseHash.sumEndpoint(o, cfg, false)
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *SpanStat) (path string, compiled bool, err error) {
+	var hash string
+	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
 		return "", false, err
+	}
+
+	// Capture the time spent waiting for the template to compile.
+	if stats != nil {
+		stats.bpfWaitForELF.Start()
+		defer func() {
+			// Wrap to ensure that "err" is compared upon return.
+			stats.bpfWaitForELF.End(err == nil)
+		}()
 	}
 
 	// Serializes attempts to compile this cfg.
