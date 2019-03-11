@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,6 +60,41 @@ type Rule struct {
 	//
 	// +optional
 	Description string `json:"description,omitempty"`
+}
+
+// NewRule builds a new rule with no selector and no policy.
+func NewRule() *Rule {
+	return &Rule{}
+}
+
+// WithEndpointSelector configures the Rule with the specified selector.
+func (r *Rule) WithEndpointSelector(es EndpointSelector) *Rule {
+	r.EndpointSelector = es
+	return r
+}
+
+// WithIngressRules configures the Rule with the specified rules.
+func (r *Rule) WithIngressRules(rules []IngressRule) *Rule {
+	r.Ingress = rules
+	return r
+}
+
+// WithEgressRules configures the Rule with the specified rules.
+func (r *Rule) WithEgressRules(rules []EgressRule) *Rule {
+	r.Egress = rules
+	return r
+}
+
+// WithLabels configures the Rule with the specified labels metadata.
+func (r *Rule) WithLabels(labels labels.LabelArray) *Rule {
+	r.Labels = labels
+	return r
+}
+
+// WithDescription configures the Rule with the specified description metadata.
+func (r *Rule) WithDescription(desc string) *Rule {
+	r.Description = desc
+	return r
 }
 
 // RequiresDerivative it return true if the rule has a derivative rule.
