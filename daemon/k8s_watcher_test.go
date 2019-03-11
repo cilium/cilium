@@ -78,7 +78,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository()
 				r.AddList(api.Rules{
-					api.NewRule(types.UID("")).
+					api.NewRule(uuid).
 						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
@@ -148,7 +148,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository()
 				r.AddList(api.Rules{
-					api.NewRule(types.UID("")).
+					api.NewRule(uuid).
 						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
@@ -219,7 +219,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...)
 				r.AddList(api.Rules{
-					api.NewRule(types.UID("")).
+					api.NewRule(uuid).
 						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{

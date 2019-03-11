@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -201,7 +201,7 @@ func namespacesAreValid(namespace string, userNamespaces []string) bool {
 // ParseToCiliumRule returns an api.Rule with all the labels parsed into cilium
 // labels.
 func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.Rule {
-	retRule := &api.Rule{}
+	retRule := api.NewRule(uid)
 	if r.EndpointSelector.LabelSelector != nil {
 		retRule.EndpointSelector = api.NewESFromK8sLabelSelector("", r.EndpointSelector.LabelSelector)
 		// The PodSelector should only reflect to the same namespace
