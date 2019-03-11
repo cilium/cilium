@@ -112,6 +112,18 @@ provided. If both ingress and egress are omitted, the rule has no effect.
                 //
                 // +optional
                 Description string `json:"description,omitempty"`
+
+                // UUID is an identifier for the rule, in the form of an RFC4122 UUID.
+                //
+                // As of Cilium 1.5, when a set of rules are added, Cilium will
+                // generate an RFC4122 Version 4 UUID for the set of rules and
+                // configure the same UUID in each rule that is imported at the same
+                // time, overriding any user-provided UUIDs.
+                //
+                // Introduced in Cilium 1.5.
+                //
+                // +optional
+                UUID types.UID `json:"UUID,omitempty"`
         }
 
 ----
@@ -139,6 +151,10 @@ labels
 description
   Description is a string which is not interpreted by Cilium. It can be used to
   describe the intent and scope of the rule in a human readable form.
+
+uuid
+  UUID is an identifier for a rule or set of rules which Cilium generates. It
+  can be used to correlate policy API requests with imported rules.
 
 .. _label_selector:
 .. _LabelSelector:
