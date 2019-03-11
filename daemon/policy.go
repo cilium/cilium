@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -176,6 +176,9 @@ type AddOptions struct {
 
 	// The source of this policy, one of api, fqdn or k8s
 	Source string
+
+	// Unique identifier for the rules being modified.
+	uuid uuid.UUID
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
@@ -185,7 +188,14 @@ type AddOptions struct {
 // all locally managed endpoints.
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
 	policyAddStartTime := time.Now()
-	logger := log.WithField("PolicyAddRequest", uuid.NewUUID().String())
+
+	var uid uuid.UUID
+	if opts == nil {
+		uid = uuid.NewUUID()
+	} else {
+		uid = opts.uuid
+	}
+	logger := log.WithField("PolicyAddRequest", uid.String())
 
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
@@ -373,6 +383,7 @@ func newDeletePolicyHandler(d *Daemon) DeletePolicyHandler {
 func (h *deletePolicy) Handle(params DeletePolicyParams) middleware.Responder {
 	d := h.daemon
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
+
 	rev, err := d.PolicyDelete(lbls)
 	if err != nil {
 		return api.Error(DeletePolicyFailureCode, err)
@@ -402,13 +413,20 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
+	uuid := uuid.NewUUID()
+	uid := uuid.ToUID()
 	for _, r := range rules {
 		if err := r.Sanitize(); err != nil {
 			return api.Error(PutPolicyFailureCode, err)
 		}
+		r.SetUUID(uid)
 	}
 
-	rev, err := d.PolicyAdd(rules, &AddOptions{Source: metrics.LabelEventSourceAPI})
+	opts := AddOptions{
+		Source: metrics.LabelEventSourceAPI,
+		uuid:   uuid,
+	}
+	rev, err := d.PolicyAdd(rules, &opts)
 	if err != nil {
 		return api.Error(PutPolicyFailureCode, err)
 	}

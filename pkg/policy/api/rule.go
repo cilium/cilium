@@ -120,6 +120,11 @@ func (r *Rule) WithUUID(uuid types.UID) *Rule {
 	return r
 }
 
+// SetUUID changes the unique identifier for the rule to the specified UUID.
+func (r *Rule) SetUUID(uuid types.UID) {
+	r.UUID = uuid
+}
+
 // RequiresDerivative it return true if the rule has a derivative rule.
 func (r *Rule) RequiresDerivative() bool {
 	for _, rule := range r.Egress {

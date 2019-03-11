@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/hashicorp/go-version"
@@ -858,7 +859,8 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error 
 	}
 	scopedLog = scopedLog.WithField(logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name)
 
-	opts := AddOptions{Replace: true, Source: metrics.LabelEventSourceK8s}
+	uuid := uuid.ParseUID(k8sNP.ObjectMeta.UID)
+	opts := AddOptions{Replace: true, Source: metrics.LabelEventSourceK8s, uuid: uuid}
 	if _, err := d.PolicyAdd(rules, &opts); err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
@@ -889,11 +891,13 @@ func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) err
 		log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")
 	}
 
+	uuid := uuid.ParseUID(k8sNP.ObjectMeta.UID)
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNetworkPolicyName: k8sNP.ObjectMeta.Name,
 		logfields.K8sNamespace:         k8sNP.ObjectMeta.Namespace,
 		logfields.K8sAPIVersion:        k8sNP.TypeMeta.APIVersion,
 		logfields.Labels:               logfields.Repr(labels),
+		logfields.PolicyUUID:           uuid,
 	})
 	if _, err := d.PolicyDelete(labels); err != nil {
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
@@ -1308,6 +1312,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	var rev uint64
 
 	rules, policyImportErr := cnp.Parse()
+	uuid := uuid.ParseUID(cnp.ObjectMeta.UID)
 	if policyImportErr == nil {
 		policyImportErr = k8s.PreprocessRules(rules, &d.k8sSvcCache)
 		// Replace all rules with the same name, namespace and
@@ -1315,6 +1320,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 		rev, policyImportErr = d.PolicyAdd(rules, &AddOptions{
 			ReplaceWithLabels: cnp.GetIdentityLabels(),
 			Source:            metrics.LabelEventSourceK8s,
+			uuid:              uuid,
 		})
 	}
 
@@ -1351,10 +1357,12 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 }
 
 func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy) error {
+	uuid := uuid.ParseUID(cnp.ObjectMeta.UID)
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
+		logfields.PolicyUUID:              uuid,
 	})
 
 	scopedLog.Debug("Deleting CiliumNetworkPolicy")

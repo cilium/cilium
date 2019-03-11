@@ -28,7 +28,6 @@ import (
 
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -241,8 +240,7 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 	np.Spec.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
 
-	// The next patch will pass the UID.
-	rule := api.NewRule(types.UID("")).
+	rule := api.NewRule(np.ObjectMeta.UID).
 		WithEndpointSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector)).
 		WithLabels(GetPolicyLabelsv1(np)).
 		WithIngressRules(ingresses).

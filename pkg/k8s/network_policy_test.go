@@ -208,14 +208,15 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 
 func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 
-	// Ingress with neither pod nor namespace selector set.
+	// Ingress with neither pod nor namespace selector set
+	uuid := "11bba160-ddca-11e8-b697-0800273b04ff"
 	ex1 := []byte(`{
 "kind": "NetworkPolicy",
 "apiVersion": "extensions/networkingv1",
 "metadata": {
   "name": "ingress-cidr-test",
   "namespace": "myns",
-  "uid": "11bba160-ddca-11e8-b697-0800273b04ff"
+  "uid": "` + uuid + `"
 },
 "spec": {
   "podSelector": {
@@ -250,7 +251,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
-	expectedRule := api.NewRule(types.UID("")).
+	expectedRule := api.NewRule(types.UID(uuid)).
 		WithEndpointSelector(epSelector).
 		WithIngressRules([]api.IngressRule{
 			{
@@ -267,7 +268,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 		WithEgressRules([]api.EgressRule{}).
 		WithLabels(labels.ParseLabelArray(
 			"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
-			"k8s:"+k8sConst.PolicyLabelUID+"=11bba160-ddca-11e8-b697-0800273b04ff",
+			"k8s:"+k8sConst.PolicyLabelUID+"="+uuid,
 			"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
 			"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 		))
