@@ -67,14 +67,20 @@ var (
 	// the datapath. It is prepended to metric names and separated with a '_'.
 	Datapath = "datapath"
 
-	// Agent is the subsystem to cope metrics related to the cilium agent itself.
+	// Agent is the subsystem to scope metrics related to the cilium agent itself.
 	Agent = "agent"
+
+	// K8s is the subsystem to scope metrics related to Kubernetes
+	K8s = "k8s"
 
 	// K8sClient is the subsystem to scope metrics related to the kubernetes client.
 	K8sClient = "k8s_client"
 
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
+
+	// LabelAttempts is the number of attempts it took to complete the operation
+	LabelAttempts = "attempts"
 
 	// Labels
 
@@ -520,6 +526,15 @@ var (
 		Help:      "Number of API calls made to kube-apiserver labeled by host, method and return code.",
 	}, []string{"host", LabelMethod, LabelAPIReturnCode})
 
+	// KubernetesCNPStatusCompletion is the number of seconds it takes to
+	// complete a CNP status update
+	KubernetesCNPStatusCompletion = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: K8s,
+		Name:      "cnp_status_completion_seconds",
+		Help:      "Duration in seconds in how long it took to complete a CNP status update",
+	}, []string{LabelAttempts, LabelOutcome})
+
 	// IPAM events
 
 	// IpamEvent is the number of IPAM events received labeled by action and
@@ -565,6 +580,7 @@ func init() {
 	MustRegister(APIInteractions)
 	MustRegister(KubernetesAPIInteractions)
 	MustRegister(KubernetesAPICalls)
+	MustRegister(KubernetesCNPStatusCompletion)
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)

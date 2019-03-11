@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/hashicorp/go-version"
@@ -1283,6 +1284,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
 		K8sServerVer:                k8sServerVer,
+		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
 	}
 
@@ -1334,6 +1336,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
 		K8sServerVer:                k8sServerVer,
+		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
 	}
 

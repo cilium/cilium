@@ -130,6 +130,10 @@ Kubernetes
 * ``kubernetes_events_total``: Number of Kubernetes events received labeled by
   scope, action and the execution result
 
+* ``k8s_cnp_status_completion_seconds``: Duration in seconds in how long it
+  took to complete a CNP status update labeled by number of attempts and
+  outcome.
+
 IPAM
 ------
 
