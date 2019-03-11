@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package backoff
 
 import (
 	"math"
+	"math/rand"
 	"time"
 
 	"github.com/cilium/cilium/pkg/logging"
@@ -26,6 +27,12 @@ import (
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "backoff")
+
+// NodeManager is the interface required to implement cluster size dependent
+// intervals
+type NodeManager interface {
+	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
+}
 
 // Exponential implements an exponential backoff
 type Exponential struct {
@@ -41,6 +48,14 @@ type Exponential struct {
 	// unspecified, a factor of 2.0 will be used
 	Factor float64
 
+	// Jitter, when enabled, adds random jitter to the interval
+	Jitter bool
+
+	// NodeManager enables the use of cluster size dependent backoff
+	// intervals, i.e. the larger the cluster, the longer the backoff
+	// interval
+	NodeManager NodeManager
+
 	// Name is a free form string describing the operation subject to the
 	// backoff, if unspecified, a UUID is generated. This string is used
 	// for logging purposes.
@@ -50,19 +65,39 @@ type Exponential struct {
 }
 
 // CalculateDuration calculates the backoff duration based on minimum base
-// interval, exponential factor and number of failures.
-func CalculateDuration(min, max time.Duration, factor float64, failures int) time.Duration {
-	t := time.Duration(float64(min) * math.Pow(factor, float64(failures)))
-	if max != time.Duration(0) && t > max {
-		t = max
+// interval, exponential factor, jitter and number of failures.
+func CalculateDuration(min, max time.Duration, factor float64, jitter bool, failures int) time.Duration {
+	minFloat := float64(min)
+	maxFloat := float64(max)
+
+	t := minFloat * math.Pow(factor, float64(failures))
+	if max != time.Duration(0) && t > maxFloat {
+		t = maxFloat
 	}
-	return t
+
+	if jitter {
+		t = rand.Float64()*(t-minFloat) + minFloat
+	}
+
+	return time.Duration(t)
 }
 
 // Wait waits for the required time using an exponential backoff
 func (b *Exponential) Wait() {
 	b.attempt++
+	t := b.Duration(b.attempt)
 
+	log.WithFields(logrus.Fields{
+		"time":    t,
+		"attempt": b.attempt,
+		"name":    b.Name,
+	}).Debug("Sleeping with exponential backoff")
+
+	time.Sleep(t)
+}
+
+// Duration returns the wait duration for the nth attempt
+func (b *Exponential) Duration(attempt int) time.Duration {
 	if b.Name == "" {
 		b.Name = uuid.NewUUID().String()
 	}
@@ -77,13 +112,15 @@ func (b *Exponential) Wait() {
 		factor = b.Factor
 	}
 
-	t := CalculateDuration(min, b.Max, factor, b.attempt)
+	t := CalculateDuration(min, b.Max, factor, b.Jitter, attempt)
 
-	log.WithFields(logrus.Fields{
-		"time":    t,
-		"attempt": b.attempt,
-		"name":    b.Name,
-	}).Debug("Sleeping with exponential backoff")
+	if b.NodeManager != nil {
+		t = b.NodeManager.ClusterSizeDependantInterval(t)
+	}
 
-	time.Sleep(t)
+	if b.Max != time.Duration(0) && t > b.Max {
+		t = b.Max
+	}
+
+	return t
 }
