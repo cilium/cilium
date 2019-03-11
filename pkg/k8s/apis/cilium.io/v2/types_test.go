@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,8 +113,8 @@ var (
 		Labels: labels.LabelArray{{Key: "uuid", Value: "98678-9868976-78687678887678", Source: ""}},
 	}
 	uuidRule         = types.UID("98678-9868976-78687678887678")
-	expectedSpecRule = api.Rule{
-		Ingress: []api.IngressRule{
+	expectedSpecRule = api.NewRule().
+				WithIngressRules([]api.IngressRule{
 			{
 				FromEndpoints: []api.EndpointSelector{
 					api.NewESFromLabels(
@@ -132,8 +132,8 @@ var (
 					},
 				},
 			},
-		},
-		Egress: []api.EgressRule{
+		}).
+		WithEgressRules([]api.EgressRule{
 			{
 				ToPorts: []api.PortRule{
 					{
@@ -147,9 +147,8 @@ var (
 			}, {
 				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
 			},
-		},
-		Labels: k8sUtils.GetPolicyLabels("default", "rule1", uuidRule, "CiliumNetworkPolicy"),
-	}
+		}).
+		WithLabels(k8sUtils.GetPolicyLabels("default", "rule1", uuidRule, "CiliumNetworkPolicy"))
 
 	rawRule = []byte(`{
         "endpointSelector": {
@@ -310,7 +309,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	rules, err := expectedPolicyRule.Parse()
 	c.Assert(err, IsNil)
 	c.Assert(len(rules), Equals, 1)
-	c.Assert(*rules[0], checker.DeepEquals, expectedSpecRule)
+	c.Assert(*rules[0], checker.DeepEquals, *expectedSpecRule)
 
 	b, err := json.Marshal(expectedPolicyRule)
 	c.Assert(err, IsNil)
@@ -370,7 +369,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 		}},
 	)
 	expectedSpecRule.EndpointSelector = expectedES
-	expectedSpecRules := api.Rules{&expectedSpecRule, &expectedSpecRule}
+	expectedSpecRules := api.Rules{expectedSpecRule, expectedSpecRule}
 	expectedSpecRule.Sanitize()
 	for i := range expectedSpecRules {
 		expectedSpecRules[i].Sanitize()
