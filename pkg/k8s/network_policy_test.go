@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -250,9 +250,9 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	err := json.Unmarshal(ex1, &np)
 	c.Assert(err, IsNil)
 
-	expectedRule := &api.Rule{
-		EndpointSelector: epSelector,
-		Ingress: []api.IngressRule{
+	expectedRule := api.NewRule().
+		WithEndpointSelector(epSelector).
+		WithIngressRules([]api.IngressRule{
 			{
 				FromCIDRSet: []api.CIDRRule{
 					{
@@ -263,15 +263,14 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 					},
 				},
 			},
-		},
-		Egress: []api.EgressRule{},
-		Labels: labels.ParseLabelArray(
+		}).
+		WithEgressRules([]api.EgressRule{}).
+		WithLabels(labels.ParseLabelArray(
 			"k8s:"+k8sConst.PolicyLabelName+"=ingress-cidr-test",
 			"k8s:"+k8sConst.PolicyLabelUID+"=11bba160-ddca-11e8-b697-0800273b04ff",
 			"k8s:"+k8sConst.PolicyLabelNamespace+"=myns",
 			"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
-		),
-	}
+		))
 
 	expectedRule.Sanitize()
 
