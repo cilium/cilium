@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -239,12 +241,12 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	}
 	np.Spec.PodSelector.MatchLabels[k8sConst.PodNamespaceLabel] = namespace
 
-	rule := &api.Rule{
-		EndpointSelector: api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector),
-		Labels:           GetPolicyLabelsv1(np),
-		Ingress:          ingresses,
-		Egress:           egresses,
-	}
+	// The next patch will pass the UID.
+	rule := api.NewRule(types.UID("")).
+		WithEndpointSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &np.Spec.PodSelector)).
+		WithLabels(GetPolicyLabelsv1(np)).
+		WithIngressRules(ingresses).
+		WithEgressRules(egresses)
 
 	if err := rule.Sanitize(); err != nil {
 		return nil, err
