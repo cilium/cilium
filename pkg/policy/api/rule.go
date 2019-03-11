@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@ package api
 
 import (
 	"github.com/cilium/cilium/pkg/labels"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // Rule is a policy rule which must be applied to all endpoints which match the
@@ -60,6 +62,26 @@ type Rule struct {
 	//
 	// +optional
 	Description string `json:"description,omitempty"`
+
+	// UUID is an identifier for the rule, in the form of an RFC4122 UUID.
+	//
+	// As of Cilium 1.5, when a set of rules are added, Cilium will
+	// generate an RFC4122 Version 4 UUID for the set of rules and
+	// configure the same UUID in each rule that is imported at the same
+	// time, overriding any user-provided UUIDs.
+	//
+	// Introduced in Cilium 1.5.
+	//
+	// +optional
+	UUID types.UID `json:"UUID,omitempty"`
+}
+
+// NewRule builds a new rule with the UUID prepopulated. By convention, the
+// same UID may be shared with other rules that are parts of the same policy.
+func NewRule(uuid types.UID) *Rule {
+	return &Rule{
+		UUID: uuid,
+	}
 }
 
 // RequiresDerivative it return true if the rule has a derivative rule.
