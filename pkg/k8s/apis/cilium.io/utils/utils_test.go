@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,15 +77,16 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					),
 				},
 			},
-			want: &api.Rule{
-				EndpointSelector: api.NewESFromMatchRequirements(
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
 					map[string]string{
 						role:      "backend",
 						namespace: "default",
 					},
 					nil,
 				),
-				Labels: labels.LabelArray{
+			).WithLabels(
+				labels.LabelArray{
 					{
 						Key:    "io.cilium.k8s.policy.name",
 						Value:  "parse-in-namespace",
@@ -107,7 +108,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 				},
-			},
+			),
 		},
 		{
 			// When the rule specifies a namespace, it is overridden
@@ -126,15 +127,16 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					),
 				},
 			},
-			want: &api.Rule{
-				EndpointSelector: api.NewESFromMatchRequirements(
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
 					map[string]string{
 						role:      "backend",
 						namespace: "default",
 					},
 					nil,
 				),
-				Labels: labels.LabelArray{
+			).WithLabels(
+				labels.LabelArray{
 					{
 						Key:    "io.cilium.k8s.policy.name",
 						Value:  "parse-in-namespace-with-ns-selector",
@@ -156,7 +158,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 				},
-			},
+			),
 		},
 		{
 			// Don't insert a namespace selection when the rule
@@ -175,8 +177,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					),
 				},
 			},
-			want: &api.Rule{
-				EndpointSelector: api.NewESFromMatchRequirements(
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
 					map[string]string{
 						role:       "backend",
 						podInitLbl: "",
@@ -185,7 +187,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 					nil,
 				),
-				Labels: labels.LabelArray{
+			).WithLabels(
+				labels.LabelArray{
 					{
 						Key:    "io.cilium.k8s.policy.name",
 						Value:  "parse-init-policy",
@@ -207,7 +210,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 				},
-			},
+			),
 		},
 		{
 			name: "set-any-source-for-namespace",
@@ -236,15 +239,16 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 				},
 			},
-			want: &api.Rule{
-				EndpointSelector: api.NewESFromMatchRequirements(
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
 					map[string]string{
 						role:      "backend",
 						namespace: "default",
 					},
 					nil,
 				),
-				Ingress: []api.IngressRule{
+			).WithIngressRules(
+				[]api.IngressRule{
 					{
 						FromEndpoints: []api.EndpointSelector{
 							api.NewESFromK8sLabelSelector(
@@ -257,7 +261,8 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						},
 					},
 				},
-				Labels: labels.LabelArray{
+			).WithLabels(
+				labels.LabelArray{
 					{
 						Key:    "io.cilium.k8s.policy.name",
 						Value:  "set-any-source-for-namespace",
@@ -279,7 +284,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						Source: labels.LabelSourceK8s,
 					},
 				},
-			},
+			),
 		},
 	}
 	for _, tt := range tests {

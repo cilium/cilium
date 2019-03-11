@@ -81,20 +81,23 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository()
 				r.AddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
+					api.NewRule().
+						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 								},
 							},
-						},
-						Ingress:     nil,
-						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
-						Description: "",
-					},
+						}).
+						WithIngressRules(nil).
+						WithEgressRules(nil).
+						WithLabels(utils.GetPolicyLabels(
+							"production",
+							"db",
+							uuid,
+							utils.ResourceTypeCiliumNetworkPolicy),
+						),
 				})
 				return wanted{
 					err:  nil,
@@ -150,20 +153,23 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository()
 				r.AddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
+					api.NewRule().
+						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 								},
 							},
-						},
-						Ingress:     nil,
-						Egress:      nil,
-						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
-						Description: "",
-					},
+						}).
+						WithIngressRules(nil).
+						WithEgressRules(nil).
+						WithLabels(utils.GetPolicyLabels(
+							"production",
+							"db",
+							uuid,
+							utils.ResourceTypeCiliumNetworkPolicy,
+						)),
 				})
 				return wanted{
 					err:  nil,
@@ -220,20 +226,18 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				lbls := utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy)
 				lbls = append(lbls, labels.ParseLabelArray("foo=bar")...)
 				r.AddList(api.Rules{
-					{
-						EndpointSelector: api.EndpointSelector{
+					api.NewRule().
+						WithEndpointSelector(api.EndpointSelector{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
 								},
 							},
-						},
-						Ingress:     nil,
-						Egress:      nil,
-						Labels:      lbls,
-						Description: "",
-					},
+						}).
+						WithIngressRules(nil).
+						WithEgressRules(nil).
+						WithLabels(lbls),
 				})
 				return wanted{
 					err:  nil,
