@@ -17,6 +17,7 @@ package launch
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -130,7 +131,7 @@ func (nm *NodeMonitor) Run(sockPath, bpfRoot string) {
 			log.WithError(err).Warning("Error while running monitor")
 		}
 
-		backoffConfig.Wait()
+		backoffConfig.Wait(context.TODO())
 	}
 }
 

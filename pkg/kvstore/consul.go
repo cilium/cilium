@@ -200,7 +200,7 @@ func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
 				err = errors.New("timeout while waiting for leader to be elected")
 			}
 		}
-		boff.Wait()
+		boff.Wait(context.TODO())
 	}
 
 	if err != nil {

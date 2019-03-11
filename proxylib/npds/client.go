@@ -121,7 +121,7 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 			}
 
 			// Back off before retrying
-			backOff.Wait()
+			backOff.Wait(context.TODO())
 		}
 	}()
 
