@@ -16,6 +16,7 @@
 package k8s
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -44,7 +45,7 @@ func waitForNodeInformation(nodeName string) *node.Node {
 		n, err := retrieveNodeInformation(nodeName)
 		if err != nil {
 			log.WithError(err).Warning("Waiting for k8s node information")
-			backoff.Wait()
+			backoff.Wait(context.TODO())
 			continue
 		}
 

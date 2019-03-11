@@ -572,7 +572,9 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 
 		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
 
-		boff.Wait()
+		if waitErr := boff.Wait(ctx); waitErr != nil {
+			return 0, false, waitErr
+		}
 	}
 
 	return 0, false, err

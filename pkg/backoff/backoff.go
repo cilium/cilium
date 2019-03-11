@@ -15,6 +15,8 @@
 package backoff
 
 import (
+	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -83,7 +85,7 @@ func CalculateDuration(min, max time.Duration, factor float64, jitter bool, fail
 }
 
 // Wait waits for the required time using an exponential backoff
-func (b *Exponential) Wait() {
+func (b *Exponential) Wait(ctx context.Context) error {
 	b.attempt++
 	t := b.Duration(b.attempt)
 
@@ -93,7 +95,13 @@ func (b *Exponential) Wait() {
 		"name":    b.Name,
 	}).Debug("Sleeping with exponential backoff")
 
-	time.Sleep(t)
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("exponential backoff cancelled via context: %s", ctx.Err())
+	case <-time.After(t):
+	}
+
+	return nil
 }
 
 // Duration returns the wait duration for the nth attempt
