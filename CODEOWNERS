@@ -64,7 +64,7 @@ pkg/apierror/ @cilium/api
 pkg/apipanic/ @cilium/api
 pkg/apisocket/ @cilium/api
 pkg/bpf/ @cilium/bpf
-pkg/byteorder/ @cilium/bpf
+pkg/byteorder/ @cilium/bpf @cilium/api
 pkg/client @cilium/api
 pkg/completion/ @cilium/proxy
 pkg/components/ @cilium/agent
@@ -83,9 +83,12 @@ pkg/health/ @cilium/health
 pkg/identity @cilium/policy
 pkg/ipcache/ @cilium/ipcache
 pkg/k8s/ @cilium/kubernetes
+pkg/k8s/apis/cilium.io/v2/ @cilium/api
+pkg/k8s/client/clientset/versioned/ @cilium/api
+pkg/k8s/client/informers/ @cilium/api
 pkg/kafka/ @cilium/proxy
 pkg/kvstore/ @cilium/kvstore
-pkg/labels @cilium/policy
+pkg/labels @cilium/policy @cilium/api
 pkg/launcher @pkg/agent
 pkg/loadbalancer @cilium/loadbalancer
 pkg/lock @pkg/agent
@@ -93,6 +96,7 @@ pkg/logging/ @cilium/cli
 pkg/mac @cilium/bpf
 pkg/maps/ @cilium/bpf
 pkg/metrics @cilium/metrics
+pkg/monitor/api @cilium/api
 pkg/monitor/datapath_debug.go @cilium/bpf
 pkg/monitor/format @cilium/cli
 pkg/monitor/payload @cilium/api
