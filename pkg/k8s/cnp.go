@@ -26,6 +26,8 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/hashicorp/go-version"
@@ -60,6 +62,11 @@ type CNPStatusUpdateContext struct {
 	// K8sServerVer is the Kubernetes apiserver version
 	K8sServerVer *go_version.Version
 
+	// UpdateDuration must be populated using spanstart.Start() to provide
+	// the timestamp of when the status update operation was started. It is
+	// used to provide the latency in the Prometheus metrics.
+	UpdateDuration *spanstat.SpanStat
+
 	// WaitForEndpointsAtPolicyRev must point to a function that will wait
 	// for all local endpoints to reach the particular policy revision
 	WaitForEndpointsAtPolicyRev func(ctx context.Context, rev uint64) error
@@ -91,13 +98,69 @@ func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *cilium_v2.CiliumNet
 	return serverRule, nil
 }
 
+func (c *CNPStatusUpdateContext) prepareUpdate(cnp *cilium_v2.CiliumNetworkPolicy, scopedLog *logrus.Entry) (serverRule *cilium_v2.CiliumNetworkPolicy, err error) {
+	var localCopy *cilium_v2.CiliumNetworkPolicy
+
+	if c.CiliumV2Store != nil {
+		localCopy, err = c.getUpdatedCNPFromStore(cnp)
+		if err != nil {
+			scopedLog.WithError(err).Debug("error getting updated CNP from store")
+			return
+		}
+
+		// Make a copy since the rule is a pointer, and any of its fields
+		// which are also pointers could be modified outside of this
+		// function.
+		serverRule = localCopy.DeepCopy()
+		_, err = serverRule.Parse()
+		if err != nil {
+			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(serverRule)).
+				Warn("Error parsing new CiliumNetworkPolicy rule")
+		} else {
+			scopedLog.WithField("cnpFromStore", serverRule.String()).Debug("copy of CNP retrieved from store which is being updated with status")
+		}
+
+		return
+	}
+
+	serverRule = cnp
+	_, err = cnp.Parse()
+	if err != nil {
+		log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRule)).
+			Warn("Error parsing new CiliumNetworkPolicy rule")
+	}
+
+	return
+}
+
+func (c *CNPStatusUpdateContext) updateStatus(cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, policyImportErr, waitForEPsErr error) (err error) {
+	// Update the status of whether the rule is enforced on this node.  If
+	// we are unable to parse the CNP retrieved from the store, or if
+	// endpoints did not reach the desired policy revision after 30
+	// seconds, then mark the rule as not being enforced.
+	if policyImportErr != nil {
+		// OK is false here because the policy wasn't imported into
+		// cilium on this node; since it wasn't imported, it also isn't
+		// enforced.
+		err = c.update(cnp, false, false, policyImportErr, rev, cnp.Annotations)
+	} else {
+		// If the deadline by the above context, then not all endpoints
+		// are enforcing the given policy, and waitForEpsErr will be
+		// non-nil.
+		err = c.update(cnp, waitForEPsErr == nil, true, waitForEPsErr, rev, cnp.Annotations)
+	}
+
+	return
+}
+
 // UpdateStatus updates the status section of a CiliumNetworkPolicy. It will
 // retry as long as required to update the status unless a non-temporary error
 // occurs in which case it expects a surrounding controller to restart or give
 // up.
 func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, policyImportErr error) error {
 	var (
-		overallErr, cnpUpdateErr error
+		err        error
+		serverRule *cilium_v2.CiliumNetworkPolicy
 
 		// The following is an example distribution with jitter applied:
 		//
@@ -116,10 +179,6 @@ func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *cilium_v
 			Jitter:      true,
 		}
 
-		// Number of attempts to retry updating of CNP in case that Update fails
-		// due to out-of-date resource version.
-		maxAttempts = 5
-
 		scopedLog = log.WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -132,89 +191,63 @@ func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *cilium_v
 
 	waitForEPsErr := c.WaitForEndpointsAtPolicyRev(ctxEndpointWait, rev)
 
-	for numAttempts := 0; numAttempts < maxAttempts; numAttempts++ {
+	numAttempts := 0
+retryLoop:
+	for {
+		numAttempts++
+
 		select {
 		case <-ctx.Done():
 			// The owning controller wants us to stop, no error is
 			// returned. This is graceful
-			return nil
+			err = fmt.Errorf("status update cancelled via context: %s", ctx.Err())
+			break retryLoop
 		default:
 		}
 
-		var serverRuleCpy *cilium_v2.CiliumNetworkPolicy
-		var ruleCopyParseErr error
-		if c.CiliumV2Store != nil {
-			serverRule, fromStoreErr := c.getUpdatedCNPFromStore(cnp)
-			if fromStoreErr != nil {
-				log.WithError(fromStoreErr).Debug("error getting updated CNP from store")
-				return fromStoreErr
-			}
-
-			// Make a copy since the rule is a pointer, and any of its fields
-			// which are also pointers could be modified outside of this
-			// function.
-			serverRuleCpy = serverRule.DeepCopy()
-			_, ruleCopyParseErr = serverRuleCpy.Parse()
-			if ruleCopyParseErr != nil {
-				// If we can't parse the rule then we should signalize
-				// it in the status
-				log.WithError(ruleCopyParseErr).WithField(logfields.Object, logfields.Repr(serverRuleCpy)).
-					Warn("Error parsing new CiliumNetworkPolicy rule")
-			}
-
-			scopedLog.WithField("cnpFromStore", serverRuleCpy.String()).Debug("copy of CNP retrieved from store which is being updated with status")
-		} else {
-			serverRuleCpy = cnp
-			_, ruleCopyParseErr = cnp.Parse()
+		// Failure to prepare are returned as error immediately to
+		// expose them via the controller status as these errors are
+		// most likely not temporary.
+		serverRule, err = c.prepareUpdate(cnp, scopedLog)
+		if err != nil {
+			return err
 		}
 
-		// Update the status of whether the rule is enforced on this node.
-		// If we are unable to parse the CNP retrieved from the store,
-		// or if endpoints did not reach the desired policy revision
-		// after 30 seconds, then mark the rule as not being enforced.
-		if policyImportErr != nil {
-			// OK is false here because the policy wasn't imported into
-			// cilium on this node; since it wasn't imported, it also
-			// isn't enforced.
-			cnpUpdateErr = c.update(serverRuleCpy, false, false, policyImportErr, rev, serverRuleCpy.Annotations)
-		} else if ruleCopyParseErr != nil {
-			// This handles the case where the initial instance of this
-			// rule was imported into the policy repository successfully
-			// (policyImportErr == nil), but, the rule has been updated
-			// in the store soon after, and is now invalid. As such,
-			// the rule is not OK because it cannot be imported due
-			// to parsing errors, and cannot be enforced because it is
-			// not OK.
-			cnpUpdateErr = c.update(serverRuleCpy, false, false, ruleCopyParseErr, rev, serverRuleCpy.Annotations)
-		} else {
-			// If the deadline by the above context, then not all
-			// endpoints are enforcing the given policy, and
-			// waitForEpsErr will be non-nil.
-			cnpUpdateErr = c.update(serverRuleCpy, waitForEPsErr == nil, true, waitForEPsErr, rev, serverRuleCpy.Annotations)
+		err = c.updateStatus(serverRule, rev, policyImportErr, waitForEPsErr)
+		scopedLog.WithError(err).WithField("status", serverRule.Status).Debug("CNP status update result from apiserver")
+
+		switch {
+		case waitForEPsErr != nil:
+			// Waiting for endpoints has failed previously. We made
+			// an attempt to make this error condition visible via
+			// the status field. Regardless of whether this has
+			// succeeded or not, return an error to have the
+			// surrounding controller retry the wait for endpoint
+			// state.
+			err = waitForEPsErr
+			break retryLoop
+
+		case err == nil:
+			// The status update was successful
+			break retryLoop
 		}
 
-		if cnpUpdateErr == nil {
-			scopedLog.WithField("status", serverRuleCpy.Status).Debug("successfully updated with status")
-			break
-		}
-
-		scopedLog.WithError(cnpUpdateErr).Debugf("Update of CNP status failed")
 		cnpBackoff.Wait(ctx)
 		// error of Wait() can be ignored, if the context is cancelled,
 		// the next iteration of the loop will break out
 	}
 
-	if cnpUpdateErr != nil {
-		overallErr = cnpUpdateErr
-	} else {
-		overallErr = waitForEPsErr
+	outcome := metrics.LabelValueOutcomeSuccess
+	if err != nil {
+		outcome = metrics.LabelValueOutcomeFail
 	}
 
-	if overallErr != nil {
-		scopedLog.WithError(overallErr).Warningf("Update of CNP status failed %d times. Will keep retrying.", maxAttempts)
+	if c.UpdateDuration != nil {
+		latency := c.UpdateDuration.End(err == nil).Total()
+		metrics.KubernetesCNPStatusCompletion.WithLabelValues(fmt.Sprintf("%d", numAttempts), outcome).Observe(latency.Seconds())
 	}
 
-	return overallErr
+	return err
 }
 
 type jsonPatch struct {
