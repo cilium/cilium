@@ -207,11 +207,11 @@ static inline bool __inline__ ct_entry_alive(const struct ct_entry *entry)
 	return !entry->rx_closing || !entry->tx_closing;
 }
 
-static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
-					 void *tuple, int action, int dir,
-					 struct ct_state *ct_state,
-					 bool is_tcp, union tcp_flags seen_flags,
-					 __u32 *monitor)
+static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
+					  void *tuple, int action, int dir,
+					  struct ct_state *ct_state,
+					  bool is_tcp, union tcp_flags seen_flags,
+					  __u32 *monitor)
 {
 	struct ct_entry *entry;
 	int reopen;
