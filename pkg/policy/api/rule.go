@@ -84,6 +84,42 @@ func NewRule(uuid types.UID) *Rule {
 	}
 }
 
+// WithEndpointSelector configures the Rule with the specified selector.
+func (r *Rule) WithEndpointSelector(es EndpointSelector) *Rule {
+	r.EndpointSelector = es
+	return r
+}
+
+// WithIngressRules configures the Rule with the specified rules.
+func (r *Rule) WithIngressRules(rules []IngressRule) *Rule {
+	r.Ingress = rules
+	return r
+}
+
+// WithEgressRules configures the Rule with the specified rules.
+func (r *Rule) WithEgressRules(rules []EgressRule) *Rule {
+	r.Egress = rules
+	return r
+}
+
+// WithLabels configures the Rule with the specified labels metadata.
+func (r *Rule) WithLabels(labels labels.LabelArray) *Rule {
+	r.Labels = labels
+	return r
+}
+
+// WithDescription configures the Rule with the specified description metadata.
+func (r *Rule) WithDescription(desc string) *Rule {
+	r.Description = desc
+	return r
+}
+
+// WithUUID configures the Rule with the specified unique identifier.
+func (r *Rule) WithUUID(uuid types.UID) *Rule {
+	r.UUID = uuid
+	return r
+}
+
 // RequiresDerivative it return true if the rule has a derivative rule.
 func (r *Rule) RequiresDerivative() bool {
 	for _, rule := range r.Egress {
