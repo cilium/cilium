@@ -47,3 +47,7 @@ func increaseMetric(key, kind, action string, duration time.Duration, err error)
 	metrics.KVStoreOperationsDuration.
 		WithLabelValues(namespace, kind, action, outcome).Observe(duration.Seconds())
 }
+
+func trackEventQueued(key string, typ EventType, duration time.Duration) {
+	metrics.KVStoreEventsQueueDuration.WithLabelValues(getScopeFromKey(key), typ.String()).Observe(duration.Seconds())
+}

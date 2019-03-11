@@ -304,17 +304,21 @@ func (c *consulClient) Watch(w *Watcher) {
 						newPair.Key, newPair.CreateIndex, newPair.ModifyIndex)
 				}
 
+				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
 					Typ:   EventTypeCreate,
 					Key:   newPair.Key,
 					Value: newPair.Value,
 				}
+				trackEventQueued(newPair.Key, EventTypeCreate, queueStart.End(true).Total())
 			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
+				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
 					Typ:   EventTypeModify,
 					Key:   newPair.Key,
 					Value: newPair.Value,
 				}
+				trackEventQueued(newPair.Key, EventTypeModify, queueStart.End(true).Total())
 			}
 
 			// Everything left on localState will be assumed to
@@ -324,11 +328,13 @@ func (c *consulClient) Watch(w *Watcher) {
 		}
 
 		for k, deletedPair := range localState {
+			queueStart := spanstat.Start()
 			w.Events <- KeyValueEvent{
 				Typ:   EventTypeDelete,
 				Key:   deletedPair.Key,
 				Value: deletedPair.Value,
 			}
+			trackEventQueued(deletedPair.Key, EventTypeDelete, queueStart.End(true).Total())
 			delete(localState, k)
 		}
 
