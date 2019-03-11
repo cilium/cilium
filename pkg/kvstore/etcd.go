@@ -467,11 +467,13 @@ reList:
 				localCache.MarkInUse(key.Key)
 				scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
 
+				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
 					Key:   string(key.Key),
 					Value: key.Value,
 					Typ:   t,
 				}
+				trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
 			}
 		}
 
@@ -490,7 +492,9 @@ reList:
 			}
 
 			scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+			queueStart := spanstat.Start()
 			w.Events <- event
+			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
 		})
 
 		// Only send the list signal once
@@ -558,7 +562,9 @@ reList:
 
 					scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
 
+					queueStart := spanstat.Start()
 					w.Events <- event
+					trackEventQueued(string(ev.Kv.Key), event.Typ, queueStart.End(true).Total())
 				}
 			}
 		}

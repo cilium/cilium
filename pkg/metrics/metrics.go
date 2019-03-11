@@ -565,6 +565,16 @@ var (
 		Help:      "Duration in seconds of kvstore operations",
 	}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
 
+	// KVStoreEventsQueueDuration records the duration in seconds of time
+	// received event was blocked before it could be queued
+	KVStoreEventsQueueDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Subsystem: "kvstore",
+		Name:      "events_queue_seconds",
+		Help:      "Duration in seconds of time received event was blocked before it could be queued",
+		Buckets:   []float64{.002, .005, .01, .015, .025, .05, .1, .25, .5, .75, 1},
+	}, []string{LabelScope, LabelAction})
+
 	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
@@ -639,6 +649,7 @@ func init() {
 
 	MustRegister(KVStoreOperationsTotal)
 	MustRegister(KVStoreOperationsDuration)
+	MustRegister(KVStoreEventsQueueDuration)
 
 	MustRegister(FQDNGarbageCollectorCleanedTotal)
 }
