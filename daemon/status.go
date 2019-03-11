@@ -256,7 +256,7 @@ func (d *Daemon) startStatusCollector() {
 					// quick retry with exponential backoff
 					// to avoid continous load on the
 					// apiserver
-					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, failures)
+					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, false, failures)
 				}
 
 				// The base interval is dependant on the
