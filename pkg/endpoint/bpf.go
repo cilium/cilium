@@ -489,7 +489,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			e.getLogger().WithError(err).Info("Rewrote endpoint BPF program")
 			compilationExecuted = true
 		} else { // RegenerateWithDatapathLoad
-			err = loader.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache)
+			err = loader.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			e.getLogger().WithError(err).Info("Reloaded endpoint BPF program")
 		}
 		close(closeChan)

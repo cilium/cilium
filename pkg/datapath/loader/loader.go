@@ -123,16 +123,22 @@ func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 	}
 	defer template.Close()
 
+	stats.bpfWriteELF.Start()
 	dstPath := path.Join(ep.StateDir(), endpointObj)
 	opts, strings := ELFSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
+		stats.bpfWriteELF.End(err == nil)
 		return err
 	}
+	stats.bpfWriteELF.End(err == nil)
 
-	return ReloadDatapath(ctx, ep)
+	return ReloadDatapath(ctx, ep, stats)
 }
 
-func ReloadDatapath(ctx context.Context, ep endpoint) error {
+func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err error) {
+	stats.bpfLoadProg.Start()
+	defer stats.bpfLoadProg.End(err == nil)
+
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,

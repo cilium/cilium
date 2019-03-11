@@ -22,11 +22,17 @@ import (
 // load operations.
 type SpanStat struct {
 	bpfCompilation spanstat.SpanStat
+	bpfWaitForELF  spanstat.SpanStat
+	bpfWriteELF    spanstat.SpanStat
+	bpfLoadProg    spanstat.SpanStat
 }
 
 // GetMap returns a map of statistic names to stats
 func (s *SpanStat) GetMap() map[string]*spanstat.SpanStat {
 	return map[string]*spanstat.SpanStat{
 		"bpfCompilation": &s.bpfCompilation,
+		"bpfWaitForELF":  &s.bpfWaitForELF,
+		"bpfWriteELF":    &s.bpfWriteELF,
+		"bpfLoadProg":    &s.bpfLoadProg,
 	}
 }
