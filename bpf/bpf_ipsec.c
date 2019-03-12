@@ -27,8 +27,8 @@
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
-	if (skb->cb[0] == MARK_MAGIC_ENCRYPT) {
-		skb->mark = MARK_MAGIC_ENCRYPT;
+	if ((skb->cb[0] & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+		skb->mark = skb->cb[0];
 		set_identity(skb, skb->cb[1]);
 	}
 	return TC_ACT_OK;

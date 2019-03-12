@@ -24,7 +24,7 @@
 #ifdef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 static inline int __inline__
-enacap_and_redirect_nomark_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
+enacap_and_redirect_nomark_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint, __u8 key,
 			 __u32 seclabel, __u32 monitor)
 {
 	/* Traffic from local host in tunnel mode will be passed to
@@ -40,14 +40,14 @@ enacap_and_redirect_nomark_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	 * in both cases because xfrm layer would overwrite them. We
 	 * use cb[4] here so it doesn't need to be reset by bpf_ipsec.
 	 */
-	skb->cb[0] = MARK_MAGIC_ENCRYPT;
+	skb->cb[0] = or_encrypt_key(key);
 	skb->cb[1] = seclabel;
 	skb->cb[4] = tunnel_endpoint;
 	return IPSEC_ENDPOINT;
 }
 
 static inline int __inline__
-encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
+encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint, __u8 key,
 			 __u32 seclabel, __u32 monitor)
 {
 	/* IPSec is performed by the stack on any packets with the
@@ -57,7 +57,7 @@ encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	 * label is stashed in the mark and extracted in bpf_netdev
 	 * to send skb onto tunnel for encap.
 	 */
-	skb->mark = MARK_MAGIC_ENCRYPT;
+	set_encrypt_key(skb, key);
 	set_identity(skb, seclabel);
 	skb->cb[4] = tunnel_endpoint;
 	return IPSEC_ENDPOINT;
@@ -96,24 +96,24 @@ __encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
  */
 static inline int __inline__
 encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
-			        __u32 seclabel, __u32 monitor)
+			       __u8 key, __u32 seclabel, __u32 monitor)
 {
 #ifdef ENABLE_IPSEC
-	return enacap_and_redirect_nomark_ipsec(skb, tunnel_endpoint, seclabel, monitor);
-#else
-	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
+	if (key)
+		return enacap_and_redirect_nomark_ipsec(skb, tunnel_endpoint, key, seclabel, monitor);
 #endif
+	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
 }
 
 static inline int __inline__
-encap_and_redirect_with_nodeid_from_lxc(struct __sk_buff *skb, __u32 tunnel_endpoint,
+encap_and_redirect_with_nodeid_from_lxc(struct __sk_buff *skb, __u32 tunnel_endpoint, __u8 key,
 				        __u32 seclabel, __u32 monitor)
 {
 #ifdef ENABLE_IPSEC
-	return encap_and_redirect_ipsec(skb, tunnel_endpoint, seclabel, monitor);
-#else
-	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
+	if (key)
+		return encap_and_redirect_ipsec(skb, tunnel_endpoint, key, seclabel, monitor);
 #endif
+	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
 }
 
 /* encap_and_redirect based on ENABLE_IPSEC flag and from_host bool will decide
@@ -137,14 +137,22 @@ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
 	}
 
 #ifdef ENABLE_IPSEC
-	if (from_host)
-		return enacap_and_redirect_nomark_ipsec(skb, tunnel->ip4,
-						        seclabel, monitor);
-	else
-		return encap_and_redirect_ipsec(skb, tunnel->ip4, seclabel, monitor);
-#else
-	return __encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
+	if (tunnel->key) {
+		if (from_host)
+			return enacap_and_redirect_nomark_ipsec(skb,
+								tunnel->ip4,
+								tunnel->key,
+							        seclabel,
+								monitor);
+		else
+			return encap_and_redirect_ipsec(skb,
+							tunnel->ip4,
+							tunnel->key,
+							seclabel,
+							monitor);
+	}
 #endif
+	return __encap_and_redirect_with_nodeid(skb, tunnel->ip4, seclabel, monitor);
 }
 #endif /* ENCAP_IFINDEX */
 #endif /* __LIB_ENCAP_H_ */

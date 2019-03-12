@@ -22,6 +22,7 @@ import (
 const (
 	fieldEndpoint = "endpoint"
 	fieldPrefix   = "prefix"
+	fieldKey      = "key"
 )
 
 var (

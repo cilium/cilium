@@ -41,6 +41,8 @@ var (
 	ipv6RouterAddress   net.IP
 	ipv4AllocRange      *cidr.CIDR
 	ipv6AllocRange      *cidr.CIDR
+
+	ipsecKeyIdentity uint8
 )
 
 func makeIPv6HostIP() net.IP {
@@ -388,4 +390,15 @@ func getCiliumHostIPs() (ipv4GW, ipv6Router net.IP) {
 		return ipv4GW, ipv6Router
 	}
 	return getCiliumHostIPsFromNetDev(option.Config.HostDevice)
+}
+
+// SetIPsecKeyIdentity sets the IPsec key identity an opaque value used to
+// identity encryption keys used on the node.
+func SetIPsecKeyIdentity(id uint8) {
+	ipsecKeyIdentity = id
+}
+
+// GetIPsecKeyIdentity returns the IPsec key identity of the node
+func GetIPsecKeyIdentity() uint8 {
+	return ipsecKeyIdentity
 }
