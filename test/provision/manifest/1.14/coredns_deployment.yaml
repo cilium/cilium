@@ -70,13 +70,8 @@ data:
             upstream
             fallthrough in-addr.arpa ip6.arpa
         }
-        prometheus :9153
         forward . /etc/resolv.conf
         proxy cilium.test 10.96.0.100:53
-        cache 5
-        loop
-        reload
-        loadbalance
     }
 ---
 apiVersion: apps/v1
@@ -113,8 +108,6 @@ spec:
       tolerations:
         - key: "CriticalAddonsOnly"
           operator: "Exists"
-      nodeSelector:
-        beta.kubernetes.io/os: linux
       containers:
       - name: coredns
         image: k8s.gcr.io/coredns:1.3.1
