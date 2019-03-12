@@ -236,20 +236,29 @@ var (
 		Help:      "Total number of successful policy regenerations",
 	})
 
+	// Deprecated: this metric will be removed in Cilium 1.6
 	// PolicyRegenerationTime is the total time taken to generate policies
 	PolicyRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "policy_regeneration_seconds_total",
-		Help:      "Total sum of successful policy regeneration times",
+		Help:      "Total sum of successful policy regeneration times (Deprecated)",
 	})
 
+	// Deprecated: this metric will be removed in Cilium 1.6
 	// PolicyRegenerationTimeSquare is the sum of squares of total time taken
 	// to generate policies
 	PolicyRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "policy_regeneration_square_seconds_total",
-		Help:      "Total sum of squares of successful policy regeneration times",
+		Help:      "Total sum of squares of successful policy regeneration times (Deprecated)",
 	})
+
+	// PolicyRegenerationTimeStats is the total time taken to generate policies
+	PolicyRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "policy_regeneration_time_stats_seconds",
+		Help:      "Policy regeneration time labeled by the scope",
+	}, []string{LabelScope})
 
 	// PolicyRevision is the current policy revision number for this agent
 	PolicyRevision = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -577,6 +586,7 @@ func init() {
 	MustRegister(PolicyRegenerationCount)
 	MustRegister(PolicyRegenerationTime)
 	MustRegister(PolicyRegenerationTimeSquare)
+	MustRegister(PolicyRegenerationTimeStats)
 	MustRegister(PolicyRevision)
 	MustRegister(PolicyImportErrors)
 	MustRegister(PolicyEndpointStatus)
