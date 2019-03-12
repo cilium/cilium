@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
@@ -364,17 +365,30 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	ds.d.policy.Mutex.RUnlock()
 	rules[0].Egress = []api.EgressRule{{ToCIDR: []api.CIDR{"1.1.1.1/32", "2.2.2.2/32"}}}
 	_, err = ds.d.PolicyAdd(rules, &AddOptions{Replace: true})
+
 	c.Assert(err, IsNil)
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
 
-	_, s4 := ds.d.prefixLengths.ToBPFData()
-	sort.Ints(s4)
-	c.Assert(len(s4), Equals, 2, Commentf("IPv4 Prefix lengths incorrect (expected [0, 32]). This may be because CIDRs were not released on replace. %+v", s4))
-	for i, v := range []int{0, 32} {
-		c.Assert(s4[i], Equals, v, Commentf("Unexpected IPv4 Prefix length. This may be because CIDRs were not released on replace. %+v", s4))
-	}
+	// Updating of prefix lengths may complete *after* PolicyAdd returns. Add a
+	// wait for prefix lengths to be correct after timeout to ensure that we
+	// do not assert before the releasing of CIDRs has been performed.
+	testutils.WaitUntil(func() bool {
+		_, s4 := ds.d.prefixLengths.ToBPFData()
+		sort.Ints(s4)
+		if len(s4) != 2 {
+			c.Logf("IPv4 Prefix lengths incorrect (expected [0, 32]). This may be because CIDRs were not released on replace. %+v", s4)
+			return false
+		}
+		for i, v := range []int{0, 32} {
+			if s4[i] != v {
+				c.Logf("Unexpected IPv4 Prefix length. This may be because CIDRs were not released on replace. %+v", s4)
+				return false
+			}
+		}
+		return true
+	}, time.Second*5)
 }
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
