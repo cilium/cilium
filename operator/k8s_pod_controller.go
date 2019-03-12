@@ -56,7 +56,7 @@ func enableUnmanagedKubeDNSController() {
 				}
 
 				for _, pod := range pods.Items {
-					if !pod.Spec.HostNetwork {
+					if pod.Spec.HostNetwork {
 						continue
 					}
 					cep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(pod.Namespace).Get(pod.Name, metav1.GetOptions{})
