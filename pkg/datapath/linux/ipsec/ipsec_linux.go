@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -43,7 +44,7 @@ const (
 )
 
 type ipSecKey struct {
-	Spi   int
+	Spi   uint8
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
@@ -79,7 +80,7 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 	tmpl := netlink.XfrmPolicyTmpl{
 		Proto: netlink.XFRM_PROTO_ESP,
 		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Spi:   keys.Spi,
+		Spi:   int(keys.Spi),
 		Reqid: keys.ReqID,
 		Dst:   dstIP,
 		Src:   srcIP,
@@ -91,22 +92,20 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Auth = keys.Auth
 	state.Crypt = keys.Crypt
-	state.Spi = keys.Spi
+	state.Spi = int(keys.Spi)
 	state.Reqid = keys.ReqID
 }
 
-func ipSecReplaceState(remoteIP, localIP net.IP, spi int) error {
-	state := ipSecNewState()
-
+func ipSecReplaceState(remoteIP, localIP net.IP) (uint8, error) {
 	key := getIPSecKeys(localIP)
 	if key == nil {
-		return fmt.Errorf("IPSec key missing")
+		return 0, fmt.Errorf("IPSec key missing")
 	}
-	key.Spi = spi
+	state := ipSecNewState()
 	ipSecJoinState(state, key)
 	state.Src = localIP
 	state.Dst = remoteIP
-	return netlink.XfrmStateAdd(state)
+	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
 func ipSecReplacePolicyIn(src, dst *net.IPNet) error {
@@ -119,35 +118,42 @@ func ipSecReplacePolicyIn(src, dst *net.IPNet) error {
 }
 
 func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
+	var spiWide uint32
+
+	key := getIPSecKeys(dst.IP)
+	if key == nil {
+		return fmt.Errorf("IPSec key missing")
+	}
+	spiWide = uint32(key.Spi)
+
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
 	policy.Src = src
 	policy.Dst = dst
 	policy.Mark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
-		Mask:  linux_defaults.RouteMarkMask,
-	}
-
-	key := getIPSecKeys(dst.IP)
-	if key == nil {
-		return fmt.Errorf("IPSec key missing")
+		Value: ((spiWide << 12) | linux_defaults.RouteMarkDecrypt),
+		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet) error {
+func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
+	var spiWide uint32
+
+	key := getIPSecKeys(dst.IP)
+	if key == nil {
+		return fmt.Errorf("IPSec key missing")
+	}
+	spiWide = uint32(key.Spi)
+
 	policy := ipSecNewPolicy()
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Src = src
 	policy.Dst = dst
 	policy.Mark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkEncrypt,
-		Mask:  linux_defaults.RouteMarkMask,
-	}
-	key := getIPSecKeys(dst.IP)
-	if key == nil {
-		return fmt.Errorf("IPSec key missing")
+		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
+		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)
@@ -175,7 +181,7 @@ func ipSecDeletePolicy(src, local net.IP) error {
 	return nil
 }
 
-/* UpsertIPSecEndpoint updates the IPSec context for a new endpoint inserted in
+/* UpsertIPsecEndpoint updates the IPSec context for a new endpoint inserted in
  * the ipcache. Currently we support a global crypt/auth keyset that will encrypt
  * all traffic between endpoints. An IPSec context consists of two pieces a policy
  * and a state, the security policy database (SPD) and security association
@@ -215,7 +221,10 @@ func ipSecDeletePolicy(src, local net.IP) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int, dir IPSecDir) error {
+func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) {
+	var spi uint8
+	var err error
+
 	/* TODO: state reference ID is (dip,spi) which can be duplicated in the current global
 	 * mode. The duplication is on _all_ ingress states because dst_ip == host_ip in this
 	 * case and only a single spi entry is in use. Currently no check is done to avoid
@@ -229,33 +238,33 @@ func UpsertIPSecEndpoint(local, remote *net.IPNet, spi int, dir IPSecDir) error 
 	 */
 	if !local.IP.Equal(remote.IP) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if err := ipSecReplaceState(local.IP, remote.IP, spi); err != nil {
+			if spi, err = ipSecReplaceState(local.IP, remote.IP); err != nil {
 				if !os.IsExist(err) {
-					return fmt.Errorf("unable to replace local state: %s", err)
+					return 0, fmt.Errorf("unable to replace local state: %s", err)
 				}
 			}
-			if err := ipSecReplacePolicyIn(remote, local); err != nil {
+			if err = ipSecReplacePolicyIn(remote, local); err != nil {
 				if !os.IsExist(err) {
-					return fmt.Errorf("unable to replace policy in: %s", err)
+					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
 			}
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirBoth {
-			if err := ipSecReplaceState(remote.IP, local.IP, spi); err != nil {
+			if spi, err = ipSecReplaceState(remote.IP, local.IP); err != nil {
 				if !os.IsExist(err) {
-					return fmt.Errorf("unable to replace remote state: %s", err)
+					return 0, fmt.Errorf("unable to replace remote state: %s", err)
 				}
 			}
 
-			if err := ipSecReplacePolicyOut(local, remote); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote, dir); err != nil {
 				if !os.IsExist(err) {
-					return fmt.Errorf("unable to replace policy out: %s", err)
+					return 0, fmt.Errorf("unable to replace policy out: %s", err)
 				}
 			}
 		}
 	}
-	return nil
+	return spi, nil
 }
 
 // DeleteIPSecEndpoint deletes the endpoint from IPSec SPD and SAD
@@ -289,21 +298,24 @@ func decodeIPSecKey(keyRaw string) ([]byte, error) {
 
 // LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
-func LoadIPSecKeysFile(path string) error {
+func LoadIPSecKeysFile(path string) (uint8, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer file.Close()
 	return loadIPSecKeys(file)
 }
 
-func loadIPSecKeys(r io.Reader) error {
+func loadIPSecKeys(r io.Reader) (uint8, error) {
+	var spi uint8
+
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
+		offset := 0
+
 		ipSecKey := &ipSecKey{
-			Spi:   1,
 			ReqID: 1,
 		}
 
@@ -311,20 +323,32 @@ func loadIPSecKeys(r io.Reader) error {
 		//    auth-algo auth-key enc-algo enc-key
 		s := strings.Split(scanner.Text(), " ")
 		if len(s) < 4 {
-			return fmt.Errorf("missing IPSec keys or invalid format")
+			return 0, fmt.Errorf("missing IPSec keys or invalid format")
 		}
 
-		authkey, err := decodeIPSecKey(s[1])
+		spiI, err := strconv.Atoi(s[0])
 		if err != nil {
-			return fmt.Errorf("unable to decode authkey string %q", s[1])
+			// If no version info is provided assume using key format without
+			// versioning and assign SPI.
+			spiI = 1
+			offset = -1
 		}
-		authname := s[0]
+		if spiI > linux_defaults.IPsecMaxKeyVersion {
+			return 0, fmt.Errorf("encryption Key space exhausted, id must be less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
+		}
+		spi = uint8(spiI)
 
-		enckey, err := decodeIPSecKey(s[3])
+		authkey, err := decodeIPSecKey(s[2+offset])
 		if err != nil {
-			return fmt.Errorf("unable to decode enckey string %q", s[3])
+			return 0, fmt.Errorf("unable to decode authkey string %q", s[1+offset])
 		}
-		encname := s[2]
+		authname := s[1+offset]
+
+		enckey, err := decodeIPSecKey(s[4+offset])
+		if err != nil {
+			return 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
+		}
+		encname := s[3+offset]
 
 		ipSecKey.Auth = &netlink.XfrmStateAlgo{
 			Name: authname,
@@ -334,13 +358,15 @@ func loadIPSecKeys(r io.Reader) error {
 			Name: encname,
 			Key:  enckey,
 		}
-		if len(s) == 5 {
-			ipSecKeysGlobal[s[4]] = ipSecKey
+		ipSecKey.Spi = spi
+
+		if len(s) == 6+offset {
+			ipSecKeysGlobal[s[5+offset]] = ipSecKey
 		} else {
 			ipSecKeysGlobal[""] = ipSecKey
 		}
 	}
-	return nil
+	return spi, nil
 }
 
 // EnableIPv6Forwarding sets proc file to enable IPv6 forwarding

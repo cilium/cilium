@@ -77,12 +77,13 @@ func newTunnelEndpoint(ip net.IP) *TunnelEndpoint {
 func (v TunnelEndpoint) NewValue() bpf.MapValue { return &TunnelEndpoint{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
-func (m *Map) SetTunnelEndpoint(prefix net.IP, endpoint net.IP) error {
+func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix, endpoint net.IP) error {
 	key, val := newTunnelEndpoint(prefix), newTunnelEndpoint(endpoint)
-
+	val.EndpointKey.Key = encryptKey
 	log.WithFields(logrus.Fields{
 		fieldPrefix:   prefix,
 		fieldEndpoint: endpoint,
+		fieldKey:      encryptKey,
 	}).Debug("Updating tunnel map entry")
 
 	return TunnelMap.Update(key, val)

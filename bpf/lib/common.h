@@ -162,7 +162,7 @@ struct endpoint_key {
 		union v6addr	ip6;
 	};
 	__u8 family;
-	__u8 pad4;
+	__u8 key;
 	__u16 pad5;
 } __attribute__((packed));
 
@@ -182,6 +182,7 @@ struct endpoint_info {
 struct remote_endpoint_info {
 	__u32		sec_label;
 	__u32		tunnel_endpoint;
+	__u8		key;
 };
 
 struct policy_key {
@@ -298,17 +299,24 @@ enum {
  * packets security identity. The lower/upper halves are swapped to recover
  * the identity.
  *
- * The 4 bits at 0XF00 provide
+ * The 4 bits at 0X0F00 provide
  *  - the magic marker values which indicate whether the packet is coming from
  *    an ingress or egress proxy, a local process and its current encryption
  *    status.
+ *
+ * The 4 bits at 0xF000 provide
+ *  - the key index to use for encryption when multiple keys are in-flight.
+ *    In the IPsec case this becomes the SPI on the wire.
  */
-#define MARK_MAGIC_HOST_MASK		0xF00
-#define MARK_MAGIC_PROXY_INGRESS	0xA00
-#define MARK_MAGIC_PROXY_EGRESS		0xB00
-#define MARK_MAGIC_HOST			0xC00
-#define MARK_MAGIC_DECRYPT		0xD00
-#define MARK_MAGIC_ENCRYPT		0xE00
+#define MARK_MAGIC_HOST_MASK		0x0F00
+#define MARK_MAGIC_PROXY_INGRESS	0x0A00
+#define MARK_MAGIC_PROXY_EGRESS		0x0B00
+#define MARK_MAGIC_HOST			0x0C00
+#define MARK_MAGIC_DECRYPT		0x0D00
+#define MARK_MAGIC_ENCRYPT		0x0E00
+
+#define MARK_MAGIC_KEY_ID		0xF000
+#define MARK_MAGIC_KEY_MASK		0xFF00
 
 /**
  * get_identity - returns source identity from the mark field
@@ -323,8 +331,24 @@ static inline int __inline__ get_identity(struct __sk_buff *skb)
  */
 static inline void __inline__ set_identity(struct __sk_buff *skb, __u32 identity)
 {
-	skb->mark = skb->mark & MARK_MAGIC_HOST_MASK;
+	skb->mark = skb->mark & MARK_MAGIC_KEY_MASK;
 	skb->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
+}
+
+/**
+ * or_encrypt_key - mask and shift key into encryption format
+ */
+static inline __u32 __inline__ or_encrypt_key(__u8 key)
+{
+	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
+}
+
+/**
+ * set_encrypt_key - pushes 8 bit key and encryption marker into skb mark value.
+ */
+static inline void __inline__ set_encrypt_key(struct __sk_buff *skb, __u8 key)
+{
+	skb->mark = or_encrypt_key(key);
 }
 
 /*

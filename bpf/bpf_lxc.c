@@ -146,6 +146,7 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	void *data, *data_end;
 	union v6addr *daddr, orig_dip;
 	__u32 tunnel_endpoint = 0;
+	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
@@ -221,6 +222,7 @@ skip_service_lookup:
 		if (info != NULL && info->sec_label) {
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
+			encrypt_key = info->key;
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -331,7 +333,7 @@ skip_service_lookup:
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
-		ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint, SECLABEL, monitor);
+		ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint, encrypt_key, SECLABEL, monitor);
 		/* If not redirected noteable due to IPSEC then pass up to stack
 		 * for further processing.
 		 */
@@ -475,6 +477,7 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	struct ct_state ct_state = {};
 	__be32 orig_dip;
 	__u32 tunnel_endpoint = 0;
+	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
@@ -537,6 +540,7 @@ skip_service_lookup:
 		if (info != NULL && info->sec_label) {
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
+			encrypt_key = info->key;
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -649,6 +653,7 @@ skip_service_lookup:
 #ifdef ENCAP_IFINDEX
 	if (tunnel_endpoint) {
 		int ret = encap_and_redirect_with_nodeid_from_lxc(skb, tunnel_endpoint,
+								  encrypt_key,
 								  SECLABEL, monitor);
 		/* If not redirected noteably due to IPSEC then pass up to stack
 		 * for further processing.
