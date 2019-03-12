@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -54,7 +55,11 @@ func listEndpointConfigMap(args []string) {
 		Fatalf("Need ID or label\n")
 	}
 
-	file := bpf.MapPath(configmap.MapNamePrefix + lbl)
+	id, err := strconv.Atoi(lbl)
+	if err != nil {
+		Fatalf("Invalid endpoint ID %q", lbl)
+	}
+	file := bpf.LocalMapPath(configmap.MapNamePrefix, uint16(id))
 
 	fd, err := bpf.ObjGet(file)
 	if err != nil {

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,11 @@ package cmd
 
 import (
 	"bytes"
-
+	"path"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -106,7 +104,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 	tests := []struct {
 		args             []string
 		invalid          bool
-		endpointID       string
+		mapBaseName      string
 		trafficDirection trafficdirection.TrafficDirection
 		peerLbl          uint32
 		port             uint16
@@ -115,7 +113,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		{
 			args:             []string{labels.IDNameHost, "ingress", "12345"},
 			invalid:          false,
-			endpointID:       "reserved_" + strconv.Itoa(int(identity.ReservedIdentityHost)),
+			mapBaseName:      "cilium_policy_reserved_1",
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             0,
@@ -124,7 +122,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		{
 			args:             []string{"123", "egress", "12345", "1/tcp"},
 			invalid:          false,
-			endpointID:       "123",
+			mapBaseName:      "cilium_policy_00123",
 			trafficDirection: trafficdirection.Egress,
 			peerLbl:          12345,
 			port:             1,
@@ -133,7 +131,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		{
 			args:             []string{"123", "ingress", "12345", "1"},
 			invalid:          false,
-			endpointID:       "123",
+			mapBaseName:      "cilium_policy_00123",
 			trafficDirection: trafficdirection.Ingress,
 			peerLbl:          12345,
 			port:             1,
@@ -159,7 +157,7 @@ func (s *CMDHelpersSuite) TestParsePolicyUpdateArgsHelper(c *C) {
 		} else {
 			c.Assert(err, IsNil)
 
-			c.Assert(args.endpointID, Equals, tt.endpointID)
+			c.Assert(path.Base(args.path), Equals, tt.mapBaseName)
 			c.Assert(args.trafficDirection, Equals, tt.trafficDirection)
 			c.Assert(args.label, Equals, tt.peerLbl)
 			c.Assert(args.port, Equals, tt.port)

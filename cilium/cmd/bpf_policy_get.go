@@ -84,16 +84,11 @@ func listAllMaps() {
 func listMap(args []string) {
 	lbl := args[0]
 
-	if lbl != "" {
-		if id := identity.GetReservedID(lbl); id != identity.IdentityUnknown {
-			lbl = "reserved_" + strconv.FormatUint(uint64(id), 10)
-		}
-	} else {
-		Fatalf("Need ID or label\n")
+	mapPath, err := endpointToPolicyMapPath(lbl)
+	if err != nil {
+		Fatalf("Failed to parse endpointID %q", lbl)
 	}
-
-	file := bpf.MapPath(policymap.MapName + lbl)
-	dumpMap(file)
+	dumpMap(mapPath)
 }
 
 func dumpMap(file string) {
