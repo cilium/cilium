@@ -166,13 +166,14 @@ func (r *kvReferenceCounter) release(ctx context.Context, key string) (err error
 
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
-func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, metadata string) error {
+func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8, metadata string) error {
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:       IP,
 		ID:       ID,
 		Metadata: metadata,
 		HostIP:   hostIP,
+		Key:      key,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -183,6 +184,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:       ipIDPair.IP,
 		logfields.Identity:     ipIDPair.ID,
+		logfields.Key:          ipIDPair.Key,
 		logfields.Modification: Upsert,
 	}).Debug("upserting IP->ID mapping to kvstore")
 
@@ -313,7 +315,7 @@ restart:
 					continue
 				}
 
-				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, Identity{
+				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, ipIDPair.Key, Identity{
 					ID:     ipIDPair.ID,
 					Source: FromKVStore,
 				})

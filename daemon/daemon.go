@@ -792,6 +792,7 @@ func (d *Daemon) syncLXCMap() error {
 	}
 
 	for _, ipIDPair := range specialIdentities {
+		hostKey := node.GetIPsecKeyIdentity()
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
 			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
@@ -807,7 +808,7 @@ func (d *Daemon) syncLXCMap() error {
 
 		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
 		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, ipcache.Identity{
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
 			ID:     ipIDPair.ID,
 			Source: ipcache.FromAgentLocal,
 		})
@@ -926,7 +927,8 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
 
 	if option.Config.EnableIPSec {
-		if err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile); err != nil {
+		spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+		if err != nil {
 			return nil, nil, err
 		}
 		if option.Config.EnableIPv6 {
@@ -934,6 +936,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 				return nil, nil, err
 			}
 		}
+		node.SetIPsecKeyIdentity(spi)
 	}
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
