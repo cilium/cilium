@@ -1511,10 +1511,12 @@ func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
 	}
 
+	hostKey := node.GetIPsecKeyIdentity()
+
 	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 	// later updated once the allocator has determined the real identity.
 	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, ipcache.Identity{
 		ID:     identity.ReservedIdentityUnmanaged,
 		Source: ipcache.FromKubernetes,
 	})
@@ -1741,7 +1743,8 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 		}
 	}
 
-	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, hostIPNew, ipcache.Identity{
+	hostKey := node.GetIPsecKeyIdentity()
+	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, hostIPNew, hostKey, ipcache.Identity{
 		ID:     identity.ReservedIdentityHost,
 		Source: ipcache.FromKubernetes,
 	})

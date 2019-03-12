@@ -40,7 +40,7 @@ type IPIdentityMappingListener interface {
 	// hostIP is the IP address of the location of the cidr.
 	// hostIP is optional and may only be non-nil for an Upsert modification.
 	OnIPIdentityCacheChange(modType CacheModification, cidr net.IPNet, oldHostIP, newHostIP net.IP,
-		oldID *identity.NumericIdentity, newID identity.NumericIdentity)
+		oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.
