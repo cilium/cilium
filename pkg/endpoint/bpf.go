@@ -530,14 +530,16 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			ipv4 := option.Config.EnableIPv4
-			ipv6 := option.Config.EnableIPv6
-			created := ctmap.Exists(nil, ipv4, ipv6)
-			if e.ConntrackLocal() {
-				created = ctmap.Exists(e, ipv4, ipv6)
-			}
-			if created {
-				e.scrubIPsInConntrackTable()
+			if !option.Config.DryMode {
+				ipv4 := option.Config.EnableIPv4
+				ipv6 := option.Config.EnableIPv6
+				created := ctmap.Exists(nil, ipv4, ipv6)
+				if e.ConntrackLocal() {
+					created = ctmap.Exists(e, ipv4, ipv6)
+				}
+				if created {
+					e.scrubIPsInConntrackTable()
+				}
 			}
 			close(datapathRegenCtxt.ctCleaned)
 		}()
