@@ -197,10 +197,8 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 // PolicyUpdateArgs is the parsed representation of a
 // bpf policy {add,delete} command.
 type PolicyUpdateArgs struct {
-	// endpointID is the identity of the endpoint provided as
-	// argument. If this identity is a reserved identity, then
-	// it is prefixed with 'reserved_'.
-	endpointID string
+	// path is the basename of the BPF map for this policy update.
+	path string
 
 	// trafficDirection represents the traffic direction provided
 	// as an argument e.g. `ingress`
@@ -251,6 +249,25 @@ func parsePolicyUpdateArgs(cmd *cobra.Command, args []string) *PolicyUpdateArgs 
 	return pa
 }
 
+func endpointToPolicyMapPath(endpointID string) (string, error) {
+	if endpointID == "" {
+		return "", fmt.Errorf("Need ID or label")
+	}
+
+	var mapName string
+	id, err := strconv.Atoi(endpointID)
+	if err == nil {
+		mapName = bpf.LocalMapName(policymap.MapName, uint16(id))
+	} else if numericIdentity := identity.GetReservedID(endpointID); numericIdentity != identity.IdentityUnknown {
+		mapSuffix := "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
+		mapName = fmt.Sprintf("%s%s", policymap.MapName, mapSuffix)
+	} else {
+		return "", err
+	}
+
+	return bpf.MapPath(mapName), nil
+}
+
 func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
@@ -258,9 +275,9 @@ func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 		return nil, fmt.Errorf("Failed to convert %s to a valid traffic direction: %s", args[1], err)
 	}
 
-	endpointID := args[0]
-	if numericIdentity := identity.GetReservedID(endpointID); numericIdentity != identity.IdentityUnknown {
-		endpointID = "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
+	mapName, err := endpointToPolicyMapPath(args[0])
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse endpointID %q", args[0])
 	}
 
 	peerLbl, err := strconv.ParseUint(args[2], 10, 32)
@@ -293,7 +310,7 @@ func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 	}
 
 	pa := &PolicyUpdateArgs{
-		endpointID:       endpointID,
+		path:             mapName,
 		trafficDirection: parsedTd,
 		label:            label,
 		port:             port,
@@ -308,10 +325,9 @@ func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 // Adds the entry to the PolicyMap if add is true, otherwise the entry is
 // deleted.
 func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
-	policyMapPath := bpf.MapPath(policymap.MapName + pa.endpointID)
-	policyMap, _, err := policymap.OpenOrCreate(policyMapPath)
+	policyMap, _, err := policymap.OpenOrCreate(pa.path)
 	if err != nil {
-		Fatalf("Cannot open policymap '%s' : %s", policyMapPath, err)
+		Fatalf("Cannot open policymap %q : %s", pa.path, err)
 	}
 
 	for _, proto := range pa.protocols {
