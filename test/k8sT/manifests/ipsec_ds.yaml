@@ -5,4 +5,4 @@ metadata:
   namespace: kube-system
 type: Opaque
 stringData:
-  keys: "hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef"
+  keys: "1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef"

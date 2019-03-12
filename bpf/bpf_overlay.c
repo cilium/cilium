@@ -64,6 +64,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 		 */
 		if (ip6->nexthdr != IPPROTO_ESP)
 			goto not_esp;
+
+		/* Decrypt "key" is determined by SPI */
 		skb->mark = MARK_MAGIC_DECRYPT;
 		set_identity(skb, key.tunnel_id);
 		/* To IPSec stack on cilium_vxlan we are going to pass
@@ -148,6 +150,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		 */
 		if (ip4->protocol != IPPROTO_ESP)
 			goto not_esp;
+		/* Decrypt "key" is determined by SPI */
 		skb->mark = MARK_MAGIC_DECRYPT;
 		set_identity(skb, key.tunnel_id);
 		/* To IPSec stack on cilium_vxlan we are going to pass

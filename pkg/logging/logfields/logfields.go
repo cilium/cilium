@@ -350,4 +350,7 @@ const (
 
 	// Probe is the name of a status probe.
 	Probe = "probe"
+
+	// Key is the identity of the encryption key
+	Key = "key"
 )
