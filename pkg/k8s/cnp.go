@@ -314,7 +314,7 @@ func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enfo
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
 	switch {
-	case ciliumPatchStatusVerConstr.Check(c.K8sServerVer):
+	case ciliumPatchStatusVerConstr.Check(c.K8sServerVer) || option.Config.K8sForceJSONPatch:
 		// This is a JSON Patch [RFC 6902] used to create the `/status/nodes`
 		// field in the CNP. If we don't create, replacing the status for this
 		// node will fail as the path does not exist.
