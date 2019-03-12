@@ -17,7 +17,6 @@ package endpoint
 import (
 	"context"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -40,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
-	"github.com/cilium/cilium/pkg/safetime"
 
 	"github.com/sirupsen/logrus"
 )
@@ -106,7 +104,7 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner) error {
+func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	var forceRegeneration bool
 
 	// No point in calculating policy if endpoint does not have an identity yet.
@@ -116,15 +114,17 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	}
 
 	e.getLogger().Debug("Starting policy recalculation...")
+	stats := &policyRegenerationStatistics{}
+	stats.totalTime.Start()
 
 	// Collect label arrays before policy computation, as this can fail.
 	// GH-1128 should allow optimizing this away, but currently we can't
 	// reliably know if the KV-store has changed or not, so we must scan
 	// through it each time.
+	stats.waitingForIdentityCache.Start()
 	identityCache := cache.GetIdentityCache()
 	labelsMap := &identityCache
-
-	regenerateStart := time.Now()
+	stats.waitingForIdentityCache.End(true)
 
 	// Use the old labelsMap instance if the new one is still the same.
 	// Later we can compare the pointers to figure out if labels have changed or not.
@@ -132,10 +132,12 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 		labelsMap = e.prevIdentityCache
 	}
 
+	stats.waitingForPolicyRepository.Start()
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.RLock()
 	revision := repo.GetRevision()
 	defer repo.Mutex.RUnlock()
+	stats.waitingForPolicyRepository.End(true)
 
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed.
@@ -155,10 +157,12 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// policy needs to be enforced for either ingress or egress.
 	e.prevIdentityCache = labelsMap
 
+	stats.policyCalculation.Start()
 	calculatedPolicy, err := repo.ResolvePolicy(e.ID, e.SecurityIdentity.LabelArray, e, *labelsMap)
 	if err != nil {
 		return err
 	}
+	stats.policyCalculation.End(true)
 
 	e.desiredPolicy = calculatedPolicy
 
@@ -172,21 +176,33 @@ func (e *Endpoint) regeneratePolicy(owner Owner) error {
 	// repository.
 	e.setNextPolicyRevision(revision)
 
-	logger := e.getLogger().WithFields(logrus.Fields{
-		"forcedRegeneration": forceRegeneration,
-	})
-
-	totalRegeneration, _ := safetime.TimeSinceSafe(regenerateStart, logger)
-
-	logger.WithField(logfields.PolicyRegenerationTime, totalRegeneration.String()).
-		Debug("Completed endpoint policy recalculation")
-
-	regenerateTimeSec := totalRegeneration.Seconds()
-	metrics.PolicyRegenerationCount.Inc()
-	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+	e.updatePolicyRegenerationStatistics(stats, forceRegeneration, retErr)
 
 	return nil
+}
+
+func (e *Endpoint) updatePolicyRegenerationStatistics(stats *policyRegenerationStatistics, forceRegeneration bool, err error) {
+	success := err == nil
+
+	stats.totalTime.End(success)
+	stats.success = success
+
+	stats.SendMetrics()
+
+	fields := logrus.Fields{
+		"waitingForIdentityCache":    stats.waitingForIdentityCache,
+		"waitingForPolicyRepository": stats.waitingForPolicyRepository,
+		"policyCalculation":          stats.policyCalculation,
+		"forcedRegeneration":         forceRegeneration,
+	}
+	scopedLog := e.getLogger().WithFields(fields)
+
+	if err != nil {
+		scopedLog.WithError(err).Warn("Regeneration of policy failed")
+		return
+	}
+
+	scopedLog.Debug("Completed endpoint policy recalculation")
 }
 
 // updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint
@@ -227,9 +243,7 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 		logfields.Reason:    context.Reason,
 	}).Debug("Regenerating endpoint")
 
-	defer func() {
-		e.updateRegenerationStatistics(context, retErr)
-	}()
+	defer e.updateRegenerationStatistics(context, retErr)
 
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()

@@ -15,6 +15,9 @@
 package endpoint
 
 import (
+	"math"
+	"time"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/lock"
@@ -22,13 +25,31 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 
-	"time"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var endpointPolicyStatus endpointPolicyStatusMap
 
 func init() {
 	endpointPolicyStatus = newEndpointPolicyStatusMap()
+}
+
+type statistics interface {
+	GetMap() map[string]*spanstat.SpanStat
+}
+
+func sendMetrics(stats statistics, metric *prometheus.HistogramVec) {
+	for scope, stat := range stats.GetMap() {
+		// Skip scopes that have not been hit (zero duration), so the count in
+		// the histogram accurately reflects the number of times each scope is
+		// hit, and the distribution is not incorrectly skewed towards zero.
+		if stat.SuccessTotal() != time.Duration(0) {
+			metric.WithLabelValues(scope, "success").Observe(stat.SuccessTotal().Seconds())
+		}
+		if stat.FailureTotal() != time.Duration(0) {
+			metric.WithLabelValues(scope, "failure").Observe(stat.FailureTotal().Seconds())
+		}
+	}
 }
 
 type regenerationStatistics struct {
@@ -61,17 +82,7 @@ func (s *regenerationStatistics) SendMetrics() {
 
 	metrics.EndpointRegenerationCount.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
-	for scope, stat := range s.GetMap() {
-		// Skip scopes that have not been hit (zero duration), so the count in
-		// the histogram accurately reflects the number of times each scope is
-		// hit, and the distribution is not incorrectly skewed towards zero.
-		if stat.SuccessTotal() != time.Duration(0) {
-			metrics.EndpointRegenerationTimeStats.WithLabelValues(scope, "success").Observe(stat.SuccessTotal().Seconds())
-		}
-		if stat.FailureTotal() != time.Duration(0) {
-			metrics.EndpointRegenerationTimeStats.WithLabelValues(scope, "failure").Observe(stat.FailureTotal().Seconds())
-		}
-	}
+	sendMetrics(s, metrics.EndpointRegenerationTimeStats)
 }
 
 // GetMap returns a map which key is the stat name and the value is the stat
@@ -91,6 +102,33 @@ func (s *regenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
 		result[k] = v
 	}
 	return result
+}
+
+type policyRegenerationStatistics struct {
+	success                    bool
+	totalTime                  spanstat.SpanStat
+	waitingForIdentityCache    spanstat.SpanStat
+	waitingForPolicyRepository spanstat.SpanStat
+	policyCalculation          spanstat.SpanStat
+}
+
+func (ps *policyRegenerationStatistics) SendMetrics() {
+	metrics.PolicyRegenerationCount.Inc()
+
+	regenerateTimeSec := ps.totalTime.Total().Seconds()
+	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
+	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
+
+	sendMetrics(ps, metrics.PolicyRegenerationTimeStats)
+}
+
+func (ps *policyRegenerationStatistics) GetMap() map[string]*spanstat.SpanStat {
+	return map[string]*spanstat.SpanStat{
+		"waitingForIdentityCache":    &ps.waitingForIdentityCache,
+		"waitingForPolicyRepository": &ps.waitingForPolicyRepository,
+		"policyCalculation":          &ps.policyCalculation,
+		logfields.BuildDuration:      &ps.totalTime,
+	}
 }
 
 // endpointPolicyStatusMap is a map to store the endpoint id and the policy
