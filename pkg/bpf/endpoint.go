@@ -15,6 +15,7 @@
 package bpf
 
 import (
+	"fmt"
 	"net"
 	"unsafe"
 
@@ -34,7 +35,7 @@ type EndpointKey struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP     types.IPv6 `align:"$union0"`
 	Family uint8      `align:"family"`
-	Pad1   uint8      `align:"pad4"`
+	Key    uint8      `align:"key"`
 	Pad2   uint16     `align:"pad5"`
 }
 
@@ -57,6 +58,7 @@ func NewEndpointKey(ip net.IP) EndpointKey {
 		result.Family = EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}
+	result.Key = 0
 
 	return result
 }
@@ -75,7 +77,7 @@ func (k EndpointKey) ToIP() net.IP {
 // String provides a string representation of the EndpointKey.
 func (k EndpointKey) String() string {
 	if ip := k.ToIP(); ip != nil {
-		return ip.String()
+		return fmt.Sprintf("%s:%d", ip.String(), k.Key)
 	}
 	return "nil"
 }

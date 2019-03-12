@@ -47,7 +47,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	// Deletion of key that doesn't exist doesn't cause panic.
 	IPIdentityCache.Delete(endpointIP, FromKVStore)
 
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
+	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
 		ID:     identity,
 		Source: FromKVStore,
 	})
@@ -62,13 +62,13 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	c.Assert(cachedIdentity.Source, Equals, FromKVStore)
 
 	// kubernetes source cannot update kvstore source
-	updated := IPIdentityCache.Upsert(endpointIP, nil, Identity{
+	updated := IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
 		ID:     identity,
 		Source: FromKubernetes,
 	})
 	c.Assert(updated, Equals, false)
 
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
+	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
 		ID:     identity,
 		Source: FromKVStore,
 	})
@@ -87,13 +87,13 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	c.Assert(exists, Equals, false)
 
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
+	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
 		ID:     identity,
 		Source: FromKVStore,
 	})
 
 	newIdentity := identityPkg.NumericIdentity(69)
-	IPIdentityCache.Upsert(endpointIP, nil, Identity{
+	IPIdentityCache.Upsert(endpointIP, nil, 0, Identity{
 		ID:     newIdentity,
 		Source: FromKVStore,
 	})
@@ -120,7 +120,7 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
 
 	for index := range endpointIPs {
-		IPIdentityCache.Upsert(endpointIPs[index], nil, Identity{
+		IPIdentityCache.Upsert(endpointIPs[index], nil, 0, Identity{
 			ID:     identities[index],
 			Source: FromKVStore,
 		})
