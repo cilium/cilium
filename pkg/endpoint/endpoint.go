@@ -1299,7 +1299,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		e.dnsHistoryTrigger.Shutdown()
 	}
 
-	if !e.ConntrackLocalLocked() {
+	if !e.ConntrackLocalLocked() && !option.Config.DryMode {
 		e.scrubIPsInConntrackTableLocked()
 	}
 

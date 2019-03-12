@@ -73,9 +73,16 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 	log.Info("Restoring endpoints...")
 
-	existingEndpoints, err := lxcmap.DumpToMap()
-	if err != nil {
-		log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
+	var (
+		existingEndpoints map[string]*lxcmap.EndpointInfo
+		err               error
+	)
+
+	if !option.Config.DryMode {
+		existingEndpoints, err = lxcmap.DumpToMap()
+		if err != nil {
+			log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
+		}
 	}
 
 	dirFiles, err := ioutil.ReadDir(dir)

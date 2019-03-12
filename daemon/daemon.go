@@ -970,7 +970,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Kubernetes apiserver and serving the API to ensure service IDs are
 	// not changing across restarts or that a new service could accidentally
 	// use an existing service ID.
-	if option.Config.RestoreState {
+	if option.Config.RestoreState && !option.Config.DryMode {
 		bootstrapStats.restore.Start()
 		restoreServiceIDs()
 		bootstrapStats.restore.End(true)
@@ -1561,6 +1561,9 @@ func (d *Daemon) GetServiceList() []*models.Service {
 
 // SendNotification sends an agent notification to the monitor
 func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+	if option.Config.DryMode {
+		return nil
+	}
 	event := monitorAPI.AgentNotify{Type: typ, Text: text}
 	return d.nodeMonitor.SendEvent(monitorAPI.MessageTypeAgent, event)
 }
