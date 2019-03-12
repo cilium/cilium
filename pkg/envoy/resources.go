@@ -63,7 +63,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
 func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
-	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity) {
+	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8) {
 	// An upsert where an existing pair exists should translate into a
 	// delete (for the old Identity) followed by an upsert (for the new).
 	if oldID != nil && modType == ipcache.Upsert {
@@ -72,7 +72,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 			return
 		}
 
-		cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID)
+		cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey)
 	}
 
 	cidrStr := cidr.String()

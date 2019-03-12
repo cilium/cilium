@@ -122,6 +122,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.Exec("ip x s f")
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
+			Expect(false).Should(BeTrue(), "halting ipsec test for review")
 			cleanService()
 		}, 600)
 
