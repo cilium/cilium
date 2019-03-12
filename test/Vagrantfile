@@ -1,6 +1,6 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby
-Vagrant.require_version ">= 2.0.0"
+Vagrant.require_version ">= 2.2.0"
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
@@ -33,7 +33,7 @@ Vagrant.configure("2") do |config|
             vb.cpus = $CPU
             vb.memory= $MEMORY
             vb.linked_clone = true
-
+            vb.default_nic_type = "virtio"
             # Prevent VirtualBox from interfering with host audio stack
             vb.customize ["modifyvm", :id, "--audio", "none"]
         end
@@ -65,7 +65,7 @@ Vagrant.configure("2") do |config|
                 vb.cpus = $CPU
                 vb.memory= $MEMORY
                 vb.linked_clone = true
-
+                vb.default_nic_type = "virtio"
                 # Prevent VirtualBox from interfering with host audio stack
                 vb.customize ["modifyvm", :id, "--audio", "none"]
             end
