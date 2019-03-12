@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ func NewRuleGen(config Config) *RuleGen {
 	}
 
 	if config.AddGeneratedRules == nil {
-		config.AddGeneratedRules = func(generatedRules []*api.Rule) error { return nil }
+		config.AddGeneratedRules = func([]*api.Rule, []string) error { return nil }
 	}
 
 	return &RuleGen{
@@ -257,7 +257,7 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 	}
 
 	// emit the new rules
-	return gen.config.AddGeneratedRules(generatedRules)
+	return gen.config.AddGeneratedRules(generatedRules, uuidsToUpdate)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
@@ -295,7 +295,7 @@ func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
 	}
 
 	// emit the new rules
-	return gen.config.AddGeneratedRules(generatedRules)
+	return gen.config.AddGeneratedRules(generatedRules, uuidsToUpdate)
 }
 
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ func (ds *FQDNTestSuite) TestRuleGenCIDRGeneration(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRules: func(rules []*api.Rule, uuids []string) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -111,7 +111,7 @@ func (ds *FQDNTestSuite) TestRuleGenDropCIDROnReinsert(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRules: func(rules []*api.Rule, uuids []string) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -143,7 +143,7 @@ func (ds *FQDNTestSuite) TestRuleGenMultiIPUpdate(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRules: func(rules []*api.Rule, uuids []string) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -214,7 +214,7 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRules: func(rules []*api.Rule, uuids []string) error {
 				return nil
 			},
 		})

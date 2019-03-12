@@ -1,6 +1,6 @@
 /*
 Copyright 2019 Authors of Cilium
-Copyright 2014 The Kubernetes Authors.
+Copyright 2014-2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,9 +38,14 @@ func (u UUID) ToUID() types.UID {
 	return types.UID(u.String())
 }
 
+// Parse decodes the specified uuid into a UUID or returns nil.
+func Parse(uid string) UUID {
+	return UUID{uuid.Parse(uid)}
+}
+
 // ParseUID decodes uid into a UUID or returns nil.
 func ParseUID(uid types.UID) UUID {
-	return UUID{uuid.Parse(string(uid))}
+	return Parse(string(uid))
 }
 
 // NewUUID returns a new UUID

@@ -177,8 +177,9 @@ type AddOptions struct {
 	// The source of this policy, one of api, fqdn or k8s
 	Source string
 
-	// Unique identifier for the rules being modified.
-	uuid uuid.UUID
+	// Unique identifiers for the rules being modified. Typically just one
+	// identifier, but FQDN subsystem may provide multiple.
+	uuids []uuid.UUID
 }
 
 // PolicyAdd adds a slice of rules to the policy repository owned by the
@@ -189,14 +190,7 @@ type AddOptions struct {
 func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint64, err error) {
 	policyAddStartTime := time.Now()
 
-	var uid uuid.UUID
-	if opts == nil {
-		uid = uuid.NewUUID()
-	} else {
-		uid = opts.uuid
-	}
-	logger := log.WithField("PolicyAddRequest", uid.String())
-
+	logger := log.WithField("PolicyAddRequest", opts.uuids)
 	if opts != nil && opts.Generated {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
 	} else {
@@ -413,18 +407,17 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 		return NewPutPolicyInvalidPolicy()
 	}
 
-	uuid := uuid.NewUUID()
-	uid := uuid.ToUID()
+	policyUUID := uuid.NewUUID()
 	for _, r := range rules {
 		if err := r.Sanitize(); err != nil {
 			return api.Error(PutPolicyFailureCode, err)
 		}
-		r.SetUUID(uid)
+		r.SetUUID(policyUUID.ToUID())
 	}
 
 	opts := AddOptions{
 		Source: metrics.LabelEventSourceAPI,
-		uuid:   uuid,
+		uuids:  []uuid.UUID{policyUUID},
 	}
 	rev, err := d.PolicyAdd(rules, &opts)
 	if err != nil {

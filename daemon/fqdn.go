@@ -45,9 +45,9 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/uuid"
+
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
-
 	"github.com/miekg/dns"
 )
 
@@ -71,23 +71,19 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		MinTTL:         option.Config.ToFQDNsMinTTL,
 		Cache:          fqdn.DefaultDNSCache,
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
-			// fakeUUID is not the same as the individual rule
-			// UUIDs. This is really just a placeholder to allow
-			// policy add to log the applying of this set of rules;
-			// the actual FQDN UUIDs that are used for managing
-			// this policy are held directly within the rules
-			// themselves.
-			fakeUUID := uuid.NewUUID()
-
+		AddGeneratedRules: func(generatedRules []*policyApi.Rule, updatedUUIDs []string) error {
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
+			uuids := make([]uuid.UUID, len(updatedUUIDs))
+			for _, u := range updatedUUIDs {
+				uuids = append(uuids, uuid.Parse(u))
+			}
 			opts := &AddOptions{
 				Replace:   true,
 				Generated: true,
 				Source:    metrics.LabelEventSourceFQDN,
-				uuid:      fakeUUID,
+				uuids:     uuids,
 			}
 			_, err := d.PolicyAdd(generatedRules, opts)
 			return err

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -151,7 +151,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 					return lookupDNSNames(ipLookups, lookups, dnsNames), nil
 				},
 
-				AddGeneratedRules: func(rules []*api.Rule) error {
+				AddGeneratedRules: func(rules []*api.Rule, uuids []string) error {
 					generatedRules = append(generatedRules, rules...)
 					return nil
 				},

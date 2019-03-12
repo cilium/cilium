@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,10 @@ type Config struct {
 
 	// AddGeneratedRules is a callback  to emit generated rules.
 	// When set to nil, it is a no-op.
-	AddGeneratedRules func([]*api.Rule) error
+	//
+	// uuidsToUpdate are used just for logging purposes to identify UUIDs
+	// associated with policy add requests.
+	AddGeneratedRules func(rules []*api.Rule, uuidsToUpdate []string) error
 
 	// PollerResponseNotify is used when the poller recieves DNS data in response
 	// to a successful poll.
