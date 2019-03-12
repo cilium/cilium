@@ -242,6 +242,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		int ret = encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+							 info->key,
 							 secctx, TRACE_PAYLOAD_LEN);
 
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
@@ -443,6 +444,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		int ret = encap_and_redirect_with_nodeid(skb, info->tunnel_endpoint,
+							 info->key,
 							 secctx, TRACE_PAYLOAD_LEN);
 
 		if (ret == IPSEC_ENDPOINT)

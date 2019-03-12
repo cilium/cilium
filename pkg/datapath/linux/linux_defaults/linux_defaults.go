@@ -36,9 +36,9 @@ const (
 	// TunnelDeviceName the default name of the tunnel device when using vxlan
 	TunnelDeviceName = "cilium_vxlan"
 
-	// IPSec SPI value for endpoint rules
-	IPSecEndpointSPI = 1
+	// IPSec offset value for node rules
+	IPsecMaxKeyVersion = 16
 
-	// IPSec SPI value for node rules
-	IPSecNodeSPI = 2
+	// IPsecMarkMask is the mask required for the IPsec SPI and encrypt/decrypt bits
+	IPsecMarkMask = 0xFF00
 )

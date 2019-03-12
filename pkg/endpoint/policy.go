@@ -511,13 +511,14 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				IP := endpointIP.IP()
 				ID := e.SecurityIdentity.ID
 				hostIP := node.GetExternalIPv4()
+				key := node.GetIPsecKeyIdentity()
 				metadata := e.FormatGlobalEndpointID()
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.RUnlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, metadata); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
