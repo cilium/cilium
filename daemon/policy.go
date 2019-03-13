@@ -192,6 +192,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	} else {
 		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
 	}
+
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
 	d.dnsRuleGen.MarkToFQDNRules(rules)
@@ -224,7 +225,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
-		return d.policy.GetRevision(), err
+		return 0, err
 	}
 
 	d.policy.Mutex.Lock()
@@ -252,6 +253,14 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		}
 	}
 	newRev = d.policy.AddListLocked(rules)
+
+	// The rules are added, we can begin ToFQDN DNS polling for them
+	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
+	// valid. This error should never happen (of course).
+	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
+		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
+	}
+
 	d.policy.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
@@ -275,13 +284,6 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
 		d.prefixLengths.Delete(removedPrefixes)
-	}
-
-	// The rules are added, we can begin ToFQDN DNS polling for them
-	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
-	// valid. This error should never happen (of course).
-	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
-		logger.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
