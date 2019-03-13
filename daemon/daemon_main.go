@@ -1127,15 +1127,17 @@ func runDaemon() {
 	// synced unless we setup the kvstore at the same time.
 	k8sCachesSynced := d.initK8sSubsystem()
 
+	goopts := &kvstore.ExtraOptions{
+		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
+	}
+
 	// If K8s is enabled we can do the service translation automagically by
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
-	var goopts *kvstore.ExtraOptions
 	if k8s.IsEnabled() && kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace) {
 		// Wait services and endpoints cache are synced with k8s before setting
 		// up etcd.
 		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
-		goopts = &kvstore.ExtraOptions{}
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
 			grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {

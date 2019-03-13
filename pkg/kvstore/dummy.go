@@ -23,7 +23,7 @@ func SetupDummy(dummyBackend string) {
 
 	module.setConfigDummy()
 
-	if err := initClient(module); err != nil {
+	if err := initClient(module, nil); err != nil {
 		log.WithError(err).Panic("Unable to initialize kvstore client")
 	}
 }
