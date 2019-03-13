@@ -39,7 +39,8 @@ var (
 	once sync.Once
 
 	// templateCache is the cache of pre-compiled datapaths.
-	templateCache *objectCache
+	templateCache            *objectCache
+	templateWatcherQueueSize = 10
 
 	ignoredELFPrefixes = []string{
 		"2/",             // Calls within the endpoint
@@ -102,7 +103,8 @@ type objectCache struct {
 	baseHash         *datapathHash
 
 	// newTemplates is notified whenever template is added to the objectCache.
-	newTemplates chan string
+	newTemplates        chan string
+	templateWatcherDone chan struct{}
 
 	// toPath maps a hash to the filesystem path of the corresponding object.
 	toPath map[string]string
@@ -114,11 +116,12 @@ type objectCache struct {
 
 func newObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
 	oc := &objectCache{
-		Datapath:         dp,
-		workingDirectory: workingDir,
-		newTemplates:     make(chan string),
-		toPath:           make(map[string]string),
-		compileQueue:     make(map[string]*serializer.FunctionQueue),
+		Datapath:            dp,
+		workingDirectory:    workingDir,
+		newTemplates:        make(chan string, templateWatcherQueueSize),
+		templateWatcherDone: make(chan struct{}),
+		toPath:              make(map[string]string),
+		compileQueue:        make(map[string]*serializer.FunctionQueue),
 	}
 	oc.Update(nodeCfg)
 	controller.NewManager().UpdateController("template-dir-watcher",
@@ -172,14 +175,17 @@ func (o *objectCache) insert(hash, objectPath string) error {
 	o.Lock()
 	defer o.Unlock()
 	o.toPath[hash] = objectPath
+
+	scopedLog := log.WithField(logfields.Path, objectPath)
 	select {
 	case o.newTemplates <- objectPath:
+	case <-o.templateWatcherDone:
+		// This means that the controller was stopped and Cilium is
+		// shutting down; don't bother complaining too loudly.
+		scopedLog.Debug("Failed to watch for template filesystem changes")
 	default:
-		// This probably means that the controller was stopped and
-		// Cilium is shutting down; don't bother complaining too loudly.
-		log.WithField(logfields.Path, objectPath).
-			Debug("Failed to watch for template filesystem changes")
-		break
+		// Unusual case; send on channel was blocked.
+		scopedLog.Warn("Failed to watch for template filesystem changes")
 	}
 	return nil
 }
@@ -286,7 +292,10 @@ func (o *objectCache) watchTemplatesDirectory(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer templateWatcher.Close()
+	defer func() {
+		close(o.templateWatcherDone)
+		templateWatcher.Close()
+	}()
 
 	for {
 		select {
