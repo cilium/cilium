@@ -235,6 +235,24 @@ func (e *etcdClient) GetLeaseID() client.LeaseID {
 	return l
 }
 
+// checkSession verifies if the lease is still valid from the return error of
+// an etcd API call. If the error explicitly states that a lease was not found
+// we mark the session has an orphan for this etcd client. If we would not mark
+// it as an Orphan() the session would be considered expired after the leaseTTL
+// By make it orphan we guarantee the session will be marked to be renewed.
+func (e *etcdClient) checkSession(err error) {
+	if err == v3rpcErrors.ErrLeaseNotFound {
+		e.closeSession()
+	}
+}
+
+// closeSession closes the current session.
+func (e *etcdClient) closeSession() {
+	e.RWMutex.RLock()
+	e.session.Orphan()
+	e.RWMutex.RUnlock()
+}
+
 func (e *etcdClient) renewSession() error {
 	<-e.firstSession
 	<-e.session.Done()
@@ -673,6 +691,7 @@ func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 	<-e.firstSession
 	if lease {
 		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
+		e.checkSession(err)
 		return Hint(err)
 	}
 
@@ -687,6 +706,7 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
+		e.checkSession(err)
 		return Hint(err)
 	}
 
@@ -704,6 +724,7 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
+		e.checkSession(err)
 		return Hint(err)
 	}
 
