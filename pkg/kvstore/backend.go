@@ -16,6 +16,7 @@ package kvstore
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -42,6 +43,36 @@ type backendBase struct {
 // format and need to be set programmatically.
 type ExtraOptions struct {
 	DialOption []grpc.DialOption
+
+	// ClusterSizeDependantInterval defines the function to calculate
+	// intervals based on cluster size
+	ClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
+}
+
+// StatusCheckInterval returns the interval of status checks depending on the
+// cluster size and the current connectivity state
+//
+// nodes      OK  Failing
+// 1         20s       3s
+// 4         45s       7s
+// 8       1m05s      11s
+// 32      1m45s      18s
+// 128     2m25s      24s
+// 512     3m07s      32s
+// 2048    3m46s      38s
+// 8192    4m30s      45s
+func (e *ExtraOptions) StatusCheckInterval(allConnected bool) time.Duration {
+	interval := 30 * time.Second
+
+	// Reduce the interval while connectivity issues are being detected
+	if !allConnected {
+		interval = 5 * time.Second
+	}
+
+	if e != nil && e.ClusterSizeDependantInterval != nil {
+		interval = e.ClusterSizeDependantInterval(interval)
+	}
+	return interval
 }
 
 // backendModule is the interface that each kvstore backend has to implement.
@@ -66,7 +97,7 @@ type backendModule interface {
 
 	// newClient must initializes the backend and create a new kvstore
 	// client which implements the BackendOperations interface
-	newClient() (BackendOperations, chan error)
+	newClient(opts *ExtraOptions) (BackendOperations, chan error)
 
 	// createInstance creates a new instance of the module
 	createInstance() backendModule

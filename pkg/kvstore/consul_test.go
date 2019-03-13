@@ -78,7 +78,7 @@ func TestConsulClientOk(t *testing.T) {
 
 	_, err := newConsulClient(&consulAPI.Config{
 		Address: ":8000",
-	})
+	}, nil)
 
 	select {
 	case <-doneC:

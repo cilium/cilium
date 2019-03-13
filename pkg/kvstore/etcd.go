@@ -58,9 +58,6 @@ var (
 	// all etcd endpoints
 	statusCheckTimeout = 5 * time.Second
 
-	// statusCheckInterval is the interval in which the status is checked
-	statusCheckInterval = 5 * time.Second
-
 	// initialConnectionTimeout  is the timeout for the initial connection to
 	// the etcd server
 	initialConnectionTimeout = 15 * time.Minute
@@ -119,7 +116,7 @@ func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
-func (e *etcdModule) newClient() (BackendOperations, chan error) {
+func (e *etcdModule) newClient(opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
 	endpointsOpt, endpointsSet := e.opts[addrOption]
@@ -153,7 +150,7 @@ func (e *etcdModule) newClient() (BackendOperations, chan error) {
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
 		// been successful
-		backend, err := connectEtcdClient(e.config, configPath, errChan)
+		backend, err := connectEtcdClient(e.config, configPath, errChan, opts)
 		switch {
 		case os.IsNotExist(err):
 			log.WithError(err).Info("Waiting for all etcd configuration files to be available")
@@ -211,6 +208,8 @@ type etcdClient struct {
 
 	// latestErrorStatus is the latest error condition of the etcd connection
 	latestErrorStatus error
+
+	extraOptions *ExtraOptions
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -266,7 +265,7 @@ func (e *etcdClient) renewSession() error {
 	return nil
 }
 
-func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error) (BackendOperations, error) {
+func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
@@ -313,6 +312,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		controllers:          controller.NewManager(),
 		latestStatusSnapshot: "No connection to etcd",
 		stopStatusChecker:    make(chan struct{}),
+		extraOptions:         opts,
 	}
 
 	// wait for session to be created also in parallel
@@ -605,6 +605,8 @@ func (e *etcdClient) statusChecker() {
 			newStatus = append(newStatus, st)
 		}
 
+		allConnected := len(endpoints) == ok
+
 		e.statusLock.Lock()
 		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected: %s", ok, len(endpoints), strings.Join(newStatus, "; "))
 
@@ -620,7 +622,7 @@ func (e *etcdClient) statusChecker() {
 		select {
 		case <-e.stopStatusChecker:
 			return
-		case <-time.After(statusCheckInterval):
+		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
 	}
 }

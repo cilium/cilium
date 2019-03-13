@@ -28,8 +28,8 @@ var (
 	defaultClientSet = make(chan struct{})
 )
 
-func initClient(module backendModule) error {
-	c, errChan := module.newClient()
+func initClient(module backendModule, opts *ExtraOptions) error {
+	c, errChan := module.newClient(opts)
 	if c == nil {
 		err := <-errChan
 		log.WithError(err).Fatalf("Unable to create etcd client")
@@ -85,5 +85,5 @@ func NewClient(selectedBackend string, opts map[string]string, options *ExtraOpt
 		return nil, errChan
 	}
 
-	return module.newClient()
+	return module.newClient(options)
 }

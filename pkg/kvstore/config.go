@@ -95,7 +95,7 @@ func setup(selectedBackend string, opts map[string]string, goOpts *ExtraOptions)
 
 	selectedModule = module.getName()
 
-	return initClient(module)
+	return initClient(module, goOpts)
 }
 
 // Setup sets up the key-value store specified in kvStore and configures it

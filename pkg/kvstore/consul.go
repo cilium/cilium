@@ -113,9 +113,9 @@ func (c *consulModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *consulModule) newClient() (BackendOperations, chan error) {
+func (c *consulModule) newClient(opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 1)
-	backend, err := c.connectConsulClient()
+	backend, err := c.connectConsulClient(opts)
 	if err != nil {
 		errChan <- err
 	}
@@ -123,7 +123,7 @@ func (c *consulModule) newClient() (BackendOperations, chan error) {
 	return backend, errChan
 }
 
-func (c *consulModule) connectConsulClient() (BackendOperations, error) {
+func (c *consulModule) connectConsulClient(opts *ExtraOptions) (BackendOperations, error) {
 	if c.config == nil {
 		consulAddr, consulAddrSet := c.opts[optAddress]
 		configPathOpt, configPathOptSet := c.opts[consulOptionConfig]
@@ -153,7 +153,7 @@ func (c *consulModule) connectConsulClient() (BackendOperations, error) {
 		c.config.Address = addr
 
 	}
-	client, err := newConsulClient(c.config)
+	client, err := newConsulClient(c.config, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -167,11 +167,12 @@ var (
 
 type consulClient struct {
 	*consulAPI.Client
-	lease       string
-	controllers *controller.Manager
+	lease        string
+	controllers  *controller.Manager
+	extraOptions *ExtraOptions
 }
 
-func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
+func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOperations, error) {
 	var (
 		c   *consulAPI.Client
 		err error
@@ -218,9 +219,10 @@ func newConsulClient(config *consulAPI.Config) (BackendOperations, error) {
 	}
 
 	client := &consulClient{
-		Client:      c,
-		lease:       lease,
-		controllers: controller.NewManager(),
+		Client:       c,
+		lease:        lease,
+		controllers:  controller.NewManager(),
+		extraOptions: opts,
 	}
 
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
