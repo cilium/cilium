@@ -16,7 +16,6 @@ package store
 
 import (
 	"path"
-	"time"
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -85,10 +84,9 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 
 	// Join the shared store holding node information of entire cluster
 	store, err := store.JoinSharedStore(store.Configuration{
-		Prefix:                  NodeStorePrefix,
-		KeyCreator:              KeyCreator,
-		SynchronizationInterval: time.Minute,
-		Observer:                NewNodeObserver(manager),
+		Prefix:     NodeStorePrefix,
+		KeyCreator: KeyCreator,
+		Observer:   NewNodeObserver(manager),
 	})
 
 	if err != nil {
