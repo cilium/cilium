@@ -24,22 +24,39 @@ import (
 )
 
 const (
-	externalProbe = "1.1.1.1"
+	externalProbeIPv4 = "1.1.1.1"
+	externalProbeIPv6 = "2606:4700:4700::1111"
 )
 
-func autoDetect() (int, error) {
+func getRoute(externalProbe string) ([]netlink.Route, error) {
 	ip := net.ParseIP(externalProbe)
 	if ip == nil {
-		return 0, fmt.Errorf("unable to parse IP %s", externalProbe)
+		return nil, fmt.Errorf("unable to parse IP %s", externalProbe)
 	}
 
 	routes, err := netlink.RouteGet(ip)
 	if err != nil {
-		return 0, fmt.Errorf("unable to lookup route to %s: %s", externalProbe, err)
+		return nil, fmt.Errorf("unable to lookup route to %s: %s", externalProbe, err)
 	}
 
 	if len(routes) == 0 {
-		return 0, fmt.Errorf("no route to %s", externalProbe)
+		return nil, fmt.Errorf("no route to %s", externalProbe)
+	}
+
+	return routes, nil
+}
+
+func autoDetect() (int, error) {
+	var routes []netlink.Route
+	var err error
+
+	routes, err = getRoute(externalProbeIPv4)
+	if err != nil {
+		prevErr := err
+		routes, err = getRoute(externalProbeIPv6)
+		if err != nil {
+			return 0, fmt.Errorf("%v, %v", err.Error(), prevErr.Error())
+		}
 	}
 
 	link, err := netlink.LinkByIndex(routes[0].LinkIndex)
