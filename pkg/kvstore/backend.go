@@ -21,6 +21,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	// RateLimitOption specifies maximum kv operations per second
+	RateLimitOption = "kv.qps"
+)
+
 type backendOption struct {
 	// description is the description of the option
 	description string

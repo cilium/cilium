@@ -164,4 +164,7 @@ const (
 
 	// KVstorePeriodicSync is the default kvstore periodic sync interval
 	KVstorePeriodicSync = 5 * time.Minute
+
+	// KVstoreQPS is default rate limit for kv store operations
+	KVstoreQPS = 20
 )
