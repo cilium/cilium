@@ -109,11 +109,8 @@ const (
 	// The file is not re-read after agent start.
 	ToFQDNsPreCache = ""
 
-	// IdentityChangeGracePeriod is the grace period that needs to pass
-	// before an endpoint that has changed its identity will start using
-	// that new identity. During the grace period, the new identity has
-	// already been allocated and other nodes in the cluster have a chance
-	// to whitelist the new upcoming identity of the endpoint.
+	// IdentityChangeGracePeriod is the default value for
+	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 25 * time.Second
 
 	// ExecTimeout is a timeout for executing commands.

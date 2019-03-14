@@ -408,6 +408,10 @@ const (
 	// KVstorePeriodicSync is the time interval in which periodic
 	// synchronization with the kvstore occurs
 	KVstorePeriodicSync = "kvstore-periodic-sync"
+
+	// IdentityChangeGracePeriod is the name of the
+	// IdentityChangeGracePeriod option
+	IdentityChangeGracePeriod = "identity-change-grace-period"
 )
 
 // FQDNS variables
@@ -804,25 +808,33 @@ type DaemonConfig struct {
 	// KVstorePeriodicSync is the time interval in which periodic
 	// synchronization with the kvstore occurs
 	KVstorePeriodicSync time.Duration
+
+	// IdentityChangeGracePeriod is the grace period that needs to pass
+	// before an endpoint that has changed its identity will start using
+	// that new identity. During the grace period, the new identity has
+	// already been allocated and other nodes in the cluster have a chance
+	// to whitelist the new upcoming identity of the endpoint.
+	IdentityChangeGracePeriod time.Duration
 }
 
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
-		Opts:                     NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                  &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:     defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase: defaults.IPv6ClusterAllocCIDRBase,
-		EnableHostIPRestore:      defaults.EnableHostIPRestore,
-		EnableHealthChecking:     defaults.EnableHealthChecking,
-		EnableIPv4:               defaults.EnableIPv4,
-		EnableIPv6:               defaults.EnableIPv6,
-		ToFQDNsMaxIPsPerHost:     defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:      defaults.KVstorePeriodicSync,
-		ContainerRuntimeEndpoint: make(map[string]string),
-		FixedIdentityMapping:     make(map[string]string),
-		KVStoreOpt:               make(map[string]string),
-		LogOpt:                   make(map[string]string),
+		Opts:                      NewIntOptions(&DaemonOptionLibrary),
+		Monitor:                   &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		IPv6ClusterAllocCIDR:      defaults.IPv6ClusterAllocCIDR,
+		IPv6ClusterAllocCIDRBase:  defaults.IPv6ClusterAllocCIDRBase,
+		EnableHostIPRestore:       defaults.EnableHostIPRestore,
+		EnableHealthChecking:      defaults.EnableHealthChecking,
+		EnableIPv4:                defaults.EnableIPv4,
+		EnableIPv6:                defaults.EnableIPv6,
+		ToFQDNsMaxIPsPerHost:      defaults.ToFQDNsMaxIPsPerHost,
+		KVstorePeriodicSync:       defaults.KVstorePeriodicSync,
+		IdentityChangeGracePeriod: defaults.IdentityChangeGracePeriod,
+		ContainerRuntimeEndpoint:  make(map[string]string),
+		FixedIdentityMapping:      make(map[string]string),
+		KVStoreOpt:                make(map[string]string),
+		LogOpt:                    make(map[string]string),
 	}
 )
 
@@ -1056,6 +1068,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
+	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)
 	c.IPv4ServiceRange = viper.GetString(IPv4ServiceRange)
