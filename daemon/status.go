@@ -39,7 +39,7 @@ import (
 const (
 	// k8sVersionCheckInterval is the interval in which the Kubernetes
 	// version is verified even if connectivity is given
-	k8sVersionCheckInterval = 5 * time.Minute
+	k8sVersionCheckInterval = 15 * time.Minute
 
 	// k8sMinimumEventHearbeat is the time interval in which any received
 	// event will be considered proof that the apiserver connectivity is
