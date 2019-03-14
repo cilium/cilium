@@ -268,15 +268,20 @@ func (e *etcdClient) closeSession(leaseID client.LeaseID) {
 func (e *etcdClient) renewSession() error {
 	<-e.firstSession
 	<-e.session.Done()
+	// This is an attempt to avoid concurrent access of a session that was
+	// already expired. It's not perfect as there is still a period between the
+	// e.session.Done() is closed and the e.Lock() is held where parallel go
+	// routines can get a lease ID of an already expired lease.
+	e.Lock()
 
 	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(LeaseTTL.Seconds())))
 	if err != nil {
+		e.UnlockIgnoreTime()
 		return fmt.Errorf("Unable to renew etcd session: %s", err)
 	}
 
-	e.Lock()
 	e.session = newSession
-	e.Unlock()
+	e.UnlockIgnoreTime()
 
 	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
