@@ -227,16 +227,20 @@ func (e *etcdClient) GetLeaseID() client.LeaseID {
 // we mark the session has an orphan for this etcd client. If we would not mark
 // it as an Orphan() the session would be considered expired after the leaseTTL
 // By make it orphan we guarantee the session will be marked to be renewed.
-func (e *etcdClient) checkSession(err error) {
+func (e *etcdClient) checkSession(err error, leaseID client.LeaseID) {
 	if err == v3rpcErrors.ErrLeaseNotFound {
-		e.closeSession()
+		e.closeSession(leaseID)
 	}
 }
 
 // closeSession closes the current session.
-func (e *etcdClient) closeSession() {
+func (e *etcdClient) closeSession(leaseID client.LeaseID) {
 	e.RWMutex.RLock()
-	e.session.Orphan()
+	// only mark a session as orphan if the leaseID is the same as the
+	// session ID to avoid making any other sessions as orphan.
+	if e.session.Lease() == leaseID {
+		e.session.Orphan()
+	}
 	e.RWMutex.RUnlock()
 }
 
@@ -827,9 +831,9 @@ func (e *etcdClient) Delete(key string) error {
 	return err
 }
 
-func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.Op {
-	if lease {
-		op := client.OpPut(key, string(value), client.WithLease(e.GetLeaseID()))
+func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseID) *client.Op {
+	if leaseID != 0 {
+		op := client.OpPut(key, string(value), client.WithLease(leaseID))
 		return &op
 	}
 
@@ -841,8 +845,9 @@ func (e *etcdClient) createOpPut(key string, value []byte, lease bool) *client.O
 func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 	<-e.firstSession
 	if lease {
-		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(e.GetLeaseID()))
-		e.checkSession(err)
+		leaseID := e.GetLeaseID()
+		_, err := e.client.Put(ctx.Background(), key, string(value), client.WithLease(leaseID))
+		e.checkSession(err, leaseID)
 		return err
 	}
 
@@ -852,11 +857,15 @@ func (e *etcdClient) Update(key string, value []byte, lease bool) error {
 
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
-	req := e.createOpPut(key, value, lease)
+	var leaseID client.LeaseID
+	if lease {
+		leaseID = e.GetLeaseID()
+	}
+	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(key), "=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
-		e.checkSession(err)
+		e.checkSession(err, leaseID)
 		return err
 	}
 
@@ -869,11 +878,15 @@ func (e *etcdClient) CreateOnly(key string, value []byte, lease bool) error {
 
 // CreateIfExists creates a key with the value only if key condKey exists
 func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease bool) error {
-	req := e.createOpPut(key, value, lease)
+	var leaseID client.LeaseID
+	if lease {
+		leaseID = e.GetLeaseID()
+	}
+	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	if err != nil {
-		e.checkSession(err)
+		e.checkSession(err, leaseID)
 		return err
 	}
 
