@@ -473,6 +473,9 @@ func init() {
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
 	option.BindEnv(option.FixedIdentityMapping)
 
+	flags.Duration(option.IdentityChangeGracePeriod, defaults.IdentityChangeGracePeriod, "Time to wait before using new identity on endpoint identity change")
+	option.BindEnv(option.IdentityChangeGracePeriod)
+
 	flags.Int(option.IPv4ClusterCIDRMaskSize, 8, "Mask size for the cluster wide CIDR")
 	option.BindEnv(option.IPv4ClusterCIDRMaskSize)
 

@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -1945,7 +1944,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 			e.Unlock()
 
 			elog.Debugf("Applying grace period before regeneration due to identity change")
-			time.Sleep(defaults.IdentityChangeGracePeriod)
+			time.Sleep(option.Config.IdentityChangeGracePeriod)
 
 			if err := e.LockAlive(); err != nil {
 				releaseNewlyAllocatedIdentity()
