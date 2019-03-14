@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -33,6 +35,7 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	ctx "golang.org/x/net/context"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -41,6 +44,9 @@ const (
 
 	addrOption       = "etcd.address"
 	EtcdOptionConfig = "etcd.config"
+
+	// EtcdRateLimitOption specifies maximum kv operations per second
+	EtcdRateLimitOption = "etcd.qps"
 )
 
 type etcdModule struct {
@@ -83,6 +89,13 @@ func newEtcdModule() backendModule {
 			EtcdOptionConfig: &backendOption{
 				description: "Path to etcd configuration file",
 			},
+			EtcdRateLimitOption: &backendOption{
+				description: "Rate limit in kv store operations per second",
+				validate: func(v string) error {
+					_, err := strconv.Atoi(v)
+					return err
+				},
+			},
 		},
 	}
 }
@@ -122,6 +135,14 @@ func (e *etcdModule) newClient(opts *ExtraOptions) (BackendOperations, chan erro
 	endpointsOpt, endpointsSet := e.opts[addrOption]
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 
+	rateLimitOpt, rateLimitSet := e.opts[EtcdRateLimitOption]
+
+	rateLimit := defaults.KVstoreQPS
+	if rateLimitSet {
+		// error is discarded here because this option has validation
+		rateLimit, _ = strconv.Atoi(rateLimitOpt.value)
+	}
+
 	var configPath string
 	if configSet {
 		configPath = configPathOpt.value
@@ -150,7 +171,7 @@ func (e *etcdModule) newClient(opts *ExtraOptions) (BackendOperations, chan erro
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
 		// been successful
-		backend, err := connectEtcdClient(e.config, configPath, errChan, opts)
+		backend, err := connectEtcdClient(e.config, configPath, errChan, rateLimit, opts)
 		switch {
 		case os.IsNotExist(err):
 			log.WithError(err).Info("Waiting for all etcd configuration files to be available")
@@ -210,6 +231,8 @@ type etcdClient struct {
 	latestErrorStatus error
 
 	extraOptions *ExtraOptions
+
+	limiter *rate.Limiter
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -232,7 +255,7 @@ type etcdMutex struct {
 }
 
 func (e *etcdMutex) Unlock() error {
-	return e.mutex.Unlock(ctx.Background())
+	return e.mutex.Unlock(ctx.TODO())
 }
 
 // GetLeaseID returns the current lease ID.
@@ -292,7 +315,7 @@ func (e *etcdClient) renewSession() error {
 	return nil
 }
 
-func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error, opts *ExtraOptions) (BackendOperations, error) {
+func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error, rateLimit int, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
@@ -340,6 +363,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		latestStatusSnapshot: "No connection to etcd",
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
+		limiter:              rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
 	}
 
 	// wait for session to be created also in parallel
@@ -389,7 +413,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 }
 
 func getEPVersion(c client.Maintenance, etcdEP string, timeout time.Duration) (*version.Version, error) {
-	ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), timeout)
+	ctxTimeout, cancel := ctx.WithTimeout(ctx.TODO(), timeout)
 	defer cancel()
 	sr, err := c.Status(ctxTimeout, etcdEP)
 	if err != nil {
@@ -457,6 +481,7 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (kvLocker, error
 
 func (e *etcdClient) DeletePrefix(path string) error {
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx.TODO())
 	_, err := e.client.Delete(ctx.Background(), path, client.WithPrefix())
 	increaseMetric(path, metricDelete, "DeletePrefix", duration.EndError(err).Total(), err)
 	return Hint(err)
@@ -474,6 +499,7 @@ func (e *etcdClient) Watch(w *Watcher) {
 
 reList:
 	for {
+		e.limiter.Wait(ctx.TODO())
 		res, err := e.client.Get(ctx.Background(), w.prefix, client.WithPrefix(),
 			client.WithSerializable())
 		if err != nil {
@@ -532,6 +558,8 @@ reList:
 
 	recreateWatcher:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
+
+		e.limiter.Wait(ctx.TODO())
 		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
@@ -604,6 +632,7 @@ func (e *etcdClient) determineEndpointStatus(endpointAddress string) (string, er
 
 	e.getLogger().Debugf("Checking status to etcd endpoint %s", endpointAddress)
 
+	e.limiter.Wait(ctxTimeout)
 	status, err := e.client.Status(ctxTimeout, endpointAddress)
 	if err != nil {
 		return fmt.Sprintf("%s - %s", endpointAddress, err), Hint(err)
@@ -664,6 +693,7 @@ func (e *etcdClient) Status() (string, error) {
 // Get returns value of key
 func (e *etcdClient) Get(key string) ([]byte, error) {
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx.TODO())
 	getR, err := e.client.Get(ctx.Background(), key)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	if err != nil {
@@ -679,6 +709,7 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 // GetPrefix returns the first key which matches the prefix
 func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) ([]byte, error) {
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
 	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
 	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
@@ -694,6 +725,7 @@ func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) ([]byte, erro
 // Set sets value of key
 func (e *etcdClient) Set(key string, value []byte) error {
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx.TODO())
 	_, err := e.client.Put(ctx.Background(), key, string(value))
 	increaseMetric(key, metricSet, "Set", duration.EndError(err).Total(), err)
 	return Hint(err)
@@ -702,6 +734,7 @@ func (e *etcdClient) Set(key string, value []byte) error {
 // Delete deletes a key
 func (e *etcdClient) Delete(key string) error {
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx.TODO())
 	_, err := e.client.Delete(ctx.Background(), key)
 	increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	return Hint(err)
@@ -728,6 +761,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	if lease {
 		duration := spanstat.Start()
 		leaseID := e.GetLeaseID()
+		e.limiter.Wait(ctx)
 		_, err := e.client.Put(ctx, key, string(value), client.WithLease(leaseID))
 		e.checkSession(err, leaseID)
 		increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
@@ -735,6 +769,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	}
 
 	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
 	_, err := e.client.Put(ctx, key, string(value))
 	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return Hint(err)
@@ -749,6 +784,8 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	}
 	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(key), "=", 0)
+
+	e.limiter.Wait(ctx)
 	txnresp, err := e.client.Txn(ctx).If(cond).Then(*req).Commit()
 	increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	if err != nil {
@@ -772,6 +809,8 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 	}
 	req := e.createOpPut(key, value, leaseID)
 	cond := client.Compare(client.Version(condKey), "!=", 0)
+
+	e.limiter.Wait(ctx.TODO())
 	txnresp, err := e.client.Txn(ctx.TODO()).If(cond).Then(*req).Commit()
 	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	if err != nil {
@@ -808,6 +847,8 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 // ListPrefix returns a map of matching keys
 func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 	duration := spanstat.Start()
+
+	e.limiter.Wait(ctx.TODO())
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	increaseMetric(prefix, metricRead, "ListPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
