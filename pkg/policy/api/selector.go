@@ -219,6 +219,7 @@ var (
 	// WildcardEndpointSelector is a wildcard endpoint selector matching
 	// all endpoints that can be described with labels.
 	WildcardEndpointSelector = NewESFromLabels()
+	NoEndpointSelector       EndpointSelector // deliberately uninitialized.
 
 	// ReservedEndpointSelectors map reserved labels to EndpointSelectors
 	// that will match those endpoints.
