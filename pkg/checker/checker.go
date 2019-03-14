@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,9 +29,12 @@ type diffChecker struct {
 // DeepEquals is a GoCheck checker that does a diff between two objects and
 // pretty-prints any difference between the two. It can act as a substitute
 // for DeepEquals.
-var DeepEquals check.Checker = &diffChecker{
-	&check.CheckerInfo{Name: "Diff", Params: []string{"obtained", "expected"}},
-}
+var (
+	defaultParams               = []string{"obtained", "expected"}
+	DeepEquals    check.Checker = &diffChecker{
+		&check.CheckerInfo{Name: "Diff", Params: defaultParams},
+	}
+)
 
 // Check performs a diff between two objects provided as parameters, and
 // returns either true if the objects are identical, or false otherwise. If
@@ -47,4 +50,11 @@ func (checker *diffChecker) Check(params []interface{}, names []string) (result 
 	}
 
 	return false, comparator.CompareWithNames(params[0], params[1], names[0], names[1])
+}
+
+// DeepEqual tests whether two parameters are deeply equal, and returns true if
+// they are. If the objects are not deeply equal, then the second return value
+// includes a json representation of the difference between the parameters.
+func DeepEqual(params ...interface{}) (bool, string) {
+	return DeepEquals.Check(params, defaultParams)
 }
