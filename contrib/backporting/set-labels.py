@@ -11,7 +11,11 @@ import argparse
 import os
 import sys
 
-from github import Github
+try:
+    from github import Github
+except ImportError:
+    print("pygithub not found you can install it by running 'pip3 install --user PyGithub'")
+    sys.exit(-1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('pr_number', type=int)
