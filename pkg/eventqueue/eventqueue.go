@@ -47,6 +47,8 @@ type EventQueue struct {
 	// eventQueueOnce is used to ensure that the EventQueue business logic can
 	// only be ran once.
 	eventQueueOnce sync.Once
+
+	closeOnce sync.Once
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
@@ -235,8 +237,9 @@ func (q *EventQueue) Stop() {
 	case <-q.close:
 		log.Warning("tried to close event queue, but it already has been closed")
 	default:
-		log.Debug("closing event queue")
-		close(q.close)
+		q.closeOnce.Do(func() {
+			close(q.close)
+		})
 	}
 }
 
