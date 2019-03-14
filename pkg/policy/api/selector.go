@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,9 @@ type EndpointSelector struct {
 // LabelSelectorString returns a user-friendly string representation of
 // EndpointSelector.
 func (n *EndpointSelector) LabelSelectorString() string {
+	if n != nil && n.LabelSelector == nil {
+		return "<all>"
+	}
 	return metav1.FormatLabelSelector(n.LabelSelector)
 }
 
