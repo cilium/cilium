@@ -16,8 +16,10 @@ branch is then needed for backporting into downstream with the help of the
 
 ## Example
 
-1. Generate a GitHub developer access token. (User Profile -> Settings ->
-   Developer Settings -> Personal access token -> Generate new token)
+1. Generate a GitHub developer access token.
+   You can access directly from https://github.com/settings/tokens or
+   by open GitHub page and then: User Profile -> Settings ->
+   Developer Settings -> Personal access token -> Generate new token
 
    The access token requires access to `public_repo`.
 
