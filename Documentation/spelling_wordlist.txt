@@ -19,6 +19,7 @@ au
 awk
 aws
 backend
+backends
 backport
 backported
 Backporting
@@ -480,6 +481,7 @@ Sep
 setrlimit
 sfc
 sgr
+sha
 Sharma
 Shirokov
 Sidious

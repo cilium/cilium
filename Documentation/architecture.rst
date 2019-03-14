@@ -217,6 +217,34 @@ This completes the datapath overview. More BPF specifics can be found in the
 :ref:`bpf_guide`. Additional details on how to extend the L7 Policy
 exist in the :ref:`envoy` section.
 
+Scale
+=====
+
+BPF Map Limitations
+-------------------
+
+All BPF maps are created with upper capacity limits. Insertion beyond the limit
+will fail and thus limits the scalability of the datapath. The following table
+shows the default values of the maps. Each limit can be bumped in the source
+code. Configuration options will be added on request if demand arises.
+
+======================== ================ =============== =====================================================
+Map Name                 Scope            Default Limit   Scale Implications
+======================== ================ =============== =====================================================
+Connection Tracking      node or endpoint 1M TCP/256K UDP Max 1M concurrent TCP connections, max 256K expected UDP answers
+Endpoints                node             64k             Max 64k local endpoints + host IPs per node
+IP cache                 node             512K            Max 256K endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
+Load Balancer            node             64k             Max 64k cumulative backends across all services across all clusters [*]
+Policy                   endpoint         16k             Max 16k allowed identity + port + protocol pairs for specific endpoint
+Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
+Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
+======================== ================ =============== =====================================================
+
+[*] Due to a limitation in the load-balancing implementation, constant churn in
+the load balancing table by scaling the number of service backends up and down
+can reduce the maximum number of supported service backends further. If in
+doubt, increase the limit to 512k.
+
 Kubernetes Integration
 ======================
 
