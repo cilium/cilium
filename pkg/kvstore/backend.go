@@ -21,6 +21,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	RateLimitOption = "kv.ratelimit"
+)
+
 type backendOption struct {
 	// description is the description of the option
 	description string
