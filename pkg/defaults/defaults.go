@@ -111,7 +111,7 @@ const (
 
 	// IdentityChangeGracePeriod is the default value for
 	// option.IdentityChangeGracePeriod
-	IdentityChangeGracePeriod = 25 * time.Second
+	IdentityChangeGracePeriod = 5 * time.Second
 
 	// ExecTimeout is a timeout for executing commands.
 	ExecTimeout = 300 * time.Second
