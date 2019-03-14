@@ -40,13 +40,27 @@ var (
 type EventQueue struct {
 	// This should always be a buffered channel.
 	events chan *Event
+
 	// close is closed once the EventQueue has been closed.
 	close chan struct{}
-	// drained is closed once the events channel is drained.
-	drained chan struct{}
+
+	// drain is closed when the EventQueue is stopped. Any Event which is
+	// Enqueued after this channel is closed will be cancelled / not processed
+	// by the queue. If an Event has been Enqueued, but has not been processed
+	// before this channel is closed, it will be cancelled and not processed
+	// as well.
+	drain chan struct{}
+
 	// eventQueueOnce is used to ensure that the EventQueue business logic can
 	// only be ran once.
 	eventQueueOnce sync.Once
+
+	// closeOnce is used to ensure that the EventQueue can only be closed once.
+	closeOnce sync.Once
+
+	// closeWaitGroup ensures that the events channel is not closed before all
+	// events have been consumed off of it.
+	closeWaitGroup sync.WaitGroup
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
@@ -54,9 +68,9 @@ type EventQueue struct {
 func NewEventQueue() *EventQueue {
 	return &EventQueue{
 		// Only one event can be consumed at a time.
-		events:  make(chan *Event, 1),
-		close:   make(chan struct{}),
-		drained: make(chan struct{}),
+		events: make(chan *Event, 1),
+		close:  make(chan struct{}),
+		drain:  make(chan struct{}),
 	}
 
 }
@@ -66,9 +80,9 @@ func NewEventQueue() *EventQueue {
 func NewEventQueueBuffered(numBufferedEvents int) *EventQueue {
 	return &EventQueue{
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
-		events:  make(chan *Event, numBufferedEvents),
-		close:   make(chan struct{}),
-		drained: make(chan struct{}),
+		events: make(chan *Event, numBufferedEvents),
+		close:  make(chan struct{}),
+		drain:  make(chan struct{}),
 	}
 
 }
@@ -138,14 +152,26 @@ func (ev *Event) WasCancelled() bool {
 // Enqueue pushes the given event onto the EventQueue. If the queue has been
 // stopped, the Event will not be enqueued, and its cancel channel will be
 // closed, indicating that the Event was not ran. This function may block if
-// there is an event being processed by the queue.
+// the queue is at its capacity for events.
 func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 
+	if ev == nil {
+		return nil
+	}
+
+	// Track that event has been Enqueued.
+	q.closeWaitGroup.Add(1)
+	defer q.closeWaitGroup.Done()
+
 	select {
-	case <-q.close:
+	// The event should be drained from the queue (e.g., it should not be
+	// processed).
+	case <-q.drain:
+		// Closed eventResults channel signifies cancellation.
 		close(ev.cancelled)
 		close(ev.eventResults)
-		return nil
+
+		return ev.eventResults
 	default:
 		// The events channel may be closed even if an event has been pushed
 		// onto the events channel, as events are consumed off of the events
@@ -172,54 +198,30 @@ func (ev *Event) printStats() {
 // Run consumes events that have been queued for this EventQueue. It
 // is presumed that the eventQueue is a buffered channel with a length of one
 // (i.e., only one event can be processed at a time). All business logic for
-// handling queued events is contained within this function. If the Metadata
-// within an Event does not implement the EventHandler interface, the function
-// will log an error, and the Event will not be processed. If the event queue is
+// handling queued events is contained within this function. The events in the
+// queue must implement the EventHandler interface. If the event queue is
 // closed, then all events which were queued up, but not processed, are
-// cancelled. Any event which is currently being processed will not be
-// cancelled. It is assumed that the caller handles both cases for an Event
-// (cancel, or result of event) gracefully.
+// cancelled; any event which is currently being processed will not be
+// cancelled.
 func (q *EventQueue) Run() {
 	go q.eventQueueOnce.Do(func() {
-		for {
+		for ev := range q.events {
 			select {
-			// Receive next event. No other goroutine or process should consume
-			// events off of this channel!
-			case ev := <-q.events:
-				{
-					ev.stats.waitConsumeOffQueue.End(true)
-					eventHandler := ev.Metadata.(EventHandler)
-					ev.stats.durationStat.Start()
-					eventHandler.Handle(ev.eventResults)
-					// Always indicate success for now.s
-					ev.stats.durationStat.End(true)
-					// Ensures that no more results can be sent as the event has
-					// already been processed.
-					ev.printStats()
-					close(ev.eventResults)
-				}
-			// Cancel all events that were not yet consumed.
-			case <-q.close:
-				{
-					// Drain queue of all events.
-					for {
-						select {
-						case drainEvent := <-q.events:
-							drainEvent.stats.waitConsumeOffQueue.End(false)
-							close(drainEvent.cancelled)
-							close(drainEvent.eventResults)
-							drainEvent.printStats()
-						default:
-							// No more events are in events channel, so we can close
-							// it and exit. It is guaranteed that no more events
-							// will be queued onto the events channel because
-							// the close channel has been closed. See Enqueue.
-							close(q.drained)
-							close(q.events)
-							return
-						}
-					}
-				}
+			case <-q.drain:
+				ev.stats.waitConsumeOffQueue.End(false)
+				close(ev.cancelled)
+				close(ev.eventResults)
+				ev.printStats()
+			default:
+				ev.stats.waitConsumeOffQueue.End(true)
+				ev.stats.durationStat.Start()
+				ev.Metadata.Handle(ev.eventResults)
+				// Always indicate success for now.
+				ev.stats.durationStat.End(true)
+				// Ensures that no more results can be sent as the event has
+				// already been processed.
+				ev.printStats()
+				close(ev.eventResults)
 			}
 		}
 	})
@@ -231,18 +233,30 @@ func (q *EventQueue) Run() {
 // enqueued will not be processed by the event queue; they will be cancelled.
 // If the queue has already been stopped, this is a no-op.
 func (q *EventQueue) Stop() {
-	select {
-	case <-q.close:
-		log.Warning("tried to close event queue, but it already has been closed")
-	default:
-		log.Debug("closing event queue")
+	q.closeOnce.Do(func() {
+		// Any event that is sent to the queue at this point will be cancelled
+		// immediately in Enqueue().
+		close(q.drain)
+
+		// Wait for all events which have been queued to be processed. If
+		// a large amount of events are continuously enqueued at this point,
+		// then this may block. But, in most scenarios, this should exit
+		// fairly quickly.
+		q.closeWaitGroup.Wait()
+
+		// Signal that the queue has been drained.
 		close(q.close)
-	}
+
+		// This will cause Run() to receive a nil event.
+		close(q.events)
+	})
 }
 
-// IsDrained returns the channel which waits for the EventQueue to be drained.
+// IsDrained returns the channel which waits for the EventQueue to have been
+// stopped. This allows for queuers to ensure that all events in the queue have
+// been processed or cancelled.
 func (q *EventQueue) IsDrained() <-chan struct{} {
-	return q.drained
+	return q.close
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events

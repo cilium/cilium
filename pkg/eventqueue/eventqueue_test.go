@@ -35,7 +35,7 @@ func (s *EventQueueSuite) TestNewEventQueue(c *C) {
 	q := NewEventQueue()
 	c.Assert(q.close, Not(IsNil))
 	c.Assert(q.events, Not(IsNil))
-	c.Assert(q.drained, Not(IsNil))
+	c.Assert(q.drain, Not(IsNil))
 	c.Assert(cap(q.events), Equals, 1)
 }
 
@@ -90,4 +90,80 @@ func (s *EventQueueSuite) TestEventCancelAfterQueueClosed(c *C) {
 	ev = NewEvent(&DummyEvent{})
 	q.Enqueue(ev)
 	c.Assert(ev.WasCancelled(), Equals, true)
+}
+
+type NewHangEvent struct {
+	Channel   chan struct{}
+	processed bool
+}
+
+func (n *NewHangEvent) Handle(ifc chan interface{}) {
+	<-n.Channel
+	n.processed = true
+	ifc <- struct{}{}
+}
+
+func CreateHangEvent() *NewHangEvent {
+	return &NewHangEvent{
+		Channel: make(chan struct{}),
+	}
+}
+
+func (s *EventQueueSuite) TestDrain(c *C) {
+	q := NewEventQueue()
+	q.Run()
+
+	nh1 := CreateHangEvent()
+	nh2 := CreateHangEvent()
+	nh3 := CreateHangEvent()
+
+	ev := NewEvent(nh1)
+	q.Enqueue(ev)
+
+	ev2 := NewEvent(nh2)
+	ev3 := NewEvent(nh3)
+
+	q.Enqueue(ev2)
+
+	var rcvChan <-chan interface{}
+
+	enq := make(chan struct{})
+
+	go func() {
+		rcvChan = q.Enqueue(ev3)
+		enq <- struct{}{}
+	}()
+
+	close(nh1.Channel)
+
+	// Ensure that the event is enqueued. Because nh2.Channel hasn't been closed
+	// We know that the event hasn't been handled yet.
+	select {
+	case <-enq:
+		break
+	}
+
+	// Stop queue in goroutine so we don't block on all events being processed
+	// (because nh2 nor nh3 haven't had their channels closed yet).
+	go q.Stop()
+
+	// Ensure channel has began to drain after stopping.
+	select {
+	case <-q.drain:
+	}
+
+	// Allow nh2 handling to unblock so we can wait for ev3 to be cancelled.
+	close(nh2.Channel)
+
+	// Event was drained, so it should have been cancelled.
+	select {
+	case _, ok := <-rcvChan:
+		c.Assert(ok, Equals, false)
+		c.Assert(ev3.WasCancelled(), Equals, true)
+
+		// Event wasn't processed because it was drained. See Handle() for
+		// NewHangEvent.
+		c.Assert(nh3.processed, Equals, false)
+	}
+
 }
