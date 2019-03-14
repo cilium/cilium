@@ -100,12 +100,15 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 		var err error
 
 		for n := 1; n <= maxUpdateRetries; n++ {
-			node, err = GetNode(c, nodeName)
-			switch {
-			case err == nil:
-				_, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
-			case errors.IsNotFound(err):
-				err = ErrNilNode
+			if node == nil {
+				node, err = GetNode(c, nodeName)
+				if errors.IsNotFound(err) {
+					err = ErrNilNode
+				}
+			}
+
+			if err == nil && node != nil {
+				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
 			}
 
 			switch {
