@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 	"os"
 	go_runtime "runtime"
 	"strconv"
@@ -643,4 +644,78 @@ func (k *K8sIntegrationSuite) Benchmark_UpdateCNPNodeStatus_1_13(c *C) {
 	}
 	c.Logf("Running with %d parallel clients and %d nodes", nClients, nNodes)
 	k.benchmarkUpdateCNPNodeStatus(os.Getenv("INTEGRATION") != "", nNodes, nClients, "1.13", c)
+}
+
+func (k *K8sIntegrationSuite) benchmarkGetNodes(integrationTest bool, nCycles int, nParallelClients int, protobuf bool, c *C) {
+
+	// One client per node
+	k8sClients := make([]kubernetes.Interface, nParallelClients)
+	if integrationTest {
+		restConfig, err := CreateConfig()
+		c.Assert(err, IsNil)
+		if protobuf {
+			restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+		}
+		for i := range k8sClients {
+			k8sClients[i], err = kubernetes.NewForConfig(restConfig)
+			c.Assert(err, IsNil)
+		}
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(nCycles)
+	r := make(chan int, nCycles)
+	for i := 0; i < nParallelClients; i++ {
+		go func(clientID int) {
+			for range r {
+				_, err := k8sClients[clientID].CoreV1().Nodes().Get("k8s1", metav1.GetOptions{})
+				c.Assert(err, IsNil)
+				wg.Done()
+			}
+		}(i)
+	}
+
+	start := time.Now()
+	c.ResetTimer()
+	for i := 0; i < nCycles; i++ {
+		r <- i
+	}
+	wg.Wait()
+	c.StopTimer()
+	c.Logf("Test took: %s", time.Since(start))
+}
+
+func (k *K8sIntegrationSuite) Benchmark_GetNodesProto(c *C) {
+	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
+	if err != nil {
+		nCycles = c.N
+	}
+
+	// create nTh parallel clients. We achieve better results if the number
+	// of clients are not the same as number of CYCLES. We can simulate 1000 Nodes
+	// but we can simulate 1000 clients with a 8 CPU machine.
+	nClients := go_runtime.NumCPU()
+	if nClientsStr := os.Getenv("PARALLEL_CLIENTS"); nClientsStr != "" {
+		nClients, err = strconv.Atoi(nClientsStr)
+		c.Assert(err, IsNil)
+	}
+	c.Logf("Running with %d parallel clients and %d nodes", nClients, nCycles)
+	k.benchmarkGetNodes(os.Getenv("INTEGRATION") != "", nCycles, nClients, true, c)
+}
+
+func (k *K8sIntegrationSuite) Benchmark_GetNodesJSON(c *C) {
+	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
+	if err != nil {
+		nCycles = c.N
+	}
+
+	// create nTh parallel clients. We achieve better results if the number
+	// of clients are not the same as number of CYCLES. We can simulate 1000 Nodes
+	// but we can simulate 1000 clients with a 8 CPU machine.
+	nClients := go_runtime.NumCPU()
+	if nClientsStr := os.Getenv("PARALLEL_CLIENTS"); nClientsStr != "" {
+		nClients, err = strconv.Atoi(nClientsStr)
+		c.Assert(err, IsNil)
+	}
+	c.Logf("Running with %d parallel clients and %d nodes", nClients, nCycles)
+	k.benchmarkGetNodes(os.Getenv("INTEGRATION") != "", nCycles, nClients, false, c)
 }
