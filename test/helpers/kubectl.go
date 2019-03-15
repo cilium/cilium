@@ -1416,6 +1416,40 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	wg.Wait()
 }
 
+// EtcdOperatorReport dump etcd pods data into the report directory to be able
+// to debug etcd operator status in case of fail test.
+func (kub *Kubectl) EtcdOperatorReport(reportCmds map[string]string) {
+	if reportCmds == nil {
+		reportCmds = make(map[string]string)
+	}
+
+	pods, err := kub.GetPodNames(KubeSystemNamespace, "etcd_cluster=cilium-etcd")
+	if err != nil {
+		kub.logger.WithError(err).Error("No etcd pods")
+		return
+	}
+
+	etcdctl := "etcdctl --endpoints=https://%s.cilium-etcd.kube-system.svc:2379 " +
+		"--cert-file /etc/etcdtls/member/peer-tls/peer.crt " +
+		"--key-file /etc/etcdtls/member/peer-tls/peer.key " +
+		"--ca-file /etc/etcdtls/member/peer-tls/peer-ca.crt " +
+		" %s"
+
+	etcdDumpCommands := map[string]string{
+		"member list":    "etcd_%s_member_list",
+		"cluster-health": "etcd_%s_cluster_health",
+	}
+
+	for _, pod := range pods {
+		for cmd, reportFile := range etcdDumpCommands {
+			etcdCmd := fmt.Sprintf(etcdctl, pod, cmd)
+			command := fmt.Sprintf("%s -n %s exec -ti %s -- %s",
+				KubectlCmd, KubeSystemNamespace, pod, etcdCmd)
+			reportCmds[command] = fmt.Sprintf(reportFile, pod)
+		}
+	}
+}
+
 // CiliumCheckReport prints a few checks on the Junit output to provide more
 // context to users. The list of checks that prints are the following:
 // - Number of Kubernetes and Cilium policies installed.
@@ -1656,6 +1690,7 @@ func (kub *Kubectl) GatherLogs() {
 	}
 
 	kub.GeneratePodLogGatheringCommands(reportCmds)
+	kub.EtcdOperatorReport(reportCmds)
 
 	res := kub.Exec(fmt.Sprintf(`%s api-resources | grep -v "^NAME" | awk '{print $1}'`, KubectlCmd))
 	if res.WasSuccessful() {
