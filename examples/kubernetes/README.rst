@@ -25,6 +25,8 @@ the directory :code:`templates`. The components ending with :code:`.sed` will be
 automatically generated based on the template itself and the specific
 :code:`transforms2sed.sed` inside each directory for each Kubernetes version.
 
+To make a change to a template and all versions of Kubernetes run: :code:`CILIUM_VERSION=latest make -C examples/kubernetes clean all`
+
 Files
 -----
 
