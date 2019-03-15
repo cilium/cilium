@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	go_version "github.com/hashicorp/go-version"
@@ -37,6 +38,9 @@ var (
 
 	// k8sCli is the default client.
 	k8sCli = &K8sClient{}
+
+	// k8sCiliumCli is the default Cilium client.
+	k8sCiliumCli = &K8sCiliumClient{}
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
@@ -151,6 +155,27 @@ func createDefaultClient() error {
 	}
 
 	k8sCli.Interface = createdK8sClient
+
+	return nil
+}
+
+// CiliumClient returns the default Cilium Kubernetes client.
+func CiliumClient() *K8sCiliumClient {
+	return k8sCiliumCli
+}
+
+func createDefaultCiliumClient() error {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+
+	createdCiliumK8sClient, err := clientset.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	k8sCiliumCli.Interface = createdCiliumK8sClient
 
 	return nil
 }

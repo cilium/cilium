@@ -155,15 +155,7 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
-	restConfig, err := k8s.CreateConfig()
-	if err != nil {
-		log.WithError(err).Fatal("Unable to create rest configuration")
-	}
-
-	ciliumK8sClient, err = clientset.NewForConfig(restConfig)
-	if err != nil {
-		log.WithError(err).Fatal("Unable to create cilium network policy client")
-	}
+	ciliumK8sClient = k8s.CiliumClient()
 
 	if synchronizeServices {
 		startSynchronizingServices()
@@ -183,7 +175,7 @@ func runOperator(cmd *cobra.Command) {
 		enableUnmanagedKubeDNSController()
 	}
 
-	err = enableCNPWatcher()
+	err := enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")

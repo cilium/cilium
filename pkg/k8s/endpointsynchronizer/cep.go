@@ -17,18 +17,14 @@ package endpointsynchronizer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/cilium/cilium/pkg/k8s"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -38,7 +34,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 )
 
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
@@ -52,53 +47,10 @@ var (
 	// willing to run the EndpointCRD controllers
 	ciliumEPControllerLimit = versioncheck.MustCompile("> 1.6")
 
-	// ciliumEndpointSyncControllerK8sClient is a k8s client shared by the
-	// RunK8sCiliumEndpointSync and CiliumEndpointSyncGC. They obtain the
-	// controller via getCiliumClient and the sync.Once is used to avoid race.
-	ciliumEndpointSyncControllerOnce      sync.Once
-	ciliumEndpointSyncControllerK8sClient clientset.Interface
-
 	// ciliumUpdateStatusVerConstr is the minimal version supported for
 	// to perform a CRD UpdateStatus.
 	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
 )
-
-// getCiliumClient builds and returns a k8s auto-generated client for cilium
-// objects
-func getCiliumClient() (ciliumClient cilium_client_v2.CiliumV2Interface, err error) {
-	// This allows us to reuse the k8s client
-	ciliumEndpointSyncControllerOnce.Do(func() {
-		var (
-			restConfig *rest.Config
-			k8sClient  *clientset.Clientset
-		)
-
-		restConfig, err = k8s.CreateConfig()
-		if err != nil {
-			return
-		}
-
-		k8sClient, err = clientset.NewForConfig(restConfig)
-		if err != nil {
-			return
-		}
-
-		ciliumEndpointSyncControllerK8sClient = k8sClient
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	// This guards against the situation where another invocation of this
-	// function (in another thread or previous in time) might have returned an
-	// error and not initialized ciliumEndpointSyncControllerK8sClient
-	if ciliumEndpointSyncControllerK8sClient == nil {
-		return nil, errors.New("No initialised k8s Cilium CRD client")
-	}
-
-	return ciliumEndpointSyncControllerK8sClient.CiliumV2(), nil
-}
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD. It is expected that each CEP
@@ -110,7 +62,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		endpointID     = e.ID
 		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
 		scopedLog      = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
-		err            error
 	)
 
 	if option.Config.DisableCiliumEndpointCRD {
@@ -123,11 +74,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		return
 	}
 
-	ciliumClient, err := getCiliumClient()
-	if err != nil {
-		scopedLog.WithError(err).Error("Not starting controller because unable to get cilium k8s client")
-		return
-	}
+	ciliumClient := k8s.CiliumClient().CiliumV2()
 
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.
