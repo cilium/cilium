@@ -113,6 +113,10 @@ func Init() error {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
 
+	if err := createDefaultCiliumClient(); err != nil {
+		return fmt.Errorf("unable to create cilium k8s client: %s", err)
+	}
+
 	sv, err := GetServerVersion()
 	if err != nil {
 		return fmt.Errorf("k8s client failed to talk to k8s api-server: %s", err)

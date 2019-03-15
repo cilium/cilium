@@ -20,11 +20,13 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -112,13 +114,7 @@ func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 		return nil
 	}
 
-	k8sClient, err := getK8sClient()
-	if err != nil {
-		metrics.PolicyImportErrors.Inc()
-		scopedLog.WithError(err).Error("Cannot get Kubernetes client")
-	}
-
-	err = k8sClient.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).DeleteCollection(
+	err := k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).DeleteCollection(
 		&v1.DeleteOptions{},
 		v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", parentCNP, cnp.ObjectMeta.UID)})
 
