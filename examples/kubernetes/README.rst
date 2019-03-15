@@ -4,7 +4,7 @@ Kubernetes Deployment
 This directory contains all Cilium deployment files that can be used in
 Kubernetes.
 
-Each directory represents a Kubernetes version, from :code:`1.8` to :code:`1.12`,
+Each directory represents a Kubernetes version, from :code:`1.8` to :code:`1.13`,
 and inside each version there is a list of files to deploy Cilium.
 
 The structure directory will be :code:`${k8s_major_version}.${k8s_minor_version}/*.yaml`.
@@ -24,6 +24,8 @@ There are templates for each component to be installed in Kubernetes inside
 the directory :code:`templates`. The components ending with :code:`.sed` will be
 automatically generated based on the template itself and the specific
 :code:`transforms2sed.sed` inside each directory for each Kubernetes version.
+
+To make a change to a template and all versions of Kubernetes run: :code:`CILIUM_VERSION=latest make -C examples/kubernetes clean all`
 
 Files
 -----
