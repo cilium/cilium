@@ -252,12 +252,6 @@ retryLoop:
 	return err
 }
 
-type jsonPatch struct {
-	OP    string      `json:"op,omitempty"`
-	Path  string      `json:"path,omitempty"`
-	Value interface{} `json:"value"`
-}
-
 func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
 	var (
 		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
@@ -326,7 +320,7 @@ func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enfo
 		// one of the nodes would "create" the `/status` path before all other
 		// nodes tried to replace their own status resulted in a gain of 3 %.
 		// This gain is less notable once the number of nodes increases.
-		createStatusAndNodePatch := []jsonPatch{
+		createStatusAndNodePatch := []JSONPatch{
 			{
 				OP:    "test",
 				Path:  "/status",
@@ -353,7 +347,7 @@ func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enfo
 		if err != nil {
 			// If it fails it means the test from the previous patch failed
 			// so we can safely replace this node in the CNP status.
-			createStatusAndNodePatch := []jsonPatch{
+			createStatusAndNodePatch := []JSONPatch{
 				{
 					OP:    "replace",
 					Path:  "/status/nodes/" + c.NodeName,
