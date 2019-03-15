@@ -87,6 +87,14 @@ spec:
         image: docker.io/cilium/operator:__CILIUM_VERSION__
         imagePullPolicy: Always
         name: cilium-operator
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9234
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
         volumeMounts:
         - mountPath: /var/lib/etcd-config
           name: etcd-config-path

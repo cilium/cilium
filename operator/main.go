@@ -53,7 +53,8 @@ var (
 	k8sKubeConfigPath   string
 	kvStore             string
 	kvStoreOpts         = make(map[string]string)
-	shutdownSignal      = make(chan bool, 1)
+	apiServerPort       uint16
+	shutdownSignal      = make(chan struct{})
 	synchronizeServices bool
 	enableCepGC         bool
 
@@ -66,7 +67,7 @@ func main() {
 
 	go func() {
 		<-signals
-		shutdownSignal <- true
+		close(shutdownSignal)
 	}()
 
 	// Open socket for using gops to get stacktraces of the agent.
@@ -96,6 +97,7 @@ func init() {
 	flags.StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
 	flags.StringVar(&kvStore, "kvstore", "", "Key-value store type")
 	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
+	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
 
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
@@ -180,6 +182,8 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
+
+	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
 	for {
 		select {
