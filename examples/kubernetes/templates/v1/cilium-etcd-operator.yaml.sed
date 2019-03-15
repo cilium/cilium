@@ -28,6 +28,10 @@ spec:
       - command:
         - /usr/bin/cilium-etcd-operator
         env:
+        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_MODE
+          value: "revision"
+        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
+          value: "25000"
         - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
           value: cluster.local
         - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
