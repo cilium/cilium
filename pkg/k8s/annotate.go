@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
@@ -35,6 +36,11 @@ type K8sClient struct {
 	// kubernetes.Interface is the object through which interactions with
 	// Kubernetes are performed.
 	kubernetes.Interface
+}
+
+// K8sCiliumClient is a wrapper around clientset.Interface.
+type K8sCiliumClient struct {
+	clientset.Interface
 }
 
 // AnnotatePod adds a Kubernetes annotation with key annotationKey and value

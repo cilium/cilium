@@ -19,10 +19,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -32,8 +31,6 @@ const (
 )
 
 var (
-	globalK8sClient       *clientset.Clientset
-	k8sMutex              = lock.Mutex{}
 	blockOwnerDeletionPtr = true
 )
 
@@ -98,51 +95,17 @@ func denyEgressRule() *api.Rule {
 	}
 }
 
-// getK8sClient return the kubernetes apiserver connection
-func getK8sClient() (*clientset.Clientset, error) {
-	k8sMutex.Lock()
-	defer k8sMutex.Unlock()
-	if globalK8sClient != nil {
-		return globalK8sClient, nil
-	}
-
-	restConfig, err := k8s.CreateConfig()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create rest configuration: %s", err)
-	}
-	k8sClient, err := clientset.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create Kubernetes configuration: %s", err)
-
-	}
-	globalK8sClient = k8sClient
-	return globalK8sClient, nil
-}
-
-func updateCNPStatus(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
-	k8sClient, err := getK8sClient()
-	if err != nil {
-		// @TODO change the error here
-		return nil, err
-	}
-	return k8sClient.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(cnp)
-}
-
 func updateOrCreateCNP(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
-	k8sClient, err := getK8sClient()
-	if err != nil {
-		return nil, err
-	}
-	k8sCNP, err := k8sClient.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).
+	k8sCNP, err := k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).
 		Get(cnp.ObjectMeta.Name, v1.GetOptions{})
 	if err == nil {
 		k8sCNP.ObjectMeta.Labels = cnp.ObjectMeta.Labels
 		k8sCNP.Spec = cnp.Spec
 		k8sCNP.Specs = cnp.Specs
 		k8sCNP.Status = cilium_v2.CiliumNetworkPolicyStatus{}
-		return k8sClient.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Update(k8sCNP)
+		return k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Update(k8sCNP)
 	}
-	return k8sClient.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Create(cnp)
+	return k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Create(cnp)
 }
 
 func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName string, err error) error {
@@ -158,13 +121,9 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 		status.OK = true
 	}
 
-	k8sClient, clientErr := getK8sClient()
-	if clientErr != nil {
-		return fmt.Errorf("Cannot get Kubernetes apiserver client: %s", clientErr)
-	}
 	// This CNP can be modified by cilium agent or operator. To be able to push
 	// the status correctly fetch the last version to avoid updates issues.
-	k8sCNPStatus, clientErr := k8sClient.CiliumV2().
+	k8sCNPStatus, clientErr := k8s.CiliumClient().CiliumV2().
 		CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).
 		Get(cnp.ObjectMeta.Name, v1.GetOptions{})
 	if clientErr != nil {
@@ -179,6 +138,7 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 	}
 	k8sCNPStatus.SetDerivedPolicyStatus(derivativeName, status)
 	groupsCNPCache.UpdateCNP(k8sCNPStatus)
-	_, err = updateCNPStatus(k8sCNPStatus)
+	// TODO: switch to JSON Patch
+	_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(cnp)
 	return err
 }
