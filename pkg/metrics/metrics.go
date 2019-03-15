@@ -190,23 +190,6 @@ var (
 	},
 		[]string{"outcome"})
 
-	// Deprecated: this metric will be removed in Cilium 1.4
-	// EndpointRegenerationTime is the total time taken to regenerate endpoint
-	EndpointRegenerationTime = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: Namespace,
-		Name:      "endpoint_regeneration_seconds_total",
-		Help:      "Total sum of successful endpoint regeneration times (Deprecated)",
-	})
-
-	// Deprecated: this metric will be removed in Cilium 1.4
-	// EndpointRegenerationTimeSquare is the sum of squares of total time taken
-	// to regenerate endpoint.
-	EndpointRegenerationTimeSquare = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: Namespace,
-		Name:      "endpoint_regeneration_square_seconds_total",
-		Help:      "Total sum of squares of successful endpoint regeneration times (Deprecated)",
-	})
-
 	// EndpointStateCount is the total count of the endpoints in various states.
 	EndpointStateCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -594,8 +577,6 @@ func init() {
 
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
-	MustRegister(EndpointRegenerationTime)
-	MustRegister(EndpointRegenerationTimeSquare)
 	MustRegister(EndpointStateCount)
 	MustRegister(EndpointRegenerationTimeStats)
 
