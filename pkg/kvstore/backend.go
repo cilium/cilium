@@ -132,7 +132,7 @@ func getBackend(name string) backendModule {
 // tracing layer.
 type BackendOperations interface {
 
-	// Status returns the status of he kvstore client including an
+	// Status returns the status of the kvstore client including an
 	// eventual error
 	Status() (string, error)
 
