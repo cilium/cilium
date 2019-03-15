@@ -162,7 +162,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 			func(action k8sTesting.Action) (bool, runtime.Object, error) {
 				pa := action.(k8sTesting.PatchAction)
 				time.Sleep(1 * time.Millisecond)
-				var receivedJsonPatch []jsonPatch
+				var receivedJsonPatch []JSONPatch
 				err := json.Unmarshal(pa.GetPatch(), &receivedJsonPatch)
 				c.Assert(err, IsNil)
 
@@ -198,7 +198,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						// Remove k8s2 from the nodes status.
 						cnpsK8s1 := wantedCNPS.DeepCopy()
 						delete(cnpsK8s1.Nodes, "k8s2")
-						createStatusAndNodePatch := []jsonPatch{
+						createStatusAndNodePatch := []JSONPatch{
 							{
 								OP:    "test",
 								Path:  "/status",
@@ -212,7 +212,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						}
 						expectedJSONPatchBytes, err := json.Marshal(createStatusAndNodePatch)
 						c.Assert(err, IsNil)
-						var expectedJSONPatch []jsonPatch
+						var expectedJSONPatch []JSONPatch
 						err = json.Unmarshal(expectedJSONPatchBytes, &expectedJSONPatch)
 						c.Assert(err, IsNil)
 
@@ -255,7 +255,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						cnpsK8s2 := wantedCNPS.DeepCopy()
 						delete(cnpsK8s2.Nodes, "k8s1")
 
-						createStatusAndNodePatch := []jsonPatch{
+						createStatusAndNodePatch := []JSONPatch{
 							{
 								OP:    receivedJsonPatch[0].OP,
 								Path:  "/status/nodes/k8s2",
@@ -264,7 +264,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						}
 						expectedJSONPatchBytes, err := json.Marshal(createStatusAndNodePatch)
 						c.Assert(err, IsNil)
-						var expectedJSONPatch []jsonPatch
+						var expectedJSONPatch []JSONPatch
 						err = json.Unmarshal(expectedJSONPatchBytes, &expectedJSONPatch)
 						c.Assert(err, IsNil)
 
@@ -286,7 +286,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 					nWanted.Enforcing = false
 					cnpsK8s1.Nodes["k8s1"] = nWanted
 
-					createStatusAndNodePatch := []jsonPatch{
+					createStatusAndNodePatch := []JSONPatch{
 						{
 							OP:    receivedJsonPatch[0].OP,
 							Path:  "/status/nodes/k8s1",
@@ -295,7 +295,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 					}
 					expectedJSONPatchBytes, err := json.Marshal(createStatusAndNodePatch)
 					c.Assert(err, IsNil)
-					var expectedJSONPatch []jsonPatch
+					var expectedJSONPatch []JSONPatch
 					err = json.Unmarshal(expectedJSONPatchBytes, &expectedJSONPatch)
 					c.Assert(err, IsNil)
 
