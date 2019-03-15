@@ -34,8 +34,6 @@ Endpoint
 * ``endpoint_count``: Number of endpoints managed by this agent
 * ``endpoint_regenerating``: Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead
 * ``endpoint_regenerations``: Count of all endpoint regenerations that have completed, tagged by outcome
-* ``endpoint_regeneration_seconds_total``: Total sum of successful endpoint regeneration times (Deprecated)
-* ``endpoint_regeneration_square_seconds_total``: Total sum of squares of successful endpoint regeneration times (Deprecated)
 * ``endpoint_regeneration_time_stats_seconds``: Endpoint regeneration time stats labeled by scope.
 * ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
 

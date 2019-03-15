@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 
-	"math"
 	"time"
 )
 
@@ -61,9 +60,6 @@ func (s *regenerationStatistics) SendMetrics() {
 	}
 
 	metrics.EndpointRegenerationCount.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-	regenerateTimeSec := s.totalTime.Total().Seconds()
-	metrics.EndpointRegenerationTime.Add(regenerateTimeSec)
-	metrics.EndpointRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 
 	for scope, stat := range s.GetMap() {
 		// Skip scopes that have not been hit (zero duration), so the count in
