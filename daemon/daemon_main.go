@@ -408,6 +408,9 @@ func init() {
 	flags.MarkHidden(option.LegacyDisableIPv4Name)
 	option.BindEnv(option.LegacyDisableIPv4Name)
 
+	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
+	option.BindEnv(option.EnableHealthChecking)
+
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(option.EnableIPv4Name)
 

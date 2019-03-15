@@ -412,6 +412,9 @@ const (
 	// IdentityChangeGracePeriod is the name of the
 	// IdentityChangeGracePeriod option
 	IdentityChangeGracePeriod = "identity-change-grace-period"
+
+	// EnableHealthChecking is the name of the EnableHealthChecking option
+	EnableHealthChecking = "enable-health-checking"
 )
 
 // FQDNS variables
@@ -1058,6 +1061,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
+	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
