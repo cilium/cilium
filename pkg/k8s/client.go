@@ -148,6 +148,7 @@ func createDefaultClient() error {
 	if err != nil {
 		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
 	}
+	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
 
 	createdK8sClient, err := CreateClient(restConfig)
 	if err != nil {
