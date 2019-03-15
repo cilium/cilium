@@ -314,10 +314,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 		return fmt.Errorf("Unsupported k8s version. Minimal supported version is %s", ciliumv2VerConstr.String())
 	}
 
-	ciliumNPClient, err = clientset.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("Unable to create cilium network policy client: %s", err)
-	}
+	ciliumNPClient = k8s.CiliumClient()
 
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
