@@ -469,6 +469,14 @@ spec:
         image: docker.io/cilium/operator:latest
         imagePullPolicy: Always
         name: cilium-operator
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9234
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
         volumeMounts:
         - mountPath: /var/lib/etcd-config
           name: etcd-config-path
@@ -743,8 +751,10 @@ spec:
           value: "revision"
         - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
           value: "25000"
+        - name: CILIUM_ETCD_OPERATOR_GENERATE_CERTS
+          value: "false"
         - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
-          value: cluster.local
+          value: "cluster.local"
         - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
           value: "3"
         - name: CILIUM_ETCD_OPERATOR_NAMESPACE
