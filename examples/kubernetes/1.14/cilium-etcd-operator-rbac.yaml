@@ -12,6 +12,7 @@ rules:
   - get
   - delete
   - create
+  - update
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -35,8 +36,8 @@ rules:
   - pods
   verbs:
   - list
-  - delete
   - get
+  - delete
 - apiGroups:
   - apps
   resources:
