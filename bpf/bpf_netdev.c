@@ -534,7 +534,7 @@ int from_netdev(struct __sk_buff *skb)
 	__u32 identity = 0;
 	int ret;
 
-#ifdef ENABLE_IPSEC
+#if defined ENABLE_IPSEC && defined ENCAP_IFINDEX
 	if (1) {
 		__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
 
