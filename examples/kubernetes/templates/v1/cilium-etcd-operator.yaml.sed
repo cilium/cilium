@@ -25,15 +25,13 @@ spec:
         name: cilium-etcd-operator
     spec:
       containers:
-      - command:
+      - args:
+        #- --etcd-node-selector=disktype=ssd,cputype=high
+        command:
         - /usr/bin/cilium-etcd-operator
         env:
-        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_MODE
-          value: "revision"
-        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
-          value: "25000"
         - name: CILIUM_ETCD_OPERATOR_CLUSTER_DOMAIN
-          value: cluster.local
+          value: "cluster.local"
         - name: CILIUM_ETCD_OPERATOR_ETCD_CLUSTER_SIZE
           value: "3"
         - name: CILIUM_ETCD_OPERATOR_NAMESPACE
@@ -51,6 +49,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.uid
+        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_MODE
+          value: "revision"
+        - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
+          value: "25000"
         image: docker.io/cilium/cilium-etcd-operator:__CILIUM_ETCD_OPERATOR_VERSION__
         imagePullPolicy: IfNotPresent
         name: cilium-etcd-operator
