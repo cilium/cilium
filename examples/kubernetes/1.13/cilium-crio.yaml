@@ -762,7 +762,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.uid
-        image: docker.io/cilium/cilium-etcd-operator:v2.0.5
+        image: quay.io/cilium/cilium-etcd-operator:v2.0.6-rc1
         imagePullPolicy: IfNotPresent
         name: cilium-etcd-operator
       dnsPolicy: ClusterFirst
