@@ -11,14 +11,14 @@
 
 { print }
 
-# Add an init container to delay the start of the application containers for
-# 10 seconds, to reduce the chance of dropping early traffic.
+# Add an init container to delay the start of the application containers,
+# to reduce the chance of dropping early traffic.
 /initContainers:/ {
 	indent = $0 ; gsub(/[^ ].*/, "", indent)
 	print indent "- name: sleep"
 	print indent "  image: busybox:1.28.4"
 	print indent "  imagePullPolicy: IfNotPresent"
-	print indent "  command: ['sh', '-c', 'until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done']"
+	print indent "  command: ['sh', '-c', 'max=120; i=0; until nslookup kube-dns.kube-system.svc.cluster.local; do i=$((i + 1)); if [ $i -eq $max ]; then echo timed-out; exit 1; else sleep 1; fi done ']"
 }
 
 # Mount the Cilium state directory to give Cilium's Envoy filters access to the
