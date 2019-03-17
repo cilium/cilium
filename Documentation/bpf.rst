@@ -2040,6 +2040,162 @@ describe some of the differences for the BPF model:
     7: (95) exit
     processed 8 insns (limit 131072), stack depth 8
 
+10. **Remove struct padding with aligning members by using #pragma pack.**
+
+  In modern compilers, data structures are aligned by default to access memory
+  efficiently. Structure members are aligned to memory address that multiples their
+  size, and padding is added for the proper alignment. Because of this, the size
+  of struct may often grow larger than expected.
+
+  ::
+
+    struct called_info {
+        u64 start;  // 8-byte
+        u64 end;    // 8-byte
+        u32 sector; // 4-byte
+    }; // size of 20-byte ?
+
+    printf("size of %d-byte\n", sizeof(struct called_info)); // size of 24-byte
+
+    // Actual compiled composition of struct called_info
+    // 0x0(0)                   0x8(8)
+    //  ↓________________________↓
+    //  |        start (8)       |
+    //  |________________________|
+    //  |         end  (8)       |
+    //  |________________________|
+    //  |  sector(4) |  PADDING  | <= address aligned to 8
+    //  |____________|___________|     with 4-byte PADDING.
+
+  The BPF verifier in the kernel checks the stack boundary that a BPF program does
+  not access outside of boundary or uninitialized stack area. Using struct with the
+  padding as a map value, will cause ``invalid indirect read from stack`` failure on
+  ``bpf_prog_load()``.
+
+  Example code:
+
+  ::
+
+    struct called_info {
+        u64 start;
+        u64 end;
+        u32 sector;
+    };
+
+    struct bpf_map_def SEC("maps") called_info_map = {
+        .type = BPF_MAP_TYPE_HASH,
+        .key_size = sizeof(long),
+        .value_size = sizeof(struct called_info),
+        .max_entries = 4096,
+    };
+
+    SEC("kprobe/submit_bio")
+    int submit_bio_entry(struct pt_regs *ctx)
+    {
+        char fmt[] = "submit_bio(bio=0x%lx) called: %llu\n";
+        u64 start_time = bpf_ktime_get_ns();
+        long bio_ptr = PT_REGS_PARM1(ctx);
+        struct called_info called_info = {
+                .start = start_time,
+                .end = 0,
+                .bi_sector = 0
+        };
+
+        bpf_map_update_elem(&called_info_map, &bio_ptr, &called_info, BPF_ANY);
+        bpf_trace_printk(fmt, sizeof(fmt), bio_ptr, start_time);
+        return 0;
+    }
+
+    // On bpf_load_program
+    bpf_load_program() err=13
+    0: (bf) r6 = r1
+    ...
+    19: (b7) r1 = 0
+    20: (7b) *(u64 *)(r10 -72) = r1
+    21: (7b) *(u64 *)(r10 -80) = r7
+    22: (63) *(u32 *)(r10 -64) = r1
+    ...
+    30: (85) call bpf_map_update_elem#2
+    invalid indirect read from stack off -80+20 size 24
+
+  At ``bpf_prog_load()``, an eBPF verifier ``bpf_check()`` is called, and it'll
+  check stack boundary by calling ``check_func_arg() -> check_stack_boundary()``.
+  From the upper error shows, ``struct called_info`` is compiled to 24-byte size,
+  and the message says reading a data from +20 is an invalid indirect read.
+  And as we discussed earlier, the address 0x14(20) is the place where PADDING is.
+
+  ::
+
+    // Actual compiled composition of struct called_info
+    // 0x10(16)    0x14(20)    0x18(24)
+    //  ↓____________↓___________↓
+    //  |  sector(4) |  PADDING  | <= address aligned to 8
+    //  |____________|___________|     with 4-byte PADDING.
+
+  The ``check_stack_boundary()`` internally loops through the every ``access_size`` (24)
+  byte from the start pointer to make sure that it's within stack boundary and all
+  elements of the stack are initialized. Since the padding isn't supposed to be used,
+  it gets the 'invalid indirect read from stack' failure. To avoid this kind of
+  failure, remove the padding from the struct is necessary.
+
+  Removing the padding by using ``#pragma pack(n)`` directive:
+
+  ::
+
+    #pragma pack(4)
+    struct called_info {
+        u64 start;  // 8-byte
+        u64 end;    // 8-byte
+        u32 sector; // 4-byte
+    }; // size of 20-byte ?
+
+    printf("size of %d-byte\n", sizeof(struct called_info)); // size of 20-byte
+
+    // Actual compiled composition of packed struct called_info
+    // 0x0(0)                   0x8(8)
+    //  ↓________________________↓
+    //  |        start (8)       |
+    //  |________________________|
+    //  |         end  (8)       |
+    //  |________________________|
+    //  |  sector(4) |             <= address aligned to 4
+    //  |____________|                 with no PADDING.
+
+  By locating ``#pragma pack(4)`` before of ``struct called_info``, compiler will align
+  members of a struct to the least of 4-byte and their natural alignment. As you can
+  see, the size of ``struct called_info`` has been shrunk to 20-byte and the padding
+  is no longer exist.
+
+  But, removing the padding have downsides either. For example, compiler will generate
+  less optimized code. Since we've removed the padding, processors will conduct
+  unaligned access to the structure and this might lead to performance degradation.
+  And also, unaligned access might get rejected by verifier on some architectures.
+
+  However, there is a way to avoid downsides of packed structure. By simply adding the
+  explicit padding ``u32 pad`` member at the end will resolve the same problem without
+  packing of the structure.
+
+  ::
+
+    struct called_info {
+        u64 start;  // 8-byte
+        u64 end;    // 8-byte
+        u32 sector; // 4-byte
+        u32 pad;    // 4-byte
+    }; // size of 24-byte ?
+
+    printf("size of %d-byte\n", sizeof(struct called_info)); // size of 24-byte
+
+    // Actual compiled composition of struct called_info with explicit padding
+    // 0x0(0)                   0x8(8)
+    //  ↓________________________↓
+    //  |        start (8)       |
+    //  |________________________|
+    //  |         end  (8)       |
+    //  |________________________|
+    //  |  sector(4) |  pad (4)  | <= address aligned to 8
+    //  |____________|___________|     with explicit PADDING.
+
 iproute2
 --------
 
