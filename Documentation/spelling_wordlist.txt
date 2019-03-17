@@ -484,6 +484,7 @@ sgr
 sha
 Sharma
 Shirokov
+shrinked
 Sidious
 sidious
 SIG
