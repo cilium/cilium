@@ -29,7 +29,7 @@ keys may be manually distributed but that is not shown here.
     * Only works in tunnel mode
     * Not compatible with the etcd-operator
     
-    Both limitations will be resolved in 1.4.1.
+    Both limitations will be resolved with upcoming releases.
 
 Generate & import the PSK
 =========================
