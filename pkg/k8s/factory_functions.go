@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"k8s.io/api/core/v1"
@@ -214,4 +215,127 @@ func EqualV1Namespace(ns1, ns2 *v1.Namespace) bool {
 	// we only care about namespace labels.
 	return ns1.Name == ns2.Name &&
 		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())
+}
+
+func ConvertToNetworkPolicy(obj interface{}) interface{} {
+	netPol, ok := obj.(*networkingv1.NetworkPolicy)
+	if !ok {
+		return nil
+	}
+	return &types.NetworkPolicy{
+		NetworkPolicy: netPol,
+	}
+}
+
+func ConvertToK8sService(obj interface{}) interface{} {
+	service, ok := obj.(*v1.Service)
+	if !ok {
+		return nil
+	}
+	return &types.Service{
+		Service: service,
+	}
+}
+
+func ConvertToK8sEndpoints(obj interface{}) interface{} {
+	endpoints, ok := obj.(*v1.Endpoints)
+	if !ok {
+		return nil
+	}
+	return &types.Endpoints{
+		Endpoints: endpoints,
+	}
+}
+
+func ConvertToIngress(obj interface{}) interface{} {
+	ingress, ok := obj.(*v1beta1.Ingress)
+	if !ok {
+		return nil
+	}
+	ing := &types.Ingress{
+		Ingress: ingress,
+	}
+
+	*ingress = v1beta1.Ingress{}
+	return ing
+}
+
+func ConvertToCNPWithStatus(obj interface{}) interface{} {
+	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		return nil
+	}
+	slimCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta:   cnp.TypeMeta,
+			ObjectMeta: cnp.ObjectMeta,
+			Spec:       cnp.Spec,
+			Specs:      cnp.Specs,
+			Status:     cnp.Status,
+		},
+	}
+	*cnp = cilium_v2.CiliumNetworkPolicy{}
+	return slimCNP
+}
+
+func ConvertToCNP(obj interface{}) interface{} {
+	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		return nil
+	}
+	slimCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta:   cnp.TypeMeta,
+			ObjectMeta: cnp.ObjectMeta,
+			Spec:       cnp.Spec,
+			Specs:      cnp.Specs,
+		},
+	}
+	*cnp = cilium_v2.CiliumNetworkPolicy{}
+	return slimCNP
+}
+
+func ConvertToPod(obj interface{}) interface{} {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return nil
+	}
+	p := &types.Pod{
+		TypeMeta:        pod.TypeMeta,
+		ObjectMeta:      pod.ObjectMeta,
+		StatusPodIP:     pod.Status.PodIP,
+		StatusHostIP:    pod.Status.HostIP,
+		SpecHostNetwork: pod.Spec.HostNetwork,
+	}
+	*pod = v1.Pod{}
+	return p
+}
+
+func ConvertToNode(obj interface{}) interface{} {
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		return nil
+	}
+	n := &types.Node{
+		TypeMeta:        node.TypeMeta,
+		ObjectMeta:      node.ObjectMeta,
+		StatusAddresses: node.Status.Addresses,
+		SpecPodCIDR:     node.Spec.PodCIDR,
+	}
+	*node = v1.Node{}
+	return n
+}
+
+func ConvertToNamespace(obj interface{}) interface{} {
+	namespace, ok := obj.(*v1.Namespace)
+	if !ok {
+		return nil
+	}
+	n := &types.Namespace{
+		TypeMeta:   namespace.TypeMeta,
+		ObjectMeta: namespace.ObjectMeta,
+	}
+
+	*namespace = v1.Namespace{}
+	return n
 }
