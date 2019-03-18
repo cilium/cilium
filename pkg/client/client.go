@@ -191,14 +191,14 @@ func FormatStatusResponseBrief(w io.Writer, sr *models.StatusResponse) {
 	msg := ""
 
 	switch {
-	case statusUnhealthy(sr.Cilium):
-		msg = fmt.Sprintf("cilium: %s", sr.Cilium.Msg)
-	case statusUnhealthy(sr.ContainerRuntime):
-		msg = fmt.Sprintf("container runtime: %s", sr.ContainerRuntime.Msg)
 	case statusUnhealthy(sr.Kvstore):
 		msg = fmt.Sprintf("kvstore: %s", sr.Kvstore.Msg)
+	case statusUnhealthy(sr.ContainerRuntime):
+		msg = fmt.Sprintf("container runtime: %s", sr.ContainerRuntime.Msg)
 	case sr.Kubernetes != nil && stateUnhealthy(sr.Kubernetes.State):
 		msg = fmt.Sprintf("kubernetes: %s", sr.Kubernetes.Msg)
+	case statusUnhealthy(sr.Cilium):
+		msg = fmt.Sprintf("cilium: %s", sr.Cilium.Msg)
 	case sr.Cluster != nil && statusUnhealthy(sr.Cluster.CiliumHealth):
 		msg = fmt.Sprintf("cilium-health: %s", sr.Cluster.CiliumHealth.Msg)
 	}

@@ -58,6 +58,15 @@ func init() {
 }
 
 func statusDaemon() {
+	isUnhealthy := func(sr *models.StatusResponse) bool {
+		if sr.Cilium != nil {
+			state := sr.Cilium.State
+			return state != models.StatusStateOk && state != models.StatusStateDisabled
+		}
+
+		return false
+	}
+
 	if verbose {
 		allAddresses = true
 		allControllers = true
@@ -80,18 +89,19 @@ func statusDaemon() {
 			os.Exit(1)
 		}
 	} else if brief {
-		pkg.FormatStatusResponseBrief(os.Stdout, resp.Payload)
+		sr := resp.Payload
+		pkg.FormatStatusResponseBrief(os.Stdout, sr)
+		if isUnhealthy(sr) {
+			os.Exit(1)
+		}
 	} else {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes, allRedirects)
 		w.Flush()
 
-		if sr.Cilium != nil {
-			state := sr.Cilium.State
-			if state != models.StatusStateOk && state != models.StatusStateDisabled {
-				os.Exit(1)
-			}
+		if isUnhealthy(sr) {
+			os.Exit(1)
 		}
 
 		healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
