@@ -17,6 +17,7 @@ package k8s
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -25,8 +26,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 )
 
 // CacheAction is the type of action that was performed on the cache
@@ -124,7 +123,7 @@ func (s *ServiceCache) GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Add
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateService(k8sSvc *v1.Service) ServiceID {
+func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
 	svcID, newService := ParseService(k8sSvc)
 	if newService == nil {
 		return svcID
@@ -157,7 +156,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *v1.Service) ServiceID {
 
 // DeleteService parses a Kubernetes service and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteService(k8sSvc *v1.Service) {
+func (s *ServiceCache) DeleteService(k8sSvc *types.Service) {
 	svcID := ParseServiceID(k8sSvc)
 
 	s.mutex.Lock()
@@ -180,7 +179,7 @@ func (s *ServiceCache) DeleteService(k8sSvc *v1.Service) {
 // ServiceCache. Returns the ServiceID unless the Kubernetes endpoints could not
 // be parsed and a bool to indicate whether the endpoints was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *v1.Endpoints) (ServiceID, *Endpoints) {
+func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints) (ServiceID, *Endpoints) {
 	svcID, newEndpoints := ParseEndpoints(k8sEndpoints)
 
 	s.mutex.Lock()
@@ -211,7 +210,7 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *v1.Endpoints) (ServiceID, *
 
 // DeleteEndpoints parses a Kubernetes endpoints and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *v1.Endpoints) ServiceID {
+func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID {
 	svcID := ParseEndpointsID(k8sEndpoints)
 
 	s.mutex.Lock()
@@ -240,7 +239,7 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *v1.Endpoints) ServiceID {
 
 // UpdateIngress parses a Kubernetes ingress and adds or updates it in the
 // ServiceCache.
-func (s *ServiceCache) UpdateIngress(ingress *v1beta1.Ingress, host net.IP) (ServiceID, error) {
+func (s *ServiceCache) UpdateIngress(ingress *types.Ingress, host net.IP) (ServiceID, error) {
 	svcID, newService, err := ParseIngress(ingress, host)
 	if err != nil {
 		return svcID, err
@@ -268,7 +267,7 @@ func (s *ServiceCache) UpdateIngress(ingress *v1beta1.Ingress, host net.IP) (Ser
 
 // DeleteIngress parses a Kubernetes ingress and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteIngress(ingress *v1beta1.Ingress) {
+func (s *ServiceCache) DeleteIngress(ingress *types.Ingress) {
 	svcID := ParseIngressID(ingress)
 
 	s.mutex.Lock()

@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -48,13 +49,13 @@ func ParseNodeAddressType(k8sAddress v1.NodeAddressType) (addressing.AddressType
 }
 
 // ParseNode parses a kubernetes node to a cilium node
-func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
+func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:  k8sNode.Name,
 		logfields.K8sNodeID: k8sNode.UID,
 	})
 	addrs := []node.Address{}
-	for _, addr := range k8sNode.Status.Addresses {
+	for _, addr := range k8sNode.StatusAddresses {
 		// We only care about this address types,
 		// we ignore all other types.
 		switch addr.Type {
@@ -114,9 +115,9 @@ func ParseNode(k8sNode *v1.Node, source node.Source) *node.Node {
 		Source:      source,
 	}
 
-	if len(k8sNode.Spec.PodCIDR) != 0 {
-		if allocCIDR, err := cidr.ParseCIDR(k8sNode.Spec.PodCIDR); err != nil {
-			scopedLog.WithError(err).WithField(logfields.V4Prefix, k8sNode.Spec.PodCIDR).Warn("Invalid PodCIDR value for node")
+	if len(k8sNode.SpecPodCIDR) != 0 {
+		if allocCIDR, err := cidr.ParseCIDR(k8sNode.SpecPodCIDR); err != nil {
+			scopedLog.WithError(err).WithField(logfields.V4Prefix, k8sNode.SpecPodCIDR).Warn("Invalid PodCIDR value for node")
 		} else {
 			if allocCIDR.IP.To4() != nil {
 				newNode.IPv4AllocCIDR = allocCIDR

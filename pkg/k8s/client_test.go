@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
 
 	. "gopkg.in/check.v1"
@@ -68,7 +69,9 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			updateChan <- true
 			return true, n1copy, nil
 		})
-	node1Cilium := ParseNode(&node1, node.FromAgentLocal)
+
+	node1Slim := ConvertToNode(node1.DeepCopy()).(*types.Node)
+	node1Cilium := ParseNode(node1Slim, node.FromAgentLocal)
 
 	useNodeCIDR(node1Cilium)
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
@@ -130,7 +133,8 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			return true, n2Copy, nil
 		})
 
-	node2Cilium := ParseNode(&node2, node.FromAgentLocal)
+	node2Slim := ConvertToNode(node2.DeepCopy()).(*types.Node)
+	node2Cilium := ParseNode(node2Slim, node.FromAgentLocal)
 	useNodeCIDR(node2Cilium)
 
 	// We use the node's annotation for the IPv4 and the PodCIDR for the

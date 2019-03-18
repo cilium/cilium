@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/service"
@@ -29,7 +30,7 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-func getAnnotationIncludeExternal(svc *v1.Service) bool {
+func getAnnotationIncludeExternal(svc *types.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
 		return strings.ToLower(value) == "true"
 	}
@@ -37,7 +38,7 @@ func getAnnotationIncludeExternal(svc *v1.Service) bool {
 	return false
 }
 
-func getAnnotationShared(svc *v1.Service) bool {
+func getAnnotationShared(svc *types.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
 		return strings.ToLower(value) == "true"
 	}
@@ -46,7 +47,7 @@ func getAnnotationShared(svc *v1.Service) bool {
 }
 
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
-func ParseServiceID(svc *v1.Service) ServiceID {
+func ParseServiceID(svc *types.Service) ServiceID {
 	return ServiceID{
 		Name:      svc.ObjectMeta.Name,
 		Namespace: svc.ObjectMeta.Namespace,
@@ -54,7 +55,7 @@ func ParseServiceID(svc *v1.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service
-func ParseService(svc *v1.Service) (ServiceID, *Service) {
+func ParseService(svc *types.Service) (ServiceID, *Service) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -70,8 +71,15 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 		return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
 
 	}
+	nodeInterface := ConvertToNode(k8sNode)
+	if nodeInterface == nil {
+		// This will never happen and the GetNode on line 63 will be soon
+		// make a request from the local store instead.
+		return nil, fmt.Errorf("invalid k8s node: %s", k8sNode)
+	}
+	typesNode := nodeInterface.(*types.Node)
 
-	n := ParseNode(k8sNode, node.FromAgentLocal)
+	n := ParseNode(typesNode, node.FromAgentLocal)
 	log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {

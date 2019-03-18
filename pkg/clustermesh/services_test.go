@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -131,17 +132,19 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
 	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
 
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"io.cilium/global-service": "true",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Type:      v1.ServiceTypeClusterIP,
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Type:      v1.ServiceTypeClusterIP,
+			},
 		},
 	}
 
@@ -152,19 +155,21 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 			event.Endpoints.Backends["20.0.185.196"] != nil
 	})
 
-	k8sEndpoints := &v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{{IP: "30.0.185.196"}},
-				Ports: []v1.EndpointPort{
-					{
-						Name:     "http",
-						Port:     100,
-						Protocol: v1.ProtocolTCP,
+	k8sEndpoints := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "30.0.185.196"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http",
+							Port:     100,
+							Protocol: v1.ProtocolTCP,
+						},
 					},
 				},
 			},
@@ -192,17 +197,19 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
 	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
 
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"io.cilium/global-service": "true",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Type:      v1.ServiceTypeClusterIP,
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Type:      v1.ServiceTypeClusterIP,
+			},
 		},
 	}
 
@@ -238,15 +245,17 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesNonGlobal(c *C) {
 	kvstore.Set(s.prepareServiceUpdate("1", "10.0.185.196", "http", "80"))
 	kvstore.Set(s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90"))
 
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-			// shared annotation is NOT set
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Type:      v1.ServiceTypeClusterIP,
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+				// shared annotation is NOT set
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Type:      v1.ServiceTypeClusterIP,
+			},
 		},
 	}
 
