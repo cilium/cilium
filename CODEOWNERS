@@ -40,6 +40,7 @@ daemon/bpf.sha @cilium/bpf
 daemon/endpoint.go @cilium/endpoint
 daemon/k8s_watcher.go @cilium/kubernetes
 daemon/loadbalancer.* @cilium/loadbalancer
+daemon/policy.go @cilium/policy
 daemon/prefilter.go @cilium/bpf
 daemon/services.* @cilium/loadbalancer
 Documentation/ @cilium/docs
