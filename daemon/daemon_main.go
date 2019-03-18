@@ -974,6 +974,9 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Device, option.Config.Device).
 				Fatal("device cannot be set in the 'ipvlan' datapath mode")
 		}
+		if option.Config.EnableIPSec {
+			log.Fatal("Currently ipsec cannot be used in the 'ipvlan' datapath mode.")
+		}
 
 		option.Config.Tunnel = option.TunnelDisabled
 		// We disallow earlier command line combination of --device with
@@ -1001,6 +1004,11 @@ func initEnv(cmd *cobra.Command) {
 		}
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
+	}
+
+	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled {
+		log.WithField(logfields.Tunnel, option.Config.Tunnel).
+			Fatal("Currently ipsec only works with tunneling enabled.")
 	}
 
 	// If device has been specified, use it to derive better default
