@@ -438,14 +438,14 @@ func InstallRules(ifName string) error {
 		}
 	}
 
+	if err := addCiliumXfrmRules(); err != nil {
+		return fmt.Errorf("cannot install xfrm rules: %s", err)
+	}
+
 	for _, c := range ciliumChains {
 		if err := c.installFeeder(); err != nil {
 			return fmt.Errorf("cannot install feeder rule %s: %s", c.feederArgs, err)
 		}
-	}
-
-	if err := addCiliumXfrmRules(); err != nil {
-		return fmt.Errorf("cannot install xfrm rules: %s", err)
 	}
 
 	return nil
