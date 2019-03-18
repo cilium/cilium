@@ -2,7 +2,6 @@
 *.o
 *.a
 *.so
-*.so.*
 
 # LLVM IR files
 *.ll
@@ -11,9 +10,8 @@
 # Folders
 _obj
 _test
-tests/cilium-files
-test/test_results
 _build/
+hack/
 
 # Architecture specific extensions/prefixes
 *.cgo1.go
@@ -30,7 +28,7 @@ _testmain.go
 
 *.swn
 *.swp
-.vagrant
+.vagrant/
 vagrant.kubeconfig
 coverage.out
 coverage-all.out
@@ -52,19 +50,27 @@ outgoing
 
 man/
 
+# Test files
 test/tmp.yaml
 test/*_service_manifest.json
 test/*_manifest.yaml
 test/*_policy.json
 test/*.xml
+tests/cilium-files
+test/test_results
+test/*.json
+test/.vagrant/
 
 # Emacs backup files
 *~
 
+# Automatically generated when needed
+.dockerignore
+
 # Temporary files that allow build containers/VMs work without git
-GIT_VERSION
 
 test/bpf/_results
 
 # generated from make targets
 *.ok
+.*
