@@ -481,13 +481,21 @@ var (
 
 	// Kubernetes Events
 
-	// KubernetesEvent is the number of Kubernetes events received labeled by
-	// scope, action and execution result
-	KubernetesEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
+	// KubernetesEventProcessed is the number of Kubernetes events
+	// processed labeled by scope, action and execution result
+	KubernetesEventProcessed = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "kubernetes_events_total",
-		Help:      "Number of Kubernetes events received labeled by scope, action and execution result",
+		Help:      "Number of Kubernetes events processed labeled by scope, action and execution result",
 	}, []string{LabelScope, LabelAction, LabelStatus})
+
+	// KubernetesEventReceived is the number of Kubernetes events received
+	// labeled by scope, action, valid data and equalness.
+	KubernetesEventReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "kubernetes_events_received_total",
+		Help:      "Number of Kubernetes events processed labeled by scope, action and execution result",
+	}, []string{LabelScope, LabelAction, "valid", "equal"})
 
 	// Kubernetes interactions
 
@@ -624,7 +632,8 @@ func init() {
 
 	MustRegister(SubprocessStart)
 
-	MustRegister(KubernetesEvent)
+	MustRegister(KubernetesEventProcessed)
+	MustRegister(KubernetesEventReceived)
 
 	MustRegister(IpamEvent)
 

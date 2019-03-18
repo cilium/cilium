@@ -125,7 +125,10 @@ SubProcess
 Kubernetes
 -----------
 
-* ``kubernetes_events_total``: Number of Kubernetes events received labeled by
+* ``kubernetes_events_received_total``: Number of Kubernetes events received labeled by
+  scope, action, validity and equality
+
+* ``kubernetes_events_total``: Number of Kubernetes events processed labeled by
   scope, action and the execution result
 
 * ``k8s_cnp_status_completion_seconds``: Duration in seconds in how long it
