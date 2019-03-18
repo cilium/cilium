@@ -35,7 +35,7 @@ func (s *EventQueueSuite) TestNewEventQueue(c *C) {
 	q := NewEventQueue()
 	c.Assert(q.close, Not(IsNil))
 	c.Assert(q.events, Not(IsNil))
-	c.Assert(q.drained, Not(IsNil))
+	c.Assert(q.drain, Not(IsNil))
 	c.Assert(cap(q.events), Equals, 1)
 }
 
