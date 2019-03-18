@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,5 +33,5 @@ func (rs Rules) String() string {
 		strRules = append(strRules, fmt.Sprintf("%+v", r))
 	}
 
-	return "[" + strings.Join(strRules, ",") + "]"
+	return "[" + strings.Join(strRules, ",\n") + "]"
 }
