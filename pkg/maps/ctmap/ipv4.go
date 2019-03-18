@@ -71,14 +71,16 @@ func (k CtKey4) Dump(buffer *bytes.Buffer) bool {
 	if k.Flags&TUPLE_F_IN != 0 {
 		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
 			k.NextHeader.String(),
-			k.DestAddr.IP().String(),
+			// Address swapped, see issue #5848
+			k.SourceAddr.IP().String(),
 			k.SourcePort, k.DestPort),
 		)
 
 	} else {
 		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
 			k.NextHeader.String(),
-			k.DestAddr.IP().String(),
+			// Address swapped, see issue #5848
+			k.SourceAddr.IP().String(),
 			k.DestPort,
 			k.SourcePort),
 		)
@@ -135,15 +137,17 @@ func (k CtKey4Global) Dump(buffer *bytes.Buffer) bool {
 	if k.Flags&TUPLE_F_IN != 0 {
 		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
 			k.NextHeader.String(),
-			k.SourceAddr.IP().String(), k.SourcePort,
-			k.DestAddr.IP().String(), k.DestPort),
+			// Addresses swapped, see issue #5848
+			k.DestAddr.IP().String(), k.SourcePort,
+			k.SourceAddr.IP().String(), k.DestPort),
 		)
 
 	} else {
 		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
 			k.NextHeader.String(),
-			k.SourceAddr.IP().String(), k.SourcePort,
-			k.DestAddr.IP().String(), k.DestPort),
+			// Addresses swapped, see issue #5848
+			k.DestAddr.IP().String(), k.SourcePort,
+			k.SourceAddr.IP().String(), k.DestPort),
 		)
 	}
 
