@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -122,11 +122,41 @@ func (l4 *L4Filter) AllowsAllAtL3() bool {
 	return l4.allowsAllAtL3
 }
 
+// HasL3DependentL7Rules returns true if this L4Filter is created from rules
+// that require an L3 match as well as specific L7 rules.
+func (l4 *L4Filter) HasL3DependentL7Rules() bool {
+	switch len(l4.L7RulesPerEp) {
+	case 0:
+		// No L7 rules.
+		return false
+	case 1:
+		// If L3 is wildcarded, this filter corresponds to L4-only rule(s).
+		_, ok := l4.L7RulesPerEp[api.WildcardEndpointSelector]
+		return !ok
+	default:
+		return true
+	}
+}
+
 // ToKeys converts filter into a list of Keys.
 func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache, deniedIdentities cache.IdentityCache) []Key {
 	keysToAdd := []Key{}
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
+
+	if l4.AllowsAllAtL3() {
+		keyToAdd := Key{
+			Identity: 0,
+			// NOTE: Port is in host byte-order!
+			DestPort:         port,
+			Nexthdr:          proto,
+			TrafficDirection: direction.Uint8(),
+		}
+		keysToAdd = append(keysToAdd, keyToAdd)
+		if !l4.HasL3DependentL7Rules() {
+			return keysToAdd
+		} // else we need to calculate all L3-dependent L4 peers below.
+	}
 
 	for _, sel := range l4.Endpoints {
 		identities := getSecurityIdentities(identityCache, &sel)
