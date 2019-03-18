@@ -242,28 +242,23 @@ func (q *EventQueue) Run() {
 // enqueued will not be processed by the event queue; they will be cancelled.
 // If the queue has already been stopped, this is a no-op.
 func (q *EventQueue) Stop() {
-	select {
-	case <-q.close:
-		log.Warning("tried to close event queue, but it already has been closed")
-	default:
-		q.closeOnce.Do(func() {
-			// Any event that is sent to the queue at this point will be cancelled
-			// immediately in Enqueue().
-			close(q.drain)
+	q.closeOnce.Do(func() {
+		// Any event that is sent to the queue at this point will be cancelled
+		// immediately in Enqueue().
+		close(q.drain)
 
-			// Wait for all events which have been queued to be processed. If
-			// a large amount of events are continuously enqueued at this point,
-			// then this may block. But, in most scenarios, this should exit
-			// fairly quickly.
-			q.closeWaitGroup.Wait()
+		// Wait for all events which have been queued to be processed. If
+		// a large amount of events are continuously enqueued at this point,
+		// then this may block. But, in most scenarios, this should exit
+		// fairly quickly.
+		q.closeWaitGroup.Wait()
 
-			// Signal that the queue has been drained.
-			close(q.close)
+		// Signal that the queue has been drained.
+		close(q.close)
 
-			// This will cause Run() to receive a nil event.
-			close(q.events)
-		})
-	}
+		// This will cause Run() to receive a nil event.
+		close(q.events)
+	})
 }
 
 // IsDrained returns the channel which waits for the EventQueue to have been
