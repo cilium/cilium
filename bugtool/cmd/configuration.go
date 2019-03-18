@@ -271,6 +271,7 @@ func k8sCommands(allCommands []string, pods []string) []string {
 		"kubectl describe nodes",
 		"kubectl get pods,svc --all-namespaces",
 		"kubectl version",
+		fmt.Sprintf("kubectl get cm cilium-config -n %s", k8sNamespace),
 	}
 
 	// Prepare to run all the commands inside of the pod(s)
