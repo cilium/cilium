@@ -34,8 +34,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -122,7 +122,7 @@ type policyImportMetadata struct {
 	policyImportError error
 }
 
-func (r *ruleImportMetadataCache) upsert(cnp *cilium_v2.CiliumNetworkPolicy, revision uint64, importErr error) {
+func (r *ruleImportMetadataCache) upsert(cnp *types.SlimCNP, revision uint64, importErr error) {
 	if cnp == nil {
 		return
 	}
@@ -138,7 +138,7 @@ func (r *ruleImportMetadataCache) upsert(cnp *cilium_v2.CiliumNetworkPolicy, rev
 	r.mutex.Unlock()
 }
 
-func (r *ruleImportMetadataCache) delete(cnp *cilium_v2.CiliumNetworkPolicy) {
+func (r *ruleImportMetadataCache) delete(cnp *types.SlimCNP) {
 	if cnp == nil {
 		return
 	}
@@ -149,7 +149,7 @@ func (r *ruleImportMetadataCache) delete(cnp *cilium_v2.CiliumNetworkPolicy) {
 	r.mutex.Unlock()
 }
 
-func (r *ruleImportMetadataCache) get(cnp *cilium_v2.CiliumNetworkPolicy) (policyImportMetadata, bool) {
+func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata, bool) {
 	if cnp == nil {
 		return policyImportMetadata{}, false
 	}
@@ -362,7 +362,6 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			return fmt.Errorf("Unable to create custom resource definition: %s", err)
 		}
 		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
-		d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 	default:
 		return fmt.Errorf("Unsupported k8s version. Minimal supported version is %s", ciliumv2VerConstr.String())
 	}
@@ -380,7 +379,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 
 	switch {
 	case networkPolicyV1VerConstr.Check(k8sServerVer):
-		_, policyController := cache.NewInformer(
+		_, policyController := k8s.NewInformer(
 			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
 				"networkpolicies", v1.NamespaceAll, fields.Everything()),
 			&networkingv1.NetworkPolicy{},
@@ -443,6 +442,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					}, serializer.NoRetry)
 				},
 			},
+			k8s.ConvertToNetworkPolicy,
 		)
 		d.blockWaitGroupToSyncResources(policyController, k8sAPIGroupNetworkingV1Core)
 		go policyController.Run(wait.NeverStop)
@@ -450,7 +450,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 	}
 
-	_, svcController := cache.NewInformer(
+	_, svcController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
@@ -513,12 +513,13 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}, serializer.NoRetry)
 			},
 		},
+		k8s.ConvertToK8sService,
 	)
 	d.blockWaitGroupToSyncResources(svcController, k8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
-	_, endpointController := cache.NewInformer(
+	_, endpointController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll,
 			// Don't get any events from kubernetes endpoints.
@@ -583,13 +584,14 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}, serializer.NoRetry)
 			},
 		},
+		k8s.ConvertToK8sEndpoints,
 	)
 	d.blockWaitGroupToSyncResources(endpointController, k8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
 	if option.Config.IsLBEnabled() {
-		_, ingressController := cache.NewInformer(
+		_, ingressController := k8s.NewInformer(
 			cache.NewListWatchFromClient(k8s.Client().ExtensionsV1beta1().RESTClient(),
 				"ingresses", v1.NamespaceAll, fields.Everything()),
 			&v1beta1.Ingress{},
@@ -651,26 +653,34 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					}, serializer.NoRetry)
 				},
 			},
+			k8s.ConvertToIngress,
 		)
 		d.blockWaitGroupToSyncResources(ingressController, k8sAPIGroupIngressV1Beta1)
 		go ingressController.Run(wait.NeverStop)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}
 
-	si := informer.NewSharedInformerFactory(ciliumNPClient, 0)
-
+	var (
+		cnpEventStore    cache.Store
+		cnpConverterFunc k8s.ConvertFunc
+	)
+	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	switch {
-	case ciliumv2VerConstr.Check(k8sServerVer):
-		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
-		var cnpStore cache.Store
-		switch {
-		case k8s.JSONPatchVerConstr.Check(k8sServerVer) || option.Config.K8sForceJSONPatch:
-			// k8s >= 1.13 does not require a store
-		default:
-			cnpStore = ciliumV2Controller.GetStore()
-		}
+	case k8s.JSONPatchVerConstr.Check(k8sServerVer) || option.Config.K8sForceJSONPatch:
+		// k8s >= 1.13 does not require a store to update CNP status so
+		// we don't even need to keep the status of a CNP with us.
+		cnpConverterFunc = k8s.ConvertToCNP
+	default:
+		cnpEventStore = cnpStore
+		cnpConverterFunc = k8s.ConvertToCNPWithStatus
+	}
 
-		ciliumV2Controller.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	ciliumV2Controller := k8s.NewInformerWithStore(
+		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
+			"ciliumnetworkpolicies", v1.NamespaceAll, fields.Everything()),
+		&cilium_v2.CiliumNetworkPolicy{},
+		0,
+		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { d.k8sEventReceived(metricCNP, metricCreate, valid, equal) }()
@@ -680,7 +690,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						if cnp.RequiresDerivative() {
 							return nil
 						}
-						err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, cnp)
+						err := d.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnp)
 						updateK8sEventMetric(metricCNP, metricCreate, err == nil)
 						return nil
 					}, serializer.NoRetry)
@@ -702,7 +712,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 								return nil
 							}
 
-							err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpStore, oldCNP, newCNP)
+							err := d.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNP, newCNP)
 							updateK8sEventMetric(metricCNP, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
@@ -733,13 +743,15 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 					return nil
 				}, serializer.NoRetry)
 			},
-		})
-		d.blockWaitGroupToSyncResources(ciliumV2Controller, k8sAPIGroupCiliumV2)
-	}
+		},
+		cnpConverterFunc,
+		cnpStore,
+	)
+	d.blockWaitGroupToSyncResources(ciliumV2Controller, k8sAPIGroupCiliumV2)
+	go ciliumV2Controller.Run(wait.NeverStop)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 
-	si.Start(wait.NeverStop)
-
-	_, podController := cache.NewInformer(
+	_, podController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"pods", v1.NamespaceAll, fields.Everything()),
 		&v1.Pod{},
@@ -789,12 +801,13 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}
 			},
 		},
+		k8s.ConvertToPod,
 	)
 	d.blockWaitGroupToSyncResources(podController, k8sAPIGroupPodV1Core)
 	go podController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
-	_, nodeController := cache.NewInformer(
+	_, nodeController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"nodes", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},
@@ -856,12 +869,13 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}, serializer.NoRetry)
 			},
 		},
+		k8s.ConvertToNode,
 	)
 	d.blockWaitGroupToSyncResources(nodeController, k8sAPIGroupNodeV1Core)
 	go nodeController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 
-	_, namespaceController := cache.NewInformer(
+	_, namespaceController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},
@@ -891,6 +905,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 				}
 			},
 		},
+		k8s.ConvertToNamespace,
 	)
 
 	go namespaceController.Run(wait.NeverStop)
@@ -899,9 +914,9 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	return nil
 }
 
-func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error {
+func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
-	rules, err := k8s.ParseNetworkPolicy(k8sNP)
+	rules, err := k8s.ParseNetworkPolicy(k8sNP.NetworkPolicy)
 	if err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(k8sNP),
@@ -922,7 +937,7 @@ func (d *Daemon) addK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error 
 	return nil
 }
 
-func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.NetworkPolicy) error {
+func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *types.NetworkPolicy) error {
 	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
@@ -934,8 +949,8 @@ func (d *Daemon) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *networkingv1.Netwo
 	return d.addK8sNetworkPolicyV1(newk8sNP)
 }
 
-func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *networkingv1.NetworkPolicy) error {
-	labels := k8s.GetPolicyLabelsv1(k8sNP)
+func (d *Daemon) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
+	labels := k8s.GetPolicyLabelsv1(k8sNP.NetworkPolicy)
 
 	if labels == nil {
 		log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")
@@ -1035,31 +1050,31 @@ func (d *Daemon) runK8sServiceHandler() {
 	go d.k8sServiceHandler()
 }
 
-func (d *Daemon) addK8sServiceV1(svc *v1.Service) error {
+func (d *Daemon) addK8sServiceV1(svc *types.Service) error {
 	d.k8sSvcCache.UpdateService(svc)
 	return nil
 }
 
-func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *v1.Service) error {
+func (d *Daemon) updateK8sServiceV1(oldSvc, newSvc *types.Service) error {
 	return d.addK8sServiceV1(newSvc)
 }
 
-func (d *Daemon) deleteK8sServiceV1(svc *v1.Service) error {
+func (d *Daemon) deleteK8sServiceV1(svc *types.Service) error {
 	d.k8sSvcCache.DeleteService(svc)
 	return nil
 }
 
-func (d *Daemon) addK8sEndpointV1(ep *v1.Endpoints) error {
+func (d *Daemon) addK8sEndpointV1(ep *types.Endpoints) error {
 	d.k8sSvcCache.UpdateEndpoints(ep)
 	return nil
 }
 
-func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *v1.Endpoints) error {
+func (d *Daemon) updateK8sEndpointV1(oldEP, newEP *types.Endpoints) error {
 	d.k8sSvcCache.UpdateEndpoints(newEP)
 	return nil
 }
 
-func (d *Daemon) deleteK8sEndpointV1(ep *v1.Endpoints) error {
+func (d *Daemon) deleteK8sEndpointV1(ep *types.Endpoints) error {
 	d.k8sSvcCache.DeleteEndpoints(ep)
 	return nil
 }
@@ -1177,7 +1192,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 	return nil
 }
 
-func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
+func (d *Daemon) addIngressV1beta1(ingress *types.Ingress) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
@@ -1209,7 +1224,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 		},
 	}
 
-	_, err = k8s.Client().ExtensionsV1beta1().Ingresses(dpyCopyIngress.ObjectMeta.Namespace).UpdateStatus(dpyCopyIngress)
+	_, err = k8s.Client().ExtensionsV1beta1().Ingresses(dpyCopyIngress.ObjectMeta.Namespace).UpdateStatus(dpyCopyIngress.Ingress)
 	if err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.K8sIngress: dpyCopyIngress,
@@ -1218,7 +1233,7 @@ func (d *Daemon) addIngressV1beta1(ingress *v1beta1.Ingress) error {
 	return err
 }
 
-func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) error {
+func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *types.Ingress) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName + ".old": oldIngress.ObjectMeta.Name,
 		logfields.K8sAPIVersion + ".old":  oldIngress.TypeMeta.APIVersion,
@@ -1273,7 +1288,7 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *v1beta1.Ingress) e
 	return d.addIngressV1beta1(newIngress)
 }
 
-func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
+func (d *Daemon) deleteIngressV1beta1(ingress *types.Ingress) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sIngressName: ingress.ObjectMeta.Name,
 		logfields.K8sAPIVersion:  ingress.TypeMeta.APIVersion,
@@ -1314,7 +1329,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *v1beta1.Ingress) error {
 	return nil
 }
 
-func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) {
+func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1348,7 +1363,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 
 }
 
-func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *cilium_v2.CiliumNetworkPolicy) error {
+func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1402,7 +1417,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	return policyImportErr
 }
 
-func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy) error {
+func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1429,7 +1444,7 @@ func (d *Daemon) deleteCiliumNetworkPolicyV2(cnp *cilium_v2.CiliumNetworkPolicy)
 
 func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	ciliumV2Store cache.Store,
-	oldRuleCpy, newRuleCpy *cilium_v2.CiliumNetworkPolicy) error {
+	oldRuleCpy, newRuleCpy *types.SlimCNP) error {
 
 	_, err := oldRuleCpy.Parse()
 	if err != nil {
@@ -1455,8 +1470,8 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	}).Debug("Modified CiliumNetworkPolicy")
 
 	// Do not add rule into policy repository if the spec remains unchanged.
-	if oldRuleCpy.SpecEquals(newRuleCpy) {
-		if !oldRuleCpy.AnnotationsEquals(newRuleCpy) {
+	if oldRuleCpy.SpecEquals(newRuleCpy.CiliumNetworkPolicy) {
+		if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
 
 			// Update annotations within a controller so the status of the update
 			// is trackable from the list of running controllers, and so we do
@@ -1481,25 +1496,25 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	return d.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)
 }
 
-func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
-	if pod.Spec.HostNetwork {
+func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
+	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	hostIP := net.ParseIP(pod.Status.HostIP)
+	hostIP := net.ParseIP(pod.StatusHostIP)
 	if hostIP == nil {
-		return true, fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+		return true, fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
 	}
 
-	podIP := net.ParseIP(pod.Status.PodIP)
+	podIP := net.ParseIP(pod.StatusPodIP)
 	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
+		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
 	}
 
 	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 	// later updated once the allocator has determined the real identity.
 	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.Status.PodIP, hostIP, ipcache.Identity{
+	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, ipcache.Identity{
 		ID:     identity.ReservedIdentityUnmanaged,
 		Source: ipcache.FromKubernetes,
 	})
@@ -1510,20 +1525,20 @@ func (d *Daemon) updatePodHostIP(pod *v1.Pod) (bool, error) {
 	return false, nil
 }
 
-func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
-	if pod.Spec.HostNetwork {
+func (d *Daemon) deletePodHostIP(pod *types.Pod) (bool, error) {
+	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIP := net.ParseIP(pod.Status.PodIP)
+	podIP := net.ParseIP(pod.StatusPodIP)
 	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.Status.PodIP)
+		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
 	}
 
 	// a small race condition exists here as deletion could occur in
 	// parallel based on another event but it doesn't matter as the
 	// identity is going away
-	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.Status.PodIP)
+	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.StatusPodIP)
 	if !exists {
 		return true, fmt.Errorf("identity for IP does not exist in case")
 	}
@@ -1532,17 +1547,17 @@ func (d *Daemon) deletePodHostIP(pod *v1.Pod) (bool, error) {
 		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
 	}
 
-	ipcache.IPIdentityCache.Delete(pod.Status.PodIP, ipcache.FromKubernetes)
+	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, ipcache.FromKubernetes)
 
 	return false, nil
 }
 
-func (d *Daemon) addK8sPodV1(pod *v1.Pod) error {
+func (d *Daemon) addK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIP":                pod.Status.PodIP,
-		"hostIP":               pod.Status.HostIP,
+		"podIP":                pod.StatusPodIP,
+		"hostIP":               pod.StatusHostIP,
 	})
 
 	skipped, err := d.updatePodHostIP(pod)
@@ -1558,7 +1573,7 @@ func (d *Daemon) addK8sPodV1(pod *v1.Pod) error {
 	return err
 }
 
-func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) error {
+func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	if oldK8sPod == nil || newK8sPod == nil {
 		return nil
 	}
@@ -1600,12 +1615,12 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *v1.Pod) error {
 	return nil
 }
 
-func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) error {
+func (d *Daemon) deleteK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIP":                pod.Status.PodIP,
-		"hostIP":               pod.Status.HostIP,
+		"podIP":                pod.StatusPodIP,
+		"hostIP":               pod.StatusHostIP,
 	})
 
 	skipped, err := d.deletePodHostIP(pod)
@@ -1620,7 +1635,7 @@ func (d *Daemon) deleteK8sPodV1(pod *v1.Pod) error {
 	return err
 }
 
-func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) error {
+func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	if oldNS == nil || newNS == nil {
 		return nil
 	}
@@ -1665,14 +1680,14 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *v1.Namespace) error {
 	return nil
 }
 
-func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
+func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) error {
 	nodeNew := k8s.ParseNode(k8sNodeNew, node.FromKubernetes)
 	// Ignore own node
 	if nodeNew.Name == node.GetName() {
 		return nil
 	}
 
-	getIDs := func(node *node.Node, k8sNode *v1.Node) (string, net.IP, error) {
+	getIDs := func(node *node.Node, k8sNode *types.Node) (string, net.IP, error) {
 		if node == nil {
 			return "", nil, nil
 		}
@@ -1739,7 +1754,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *v1.Node) error {
 	return nil
 }
 
-func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) error {
+func (d *Daemon) addK8sNodeV1(k8sNode *types.Node) error {
 	if err := d.updateK8sNodeTunneling(nil, k8sNode); err != nil {
 		log.WithError(err).Warning("Unable to add ipcache entry of Kubernetes node")
 		return err
@@ -1747,7 +1762,7 @@ func (d *Daemon) addK8sNodeV1(k8sNode *v1.Node) error {
 	return nil
 }
 
-func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *v1.Node) error {
+func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *types.Node) error {
 	if err := d.updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew); err != nil {
 		log.WithError(err).Warning("Unable to update ipcache entry of Kubernetes node")
 		return err
@@ -1755,7 +1770,7 @@ func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *v1.Node) error {
 	return nil
 }
 
-func (d *Daemon) deleteK8sNodeV1(k8sNode *v1.Node) error {
+func (d *Daemon) deleteK8sNodeV1(k8sNode *types.Node) error {
 	oldNode := k8s.ParseNode(k8sNode, node.FromKubernetes)
 	// Ignore own node
 	if oldNode.Name == node.GetName() {

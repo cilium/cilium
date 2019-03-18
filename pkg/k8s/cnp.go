@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -34,7 +35,7 @@ import (
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -83,7 +84,7 @@ type CNPStatusUpdateContext struct {
 // the cnp because it may become out-of-date. Returns an error if the CNP cannot
 // be retrieved from the store, or the object retrieved from the store is not of
 // the expected type.
-func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
+func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *types.SlimCNP) (*types.SlimCNP, error) {
 	serverRuleStore, exists, err := c.CiliumV2Store.Get(cnp)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find v2.CiliumNetworkPolicy in local cache: %s", err)
@@ -92,7 +93,7 @@ func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *cilium_v2.CiliumNet
 		return nil, errors.New("v2.CiliumNetworkPolicy does not exist in local cache")
 	}
 
-	serverRule, ok := serverRuleStore.(*cilium_v2.CiliumNetworkPolicy)
+	serverRule, ok := serverRuleStore.(*types.SlimCNP)
 	if !ok {
 		return nil, errors.New("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
 	}
@@ -100,8 +101,8 @@ func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *cilium_v2.CiliumNet
 	return serverRule, nil
 }
 
-func (c *CNPStatusUpdateContext) prepareUpdate(cnp *cilium_v2.CiliumNetworkPolicy, scopedLog *logrus.Entry) (serverRule *cilium_v2.CiliumNetworkPolicy, err error) {
-	var localCopy *cilium_v2.CiliumNetworkPolicy
+func (c *CNPStatusUpdateContext) prepareUpdate(cnp *types.SlimCNP, scopedLog *logrus.Entry) (serverRule *types.SlimCNP, err error) {
+	var localCopy *types.SlimCNP
 
 	if c.CiliumV2Store != nil {
 		localCopy, err = c.getUpdatedCNPFromStore(cnp)
@@ -135,7 +136,7 @@ func (c *CNPStatusUpdateContext) prepareUpdate(cnp *cilium_v2.CiliumNetworkPolic
 	return
 }
 
-func (c *CNPStatusUpdateContext) updateStatus(cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, policyImportErr, waitForEPsErr error) (err error) {
+func (c *CNPStatusUpdateContext) updateStatus(cnp *types.SlimCNP, rev uint64, policyImportErr, waitForEPsErr error) (err error) {
 	// Update the status of whether the rule is enforced on this node.  If
 	// we are unable to parse the CNP retrieved from the store, or if
 	// endpoints did not reach the desired policy revision after 30
@@ -159,10 +160,10 @@ func (c *CNPStatusUpdateContext) updateStatus(cnp *cilium_v2.CiliumNetworkPolicy
 // retry as long as required to update the status unless a non-temporary error
 // occurs in which case it expects a surrounding controller to restart or give
 // up.
-func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy, rev uint64, policyImportErr error) error {
+func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *types.SlimCNP, rev uint64, policyImportErr error) error {
 	var (
 		err        error
-		serverRule *cilium_v2.CiliumNetworkPolicy
+		serverRule *types.SlimCNP
 
 		// The following is an example distribution with jitter applied:
 		//
@@ -252,7 +253,7 @@ retryLoop:
 	return err
 }
 
-func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
+func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, cnpError error, rev uint64, cnpAnnotations map[string]string) error {
 	var (
 		cnpns       cilium_v2.CiliumNetworkPolicyNodeStatus
 		annotations map[string]string
@@ -343,7 +344,7 @@ func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enfo
 			return err
 		}
 
-		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON, "status")
+		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		if err != nil {
 			// If it fails it means the test from the previous patch failed
 			// so we can safely replace this node in the CNP status.
@@ -358,18 +359,18 @@ func (c *CNPStatusUpdateContext) update(cnp *cilium_v2.CiliumNetworkPolicy, enfo
 			if err != nil {
 				return err
 			}
-			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, createStatusAndNodePatchJSON, "status")
+			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		}
 	case ciliumUpdateStatusVerConstr.Check(c.K8sServerVer):
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(c.NodeName, cnpns)
-		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).UpdateStatus(cnp.CiliumNetworkPolicy)
 	default:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(c.NodeName, cnpns)
-		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp)
+		_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Update(cnp.CiliumNetworkPolicy)
 	}
 	return err
 }
