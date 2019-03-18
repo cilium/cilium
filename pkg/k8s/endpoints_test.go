@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
 
@@ -220,7 +221,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 
 func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 	type args struct {
-		eps *v1.Endpoints
+		eps *types.Endpoints
 	}
 	tests := []struct {
 		name        string
@@ -231,10 +232,12 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "empty endpoint",
 			setupArgs: func() args {
 				return args{
-					eps: &v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "foo",
-							Namespace: "bar",
+					eps: &types.Endpoints{
+						Endpoints: &v1.Endpoints{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
 						},
 					},
 				}
@@ -247,23 +250,25 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with an address and port",
 			setupArgs: func() args {
 				return args{
-					eps: &v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "foo",
-							Namespace: "bar",
-						},
-						Subsets: []v1.EndpointSubset{
-							{
-								Addresses: []v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
+					eps: &types.Endpoints{
+						Endpoints: &v1.Endpoints{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Subsets: []v1.EndpointSubset{
+								{
+									Addresses: []v1.EndpointAddress{
+										{
+											IP: "172.0.0.1",
+										},
 									},
-								},
-								Ports: []v1.EndpointPort{
-									{
-										Name:     "http-test-svc",
-										Port:     8080,
-										Protocol: v1.ProtocolTCP,
+									Ports: []v1.EndpointPort{
+										{
+											Name:     "http-test-svc",
+											Port:     8080,
+											Protocol: v1.ProtocolTCP,
+										},
 									},
 								},
 							},
@@ -283,28 +288,30 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with an address and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "foo",
-							Namespace: "bar",
-						},
-						Subsets: []v1.EndpointSubset{
-							{
-								Addresses: []v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
+					eps: &types.Endpoints{
+						Endpoints: &v1.Endpoints{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Subsets: []v1.EndpointSubset{
+								{
+									Addresses: []v1.EndpointAddress{
+										{
+											IP: "172.0.0.1",
+										},
 									},
-								},
-								Ports: []v1.EndpointPort{
-									{
-										Name:     "http-test-svc",
-										Port:     8080,
-										Protocol: v1.ProtocolTCP,
-									},
-									{
-										Name:     "http-test-svc-2",
-										Port:     8081,
-										Protocol: v1.ProtocolTCP,
+									Ports: []v1.EndpointPort{
+										{
+											Name:     "http-test-svc",
+											Port:     8080,
+											Protocol: v1.ProtocolTCP,
+										},
+										{
+											Name:     "http-test-svc-2",
+											Port:     8081,
+											Protocol: v1.ProtocolTCP,
+										},
 									},
 								},
 							},
@@ -325,31 +332,33 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with 2 addresses and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "foo",
-							Namespace: "bar",
-						},
-						Subsets: []v1.EndpointSubset{
-							{
-								Addresses: []v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
+					eps: &types.Endpoints{
+						Endpoints: &v1.Endpoints{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Subsets: []v1.EndpointSubset{
+								{
+									Addresses: []v1.EndpointAddress{
+										{
+											IP: "172.0.0.1",
+										},
+										{
+											IP: "172.0.0.2",
+										},
 									},
-									{
-										IP: "172.0.0.2",
-									},
-								},
-								Ports: []v1.EndpointPort{
-									{
-										Name:     "http-test-svc",
-										Port:     8080,
-										Protocol: v1.ProtocolTCP,
-									},
-									{
-										Name:     "http-test-svc-2",
-										Port:     8081,
-										Protocol: v1.ProtocolTCP,
+									Ports: []v1.EndpointPort{
+										{
+											Name:     "http-test-svc",
+											Port:     8080,
+											Protocol: v1.ProtocolTCP,
+										},
+										{
+											Name:     "http-test-svc-2",
+											Port:     8081,
+											Protocol: v1.ProtocolTCP,
+										},
 									},
 								},
 							},
@@ -374,36 +383,38 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with 2 addresses, 1 address not ready and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "foo",
-							Namespace: "bar",
-						},
-						Subsets: []v1.EndpointSubset{
-							{
-								NotReadyAddresses: []v1.EndpointAddress{
-									{
-										IP: "172.0.0.3",
+					eps: &types.Endpoints{
+						Endpoints: &v1.Endpoints{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "foo",
+								Namespace: "bar",
+							},
+							Subsets: []v1.EndpointSubset{
+								{
+									NotReadyAddresses: []v1.EndpointAddress{
+										{
+											IP: "172.0.0.3",
+										},
 									},
-								},
-								Addresses: []v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
+									Addresses: []v1.EndpointAddress{
+										{
+											IP: "172.0.0.1",
+										},
+										{
+											IP: "172.0.0.2",
+										},
 									},
-									{
-										IP: "172.0.0.2",
-									},
-								},
-								Ports: []v1.EndpointPort{
-									{
-										Name:     "http-test-svc",
-										Port:     8080,
-										Protocol: v1.ProtocolTCP,
-									},
-									{
-										Name:     "http-test-svc-2",
-										Port:     8081,
-										Protocol: v1.ProtocolTCP,
+									Ports: []v1.EndpointPort{
+										{
+											Name:     "http-test-svc",
+											Port:     8080,
+											Protocol: v1.ProtocolTCP,
+										},
+										{
+											Name:     "http-test-svc-2",
+											Port:     8081,
+											Protocol: v1.ProtocolTCP,
+										},
 									},
 								},
 							},
@@ -434,31 +445,33 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 }
 
 func (s *K8sSuite) TestEndpointsString(c *check.C) {
-	endpoints := &v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{
-					{
-						IP: "172.0.0.2",
+	endpoints := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{
+						{
+							IP: "172.0.0.2",
+						},
+						{
+							IP: "172.0.0.1",
+						},
 					},
-					{
-						IP: "172.0.0.1",
-					},
-				},
-				Ports: []v1.EndpointPort{
-					{
-						Name:     "http-test-svc-2",
-						Port:     8081,
-						Protocol: v1.ProtocolTCP,
-					},
-					{
-						Name:     "http-test-svc",
-						Port:     8080,
-						Protocol: v1.ProtocolTCP,
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http-test-svc-2",
+							Port:     8081,
+							Protocol: v1.ProtocolTCP,
+						},
+						{
+							Name:     "http-test-svc",
+							Port:     8080,
+							Protocol: v1.ProtocolTCP,
+						},
 					},
 				},
 			},

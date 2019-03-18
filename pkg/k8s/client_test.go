@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
 
 	. "gopkg.in/check.v1"
@@ -35,7 +36,7 @@ import (
 
 func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	// Test IPv4
-	node1 := v1.Node{
+	node1 := types.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
@@ -43,9 +44,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 				annotation.CiliumHostIP: "10.254.0.1",
 			},
 		},
-		Spec: v1.NodeSpec{
-			PodCIDR: "10.2.0.0/16",
-		},
+		SpecPodCIDR: "10.2.0.0/16",
 	}
 
 	// set buffer to 2 to prevent blocking when calling UseNodeCIDR
@@ -92,7 +91,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	}
 
 	// Test IPv6
-	node2 := v1.Node{
+	node2 := types.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
@@ -100,9 +99,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 				annotation.CiliumHostIP: "10.254.0.1",
 			},
 		},
-		Spec: v1.NodeSpec{
-			PodCIDR: "aaaa:aaaa:aaaa:aaaa:beef:beef::/96",
-		},
+		SpecPodCIDR: "aaaa:aaaa:aaaa:aaaa:beef:beef::/96",
 	}
 
 	failAttempts := 0

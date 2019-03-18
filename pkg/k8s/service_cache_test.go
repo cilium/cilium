@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
@@ -115,20 +116,22 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 func (s *K8sSuite) TestServiceCache(c *check.C) {
 	svcCache := NewServiceCache()
 
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Selector: map[string]string{
-				"foo": "bar",
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
 			},
-			Type: v1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -142,19 +145,21 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	default:
 	}
 
-	k8sEndpoints := &v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-				Ports: []v1.EndpointPort{
-					{
-						Name:     "http-test-svc",
-						Port:     8080,
-						Protocol: v1.ProtocolTCP,
+	k8sEndpoints := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http-test-svc",
+							Port:     8080,
+							Protocol: v1.ProtocolTCP,
+						},
 					},
 				},
 			},
@@ -248,17 +253,19 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	default:
 	}
 
-	k8sIngress := &v1beta1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "bar",
-		},
-		Spec: v1beta1.IngressSpec{
-			Backend: &v1beta1.IngressBackend{
-				ServiceName: "svc1",
-				ServicePort: intstr.IntOrString{
-					IntVal: 8080,
-					StrVal: "foo",
-					Type:   intstr.Int,
+	k8sIngress := &types.Ingress{
+		Ingress: &v1beta1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "bar",
+			},
+			Spec: v1beta1.IngressSpec{
+				Backend: &v1beta1.IngressBackend{
+					ServiceName: "svc1",
+					ServicePort: intstr.IntOrString{
+						IntVal: 8080,
+						StrVal: "foo",
+						Type:   intstr.Int,
+					},
 				},
 			},
 		},
@@ -303,22 +310,24 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	svcCache := NewServiceCache()
 
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Annotations: map[string]string{
+					"io.cilium/global-service": "true",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Type:      v1.ServiceTypeClusterIP,
-			Ports: []v1.ServicePort{
-				{
-					Name:     "foo",
-					Protocol: v1.ProtocolTCP,
-					Port:     80,
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Type:      v1.ServiceTypeClusterIP,
+				Ports: []v1.ServicePort{
+					{
+						Name:     "foo",
+						Protocol: v1.ProtocolTCP,
+						Port:     80,
+					},
 				},
 			},
 		},
@@ -326,19 +335,21 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 
 	svcID := svcCache.UpdateService(k8sSvc)
 
-	k8sEndpoints := &v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-				Ports: []v1.EndpointPort{
-					{
-						Name:     "http-test-svc",
-						Port:     8080,
-						Protocol: v1.ProtocolTCP,
+	k8sEndpoints := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http-test-svc",
+							Port:     8080,
+							Protocol: v1.ProtocolTCP,
+						},
 					},
 				},
 			},
@@ -434,23 +445,25 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}
 
 	// Adding the service later must trigger an update
-	svcID2 := svcCache.UpdateService(&v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo2",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	svcID2 := svcCache.UpdateService(&types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo2",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Annotations: map[string]string{
+					"io.cilium/global-service": "true",
+				},
 			},
-			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.2",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.2",
-			Selector: map[string]string{
-				"foo": "bar",
-			},
-			Type: v1.ServiceTypeClusterIP,
 		},
 	})
 
@@ -525,17 +538,19 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 	svcCache := NewServiceCache()
 
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Annotations: map[string]string{
-				"io.cilium/global-service": "false",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Annotations: map[string]string{
+					"io.cilium/global-service": "false",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Type:      v1.ServiceTypeClusterIP,
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Type:      v1.ServiceTypeClusterIP,
+			},
 		},
 	}
 

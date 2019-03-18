@@ -42,7 +42,7 @@ func enableCNPWatcher() error {
 		AddFunc: func(obj interface{}) {
 			metrics.EventTSK8s.SetToCurrentTime()
 			if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
-				groups.AddDerivativeCNPIfNeeded(cnp)
+				groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -53,7 +53,7 @@ func enableCNPWatcher() error {
 						return
 					}
 
-					groups.UpdateDerivativeCNPIfNeeded(newCNP, oldCNP)
+					groups.UpdateDerivativeCNPIfNeeded(newCNP.CiliumNetworkPolicy, oldCNP.CiliumNetworkPolicy)
 				}
 			}
 		},
@@ -75,7 +75,7 @@ func enableCNPWatcher() error {
 			}
 			// The derivative policy will be deleted by the parent but need
 			// to delete the cnp from the pooling.
-			groups.DeleteDerivativeFromCache(cnp)
+			groups.DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
 		},
 	})
 	si.Start(wait.NeverStop)
