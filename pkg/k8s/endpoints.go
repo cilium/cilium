@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,9 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
-
-	"k8s.io/api/core/v1"
 )
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
@@ -110,7 +109,7 @@ func (e *Endpoints) CIDRPrefixes() ([]*net.IPNet, error) {
 }
 
 // ParseEndpointsID parses a Kubernetes endpoints and returns the ServiceID
-func ParseEndpointsID(svc *v1.Endpoints) ServiceID {
+func ParseEndpointsID(svc *types.Endpoints) ServiceID {
 	return ServiceID{
 		Name:      svc.ObjectMeta.Name,
 		Namespace: svc.ObjectMeta.Namespace,
@@ -118,7 +117,7 @@ func ParseEndpointsID(svc *v1.Endpoints) ServiceID {
 }
 
 // ParseEndpoints parses a Kubernetes Endpoints resource
-func ParseEndpoints(ep *v1.Endpoints) (ServiceID, *Endpoints) {
+func ParseEndpoints(ep *types.Endpoints) (ServiceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Subsets {

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 
 	"gopkg.in/check.v1"
@@ -30,13 +31,15 @@ import (
 )
 
 func (s *K8sSuite) TestParseIngressID(c *check.C) {
-	k8sIngress := &v1beta1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "bar",
-		},
-		Spec: v1beta1.IngressSpec{
-			Backend: &v1beta1.IngressBackend{
-				ServiceName: "foo",
+	k8sIngress := &types.Ingress{
+		Ingress: &v1beta1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "bar",
+			},
+			Spec: v1beta1.IngressSpec{
+				Backend: &v1beta1.IngressBackend{
+					ServiceName: "foo",
+				},
 			},
 		},
 	}
@@ -45,17 +48,19 @@ func (s *K8sSuite) TestParseIngressID(c *check.C) {
 }
 
 func (s *K8sSuite) TestParseIngress(c *check.C) {
-	k8sIngress := &v1beta1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "bar",
-		},
-		Spec: v1beta1.IngressSpec{
-			Backend: &v1beta1.IngressBackend{
-				ServiceName: "svc1",
-				ServicePort: intstr.IntOrString{
-					IntVal: 8080,
-					StrVal: "foo",
-					Type:   intstr.Int,
+	k8sIngress := &types.Ingress{
+		Ingress: &v1beta1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "bar",
+			},
+			Spec: v1beta1.IngressSpec{
+				Backend: &v1beta1.IngressBackend{
+					ServiceName: "svc1",
+					ServicePort: intstr.IntOrString{
+						IntVal: 8080,
+						StrVal: "foo",
+						Type:   intstr.Int,
+					},
 				},
 			},
 		},
@@ -80,7 +85,7 @@ func (s *K8sSuite) TestParseIngress(c *check.C) {
 
 func (s *K8sSuite) Test_parsingV1beta1(c *check.C) {
 	type args struct {
-		i    *v1beta1.Ingress
+		i    *types.Ingress
 		host net.IP
 	}
 	tests := []struct {
@@ -92,10 +97,12 @@ func (s *K8sSuite) Test_parsingV1beta1(c *check.C) {
 			name: "Parse a normal Single Service Ingress with no ports",
 			setupArgs: func() args {
 				return args{
-					i: &v1beta1.Ingress{
-						Spec: v1beta1.IngressSpec{
-							Backend: &v1beta1.IngressBackend{
-								ServiceName: "svc1",
+					i: &types.Ingress{
+						Ingress: &v1beta1.Ingress{
+							Spec: v1beta1.IngressSpec{
+								Backend: &v1beta1.IngressBackend{
+									ServiceName: "svc1",
+								},
 							},
 						},
 					},
@@ -110,14 +117,16 @@ func (s *K8sSuite) Test_parsingV1beta1(c *check.C) {
 			name: "Parse a normal Single Service Ingress with ports",
 			setupArgs: func() args {
 				return args{
-					i: &v1beta1.Ingress{
-						Spec: v1beta1.IngressSpec{
-							Backend: &v1beta1.IngressBackend{
-								ServiceName: "svc1",
-								ServicePort: intstr.IntOrString{
-									IntVal: 8080,
-									StrVal: "foo",
-									Type:   intstr.Int,
+					i: &types.Ingress{
+						Ingress: &v1beta1.Ingress{
+							Spec: v1beta1.IngressSpec{
+								Backend: &v1beta1.IngressBackend{
+									ServiceName: "svc1",
+									ServicePort: intstr.IntOrString{
+										IntVal: 8080,
+										StrVal: "foo",
+										Type:   intstr.Int,
+									},
 								},
 							},
 						},
@@ -151,7 +160,7 @@ func (s *K8sSuite) Test_parsingV1beta1(c *check.C) {
 
 func (s *K8sSuite) Test_supportV1beta1(c *check.C) {
 	type args struct {
-		i *v1beta1.Ingress
+		i *types.Ingress
 	}
 	tests := []struct {
 		name      string
@@ -162,10 +171,12 @@ func (s *K8sSuite) Test_supportV1beta1(c *check.C) {
 			name: "We only support Single Service Ingress, which means Spec.Backend is not nil",
 			setupArgs: func() args {
 				return args{
-					i: &v1beta1.Ingress{
-						Spec: v1beta1.IngressSpec{
-							Backend: &v1beta1.IngressBackend{
-								ServiceName: "svc1",
+					i: &types.Ingress{
+						Ingress: &v1beta1.Ingress{
+							Spec: v1beta1.IngressSpec{
+								Backend: &v1beta1.IngressBackend{
+									ServiceName: "svc1",
+								},
 							},
 						},
 					},
@@ -177,11 +188,13 @@ func (s *K8sSuite) Test_supportV1beta1(c *check.C) {
 			name: "We don't support any other ingress type",
 			setupArgs: func() args {
 				return args{
-					i: &v1beta1.Ingress{
-						Spec: v1beta1.IngressSpec{
-							Rules: []v1beta1.IngressRule{
-								{
-									Host: "hostless",
+					i: &types.Ingress{
+						Ingress: &v1beta1.Ingress{
+							Spec: v1beta1.IngressSpec{
+								Rules: []v1beta1.IngressRule{
+									{
+										Host: "hostless",
+									},
 								},
 							},
 						},

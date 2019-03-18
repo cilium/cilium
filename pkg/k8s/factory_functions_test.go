@@ -19,6 +19,7 @@ package k8s
 import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -31,8 +32,8 @@ import (
 
 func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 	type args struct {
-		o1 *v2.CiliumNetworkPolicy
-		o2 *v2.CiliumNetworkPolicy
+		o1 *types.SlimCNP
+		o2 *types.SlimCNP
 	}
 	tests := []struct {
 		name string
@@ -42,14 +43,18 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 		{
 			name: "CNP with the same name",
 			args: args{
-				o1: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o1: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
 					},
 				},
-				o2: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o2: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
 					},
 				},
 			},
@@ -58,19 +63,23 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 		{
 			name: "CNP with the different spec",
 			args: args{
-				o1: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Spec: &api.Rule{
-						EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", "bar", "k8s")),
+				o1: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Spec: &api.Rule{
+							EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", "bar", "k8s")),
+						},
 					},
 				},
-				o2: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o2: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Spec: nil,
 					},
-					Spec: nil,
 				},
 			},
 			want: false,
@@ -78,17 +87,21 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 		{
 			name: "CNP with the same spec",
 			args: args{
-				o1: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o1: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Spec: &api.Rule{},
 					},
-					Spec: &api.Rule{},
 				},
-				o2: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o2: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Spec: &api.Rule{},
 					},
-					Spec: &api.Rule{},
 				},
 			},
 			want: true,
@@ -96,23 +109,27 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 		{
 			name: "CNP with different last applied annotations. The are ignored so they should be equal",
 			args: args{
-				o1: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-						Annotations: map[string]string{
-							core_v1.LastAppliedConfigAnnotation: "foo",
+				o1: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+							Annotations: map[string]string{
+								core_v1.LastAppliedConfigAnnotation: "foo",
+							},
 						},
+						Spec: &api.Rule{},
 					},
-					Spec: &api.Rule{},
 				},
-				o2: &v2.CiliumNetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-						Annotations: map[string]string{
-							core_v1.LastAppliedConfigAnnotation: "bar",
+				o2: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+							Annotations: map[string]string{
+								core_v1.LastAppliedConfigAnnotation: "bar",
+							},
 						},
+						Spec: &api.Rule{},
 					},
-					Spec: &api.Rule{},
 				},
 			},
 			want: true,
@@ -126,8 +143,8 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 	type args struct {
-		o1 *core_v1.Endpoints
-		o2 *core_v1.Endpoints
+		o1 *types.Endpoints
+		o2 *types.Endpoints
 	}
 	tests := []struct {
 		name string
@@ -137,14 +154,18 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the same name",
 			args: args{
-				o1: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o1: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
 					},
 				},
-				o2: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o2: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
 					},
 				},
 			},
@@ -153,23 +174,27 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the different spec",
 			args: args{
-				o1: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Subsets: []core_v1.EndpointSubset{
-						{
-							Addresses: []core_v1.EndpointAddress{
-								{
-									IP: "172.0.0.1",
+				o1: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
 								},
 							},
 						},
 					},
 				},
-				o2: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
+				o2: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
 					},
 				},
 			},
@@ -178,29 +203,33 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the same spec",
 			args: args{
-				o1: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Subsets: []core_v1.EndpointSubset{
-						{
-							Addresses: []core_v1.EndpointAddress{
-								{
-									IP: "172.0.0.1",
+				o1: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
 								},
 							},
 						},
 					},
 				},
-				o2: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Subsets: []core_v1.EndpointSubset{
-						{
-							Addresses: []core_v1.EndpointAddress{
-								{
-									IP: "172.0.0.1",
+				o2: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
 								},
 							},
 						},
@@ -212,35 +241,39 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the same spec (multiple IPs)",
 			args: args{
-				o1: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Subsets: []core_v1.EndpointSubset{
-						{
-							Addresses: []core_v1.EndpointAddress{
-								{
-									IP: "172.0.0.1",
-								},
-								{
-									IP: "172.0.0.2",
+				o1: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+									{
+										IP: "172.0.0.2",
+									},
 								},
 							},
 						},
 					},
 				},
-				o2: &core_v1.Endpoints{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "rule1",
-					},
-					Subsets: []core_v1.EndpointSubset{
-						{
-							Addresses: []core_v1.EndpointAddress{
-								{
-									IP: "172.0.0.1",
-								},
-								{
-									IP: "172.0.0.2",
+				o2: &types.Endpoints{
+					Endpoints: &core_v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "rule1",
+						},
+						Subsets: []core_v1.EndpointSubset{
+							{
+								Addresses: []core_v1.EndpointAddress{
+									{
+										IP: "172.0.0.1",
+									},
+									{
+										IP: "172.0.0.2",
+									},
 								},
 							},
 						},
@@ -258,8 +291,8 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 	type args struct {
-		o1 *core_v1.Pod
-		o2 *core_v1.Pod
+		o1 *types.Pod
+		o2 *types.Pod
 	}
 	tests := []struct {
 		name string
@@ -270,12 +303,12 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same name",
 			args: args{
-				o1: &core_v1.Pod{
+				o1: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
 				},
-				o2: &core_v1.Pod{
+				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
@@ -286,23 +319,19 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the different spec",
 			args: args{
-				o1: &core_v1.Pod{
+				o1: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
-				o2: &core_v1.Pod{
+				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.1",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.1",
 				},
 			},
 			want: false,
@@ -310,23 +339,19 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same spec",
 			args: args{
-				o1: &core_v1.Pod{
+				o1: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
-				o2: &core_v1.Pod{
+				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
 			},
 			want: true,
@@ -334,26 +359,22 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same spec but different labels",
 			args: args{
-				o1: &core_v1.Pod{
+				o1: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
-				o2: &core_v1.Pod{
+				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
 			},
 			want: false,
@@ -361,29 +382,25 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same spec and same labels",
 			args: args{
-				o1: &core_v1.Pod{
+				o1: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
-				o2: &core_v1.Pod{
+				o2: &types.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					Status: core_v1.PodStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.2",
-					},
+					StatusHostIP: "127.0.0.1",
+					StatusPodIP:  "127.0.0.2",
 				},
 			},
 			want: true,
@@ -397,8 +414,8 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Node(c *C) {
 	type args struct {
-		o1 *core_v1.Node
-		o2 *core_v1.Node
+		o1 *types.Node
+		o2 *types.Node
 	}
 	tests := []struct {
 		name string
@@ -408,12 +425,12 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same name",
 			args: args{
-				o1: &core_v1.Node{
+				o1: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 					},
 				},
-				o2: &core_v1.Node{
+				o2: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 					},
@@ -424,12 +441,12 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different names",
 			args: args{
-				o1: &core_v1.Node{
+				o1: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 					},
 				},
-				o2: &core_v1.Node{
+				o2: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node2",
 					},
@@ -440,21 +457,17 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different spec should return true as we don't care about the spec",
 			args: args{
-				o1: &core_v1.Node{
+				o1: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					Spec: core_v1.NodeSpec{
-						PodCIDR: "192.168.0.0/10",
-					},
+					SpecPodCIDR: "192.168.0.0/10",
 				},
-				o2: &core_v1.Node{
+				o2: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					Spec: core_v1.NodeSpec{
-						PodCIDR: "127.0.0.1/10",
-					},
+					SpecPodCIDR: "127.0.0.1/10",
 				},
 			},
 			want: true,
@@ -462,7 +475,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same annotations",
 			args: args{
-				o1: &core_v1.Node{
+				o1: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
@@ -470,7 +483,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 						},
 					},
 				},
-				o2: &core_v1.Node{
+				o2: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
@@ -484,7 +497,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different annotations",
 			args: args{
-				o1: &core_v1.Node{
+				o1: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
@@ -492,7 +505,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 						},
 					},
 				},
-				o2: &core_v1.Node{
+				o2: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
@@ -506,27 +519,23 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same annotations and different specs should return true because he don't care about the spec",
 			args: args{
-				o1: &core_v1.Node{
+				o1: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
 						},
 					},
-					Spec: core_v1.NodeSpec{
-						PodCIDR: "192.168.0.0/10",
-					},
+					SpecPodCIDR: "192.168.0.0/10",
 				},
-				o2: &core_v1.Node{
+				o2: &types.Node{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
 						},
 					},
-					Spec: core_v1.NodeSpec{
-						PodCIDR: "127.0.0.1/10",
-					},
+					SpecPodCIDR: "127.0.0.1/10",
 				},
 			},
 			want: true,
@@ -540,8 +549,8 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 	type args struct {
-		o1 *core_v1.Namespace
-		o2 *core_v1.Namespace
+		o1 *types.Namespace
+		o2 *types.Namespace
 	}
 	tests := []struct {
 		name string
@@ -551,12 +560,12 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the same name",
 			args: args{
-				o1: &core_v1.Namespace{
+				o1: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 					},
 				},
-				o2: &core_v1.Namespace{
+				o2: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 					},
@@ -567,12 +576,12 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the different names",
 			args: args{
-				o1: &core_v1.Namespace{
+				o1: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 					},
 				},
-				o2: &core_v1.Namespace{
+				o2: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace2",
 					},
@@ -581,30 +590,9 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 			want: false,
 		},
 		{
-			name: "Namespaces with the different spec should return true as we don't care about the spec",
-			args: args{
-				o1: &core_v1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Namespace1",
-					},
-					Spec: core_v1.NamespaceSpec{
-						Finalizers: []core_v1.FinalizerName{
-							core_v1.FinalizerName("foo"),
-						},
-					},
-				},
-				o2: &core_v1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Namespace1",
-					},
-				},
-			},
-			want: true,
-		},
-		{
 			name: "Namespaces with the same labels",
 			args: args{
-				o1: &core_v1.Namespace{
+				o1: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
@@ -612,7 +600,7 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 						},
 					},
 				},
-				o2: &core_v1.Namespace{
+				o2: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
@@ -626,7 +614,7 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the different labels",
 			args: args{
-				o1: &core_v1.Namespace{
+				o1: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
@@ -634,7 +622,7 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 						},
 					},
 				},
-				o2: &core_v1.Namespace{
+				o2: &types.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
@@ -644,33 +632,6 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 				},
 			},
 			want: false,
-		},
-		{
-			name: "Namespaces with the same annotations and different specs should return true because he don't care about the spec",
-			args: args{
-				o1: &core_v1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Namespace1",
-						Labels: map[string]string{
-							"prod": "false",
-						},
-					},
-					Spec: core_v1.NamespaceSpec{
-						Finalizers: []core_v1.FinalizerName{
-							core_v1.FinalizerName("foo"),
-						},
-					},
-				},
-				o2: &core_v1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Namespace1",
-						Labels: map[string]string{
-							"prod": "false",
-						},
-					},
-				},
-			},
-			want: true,
 		},
 	}
 	for _, tt := range tests {
@@ -681,8 +642,8 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 
 func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 	type args struct {
-		o1 *v1beta1.Ingress
-		o2 *v1beta1.Ingress
+		o1 *types.Ingress
+		o2 *types.Ingress
 	}
 	tests := []struct {
 		name string
@@ -692,14 +653,18 @@ func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 		{
 			name: "Ingresses with the same name",
 			args: args{
-				o1: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
+				o1: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
 					},
 				},
-				o2: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
+				o2: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
 					},
 				},
 			},
@@ -708,14 +673,18 @@ func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 		{
 			name: "Ingresses with the different names",
 			args: args{
-				o1: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
+				o1: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
 					},
 				},
-				o2: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress2",
+				o2: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress2",
+						},
 					},
 				},
 			},
@@ -724,46 +693,24 @@ func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 		{
 			name: "Ingresses with the different spec should return true as we don't care about the spec",
 			args: args{
-				o1: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-					Spec: v1beta1.IngressSpec{
-						Rules: []v1beta1.IngressRule{
-							{
-								Host: "not relevant",
+				o1: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Rules: []v1beta1.IngressRule{
+								{
+									Host: "not relevant",
+								},
 							},
 						},
 					},
 				},
-				o2: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "Ingresses with the different backend name should be considered the same because we only care about the ports",
-			args: args{
-				o1: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-					Spec: v1beta1.IngressSpec{
-						Backend: &v1beta1.IngressBackend{
-							ServiceName: "svc ingress 1",
-						},
-					},
-				},
-				o2: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-					Spec: v1beta1.IngressSpec{
-						Backend: &v1beta1.IngressBackend{
-							ServiceName: "svc ingress",
+				o2: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
 						},
 					},
 				},
@@ -773,25 +720,59 @@ func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 		{
 			name: "Ingresses with the different backend name should be considered the same because we only care about the ports",
 			args: args{
-				o1: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-					Spec: v1beta1.IngressSpec{
-						Backend: &v1beta1.IngressBackend{
-							ServiceName: "svc ingress 1",
-							ServicePort: intstr.FromString("10"),
+				o1: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc ingress 1",
+							},
 						},
 					},
 				},
-				o2: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
+				o2: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc ingress",
+							},
+						},
 					},
-					Spec: v1beta1.IngressSpec{
-						Backend: &v1beta1.IngressBackend{
-							ServiceName: "svc ingress",
-							ServicePort: intstr.FromString("10"),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Ingresses with the different backend name should be considered the same because we only care about the ports",
+			args: args{
+				o1: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc ingress 1",
+								ServicePort: intstr.FromString("10"),
+							},
+						},
+					},
+				},
+				o2: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc ingress",
+								ServicePort: intstr.FromString("10"),
+							},
 						},
 					},
 				},
@@ -801,25 +782,29 @@ func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 		{
 			name: "Ingresses with the different ports should be considered different",
 			args: args{
-				o1: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-					Spec: v1beta1.IngressSpec{
-						Backend: &v1beta1.IngressBackend{
-							ServiceName: "svc ingress 1",
-							ServicePort: intstr.FromString("1"),
+				o1: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc ingress 1",
+								ServicePort: intstr.FromString("1"),
+							},
 						},
 					},
 				},
-				o2: &v1beta1.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "Ingress1",
-					},
-					Spec: v1beta1.IngressSpec{
-						Backend: &v1beta1.IngressBackend{
-							ServiceName: "svc ingress",
-							ServicePort: intstr.FromString("10"),
+				o2: &types.Ingress{
+					Ingress: &v1beta1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "Ingress1",
+						},
+						Spec: v1beta1.IngressSpec{
+							Backend: &v1beta1.IngressBackend{
+								ServiceName: "svc ingress",
+								ServicePort: intstr.FromString("10"),
+							},
 						},
 					},
 				},
@@ -835,8 +820,8 @@ func (s *K8sSuite) Test_EqualV1beta1Ingress(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Service(c *C) {
 	type args struct {
-		o1 *core_v1.Service
-		o2 *core_v1.Service
+		o1 *types.Service
+		o2 *types.Service
 	}
 	tests := []struct {
 		name string
@@ -846,15 +831,19 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 		{
 			name: "Service with different annotations",
 			args: args{
-				o1: &core_v1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{},
+				o1: &types.Service{
+					Service: &core_v1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{},
+						},
 					},
 				},
-				o2: &core_v1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"io.cilium/shared-service": "true",
+				o2: &types.Service{
+					Service: &core_v1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"io.cilium/shared-service": "true",
+							},
 						},
 					},
 				},

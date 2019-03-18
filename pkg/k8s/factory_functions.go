@@ -30,8 +30,8 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 )
 
-func CopyObjToV1NetworkPolicy(obj interface{}) *networkingv1.NetworkPolicy {
-	k8sNP, ok := obj.(*networkingv1.NetworkPolicy)
+func CopyObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
+	k8sNP, ok := obj.(*types.NetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 NetworkPolicy")
@@ -40,8 +40,8 @@ func CopyObjToV1NetworkPolicy(obj interface{}) *networkingv1.NetworkPolicy {
 	return k8sNP.DeepCopy()
 }
 
-func CopyObjToV1Services(obj interface{}) *v1.Service {
-	svc, ok := obj.(*v1.Service)
+func CopyObjToV1Services(obj interface{}) *types.Service {
+	svc, ok := obj.(*types.Service)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Service")
@@ -50,8 +50,8 @@ func CopyObjToV1Services(obj interface{}) *v1.Service {
 	return svc.DeepCopy()
 }
 
-func CopyObjToV1Endpoints(obj interface{}) *v1.Endpoints {
-	ep, ok := obj.(*v1.Endpoints)
+func CopyObjToV1Endpoints(obj interface{}) *types.Endpoints {
+	ep, ok := obj.(*types.Endpoints)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
@@ -60,8 +60,8 @@ func CopyObjToV1Endpoints(obj interface{}) *v1.Endpoints {
 	return ep.DeepCopy()
 }
 
-func CopyObjToV1beta1Ingress(obj interface{}) *v1beta1.Ingress {
-	ing, ok := obj.(*v1beta1.Ingress)
+func CopyObjToV1beta1Ingress(obj interface{}) *types.Ingress {
+	ing, ok := obj.(*types.Ingress)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1beta1 Ingress")
@@ -70,8 +70,8 @@ func CopyObjToV1beta1Ingress(obj interface{}) *v1beta1.Ingress {
 	return ing.DeepCopy()
 }
 
-func CopyObjToV2CNP(obj interface{}) *cilium_v2.CiliumNetworkPolicy {
-	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
+func CopyObjToV2CNP(obj interface{}) *types.SlimCNP {
+	cnp, ok := obj.(*types.SlimCNP)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
@@ -80,8 +80,8 @@ func CopyObjToV2CNP(obj interface{}) *cilium_v2.CiliumNetworkPolicy {
 	return cnp.DeepCopy()
 }
 
-func CopyObjToV1Pod(obj interface{}) *v1.Pod {
-	pod, ok := obj.(*v1.Pod)
+func CopyObjToV1Pod(obj interface{}) *types.Pod {
+	pod, ok := obj.(*types.Pod)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Pod")
@@ -90,8 +90,8 @@ func CopyObjToV1Pod(obj interface{}) *v1.Pod {
 	return pod.DeepCopy()
 }
 
-func CopyObjToV1Node(obj interface{}) *v1.Node {
-	node, ok := obj.(*v1.Node)
+func CopyObjToV1Node(obj interface{}) *types.Node {
+	node, ok := obj.(*types.Node)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Node")
@@ -100,8 +100,8 @@ func CopyObjToV1Node(obj interface{}) *v1.Node {
 	return node.DeepCopy()
 }
 
-func CopyObjToV1Namespace(obj interface{}) *v1.Namespace {
-	ns, ok := obj.(*v1.Namespace)
+func CopyObjToV1Namespace(obj interface{}) *types.Namespace {
+	ns, ok := obj.(*types.Namespace)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Namespace")
@@ -110,7 +110,7 @@ func CopyObjToV1Namespace(obj interface{}) *v1.Namespace {
 	return ns.DeepCopy()
 }
 
-func EqualV1NetworkPolicy(np1, np2 *networkingv1.NetworkPolicy) bool {
+func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
 	// As Cilium uses all of the Spec from a NP it's not probably not worth
 	// it to create a dedicated deep equal	 function to compare both network
 	// policies.
@@ -119,7 +119,7 @@ func EqualV1NetworkPolicy(np1, np2 *networkingv1.NetworkPolicy) bool {
 		reflect.DeepEqual(np1.Spec, np2.Spec)
 }
 
-func EqualV1Services(svc1, svc2 *v1.Service) bool {
+func EqualV1Services(svc1, svc2 *types.Service) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(svc1.GetAnnotations(), svc2.GetAnnotations()) {
 		return false
@@ -144,7 +144,7 @@ func EqualV1Services(svc1, svc2 *v1.Service) bool {
 	return si1.DeepEquals(si2)
 }
 
-func EqualV1Endpoints(ep1, ep2 *v1.Endpoints) bool {
+func EqualV1Endpoints(ep1, ep2 *types.Endpoints) bool {
 	// We only care about the Name, Namespace and Subsets of a particular
 	// endpoint.
 	return ep1.Name == ep2.Name &&
@@ -152,7 +152,7 @@ func EqualV1Endpoints(ep1, ep2 *v1.Endpoints) bool {
 		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
 }
 
-func EqualV1beta1Ingress(ing1, ing2 *v1beta1.Ingress) bool {
+func EqualV1beta1Ingress(ing1, ing2 *types.Ingress) bool {
 	if ing1.Name != ing2.Name || ing1.Namespace != ing2.Namespace {
 		return false
 	}
@@ -169,7 +169,7 @@ func EqualV1beta1Ingress(ing1, ing2 *v1beta1.Ingress) bool {
 			ing2.Spec.Backend.ServicePort.StrVal
 }
 
-func EqualV2CNP(cnp1, cnp2 *cilium_v2.CiliumNetworkPolicy) bool {
+func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
 	if !(cnp1.Name == cnp2.Name && cnp1.Namespace == cnp2.Namespace) {
 		return false
 	}
@@ -193,10 +193,10 @@ func EqualV2CNP(cnp1, cnp2 *cilium_v2.CiliumNetworkPolicy) bool {
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
 
-func EqualV1Pod(pod1, pod2 *v1.Pod) bool {
+func EqualV1Pod(pod1, pod2 *types.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
-	if pod1.Status.PodIP != pod2.Status.PodIP ||
-		pod1.Status.HostIP != pod2.Status.HostIP {
+	if pod1.StatusPodIP != pod2.StatusPodIP ||
+		pod1.StatusHostIP != pod2.StatusHostIP {
 		return false
 	}
 	oldPodLabels := pod1.GetLabels()
@@ -204,7 +204,7 @@ func EqualV1Pod(pod1, pod2 *v1.Pod) bool {
 	return comparator.MapStringEquals(oldPodLabels, newPodLabels)
 }
 
-func EqualV1Node(node1, node2 *v1.Node) bool {
+func EqualV1Node(node1, node2 *types.Node) bool {
 	if node1.GetObjectMeta().GetName() != node2.GetObjectMeta().GetName() {
 		return false
 	}
@@ -225,7 +225,7 @@ func EqualV1Node(node1, node2 *v1.Node) bool {
 	return true
 }
 
-func EqualV1Namespace(ns1, ns2 *v1.Namespace) bool {
+func EqualV1Namespace(ns1, ns2 *types.Namespace) bool {
 	// we only care about namespace labels.
 	return ns1.Name == ns2.Name &&
 		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())

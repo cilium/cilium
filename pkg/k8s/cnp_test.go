@@ -32,6 +32,7 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -100,20 +101,22 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	k8sServerVer, err := go_version.NewVersion(k8sVersion)
 	c.Assert(err, IsNil)
 
-	cnp := &v2.CiliumNetworkPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CiliumNetworkPolicy",
-			APIVersion: "cilium.io/v2",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "testing-policy",
-			Namespace: "default",
-		},
-		Spec: &api.Rule{
-			EndpointSelector: api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"foo": "bar",
+	cnp := &types.SlimCNP{
+		CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CiliumNetworkPolicy",
+				APIVersion: "cilium.io/v2",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "testing-policy",
+				Namespace: "default",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.EndpointSelector{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"foo": "bar",
+						},
 					},
 				},
 			},
@@ -151,7 +154,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 		c.Assert(err, IsNil)
 		ciliumNPClient, err = clientset.NewForConfig(restConfig)
 		c.Assert(err, IsNil)
-		cnp, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp)
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp.CiliumNetworkPolicy)
 		c.Assert(err, IsNil)
 		defer func() {
 			err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(cnp.GetName(), &metav1.DeleteOptions{})
@@ -222,7 +225,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						// Copy the status the the cnp so we can compare it at
 						// the end of this test to make sure everything is alright.
 						cnp.Status = *cnpsK8s1
-						return true, cnp, nil
+						return true, cnp.CiliumNetworkPolicy, nil
 
 					case receivedJsonPatch[0].Value != nil:
 						// codepath B-1.10) and C-1.10) 2nd attempt
@@ -272,7 +275,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 						c.Assert(receivedJsonPatch, checker.DeepEquals, expectedJSONPatch)
 
 						cnp.Status.Nodes["k8s2"] = cnpsK8s2.Nodes["k8s2"]
-						return true, cnp, nil
+						return true, cnp.CiliumNetworkPolicy, nil
 					}
 					// codepath C-1.10) 3rd attempt
 					cnpns["lastUpdated"] = "0001-01-01T00:00:00Z"
@@ -303,7 +306,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 					c.Assert(receivedJsonPatch, checker.DeepEquals, expectedJSONPatch)
 
 					cnp.Status.Nodes["k8s1"] = cnpsK8s1.Nodes["k8s1"]
-					return true, cnp, nil
+					return true, cnp.CiliumNetworkPolicy, nil
 				}
 				// should never reach this point
 				c.FailNow()
@@ -323,7 +326,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	c.Assert(err, IsNil)
 
 	if integrationTest {
-		cnp, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
 		c.Assert(err, IsNil)
 	}
 
@@ -338,7 +341,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	c.Assert(err, IsNil)
 
 	if integrationTest {
-		cnp, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
 		c.Assert(err, IsNil)
 
 		// Ignore timestamps
@@ -373,7 +376,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	c.Assert(err, IsNil)
 
 	if integrationTest {
-		cnp, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
+		cnp.CiliumNetworkPolicy, err = ciliumNPClient.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Get(cnp.GetName(), metav1.GetOptions{})
 		c.Assert(err, IsNil)
 
 		// Ignore timestamps
@@ -407,19 +410,21 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 	k8sServerVer, err := go_version.NewVersion(k8sVersion)
 	c.Assert(err, IsNil)
 
-	cnp := &v2.CiliumNetworkPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CiliumNetworkPolicy",
-			APIVersion: "cilium.io/v2",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "testing-policy",
-			Namespace: "default",
-		},
-		Spec: &api.Rule{
-			EndpointSelector: api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"foo": "bar"},
+	cnp := &types.SlimCNP{
+		CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CiliumNetworkPolicy",
+				APIVersion: "cilium.io/v2",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "testing-policy",
+				Namespace: "default",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.EndpointSelector{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
 				},
 			},
 		},
@@ -437,7 +442,7 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 		c.Assert(err, IsNil)
 	}
 
-	cnp, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp)
+	cnp.CiliumNetworkPolicy, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp.CiliumNetworkPolicy)
 	c.Assert(err, IsNil)
 	defer func() {
 		err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(cnp.GetName(), &metav1.DeleteOptions{})
@@ -529,19 +534,21 @@ func (k *K8sIntegrationSuite) Benchmark_CNPNodeStatusController_1_13(c *C) {
 func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool, nNodes int, nParallelClients int, k8sVersion string, c *C) {
 	k8sServerVer, err := go_version.NewVersion(k8sVersion)
 	c.Assert(err, IsNil)
-	cnp := &v2.CiliumNetworkPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CiliumNetworkPolicy",
-			APIVersion: "cilium.io/v2",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "testing-policy",
-			Namespace: "default",
-		},
-		Spec: &api.Rule{
-			EndpointSelector: api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{"foo": "bar"},
+	cnp := &types.SlimCNP{
+		CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "CiliumNetworkPolicy",
+				APIVersion: "cilium.io/v2",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "testing-policy",
+				Namespace: "default",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.EndpointSelector{
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
 				},
 			},
 		},
@@ -556,7 +563,7 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 			ciliumNPClients[i], err = clientset.NewForConfig(restConfig)
 			c.Assert(err, IsNil)
 		}
-		cnp, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp)
+		cnp.CiliumNetworkPolicy, err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Create(cnp.CiliumNetworkPolicy)
 		c.Assert(err, IsNil)
 		defer func() {
 			err = ciliumNPClients[0].CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()).Delete(cnp.GetName(), &metav1.DeleteOptions{})
@@ -567,12 +574,12 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 		ciliumNPClientFake.AddReactor("patch", "ciliumnetworkpolicies",
 			func(action k8sTesting.Action) (bool, runtime.Object, error) {
 				time.Sleep(1 * time.Millisecond)
-				return true, cnp, nil
+				return true, cnp.CiliumNetworkPolicy, nil
 			})
 		ciliumNPClientFake.AddReactor("get", "ciliumnetworkpolicies",
 			func(action k8sTesting.Action) (bool, runtime.Object, error) {
 				time.Sleep(1 * time.Millisecond)
-				return true, cnp, nil
+				return true, cnp.CiliumNetworkPolicy, nil
 			})
 		ciliumNPClientFake.AddReactor("update", "ciliumnetworkpolicies",
 			func(action k8sTesting.Action) (bool, runtime.Object, error) {

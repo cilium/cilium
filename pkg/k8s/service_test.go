@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,40 +22,44 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/service"
+
 	"gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *K8sSuite) TestGetAnnotationIncludeExternal(c *check.C) {
-	svc := &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc := &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Name: "foo",
-	}}
+	}}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 
-	svc = &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "True"},
-	}}
+	}}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, true)
 
-	svc = &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "false"},
-	}}
+	}}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 
-	svc = &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": ""},
-	}}
+	}}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 }
 
 func (s *K8sSuite) TestParseServiceID(c *check.C) {
-	svc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
+	svc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
 		},
 	}
 
@@ -63,20 +67,22 @@ func (s *K8sSuite) TestParseServiceID(c *check.C) {
 }
 
 func (s *K8sSuite) TestParseService(c *check.C) {
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Selector: map[string]string{
-				"foo": "bar",
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
 			},
-			Type: v1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -89,17 +95,19 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Ports:      map[loadbalancer.FEPortName]*loadbalancer.FEPort{},
 	})
 
-	k8sSvc = &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	k8sSvc = &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "none",
-			Type:      v1.ServiceTypeClusterIP,
+			Spec: v1.ServiceSpec{
+				ClusterIP: "none",
+				Type:      v1.ServiceTypeClusterIP,
+			},
 		},
 	}
 
@@ -453,20 +461,22 @@ func TestService_Equals(t *testing.T) {
 }
 
 func (s *K8sSuite) TestServiceString(c *check.C) {
-	k8sSvc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Selector: map[string]string{
-				"foo": "bar",
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
 			},
-			Type: v1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -475,36 +485,40 @@ func (s *K8sSuite) TestServiceString(c *check.C) {
 }
 
 func (s *K8sSuite) TestNewClusterService(c *check.C) {
-	id, svc := ParseService(&v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-			Labels: map[string]string{
-				"foo": "bar",
+	id, svc := ParseService(&types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
 			},
-		},
-		Spec: v1.ServiceSpec{
-			ClusterIP: "127.0.0.1",
-			Selector: map[string]string{
-				"foo": "bar",
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
 			},
-			Type: v1.ServiceTypeClusterIP,
 		},
 	})
 
-	_, endpoints := ParseEndpoints(&v1.Endpoints{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "bar",
-		},
-		Subsets: []v1.EndpointSubset{
-			{
-				Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-				Ports: []v1.EndpointPort{
-					{
-						Name:     "http-test-svc",
-						Port:     8080,
-						Protocol: v1.ProtocolTCP,
+	_, endpoints := ParseEndpoints(&types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http-test-svc",
+							Port:     8080,
+							Protocol: v1.ProtocolTCP,
+						},
 					},
 				},
 			},

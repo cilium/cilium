@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
 
@@ -31,7 +32,7 @@ import (
 
 func (s *K8sSuite) TestParseNode(c *C) {
 	// PodCIDR takes precedence over annotations
-	k8sNode := &v1.Node{
+	k8sNode := &types.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
@@ -39,9 +40,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 				annotation.V6CIDRName: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
 			},
 		},
-		Spec: v1.NodeSpec{
-			PodCIDR: "10.1.0.0/16",
-		},
+		SpecPodCIDR: "10.1.0.0/16",
 	}
 
 	n := ParseNode(k8sNode, node.FromAgentLocal)
@@ -52,16 +51,14 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
 
 	// No IPv6 annotation
-	k8sNode = &v1.Node{
+	k8sNode = &types.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
 				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
-		Spec: v1.NodeSpec{
-			PodCIDR: "10.1.0.0/16",
-		},
+		SpecPodCIDR: "10.1.0.0/16",
 	}
 
 	n = ParseNode(k8sNode, node.FromAgentLocal)
@@ -71,16 +68,14 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	c.Assert(n.IPv6AllocCIDR, IsNil)
 
 	// No IPv6 annotation but PodCIDR with v6
-	k8sNode = &v1.Node{
+	k8sNode = &types.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "node2",
 			Annotations: map[string]string{
 				annotation.V4CIDRName: "10.254.0.0/16",
 			},
 		},
-		Spec: v1.NodeSpec{
-			PodCIDR: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
-		},
+		SpecPodCIDR: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
 	}
 
 	n = ParseNode(k8sNode, node.FromAgentLocal)

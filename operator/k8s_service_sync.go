@@ -92,7 +92,7 @@ func startSynchronizingServices() {
 	}()
 
 	// Watch for v1.Service changes and push changes into ServiceCache
-	_, svcController := cache.NewInformer(
+	_, svcController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
 		&v1.Service{},
@@ -138,12 +138,13 @@ func startSynchronizingServices() {
 				k8sSvcCache.DeleteService(k8sSvc)
 			},
 		},
+		k8s.ConvertToK8sService,
 	)
 
 	go svcController.Run(wait.NeverStop)
 
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
-	_, endpointController := cache.NewInformer(
+	_, endpointController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll,
 			// Don't get any events from kubernetes endpoints.
@@ -188,6 +189,7 @@ func startSynchronizingServices() {
 				k8sSvcCache.DeleteEndpoints(k8sEP)
 			},
 		},
+		k8s.ConvertToK8sEndpoints,
 	)
 
 	go endpointController.Run(wait.NeverStop)
