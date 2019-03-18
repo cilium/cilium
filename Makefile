@@ -7,7 +7,7 @@ SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
-TESTPKGS ?= $(subst github.com/cilium/cilium/,,$(shell $(GO) list ./... | grep -P -v -e /api/v1 -e /vendor/ -e /contrib/ -e 'test(?!/helpers/logutils)'))
+TESTPKGS ?= $(subst github.com/cilium/cilium/,,$(shell $(GO) list ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | grep -v .gitignore | tr "\n" ' ')
