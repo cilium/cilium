@@ -357,7 +357,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			)
 			record.Log()
 
-			if msg.Response && msg.Rcode == dns.RcodeSuccess {
+			if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 				// This must happen before the ruleGen update below, to ensure that
 				// this data is included in the serialized Endpoint object.
 				// Note: We need to fixup minTTL to be consistent with how we insert it
