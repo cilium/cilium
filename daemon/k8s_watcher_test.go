@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -29,17 +30,17 @@ import (
 	go_version "github.com/hashicorp/go-version"
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
 
 func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 	// ciliumV2Store cache.Store, oldRules api.Rules, cnp *cilium_v2.CiliumNetworkPolicy
 
-	uuid := types.UID("13bba160-ddca-13e8-b697-0800273b04ff")
+	uuid := k8sTypes.UID("13bba160-ddca-13e8-b697-0800273b04ff")
 	type args struct {
 		ciliumV2Store cache.Store
-		cnp           *v2.CiliumNetworkPolicy
+		cnp           *types.SlimCNP
 		repo          *policy.Repository
 	}
 	type wanted struct {
@@ -56,17 +57,19 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			setupArgs: func() args {
 				return args{
 					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &v2.CiliumNetworkPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "db",
-							Namespace: "production",
-							UID:       uuid,
-						},
-						Spec: &api.Rule{
-							EndpointSelector: api.EndpointSelector{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{
-										"env": "cluster-1",
+					cnp: &types.SlimCNP{
+						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "db",
+								Namespace: "production",
+								UID:       uuid,
+							},
+							Spec: &api.Rule{
+								EndpointSelector: api.EndpointSelector{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"env": "cluster-1",
+										},
 									},
 								},
 							},
@@ -123,17 +126,19 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				})
 				return args{
 					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &v2.CiliumNetworkPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "db",
-							Namespace: "production",
-							UID:       uuid,
-						},
-						Spec: &api.Rule{
-							EndpointSelector: api.EndpointSelector{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{
-										"env": "cluster-1",
+					cnp: &types.SlimCNP{
+						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "db",
+								Namespace: "production",
+								UID:       uuid,
+							},
+							Spec: &api.Rule{
+								EndpointSelector: api.EndpointSelector{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"env": "cluster-1",
+										},
 									},
 								},
 							},
@@ -188,21 +193,23 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				})
 				return args{
 					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &v2.CiliumNetworkPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "db",
-							Namespace: "production",
-							UID:       uuid,
-						},
-						Spec: &api.Rule{
-							EndpointSelector: api.EndpointSelector{
-								LabelSelector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{
-										"env": "cluster-1",
+					cnp: &types.SlimCNP{
+						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "db",
+								Namespace: "production",
+								UID:       uuid,
+							},
+							Spec: &api.Rule{
+								EndpointSelector: api.EndpointSelector{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"env": "cluster-1",
+										},
 									},
 								},
+								Labels: labels.ParseLabelArray("foo=bar"),
 							},
-							Labels: labels.ParseLabelArray("foo=bar"),
 						},
 					},
 					repo: r,
@@ -269,11 +276,13 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				})
 				return args{
 					ciliumV2Store: &cache.FakeCustomStore{},
-					cnp: &v2.CiliumNetworkPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "db",
-							Namespace: "production",
-							UID:       uuid,
+					cnp: &types.SlimCNP{
+						CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "db",
+								Namespace: "production",
+								UID:       uuid,
+							},
 						},
 					},
 					repo: r,

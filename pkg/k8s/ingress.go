@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,19 +18,18 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-
-	"k8s.io/api/extensions/v1beta1"
 )
 
-func supportV1beta1(ing *v1beta1.Ingress) bool {
+func supportV1beta1(ing *types.Ingress) bool {
 	// We only support Single Service Ingress for now which means
 	// ing.Spec.Backend needs to be different than nil.
 	return ing.Spec.Backend != nil
 }
 
 // ParseIngressID parses the service ID from the ingress resource
-func ParseIngressID(svc *v1beta1.Ingress) ServiceID {
+func ParseIngressID(svc *types.Ingress) ServiceID {
 	id := ServiceID{
 		Namespace: svc.ObjectMeta.Namespace,
 	}
@@ -43,7 +42,7 @@ func ParseIngressID(svc *v1beta1.Ingress) ServiceID {
 }
 
 // ParseIngress parses an ingress resources and returns the Service definition
-func ParseIngress(ingress *v1beta1.Ingress, host net.IP) (ServiceID, *Service, error) {
+func ParseIngress(ingress *types.Ingress, host net.IP) (ServiceID, *Service, error) {
 	svcID := ParseIngressID(ingress)
 
 	if !supportV1beta1(ingress) {
