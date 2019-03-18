@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"k8s.io/api/core/v1"
@@ -228,4 +229,140 @@ func EqualV1Namespace(ns1, ns2 *v1.Namespace) bool {
 	// we only care about namespace labels.
 	return ns1.Name == ns2.Name &&
 		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())
+}
+
+// ConvertToNetworkPolicy converts a *networkingv1.NetworkPolicy into a
+// *types.NetworkPolicy
+func ConvertToNetworkPolicy(obj interface{}) interface{} {
+	netPol, ok := obj.(*networkingv1.NetworkPolicy)
+	if !ok {
+		return nil
+	}
+	// TODO check which fields we really need
+	return &types.NetworkPolicy{
+		NetworkPolicy: netPol,
+	}
+}
+
+// ConvertToK8sService converts a *v1.Service into a *types.Service
+func ConvertToK8sService(obj interface{}) interface{} {
+	service, ok := obj.(*v1.Service)
+	if !ok {
+		return nil
+	}
+	// TODO check which fields we really need
+	return &types.Service{
+		Service: service,
+	}
+}
+
+// ConvertToK8sEndpoints converts a *v1.Endpoints into a *types.Endpoints
+func ConvertToK8sEndpoints(obj interface{}) interface{} {
+	endpoints, ok := obj.(*v1.Endpoints)
+	if !ok {
+		return nil
+	}
+	// TODO check which fields we really need
+	return &types.Endpoints{
+		Endpoints: endpoints,
+	}
+}
+
+// ConvertToIngress converts a *v1beta1.Ingress into a *v1beta1.Ingress
+func ConvertToIngress(obj interface{}) interface{} {
+	ingress, ok := obj.(*v1beta1.Ingress)
+	if !ok {
+		return nil
+	}
+	// TODO check which fields we really need
+	return &types.Ingress{
+		Ingress: ingress,
+	}
+}
+
+// ConvertToCNPWithStatus converts a *cilium_v2.CiliumNetworkPolicy into a
+// *types.SlimCNP
+func ConvertToCNPWithStatus(obj interface{}) interface{} {
+	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		return nil
+	}
+	slimCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: cnp,
+	}
+	return slimCNP
+}
+
+// ConvertToCNP converts a *cilium_v2.CiliumNetworkPolicy into a *types.SlimCNP
+// without the Status field of the given CNP.
+// WARNING calling this function will set *all* fields of the given CNP as
+// empty.
+func ConvertToCNP(obj interface{}) interface{} {
+	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
+	if !ok {
+		return nil
+	}
+	slimCNP := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta:   cnp.TypeMeta,
+			ObjectMeta: cnp.ObjectMeta,
+			Spec:       cnp.Spec,
+			Specs:      cnp.Specs,
+		},
+	}
+	*cnp = cilium_v2.CiliumNetworkPolicy{}
+	return slimCNP
+}
+
+// ConvertToPod converts a *v1.Pod into a *types.Pod.
+// WARNING calling this function will set *all* fields of the given Pod as
+// empty.
+func ConvertToPod(obj interface{}) interface{} {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return nil
+	}
+	p := &types.Pod{
+		TypeMeta:        pod.TypeMeta,
+		ObjectMeta:      pod.ObjectMeta,
+		StatusPodIP:     pod.Status.PodIP,
+		StatusHostIP:    pod.Status.HostIP,
+		SpecHostNetwork: pod.Spec.HostNetwork,
+	}
+	*pod = v1.Pod{}
+	return p
+}
+
+// ConvertToNode converts a *v1.Node into a *types.Node.
+// WARNING calling this function will set *all* fields of the given Node as
+// empty.
+func ConvertToNode(obj interface{}) interface{} {
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		return nil
+	}
+	n := &types.Node{
+		TypeMeta:        node.TypeMeta,
+		ObjectMeta:      node.ObjectMeta,
+		StatusAddresses: node.Status.Addresses,
+		SpecPodCIDR:     node.Spec.PodCIDR,
+	}
+	*node = v1.Node{}
+	return n
+}
+
+// ConvertToNamespace converts a *v1.Namespace into a *types.Namespace.
+// WARNING calling this function will set *all* fields of the given Namespace as
+// empty.
+func ConvertToNamespace(obj interface{}) interface{} {
+	namespace, ok := obj.(*v1.Namespace)
+	if !ok {
+		return nil
+	}
+	n := &types.Namespace{
+		TypeMeta:   namespace.TypeMeta,
+		ObjectMeta: namespace.ObjectMeta,
+	}
+	*namespace = v1.Namespace{}
+	return n
 }
