@@ -84,6 +84,7 @@ spec:
             command:
             - cilium
             - status
+            - --brief
           failureThreshold: 10
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -103,6 +104,7 @@ spec:
             command:
             - cilium
             - status
+            - --brief
           failureThreshold: 3
           initialDelaySeconds: 5
           periodSeconds: 5
