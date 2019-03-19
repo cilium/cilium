@@ -325,6 +325,18 @@ func (s *SharedStore) UpdateLocalKeySync(key LocalKey) error {
 	return nil
 }
 
+// UpdateLocalKeySync synchronously synchronizes a local key with the kvstore
+// and adds it to the list of local keys to be synchronized if the initial
+// synchronous synchronization was successful
+func (s *SharedStore) UpdateKeySync(key LocalKey) error {
+	if err := s.syncLocalKey(key); err != nil {
+		s.DeleteLocalKey(key)
+		return err
+	}
+
+	return nil
+}
+
 // DeleteLocalKey removes a key from being synchronized with the kvstore
 func (s *SharedStore) DeleteLocalKey(key LocalKey) {
 	name := key.GetKeyName()

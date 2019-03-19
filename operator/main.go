@@ -167,6 +167,10 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
+	if err := runNodeWatcher(); err != nil {
+		log.WithError(err).Error("Unable to setup node watcher")
+	}
+
 	if identityGCInterval != time.Duration(0) {
 		startIdentityGC()
 	}

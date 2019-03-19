@@ -361,6 +361,14 @@ func (c *consulClient) Watch(w *Watcher) {
 	}
 }
 
+func (c *consulClient) Connected() <-chan struct{} {
+	return nil
+}
+
+func (c *consulClient) Disconnected() <-chan struct{} {
+	return nil
+}
+
 func (c *consulClient) Status() (string, error) {
 	leader, err := c.Client.Status().Leader()
 	return "Consul: " + leader, err

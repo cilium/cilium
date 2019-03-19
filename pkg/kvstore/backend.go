@@ -131,6 +131,8 @@ func getBackend(name string) backendModule {
 // must implement. Direct use of this interface is possible but will bypass the
 // tracing layer.
 type BackendOperations interface {
+	Connected() <-chan struct{}
+	Disconnected() <-chan struct{}
 
 	// Status returns the status of the kvstore client including an
 	// eventual error
