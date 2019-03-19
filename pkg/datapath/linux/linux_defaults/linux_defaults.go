@@ -14,6 +14,10 @@
 
 package linux_defaults
 
+import (
+	"time"
+)
+
 // Linux specific constants used in Linux datapath
 const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
@@ -41,4 +45,8 @@ const (
 
 	// IPsecMarkMask is the mask required for the IPsec SPI and encrypt/decrypt bits
 	IPsecMarkMask = 0xFF00
+
+	// IPsecKeyDeleteDelay is the time to wait before removing old keys when
+	// the IPsec key is changing.
+	IPsecKeyDeleteDelay = 5 * time.Minute
 )
