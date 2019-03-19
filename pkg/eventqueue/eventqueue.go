@@ -64,19 +64,14 @@ type EventQueue struct {
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
-// a time, and all other needed fields initialized.
+// a time.
 func NewEventQueue() *EventQueue {
-	return &EventQueue{
-		// Only one event can be consumed at a time.
-		events: make(chan *Event, 1),
-		close:  make(chan struct{}),
-		drain:  make(chan struct{}),
-	}
+	return NewEventQueueBuffered(1)
 
 }
 
-// NewEventQueueBuffered returns an EventQueue with a capacity for only one event at
-// a time, and all other needed fields initialized.
+// NewEventQueueBuffered returns an EventQueue with a capacity of,
+// numBufferedEvents at a time, and all other needed fields initialized.
 func NewEventQueueBuffered(numBufferedEvents int) *EventQueue {
 	return &EventQueue{
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
@@ -95,7 +90,8 @@ type Event struct {
 	Metadata EventHandler
 
 	// EventResults is a channel on which the results of the event are sent.
-	// It is populated by the EventQueue itself, not by the queuer.
+	// It is populated by the EventQueue itself, not by the queuer. This channel
+	// is closed if the event is cancelled.
 	eventResults chan interface{}
 
 	// cancelled signals that the given Event was not ran. This can happen
