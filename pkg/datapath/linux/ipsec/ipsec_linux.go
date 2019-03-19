@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -181,6 +182,41 @@ func ipSecDeletePolicy(src, local net.IP) error {
 	return nil
 }
 
+func ipsecDeleteXfrmSpi(spi uint8) {
+	var err error
+	scopedLog := log.WithFields(logrus.Fields{
+		"spi": spi,
+	})
+
+	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	if err != nil {
+		scopedLog.WithError(err).Warning("deleting previous SPI, xfrm policy list error")
+		return
+	}
+
+	for _, p := range xfrmPolicyList {
+		if p.Tmpls[0].Spi != int(spi) &&
+			((p.Mark != nil && (p.Mark.Value&linux_defaults.RouteMarkMask) == linux_defaults.RouteMarkDecrypt) ||
+				(p.Mark != nil && (p.Mark.Value&linux_defaults.RouteMarkMask) == linux_defaults.RouteMarkEncrypt)) {
+			if err := netlink.XfrmPolicyDel(&p); err != nil {
+				scopedLog.WithError(err).Warning("deleting old xfrm policy failed")
+			}
+		}
+	}
+	xfrmStateList, err := netlink.XfrmStateList(0)
+	if err != nil {
+		scopedLog.WithError(err).Warning("deleting previous SPI, xfrm state list error")
+		return
+	}
+	for _, s := range xfrmStateList {
+		if s.Spi != int(spi) {
+			if err := netlink.XfrmStateDel(&s); err != nil {
+				scopedLog.WithError(err).Warning("deleting old xfrm state failed")
+			}
+		}
+	}
+}
+
 /* UpsertIPsecEndpoint updates the IPSec context for a new endpoint inserted in
  * the ipcache. Currently we support a global crypt/auth keyset that will encrypt
  * all traffic between endpoints. An IPSec context consists of two pieces a policy
@@ -309,10 +345,14 @@ func LoadIPSecKeysFile(path string) (uint8, error) {
 
 func loadIPSecKeys(r io.Reader) (uint8, error) {
 	var spi uint8
+	scopedLog := log.WithFields(logrus.Fields{
+		"spi": spi,
+	})
 
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
+		var oldSpi uint8
 		offset := 0
 
 		ipSecKey := &ipSecKey{
@@ -334,7 +374,10 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 			offset = -1
 		}
 		if spiI > linux_defaults.IPsecMaxKeyVersion {
-			return 0, fmt.Errorf("encryption Key space exhausted, id must be less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
+			return 0, fmt.Errorf("encryption Key space exhausted, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
+		}
+		if spiI == 0 {
+			return 0, fmt.Errorf("zero is not a valid key to disable encryption use `--enable-ipsec=false`, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
 		}
 		spi = uint8(spiI)
 
@@ -361,9 +404,29 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 		ipSecKey.Spi = spi
 
 		if len(s) == 6+offset {
+			if ipSecKeysGlobal[s[5+offset]] != nil {
+				oldSpi = ipSecKeysGlobal[s[5+offset]].Spi
+			}
 			ipSecKeysGlobal[s[5+offset]] = ipSecKey
 		} else {
+			if ipSecKeysGlobal[""] != nil {
+				oldSpi = ipSecKeysGlobal[""].Spi
+			}
 			ipSecKeysGlobal[""] = ipSecKey
+		}
+
+		scopedLog.WithError(err).Warning("newtimer: oldSPI %u new spi %u", oldSpi, ipSecKey.Spi)
+		// Detect a version change and call cleanup routine to remove old
+		// keys after a timeout period. We also want to ensure on restart
+		// we remove any stale keys for example when a restart changes keys.
+		// In the restart case oldSpi will be '0' and cause the delete logic
+		// to run.
+		if oldSpi != ipSecKey.Spi {
+			go func() {
+				time.Sleep(linux_defaults.IPsecKeyDeleteDelay)
+				scopedLog.Info("New encryption keys reclaiming SPI")
+				ipsecDeleteXfrmSpi(ipSecKey.Spi)
+			}()
 		}
 	}
 	return spi, nil
