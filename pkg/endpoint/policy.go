@@ -431,7 +431,9 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 		ep:           e,
 	})
 
-	// This may block if the Endpoint's EventQueue is full.
+	// This may block if the Endpoint's EventQueue is full. This has to be done
+	// synchronously as some callers depend on the fact that the event is
+	// synchronously enqueued.
 	resChan := e.EventQueue.Enqueue(epEvent)
 
 	go func() {
