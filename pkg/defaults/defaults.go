@@ -167,4 +167,7 @@ const (
 
 	// EndpointQueueSize is the default queue size for an endpoint.
 	EndpointQueueSize = 25
+
+	// PolicyQueueSize is the default queue size for policy-related events.
+	PolicyQueueSize = 100
 )

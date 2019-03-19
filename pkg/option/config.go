@@ -418,6 +418,10 @@ const (
 
 	// EndpointQueueSize is the size of the EventQueue per-endpoint.
 	EndpointQueueSize = "endpoint-queue-size"
+
+	// PolicyQueueSize is the size of the queues utilized by the policy
+	// repository.
+	PolicyQueueSize = "policy-queue-size"
 )
 
 // FQDNS variables
@@ -827,6 +831,10 @@ type DaemonConfig struct {
 	// in the case where a cluster might be under high load for endpoint-related
 	// events, specifically those which cause many regenerations.
 	EndpointQueueSize int
+
+	// PolicyQueueSize is the size of the queues for the policy repository.
+	// A larger queue means that more events related to policy can be buffered.
+	PolicyQueueSize int
 }
 
 var (
@@ -1179,12 +1187,21 @@ func (c *DaemonConfig) Populate() {
 	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
 	c.CMDRefDir = viper.GetString(CMDRef)
 
-	epQueueSize := viper.GetInt(EndpointQueueSize)
-	if epQueueSize <= 0 {
-		log.Warningf("endpoint queue size set to invalid value (must be > 0). Setting queue size to %d", defaults.EndpointQueueSize)
-		epQueueSize = defaults.EndpointQueueSize
+	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
+	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
+}
+
+func sanitizeIntParam(paramName string, paramDefault int) int {
+	intParam := viper.GetInt(paramName)
+	if intParam <= 0 {
+		log.WithFields(
+			logrus.Fields{
+				"parameter":    paramName,
+				"defaultValue": paramDefault,
+			}).Warning("user-provided parameter had value <= 0 , which is invalid ; setting to default")
+		return paramDefault
 	}
-	c.EndpointQueueSize = epQueueSize
+	return intParam
 }
 
 func getIPv4Enabled() bool {
