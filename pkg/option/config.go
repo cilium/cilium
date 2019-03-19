@@ -415,6 +415,10 @@ const (
 
 	// EnableHealthChecking is the name of the EnableHealthChecking option
 	EnableHealthChecking = "enable-health-checking"
+
+	// PolicyQueueSize is the size of the queues utilized by the policy
+	// repository.
+	PolicyQueueSize = "policy-queue-size"
 )
 
 // FQDNS variables
@@ -818,6 +822,10 @@ type DaemonConfig struct {
 	// already been allocated and other nodes in the cluster have a chance
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod time.Duration
+
+	// PolicyQueueSize is the size of the queues for the policy repository.
+	// A larger queue means that more events related to policy can be buffered.
+	PolicyQueueSize int
 }
 
 var (
@@ -1169,6 +1177,20 @@ func (c *DaemonConfig) Populate() {
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
 	c.CMDRefDir = viper.GetString(CMDRef)
+	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
+}
+
+func sanitizeIntParam(paramName string, paramDefault int) int {
+	intParam := viper.GetInt(paramName)
+	if intParam <= 0 {
+		log.WithFields(
+			logrus.Fields{
+				"parameter":    paramName,
+				"defaultValue": paramDefault,
+			}).Warning("user-provided parameter had value <= 0 , which is invalid ; setting to default")
+		return paramDefault
+	}
+	return intParam
 }
 
 func getIPv4Enabled() bool {
