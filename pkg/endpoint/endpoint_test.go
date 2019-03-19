@@ -287,7 +287,10 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
-	e := &Endpoint{policyRevision: 0}
+	e := &Endpoint{
+		policyRevision: 0,
+		state:          StateReady,
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
 
@@ -370,6 +373,27 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 
 	// Number of policy revision signals should be 0
 	c.Assert(len(e.policyRevisionSignals), Equals, 0)
+}
+
+func (s *EndpointSuite) TestSetPolicyRevision(c *C) {
+	e := &Endpoint{
+		policyRevision: 0,
+		state:          StateRegenerating,
+	}
+
+	e.SetPolicyRevision(1)
+
+	c.Assert(e.policyRevision, Equals, uint64(1))
+
+	e.state = StateWaitingToRegenerate
+	e.SetPolicyRevision(2)
+
+	c.Assert(e.policyRevision, Equals, uint64(1))
+
+	e.state = StateReady
+	e.SetPolicyRevision(uint64(3))
+
+	c.Assert(e.policyRevision, Equals, uint64(3))
 }
 
 func (s *EndpointSuite) TestProxyID(c *C) {

@@ -2036,7 +2036,12 @@ func (e *Endpoint) SetPolicyRevision(rev uint64) {
 // setPolicyRevision sets the endpoint's policy revision with the given
 // revision.
 func (e *Endpoint) setPolicyRevision(rev uint64) {
-	if rev <= e.policyRevision {
+
+	epStateInvalid := e.state != StateRegenerating && e.state != StateReady
+	if rev <= e.policyRevision || epStateInvalid {
+		if epStateInvalid {
+			e.getLogger().WithField(logfields.EndpointState, e.state).Warning("tried to set policy revision for endpoint for invalid state")
+		}
 		return
 	}
 
