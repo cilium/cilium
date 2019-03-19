@@ -53,8 +53,8 @@ type Repository struct {
 
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
-	repoChangeQueue := eventqueue.NewEventQueueBuffered(100)
-	ruleReactionQueue := eventqueue.NewEventQueueBuffered(100)
+	repoChangeQueue := eventqueue.NewEventQueueBuffered(option.Config.PolicyQueueSize)
+	ruleReactionQueue := eventqueue.NewEventQueueBuffered(option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()
 	ruleReactionQueue.Run()
 	return &Repository{

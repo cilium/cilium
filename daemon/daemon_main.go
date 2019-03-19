@@ -700,6 +700,8 @@ func init() {
 	flags.String(option.ToFQDNsPreCache, defaults.ToFQDNsPreCache, "DNS cache data at this path is preloaded on agent startup")
 	option.BindEnv(option.ToFQDNsPreCache)
 
+	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
+	option.BindEnv(option.PolicyQueueSize)
 	viper.BindPFlags(flags)
 }
 

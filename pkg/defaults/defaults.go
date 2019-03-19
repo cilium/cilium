@@ -164,4 +164,7 @@ const (
 
 	// KVstorePeriodicSync is the default kvstore periodic sync interval
 	KVstorePeriodicSync = 5 * time.Minute
+
+	// PolicyQueueSize is the default queue size for policy-related events.
+	PolicyQueueSize = 100
 )
