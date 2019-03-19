@@ -446,8 +446,6 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 			if ok {
 				regenResult := result.(*EndpointRegenerationResult)
 				regenError = regenResult.err
-
-				// Build was successful whether regeneration errored out of not.
 				buildSuccess = regenError == nil
 			} else {
 				// This may be unnecessary(?) since 'closing' of the results
