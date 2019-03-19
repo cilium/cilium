@@ -265,6 +265,41 @@ func (e *etcdClient) closeSession(leaseID client.LeaseID) {
 	e.RWMutex.RUnlock()
 }
 
+// Connected closes the returned channel when the etcd client is connected.
+func (e *etcdClient) Connected() <-chan struct{} {
+	select {
+	case <-e.firstSession:
+	getSession:
+		e.RLock()
+		ch := e.session.Done()
+		e.RUnlock()
+		select {
+		case <-ch:
+			// this case means we are disconnected
+			time.Sleep(100 * time.Millisecond)
+			goto getSession
+		default:
+			out := make(chan struct{})
+			close(out)
+			return out
+		}
+	default:
+		return e.firstSession
+	}
+}
+
+// Disconnected closes the returned channel when the etcd client is
+// disconnected after being reconnected.
+func (e *etcdClient) Disconnected() <-chan struct{} {
+	select {
+	case <-e.firstSession:
+		e.RLock()
+		ch := e.session.Done()
+		e.RUnlock()
+		return ch
+	}
+}
+
 func (e *etcdClient) renewSession() error {
 	<-e.firstSession
 	<-e.session.Done()
