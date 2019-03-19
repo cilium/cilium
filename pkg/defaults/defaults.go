@@ -170,4 +170,7 @@ const (
 
 	// KVstoreQPS is default rate limit for kv store operations
 	KVstoreQPS = 20
+
+	// EndpointQueueSize is the default queue size for an endpoint.
+	EndpointQueueSize = 25
 )

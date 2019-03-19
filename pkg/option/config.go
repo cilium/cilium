@@ -419,6 +419,9 @@ const (
 	// PolicyQueueSize is the size of the queues utilized by the policy
 	// repository.
 	PolicyQueueSize = "policy-queue-size"
+
+	// EndpointQueueSize is the size of the EventQueue per-endpoint.
+	EndpointQueueSize = "endpoint-queue-size"
 )
 
 // FQDNS variables
@@ -826,6 +829,12 @@ type DaemonConfig struct {
 	// PolicyQueueSize is the size of the queues for the policy repository.
 	// A larger queue means that more events related to policy can be buffered.
 	PolicyQueueSize int
+
+	// EndpointQueueSize is the size of the EventQueue per-endpoint. A larger
+	// queue means that more events can be buffered per-endpoint. This is useful
+	// in the case where a cluster might be under high load for endpoint-related
+	// events, specifically those which cause many regenerations.
+	EndpointQueueSize int
 }
 
 var (
@@ -1178,6 +1187,7 @@ func (c *DaemonConfig) Populate() {
 	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
 	c.CMDRefDir = viper.GetString(CMDRef)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
+	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
