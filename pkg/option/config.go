@@ -415,6 +415,9 @@ const (
 
 	// EnableHealthChecking is the name of the EnableHealthChecking option
 	EnableHealthChecking = "enable-health-checking"
+
+	// EndpointQueueSize is the size of the EventQueue per-endpoint.
+	EndpointQueueSize = "endpoint-queue-size"
 )
 
 // FQDNS variables
@@ -818,6 +821,12 @@ type DaemonConfig struct {
 	// already been allocated and other nodes in the cluster have a chance
 	// to whitelist the new upcoming identity of the endpoint.
 	IdentityChangeGracePeriod time.Duration
+
+	// EndpointQueueSize is the size of the EventQueue per-endpoint. A larger
+	// queue means that more events can be buffered per-endpoint. This is useful
+	// in the case where a cluster might be under high load for endpoint-related
+	// events, specifically those which cause many regenerations.
+	EndpointQueueSize int
 }
 
 var (
@@ -1169,6 +1178,13 @@ func (c *DaemonConfig) Populate() {
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
 	c.CMDRefDir = viper.GetString(CMDRef)
+
+	epQueueSize := viper.GetInt(EndpointQueueSize)
+	if epQueueSize <= 0 {
+		log.Warningf("endpoint queue size set to invalid value (must be > 0). Setting queue size to %d", defaults.EndpointQueueSize)
+		epQueueSize = defaults.EndpointQueueSize
+	}
+	c.EndpointQueueSize = epQueueSize
 }
 
 func getIPv4Enabled() bool {

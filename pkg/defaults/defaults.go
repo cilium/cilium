@@ -164,4 +164,7 @@ const (
 
 	// KVstorePeriodicSync is the default kvstore periodic sync interval
 	KVstorePeriodicSync = 5 * time.Minute
+
+	// EndpointQueueSize is the default queue size for an endpoint.
+	EndpointQueueSize = 25
 )
