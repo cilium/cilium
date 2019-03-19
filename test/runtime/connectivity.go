@@ -13,8 +13,15 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
+func runOnNetNextOnly(f func()) func() {
+	if helpers.RunsOnNetNext() {
+		return f
+	}
+	return func() {}
+}
+
 var _ = Describe("RuntimeConnectivityInVethModeTest", runtimeConnectivityTest("veth"))
-var _ = Describe("RuntimeConnectivityInIpvlanModeTest", runtimeConnectivityTest("ipvlan"))
+var _ = Describe("RuntimeConnectivityInIpvlanModeTest", runOnNetNextOnly(runtimeConnectivityTest("ipvlan")))
 
 // TODO(brb) Either create a dummy netdev or determine the master device at runtime
 const ipvlanMasterDevice = "enp0s8"
@@ -30,9 +37,6 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 			vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 
 			if datapathMode == "ipvlan" {
-				if !helpers.RunsOnNetNext() {
-					Skip("ipvlan tests can be run only on >= 4.12 Linux kernel")
-				}
 				vm.SetUpCiliumInIpvlanMode(ipvlanMasterDevice)
 				// cilium-docker has to be restarted because the datapath mode
 				// has changed
@@ -320,7 +324,7 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 }
 
 var _ = Describe("RuntimeConntrackInVethModeTest", runtimeConntrackTest("veth"))
-var _ = Describe("RuntimeConntrackInIpvlanModeTest", runtimeConntrackTest("ipvlan"))
+var _ = Describe("RuntimeConntrackInIpvlanModeTest", runOnNetNextOnly(runtimeConntrackTest("ipvlan")))
 
 var runtimeConntrackTest = func(datapathMode string) func() {
 	return func() {
@@ -344,9 +348,6 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 			vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 
 			if datapathMode == "ipvlan" {
-				if !helpers.RunsOnNetNext() {
-					Skip("ipvlan tests can be run only on >= 4.12 Linux kernel")
-				}
 				vm.SetUpCiliumInIpvlanMode(ipvlanMasterDevice)
 				// cilium-docker has to be restarted because the datapath mode
 				// has changed
