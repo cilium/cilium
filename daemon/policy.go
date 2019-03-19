@@ -453,7 +453,10 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Endpoint
 		epID := ep.GetID16()
 		if _, ok := epsToRegen.IDs[epID]; !ok {
 			enqueueWaitGroup.Add(1)
-			go ep.PolicyRevisionBumpEvent(rev, &enqueueWaitGroup)
+			go func() {
+				ep.PolicyRevisionBumpEvent(rev)
+				enqueueWaitGroup.Done()
+			}()
 		}
 	}
 
