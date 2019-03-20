@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/sirupsen/logrus"
 )
 
@@ -93,30 +92,25 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.Id
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress, p.DeniedIngressIdentities)
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress, p.DeniedEgressIdentities)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, p.DeniedIngressIdentities)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, p.DeniedEgressIdentities)
 	return
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection, deniedIdentities cache.IdentityCache) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, deniedIdentities cache.IdentityCache) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(direction, identityCache, deniedIdentities)
-		for _, keyFromFilter := range keysFromFilter {
-			var proxyPort uint16
-			// Preserve the already-allocated proxy ports for redirects that
-			// already exist.
-			if filter.IsRedirect() {
-				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromMap once the port has been allocated.
-				if proxyPort == 0 {
-					continue
+		filter.ForEachDatapathEntry(p.PolicyOwner, identityCache, deniedIdentities,
+			func(k Key, v MapStateEntry) {
+				if filter.IsRedirect() && v.ProxyPort == 0 {
+					// If the currently allocated proxy port is 0, this is a new
+					// redirect, for which no port has been allocated yet. Ignore
+					// it for now. This will be configured by
+					// e.addNewRedirectsFromMap once the port has been allocated.
+					return
 				}
-			}
-			p.PolicyMapState[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
-		}
+				p.PolicyMapState[k] = v
+			},
+		)
 	}
 }
 

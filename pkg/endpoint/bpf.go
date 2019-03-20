@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 
@@ -201,24 +200,16 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			}
 
 			// Set the proxy port in the policy map.
-			var direction trafficdirection.TrafficDirection
-			if l4.Ingress {
-				direction = trafficdirection.Ingress
-			} else {
-				direction = trafficdirection.Egress
-			}
-
-			keysFromFilter := l4.ToKeys(direction, *e.prevIdentityCache, e.desiredPolicy.DeniedIngressIdentities)
-
-			for _, keyFromFilter := range keysFromFilter {
-				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
-					updatedDesiredMapState[keyFromFilter] = oldEntry
-				} else {
-					insertedDesiredMapState[keyFromFilter] = struct{}{}
-				}
-
-				e.desiredPolicy.PolicyMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
-			}
+			l4.ForEachDatapathEntry(e, *e.prevIdentityCache, e.desiredPolicy.DeniedIngressIdentities,
+				func(k policy.Key, v policy.MapStateEntry) {
+					if oldEntry, ok := e.desiredPolicy.PolicyMapState[k]; ok {
+						updatedDesiredMapState[k] = oldEntry
+					} else {
+						insertedDesiredMapState[k] = struct{}{}
+					}
+					e.desiredPolicy.PolicyMapState[k] = v
+				},
+			)
 
 		}
 	}

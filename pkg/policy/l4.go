@@ -177,6 +177,34 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identity
 	return keysToAdd
 }
 
+// ProcessDatapathEntryFunc is a function type which takes some action based
+// upon each datapath key+value that is generated from the L4Filter.
+type ProcessDatapathEntryFunc func(Key, MapStateEntry)
+
+func (l4 *L4Filter) ForEachDatapathEntry(
+	owner PolicyOwner,
+	identityCache cache.IdentityCache,
+	deniedIdentities cache.IdentityCache,
+	process ProcessDatapathEntryFunc) {
+
+	var direction trafficdirection.TrafficDirection
+	if l4.Ingress {
+		direction = trafficdirection.Ingress
+	} else {
+		direction = trafficdirection.Egress
+	}
+
+	for _, key := range l4.ToKeys(direction, identityCache, deniedIdentities) {
+		var proxyPort uint16
+		// Preserve the already-allocated proxy ports for redirects that
+		// already exist.
+		if l4.IsRedirect() {
+			proxyPort = owner.LookupRedirectPort(l4)
+		}
+		process(key, MapStateEntry{ProxyPort: proxyPort})
+	}
+}
+
 // GetRelevantRules returns the relevant rules based on the source and
 // destination addressing/identity information.
 func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
