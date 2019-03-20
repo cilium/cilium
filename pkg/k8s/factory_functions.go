@@ -557,10 +557,24 @@ func equalV1Node(o1, o2 interface{}) bool {
 		log.Panicf("Invalid resource type %q, expecting *v1.Node", reflect.TypeOf(o2))
 		return false
 	}
-	// The only information we care about the node is it's annotations, in
-	// particularly the CiliumHostIP annotation.
-	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
-		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
+	if node1.GetObjectMeta().GetName() != node2.GetObjectMeta().GetName() {
+		return false
+	}
+
+	anno1 := node1.GetAnnotations()
+	anno2 := node2.GetAnnotations()
+	annotationsWeCareAbout := []string{
+		annotation.CiliumHostIP,
+		annotation.CiliumHostIPv6,
+		annotation.V4HealthName,
+		annotation.V6HealthName,
+	}
+	for _, an := range annotationsWeCareAbout {
+		if anno1[an] != anno2[an] {
+			return false
+		}
+	}
+	return true
 }
 
 func equalV1Namespace(o1, o2 interface{}) bool {
