@@ -29,10 +29,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
+	var ipsecKeysPath string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
+		ipsecKeysPath = helpers.ManifestGet("ipsec_keys.yaml")
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 
@@ -41,11 +43,13 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	BeforeEach(func() {
 		kubectl.Apply(demoDSPath).ExpectSuccess("cannot install Demo application")
+		kubectl.Apply(ipsecKeysPath).ExpectSuccess("cannot install IPsec keys")
 		kubectl.NodeCleanMetadata()
 	})
 
 	AfterEach(func() {
 		kubectl.Delete(demoDSPath)
+		kubectl.Delete(ipsecKeysPath)
 		ExpectAllPodsTerminated(kubectl)
 
 		// Do not assert on success in AfterEach intentionally to avoid
@@ -104,6 +108,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(status.IntOutput()).Should(Equal(3), "Did not find expected number of entries in BPF tunnel map")
 		}
 
+		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
+			SkipIfFlannel()
+			deployCilium("cilium-ds-patch-vxlan-ipsec.yaml")
+			validateBPFTunnelMap()
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
+			cleanService()
+		}, 600)
+
 		It("Check connectivity with VXLAN encapsulation", func() {
 			SkipIfFlannel()
 
@@ -128,6 +140,15 @@ var _ = Describe("K8sDatapathConfig", func() {
 			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
+
+	Context("Transparent encryption with IPv4Only", func() {
+		It("Check connectivity with transparent encryption enabled and IPv6 disabled", func() {
+			SkipIfFlannel()
+			deployCilium("cilium-ds-patch-ipv4-only-ipsec.yaml")
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
