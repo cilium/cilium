@@ -118,8 +118,9 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 {
 	void *data;
 	void *data_end;
-	struct lb4_key key = {};
-	struct lb4_service *svc;
+	struct lb4_key_v2 key = {};
+	struct lb4_service_v2 *svc;
+	struct lb4_backend *backend;
 	struct iphdr *ip;
 	struct csum_offset csum_off = {};
 	int l3_off, l4_off, ret;
@@ -149,18 +150,18 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 #endif
 
-	svc = lb4_lookup_service(skb, &key);
+	svc = lb4_lookup_service_v2(skb, &key);
 	if (svc == NULL) {
 		/* Pass packets to the stack which should not be loadbalanced */
 		return TC_ACT_OK;
 	}
 
-	slave = lb4_select_slave(skb, &key, svc->count, svc->weight);
-	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
+	slave = lb4_select_slave_v2(skb, &key, svc->count, svc->weight);
+	if (!(backend = lb4_lookup_slave_v2(skb, &key, slave)))
 		return DROP_NO_SERVICE;
 
-	new_dst = svc->target;
-	ret = lb4_xlate(skb, &new_dst, NULL, NULL, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
+	new_dst = backend->address;
+	ret = lb4_xlate_v2(skb, &new_dst, NULL, NULL, nexthdr, l3_off, l4_off, &csum_off, &key, svc, backend);
 	if (IS_ERR(ret))
 		return ret;
 

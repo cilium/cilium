@@ -186,8 +186,8 @@ static inline int lb6_select_slave(struct __sk_buff *skb,
 	return slave;
 }
 
-static inline int lb4_select_slave(struct __sk_buff *skb,
-				   struct lb4_key *key,
+static inline int lb4_select_slave_v2(struct __sk_buff *skb,
+				   struct lb4_key_v2 *key,
 				   __u16 count, __u16 weight)
 {
 	__u32 hash = lb_enforce_rehash(skb);
@@ -621,10 +621,12 @@ static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int 
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
-					     int l4_off, struct lb4_key *key,
+static inline int __inline__ lb4_extract_key_v2(struct __sk_buff *skb,
+                         struct ipv4_ct_tuple *tuple,
+					     int l4_off, struct lb4_key_v2 *key,
 					     struct csum_offset *csum_off, int dir)
 {
+    key->proto = tuple->nexthdr;
 	key->address = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
@@ -635,15 +637,15 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_
 #endif
 }
 
-static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
+static inline struct lb4_service_v2 *__lb4_lookup_service_v2(struct lb4_key_v2 *key)
 {
 #ifdef LB_L4
 	if (key->dport) {
-		struct lb4_service *svc;
+		struct lb4_service_v2 *svc;
 
 		/* FIXME: The verifier barks on these calls right now for some reason */
 		/* cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
+		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 		if (svc && svc->count != 0)
 			return svc;
 
@@ -653,11 +655,11 @@ static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 
 #ifdef LB_L3
 	if (1) {
-		struct lb4_service *svc;
+		struct lb4_service_v2 *svc;
 
 		/* FIXME: The verifier barks on these calls right now for some reason */
 		/* cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
+		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 		if (svc && svc->count != 0)
 			return svc;
 	}
@@ -665,37 +667,41 @@ static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 	return NULL;
 }
 
-static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
-						     struct lb4_key *key)
+static inline struct lb4_service_v2 *lb4_lookup_service_v2(struct __sk_buff *skb,
+						     struct lb4_key_v2 *key)
 {
-	struct lb4_service *svc = __lb4_lookup_service(key);
+	struct lb4_service_v2 *svc = __lb4_lookup_service_v2(key);
 
 	if (!svc)
 		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
 	return svc;
 }
 
-static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
-						   struct lb4_key *key, __u16 slave)
+static inline struct lb4_backend *lb4_lookup_slave_v2(struct __sk_buff *skb,
+						   struct lb4_key_v2 *key, __u16 slave)
 {
-	struct lb4_service *svc;
+	struct lb4_service_v2 *svc;
+    struct lb4_backend *backend;
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
+	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc != NULL) {
-		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, svc->target, svc->port);
-		return svc;
+        backend = map_lookup_elem(&LB4_BACKEND_MAP, &slave);
+        if (backend != NULL) {
+            cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, backend->address, backend->port);
+            return backend;
+        }
 	}
 
 	return NULL;
 }
 
 static inline int __inline__
-lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
+lb4_xlate_v2(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	  __be32 *old_saddr, __u8 nexthdr, int l3_off, int l4_off,
-	  struct csum_offset *csum_off, struct lb4_key *key,
-	  struct lb4_service *svc)
+	  struct csum_offset *csum_off, struct lb4_key_v2 *key,
+	  struct lb4_service_v2 *svc, struct lb4_backend *backend)
 {
 	int ret;
 	__be32 sum;
@@ -724,9 +730,9 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	}
 
 #ifdef LB_L4
-	if (svc->port && key->dport != svc->port &&
+	if (backend->port && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
-		__be16 tmp = svc->port;
+		__be16 tmp = backend->port;
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))
@@ -737,21 +743,23 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	return TC_ACT_OK;
 }
 
-static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
+static inline int __inline__ lb4_local_v2(void *map, struct __sk_buff *skb,
 				       int l3_off, int l4_off,
-				       struct csum_offset *csum_off, struct lb4_key *key,
-				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc,
+				       struct csum_offset *csum_off, struct lb4_key_v2 *key,
+				       struct ipv4_ct_tuple *tuple, struct lb4_service_v2 *svc,
 				       struct ct_state *state, __be32 saddr)
 {
 	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
+    struct lb4_backend *backend;
 	int ret;
 
 	ret = ct_lookup4(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
 	switch(ret) {
 	case CT_NEW:
-		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
+		state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
+        // TODO(brb) set rx_count=1 inside ct_create4 to indicate v2
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
@@ -774,13 +782,17 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
 	 */
-	if (!(svc = lb4_lookup_slave(skb, key, state->slave))) {
-		if ((svc = lb4_lookup_service(skb, key)) == NULL) {
+	if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
+		if ((svc = lb4_lookup_service_v2(skb, key)) == NULL) {
 			tuple->flags = flags;
 			return DROP_NO_SERVICE;
 		}
-		state->slave = lb4_select_slave(skb, key, svc->count, svc->weight);
+		state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
 		ct_update4_slave(map, tuple, state);
+        // TODO(brb) There was probably a bug in the previous implementation
+	    if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
+            return DROP_NO_SERVICE;
+        }
 	}
 
 	/* Restore flags so that SERVICE flag is only used in used when the
@@ -788,7 +800,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	 */
 	tuple->flags = flags;
 	state->rev_nat_index = svc->rev_nat_index;
-	state->addr = new_daddr = svc->target;
+	state->addr = new_daddr = backend->address;
 
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
@@ -798,7 +810,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	 * received on a loopback device. Perform NAT on the source address
 	 * to make it appear from an outside address.
 	 */
-	if (saddr == svc->target) {
+	if (saddr == backend->address) {
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
 		state->addr = new_saddr;
@@ -807,11 +819,11 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 #endif
 
 	if (!state->loopback)
-		tuple->daddr = svc->target;
+		tuple->daddr = backend->address;
 
-	return lb4_xlate(skb, &new_daddr, &new_saddr, &saddr,
+	return lb4_xlate_v2(skb, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 svc);
+			 svc, backend);
 }
 #endif /* ENABLE_IPV4 */
 
