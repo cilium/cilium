@@ -470,6 +470,7 @@ struct lb4_key_v2 {
     __be16 dport;		/* L4 port filter, if unset, all ports apply */
 	__u16 slave;		/* Backend iterator, 0 indicates the master service */
 	__u8 proto;
+    __u8 pad;
 } __attribute__((packed));
 
 struct lb4_service_v2 {

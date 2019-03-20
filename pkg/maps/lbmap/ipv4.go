@@ -82,6 +82,15 @@ type Service4Key struct {
 	Slave   uint16     `align:"slave"`
 }
 
+// Service4Key must match 'struct lb4_key_v2' in "bpf/lib/common.h".
+type Service4KeyV2 struct {
+	Address types.IPv4 `align:"address"`
+	Port    uint16     `align:"dport"`
+	Slave   uint16     `align:"slave"`
+	Proto   uint8      `align:"proto"`
+	Pad     uint8
+}
+
 func (k Service4Key) IsIPv6() bool               { return false }
 func (k Service4Key) Map() *bpf.Map              { return Service4Map }
 func (k Service4Key) RRMap() *bpf.Map            { return RRSeq4Map }
@@ -139,6 +148,14 @@ type Service4Value struct {
 	Count   uint16     `align:"count"`
 	RevNat  uint16     `align:"rev_nat_index"`
 	Weight  uint16     `align:"weight"`
+}
+
+// Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
+type Service4ValueV2 struct {
+	Count     uint16 `align:"count"`
+	BackendID uint16 `align:"backend_index"`
+	RevNat    uint16 `align:"rev_nat_index"`
+	Weight    uint16 `align:"weight"`
 }
 
 func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service4Value {
