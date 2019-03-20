@@ -204,10 +204,24 @@ func EqualV1Pod(pod1, pod2 *v1.Pod) bool {
 }
 
 func EqualV1Node(node1, node2 *v1.Node) bool {
-	// The only information we care about the node is it's annotations, in
-	// particularly the CiliumHostIP annotation.
-	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
-		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
+	if node1.GetObjectMeta().GetName() != node2.GetObjectMeta().GetName() {
+		return false
+	}
+
+	anno1 := node1.GetAnnotations()
+	anno2 := node2.GetAnnotations()
+	annotationsWeCareAbout := []string{
+		annotation.CiliumHostIP,
+		annotation.CiliumHostIPv6,
+		annotation.V4HealthName,
+		annotation.V6HealthName,
+	}
+	for _, an := range annotationsWeCareAbout {
+		if anno1[an] != anno2[an] {
+			return false
+		}
+	}
+	return true
 }
 
 func EqualV1Namespace(ns1, ns2 *v1.Namespace) bool {
