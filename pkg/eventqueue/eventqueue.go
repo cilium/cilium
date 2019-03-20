@@ -89,7 +89,7 @@ type Event struct {
 	// order for the Event to be successfully processed by the EventQueue.
 	Metadata EventHandler
 
-	// EventResults is a channel on which the results of the event are sent.
+	// eventResults is a channel on which the results of the event are sent.
 	// It is populated by the EventQueue itself, not by the queuer. This channel
 	// is closed if the event is cancelled.
 	eventResults chan interface{}
