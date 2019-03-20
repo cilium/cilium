@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -790,7 +790,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeKafka,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -807,7 +807,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:      80,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -824,7 +824,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:      9090,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  L7ParserType("tester"),
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -950,7 +950,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			Port:      80,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar1, selBar2},
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -967,7 +967,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar1, selBar2},
 			L7Parser:  ParserTypeKafka,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -1193,7 +1193,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeKafka,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
@@ -1210,7 +1210,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			Port:      80,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
@@ -1334,7 +1334,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			Port:      80,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar1, selBar2},
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
@@ -1351,7 +1351,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar1, selBar2, selBar1},
+			Endpoints: []api.EndpointSelector{selBar1, selBar2},
 			L7Parser:  ParserTypeKafka,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
@@ -1446,16 +1446,17 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
 	c.Assert(err, IsNil)
 	c.Assert(len(*policy), Equals, 2)
-	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
-	selWorld := (*policy)["80/TCP"].Endpoints[1]
-	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
+	filter := (*policy)["80/TCP"]
+	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(filter.Endpoints[0], checker.DeepEquals, selBar2)
 
+	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	expectedPolicy := L4PolicyMap{
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selWorld},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeKafka,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -1472,7 +1473,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			Port:      80,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selWorld},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
@@ -1568,16 +1569,17 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	policy, err := repo.ResolveL4EgressPolicy(ctx)
 	c.Assert(err, IsNil)
 	c.Assert(len(*policy), Equals, 2)
-	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
-	selWorld := (*policy)["80/TCP"].Endpoints[1]
-	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
+	filter := (*policy)["80/TCP"]
+	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(filter.Endpoints[0], checker.DeepEquals, selBar2)
 
+	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	expectedPolicy := L4PolicyMap{
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selWorld},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeKafka,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
@@ -1594,7 +1596,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			Port:      80,
 			Protocol:  api.ProtoTCP,
 			U8Proto:   0x6,
-			Endpoints: []api.EndpointSelector{selBar2, selWorld},
+			Endpoints: []api.EndpointSelector{selBar2},
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
@@ -1713,9 +1715,6 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	// instances of the EndpointSelector. We duplicate them in the expected
 	// output here just to get the tests passing.
 	selectorFromApp2DupList := []api.EndpointSelector{
-		api.NewESFromLabels(
-			labels.ParseSelectLabel("id=app2"),
-		),
 		api.NewESFromLabels(
 			labels.ParseSelectLabel("id=app2"),
 		),

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,20 +66,28 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-func mergeL4Port(ctx *SearchContext, endpoints []api.EndpointSelector, existingFilter, filterToMerge *L4Filter) error {
-	// Handle cases where filter we are merging new rule with, new rule itself
-	// allows all traffic on L3, or both rules allow all traffic on L3.
-	//
-	// Case 1: either filter selects all endpoints, which means that this filter
-	// can now simply select all endpoints.
-	if existingFilter.AllowsAllAtL3() || filterToMerge.AllowsAllAtL3() {
-		existingFilter.Endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+// mergeL4Port merges the 'filterToMerge' into the 'existingFilter', taking
+// shallow references against the fields in 'filterToMerge'.
+func mergeL4Port(ctx *SearchContext, existingFilter, filterToMerge *L4Filter) error {
+	// If the filter to merge allows all at L3, then this filter will now
+	// also allow all at L3.
+	if filterToMerge.AllowsAllAtL3() {
 		existingFilter.allowsAllAtL3 = true
-	} else {
-		// Case 2: no wildcard endpoint selectors in existing filter or in filter
-		// to merge, so just append endpoints.
-		existingFilter.Endpoints = append(existingFilter.Endpoints, endpoints...)
 	}
+
+	// Regardless of whether the filter to merge allows all at L3, it may
+	// also contain more restrictive EndpointSelectors, so all selectors
+	// must be added together. In an ideal world, we'd have some way of
+	// de-duplicating the selectors being appended here (instance if there
+	// are multiple rules that contain the api.WildcardEndpointSelector),
+	// but this is not required for correctness so this is not done for now.
+	//
+	// In the case where there is a mix of L3-dependent L4 rules (where the
+	// L3 selectors are held in 'l4.Endpoints') and L3-dependent L7 rules
+	// on the same L4 destination (where the L3 selectors are held in
+	// l4.RulesPerEP), the 'l4.Endpoints' should become a superset or equal
+	// to the 'l4.L7RulesPerEP' selectors.
+	existingFilter.Endpoints = append(existingFilter.Endpoints, filterToMerge.Endpoints...)
 
 	// Merge the L7-related data from the arguments provided to this function
 	// with the existing L7-related data already in the filter.
@@ -178,7 +186,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 
-	if err := mergeL4Port(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
+	if err := mergeL4Port(ctx, &existingFilter, &filterToMerge); err != nil {
 		return 0, err
 	}
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
@@ -602,7 +610,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4EgressFilter(endpoints, r, p, proto, ruleLabels)
 
-	if err := mergeL4Port(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
+	if err := mergeL4Port(ctx, &existingFilter, &filterToMerge); err != nil {
 		return 0, err
 	}
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)

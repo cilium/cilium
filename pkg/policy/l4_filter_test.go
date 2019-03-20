@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -209,8 +209,11 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      "http",
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: "http",
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -315,8 +318,11 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -394,8 +400,11 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeKafka,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: ParserTypeKafka,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				Kafka: []api.PortRuleKafka{{Topic: "foo"}},
@@ -644,11 +653,14 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 
 	expected := NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port:             80,
-		Protocol:         api.ProtoTCP,
-		U8Proto:          6,
-		allowsAllAtL3:    true,
-		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		allowsAllAtL3: true,
+		Endpoints: api.EndpointSelectorSlice{
+			endpointSelectorA,
+			api.WildcardEndpointSelector,
+		},
 		L7Parser:         ParserTypeNone,
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
@@ -701,11 +713,14 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 
 	expected = NewL4Policy()
 	expected.Ingress["80/TCP"] = L4Filter{
-		Port:             80,
-		Protocol:         api.ProtoTCP,
-		U8Proto:          6,
-		allowsAllAtL3:    true,
-		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		allowsAllAtL3: true,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			endpointSelectorA,
+		},
 		L7Parser:         ParserTypeNone,
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
@@ -775,8 +790,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			endpointSelectorA,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			endpointSelectorA: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -843,8 +861,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			endpointSelectorA,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			endpointSelectorA: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -924,8 +945,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			endpointSelectorA,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -1001,8 +1025,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			endpointSelectorA,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},

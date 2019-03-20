@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -271,8 +271,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -490,8 +493,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Protocol:      api.ProtoTCP,
 		U8Proto:       6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+			fooSelector,
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -564,8 +571,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      "kafka", L7RulesPerEp: l7map, Ingress: true,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			fooSelector,
+		},
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
@@ -648,8 +658,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	expected.Ingress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      "kafka", L7RulesPerEp: l7map, Ingress: true,
+		Endpoints: api.EndpointSelectorSlice{
+			fooSelector,
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
@@ -714,8 +727,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	expected.Egress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3: true,
-		Endpoints:     []api.EndpointSelector{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeHTTP,
+		Endpoints: []api.EndpointSelector{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+			fooSelector[0],
+		},
+		L7Parser: ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -787,8 +804,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	expected.Egress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      ParserTypeKafka,
+		Endpoints: api.EndpointSelectorSlice{
+			api.WildcardEndpointSelector,
+			api.WildcardEndpointSelector,
+			fooSelector[0],
+		},
+		L7Parser: ParserTypeKafka,
 		L7RulesPerEp: L7DataMap{
 			api.WildcardEndpointSelector: api.L7Rules{
 				Kafka: []api.PortRuleKafka{{Topic: "foo"}},
@@ -872,8 +893,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	expected.Egress["80/TCP"] = L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3: true,
-		Endpoints:     api.EndpointSelectorSlice{api.WildcardEndpointSelector},
-		L7Parser:      "kafka", L7RulesPerEp: l7map, Ingress: false,
+		Endpoints: api.EndpointSelectorSlice{
+			fooSelector[0],
+			api.WildcardEndpointSelector,
+		},
+		L7Parser: "kafka", L7RulesPerEp: l7map, Ingress: false,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
 	}
 
@@ -2020,8 +2044,9 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.Endpoints), Equals, 1)
-	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
+	c.Assert(len(filter.Endpoints), Equals, 2)
+	c.Assert(filter.Endpoints[0], Equals, endpointSelectorC)
+	c.Assert(filter.Endpoints[1], Equals, api.WildcardEndpointSelector)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
@@ -2070,7 +2095,9 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(len(filter.Endpoints), Equals, 2)
+	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
+	c.Assert(filter.Endpoints[1], Equals, endpointSelectorC)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
@@ -2265,8 +2292,8 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.Endpoints), Equals, 2)
-	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
-	c.Assert(filter.Endpoints[1], Equals, endpointSelectorC)
+	c.Assert(filter.Endpoints[0], Equals, endpointSelectorC)
+	c.Assert(filter.Endpoints[1], Equals, api.WildcardEndpointSelector)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
