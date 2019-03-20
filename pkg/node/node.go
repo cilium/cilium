@@ -221,7 +221,7 @@ func (n *Node) getSecondaryAddresses() []*models.NodeAddressingElement {
 }
 
 func (n *Node) getHealthAddresses() *models.NodeAddressing {
-	if n.IPv4HealthIP == nil || n.IPv6HealthIP == nil {
+	if n.IPv4HealthIP == nil && n.IPv6HealthIP == nil {
 		return nil
 	}
 	return &models.NodeAddressing{
