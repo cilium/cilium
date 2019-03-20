@@ -1139,7 +1139,7 @@ func runDaemon() {
 	// This is required because CNP with CIDRs rely on the allocator which
 	// itself relies on the kvstore to be setup and the caches will not be
 	// synced unless we setup the kvstore at the same time.
-	k8sCachesSynced := d.initK8sSubsystem()
+	d.initK8sSubsystem()
 
 	goopts := &kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
@@ -1184,7 +1184,7 @@ func runDaemon() {
 		}).Fatal("Unable to setup kvstore")
 	}
 
-	<-k8sCachesSynced
+	d.waitForCacheSync(k8sAPIGroupCiliumV2, k8sAPIGroupNetworkingV1Core, k8sAPIGroupNamespaceV1Core, k8sAPIGroupPodV1Core)
 	bootstrapStats.k8sInit.End(true)
 	bootstrapStats.restore.Start()
 	if option.Config.RestoreState {
