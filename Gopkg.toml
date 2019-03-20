@@ -455,6 +455,10 @@ required = [
   # on-revision = "github.com/shirou/gopsutil uses master so we override it with a particullar commit after v2.18.10 was released"
 
 [[constraint]]
+  name = "golang.org/x/time"
+  revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
+
+[[constraint]]
   name = "google.golang.org/genproto"
   revision = "4b09977fb92221987e99d190c8f88f2c92727a29"
 
