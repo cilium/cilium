@@ -283,8 +283,6 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		return
 	}
 
-	// No errors past this point!
-
 	d.policy.Mutex.Lock()
 
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
