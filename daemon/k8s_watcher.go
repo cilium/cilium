@@ -257,29 +257,27 @@ func init() {
 // waits until all objects of the specified resource stored in Kubernetes are
 // received by the informer and processed by controller.
 // Fatally exits if syncing these initial objects fails.
-func (d *Daemon) blockWaitGroupToSyncResources(informer cache.Controller, resourceName string) {
-
-	d.k8sResourceSyncWaitGroup.Add(1)
+func (d *Daemon) blockWaitGroupToSyncResources(stop <-chan struct{}, informer cache.Controller, resourceName string) {
+	ch := make(chan struct{})
 	d.k8sResourceSyncedMu.Lock()
-	d.k8sResourceSynced[resourceName] = make(chan struct{})
+	d.k8sResourceSynced[resourceName] = ch
 	d.k8sResourceSyncedMu.Unlock()
 	go func() {
 		scopedLog := log.WithField("kubernetesResource", resourceName)
 		scopedLog.Debug("waiting for cache to synchronize")
-		if ok := cache.WaitForCacheSync(wait.NeverStop, informer.HasSynced); !ok {
-			// Fatally exit it resource fails to sync
-			scopedLog.Fatalf("failed to wait for cache to sync")
+		if ok := cache.WaitForCacheSync(stop, informer.HasSynced); !ok {
+			select {
+			case <-stop:
+				scopedLog.Debug("canceled cache synchronization")
+				// do not fatal if the channel was stopped
+			default:
+				// Fatally exit it resource fails to sync
+				scopedLog.Fatalf("failed to wait for cache to sync")
+			}
+		} else {
+			scopedLog.Debug("cache synced")
 		}
-		scopedLog.Debug("cache synced")
-		d.k8sResourceSyncedMu.RLock()
-		c := d.k8sResourceSynced[resourceName]
-		d.k8sResourceSyncedMu.RUnlock()
-		select {
-		case <-c:
-		default:
-			close(c)
-		}
-		d.k8sResourceSyncWaitGroup.Done()
+		close(ch)
 	}()
 }
 
@@ -308,7 +306,7 @@ func (d *Daemon) initK8sSubsystem() chan struct{} {
 
 	go func() {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
-		d.k8sResourceSyncWaitGroup.Wait()
+		d.waitForCacheSync()
 		close(cachesSynced)
 	}()
 
@@ -444,7 +442,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			},
 			k8s.ConvertToNetworkPolicy,
 		)
-		d.blockWaitGroupToSyncResources(policyController, k8sAPIGroupNetworkingV1Core)
+		d.blockWaitGroupToSyncResources(wait.NeverStop, policyController, k8sAPIGroupNetworkingV1Core)
 		go policyController.Run(wait.NeverStop)
 
 		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
@@ -515,7 +513,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToK8sService,
 	)
-	d.blockWaitGroupToSyncResources(svcController, k8sAPIGroupServiceV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, svcController, k8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupServiceV1Core)
 
@@ -586,7 +584,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToK8sEndpoints,
 	)
-	d.blockWaitGroupToSyncResources(endpointController, k8sAPIGroupEndpointV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, endpointController, k8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupEndpointV1Core)
 
@@ -655,7 +653,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			},
 			k8s.ConvertToIngress,
 		)
-		d.blockWaitGroupToSyncResources(ingressController, k8sAPIGroupIngressV1Beta1)
+		d.blockWaitGroupToSyncResources(wait.NeverStop, ingressController, k8sAPIGroupIngressV1Beta1)
 		go ingressController.Run(wait.NeverStop)
 		d.k8sAPIGroups.addAPI(k8sAPIGroupIngressV1Beta1)
 	}
@@ -747,7 +745,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cnpConverterFunc,
 		cnpStore,
 	)
-	d.blockWaitGroupToSyncResources(ciliumV2Controller, k8sAPIGroupCiliumV2)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, ciliumV2Controller, k8sAPIGroupCiliumV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 
@@ -803,7 +801,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToPod,
 	)
-	d.blockWaitGroupToSyncResources(podController, k8sAPIGroupPodV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, podController, k8sAPIGroupPodV1Core)
 	go podController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
@@ -871,7 +869,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		},
 		k8s.ConvertToNode,
 	)
-	d.blockWaitGroupToSyncResources(nodeController, k8sAPIGroupNodeV1Core)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, nodeController, k8sAPIGroupNodeV1Core)
 	go nodeController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 
