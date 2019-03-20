@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -97,10 +97,15 @@ var _ = Describe("K8sHealthTest", func() {
 			status := kubectl.CiliumExec(cilium1, healthCmd)
 			status.ExpectSuccess("Cannot retrieve health status")
 			for _, path := range apiPaths {
-				filter := fmt.Sprintf("{.nodes[%d].%s.status}", node, path)
+				filter := fmt.Sprintf("{.nodes[%d].%s}", node, path)
 				By("checking API response for %q", filter)
 				data, err := status.Filter(filter)
 				Expect(err).To(BeNil(), "cannot retrieve filter %q from health output", filter)
+				Expect(data.String()).Should(Not((BeEmpty())))
+				statusFilter := fmt.Sprintf("{.nodes[%d].%s.status}", node, path)
+				By("checking API status response for %q", statusFilter)
+				data, err = status.Filter(statusFilter)
+				Expect(err).To(BeNil(), "cannot retrieve filter %q from health output", statusFilter)
 				Expect(data.String()).Should(BeEmpty())
 			}
 		}
