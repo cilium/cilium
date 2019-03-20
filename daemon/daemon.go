@@ -158,15 +158,6 @@ type Daemon struct {
 
 	clustermesh *clustermesh.ClusterMesh
 
-	// k8sResourceSyncWaitGroup is used to block the starting of the daemon,
-	// including regenerating restored endpoints (if specified) until all
-	// policies, services, ingresses, and endpoints stored in Kubernetes at the
-	// time of bootstrapping of the agent are consumed by Cilium.
-	// This prevents regeneration of endpoints, restoring of loadbalancer BPF
-	// maps, etc. being performed without crucial information in securing said
-	// components. See GH-5038 and GH-4457.
-	k8sResourceSyncWaitGroup sync.WaitGroup
-
 	// k8sResourceSyncedMu protects the k8sResourceSynced map.
 	k8sResourceSyncedMu lock.RWMutex
 
