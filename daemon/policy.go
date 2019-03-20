@@ -213,14 +213,12 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	polAddEvent := eventqueue.NewEvent(p)
 	resChan := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
 
-	select {
-	case res, ok := <-resChan:
-		if ok {
-			pRes := res.(*PolicyAddResult)
-			return pRes.newRev, pRes.err
-		}
-		return 0, fmt.Errorf("policy addition event was cancelled")
+	res, ok := <-resChan
+	if ok {
+		pRes := res.(*PolicyAddResult)
+		return pRes.newRev, pRes.err
 	}
+	return 0, fmt.Errorf("policy addition event was cancelled")
 }
 
 // policyAdd adds a slice of rules to the policy repository owned by the
@@ -405,14 +403,12 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 	policyDeleteEvent := eventqueue.NewEvent(p)
 	resChan := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
 
-	select {
-	case res, ok := <-resChan:
-		if ok {
-			ress := res.(*PolicyDeleteResult)
-			return ress.newRev, ress.err
-		}
-		return 0, fmt.Errorf("policy deletion event cancelled")
+	res, ok := <-resChan
+	if ok {
+		ress := res.(*PolicyDeleteResult)
+		return ress.newRev, ress.err
 	}
+	return 0, fmt.Errorf("policy deletion event cancelled")
 }
 
 func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
