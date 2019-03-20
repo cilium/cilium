@@ -1701,7 +1701,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 			// Don't return an error here, as the node may not have been
 			// annotated yet by the Cilium agent on it. If the node is annotated
 			// later, we will receive an event via the K8s watcher.
-			log.Infof("not updating ipcache entry for node %s because it does not have the CiliumHostIP annotation yet", k8sNode.Name)
+			log.Debugf("not updating ipcache entry for node %s because it does not have the CiliumHostIP annotation yet", k8sNode.Name)
 			return "", nil, nil
 		}
 		ciliumIP := net.ParseIP(ciliumIPStr)
@@ -1788,7 +1788,7 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *types.Node) error {
 
 	id, exists := ipcache.IPIdentityCache.LookupByIP(ip)
 	if !exists {
-		logger.Warning("identity for Cilium IP not found")
+		logger.Debug("identity for Cilium IP not found")
 		return nil
 	}
 
