@@ -465,6 +465,20 @@ struct lb4_service {
 	__u16 weight;
 } __attribute__((packed));
 
+struct lb4_key_v2 {
+	__be32 address;
+    __be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 slave;		/* Backend iterator, 0 indicates the master service */
+	__u8 proto;
+} __attribute__((packed));
+
+struct lb4_service_v2 {
+	__u16 count;
+	__u16 backend_index;
+	__u16 rev_nat_index;
+	__u16 weight;
+} __attribute__((packed));
+
 struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;

@@ -83,6 +83,15 @@ struct bpf_elf_map __section_maps LB4_SERVICES_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
+struct bpf_elf_map __section_maps LB4_SERVICES_MAP_V2 = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb4_key_v2),
+	.size_value	= sizeof(struct lb4_service_v2),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
 struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.size_key       = sizeof(struct lb4_key),

@@ -62,6 +62,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB6_RR_SEQ_MAP test_cilium_lb6_rr_seq
 #define LB4_REVERSE_NAT_MAP test_cilium_lb4_reverse_nat
 #define LB4_SERVICES_MAP test_cilium_lb4_services
+#define LB4_SERVICES_MAP_V2 test_cilium_lb4_services_v2
 #define LB4_RR_SEQ_MAP test_cilium_lb4_rr_seq
 #define LB4_BACKEND_MAP test_cilium_lb4_backend
 #define ENABLE_ARP_RESPONDER
