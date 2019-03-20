@@ -299,7 +299,7 @@ func (d *Daemon) waitForCacheSync(resourceNames ...string) {
 
 // initK8sSubsystem returns a channel for which it will be closed when all
 // caches are synced.
-func (d *Daemon) initK8sSubsystem() chan struct{} {
+func (d *Daemon) initK8sSubsystem() {
 	if err := d.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
@@ -308,7 +308,16 @@ func (d *Daemon) initK8sSubsystem() chan struct{} {
 
 	go func() {
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
-		d.waitForCacheSync()
+		// Wait for all except nodes.
+		d.waitForCacheSync(
+			k8sAPIGroupServiceV1Core,
+			k8sAPIGroupEndpointV1Core,
+			k8sAPIGroupCiliumV2,
+			k8sAPIGroupNetworkingV1Core,
+			k8sAPIGroupNamespaceV1Core,
+			k8sAPIGroupPodV1Core,
+			k8sAPIGroupIngressV1Beta1,
+		)
 		close(cachesSynced)
 	}()
 
@@ -320,7 +329,6 @@ func (d *Daemon) initK8sSubsystem() chan struct{} {
 			log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
 		}
 	}()
-	return cachesSynced
 }
 
 func (d *Daemon) k8sEventReceived(scope string, action string, valid, equal bool) {
@@ -751,6 +759,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	go ciliumV2Controller.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 
+	asyncControllers := sync.WaitGroup{}
+	asyncControllers.Add(1)
 	go func() {
 		var once sync.Once
 		for {
@@ -815,6 +825,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 
 			d.blockWaitGroupToSyncResources(isConnected, podController, k8sAPIGroupPodV1Core)
 			once.Do(func() {
+				asyncControllers.Done()
 				d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 			})
 			go podController.Run(isConnected)
@@ -824,6 +835,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			<-kvstore.Client().Connected()
 			close(isConnected)
 
+			log.WithField(logfields.Node, node.GetName()).Debugf("Connected to KVStore, watching for pod events on node")
+
 			podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName()))
 			isConnected = make(chan struct{})
 			go podController.Run(isConnected)
@@ -831,10 +844,13 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			// Create a new pod controller when we are disconnected with the
 			// kvstore
 			<-kvstore.Client().Disconnected()
+			log.Debugf("Disconnected from KVStore, watching for pod events all nodes")
 		}
 	}()
 
+	asyncControllers.Add(1)
 	go func() {
+		var once sync.Once
 		for {
 			_, nodeController := k8s.NewInformer(
 				cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -902,14 +918,22 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			)
 			isConnected := make(chan struct{})
 			d.blockWaitGroupToSyncResources(isConnected, nodeController, k8sAPIGroupNodeV1Core)
+			once.Do(func() {
+				asyncControllers.Done()
+			})
 			d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 			go nodeController.Run(isConnected)
 			<-kvstore.Client().Connected()
 			close(isConnected)
+
+			log.Debugf("Connected to KVStore, stop node watcher")
+
 			d.k8sAPIGroups.removeAPI(k8sAPIGroupNodeV1Core)
 			// Create a new node controller when we are disconnected with the
 			// kvstore
 			<-kvstore.Client().Disconnected()
+
+			log.Debugf("Disconnected from KVStore, starting node watcher")
 		}
 	}()
 
@@ -948,6 +972,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 
 	go namespaceController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
+
+	asyncControllers.Wait()
 
 	return nil
 }
