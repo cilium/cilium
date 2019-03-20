@@ -138,48 +138,32 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 	}
 }
 
-// ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache, deniedIdentities cache.IdentityCache) []Key {
-	keysToAdd := []Key{}
-	port := uint16(l4.Port)
-	proto := uint8(l4.U8Proto)
-
-	if l4.AllowsAllAtL3() {
-		keyToAdd := Key{
-			Identity: 0,
-			// NOTE: Port is in host byte-order!
-			DestPort:         port,
-			Nexthdr:          proto,
-			TrafficDirection: direction.Uint8(),
-		}
-		keysToAdd = append(keysToAdd, keyToAdd)
-		if !l4.HasL3DependentL7Rules() {
-			return keysToAdd
-		} // else we need to calculate all L3-dependent L4 peers below.
-	}
-
-	for _, sel := range l4.Endpoints {
-		identities := getSecurityIdentities(identityCache, &sel)
-		for _, id := range identities {
-			if _, identityIsDenied := deniedIdentities[id]; !identityIsDenied {
-				srcID := id.Uint32()
-				keyToAdd := Key{
-					Identity: srcID,
-					// NOTE: Port is in host byte-order!
-					DestPort:         port,
-					Nexthdr:          proto,
-					TrafficDirection: direction.Uint8(),
-				}
-				keysToAdd = append(keysToAdd, keyToAdd)
-			}
-		}
-	}
-	return keysToAdd
-}
-
 // ProcessDatapathEntryFunc is a function type which takes some action based
 // upon each datapath key+value that is generated from the L4Filter.
 type ProcessDatapathEntryFunc func(Key, MapStateEntry)
+
+func (l4 *L4Filter) processEntry(owner PolicyOwner, identity uint32, process ProcessDatapathEntryFunc) {
+	port := uint16(l4.Port)
+	proto := uint8(l4.U8Proto)
+	direction := trafficdirection.Egress
+	if l4.Ingress {
+		direction = trafficdirection.Ingress
+	}
+
+	var proxyPort uint16
+	k := Key{
+		Identity: identity,
+		// NOTE: Port is in host byte-order!
+		DestPort:         port,
+		Nexthdr:          proto,
+		TrafficDirection: direction.Uint8(),
+	}
+	if l4.IsRedirect() {
+		proxyPort = owner.LookupRedirectPort(l4)
+	}
+	e := MapStateEntry{ProxyPort: proxyPort}
+	process(k, e)
+}
 
 func (l4 *L4Filter) ForEachDatapathEntry(
 	owner PolicyOwner,
@@ -187,21 +171,20 @@ func (l4 *L4Filter) ForEachDatapathEntry(
 	deniedIdentities cache.IdentityCache,
 	process ProcessDatapathEntryFunc) {
 
-	var direction trafficdirection.TrafficDirection
-	if l4.Ingress {
-		direction = trafficdirection.Ingress
-	} else {
-		direction = trafficdirection.Egress
+	if l4.AllowsAllAtL3() {
+		l4.processEntry(owner, 0, process)
+		if !l4.HasL3DependentL7Rules() {
+			return
+		} // else we need to calculate all L3-dependent L4 peers below.
 	}
 
-	for _, key := range l4.ToKeys(direction, identityCache, deniedIdentities) {
-		var proxyPort uint16
-		// Preserve the already-allocated proxy ports for redirects that
-		// already exist.
-		if l4.IsRedirect() {
-			proxyPort = owner.LookupRedirectPort(l4)
+	for _, sel := range l4.Endpoints {
+		identities := getSecurityIdentities(identityCache, &sel)
+		for _, id := range identities {
+			if _, identityIsDenied := deniedIdentities[id]; !identityIsDenied {
+				l4.processEntry(owner, id.Uint32(), process)
+			}
 		}
-		process(key, MapStateEntry{ProxyPort: proxyPort})
 	}
 }
 
