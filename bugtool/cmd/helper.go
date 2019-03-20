@@ -48,9 +48,23 @@ func createArchive(dbgDir string) (string, error) {
 		if err != nil {
 			return err
 		}
-		header, err := tar.FileInfoHeader(info, info.Name())
+
+		file, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to compress %s %s", info.Name(), err)
+			fmt.Fprintf(os.Stderr, "Failed to open %s %s", path, err)
+		}
+		defer file.Close()
+
+		// Just get the latest fileInfo to make sure that the size is correctly
+		// when the file is write to tar file
+		fpInfo, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("File information cannot get retrieved: %s", err)
+		}
+
+		header, err := tar.FileInfoHeader(fpInfo, fpInfo.Name())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to compress %s %s", fpInfo.Name(), err)
 			return err
 		}
 
@@ -66,12 +80,6 @@ func createArchive(dbgDir string) (string, error) {
 		if info.IsDir() {
 			return err
 		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open %s %s", path, err)
-		}
-		defer file.Close()
 		_, err = io.Copy(writer, file)
 		return err
 	})
