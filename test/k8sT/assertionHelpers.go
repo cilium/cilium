@@ -45,6 +45,16 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 }
 
+func ExpectSleepyCiliumReady(vm *helpers.Kubectl) {
+	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", longTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
+
+	time.Sleep(240 * time.Second)
+
+	err = vm.CiliumPreFlightCheck()
+	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
+}
+
 // ExpectCiliumOperatorReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {

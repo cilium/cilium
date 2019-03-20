@@ -1940,7 +1940,14 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+		for i := 0; i < 5; i++ {
+			status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+			time.Sleep(10 * time.Second)
+			if !status.WasSuccessful() {
+				break
+			}
+		}
+
 		if !status.WasSuccessful() {
 			return fmt.Errorf(
 				"Cluster connectivity is unhealthy on '%s': %s",
