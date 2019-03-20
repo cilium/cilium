@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"math"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -114,10 +113,6 @@ type policyRegenerationStatistics struct {
 
 func (ps *policyRegenerationStatistics) SendMetrics() {
 	metrics.PolicyRegenerationCount.Inc()
-
-	regenerateTimeSec := ps.totalTime.Total().Seconds()
-	metrics.PolicyRegenerationTime.Add(regenerateTimeSec)
-	metrics.PolicyRegenerationTimeSquare.Add(math.Pow(regenerateTimeSec, 2))
 
 	sendMetrics(ps, metrics.PolicyRegenerationTimeStats)
 }

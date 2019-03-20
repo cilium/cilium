@@ -86,8 +86,6 @@ Policy
 
 * ``policy_count``: Number of policies currently loaded
 * ``policy_regeneration_total``: Total number of policies regenerated successfully
-* ``policy_regeneration_seconds_total``: Total sum of successful policy regeneration times
-* ``policy_regeneration_square_seconds_total``: Total sum of squares of successful policy regeneration times
 * ``policy_regeneration_time_stats_seconds``: Policy regeneration time stats labeled by the scope.
 * ``policy_max_revision``: Highest policy revision number in the agent
 * ``policy_import_errors``: Number of times a policy import has failed
