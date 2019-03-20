@@ -8,7 +8,7 @@ OLD_DIR=${DOCS_DIR}/cmdref
 TMP_DIR=`mktemp -d`
 trap 'rm -rf $TMP_DIR' EXIT INT TERM
 
-${MAKE} CMDREFDIR=${TMP_DIR} -C ${DOCS_DIR} cmdref
+${MAKE} CMDREFDIR=${TMP_DIR} -C ${DOCS_DIR} cmdref || dmesg
 
 if ! diff -x '*.rst' -r ${OLD_DIR} ${TMP_DIR}; then
   # echo is used here intentional to avoid the splat when running from top
