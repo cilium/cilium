@@ -36,7 +36,14 @@ func (s *EventQueueSuite) TestNewEventQueue(c *C) {
 	c.Assert(q.close, Not(IsNil))
 	c.Assert(q.events, Not(IsNil))
 	c.Assert(q.drain, Not(IsNil))
+	c.Assert(q.name, Equals, "")
 	c.Assert(cap(q.events), Equals, 1)
+}
+
+func (s *EventQueueSuite) TestNewEventQueueBuffered(c *C) {
+	q := NewEventQueueBuffered("foo", 25)
+	c.Assert(q.name, Equals, "foo")
+	c.Assert(cap(q.events), Equals, 25)
 }
 
 func (s *EventQueueSuite) TestCloseEventQueueMultipleTimes(c *C) {
@@ -62,6 +69,19 @@ func (s *EventQueueSuite) TestDrained(c *C) {
 		c.Log("timed out waiting for queue to be drained")
 		c.Fail()
 	}
+}
+
+func (s *EventQueueSuite) TestNilEvent(c *C) {
+	q := NewEventQueue()
+	res := q.Enqueue(nil)
+	c.Assert(res, IsNil)
+}
+
+func (s *EventQueueSuite) TestUpdateName(c *C) {
+	q := NewEventQueue()
+	c.Assert(q.name, Equals, "")
+	q.UpdateName("huehuehue")
+	c.Assert(q.name, Equals, "huehuehue")
 }
 
 func (s *EventQueueSuite) TestNewEvent(c *C) {
