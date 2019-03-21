@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -227,19 +228,32 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) {
+func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
 	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
 	if opts != nil && opts.Generated {
-		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
+		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Debug("Policy Add Request")
 	} else {
-		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
+		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Info("Policy Add Request")
 	}
 
-	// These must be marked before actually adding them to the repository since a
-	// copy may be made and we won't be able to add the ToFQDN tracking labels
-	d.dnsRuleGen.MarkToFQDNRules(rules)
+	// These must be marked before actually adding them to the repository since
+	// a copy may be made and we won't be able to add the ToFQDN tracking
+	// labels.
+	// CAUTION, there is a small race between this PrepareFQDNRules invocation and
+	// taking the policy lock. As long as policyAdd is fed by a single-threaded
+	// queue this should never be an issue.
+	rules := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
+	if len(rules) == 0 && len(sourceRules) > 0 {
+		// All rules being added have ToFQDNs UUIDs that have been removed and
+		// will not be re-inserted to avoid a race.
+		err := errors.New("PrepareFQDNRules delete all sourceRules due invalid UUIDs")
+		resChan <- &PolicyAddResult{
+			newRev: 0,
+			err:    api.Error(PutPolicyFailureCode, err),
+		}
+	}
 
 	prefixes := policy.GetCIDRPrefixes(rules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
