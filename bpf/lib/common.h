@@ -494,7 +494,8 @@ struct lb_sequence {
 struct lb4_backend {
     __be32 address;
     __be16 port;
-    __be16 proto;
+    __u8 proto;
+    __u8 pad;
 };
 
 struct ct_state {

@@ -158,6 +158,13 @@ type Service4ValueV2 struct {
 	Weight    uint16 `align:"weight"`
 }
 
+type Backend4 struct {
+	Address types.IPv4 `align:"address"`
+	Port    uint16     `align:"port"`
+	Proto   uint8      `align:"proto"`
+	Pad     uint8
+}
+
 func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service4Value {
 	svc := Service4Value{
 		Count:  count,
