@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -214,8 +215,40 @@ var ciliumChains = []customChain{
 	},
 }
 
+// IptablesManager manages the iptables-related configuration for Cilium.
+type IptablesManager struct {
+	ip6tables bool
+}
+
+// Init initializes the iptables manager and checks for iptables kernel modules
+// availability.
+func (m *IptablesManager) Init() {
+	modulesManager := &modules.ModulesManager{}
+	ip6tables := true
+	if err := modulesManager.Init(); err != nil {
+		log.WithError(err).Fatal(
+			"Unable to get information about kernel modules")
+	}
+	if err := modulesManager.FindOrLoadModules(
+		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw",
+		"iptable_filter"); err != nil {
+		log.WithError(err).Fatal("iptables modules could not be initialized")
+	}
+	if err := modulesManager.FindOrLoadModules(
+		"ip6_tables", "ip6table_mangle", "ip6table_raw"); err != nil {
+		if option.Config.EnableIPv6 {
+			log.WithError(err).Fatal(
+				"IPv6 is enabled and ip6tables modules could not be initialized")
+		}
+		log.WithError(err).Debug(
+			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
+		ip6tables = false
+	}
+	m.ip6tables = ip6tables
+}
+
 // RemoveRules removes iptables rules installed by Cilium.
-func RemoveRules() {
+func (m *IptablesManager) RemoveRules() {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
@@ -223,19 +256,21 @@ func RemoveRules() {
 	}
 
 	// Set of tables that have had ip6tables rules in any Cilium version
-	tables6 := []string{"mangle", "raw"}
-	for _, t := range tables6 {
-		removeCiliumRules(t, "ip6tables")
-	}
+	if m.ip6tables {
+		tables6 := []string{"mangle", "raw"}
+		for _, t := range tables6 {
+			removeCiliumRules(t, "ip6tables")
+		}
 
-	for _, c := range ciliumChains {
-		c.remove()
+		for _, c := range ciliumChains {
+			c.remove()
+		}
 	}
 }
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func InstallRules(ifName string) error {
+func (m *IptablesManager) InstallRules(ifName string) error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
