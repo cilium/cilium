@@ -236,16 +236,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 						L7: &cilium.PortNetworkPolicyRule_HttpRules{
 							HttpRules: &cilium.HttpNetworkPolicyRules{
 								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{},
-								},
-							},
-						},
-					},
-					{
-						RemotePolicies: expectedRemotePolicies,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
 									{
 										Headers: []*envoy_api_v2_route.HeaderMatcher{
 											{
@@ -299,26 +289,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Port:     80,
 				Protocol: envoy_api_v2_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
-					{
-						RemotePolicies: expectedRemotePolicies2,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{},
-								},
-							},
-						},
-					},
-					{
-						RemotePolicies: expectedRemotePolicies,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{},
-								},
-							},
-						},
-					},
 					{
 						RemotePolicies: expectedRemotePolicies,
 						L7: &cilium.PortNetworkPolicyRule_HttpRules{

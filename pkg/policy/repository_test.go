@@ -797,9 +797,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 				},
-				selBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsKafka, labelsL3},
 		},
@@ -813,9 +810,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7RulesPerEp: L7DataMap{
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
-				},
-				selBar1: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP, labelsL3},
@@ -831,10 +825,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 				selBar2: api.L7Rules{
 					L7Proto: "tester",
 					L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
-				},
-				selBar1: api.L7Rules{
-					L7Proto: "tester",
-					L7:      []api.PortRuleL7{},
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL7, labelsL3},
@@ -954,9 +944,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				},
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 				},
@@ -971,9 +958,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			L7Parser:  ParserTypeKafka,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 				},
@@ -1197,9 +1181,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			L7Parser:  ParserTypeKafka,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
 				},
@@ -1214,9 +1195,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				},
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 				},
@@ -1338,9 +1316,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				},
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 				},
@@ -1355,9 +1330,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			L7Parser:  ParserTypeKafka,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
-				selBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
 				},
@@ -1450,7 +1422,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	c.Assert(len(filter.Endpoints), Equals, 1)
 	c.Assert(filter.Endpoints[0], checker.DeepEquals, selBar2)
 
-	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	expectedPolicy := L4PolicyMap{
 		"9092/TCP": {
 			Port:      9092,
@@ -1460,9 +1431,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			L7Parser:  ParserTypeKafka,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
-				selWorld: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 				},
@@ -1477,9 +1445,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   true,
 			L7RulesPerEp: L7DataMap{
-				selWorld: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				},
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 				},
@@ -1573,7 +1538,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	c.Assert(len(filter.Endpoints), Equals, 1)
 	c.Assert(filter.Endpoints[0], checker.DeepEquals, selBar2)
 
-	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	expectedPolicy := L4PolicyMap{
 		"9092/TCP": {
 			Port:      9092,
@@ -1583,9 +1547,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			L7Parser:  ParserTypeKafka,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
-				selWorld: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
-				},
 				selBar2: api.L7Rules{
 					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
 				},
@@ -1600,9 +1561,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			L7Parser:  ParserTypeHTTP,
 			Ingress:   false,
 			L7RulesPerEp: L7DataMap{
-				selWorld: api.L7Rules{
-					HTTP: []api.PortRuleHTTP{{}},
-				},
 				selBar2: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 				},

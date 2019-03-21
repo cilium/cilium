@@ -122,43 +122,53 @@ func (p *Repository) AllowsIngressLabelAccess(ctx *SearchContext) api.Decision {
 	return decision
 }
 
+// wildcardL3L4Rule is a post-processing stage for the L4PolicyMap which scans
+// through the map for filters whose L7 rules would be shadowed by an L3/L4
+// rule (specified as 'proto', 'port', 'endpoints'), and ensures that the
+// filter is configured such that all L7 traffic is then allowed on the port.
+//
+// If there are other L7 rules for the same L3 peer on a port, then the L7
+// rules are set to allow all; if there are no L7 rules for the same L3 peer
+// then the 'L4Filter.L7RulesPerEp' left unconfigured for the L3 peer L7 rules.
+//
+// This function is co-dependent on mergeL4Port()'s handling of rules that use
+// the wildcard selector; it relies on mergeL4Port inserting shadowed L3
+// selectors into the 'L4Filter.Endpoints' slice.
 func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
 	ruleLabels labels.LabelArray, l4Policy L4PolicyMap) {
 	for k, filter := range l4Policy {
-		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
+		if proto != filter.Protocol || (port != 0 && port != filter.Port) || filter.L7Parser == ParserTypeNone {
 			continue
 		}
-		switch filter.L7Parser {
-		case ParserTypeNone:
-			continue
-		case ParserTypeHTTP:
+
+		for _, sel := range endpoints {
+			if _, ok := filter.L7RulesPerEp[sel]; !ok {
+				// No L7Rules, so no wildcard rules need to be
+				// injected.
+				continue
+			}
+
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
+			switch filter.L7Parser {
+			case ParserTypeNone:
+				// Unreachable
+			case ParserTypeHTTP:
 				filter.L7RulesPerEp[sel] = api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				}
-			}
-		case ParserTypeKafka:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
+			case ParserTypeKafka:
 				rule := api.PortRuleKafka{}
 				rule.Sanitize()
 				filter.L7RulesPerEp[sel] = api.L7Rules{
 					Kafka: []api.PortRuleKafka{rule},
 				}
-			}
-		case ParserTypeDNS:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
+			case ParserTypeDNS:
 				rule := api.PortRuleDNS{}
 				rule.Sanitize()
 				filter.L7RulesPerEp[sel] = api.L7Rules{
 					DNS: []api.PortRuleDNS{rule},
 				}
-			}
-		default:
-			// Wildcard at L7 all the endpoints allowed at L3 or L4.
-			for _, sel := range endpoints {
+			default:
 				filter.L7RulesPerEp[sel] = api.L7Rules{
 					L7Proto: filter.L7Parser.String(),
 					L7:      []api.PortRuleL7{},

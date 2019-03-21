@@ -2145,7 +2145,8 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Ingress, Equals, true)
 	c.Assert(len(filter.Endpoints), Equals, 2)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7RulesPerEp[endpointSelectorC], Not(IsNil))
 
 	// Test the reverse order as well; ensure that we check both conditions
 	// for if L4-only policy is in the L4Filter for the same port-protocol tuple,
@@ -2195,7 +2196,8 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(len(filter.Endpoints), Equals, 2)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7RulesPerEp[endpointSelectorC], Not(IsNil))
 }
 
 func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
@@ -2249,7 +2251,8 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.Endpoints[1], Equals, endpointSelectorC)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7RulesPerEp[api.WildcardEndpointSelector], Not(IsNil))
 
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2296,7 +2299,8 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(filter.Endpoints[1], Equals, api.WildcardEndpointSelector)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(filter.L7RulesPerEp[api.WildcardEndpointSelector], Not(IsNil))
 }
 
 func (ds *PolicyTestSuite) TestMatches(c *C) {
