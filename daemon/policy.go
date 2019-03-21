@@ -314,12 +314,15 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
 	allEndpoints := endpointmanager.GetEndpoints()
-	policyEps := make([]policy.Endpoint, len(allEndpoints))
+
+	// Start with all endpoints to be in set for which we need to bump their
+	// revision.
+	endpointsToBumpRevision := policy.NewEndpointSet(len(allEndpoints))
 
 	// Need to explicitly convert endpoints to policy.Endpoint.
 	// See: https://github.com/golang/go/wiki/InterfaceSlice
-	for _, ep := range allEndpoints {
-		policyEps = append(policyEps, ep)
+	for i := range allEndpoints {
+		endpointsToBumpRevision.Insert(allEndpoints[i])
 	}
 
 	endpointsToRegen := policy.NewIDSet()
@@ -332,7 +335,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 				if len(oldRules) > 0 {
 					d.dnsRuleGen.StopManageDNSName(oldRules)
 					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
-					deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
+					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 				}
 			}
@@ -343,7 +346,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 			if len(oldRules) > 0 {
 				d.dnsRuleGen.StopManageDNSName(oldRules)
 				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
-				deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
+				deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 			}
 		}
 	}
@@ -364,7 +367,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
-	addedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
+	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
 
@@ -413,11 +416,11 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		// function will return.
 
 		r := &PolicyReactionEvent{
-			d:                d,
-			wg:               &policySelectionWG,
-			eps:              policyEps,
-			endpointsToRegen: endpointsToRegen,
-			newRev:           newRev,
+			d:                 d,
+			wg:                &policySelectionWG,
+			epsToBumpRevision: endpointsToBumpRevision,
+			endpointsToRegen:  endpointsToRegen,
+			newRev:            newRev,
 		}
 
 		ev := eventqueue.NewEvent(r)
@@ -437,51 +440,41 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 // to a policy repository for a daemon. This currently consists of endpoint
 // regenerations / policy revision incrementing for a given endpoint.
 type PolicyReactionEvent struct {
-	d                *Daemon
-	wg               *sync.WaitGroup
-	eps              []policy.Endpoint
-	endpointsToRegen *policy.IDSet
-	newRev           uint64
+	d                 *Daemon
+	wg                *sync.WaitGroup
+	epsToBumpRevision *policy.EndpointSet
+	endpointsToRegen  *policy.IDSet
+	newRev            uint64
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (r *PolicyReactionEvent) Handle(res chan interface{}) {
-	r.d.ReactToRuleUpdates(r.wg, r.eps, r.endpointsToRegen, r.newRev)
+	r.d.ReactToRuleUpdates(r.wg, r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
 }
 
 // ReactToRuleUpdates waits until wg is complete to do the following
 // * regenerate all endpoints in epsToRegen
 // * bump the policy revision of all endpoints not in epsToRegen, but which are
 //   in allEps, to revision rev.
-func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, allEps []policy.Endpoint, epsToRegen *policy.IDSet, rev uint64) {
+func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, epsToBumpRevision *policy.EndpointSet, epsToRegen *policy.IDSet, rev uint64) {
 	// Wait until we have calculated which endpoints need to be selected
 	// across multiple goroutines.
 	wg.Wait()
 
-	epsToRegen.Mutex.RLock()
-	defer epsToRegen.Mutex.RUnlock()
-
 	var enqueueWaitGroup sync.WaitGroup
 
-	// If an endpoint is not in the list of endpoints to regenerate, then the
-	// policy revision for the endpoint needs to be bumped so we can reflect that
-	// said endpoint realizes the state of the policy repository at revision rev.
-	for _, ep := range allEps {
-		if ep == nil {
-			continue
+	// Bump revision of endpoints which don't need to be regenerated.
+	epsToBumpRevision.ForEach(&enqueueWaitGroup, func(epp policy.Endpoint) {
+		if epp == nil {
+			return
 		}
-		epID := ep.GetID16()
-		if _, ok := epsToRegen.IDs[epID]; !ok {
-			enqueueWaitGroup.Add(1)
-			go func(epp policy.Endpoint) {
-				epp.PolicyRevisionBumpEvent(rev)
-				enqueueWaitGroup.Done()
-			}(ep)
-		}
-	}
+		epp.PolicyRevisionBumpEvent(rev)
+	})
 
+	epsToRegen.Mutex.RLock()
 	// Regenerate all other endpoints.
 	endpointmanager.RegenerateEndpointSetSignalWhenEnqueued(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs, &enqueueWaitGroup)
+	epsToRegen.Mutex.RUnlock()
 
 	enqueueWaitGroup.Wait()
 }
@@ -560,17 +553,18 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
 	allEndpoints := endpointmanager.GetEndpoints()
-	policyEps := make([]policy.Endpoint, len(allEndpoints))
+	epsToBumpRevision := policy.NewEndpointSet(len(allEndpoints))
 
-	// Need to explicitly convert endpoints to policy.Endpoint.
-	// See: https://github.com/golang/go/wiki/InterfaceSlice .
-	for _, ep := range allEndpoints {
-		policyEps = append(policyEps, ep)
+	// Initially keep all endpoints in set of endpoints which need to have
+	// revision bumped.
+	for i := range allEndpoints {
+		epsToBumpRevision.Insert(allEndpoints[i])
 	}
+
 	endpointsToRegen := policy.NewIDSet()
 
 	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
-	deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
+	deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 	res <- &PolicyDeleteResult{
 		newRev: rev,
@@ -603,11 +597,11 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 
 	if option.Config.SelectiveRegeneration {
 		r := &PolicyReactionEvent{
-			d:                d,
-			wg:               &policySelectionWG,
-			eps:              policyEps,
-			endpointsToRegen: endpointsToRegen,
-			newRev:           rev,
+			d:                 d,
+			wg:                &policySelectionWG,
+			epsToBumpRevision: epsToBumpRevision,
+			endpointsToRegen:  endpointsToRegen,
+			newRev:            rev,
 		}
 
 		ev := eventqueue.NewEvent(r)
