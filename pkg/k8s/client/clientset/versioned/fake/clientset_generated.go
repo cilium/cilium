@@ -73,8 +73,3 @@ var _ clientset.Interface = &Clientset{}
 func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
 	return &fakeciliumv2.FakeCiliumV2{Fake: &c.Fake}
 }
-
-// Cilium retrieves the CiliumV2Client
-func (c *Clientset) Cilium() ciliumv2.CiliumV2Interface {
-	return &fakeciliumv2.FakeCiliumV2{Fake: &c.Fake}
-}
