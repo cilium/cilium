@@ -188,6 +188,9 @@ type PolicyAddEvent struct {
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (p *PolicyAddEvent) Handle(res chan interface{}) {
+	if !p.d.dnsRuleGen.AreFQDNRulesStillPresent(p.rules) {
+		return
+	}
 	p.d.policyAdd(p.rules, p.opts, res)
 }
 
