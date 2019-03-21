@@ -257,9 +257,11 @@ egressLoop:
 // within the rule which determines whether or not the given identity is
 // selected by that rule. If a rule in the list does select said identity, it is
 // added to epIDSet. Note that epIDSet can be shared across goroutines!
-func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) {
+// Returns whether the endpoint was selected by one of the rules, or if the
+// endpoint is nil.
+func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 	if ep == nil {
-		return
+		return true
 	}
 	id := ep.GetID16()
 	securityIdentity := ep.GetSecurityIdentity()
@@ -269,6 +271,26 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) {
 			epIDSet.Mutex.Lock()
 			epIDSet.IDs[id] = struct{}{}
 			epIDSet.Mutex.Unlock()
+
+			// If epIDSet is updated, we can exit since updating it again if
+			// another rule selects the Endpoint is a no-op.
+			return true
 		}
+	}
+
+	return false
+}
+
+func (rules ruleSlice) refreshRulesForEndpoint(ep Endpoint) {
+	if ep == nil {
+		return
+	}
+
+	id := ep.GetID16()
+	securityIdentity := ep.GetSecurityIdentity()
+
+	for _, r := range rules {
+		// matches updates the caches within the rules
+		r.matches(id, securityIdentity)
 	}
 }

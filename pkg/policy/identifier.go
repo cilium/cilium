@@ -42,3 +42,19 @@ type Endpoint interface {
 	GetSecurityIdentity() *identity.Identity
 	PolicyRevisionBumpEvent(rev uint64)
 }
+
+// EndpointSet is used to be able to group together a given set of Endpoints
+// that need to have a specific operation performed upon them (e.g., policy
+// revision updates).
+type EndpointSet struct {
+	Mutex     lock.RWMutex
+	Endpoints map[Endpoint]struct{}
+}
+
+// NewEndpointSet returns an EndpointSet with the Endpoints map allocated with
+// the specified capacity.
+func NewEndpointSet(capacity int) *EndpointSet {
+	return &EndpointSet{
+		Endpoints: make(map[Endpoint]struct{}, capacity),
+	}
+}
