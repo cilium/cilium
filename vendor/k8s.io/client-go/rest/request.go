@@ -1115,7 +1115,8 @@ func (r Result) Into(obj runtime.Object) error {
 		return fmt.Errorf("serializer for %s doesn't exist", r.contentType)
 	}
 	if len(r.body) == 0 {
-		return fmt.Errorf("0-length response")
+		return fmt.Errorf("0-length response with status code: %d and content type: %s",
+			r.statusCode, r.contentType)
 	}
 
 	out, _, err := r.decoder.Decode(r.body, nil, obj)
@@ -1210,7 +1211,6 @@ func IsValidPathSegmentPrefix(name string) []string {
 func ValidatePathSegmentName(name string, prefix bool) []string {
 	if prefix {
 		return IsValidPathSegmentPrefix(name)
-	} else {
-		return IsValidPathSegmentName(name)
 	}
+	return IsValidPathSegmentName(name)
 }

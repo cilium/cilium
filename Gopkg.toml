@@ -497,28 +497,28 @@ required = [
 
 [[constraint]]
   name = "k8s.io/api"
-  revision = "kubernetes-1.13.4"
+  revision = "kubernetes-1.14.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "kubernetes-1.13.4"
+  revision = "kubernetes-1.14.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[override]]
   name = "k8s.io/apiserver"
-  revision = "kubernetes-1.13.4"
+  revision = "kubernetes-1.14.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
 [[constraint]]
   name = "k8s.io/apimachinery"
-  revision = "kubernetes-1.13.4"
+  revision = "kubernetes-1.14.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
@@ -526,14 +526,14 @@ required = [
 [[constraint]]
   name = "k8s.io/client-go"
   source = "https://github.com/cilium/client-go"
-  revision = "60fd330ab8a9fa8a11df5fa716c7f72534bbc4fc"
+  revision = "3ea982555561ee1ff7b96e8f9e2080bbaaee0234"
 
   # main-usage = "pkg/k8s"
-  # on-revision = "TODO @aanm is on 60fd330ab8a9fa8a11df5fa716c7f72534bbc4fc as it contains the hotfix for the metrics path"
+  # on-revision = "TODO @aanm is on 3ea982555561ee1ff7b96e8f9e2080bbaaee0234 as it contains the hotfix for the metrics path"
 
 [[constraint]]
   name = "k8s.io/code-generator"
-  revision = "kubernetes-1.13.4"
+  revision = "kubernetes-1.14.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
@@ -547,7 +547,7 @@ required = [
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  revision = "v1.13.4"
+  revision = "v1.14.0-rc.1"
 
   # main-usage = "pkg/k8s"
   # on-revision = ""
