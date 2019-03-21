@@ -408,11 +408,14 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 // UpdateLocalConsumers updates the cache within each rule in the given repository
 // which specifies whether said rule selects said identity. Returns a wait group
 // which can be used to wait until all rules have had said caches updated.
-func (p *Repository) UpdateLocalConsumers(identifiers []Endpoint) *sync.WaitGroup {
+func (p *Repository) UpdateLocalConsumers(eps []Endpoint) *sync.WaitGroup {
 	var policySelectionWG sync.WaitGroup
-	for _, identityConsumer := range identifiers {
+	for _, ep := range eps {
 		policySelectionWG.Add(1)
-		go p.rules.updateEndpointsCaches(identityConsumer, NewIDSet(), &policySelectionWG)
+		go func(epp Endpoint) {
+			p.rules.updateEndpointsCaches(epp, NewIDSet())
+			policySelectionWG.Done()
+		}(ep)
 	}
 	return &policySelectionWG
 }
@@ -450,9 +453,12 @@ func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 // in the slice.
 func (r ruleSlice) UpdateRulesEndpointsCaches(eps []Endpoint, epsIDs *IDSet, policySelectionWG *sync.WaitGroup) {
 	policySelectionWG.Add(len(eps))
-	for _, identityConsumer := range eps {
+	for _, ep := range eps {
 		// Update each rule in parallel.
-		go r.updateEndpointsCaches(identityConsumer, epsIDs, policySelectionWG)
+		go func(epp Endpoint) {
+			r.updateEndpointsCaches(epp, epsIDs)
+			policySelectionWG.Done()
+		}(ep)
 	}
 }
 
