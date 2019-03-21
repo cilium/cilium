@@ -1940,10 +1940,12 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		for i := 0; i < 5; i++ {
-			status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+		var status *CmdRes
+
+		for i := 0; i < 10; i++ {
+			status = kub.CiliumExec(pod, "cilium-health status -o json --probe")
 			time.Sleep(10 * time.Second)
-			if !status.WasSuccessful() {
+			if status.WasSuccessful() {
 				break
 			}
 		}

@@ -145,15 +145,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("Transparent encryption with IPv4Only", func() {
-		It("Check connectivity with transparent encryption enabled and IPv6 disabled", func() {
-			SkipIfFlannel()
-			deployCilium("cilium-ds-patch-ipv4-only-ipsec.yaml")
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
-		})
-	})
-
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
 			deployCilium("cilium-ds-patch-ipv4-only.yaml")
