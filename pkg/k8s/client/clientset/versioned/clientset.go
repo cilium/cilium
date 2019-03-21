@@ -26,8 +26,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CiliumV2() ciliumv2.CiliumV2Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Cilium() ciliumv2.CiliumV2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -39,12 +37,6 @@ type Clientset struct {
 
 // CiliumV2 retrieves the CiliumV2Client
 func (c *Clientset) CiliumV2() ciliumv2.CiliumV2Interface {
-	return c.ciliumV2
-}
-
-// Deprecated: Cilium retrieves the default version of CiliumClient.
-// Please explicitly pick a version.
-func (c *Clientset) Cilium() ciliumv2.CiliumV2Interface {
 	return c.ciliumV2
 }
 
