@@ -555,10 +555,12 @@ func (d *Daemon) compileBase() error {
 	}
 
 	if option.Config.EnableIPv4 {
+		iptablesManager := iptables.IptablesManager{}
+		iptablesManager.Init()
 		// Always remove masquerade rule and then re-add it if required
-		iptables.RemoveRules()
+		iptablesManager.RemoveRules()
 		if option.Config.InstallIptRules {
-			if err := iptables.InstallRules(option.Config.HostDevice); err != nil {
+			if err := iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
 				return err
 			}
 		}
