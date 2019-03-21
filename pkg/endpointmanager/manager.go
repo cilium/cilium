@@ -81,6 +81,7 @@ func Insert(ep *endpoint.Endpoint) error {
 			return fmt.Errorf("no more endpoint IDs available")
 		}
 		ep.ID = id
+		ep.EventQueue.UpdateName(fmt.Sprintf("endpoint-%d", id))
 
 		ep.UpdateLogger(map[string]interface{}{
 			logfields.EndpointID: ep.ID,
