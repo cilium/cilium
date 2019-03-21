@@ -58,7 +58,7 @@ func (ds *FQDNTestSuite) TestRuleGenCIDRGeneration(c *C) {
 
 	// add rules
 	rulesToAdd := []*api.Rule{rule1.DeepCopy()}
-	gen.MarkToFQDNRules(rulesToAdd)
+	gen.PrepareFQDNRules(rulesToAdd)
 	gen.StartManageDNSName(rulesToAdd)
 
 	// store original UUID
@@ -120,7 +120,7 @@ func (ds *FQDNTestSuite) TestRuleGenDropCIDROnReinsert(c *C) {
 
 	// Add a fake "generated" CIDR entry, it should not come back later when generated
 	rulesToAdd := []*api.Rule{rule1.DeepCopy()}
-	gen.MarkToFQDNRules(rulesToAdd)
+	gen.PrepareFQDNRules(rulesToAdd)
 	rulesToAdd[0].Egress[0].ToCIDRSet = append(rulesToAdd[0].Egress[0].ToCIDRSet, api.CIDRRule{Cidr: api.CIDR("2.2.2.2/32")})
 	gen.StartManageDNSName(rulesToAdd)
 	err := gen.UpdateGenerateDNS(time.Now(), map[string]*DNSIPRecords{dns.Fqdn("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}})
@@ -152,7 +152,7 @@ func (ds *FQDNTestSuite) TestRuleGenMultiIPUpdate(c *C) {
 
 	// add rules
 	rulesToAdd := []*api.Rule{rule3.DeepCopy()}
-	gen.MarkToFQDNRules(rulesToAdd)
+	gen.PrepareFQDNRules(rulesToAdd)
 	gen.StartManageDNSName(rulesToAdd)
 
 	// poll DNS once, check that we only generate 1 IP for cilium.io
@@ -223,7 +223,7 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 	// Add 1 rules and poll
 	rules := []*api.Rule{makeRule("testRule", "cilium.io")}
 	// MarkToFQDNRules adds nothing on the first try
-	gen.MarkToFQDNRules(rules)
+	gen.PrepareFQDNRules(rules)
 	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
 	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 0, Commentf("Generated CIDR count is 0 when no CIDRs should have been added"))
 
@@ -233,7 +233,7 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 	// Add another rule with the same FQDN. We should see IPs in-place BEFORE StartManageDNSName.
 	// MarkToFQDNRules adds the IP from the cache
 	rules = []*api.Rule{makeRule("testRule2", "cilium.io")}
-	gen.MarkToFQDNRules(rules)
+	gen.PrepareFQDNRules(rules)
 	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single ToFQDNs entry"))
 	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs"))
 	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect IP CIDR generated"))
@@ -243,14 +243,14 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 
 	// Add 2 rules and poll
 	rules = []*api.Rule{makeRule("testRule3", "cilium.io", "github.com")}
-	gen.MarkToFQDNRules(rules)
+	gen.PrepareFQDNRules(rules)
 	gen.StartManageDNSName(rules)
 	gen.UpdateGenerateDNS(time.Now(), lookupDNSNames(dnsIPs, lookups, []string{dns.Fqdn("cilium.io"), dns.Fqdn("github.com")}))
 
 	// Add a 2 matchnames, only one overlaps
 	// MarkToFQDNRules should add only 1 entry
 	rules = []*api.Rule{makeRule("testRule4", "cilium.io", "anotherdomain.com")}
-	gen.MarkToFQDNRules(rules)
+	gen.PrepareFQDNRules(rules)
 	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
 	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
 	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect IP CIDR generated"))
@@ -261,7 +261,7 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 	// Add the original 2 matchnames without deleting
 	// MarkToFQDNRules should add 2 entries, as those should be in the gen cache
 	rules = []*api.Rule{makeRule("testRule5", "cilium.io", "github.com")}
-	gen.MarkToFQDNRules(rules)
+	gen.PrepareFQDNRules(rules)
 	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
 	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 2, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
 	c.Assert(rules[0].Egress[0].ToCIDRSet[0].Cidr, Equals, api.CIDR("1.1.1.1/32"), Commentf("Incorrect first IP CIDR generated from cache"))
@@ -272,7 +272,46 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 	// Add a rule with 1 old matchname
 	// MarkToFQDNRules should add one entry
 	rules = []*api.Rule{makeRule("testRule6", "anotherdomain.com")}
-	gen.MarkToFQDNRules(rules)
+	gen.PrepareFQDNRules(rules)
 	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
 	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
+}
+
+func (ds *FQDNTestSuite) TestPrepareFQDNRules(c *C) {
+
+	var (
+		generatedRules = make([]*api.Rule, 0)
+
+		gen = NewRuleGen(Config{
+			MinTTL: 1,
+			Cache:  NewDNSCache(),
+
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
+				return lookupFail(c, dnsNames)
+			},
+
+			AddGeneratedRules: func(rules []*api.Rule) error {
+				generatedRules = append(generatedRules, rules...)
+				return nil
+			},
+		})
+	)
+
+	rules := []*api.Rule{rule3.DeepCopy()}
+
+	// Validate that no rules in RuleGen return the rule without issues.
+	c.Assert(gen.PrepareFQDNRules(rules), HasLen, 1)
+
+	// Validate that if rules is in RuleGen returns always 1
+	gen.StartManageDNSName(rules)
+	c.Assert(gen.PrepareFQDNRules(rules), HasLen, 1)
+
+	// Validate that an empty rule returns 0 len
+	emptyRules := []*api.Rule{}
+	c.Assert(gen.PrepareFQDNRules(emptyRules), HasLen, 0)
+
+	// Validate if the gen.AllRules are empty should return 0 rules due to UUID
+	// mismatch
+	gen.allRules = map[string]*api.Rule{}
+	c.Assert(gen.PrepareFQDNRules(rules), HasLen, 0)
 }

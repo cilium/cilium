@@ -226,19 +226,19 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 // managed endpoints. Returns the policy revision number of the repository after
 // adding the rules into the repository, or an error if the updated policy
 // was not able to be imported.
-func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) {
+func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
 	logger := log.WithField("policyAddRequest", uuid.NewUUID().String())
 
 	if opts != nil && opts.Generated {
-		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Debug("Policy Add Request")
+		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Debug("Policy Add Request")
 	} else {
-		logger.WithField(logfields.CiliumNetworkPolicy, rules.String()).Info("Policy Add Request")
+		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Info("Policy Add Request")
 	}
 
 	// These must be marked before actually adding them to the repository since a
 	// copy may be made and we won't be able to add the ToFQDN tracking labels
-	d.dnsRuleGen.MarkToFQDNRules(rules)
+	rules := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
 
 	prefixes := policy.GetCIDRPrefixes(rules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
