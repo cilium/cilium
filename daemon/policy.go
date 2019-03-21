@@ -188,6 +188,19 @@ type PolicyAddEvent struct {
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (p *PolicyAddEvent) Handle(res chan interface{}) {
+
+	// This check is needed to avoid a race where a DNS update to a rule
+	// enqueues an copy of that rule that is older than a k8s/API update to
+	// that same rule.  Rules are assigned random UUIDs in MarkToFQDNsRule when
+	// initially inserted and DNS updates always replace existing rules. In
+	// this out-of-order scenario the k8s/API updated rule would receive a new
+	// UUID and the older UUID, belonging to the DNS updated rule, would no
+	// longer be present. This check fails in that case, and relies on the
+	// Add/Remove of a toFQDNs rule in RuleGen happening atomically.
+	if !p.d.dnsRuleGen.AreFQDNRulesStillPresent(p.rules) {
+		return
+	}
+
 	p.d.policyAdd(p.rules, p.opts, res)
 }
 

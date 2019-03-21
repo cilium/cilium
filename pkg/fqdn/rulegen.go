@@ -145,6 +145,43 @@ perRule:
 	}
 }
 
+// AreFQDNRulesStillPresent is a function that validates that the rule UUID is
+// still present in the ruleGen.Allrules map, it returns true if the rules do
+// not have FQDN rule, is a new FQDN rule without UUID label, or are still in
+// the repo. It returns false if any rule were deleted from gen.AllRules.
+// The main reason is to avoid race conditions in the policyAdd, a new CNP
+// event can update the rule and delete the old ones, this prevents that an old
+// rule is deleted.
+// @TODO this need to be changed to use PolicyRepo when the operation can be
+// o(1) (using UUID) instead of O(n2)
+func (gen *RuleGen) AreFQDNRulesStillPresent(sourceRules []*api.Rule) bool {
+	gen.Lock()
+	defer gen.Unlock()
+
+	rulesHasFQDN := false
+	for _, sourceRule := range sourceRules {
+		if hasToFQDN(sourceRule) {
+			rulesHasFQDN = true
+			uuid := sourceRule.Labels.Get(uuidLabelSearchKey)
+			if uuid == "" {
+				continue
+			}
+			_, exists := gen.allRules[uuid]
+			if !exists {
+				// Rule is already deleted from the GenRule, so a CNP event
+				// updates the policy and this one is a old one.
+				return false
+			}
+		}
+	}
+
+	// If the rules does not have any FQDN rule, return true.
+	if !rulesHasFQDN {
+		return true
+	}
+	return true
+}
+
 // StartManageDNSName begins managing sourceRules that contain toFQDNs
 // sections. When the DNS data of the included matchNames changes, RuleGen will
 // emit a replacement rule that contains the IPs for each matchName.

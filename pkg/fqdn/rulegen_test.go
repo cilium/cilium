@@ -276,3 +276,45 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 	c.Assert(len(rules[0].Egress), Equals, 1, Commentf("Incorrect number of generated egress rules for testCase with single cached ToFQDNs DNS entry"))
 	c.Assert(len(rules[0].Egress[0].ToCIDRSet), Equals, 1, Commentf("Generated CIDR count is not the same as ToFQDNs DNS entries in cache"))
 }
+
+func (ds *FQDNTestSuite) TestInvalidRuleinAreFQDNStillPresent(c *C) {
+
+	var (
+		generatedRules = make([]*api.Rule, 0)
+
+		gen = NewRuleGen(Config{
+			MinTTL: 1,
+			Cache:  NewDNSCache(),
+
+			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
+				return lookupFail(c, dnsNames)
+			},
+
+			AddGeneratedRules: func(rules []*api.Rule) error {
+				generatedRules = append(generatedRules, rules...)
+				return nil
+			},
+		})
+	)
+
+	rules := []*api.Rule{rule3.DeepCopy()}
+
+	// Validate that no rules in RuleGen return true due no UUID
+	c.Assert(gen.AreFQDNRulesStillPresent(rules), Equals, true)
+
+	// Validate that if rules in RuleGen returns true
+	gen.MarkToFQDNRules(rules)
+	gen.StartManageDNSName(rules)
+
+	c.Assert(gen.AreFQDNRulesStillPresent(rules), Equals, true)
+
+	// Validate that an empty rule returns true
+	emptyRules := []*api.Rule{}
+	c.Assert(gen.AreFQDNRulesStillPresent(emptyRules), Equals, true)
+
+	// Validate if the gen.AllRules are empty should return false due to UUID
+	// mismatch
+	gen.allRules = map[string]*api.Rule{}
+	c.Assert(gen.AreFQDNRulesStillPresent(rules), Equals, false)
+
+}
