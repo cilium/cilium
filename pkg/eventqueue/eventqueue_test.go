@@ -36,7 +36,14 @@ func (s *EventQueueSuite) TestNewEventQueue(c *C) {
 	c.Assert(q.close, Not(IsNil))
 	c.Assert(q.events, Not(IsNil))
 	c.Assert(q.drain, Not(IsNil))
+	c.Assert(q.name, Equals, "")
 	c.Assert(cap(q.events), Equals, 1)
+}
+
+func (s *EventQueueSuite) TestNewEventQueueBuffered(c *C) {
+	q := NewEventQueueBuffered("foo", 25)
+	c.Assert(q.name, Equals, "foo")
+	c.Assert(cap(q.events), Equals, 25)
 }
 
 func (s *EventQueueSuite) TestCloseEventQueueMultipleTimes(c *C) {
