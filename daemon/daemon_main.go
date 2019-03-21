@@ -706,6 +706,10 @@ func init() {
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "size of EventQueue per-endpoint")
 	option.BindEnv(option.EndpointQueueSize)
 
+	flags.Bool(option.SelectiveRegeneration, true, "only regenerate endpoints which need to be regenerated upon policy changes")
+	flags.MarkHidden(option.SelectiveRegeneration)
+	option.BindEnv(option.SelectiveRegeneration)
+
 	viper.BindPFlags(flags)
 }
 

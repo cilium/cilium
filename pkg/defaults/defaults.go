@@ -173,4 +173,8 @@ const (
 
 	// EndpointQueueSize is the default queue size for an endpoint.
 	EndpointQueueSize = 25
+
+	// SelectiveRegeneration specifies whether regeneration of endpoints will be
+	// invoked only for endpoints which are selected by policy changes.
+	SelectiveRegeneration = true
 )
