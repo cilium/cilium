@@ -64,6 +64,12 @@ func (s *EventQueueSuite) TestDrained(c *C) {
 	}
 }
 
+func (s *EventQueueSuite) TestNilEvent(c *C) {
+	q := NewEventQueue()
+	res := q.Enqueue(nil)
+	c.Assert(res, IsNil)
+}
+
 func (s *EventQueueSuite) TestNewEvent(c *C) {
 	e := NewEvent(&DummyEvent{})
 	c.Assert(e.Metadata, Not(IsNil))
