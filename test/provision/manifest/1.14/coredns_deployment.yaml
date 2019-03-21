@@ -1,4 +1,5 @@
----
+# __MACHINE_GENERATED_WARNING__
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -71,13 +72,17 @@ data:
             fallthrough in-addr.arpa ip6.arpa
         }
         proxy cilium.test 10.96.0.100:53 {
-          fail_timeout 10s
-          max_fails 0
+            fail_timeout 10s
+            max_fails 0
         }
         proxy . /etc/resolv.conf {
-          fail_timeout 10s
-          max_fails 0
+            fail_timeout 10s
+            max_fails 0
         }
+        prometheus :9153
+        loop
+        reload
+        loadbalance
     }
 ---
 apiVersion: apps/v1
