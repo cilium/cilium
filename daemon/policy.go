@@ -319,6 +319,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 					d.dnsRuleGen.StopManageDNSName(oldRules)
 					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
 					deletedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
+
 				}
 			}
 		}
@@ -350,6 +351,7 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 	}
 
 	addedRules.UpdateRulesEndpointsCaches(policyEps, endpointsToRegen, &policySelectionWG)
+
 	d.policy.Mutex.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
@@ -388,25 +390,31 @@ func (d *Daemon) policyAdd(rules policyAPI.Rules, opts *AddOptions, resChan chan
 		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
 	}
 
-	// Only regenerate endpoints which are needed to be regenerated as a result
-	// of the rule update. The rules which were imported most likely do not select
-	// all endpoints in the policy repository (and may not select any at all).
-	// The "reacting" to rule updates enqueues events for all endpoints. Once
-	// all endpoints have events queued up, this function will return.
+	if option.Config.SelectiveRegeneration {
+		// Only regenerate endpoints which are needed to be regenerated as a
+		// result of the rule update. The rules which were imported most likely
+		// do not select all endpoints in the policy repository (and may not
+		// select any at all). The "reacting" to rule updates enqueues events
+		// for all endpoints. Once all endpoints have events queued up, this
+		// function will return.
 
-	r := &PolicyReactionEvent{
-		d:                d,
-		wg:               &policySelectionWG,
-		eps:              policyEps,
-		endpointsToRegen: endpointsToRegen,
-		newRev:           newRev,
+		r := &PolicyReactionEvent{
+			d:                d,
+			wg:               &policySelectionWG,
+			eps:              policyEps,
+			endpointsToRegen: endpointsToRegen,
+			newRev:           newRev,
+		}
+
+		ev := eventqueue.NewEvent(r)
+		// This event may block if the RuleReactionQueue is full. We don't care
+		// about when it finishes, just that the work it does is done in a serial
+		// order.
+		d.policy.RuleReactionQueue.Enqueue(ev)
+	} else {
+		// Regenerate all endpoints unconditionally.
+		d.TriggerPolicyUpdates(false, "policy rules added")
 	}
-
-	ev := eventqueue.NewEvent(r)
-	// This event may block if the RuleReactionQueue is full. We don't care
-	// about when it finishes, just that the work it does is done in a serial
-	// order.
-	d.policy.RuleReactionQueue.Enqueue(ev)
 
 	return
 }
@@ -579,19 +587,23 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// Stop polling for ToFQDN DNS names for these rules
 	d.dnsRuleGen.StopManageDNSName(rules)
 
-	r := &PolicyReactionEvent{
-		d:                d,
-		wg:               &policySelectionWG,
-		eps:              policyEps,
-		endpointsToRegen: endpointsToRegen,
-		newRev:           rev,
-	}
+	if option.Config.SelectiveRegeneration {
+		r := &PolicyReactionEvent{
+			d:                d,
+			wg:               &policySelectionWG,
+			eps:              policyEps,
+			endpointsToRegen: endpointsToRegen,
+			newRev:           rev,
+		}
 
-	ev := eventqueue.NewEvent(r)
-	// This event may block if the RuleReactionQueue is full. We don't care
-	// about when it finishes, just that the work it does is done in a serial
-	// order.
-	d.policy.RuleReactionQueue.Enqueue(ev)
+		ev := eventqueue.NewEvent(r)
+		// This event may block if the RuleReactionQueue is full. We don't care
+		// about when it finishes, just that the work it does is done in a serial
+		// order.
+		d.policy.RuleReactionQueue.Enqueue(ev)
+	} else {
+		d.TriggerPolicyUpdates(true, "policy rules deleted")
+	}
 
 	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
 	if err != nil {

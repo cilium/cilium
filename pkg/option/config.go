@@ -422,6 +422,10 @@ const (
 
 	// EndpointQueueSize is the size of the EventQueue per-endpoint.
 	EndpointQueueSize = "endpoint-queue-size"
+
+	// SelectiveRegeneration specifies whether only the endpoints which policy
+	// changes select should be regenerated upon policy changes.
+	SelectiveRegeneration = "enable-selective-regeneration"
 )
 
 // FQDNS variables
@@ -835,6 +839,13 @@ type DaemonConfig struct {
 	// in the case where a cluster might be under high load for endpoint-related
 	// events, specifically those which cause many regenerations.
 	EndpointQueueSize int
+
+	// SelectiveRegeneration, when true, enables the functionality to only
+	// regenerate endpoints which are selected by the policy rules that have
+	// been changed (added, deleted, or updated). If false, then all endpoints
+	// are regenerated upon every policy change regardless of the scope of the
+	// policy change.
+	SelectiveRegeneration bool
 }
 
 var (
@@ -855,6 +866,7 @@ var (
 		FixedIdentityMapping:      make(map[string]string),
 		KVStoreOpt:                make(map[string]string),
 		LogOpt:                    make(map[string]string),
+		SelectiveRegeneration:     defaults.SelectiveRegeneration,
 	}
 )
 
@@ -1188,6 +1200,7 @@ func (c *DaemonConfig) Populate() {
 	c.CMDRefDir = viper.GetString(CMDRef)
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
+	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {

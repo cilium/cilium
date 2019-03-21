@@ -452,6 +452,12 @@ func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 // signaled for a given endpoint which it has been analyzed against all rules
 // in the slice.
 func (r ruleSlice) UpdateRulesEndpointsCaches(eps []Endpoint, epsIDs *IDSet, policySelectionWG *sync.WaitGroup) {
+	// No need to check whether endpoints need to be regenerated here since we
+	// will unconditionally regenerate all endpoints later.
+	if !option.Config.SelectiveRegeneration {
+		return
+	}
+
 	policySelectionWG.Add(len(eps))
 	for _, ep := range eps {
 		// Update each rule in parallel.
