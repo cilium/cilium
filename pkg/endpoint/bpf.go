@@ -158,7 +158,9 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 	updatedDesiredMapState := make(policy.MapState)
 
 	for _, l4 := range m {
-		if l4.IsRedirect() {
+		// If this has no redirect, then the key generation was already
+		// handled by computeDirectionL4PolicyMapEntries().
+		if l4.HasRedirect() {
 			var redirectPort uint16
 			var err error
 			// Only create a redirect if the proxy is NOT running in a sidecar

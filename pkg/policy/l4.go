@@ -339,8 +339,9 @@ func CreateL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRu
 	return CreateL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false)
 }
 
-// IsRedirect returns true if the L4 filter contains a port redirection
-func (l4 *L4Filter) IsRedirect() bool {
+// HasRedirect returns true if the L4 filter contains a port redirection for
+// some L3 peers (sources in the case of ingress filter, destinations otherwise).
+func (l4 *L4Filter) HasRedirect() bool {
 	return l4.L7Parser != ParserTypeNone
 }
 
@@ -386,7 +387,7 @@ type L4PolicyMap map[string]L4Filter
 // redirection
 func (l4 L4PolicyMap) HasRedirect() bool {
 	for _, f := range l4 {
-		if f.IsRedirect() {
+		if f.HasRedirect() {
 			return true
 		}
 	}

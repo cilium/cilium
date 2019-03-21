@@ -54,7 +54,7 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 // filter doesn't require a redirect.
 // Must be called with Endpoint.Mutex held.
 func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
-	if !l4Filter.IsRedirect() {
+	if !l4Filter.HasRedirect() {
 		return 0
 	}
 	proxyID := e.ProxyID(l4Filter)
