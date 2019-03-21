@@ -146,15 +146,15 @@ pipeline {
             }
         }
 
-        stage('Boot VMs 1.14'){
+        stage('Boot VMs 1.13'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
             }
         }
-        stage('BDD-Test-k8s-1.14') {
+        stage('BDD-Test-k8s-1.13') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -164,8 +164,8 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "K8s-1.14":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        "K8s-1.13":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
@@ -187,7 +187,7 @@ pipeline {
             sh "cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.14 vagrant destroy -f || true"
+            sh "cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
             cleanWs()
         }
