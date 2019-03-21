@@ -68,11 +68,19 @@ func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
 	rulez, _ := repo.AddList(GenerateNumRules(1000))
-	rulez.UpdateRulesEndpointsCaches([]Endpoint{&dummyEndpoint{
+
+	epSet := NewEndpointSet(5)
+
+	epSet.Insert(&dummyEndpoint{
 		ID:               9001,
 		SecurityIdentity: fooIdentity,
-	}}, NewIDSet(), &wg)
+	})
+	idSet := NewIDSet()
+	rulez.UpdateRulesEndpointsCaches(epSet, idSet, &wg)
 	wg.Wait()
+
+	c.Assert(epSet.Len(), Equals, 0)
+	c.Assert(len(idSet.IDs), Equals, 1)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {

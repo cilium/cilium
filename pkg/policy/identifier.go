@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"sync"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -41,4 +43,58 @@ type Endpoint interface {
 	GetID16() uint16
 	GetSecurityIdentity() *identity.Identity
 	PolicyRevisionBumpEvent(rev uint64)
+}
+
+// EndpointSet is used to be able to group together a given set of Endpoints
+// that need to have a specific operation performed upon them (e.g., policy
+// revision updates).
+type EndpointSet struct {
+	mutex     lock.RWMutex
+	endpoints map[Endpoint]struct{}
+}
+
+// NewEndpointSet returns an EndpointSet with the Endpoints map allocated with
+// the specified capacity.
+func NewEndpointSet(capacity int) *EndpointSet {
+	return &EndpointSet{
+		endpoints: make(map[Endpoint]struct{}, capacity),
+	}
+}
+
+// ForEach runs epFunc asynchronously for all endpoints in the EndpointSet. It
+// signals to the provided WaitGroup when epFunc has been executed for each
+// endpoint.
+func (e *EndpointSet) ForEach(wg *sync.WaitGroup, epFunc func(epp Endpoint)) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	wg.Add(len(e.endpoints))
+
+	for ep := range e.endpoints {
+		go func(eppp Endpoint) {
+			epFunc(eppp)
+			wg.Done()
+		}(ep)
+	}
+}
+
+// Delete removes ep from the EndpointSet.
+func (e *EndpointSet) Delete(ep Endpoint) {
+	e.mutex.Lock()
+	delete(e.endpoints, ep)
+	e.mutex.Unlock()
+}
+
+// Insert adds ep to the EndpointSet.
+func (e *EndpointSet) Insert(ep Endpoint) {
+	e.mutex.Lock()
+	e.endpoints[ep] = struct{}{}
+	e.mutex.Unlock()
+}
+
+// Len returns the number of elements in the EndpointSet.
+func (e *EndpointSet) Len() int {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return len(e.endpoints)
 }

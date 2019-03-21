@@ -413,7 +413,7 @@ func (p *Repository) UpdateLocalConsumers(eps []Endpoint) *sync.WaitGroup {
 	for _, ep := range eps {
 		policySelectionWG.Add(1)
 		go func(epp Endpoint) {
-			p.rules.updateEndpointsCaches(epp, NewIDSet())
+			p.rules.refreshRulesForEndpoint(epp)
 			policySelectionWG.Done()
 		}(ep)
 	}
@@ -448,24 +448,21 @@ func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 
 // UpdateRulesEndpointsCaches updates the caches within each rule in r that
 // specify whether the rule selects the endpoints in eps. If any rule matches
-// the endpoints, it is added to the provided IDSet. The provided WaitGroup is
-// signaled for a given endpoint which it has been analyzed against all rules
-// in the slice.
-func (r ruleSlice) UpdateRulesEndpointsCaches(eps []Endpoint, epsIDs *IDSet, policySelectionWG *sync.WaitGroup) {
+// the endpoints, it is added to the provided IDSet, and removed from the
+// provided EndpointSet. The provided WaitGroup is signaled for a given endpoint
+// when it is finished being processed.
+func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision *EndpointSet, endpointsToRegenerate *IDSet, policySelectionWG *sync.WaitGroup) {
 	// No need to check whether endpoints need to be regenerated here since we
 	// will unconditionally regenerate all endpoints later.
 	if !option.Config.SelectiveRegeneration {
 		return
 	}
 
-	policySelectionWG.Add(len(eps))
-	for _, ep := range eps {
-		// Update each rule in parallel.
-		go func(epp Endpoint) {
-			r.updateEndpointsCaches(epp, epsIDs)
-			policySelectionWG.Done()
-		}(ep)
-	}
+	endpointsToBumpRevision.ForEach(policySelectionWG, func(epp Endpoint) {
+		if endpointSelected := r.updateEndpointsCaches(epp, endpointsToRegenerate); endpointSelected {
+			endpointsToBumpRevision.Delete(epp)
+		}
+	})
 }
 
 // DeleteByLabelsLocked deletes all rules in the policy repository which
