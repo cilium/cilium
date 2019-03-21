@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -214,8 +215,30 @@ var ciliumChains = []customChain{
 	},
 }
 
+type IptablesManager struct {
+	ip6tables bool
+}
+
+func (m *IptablesManager) Init() {
+	modulesManager := &modules.ModulesManager{}
+	if err := modulesManager.Init(); err != nil {
+		log.WithError(err).Fatal(
+			"Unable to get information about kernel modules")
+	}
+	if !modulesManager.FindModule(
+		"ip_tables", "iptable_mangle", "iptable_raw") {
+		log.Fatal("iptables kernel modules are not loaded")
+	}
+	ip6tables := modulesManager.FindModule(
+		"ip6_tables", "ip6table_mangle", "ip6table_raw")
+	if option.Config.EnableIPv6 && !ip6tables {
+		log.Fatal("IPv6 is enabled, but ip6tables kernel modules are not loaded")
+	}
+	m.ip6tables = ip6tables
+}
+
 // RemoveRules removes iptables rules installed by Cilium.
-func RemoveRules() {
+func (m *IptablesManager) RemoveRules() {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
@@ -223,19 +246,21 @@ func RemoveRules() {
 	}
 
 	// Set of tables that have had ip6tables rules in any Cilium version
-	tables6 := []string{"mangle", "raw"}
-	for _, t := range tables6 {
-		removeCiliumRules(t, "ip6tables")
-	}
+	if m.ip6tables {
+		tables6 := []string{"mangle", "raw"}
+		for _, t := range tables6 {
+			removeCiliumRules(t, "ip6tables")
+		}
 
-	for _, c := range ciliumChains {
-		c.remove()
+		for _, c := range ciliumChains {
+			c.remove()
+		}
 	}
 }
 
 // InstallRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
-func InstallRules(ifName string) error {
+func (m *IptablesManager) InstallRules(ifName string) error {
 	for _, c := range ciliumChains {
 		if err := c.add(); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", c.name, err)
