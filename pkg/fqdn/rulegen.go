@@ -103,15 +103,21 @@ func NewRuleGen(config Config) *RuleGen {
 
 }
 
-// MarkToFQDNRules adds a tracking label to rules that contain ToFQDN sections.
+// PrepareFQDNRules adds a tracking label to rules that contain ToFQDN sections.
 // The label is used to ensure that the ToFQDN rules are replaced correctly
 // when they are regenerated with IPs. It will also include the generated IPs
 // (in the ToCIDRSet) section for DNS names already present in the cache.
+// It returns the list of valid rules to apply into policyRepo, a valid rule is:
+// - A rule without toFQDN entries.
+// - A rule with toFQDN that already have a UUID and it is present on
+// gen.AllRules
+// - A new FQDN rule that does not have UUID(new UUID will be created in this function)
 // NOTE: It edits the rules in-place
-func (gen *RuleGen) MarkToFQDNRules(sourceRules []*api.Rule) {
+func (gen *RuleGen) PrepareFQDNRules(sourceRules []*api.Rule) []*api.Rule {
 	gen.Lock()
 	defer gen.Unlock()
 
+	result := []*api.Rule{}
 perRule:
 	for _, sourceRule := range sourceRules {
 		// This rule has already been seen, and has a UUID label OR it has no
@@ -120,9 +126,25 @@ perRule:
 		// would lack the UUID-tagged rule and we would add a new UUID label in
 		// this function. Cleanup for existing rules with UUIDs is handled in
 		// StopManageDNSName
-		if !hasToFQDN(sourceRule) || sourceRule.Labels.Has(uuidLabelSearchKey) {
+		if !hasToFQDN(sourceRule) {
+			result = append(result, sourceRule)
 			continue perRule
 		}
+
+		// If the rule already have a UUID we check that it is present in the
+		// gen.allRules. If it is not present we don't need to append to
+		// result, due the rule was already updated by other process.
+		uuid := sourceRule.Labels.Get(uuidLabelSearchKey)
+		if uuid != "" {
+			_, exists := gen.allRules[uuid]
+			if !exists {
+				log.Debugf("Rule '%s' has been deleted from fqdn rules. This rule will be discarded", uuid)
+			} else {
+				result = append(result, sourceRule)
+			}
+			continue perRule
+		}
+		result = append(result, sourceRule)
 
 		// add a unique ID that we can use later to replace this rule.
 		uuidLabel := generateUUIDLabel()
@@ -143,6 +165,8 @@ perRule:
 				Debug("No IPs to inject on initial rule insert")
 		}
 	}
+
+	return result
 }
 
 // StartManageDNSName begins managing sourceRules that contain toFQDNs

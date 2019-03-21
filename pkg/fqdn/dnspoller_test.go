@@ -176,7 +176,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 		}
 
 		// add rules and run basic checks
-		gen.MarkToFQDNRules(rulesToAdd)
+		gen.PrepareFQDNRules(rulesToAdd)
 		for i, rule := range rulesToAdd {
 			c.Assert(len(getRuleUUIDLabel(rule)), Not(Equals), 0, Commentf("Added a FQDN label to each marked rule"))
 			if i > 0 {
