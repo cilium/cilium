@@ -140,9 +140,12 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 
 // ProcessDatapathEntryFunc is a function type which takes some action based
 // upon each datapath key+value that is generated from the L4Filter.
-type ProcessDatapathEntryFunc func(Key, MapStateEntry)
+//
+// The callee receives a map key, map entry, and a boolean that prescribes
+// whether the traffic should be redirected to the proxy.
+type ProcessDatapathEntryFunc func(Key, MapStateEntry, bool)
 
-func (l4 *L4Filter) processEntry(owner PolicyOwner, identity uint32, process ProcessDatapathEntryFunc) {
+func (l4 *L4Filter) processEntry(owner PolicyOwner, identity uint32, isRedirect bool, process ProcessDatapathEntryFunc) {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 	direction := trafficdirection.Egress
@@ -158,13 +161,29 @@ func (l4 *L4Filter) processEntry(owner PolicyOwner, identity uint32, process Pro
 		Nexthdr:          proto,
 		TrafficDirection: direction.Uint8(),
 	}
-	if l4.IsRedirect() {
+	if isRedirect {
 		proxyPort = owner.LookupRedirectPort(l4)
 	}
 	e := MapStateEntry{ProxyPort: proxyPort}
-	process(k, e)
+	process(k, e, isRedirect)
 }
 
+// ForEachDatapathEntry generates all datapath entries from this L4Filter as
+// would apply to the specified set of identities, taking into account which
+// identities would otherwise be denied by the specified L3 requirements.
+// The PolicyOwner is used to determine the proxy port (if available) for L7
+// redirects for the entry.
+//
+// For each entry that is generated, callback function is called with the
+// key, entry, and a boolean for whether the traffic is redirected to the proxy.
+//
+// Note that overlapping entries may be generated if the filter contains
+// L3 selectors (l4.Endpoints) that select the same identity. The caller must
+// handle the possibility that the callback is called with otherwise equivalent
+// map keys, where the only difference is that one key requires proxy redirect.
+// The ordering between these L4 vs. L4+L7 map entries is undetermined. The
+// caller must apply preference to the redirect if there are overlapping keys
+// with/without redirects.
 func (l4 *L4Filter) ForEachDatapathEntry(
 	owner PolicyOwner,
 	identityCache cache.IdentityCache,
@@ -172,17 +191,19 @@ func (l4 *L4Filter) ForEachDatapathEntry(
 	process ProcessDatapathEntryFunc) {
 
 	if l4.AllowsAllAtL3() {
-		l4.processEntry(owner, 0, process)
+		_, isRedirect := l4.L7RulesPerEp[api.WildcardEndpointSelector]
+		l4.processEntry(owner, 0, isRedirect, process)
 		if !l4.HasL3DependentL7Rules() {
 			return
 		} // else we need to calculate all L3-dependent L4 peers below.
 	}
 
 	for _, sel := range l4.Endpoints {
+		_, isRedirect := l4.L7RulesPerEp[sel]
 		identities := getSecurityIdentities(identityCache, &sel)
 		for _, id := range identities {
 			if _, identityIsDenied := deniedIdentities[id]; !identityIsDenied {
-				l4.processEntry(owner, id.Uint32(), process)
+				l4.processEntry(owner, id.Uint32(), isRedirect, process)
 			}
 		}
 	}

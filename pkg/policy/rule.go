@@ -86,7 +86,8 @@ func mergeL4Port(ctx *SearchContext, existingFilter, filterToMerge *L4Filter) er
 	// L3 selectors are held in 'l4.Endpoints') and L3-dependent L7 rules
 	// on the same L4 destination (where the L3 selectors are held in
 	// l4.RulesPerEP), the 'l4.Endpoints' should become a superset or equal
-	// to the 'l4.L7RulesPerEP' selectors.
+	// to the 'l4.L7RulesPerEP' selectors, to allow l3-dependent L7 datapath
+	// entries to be correctly generated in l4.ForEachDatapathEntry().
 	existingFilter.Endpoints = append(existingFilter.Endpoints, filterToMerge.Endpoints...)
 
 	// Merge the L7-related data from the arguments provided to this function

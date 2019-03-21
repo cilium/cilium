@@ -201,13 +201,18 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 
 			// Set the proxy port in the policy map.
 			l4.ForEachDatapathEntry(e, *e.prevIdentityCache, e.desiredPolicy.DeniedIngressIdentities,
-				func(k policy.Key, v policy.MapStateEntry) {
+				func(k policy.Key, v policy.MapStateEntry, isProxy bool) {
 					if oldEntry, ok := e.desiredPolicy.PolicyMapState[k]; ok {
 						updatedDesiredMapState[k] = oldEntry
+						// If there's a conflict between L4 and L7,
+						// the L7 redirect must take precedence.
+						if isProxy {
+							e.desiredPolicy.PolicyMapState[k] = v
+						}
 					} else {
 						insertedDesiredMapState[k] = struct{}{}
+						e.desiredPolicy.PolicyMapState[k] = v
 					}
-					e.desiredPolicy.PolicyMapState[k] = v
 				},
 			)
 

@@ -100,8 +100,8 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.Id
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, deniedIdentities cache.IdentityCache) {
 	for _, filter := range l4PolicyMap {
 		filter.ForEachDatapathEntry(p.PolicyOwner, identityCache, deniedIdentities,
-			func(k Key, v MapStateEntry) {
-				if filter.IsRedirect() && v.ProxyPort == 0 {
+			func(k Key, v MapStateEntry, isProxy bool) {
+				if isProxy && v.ProxyPort == 0 {
 					// If the currently allocated proxy port is 0, this is a new
 					// redirect, for which no port has been allocated yet. Ignore
 					// it for now. This will be configured by
