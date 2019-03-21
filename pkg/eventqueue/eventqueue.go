@@ -38,6 +38,7 @@ var (
 // `EventHandler` interface. This allows for different types of events to be
 // processed by anything which chooses to utilize an `EventQueue`.
 type EventQueue struct {
+
 	// This should always be a buffered channel.
 	events chan *Event
 
@@ -61,19 +62,35 @@ type EventQueue struct {
 	// closeWaitGroup ensures that the events channel is not closed before all
 	// events have been consumed off of it.
 	closeWaitGroup sync.WaitGroup
+
+	// name is used to differentiate this EventQueue from other EventQueues that
+	// are also running in logs
+	name string
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
 // a time.
 func NewEventQueue() *EventQueue {
-	return NewEventQueueBuffered(1)
+	return NewEventQueueBuffered("", 1)
 
+}
+
+func (q *EventQueue) getLogger() *logrus.Entry {
+	return log.WithFields(
+		logrus.Fields{
+			"name": q.name,
+		})
 }
 
 // NewEventQueueBuffered returns an EventQueue with a capacity of,
 // numBufferedEvents at a time, and all other needed fields initialized.
-func NewEventQueueBuffered(numBufferedEvents int) *EventQueue {
+func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
+	log.WithFields(logrus.Fields{
+		"name":              name,
+		"numBufferedEvents": numBufferedEvents,
+	}).Debug("creating new EventQueue")
 	return &EventQueue{
+		name: name,
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
 		events: make(chan *Event, numBufferedEvents),
 		close:  make(chan struct{}),
@@ -182,8 +199,8 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 	}
 }
 
-func (ev *Event) printStats() {
-	log.WithFields(logrus.Fields{
+func (ev *Event) printStats(q *EventQueue) {
+	q.getLogger().WithFields(logrus.Fields{
 		"eventType":                    reflect.TypeOf(ev.Metadata).String(),
 		"eventHandlingDuration":        ev.stats.durationStat.Total(),
 		"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
@@ -207,7 +224,7 @@ func (q *EventQueue) Run() {
 				ev.stats.waitConsumeOffQueue.End(false)
 				close(ev.cancelled)
 				close(ev.eventResults)
-				ev.printStats()
+				ev.printStats(q)
 			default:
 				ev.stats.waitConsumeOffQueue.End(true)
 				ev.stats.durationStat.Start()
@@ -216,7 +233,7 @@ func (q *EventQueue) Run() {
 				ev.stats.durationStat.End(true)
 				// Ensures that no more results can be sent as the event has
 				// already been processed.
-				ev.printStats()
+				ev.printStats(q)
 				close(ev.eventResults)
 			}
 		}
@@ -230,6 +247,7 @@ func (q *EventQueue) Run() {
 // If the queue has already been stopped, this is a no-op.
 func (q *EventQueue) Stop() {
 	q.closeOnce.Do(func() {
+		q.getLogger().Debug("stopping EventQueue")
 		// Any event that is sent to the queue at this point will be cancelled
 		// immediately in Enqueue().
 		close(q.drain)
@@ -245,6 +263,7 @@ func (q *EventQueue) Stop() {
 
 		// This will cause Run() to receive a nil event.
 		close(q.events)
+
 	})
 }
 

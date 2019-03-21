@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -92,9 +93,11 @@ func Insert(ep *endpoint.Endpoint) error {
 	ep.UnconditionalRLock()
 	mutex.Lock()
 
-	// The endpoint's eventqueue can be safely started. Ensure that it is only
+	// Now that the endpoint has its ID, it can be created with a name based on
+	// its ID, and its eventqueue can be safely started. Ensure that it is only
 	// started once it is exposed to the endpointmanager so that it will be
 	// stopped when the endpoint is removed from the endpointmanager.
+	ep.EventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ep.ID), option.Config.EndpointQueueSize)
 	ep.EventQueue.Run()
 
 	endpoints[ep.ID] = ep
