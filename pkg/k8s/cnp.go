@@ -44,6 +44,23 @@ var (
 	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
 )
 
+// ErrParse is an error to describe where policy fails to parse due any invalid
+// rule.
+type ErrParse struct {
+	msg string
+}
+
+// Error returns the error message for parsing
+func (e ErrParse) Error() string {
+	return e.msg
+}
+
+// IsErrParse returns true if the error is a ErrParse
+func IsErrParse(e error) bool {
+	_, ok := e.(ErrParse)
+	return ok
+}
+
 // CNPStatusUpdateContext is the context required to update the status of a
 // CNP. It is filled out by the owner of the Kubernetes client before
 // UpdateStatus() is called.
@@ -131,6 +148,7 @@ func (c *CNPStatusUpdateContext) prepareUpdate(cnp *types.SlimCNP, scopedLog *lo
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(serverRule)).
 			Warn("Error parsing new CiliumNetworkPolicy rule")
+		err = ErrParse{err.Error()}
 	}
 
 	return
@@ -211,7 +229,14 @@ retryLoop:
 		// Failure to prepare are returned as error immediately to
 		// expose them via the controller status as these errors are
 		// most likely not temporary.
+		// In case of a CNP parse error will update the status in the CNP.
 		serverRule, err = c.prepareUpdate(cnp, scopedLog)
+		if IsErrParse(err) {
+			statusErr := c.updateStatus(serverRule, rev, err, waitForEPsErr)
+			if statusErr != nil {
+				scopedLog.WithError(statusErr).Debug("CNP status for invalid rule cannot be updated")
+			}
+		}
 		if err != nil {
 			return err
 		}
