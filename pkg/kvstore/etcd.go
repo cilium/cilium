@@ -537,6 +537,7 @@ func (e *etcdClient) Watch(w *Watcher) {
 		fieldWatcher: w,
 		fieldPrefix:  w.prefix,
 	})
+	<-e.Connected()
 
 reList:
 	for {
