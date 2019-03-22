@@ -121,7 +121,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	fmt.Fprintf(fw, "#define LB4_SERVICES_MAP cilium_lb4_services\n")
 	fmt.Fprintf(fw, "#define LB4_SERVICES_MAP_V2 cilium_lb4_services_v2\n")
 	fmt.Fprintf(fw, "#define LB4_RR_SEQ_MAP cilium_lb4_rr_seq\n")
-	fmt.Fprintf(fw, "#define LB4_BACKEND_MAP cilium_lb4_backend\n")
+	fmt.Fprintf(fw, "#define LB4_BACKEND_MAP cilium_lb4_backends\n")
 
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", option.Config.TracePayloadlen)
 	fmt.Fprintf(fw, "#define MTU %d\n", cfg.MtuConfig.GetDeviceMTU())

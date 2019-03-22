@@ -414,8 +414,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 
 	for nsvc, be := range besValues {
 		fe.SetBackend(nsvc + 1) // service count starts with 1
-		// TODO(brb)
-		//fe.SetProto(..)
 		if err := updateService(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
@@ -794,7 +792,7 @@ func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2
 	}
 
 	if addRevNAT {
-		zeroValue := serviceKey.NewValue().(ServiceValue)
+		zeroValue := serviceKey.NewValue().(*Service4ValueV2)
 		zeroValue.SetRevNat(revNATID)
 		revNATKey := zeroValue.RevNatKey()
 		revNATValue := serviceKey.RevNatValue()

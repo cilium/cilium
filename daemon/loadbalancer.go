@@ -182,6 +182,8 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}
+		// TODO(brb): parse it properly
+		b.Protocol = "tcp"
 		backends = append(backends, *b)
 	}
 
@@ -280,6 +282,7 @@ func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
 		return fmt.Errorf("key %s is not in lbmap", svcKey.ToNetwork())
 	}
 
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	vval := val.(lbmap.ServiceValue)
 	numBackends := uint16(vval.GetCount())
 
