@@ -39,10 +39,11 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
 	revNATID := int(feCilium.ID)
+	svcID := feCilium.String()
 
 	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UpdateServiceV2")
 
-	if err := lbmap.UpdateServiceV2(svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
+	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
@@ -129,7 +130,6 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 			return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
 				b, err)
 		}
-		fmt.Println("!!!!!!!!!!!!!!!!!!!!\n\nacquired ID:", beAddr, beAddr.ID)
 		beCpy[i].ID = beAddr.ID
 	}
 
@@ -226,6 +226,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	svc, ok := d.loadBalancer.SVCMapID[loadbalancer.ServiceID(params.ID)]
+	// TODO(brb) we should set backendID inside svc.BES
 
 	if !ok {
 		return NewDeleteServiceIDNotFound()
@@ -271,6 +272,27 @@ func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 }
 
 func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
+	if err := d.svcDeleteBPFV2(svc); err != nil {
+		return err
+	}
+	if err := d.svcDeleteBPFLegacy(svc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Daemon) svcDeleteBPFV2(svc loadbalancer.L3n4AddrID) error {
+	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
+
+	if err := lbmap.DeleteServiceV2(svc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Daemon) svcDeleteBPFLegacy(svc loadbalancer.L3n4AddrID) error {
 	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
 	var svcKey lbmap.ServiceKey
 	if !svc.IsIPv6() {
@@ -287,7 +309,6 @@ func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
 		return fmt.Errorf("key %s is not in lbmap", svcKey.ToNetwork())
 	}
 
-	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	vval := val.(lbmap.ServiceValue)
 	numBackends := uint16(vval.GetCount())
 
@@ -660,6 +681,7 @@ func (d *Daemon) SyncLBMap() error {
 			if err := addSVC2BPFMap(oldID, *svc); err != nil {
 				scopedLog.WithError(err).Error("Unable to synchronize service to BPF map")
 
+				// TODO(brb) this will have new ID, bad! so, use string for ID
 				failedSyncSVC = append(failedSyncSVC, *svc)
 				delete(newSVCMap, svc.Sha256)
 

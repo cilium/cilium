@@ -739,10 +739,41 @@ func RestoreService(svc loadbalancer.LBSVC) error {
 // v2                                                                        //
 ///////////////////////////////////////////////////////////////////////////////
 
+func DeleteServiceV2(svc loadbalancer.L3n4AddrID) error {
+	id := svc.String()
+
+	proto, err := u8proto.ParseProtocol(string(svc.Protocol))
+	if err != nil {
+		return err
+	}
+
+	svcKey := NewService4KeyV2(svc.IP, svc.Port, proto, 0)
+	svcKey.SetSlave(0)
+
+	count, backendIDs, err := cache.removeServiceV2(id)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i <= count; i++ {
+		svcKey.SetSlave(i)
+		if err := svcKey.MapDelete(); err != nil {
+			return err
+		}
+	}
+
+	for _, id := range backendIDs {
+		backendKey := NewBackend4Key(id)
+		if err := backendKey.MapDelete(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // UpdateServiceV2 adds or updates the given service (v2) in the bpf maps
-//
-// TODO(brb) merge with UpdateService
-func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2,
+func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2,
 	backends []*Backend4, addRevNAT bool, revNATID int) error {
 
 	var (
@@ -750,8 +781,6 @@ func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2
 		nNonZeroWeights uint16
 		existingCount   int
 	)
-
-	// TODO(brb) return to be released backend IDs
 
 	log.WithFields(logrus.Fields{
 		"frontend": serviceKey,
@@ -778,12 +807,31 @@ func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2
 		existingCount = svcValue.GetCount()
 	}
 
+	backendIDs := []uint16{}
 	for _, b := range backends {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>> adding", b)
+		id := b.Key.ID
+		backendIDs = append(backendIDs, id)
+	}
+
+	toAdd, toRemove, err := cache.addServiceV2(svcID, backendIDs)
+	if err != nil {
+		return err
+	}
+
+	for _, b := range backends {
+		if _, found := toAdd[b.Key.ID]; !found {
+			continue
+		}
 		if err := updateBackend(b); err != nil {
 			return fmt.Errorf("TODO: %s", err)
 		}
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>> added", b)
+	}
+
+	for _, id := range toRemove {
+		backendKey := NewBackend4Key(id)
+		if err := backendKey.MapDelete(); err != nil {
+			return err
+		}
 	}
 
 	for nsvc, v := range serviceValues {
@@ -829,6 +877,7 @@ func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2
 
 	// TODO(brb): remove and add backends
 	// TODO(brb): refcount backends
+	// TODO(brb) return to be released backend IDs
 
 	return nil
 }

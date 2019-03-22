@@ -382,16 +382,6 @@ func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
 func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
 func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
 
-//
-//func (s *Service4ValueV2) SetAddress(ip net.IP) error {
-//	ip4 := ip.To4()
-//	if ip4 == nil {
-//		return fmt.Errorf("Not an IPv4 address")
-//	}
-//	copy(s.Address[:], ip4)
-//	return nil
-//}
-
 // ToNetwork converts Service4ValueV2 to network byte order.
 func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {
 	n := *s
@@ -430,6 +420,11 @@ func NewBackend4Key(id uint16) *Backend4Key {
 func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
 func (k *Backend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Backend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4Key) Map() *bpf.Map             { return Backend4Map }
+
+func (k *Backend4Key) MapDelete() error {
+	return k.Map().Delete(k)
+}
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
 type Backend4Value struct {
@@ -477,4 +472,5 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 	return &backend, nil
 }
 
-func (b Backend4) Map() *bpf.Map { return Backend4Map }
+func (b *Backend4) Map() *bpf.Map { return Backend4Map }
+func (b *Backend4) GetID() uint16 { return b.Key.ID }

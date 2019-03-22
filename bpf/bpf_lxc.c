@@ -499,8 +499,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-    // TODO(brb) We assume that all legacy services has migrated to v2 to avoid
-    // increasing complexity of the function
 	if ((svc = lb4_lookup_service_v2(skb, &key)) != NULL) {
 		ret = lb4_local_v2(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
