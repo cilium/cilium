@@ -49,6 +49,46 @@ var (
 	regenerationMetadata = &endpoint.ExternalRegenerationMetadata{
 		Reason: "test",
 	}
+
+	CNPAllowGETbar = api.PortRule{
+		Ports: []api.PortProtocol{
+			{Port: "80", Protocol: api.ProtoTCP},
+		},
+		Rules: &api.L7Rules{
+			HTTP: []api.PortRuleHTTP{
+				{
+					Path:   "/bar",
+					Method: "GET",
+				},
+			},
+		},
+	}
+
+	PNPAllowAll = cilium.PortNetworkPolicyRule_HttpRules{
+		HttpRules: &cilium.HttpNetworkPolicyRules{
+			HttpRules: []*cilium.HttpNetworkPolicyRule{
+				{},
+			},
+		},
+	}
+	PNPAllowGETbar = cilium.PortNetworkPolicyRule_HttpRules{
+		HttpRules: &cilium.HttpNetworkPolicyRules{
+			HttpRules: []*cilium.HttpNetworkPolicyRule{
+				{
+					Headers: []*envoy_api_v2_route.HeaderMatcher{
+						{
+							Name:                 ":method",
+							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
+						},
+						{
+							Name:                 ":path",
+							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
+						},
+					},
+				},
+			},
+		},
+	}
 )
 
 // getXDSNetworkPolicies returns the representation of the xDS network policies
@@ -83,19 +123,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 						api.NewESFromLabels(lblFoo),
 					},
 					ToPorts: []api.PortRule{
-						{
-							Ports: []api.PortProtocol{
-								{Port: "80", Protocol: api.ProtoTCP},
-							},
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
-									{
-										Path:   "/bar",
-										Method: "GET",
-									},
-								},
-							},
-						},
+						// Allow Port 80 GET /bar
+						CNPAllowGETbar,
 					},
 				},
 			},
@@ -233,34 +262,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{},
-								},
-							},
-						},
+						L7:             &PNPAllowAll,
 					},
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{
-										Headers: []*envoy_api_v2_route.HeaderMatcher{
-											{
-												Name:                 ":method",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
-											},
-											{
-												Name:                 ":path",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
-											},
-										},
-									},
-								},
-							},
-						},
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -301,44 +307,15 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies2,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{},
-								},
-							},
-						},
+						L7:             &PNPAllowAll,
 					},
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{},
-								},
-							},
-						},
+						L7:             &PNPAllowAll,
 					},
 					{
 						RemotePolicies: expectedRemotePolicies,
-						L7: &cilium.PortNetworkPolicyRule_HttpRules{
-							HttpRules: &cilium.HttpNetworkPolicyRules{
-								HttpRules: []*cilium.HttpNetworkPolicyRule{
-									{
-										Headers: []*envoy_api_v2_route.HeaderMatcher{
-											{
-												Name:                 ":method",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "GET"},
-											},
-											{
-												Name:                 ":path",
-												HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "/bar"},
-											},
-										},
-									},
-								},
-							},
-						},
+						L7:             &PNPAllowGETbar,
 					},
 				},
 			},
@@ -423,19 +400,8 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 						api.NewESFromLabels(lblFoo),
 					},
 					ToPorts: []api.PortRule{
-						{
-							Ports: []api.PortProtocol{
-								{Port: "80", Protocol: api.ProtoTCP},
-							},
-							Rules: &api.L7Rules{
-								HTTP: []api.PortRuleHTTP{
-									{
-										Path:   "/bar",
-										Method: "GET",
-									},
-								},
-							},
-						},
+						// Allow Port 80 GET /bar
+						CNPAllowGETbar,
 					},
 				},
 			},
