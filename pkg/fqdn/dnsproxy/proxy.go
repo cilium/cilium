@@ -367,7 +367,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	scopedLog.WithField(logfields.Response, response).Debug("Received DNS response to proxied lookup")
 	stat.Success = true
-	p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, response, protocol, true, stat)
 
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the inital request so it matches what the requester expects.
@@ -378,6 +377,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
 		p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, response, protocol, true, stat)
 	}
+
+	// Note: This may block and it is safer to do it after we have written out
+	// the DNS response to the pod.
+	scopedLog.Debug("Notifying with DNS response to original DNS query")
+	p.NotifyOnDNSMsg(time.Now(), endpointAddr, targetServerAddr, response, protocol, true, stat)
 }
 
 // sendRefused creates and sends a REFUSED response for request to w
