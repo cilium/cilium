@@ -225,4 +225,43 @@ var _ = Describe("RuntimeChaos", func() {
 			vm.Exec(action).ExpectSuccess("Key %s cannot is not restored correctly", identityID)
 		}
 	})
+
+	It("Delete event on KVStore with CIDR identities", func() {
+		// Validate that if when a delete event happens on kvstore the CIDR
+		// identity (local one) is not deleted.  This happens on the past where
+		// other cilium agent executes a deletion of a key that was used by
+		// another cilium agent, that means that on policy regeneration the
+		// identity was not present.
+		jqFilter := `jq -r '.[] | select(.labels|join("") | contains("cidr")) | .id'`
+		prefix := "http://127.0.0.1:8500/v1/kv/cilium/state/identities/v1/id"
+
+		By("Installing CIDR policy")
+		policy := `
+		[{
+			"endpointSelector": {"matchLabels":{"test":""}},
+			"egress":
+			[{
+				"toCIDR": [
+					"10.10.10.10/32"
+				]
+			}]
+		}]
+		`
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
+
+		CIDRIdentities := vm.Exec(fmt.Sprintf(`cilium identity list -o json| %s`, jqFilter))
+		CIDRIdentities.ExpectSuccess("Cannot get cidr identities")
+
+		for _, identityID := range CIDRIdentities.ByLines() {
+			action := helpers.CurlFail("%s/%s -X DELETE", prefix, identityID)
+			vm.Exec(action).ExpectSuccess("Key %s cannot be deleted correctly", identityID)
+		}
+
+		newCIDRIdentities := vm.Exec(fmt.Sprintf(`cilium identity list -o json| %s`, jqFilter))
+		newCIDRIdentities.ExpectSuccess("Cannot get cidr identities")
+
+		Expect(CIDRIdentities.ByLines()).To(Equal(newCIDRIdentities.ByLines()),
+			"Identities are deleted in kvstore delete event")
+	})
 })
