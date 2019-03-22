@@ -195,15 +195,11 @@ func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route 
 // incorrect, it will be replaced with the proper L2 route.
 func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) (bool, error) {
 	route := createNexthopRoute(link, routerNet)
-	if lookup(route) == nil {
-		if err := netlink.RouteReplace(route); err != nil {
-			return false, fmt.Errorf("unable to add L2 nexthop route: %s", err)
-		}
-
-		return true, nil
+	if err := netlink.RouteReplace(route); err != nil {
+		return false, fmt.Errorf("unable to add L2 nexthop route: %s", err)
 	}
 
-	return false, nil
+	return true, nil
 }
 
 // deleteNexthopRoute deletes
@@ -270,29 +266,25 @@ func Upsert(route Route, mtuConfig mtu.Configuration) (bool, error) {
 		}
 	}
 
-	if lookup(&routeSpec) == nil {
-		err := fmt.Errorf("routeReplace not called yet")
+	err = fmt.Errorf("routeReplace not called yet")
 
-		// Workaround: See description of this function
-		for i := 0; err != nil && i < RouteReplaceMaxTries; i++ {
-			err = netlink.RouteReplace(&routeSpec)
-			if err == nil {
-				break
-			}
-			time.Sleep(RouteReplaceRetryInterval)
+	// Workaround: See description of this function
+	for i := 0; err != nil && i < RouteReplaceMaxTries; i++ {
+		err = netlink.RouteReplace(&routeSpec)
+		if err == nil {
+			break
 		}
-
-		if err != nil {
-			if nexthopRouteCreated {
-				deleteNexthopRoute(link, routerNet)
-			}
-			return false, err
-		}
-
-		return true, nil
+		time.Sleep(RouteReplaceRetryInterval)
 	}
 
-	return false, nil
+	if err != nil {
+		if nexthopRouteCreated {
+			deleteNexthopRoute(link, routerNet)
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 // Delete deletes a Linux route. An error is returned if the route does not
