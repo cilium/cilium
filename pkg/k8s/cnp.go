@@ -213,6 +213,10 @@ retryLoop:
 		// most likely not temporary.
 		serverRule, err = c.prepareUpdate(cnp, scopedLog)
 		if err != nil {
+			statusErr := c.updateStatus(serverRule, rev, err, waitForEPsErr)
+			if statusErr != nil {
+				scopedLog.WithError(statusErr).Debug("CNP status for invalid rule cannot be updated")
+			}
 			return err
 		}
 
