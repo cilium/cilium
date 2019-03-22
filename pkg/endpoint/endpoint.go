@@ -406,6 +406,7 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
+
 	ep := &Endpoint{
 		ID:            ID,
 		OpLabels:      pkgLabels.NewOpLabels(),
@@ -488,7 +489,6 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
-	ep.EventQueue.Run()
 
 	return ep, nil
 }
@@ -1068,7 +1068,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
-	ep.EventQueue.Run()
 
 	return &ep, nil
 }

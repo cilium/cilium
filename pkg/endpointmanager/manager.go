@@ -71,6 +71,7 @@ func init() {
 
 // Insert inserts the endpoint into the global maps.
 func Insert(ep *endpoint.Endpoint) error {
+
 	if ep.ID != 0 {
 		if err := endpointid.Reuse(ep.ID); err != nil {
 			return fmt.Errorf("unable to reuse endpoint ID: %s", err)
@@ -91,6 +92,11 @@ func Insert(ep *endpoint.Endpoint) error {
 	// API after it has been inserted into the manager.
 	ep.UnconditionalRLock()
 	mutex.Lock()
+
+	// The endpoint's eventqueue can be safely started. Ensure that it is only
+	// started once it is exposed to the endpointmanager so that it will be
+	// stopped when the endpoint is removed from the endpointmanager.
+	ep.EventQueue.Run()
 
 	endpoints[ep.ID] = ep
 	updateReferences(ep)
@@ -479,7 +485,6 @@ func AddEndpoint(owner endpoint.Owner, ep *endpoint.Endpoint, reason string) (er
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
-
 	return Insert(ep)
 }
 
