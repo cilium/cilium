@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -192,6 +193,36 @@ var _ = Describe("RuntimeChaos", func() {
 		Expect(backgroundChecks).ShouldNot(BeEmpty(), "No background connections were made")
 		for _, check := range backgroundChecks {
 			check.res.ExpectSuccess("Curl from app2 to httpd1 should work but it failed at %s", check.time)
+		}
+	})
+
+	It("Validate that delete events on KVStore do not release in use identities", func() {
+		// This validates that if a kvstore delete event is send the identity
+		// is not release if it is in use. For more info issue #7240
+
+		prefix := "http://127.0.0.1:8500/v1/kv/cilium/state/identities/v1/id"
+		identities, err := vm.GetEndpointsIdentityIds()
+		Expect(err).To(BeNil(), "Cannot get identities")
+
+		for _, identityID := range identities {
+			action := helpers.CurlFail("%s/%s -X DELETE", prefix, identityID)
+			vm.Exec(action).ExpectSuccess("Key %s cannot be deleted correctly", identityID)
+		}
+
+		newidentities, err := vm.GetEndpointsIdentityIds()
+		Expect(err).To(BeNil(), "Cannot get identities after delete keys")
+
+		Expect(newidentities).To(Equal(identities),
+			"Identities are not the same after delete keys from kvstore")
+
+		for _, identityID := range newidentities {
+			id, err := identity.ParseNumericIdentity(identityID)
+			Expect(err).To(BeNil(), "Cannot parse identity")
+			if id.IsReservedIdentity() {
+				continue
+			}
+			action := helpers.CurlFail("%s/%s", prefix, identityID)
+			vm.Exec(action).ExpectSuccess("Key %s cannot is not restored correctly", identityID)
 		}
 	})
 })
