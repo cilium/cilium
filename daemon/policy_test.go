@@ -44,6 +44,12 @@ var (
 	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
 	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
 
+	lblProd      = labels.ParseLabel("Prod")
+	lblQA        = labels.ParseLabel("QA")
+	lblFoo       = labels.ParseLabel("foo")
+	lblBar       = labels.ParseLabel("bar")
+	lblJoe       = labels.ParseLabel("user=joe")
+	lblPete      = labels.ParseLabel("user=pete")
 	regenContext = endpoint.NewRegenerationContext("test")
 
 	CNPAllowGETbar = api.PortRule{
@@ -137,13 +143,6 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
-	lblProd := labels.ParseLabel("Prod")
-	lblQA := labels.ParseLabel("QA")
-	lblFoo := labels.ParseLabel("foo")
-	lblBar := labels.ParseLabel("bar")
-	lblJoe := labels.ParseLabel("user=joe")
-	lblPete := labels.ParseLabel("user=pete")
-
 	rules := api.Rules{
 		{
 			EndpointSelector: api.NewESFromLabels(lblBar),
@@ -322,7 +321,6 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
-	lblBar := labels.ParseLabel("bar")
 	lbls := labels.ParseLabelArray("foo", "bar")
 	rules := api.Rules{
 		{
@@ -357,13 +355,6 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 }
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
-	lblProd := labels.ParseLabel("Prod")
-	lblQA := labels.ParseLabel("QA")
-	lblFoo := labels.ParseLabel("foo")
-	lblBar := labels.ParseLabel("bar")
-	lblJoe := labels.ParseLabel("user=joe")
-	lblPete := labels.ParseLabel("user=pete")
-
 	rules := api.Rules{
 		{
 			EndpointSelector: api.NewESFromLabels(lblBar),
