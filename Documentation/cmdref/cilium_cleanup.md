@@ -15,8 +15,9 @@ cilium cleanup [flags]
 ### Options
 
 ```
-  -f, --force   Skip confirmation
-  -h, --help    help for cleanup
+      --bpf-state-only   Remove only BPF state
+  -f, --force            Skip confirmation
+  -h, --help             help for cleanup
 ```
 
 ### Options inherited from parent commands

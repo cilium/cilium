@@ -42,7 +42,10 @@ var cleanupCmd = &cobra.Command{
 	},
 }
 
-var force bool
+var (
+	force        bool
+	bpfStateOnly bool
+)
 
 const (
 	ciliumLinkPrefix  = "cilium_"
@@ -56,6 +59,7 @@ const (
 
 func init() {
 	rootCmd.AddCommand(cleanupCmd)
+	cleanupCmd.Flags().BoolVar(&bpfStateOnly, "bpf-state-only", false, "Remove only BPF state")
 	cleanupCmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation")
 }
 
@@ -82,37 +86,47 @@ func runCleanup() {
 		return
 	}
 
+	type cleanupFunc func() error
+	cleanupFuncs := []cleanupFunc{removeAllMaps}
+
+	if !bpfStateOnly {
+		cleanupRoutesAndLinks := func() error {
+			return removeRoutesAndLinks(routes, links)
+		}
+		cleanupNamedNetNSs := func() error {
+			return removeNamedNetNSs(netNSs)
+		}
+
+		cleanupFuncs = append(cleanupFuncs, unmountCgroup, removeDirs, removeCNI,
+			cleanupRoutesAndLinks, cleanupNamedNetNSs)
+	}
+
 	// ENOENT and similar errors are ignored. Should print all other
 	// errors seen, but continue.  So that one remove function does not
 	// prevent the remaining from running.
-	type cleanupFunc func() error
-	checks := []cleanupFunc{removeAllMaps, unmountCgroup, removeDirs, removeCNI}
-	for _, clean := range checks {
+	for _, clean := range cleanupFuncs {
 		if err := clean(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		}
 	}
-
-	if err := removeRoutesAndLinks(routes, links); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	}
-
-	if err := removeNamedNetNSs(netNSs); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	}
 }
 
 func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.Link, netNSs []string) {
-	fmt.Printf("Warning: Destructive operation. You are about to remove:\n"+
-		"- all BPF maps in %s containing '%s' and '%s'\n"+
-		"- mounted bpffs at %s\n"+
-		"- mounted cgroupv2 at %s\n"+
-		"- library code in %s\n"+
-		"- endpoint state in %s\n"+
-		"- CNI configuration at %s, %s, %s\n",
-		bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName, bpf.GetMapRoot(),
-		defaults.DefaultCgroupRoot, defaults.LibraryPath, defaults.RuntimePath,
-		cniConfigV1, cniConfigV2, cniConfigV3)
+	toBeRemoved := bpfStateToBeRemoved()
+	if !bpfStateOnly {
+		toBeRemoved = append(toBeRemoved, ciliumStateToBeRemoved()...)
+	}
+
+	warning := "Warning: Destructive operation. You are about to remove:\n"
+	for _, ban := range toBeRemoved {
+		warning += fmt.Sprintf("- %s\n", ban)
+	}
+
+	fmt.Printf(warning)
+
+	if bpfStateOnly {
+		return
+	}
 
 	if len(routes) > 0 {
 		fmt.Printf("- routes\n")
@@ -133,6 +147,23 @@ func showWhatWillBeRemoved(routes map[int]netlink.Route, links map[int]netlink.L
 		for _, n := range netNSs {
 			fmt.Printf("%s\n", n)
 		}
+	}
+}
+
+func bpfStateToBeRemoved() []string {
+	return []string{
+		fmt.Sprintf("all BPF maps in %s containing '%s' and '%s'",
+			bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName),
+		fmt.Sprintf("mounted bpffs at %s", bpf.GetMapRoot()),
+	}
+}
+
+func ciliumStateToBeRemoved() []string {
+	return []string{
+		fmt.Sprintf("library code in %s", defaults.LibraryPath),
+		fmt.Sprintf("endpoint state in %s", defaults.RuntimePath),
+		fmt.Sprintf("CNI configuration at %s, %s, %s",
+			cniConfigV1, cniConfigV2, cniConfigV3),
 	}
 }
 
