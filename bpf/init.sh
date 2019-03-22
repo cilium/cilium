@@ -26,6 +26,7 @@ XDP_MODE=$8
 MTU=$9
 IPSEC=${10}
 MASQ=${11}
+ENCRYPT_DEV=${12}
 
 ID_HOST=1
 ID_WORLD=2
@@ -340,6 +341,10 @@ case "${MODE}" in
 		HOST_MAC=$(ip link show $HOST_DEV1 | grep ether | awk '{print $2}')
 		HOST_MAC=$(mac2array $HOST_MAC)
 		echo "#define HOST_IFINDEX_MAC { .addr = ${HOST_MAC}}" >> $RUNDIR/globals/node_config.h
+
+		sed -i '/^#.*CILIUM_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+		CILIUM_IDX=$(cat /sys/class/net/${HOST_DEV1}/ifindex)
+		echo "#define CILIUM_IFINDEX $CILIUM_IDX" >> $RUNDIR/globals/node_config.h
 esac
 
 # Address management
@@ -456,6 +461,9 @@ bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS
 
 if [ "$IPSEC" == "true" ]; then
 	bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
+	if [ $ENCRYPT_DEV != "" ]; then
+		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
+	fi
 fi
 
 if [ -n "$XDP_DEV" ]; then

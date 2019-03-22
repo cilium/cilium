@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -636,9 +637,16 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 }
 
 func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
+	var device string
+
+	if option.Config.Tunnel == option.TunnelDisabled {
+		device = option.EncryptInterface
+	} else {
+		device = linux_defaults.TunnelDeviceName
+	}
 	return route.Route{
 		Nexthop: nil,
-		Device:  linux_defaults.TunnelDeviceName,
+		Device:  device,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
 		Proto:   linux_defaults.RouteProtocolIPSec,

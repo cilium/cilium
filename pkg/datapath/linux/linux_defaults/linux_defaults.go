@@ -46,6 +46,9 @@ const (
 	// IPsecMarkMask is the mask required for the IPsec SPI and encrypt/decrypt bits
 	IPsecMarkMask = 0xFF00
 
+	// IPsecMarkMaskIn is the mask required for IPsec to lookup encrypt/decrypt bits
+	IPsecMarkMaskIn = 0x0F00
+
 	// IPsecKeyDeleteDelay is the time to wait before removing old keys when
 	// the IPsec key is changing.
 	IPsecKeyDeleteDelay = 5 * time.Minute
