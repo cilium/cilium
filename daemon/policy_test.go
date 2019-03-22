@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sort"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
@@ -45,6 +47,8 @@ var (
 	ProdHardAddr    = mac.MAC{0x01, 0x07, 0x08, 0x09, 0x0a, 0x0b}
 	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
 	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
+
+	testEndpointID = uint16(1)
 
 	regenerationMetadata = &endpoint.ExternalRegenerationMetadata{
 		Reason: "test",
@@ -97,6 +101,49 @@ func (ds *DaemonSuite) getXDSNetworkPolicies(c *C, resourceNames []string) map[s
 	networkPolicies, err := ds.d.l7Proxy.GetNetworkPolicies(resourceNames)
 	c.Assert(err, IsNil)
 	return networkPolicies
+}
+
+func prepareEndpointDirs() (cleanup func(), err error) {
+	testEPDir := fmt.Sprintf("%d", testEndpointID)
+	if err = os.Mkdir(testEPDir, 755); err != nil {
+		return func() {}, err
+	}
+	return func() {
+		os.RemoveAll(fmt.Sprintf("%s/lxc_config.h", testEPDir))
+		time.Sleep(1 * time.Second)
+		os.RemoveAll(testEPDir)
+		os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))
+	}, nil
+}
+
+func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
+	e := endpoint.NewEndpointWithState(testEndpointID, endpoint.StateWaitingForIdentity)
+	e.IfName = "dummy1"
+	if qa {
+		e.IPv6 = QAIPv6Addr
+		e.IPv4 = QAIPv4Addr
+		e.LXCMAC = QAHardAddr
+		e.SetNodeMACLocked(QAHardAddr)
+	} else {
+		e.IPv6 = ProdIPv6Addr
+		e.IPv4 = ProdIPv4Addr
+		e.LXCMAC = ProdHardAddr
+		e.SetNodeMACLocked(ProdHardAddr)
+	}
+	identityChangedWG := ds.d.ClearPolicyConsumers(e.ID)
+	identityChangedWG.Wait()
+	e.SetIdentity(identity)
+
+	wg := ds.d.policy.UpdateLocalConsumers([]policy.Endpoint{e})
+	wg.Wait()
+	e.UnconditionalLock()
+	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
+	e.Unlock()
+	c.Assert(ready, Equals, true)
+	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
+	c.Assert(buildSuccess, Equals, true)
+
+	return e
 }
 
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
@@ -156,78 +203,40 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	_, err3 := ds.d.PolicyAdd(rules, nil)
 	c.Assert(err3, Equals, nil)
 
+	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), qaBarLbls)
 	c.Assert(err, Equals, nil)
 	defer cache.Release(context.Background(), qaBarSecLblsCtx)
-
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
 	prodBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), prodBarLbls)
 	c.Assert(err, Equals, nil)
 	defer cache.Release(context.Background(), prodBarSecLblsCtx)
-
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), qaFooLbls)
 	c.Assert(err, Equals, nil)
 	defer cache.Release(context.Background(), qaFooSecLblsCtx)
-
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
 	prodFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), prodFooLbls)
 	c.Assert(err, Equals, nil)
 	defer cache.Release(context.Background(), prodFooSecLblsCtx)
-
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
 	prodFooJoeSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
 	defer cache.Release(context.Background(), prodFooJoeSecLblsCtx)
 
-	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
-	e.IfName = "dummy1"
-	e.IPv6 = QAIPv6Addr
-	e.IPv4 = QAIPv4Addr
-	e.LXCMAC = QAHardAddr
-	e.SetNodeMACLocked(QAHardAddr)
+	// Prepare endpoints
+	cleanup, err2 := prepareEndpointDirs()
+	c.Assert(err2, Equals, nil)
+	defer cleanup()
 
-	err2 := os.Mkdir("1", 755)
-	c.Assert(err2, IsNil)
-	defer func() {
-		os.RemoveAll("1/lxc_config.h")
-		time.Sleep(1 * time.Second)
-		os.RemoveAll("1")
-		os.RemoveAll("1_backup")
-	}()
-	e.SetIdentity(qaBarSecLblsCtx)
-
-	wg := ds.d.policy.UpdateLocalConsumers([]policy.Endpoint{e})
-	wg.Wait()
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
-	c.Assert(buildSuccess, Equals, true)
+	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(qaFooSecLblsCtx.ID), Equals, true)
 	c.Assert(e.Allows(prodFooSecLblsCtx.ID), Equals, false)
 
-	e = endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
-	e.IfName = "dummy1"
-	e.IPv6 = ProdIPv6Addr
-	e.IPv4 = ProdIPv4Addr
-	e.LXCMAC = ProdHardAddr
-	e.SetNodeMACLocked(ProdHardAddr)
-	identityChangedWG := ds.d.ClearPolicyConsumers(e.ID)
-	identityChangedWG.Wait()
-	e.SetIdentity(prodBarSecLblsCtx)
-	wg = ds.d.policy.UpdateLocalConsumers([]policy.Endpoint{e})
-	wg.Wait()
-	e.UnconditionalLock()
-	ready = e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
-	buildSuccess = <-e.Regenerate(ds.d, regenerationMetadata)
-	c.Assert(buildSuccess, Equals, true)
+	e = ds.prepareEndpoint(c, prodBarSecLblsCtx, false)
 	c.Assert(e.Allows(0), Equals, false)
 	c.Assert(e.Allows(qaBarSecLblsCtx.ID), Equals, false)
 	c.Assert(e.Allows(prodBarSecLblsCtx.ID), Equals, false)
@@ -438,28 +447,12 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(err, Equals, nil)
 	defer cache.Release(context.Background(), qaBarSecLblsCtx)
 
+	cleanup, err2 := prepareEndpointDirs()
+	c.Assert(err2, Equals, nil)
+	defer cleanup()
+
 	// Create the endpoint and generate its policy.
-	e := endpoint.NewEndpointWithState(1, endpoint.StateWaitingForIdentity)
-	e.IfName = "dummy1"
-	e.IPv6 = QAIPv6Addr
-	e.IPv4 = QAIPv4Addr
-	e.LXCMAC = QAHardAddr
-	e.SetNodeMACLocked(QAHardAddr)
-	err2 := os.Mkdir("1", 755)
-	c.Assert(err2, IsNil)
-	defer func() {
-		os.RemoveAll("1/lxc_config.h")
-		time.Sleep(1 * time.Second)
-		os.RemoveAll("1")
-		os.RemoveAll("1_backup")
-	}()
-	e.SetIdentity(qaBarSecLblsCtx)
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
-	c.Assert(buildSuccess, Equals, true)
+	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
 
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies.
