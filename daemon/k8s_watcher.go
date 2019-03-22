@@ -878,7 +878,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	_, namespaceController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
-		&v1.Node{},
+		&v1.Namespace{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			// AddFunc does not matter since the endpoint will fetch
