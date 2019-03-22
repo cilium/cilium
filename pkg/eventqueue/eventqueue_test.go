@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/testutils"
 	. "gopkg.in/check.v1"
 )
 
@@ -36,11 +37,22 @@ func (s *EventQueueSuite) TestNewEventQueue(c *C) {
 	c.Assert(q.close, Not(IsNil))
 	c.Assert(q.events, Not(IsNil))
 	c.Assert(q.drain, Not(IsNil))
+	c.Assert(q.started, Not(IsNil))
 	c.Assert(cap(q.events), Equals, 1)
+}
+
+func (s *EventQueueSuite) TestStarted(c *C) {
+	q := NewEventQueue()
+	c.Assert(q.IsStarted(), Equals, false)
+	q.run()
+	testutils.WaitUntil(func() bool {
+		return q.IsStarted() == true
+	}, time.Second*5)
 }
 
 func (s *EventQueueSuite) TestCloseEventQueueMultipleTimes(c *C) {
 	q := NewEventQueue()
+	q.run()
 	q.Stop()
 	// Closing event queue twice should not cause panic.
 	q.Stop()
@@ -48,7 +60,7 @@ func (s *EventQueueSuite) TestCloseEventQueueMultipleTimes(c *C) {
 
 func (s *EventQueueSuite) TestDrained(c *C) {
 	q := NewEventQueue()
-	q.Run()
+	q.run()
 
 	// Stopping queue should drain it as well.
 	q.Stop()
@@ -79,7 +91,6 @@ func (d *DummyEvent) Handle(ifc chan interface{}) {
 
 func (s *EventQueueSuite) TestEventCancelAfterQueueClosed(c *C) {
 	q := NewEventQueue()
-	q.Run()
 	ev := NewEvent(&DummyEvent{})
 	q.Enqueue(ev)
 
@@ -111,8 +122,6 @@ func CreateHangEvent() *NewHangEvent {
 
 func (s *EventQueueSuite) TestDrain(c *C) {
 	q := NewEventQueue()
-	q.Run()
-
 	nh1 := CreateHangEvent()
 	nh2 := CreateHangEvent()
 	nh3 := CreateHangEvent()

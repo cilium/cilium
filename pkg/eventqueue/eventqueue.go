@@ -51,6 +51,10 @@ type EventQueue struct {
 	// as well.
 	drain chan struct{}
 
+	// started is closed after the EventQueue's Run() function is called for
+	// the first time.
+	started chan struct{}
+
 	// eventQueueOnce is used to ensure that the EventQueue business logic can
 	// only be ran once.
 	eventQueueOnce sync.Once
@@ -75,9 +79,10 @@ func NewEventQueue() *EventQueue {
 func NewEventQueueBuffered(numBufferedEvents int) *EventQueue {
 	return &EventQueue{
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
-		events: make(chan *Event, numBufferedEvents),
-		close:  make(chan struct{}),
-		drain:  make(chan struct{}),
+		events:  make(chan *Event, numBufferedEvents),
+		close:   make(chan struct{}),
+		drain:   make(chan struct{}),
+		started: make(chan struct{}),
 	}
 
 }
@@ -155,6 +160,10 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 		return nil
 	}
 
+	// Start the queue if it isn't started yet. If it's already been started,
+	// this is effectively a no-op.
+	q.run()
+
 	// Track that event has been Enqueued.
 	q.closeWaitGroup.Add(1)
 	defer q.closeWaitGroup.Done()
@@ -191,16 +200,16 @@ func (ev *Event) printStats() {
 	}).Debug("EventQueue event processing statistics")
 }
 
-// Run consumes events that have been queued for this EventQueue. It
-// is presumed that the eventQueue is a buffered channel with a length of one
-// (i.e., only one event can be processed at a time). All business logic for
-// handling queued events is contained within this function. The events in the
-// queue must implement the EventHandler interface. If the event queue is
+// run consumes events that have been queued for this EventQueue. It ensures that
+// only one event can be processed at a time for the queue. All business logic
+// for handling queued events is contained within this function. The events in
+// the queue must implement the EventHandler interface. If the event queue is
 // closed, then all events which were queued up, but not processed, are
 // cancelled; any event which is currently being processed will not be
 // cancelled.
-func (q *EventQueue) Run() {
+func (q *EventQueue) run() {
 	go q.eventQueueOnce.Do(func() {
+		close(q.started)
 		for ev := range q.events {
 			select {
 			case <-q.drain:
@@ -253,6 +262,16 @@ func (q *EventQueue) Stop() {
 // been processed or cancelled.
 func (q *EventQueue) IsDrained() <-chan struct{} {
 	return q.close
+}
+
+// IsStarted returns whether the queue is running or not.
+func (q *EventQueue) IsStarted() bool {
+	select {
+	case <-q.started:
+		return true
+	default:
+		return false
+	}
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events

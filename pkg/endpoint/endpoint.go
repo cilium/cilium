@@ -418,7 +418,6 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
-	ep.EventQueue.Run()
 
 	return ep
 }
@@ -488,7 +487,6 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
-	ep.EventQueue.Run()
 
 	return ep, nil
 }
@@ -1068,7 +1066,6 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
-	ep.EventQueue.Run()
 
 	return &ep, nil
 }

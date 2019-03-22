@@ -57,8 +57,6 @@ type Repository struct {
 func NewPolicyRepository() *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered(option.Config.PolicyQueueSize)
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered(option.Config.PolicyQueueSize)
-	repoChangeQueue.Run()
-	ruleReactionQueue.Run()
 	return &Repository{
 		revision:              1,
 		RepositoryChangeQueue: repoChangeQueue,
