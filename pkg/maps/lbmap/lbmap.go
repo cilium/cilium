@@ -779,9 +779,11 @@ func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2
 	}
 
 	for _, b := range backends {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>> adding", b)
 		if err := updateBackend(b); err != nil {
 			return fmt.Errorf("TODO: %s", err)
 		}
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>> added", b)
 	}
 
 	for nsvc, v := range serviceValues {
@@ -807,7 +809,7 @@ func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2
 		}()
 	}
 
-	err = updateMasterServiceV2(serviceKey, len(serviceValues), nNonZeroWeights)
+	err = updateMasterServiceV2(serviceKey, len(serviceValues), nNonZeroWeights, revNATID)
 	if err != nil {
 		return fmt.Errorf("unable to update service %+v: %s", serviceKey, err)
 	}
@@ -934,12 +936,13 @@ func updateServiceV2(key *Service4KeyV2, value *Service4ValueV2) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-func updateMasterServiceV2(fe *Service4KeyV2, nbackends int, nonZeroWeights uint16) error {
+func updateMasterServiceV2(fe *Service4KeyV2, nbackends int, nonZeroWeights uint16, revNATID int) error {
 	fe.SetSlave(0)
 	//zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue := fe.NewValue().(*Service4ValueV2)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetWeight(nonZeroWeights)
+	zeroValue.SetRevNat(revNATID)
 
 	return updateServiceV2(fe, zeroValue)
 }

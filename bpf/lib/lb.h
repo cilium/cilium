@@ -672,8 +672,11 @@ static inline struct lb4_service_v2 *lb4_lookup_service_v2(struct __sk_buff *skb
 {
 	struct lb4_service_v2 *svc = __lb4_lookup_service_v2(key);
 
+
 	if (!svc)
 		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
+
+	//cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, svc->count, svc->rev_nat_index);
 	return svc;
 }
 
@@ -785,13 +788,15 @@ static inline int __inline__ lb4_local_v2(void *map, struct __sk_buff *skb,
 	if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
 		if ((svc = lb4_lookup_service_v2(skb, key)) == NULL) {
 			tuple->flags = flags;
-			return DROP_NO_SERVICE;
+			return DROP_NO_TUNNEL_ENDPOINT;
+			//return DROP_NO_SERVICE;
 		}
 		state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
 		ct_update4_slave(map, tuple, state);
         // TODO(brb) There was probably a bug in the previous implementation
 	    if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
-            return DROP_NO_SERVICE;
+            return DROP_UNKNOWN_CT;
+            //return DROP_NO_SERVICE;
         }
 	}
 

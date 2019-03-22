@@ -40,12 +40,16 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 
 	revNATID := int(feCilium.ID)
 
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UpdateServiceV2")
+
 	if err := lbmap.UpdateServiceV2(svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
 		return err
 	}
+
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UpdateService")
 
 	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID); err != nil {
 		// TODO(brb) probably remove SVC v2?
@@ -119,13 +123,14 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	}
 
 	// Acquire ID for each backend
-	for _, b := range beCpy {
+	for i, b := range beCpy {
 		beAddr, err := service.AcquireBackendID(b.L3n4Addr)
 		if err != nil {
 			return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
 				b, err)
 		}
-		b.ID = beAddr.ID
+		fmt.Println("!!!!!!!!!!!!!!!!!!!!\n\nacquired ID:", beAddr, beAddr.ID)
+		beCpy[i].ID = beAddr.ID
 	}
 
 	svc := loadbalancer.LBSVC{

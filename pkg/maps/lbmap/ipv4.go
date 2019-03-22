@@ -133,7 +133,7 @@ type Service4Key struct {
 }
 
 func (k Service4Key) IsIPv6() bool               { return false }
-func (k Service4Key) Map() *bpf.Map              { return Service4MapV2 }
+func (k Service4Key) Map() *bpf.Map              { return Service4Map }
 func (k Service4Key) RRMap() *bpf.Map            { return RRSeq4MapV2 }
 func (k Service4Key) NewValue() bpf.MapValue     { return &Service4Value{} }
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
