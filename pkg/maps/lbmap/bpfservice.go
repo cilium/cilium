@@ -239,6 +239,7 @@ func (l *lbmapCache) addServiceV2(svcID string, backendIDs []uint16) (map[uint16
 
 	existingBackendIDs, found := l.svcBackendsByID[svcID]
 	if !found {
+		fmt.Println("ADDDDDDDDING\n!!!!!!!!!!!!!!\n!!!!!!!!!!!!!!!!", svcID)
 		existingBackendIDs = map[uint16]struct{}{}
 		l.svcBackendsByID[svcID] = existingBackendIDs
 	}

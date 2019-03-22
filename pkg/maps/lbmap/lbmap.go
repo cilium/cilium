@@ -758,7 +758,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID) error {
 	for i := 0; i <= count; i++ {
 		svcKey.SetSlave(i)
 		if err := svcKey.MapDelete(); err != nil {
-			return err
+			return fmt.Errorf("OMG: %s: %s", svcKey, err)
 		}
 	}
 

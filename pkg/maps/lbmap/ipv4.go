@@ -354,7 +354,7 @@ func (k *Service4KeyV2) ToHost() *Service4KeyV2 {
 }
 
 func (k *Service4KeyV2) MapDelete() error {
-	return k.Map().Delete(k)
+	return k.Map().Delete(k.ToNetwork())
 }
 
 func (k *Service4KeyV2) RevNatValue() *RevNat4Value {
