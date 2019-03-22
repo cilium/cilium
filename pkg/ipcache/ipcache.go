@@ -192,9 +192,8 @@ func allowOverwrite(existing, new Source) bool {
 		return new == FromKVStore || new == FromAgentLocal
 	case FromAgentLocal:
 		return new == FromAgentLocal
-
 	case FromCIDR:
-		return new == FromCIDR
+		return true
 	}
 
 	return true
