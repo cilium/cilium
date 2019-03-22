@@ -18,6 +18,7 @@
 #include <node_config.h>
 #include <netdev_config.h>
 #include <bpf/api.h>
+#include <linux/if_packet.h>
 
 #include <stdint.h>
 #include <stdio.h>
