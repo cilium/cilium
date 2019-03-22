@@ -120,6 +120,7 @@ func ipSecReplacePolicyIn(src, dst *net.IPNet) error {
 
 func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 	var spiWide uint32
+	var mask uint32
 
 	key := getIPSecKeys(dst.IP)
 	if key == nil {
@@ -131,9 +132,17 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 	policy.Dir = dir
 	policy.Src = src
 	policy.Dst = dst
+	// On ingress we use SPI to detremine key to use for decryption on
+	// egress however we need to select the key using the endpoint ID. To
+	// indicate this to the stack we use an extra byte and need a wider mask.
+	if dir == netlink.XFRM_DIR_OUT {
+		mask = linux_defaults.IPsecMarkMask
+	} else {
+		mask = linux_defaults.IPsecMarkMaskIn
+	}
 	policy.Mark = &netlink.XfrmMark{
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkDecrypt),
-		Mask:  linux_defaults.IPsecMarkMask,
+		Mask:  mask,
 	}
 	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
 	return netlink.XfrmPolicyUpdate(policy)

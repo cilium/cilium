@@ -111,6 +111,7 @@ const (
 	initArgMTU
 	initArgIPSec
 	initArgMasquerade
+	initArgEncryptInterface
 	initArgMax
 )
 
@@ -487,6 +488,10 @@ func (d *Daemon) compileBase() error {
 		args[initArgMasquerade] = "true"
 	} else {
 		args[initArgMasquerade] = "false"
+	}
+
+	if option.Config.EncryptInterface != "" {
+		args[initArgEncryptInterface] = option.Config.EncryptInterface
 	}
 
 	if option.Config.Device != "undefined" {

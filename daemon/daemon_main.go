@@ -417,6 +417,9 @@ func init() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
+	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
+	option.BindEnv(option.EncryptInterface)
+
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
@@ -1015,9 +1018,9 @@ func initEnv(cmd *cobra.Command) {
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
 
-	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled {
+	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
 		log.WithField(logfields.Tunnel, option.Config.Tunnel).
-			Fatal("Currently ipsec only works with tunneling enabled.")
+			Fatal("Currently ipsec with tunneling disabled requires option \"encrypt-interface\".")
 	}
 
 	// BPF masquerade specified, rejecting unsupported options for this mode.

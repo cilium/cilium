@@ -114,6 +114,9 @@ const (
 	// EnableTracing enables tracing mode in the agent.
 	EnableTracing = "enable-tracing"
 
+	// EncryptInterface enables encryption on specified interface
+	EncryptInterface = "encrypt-interface"
+
 	// EnvoyLog sets the path to a separate Envoy log file, if any
 	EnvoyLog = "envoy-log"
 
@@ -542,17 +545,18 @@ type IpvlanConfig struct {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
-	BpfDir          string     // BPF template files directory
-	LibDir          string     // Cilium library files directory
-	RunDir          string     // Cilium runtime directory
-	NAT46Prefix     *net.IPNet // NAT46 IPv6 Prefix
-	Device          string     // Receive device
-	DevicePreFilter string     // XDP device
-	ModePreFilter   string     // XDP mode, values: { native | generic }
-	HostV4Addr      net.IP     // Host v4 address of the snooping device
-	HostV6Addr      net.IP     // Host v6 address of the snooping device
-	LBInterface     string     // Set with name of the interface to loadbalance packets from
-	Workloads       []string   // List of Workloads set by the user to used by cilium.
+	BpfDir           string     // BPF template files directory
+	LibDir           string     // Cilium library files directory
+	RunDir           string     // Cilium runtime directory
+	NAT46Prefix      *net.IPNet // NAT46 IPv6 Prefix
+	Device           string     // Receive device
+	DevicePreFilter  string     // XDP device
+	ModePreFilter    string     // XDP mode, values: { native | generic }
+	HostV4Addr       net.IP     // Host v4 address of the snooping device
+	HostV6Addr       net.IP     // Host v6 address of the snooping device
+	LBInterface      string     // Set with name of the interface to loadbalance packets from
+	EncryptInterface string     // Set with name of network facing interface to encrypt
+	Workloads        []string   // List of Workloads set by the user to used by cilium.
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
 
@@ -1098,6 +1102,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
+	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.HostDevice = getHostDevice()
 	c.HTTPIdleTimeout = viper.GetInt(HTTPIdleTimeout)

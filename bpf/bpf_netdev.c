@@ -160,7 +160,7 @@ reverse_proxy6(struct __sk_buff *skb, int l4_off, struct ipv6hdr *ip6, __u8 nh)
 
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
-	struct remote_endpoint_info *info;
+	struct remote_endpoint_info *info = NULL;
 	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -282,6 +282,14 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	if (ipv6_match_prefix_96(dst, &node_ip))
 		return DROP_NON_LOCAL;
 #endif
+#ifdef ENABLE_IPSEC
+	dst = (union v6addr *) &ip6->daddr;
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	if (secctx > UNMANAGED_ID && info && info->key) {
+		set_encrypt_key(skb, info->key);
+		set_identity(skb, secctx);
+	}
+#endif
 	return TC_ACT_OK;
 }
 #endif /* ENABLE_IPV6 */
@@ -363,7 +371,7 @@ reverse_proxy(struct __sk_buff *skb, int l4_off, struct iphdr *ip4, __u8 nh)
 
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
-	struct remote_endpoint_info *info;
+	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
 	void *data, *data_end;
@@ -480,6 +488,13 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	if ((ip4->daddr & IPV4_MASK) == (IPV4_GATEWAY & IPV4_MASK))
 		return DROP_NON_LOCAL;
 #endif
+#ifdef ENABLE_IPSEC
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (secctx > UNMANAGED_ID && info && info->key) {
+		set_encrypt_key(skb, info->key);
+		set_identity(skb, secctx);
+	}
+#endif
 	return TC_ACT_OK;
 #endif
 }
@@ -540,7 +555,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb)
 		/* Pass unknown traffic to the stack */
 		return TC_ACT_OK;
 
-#if defined ENABLE_IPSEC && defined ENCAP_IFINDEX
+#ifdef ENABLE_IPSEC
 	if (1) {
 		__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
 
@@ -551,7 +566,11 @@ static __always_inline int do_netdev(struct __sk_buff *skb)
 			tunnel_endpoint = skb->cb[4];
 			skb->mark = 0;
 			bpf_clear_cb(skb);
+
+#ifdef ENCAP_IFINDEX
 			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+#endif
+			return TC_ACT_OK;
 		}
 	}
 #endif
