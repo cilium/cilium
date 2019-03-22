@@ -521,6 +521,9 @@ func init() {
 	option.BindEnv(option.K8sForceJSONPatch)
 	flags.MarkHidden(option.K8sForceJSONPatch)
 
+	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
+	option.BindEnv(option.K8sWatcherEndpointSelector)
+
 	flags.Bool(option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
 	option.BindEnv(option.KeepConfig)
 
