@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,9 +51,10 @@ func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
 	c.Assert(err, IsNil)
 	c.Assert(replaced, Equals, true)
 
+	// We expect routes to always be replaced
 	replaced, err = replaceNexthopRoute(link, routerNet)
 	c.Assert(err, IsNil)
-	c.Assert(replaced, Equals, false)
+	c.Assert(replaced, Equals, true)
 
 	err = deleteNexthopRoute(link, routerNet)
 	c.Assert(err, IsNil)
