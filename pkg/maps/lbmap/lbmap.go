@@ -528,6 +528,28 @@ func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
 	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, feIP, fePort)
 }
 
+// serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
+func serviceKey2L3n4AddrV2(svcKey *Service4KeyV2) *loadbalancer.L3n4Addr {
+	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
+	var (
+		feIP    net.IP
+		fePort  uint16
+		feProto loadbalancer.L4Type
+	)
+	//if svcKey.IsIPv6() {
+	//	svc6Key := svcKey.(*Service6Key)
+	//	feIP = svc6Key.Address.IP()
+	//	fePort = svc6Key.Port
+	//} else {
+	//svc4Key := svcKey.(*Service4Key)
+	svc4Key := svcKey
+	feIP = svc4Key.Address.IP()
+	fePort = svc4Key.Port
+	feProto = loadbalancer.L4Type(u8proto.U8proto(svc4Key.Proto).String())
+	//}
+	return loadbalancer.NewL3n4Addr(feProto, feIP, fePort)
+}
+
 // serviceKeynValue2FEnBE converts the given svcKey and svcValue to a frontend in the
 // form of L3n4AddrID and backend in the form of L3n4Addr.
 func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
@@ -559,6 +581,46 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 
 	feL3n4Addr := serviceKey2L3n4Addr(svcKey)
 	beLBBackEnd := loadbalancer.NewLBBackEnd(loadbalancer.NONE, beIP, bePort, beWeight)
+
+	feL3n4AddrID := &loadbalancer.L3n4AddrID{
+		L3n4Addr: *feL3n4Addr,
+		ID:       svcID,
+	}
+
+	return feL3n4AddrID, beLBBackEnd
+}
+
+func serviceKeynValuenBackendValue2FEnBE(svcKey *Service4KeyV2, svcValue *Service4ValueV2, backendValue *Backend4Value) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
+	var (
+		beIP     net.IP
+		svcID    loadbalancer.ServiceID
+		bePort   uint16
+		beWeight uint16
+		beProto  loadbalancer.L4Type
+	)
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceID: svcKey,
+		logfields.Object:    logfields.Repr(svcValue),
+	}).Debug("converting ServiceKey and ServiceValue to frontend and backend")
+
+	//if svcKey.IsIPv6() {
+	//	svc6Val := svcValue.(*Service6Value)
+	//	svcID = loadbalancer.ServiceID(svc6Val.RevNat)
+	//	beIP = svc6Val.Address.IP()
+	//	bePort = svc6Val.Port
+	//	beWeight = svc6Val.Weight
+	//} else {
+	//svc4Val := svcValue.(*Service4Value)
+	svcID = loadbalancer.ServiceID(svcValue.RevNat)
+	beIP = backendValue.Address.IP()
+	bePort = backendValue.Port
+	beWeight = svcValue.Weight
+	beProto = loadbalancer.L4Type(u8proto.U8proto(svcKey.Proto).String())
+	//}
+
+	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
+	beLBBackEnd := loadbalancer.NewLBBackEnd(beProto, beIP, bePort, beWeight)
 
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
@@ -614,78 +676,78 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 	return err
 }
 
-// DumpServiceMapsToUserspace dumps the contents of both the IPv6 and IPv4
-// service / loadbalancer BPF maps, and converts them to a SVCMap and slice of
-// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled. If
-// includeMasterBackend is true, the returned values will also include services
-// which correspond to "master" backend values in the BPF maps. Returns the
-// errors that occurred while dumping the maps.
-func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
-
-	newSVCMap := loadbalancer.SVCMap{}
-	newSVCList := []*loadbalancer.LBSVC{}
-	errors := []error{}
-	idCache := map[string]loadbalancer.ServiceID{}
-
-	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.(ServiceKey)
-		//It's the frontend service so we don't add this one
-		if svcKey.GetBackend() == 0 && !includeMasterBackend {
-			return
-		}
-		svcValue := value.(ServiceValue)
-
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.BPFMapKey:   svcKey,
-			logfields.BPFMapValue: svcValue,
-		})
-
-		scopedLog.Debug("parsing service mapping")
-		fe, be := serviceKeynValue2FEnBE(svcKey, svcValue)
-
-		// Build a cache to map frontend IP to service ID. The master
-		// service key does not have the service ID set so the cache
-		// needs to be built based on backend key entries.
-		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
-			idCache[fe.String()] = loadbalancer.ServiceID(k)
-		}
-
-		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
-		newSVCList = append(newSVCList, svc)
-	}
-
-	mutex.RLock()
-	defer mutex.RUnlock()
-
-	if option.Config.EnableIPv4 {
-		err := Service4Map.DumpWithCallback(parseSVCEntries)
-		if err != nil {
-			errors = append(errors, err)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		err := Service6Map.DumpWithCallback(parseSVCEntries)
-		if err != nil {
-			errors = append(errors, err)
-		}
-	}
-
-	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
-	// not all BPF map entries contain the service ID. Do a pass over all
-	// parsed entries and fill in the service ID
-	for i := range newSVCList {
-		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
-	}
-
-	// Do the same for the svcMap
-	for key, svc := range newSVCMap {
-		svc.FE.ID = idCache[svc.FE.String()]
-		newSVCMap[key] = svc
-	}
-
-	return newSVCMap, newSVCList, errors
-}
+//// DumpServiceMapsToUserspace dumps the contents of both the IPv6 and IPv4
+//// service / loadbalancer BPF maps, and converts them to a SVCMap and slice of
+//// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled. If
+//// includeMasterBackend is true, the returned values will also include services
+//// which correspond to "master" backend values in the BPF maps. Returns the
+//// errors that occurred while dumping the maps.
+//func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+//
+//	newSVCMap := loadbalancer.SVCMap{}
+//	newSVCList := []*loadbalancer.LBSVC{}
+//	errors := []error{}
+//	idCache := map[string]loadbalancer.ServiceID{}
+//
+//	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
+//		svcKey := key.(ServiceKey)
+//		//It's the frontend service so we don't add this one
+//		if svcKey.GetBackend() == 0 && !includeMasterBackend {
+//			return
+//		}
+//		svcValue := value.(ServiceValue)
+//
+//		scopedLog := log.WithFields(logrus.Fields{
+//			logfields.BPFMapKey:   svcKey,
+//			logfields.BPFMapValue: svcValue,
+//		})
+//
+//		scopedLog.Debug("parsing service mapping")
+//		fe, be := serviceKeynValue2FEnBE(svcKey, svcValue)
+//
+//		// Build a cache to map frontend IP to service ID. The master
+//		// service key does not have the service ID set so the cache
+//		// needs to be built based on backend key entries.
+//		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
+//			idCache[fe.String()] = loadbalancer.ServiceID(k)
+//		}
+//
+//		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
+//		newSVCList = append(newSVCList, svc)
+//	}
+//
+//	mutex.RLock()
+//	defer mutex.RUnlock()
+//
+//	if option.Config.EnableIPv4 {
+//		err := Service4Map.DumpWithCallback(parseSVCEntries)
+//		if err != nil {
+//			errors = append(errors, err)
+//		}
+//	}
+//
+//	if option.Config.EnableIPv6 {
+//		err := Service6Map.DumpWithCallback(parseSVCEntries)
+//		if err != nil {
+//			errors = append(errors, err)
+//		}
+//	}
+//
+//	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
+//	// not all BPF map entries contain the service ID. Do a pass over all
+//	// parsed entries and fill in the service ID
+//	for i := range newSVCList {
+//		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+//	}
+//
+//	// Do the same for the svcMap
+//	for key, svc := range newSVCMap {
+//		svc.FE.ID = idCache[svc.FE.String()]
+//		newSVCMap[key] = svc
+//	}
+//
+//	return newSVCMap, newSVCList, errors
+//}
 
 // DumpRevNATMapsToUserspace dumps the contents of both the IPv6 and IPv4
 // revNAT BPF maps, and stores the contents of said dumps in a RevNATMap.
@@ -734,6 +796,8 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 func RestoreService(svc loadbalancer.LBSVC) error {
 	return cache.restoreService(svc)
 }
+
+// TODO(brb) ^^
 
 ///////////////////////////////////////////////////////////////////////////////
 // v2                                                                        //
@@ -875,8 +939,7 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 		}
 	}
 
-	// TODO(brb): remove and add backends
-	// TODO(brb): refcount backends
+	// TODO(brb) fix gaps ^^
 	// TODO(brb) return to be released backend IDs
 
 	return nil
@@ -1043,4 +1106,88 @@ func lookupAndDeleteServiceWeightsV2(key *Service4KeyV2) error {
 	}
 
 	return key.RRMap().Delete(key.ToNetwork())
+}
+
+func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+	newSVCMap := loadbalancer.SVCMap{}
+	newSVCList := []*loadbalancer.LBSVC{}
+	errors := []error{}
+	idCache := map[string]loadbalancer.ServiceID{}
+
+	backendValueMap := map[uint16]*Backend4Value{}
+
+	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		backendKey := key.(*Backend4Key)
+		backendValue := value.(*Backend4Value)
+		backendValueMap[backendKey.ID] = backendValue
+	}
+
+	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		svcKey := key.(*Service4KeyV2)
+		//It's the frontend service so we don't add this one
+		if svcKey.GetSlave() == 0 && !includeMasterBackend {
+			return
+		}
+		svcValue := value.(*Service4ValueV2)
+
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.BPFMapKey:   svcKey,
+			logfields.BPFMapValue: svcValue,
+		})
+
+		backendValue, found := backendValueMap[svcValue.GetBackendID()]
+		if !found {
+			// TODO(brb) return an error?
+			return
+		}
+
+		scopedLog.Debug("parsing service mapping")
+		fe, be := serviceKeynValuenBackendValue2FEnBE(svcKey, svcValue, backendValue)
+
+		// Build a cache to map frontend IP to service ID. The master
+		// service key does not have the service ID set so the cache
+		// needs to be built based on backend key entries.
+		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
+			idCache[fe.String()] = loadbalancer.ServiceID(k)
+		}
+
+		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetSlave())
+		newSVCList = append(newSVCList, svc)
+	}
+
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	if option.Config.EnableIPv4 {
+		err := Backend4Map.DumpWithCallback(parseBackendEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
+		err = Service4MapV2.DumpWithCallback(parseSVCEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	//if option.Config.EnableIPv6 {
+	//	err := Service6Map.DumpWithCallback(parseSVCEntries)
+	//	if err != nil {
+	//		errors = append(errors, err)
+	//	}
+	//}
+
+	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
+	// not all BPF map entries contain the service ID. Do a pass over all
+	// parsed entries and fill in the service ID
+	for i := range newSVCList {
+		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+	}
+
+	// Do the same for the svcMap
+	for key, svc := range newSVCMap {
+		svc.FE.ID = idCache[svc.FE.String()]
+		newSVCMap[key] = svc
+	}
+
+	return newSVCMap, newSVCList, errors
 }

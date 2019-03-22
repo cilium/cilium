@@ -49,7 +49,7 @@ var (
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := Service4Key{}, Service4Value{}
+			svcKey, svcVal := Service4KeyV2{}, Service4ValueV2{}
 
 			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
 				return nil, nil, err
@@ -381,6 +381,7 @@ func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
 func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
 func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
 func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
+func (s *Service4ValueV2) GetBackendID() uint16    { return s.BackendID }
 
 // ToNetwork converts Service4ValueV2 to network byte order.
 func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {

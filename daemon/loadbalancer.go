@@ -41,16 +41,12 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 	revNATID := int(feCilium.ID)
 	svcID := feCilium.String()
 
-	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UpdateServiceV2")
-
 	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
 		return err
 	}
-
-	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! UpdateService")
 
 	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID); err != nil {
 		// TODO(brb) probably remove SVC v2?
@@ -516,14 +512,11 @@ func openServiceMaps() error {
 	return nil
 }
 
-func restoreServicesV2() {
-	panic("NYI")
-}
-
 func restoreServiceIDs() {
 	failed, restored, skipped := 0, 0, 0
 
 	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true)
+
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occured while dumping service table from datapath")
 	}
@@ -547,6 +540,9 @@ func restoreServiceIDs() {
 			})
 
 			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
+
+			// TODO(brb) Restore Backend ID
+
 			if err != nil {
 				failed++
 				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
