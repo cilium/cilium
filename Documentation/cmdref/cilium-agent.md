@@ -74,6 +74,7 @@ cilium-agent [flags]
       --k8s-kubeconfig-path string                  Absolute path of the kubernetes kubeconfig file
       --k8s-require-ipv4-pod-cidr                   Require IPv4 PodCIDR to be specified in node resource
       --k8s-require-ipv6-pod-cidr                   Require IPv6 PodCIDR to be specified in node resource
+      --k8s-watcher-endpoint-selector string        K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager")
       --k8s-watcher-queue-size uint                 Queue size used to serialize each k8s event type (default 1024)
       --keep-bpf-templates                          Do not restore BPF template files from binary
       --keep-config                                 When restoring state, keeps containers' configuration in place

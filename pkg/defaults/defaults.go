@@ -177,4 +177,8 @@ const (
 	// SelectiveRegeneration specifies whether regeneration of endpoints will be
 	// invoked only for endpoints which are selected by policy changes.
 	SelectiveRegeneration = true
+
+	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
+	// should watch for.
+	K8sWatcherEndpointSelector = "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"
 )

@@ -155,6 +155,10 @@ const (
 	// status in kube-apiserver.
 	K8sForceJSONPatch = "k8s-force-json-patch"
 
+	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
+	// should watch for.
+	K8sWatcherEndpointSelector = "k8s-watcher-endpoint-selector"
+
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer = "k8s-api-server"
 
@@ -744,6 +748,7 @@ type DaemonConfig struct {
 	K8sAPIServer                      string
 	K8sKubeConfigPath                 string
 	K8sLegacyHostAllowsWorld          string
+	K8sWatcherEndpointSelector        string
 	KVStore                           string
 	KVStoreOpt                        map[string]string
 	LabelPrefixFile                   string
