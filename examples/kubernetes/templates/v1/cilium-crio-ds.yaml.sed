@@ -143,8 +143,7 @@ spec:
       hostNetwork: true
       hostPID: false
       initContainers:
-      - command:
-        - /init-container.sh
+      - command: ['sh', '-c', 'cilium cleanup -f']
         env:
         - name: CLEAN_CILIUM_STATE
           valueFrom:
