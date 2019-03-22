@@ -118,9 +118,6 @@ func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
 func (c *cache) start(a *Allocator) waitChan {
 	listDone := make(waitChan)
 
-	logger := c.getLogger()
-	logger.Info("Starting to watch allocation changes")
-
 	c.mutex.Lock()
 
 	// start with a fresh nextCache
@@ -131,6 +128,10 @@ func (c *cache) start(a *Allocator) waitChan {
 	c.stopWatchWg.Add(1)
 
 	go func() {
+		<-c.backend.Connected()
+		logger := c.getLogger()
+		logger.Info("Starting to watch allocation changes")
+
 		watcher := c.backend.ListAndWatch(c.prefix, c.prefix, 512)
 
 		for {
@@ -163,11 +164,11 @@ func (c *cache) start(a *Allocator) waitChan {
 						var err error
 						key, err = a.keyType.PutKey(string(event.Value))
 						if err != nil {
-							logger.WithError(err).WithField(fieldKey, event.Value).
+							c.getLogger().WithError(err).WithField(fieldKey, event.Value).
 								Warning("Unable to unmarshal allocator key")
 						}
 					}
-					debugFields := logger.WithFields(logrus.Fields{fieldKey: key, fieldID: id})
+					debugFields := c.getLogger().WithFields(logrus.Fields{fieldKey: key, fieldID: id})
 
 					switch event.Typ {
 					case kvstore.EventTypeCreate:
