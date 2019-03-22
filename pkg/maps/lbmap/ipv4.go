@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -40,6 +41,55 @@ var (
 
 			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
 		}).WithCache()
+
+	Service4MapV2 = bpf.NewMap("cilium_lb4_services_v2",
+		bpf.MapTypeHash,
+		int(unsafe.Sizeof(Service4KeyV2{})),
+		int(unsafe.Sizeof(Service4ValueV2{})),
+		MaxEntries,
+		0, 0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := Service4Key{}, Service4Value{}
+
+			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+				return nil, nil, err
+			}
+
+			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
+		}).WithCache()
+
+	RRSeq4MapV2 = bpf.NewMap("cilium_lb4_rr_seq_v2",
+		bpf.MapTypeHash,
+		int(unsafe.Sizeof(Service4KeyV2{})),
+		int(unsafe.Sizeof(RRSeqValue{})),
+		maxFrontEnds,
+		0, 0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, rrSeqVal := Service4KeyV2{}, RRSeqValue{}
+
+			if err := bpf.ConvertKeyValue(key, value, &svcKey, &rrSeqVal); err != nil {
+				return nil, nil, err
+			}
+
+			return svcKey.ToNetwork(), &rrSeqVal, nil
+		}).WithCache()
+
+	Backend4Map = bpf.NewMap("cilium_lb4_backends",
+		bpf.MapTypeHash,
+		int(unsafe.Sizeof(Backend4Key{})),
+		int(unsafe.Sizeof(Backend4Value{})),
+		MaxEntries,
+		0, 0,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			backendKey, backendVal := Backend4Key{}, Backend4Value{}
+
+			if err := bpf.ConvertKeyValue(key, value, &backendKey, &backendVal); err != nil {
+				return nil, nil, err
+			}
+
+			return &backendKey, backendVal.ToNetwork(), nil
+		}).WithCache()
+
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		int(unsafe.Sizeof(RevNat4Key{})),
@@ -82,18 +132,9 @@ type Service4Key struct {
 	Slave   uint16     `align:"slave"`
 }
 
-// Service4Key must match 'struct lb4_key_v2' in "bpf/lib/common.h".
-type Service4KeyV2 struct {
-	Address types.IPv4 `align:"address"`
-	Port    uint16     `align:"dport"`
-	Slave   uint16     `align:"slave"`
-	Proto   uint8      `align:"proto"`
-	Pad     uint8
-}
-
 func (k Service4Key) IsIPv6() bool               { return false }
-func (k Service4Key) Map() *bpf.Map              { return Service4Map }
-func (k Service4Key) RRMap() *bpf.Map            { return RRSeq4Map }
+func (k Service4Key) Map() *bpf.Map              { return Service4MapV2 }
+func (k Service4Key) RRMap() *bpf.Map            { return RRSeq4MapV2 }
 func (k Service4Key) NewValue() bpf.MapValue     { return &Service4Value{} }
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service4Key) GetPort() uint16           { return k.Port }
@@ -148,21 +189,6 @@ type Service4Value struct {
 	Count   uint16     `align:"count"`
 	RevNat  uint16     `align:"rev_nat_index"`
 	Weight  uint16     `align:"weight"`
-}
-
-// Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
-type Service4ValueV2 struct {
-	Count     uint16 `align:"count"`
-	BackendID uint16 `align:"backend_index"`
-	RevNat    uint16 `align:"rev_nat_index"`
-	Weight    uint16 `align:"weight"`
-}
-
-type Backend4 struct {
-	Address types.IPv4 `align:"address"`
-	Port    uint16     `align:"port"`
-	Proto   uint8      `align:"proto"`
-	Pad     uint8
 }
 
 func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16, weight uint16) *Service4Value {
@@ -270,3 +296,185 @@ func NewRevNat4Value(ip net.IP, port uint16) *RevNat4Value {
 
 	return &revNat
 }
+
+//////////////////////////////////////////////////////////////////////////////
+// v2                                                                       //
+//////////////////////////////////////////////////////////////////////////////
+
+// Service4KeyV2 must match 'struct lb4_key_v2' in "bpf/lib/common.h".
+type Service4KeyV2 struct {
+	Address types.IPv4 `align:"address"`
+	Port    uint16     `align:"dport"`
+	Slave   uint16     `align:"slave"`
+	Proto   uint8      `align:"proto"`
+	Pad     uint8
+}
+
+func NewService4KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service4KeyV2 {
+	key := Service4KeyV2{
+		Port:  port,
+		Proto: uint8(proto),
+		Slave: slave,
+	}
+
+	copy(key.Address[:], ip.To4())
+
+	return &key
+}
+
+//func (k Service4KeyV2) IsIPv6() bool               { return false }
+func (k *Service4KeyV2) Map() *bpf.Map             { return Service4MapV2 }
+func (k *Service4KeyV2) RRMap() *bpf.Map           { return RRSeq4MapV2 }
+func (k *Service4KeyV2) NewValue() bpf.MapValue    { return &Service4ValueV2{} }
+func (k *Service4KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+//func (k *Service4KeyV2) GetPort() uint16           { return k.Port }
+//func (k *Service4KeyV2) SetPort(port uint16)       { k.Port = port }
+
+func (k *Service4KeyV2) SetSlave(slave int) { k.Slave = uint16(slave) }
+func (k *Service4KeyV2) GetSlave() int      { return int(k.Slave) }
+
+func (k *Service4KeyV2) String() string {
+	// TODO(brb) Add proto
+	return fmt.Sprintf("%s:%d", k.Address, k.Port)
+}
+
+// ToNetwork converts Service4KeyV2 port to network byte order.
+func (k *Service4KeyV2) ToNetwork() *Service4KeyV2 {
+	n := *k
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	return &n
+}
+
+// ToHost converts Service4KeyV2 port to network byte order.
+func (k *Service4KeyV2) ToHost() *Service4KeyV2 {
+	n := *k
+	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
+	return &n
+}
+
+func (k *Service4KeyV2) MapDelete() error {
+	return k.Map().Delete(k)
+}
+
+func (k *Service4KeyV2) RevNatValue() *RevNat4Value {
+	return &RevNat4Value{
+		Address: k.Address,
+		Port:    k.Port,
+	}
+}
+
+// Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
+type Service4ValueV2 struct {
+	Count     uint16 `align:"count"`
+	BackendID uint16 `align:"backend_index"`
+	RevNat    uint16 `align:"rev_nat_index"`
+	Weight    uint16 `align:"weight"`
+}
+
+func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
+
+//func (s *Service4ValueV2) SetPort(port uint16)         { s.Port = port }
+func (s *Service4ValueV2) SetCount(count int)      { s.Count = uint16(count) }
+func (s *Service4ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
+func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
+func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
+func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
+func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
+
+//
+//func (s *Service4ValueV2) SetAddress(ip net.IP) error {
+//	ip4 := ip.To4()
+//	if ip4 == nil {
+//		return fmt.Errorf("Not an IPv4 address")
+//	}
+//	copy(s.Address[:], ip4)
+//	return nil
+//}
+
+// ToNetwork converts Service4ValueV2 to network byte order.
+func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {
+	n := *s
+	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
+	//n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	// TODO(brb) what's about backend ID?
+	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
+	return &n
+}
+
+//// ToHost converts Service4ValueV2 to host byte order.
+//func (s *Service4ValueV2) ToHost() ServiceValue {
+//	n := *s
+//	n.RevNat = byteorder.NetworkToHost(n.RevNat).(uint16)
+//	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
+//	n.Weight = byteorder.NetworkToHost(n.Weight).(uint16)
+//	return &n
+//}
+
+func (s *Service4ValueV2) RevNatKey() *RevNat4Key {
+	return &RevNat4Key{s.RevNat}
+}
+
+func (s *Service4ValueV2) String() string {
+	return fmt.Sprintf("%d (%d)", s.BackendID, s.RevNat)
+}
+
+type Backend4Key struct {
+	ID uint16
+}
+
+func NewBackend4Key(id uint16) *Backend4Key {
+	return &Backend4Key{ID: id}
+}
+
+func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
+func (k *Backend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *Backend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
+
+// Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
+type Backend4Value struct {
+	Address types.IPv4      `align:"address"`
+	Port    uint16          `align:"port"`
+	Proto   u8proto.U8proto `align:"proto"`
+	Pad     uint8
+}
+
+func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+func (v *Backend4Value) String() string {
+	// TODO(brb) v.Port.ToHost()?
+	return fmt.Sprintf("%s://%s:%d", v.Proto, v.Address, v.Port)
+}
+
+// ToNetwork converts Backend4Value to network byte order.
+func (v *Backend4Value) ToNetwork() *Backend4Value {
+	n := *v
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	return &n
+}
+
+type Backend4 struct {
+	Key   *Backend4Key
+	Value *Backend4Value
+}
+
+func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return nil, fmt.Errorf("Not an IPv4 address")
+	}
+
+	backend := Backend4{
+		Key: NewBackend4Key(id),
+		// TODO(brb) NewBackend4Value
+		Value: &Backend4Value{
+			Port:  port,
+			Proto: proto,
+		},
+	}
+	copy(backend.Value.Address[:], ip.To4())
+
+	return &backend, nil
+}
+
+func (b Backend4) Map() *bpf.Map { return Backend4Map }

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 )
@@ -118,6 +119,25 @@ type ServiceValue interface {
 	ToHost() ServiceValue
 }
 
+// TODO(brb) fix it when adding IPv6 support
+type BackendValue interface {
+	bpf.MapValue
+
+	ID() uint16
+
+	// Returns true if the value is of type IPv6
+	IsIPv6() bool
+
+	// Returns the BPF map matching the key type
+	Map() *bpf.Map
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceKey
+}
+
 type RRSeqValue struct {
 	// Length of Generated sequence
 	Count uint16
@@ -145,6 +165,14 @@ func updateService(key ServiceKey, value ServiceValue) error {
 	}
 
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
+}
+
+func updateBackend(backend *Backend4) error {
+	// TODO(brb) update, m???
+	if _, err := backend.Map().OpenOrCreate(); err != nil {
+		return err
+	}
+	return backend.Map().Update(backend.Key, backend.Value.ToNetwork())
 }
 
 // DeleteService deletes a service from the lbmap. key should be the master (i.e., with backend set to zero).
@@ -386,6 +414,8 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 
 	for nsvc, be := range besValues {
 		fe.SetBackend(nsvc + 1) // service count starts with 1
+		// TODO(brb)
+		//fe.SetProto(..)
 		if err := updateService(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
@@ -705,4 +735,262 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 // guarantee consistent backend ordering
 func RestoreService(svc loadbalancer.LBSVC) error {
 	return cache.restoreService(svc)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// v2                                                                        //
+///////////////////////////////////////////////////////////////////////////////
+
+// UpdateServiceV2 adds or updates the given service (v2) in the bpf maps
+//
+// TODO(brb) merge with UpdateService
+func UpdateServiceV2(serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2,
+	backends []*Backend4, addRevNAT bool, revNATID int) error {
+
+	var (
+		weights         []uint16
+		nNonZeroWeights uint16
+		existingCount   int
+	)
+
+	// TODO(brb) return to be released backend IDs
+
+	log.WithFields(logrus.Fields{
+		"frontend": serviceKey,
+		"backends": serviceValues,
+	}).Debugf("Updating BPF representation of service")
+
+	for _, v := range serviceValues {
+		weights = append(weights, v.GetWeight())
+		if v.GetWeight() != 0 {
+			nNonZeroWeights++
+		}
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Check if the service already exists, it is not failure scenario if
+	// the services doesn't exist. That's simply a new service. Even if the
+	// service cannot be looked up for an existing service, it is still
+	// better to proceed and update the service, at the cost of a slightly
+	// less atomic update.
+	svcValue, err := lookupServiceV2(serviceKey)
+	if err == nil {
+		existingCount = svcValue.GetCount()
+	}
+
+	for _, b := range backends {
+		if err := updateBackend(b); err != nil {
+			return fmt.Errorf("TODO: %s", err)
+		}
+	}
+
+	for nsvc, v := range serviceValues {
+		serviceKey.SetSlave(nsvc + 1) // service count starts with 1
+		if err := updateServiceV2(serviceKey, v); err != nil {
+			return fmt.Errorf("unable to update service %+v with the value %+v: %s", serviceKey, v, err)
+		}
+	}
+
+	if addRevNAT {
+		zeroValue := serviceKey.NewValue().(ServiceValue)
+		zeroValue.SetRevNat(revNATID)
+		revNATKey := zeroValue.RevNatKey()
+		revNATValue := serviceKey.RevNatValue()
+
+		if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+			return fmt.Errorf("unable to update reverse NAT %+v with value %+v, %s", revNATKey, revNATValue, err)
+		}
+		defer func() {
+			if err != nil {
+				deleteRevNatLocked(revNATKey)
+			}
+		}()
+	}
+
+	err = updateMasterServiceV2(serviceKey, len(serviceValues), nNonZeroWeights)
+	if err != nil {
+		return fmt.Errorf("unable to update service %+v: %s", serviceKey, err)
+	}
+
+	err = updateWrrSeqV2(serviceKey, weights)
+	if err != nil {
+		return fmt.Errorf("unable to update service weights for %s with value %+v: %s", serviceKey.String(), weights, err)
+	}
+
+	// Remove old serviceValues that are no longer needed
+	for i := len(serviceValues) + 1; i <= existingCount; i++ {
+		serviceKey.SetSlave(i)
+		if err := deleteServiceLockedV2(serviceKey); err != nil {
+			return fmt.Errorf("unable to delete service %+v: %s", serviceKey, err)
+		}
+	}
+
+	// TODO(brb): remove and add backends
+	// TODO(brb): refcount backends
+
+	return nil
+}
+
+// LBSVC2ServiceKeynValuenBackendValueV2 transforms the SVC Cilium type into a bpf SVC v2 type.
+func LBSVC2ServiceKeynValuenBackendV2(svc loadbalancer.LBSVC) (*Service4KeyV2, []*Service4ValueV2, []*Backend4, error) {
+	log.WithFields(logrus.Fields{
+		"lbFrontend": svc.FE.String(),
+		"lbBackend":  svc.BES,
+	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
+	svcKey, err := l3n4Addr2ServiceKeyV2(svc.FE)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	backends := []*Backend4{}
+	svcValues := []*Service4ValueV2{}
+	for _, be := range svc.BES {
+		//svcValue := svcKey.NewValue().(ServiceValue)
+		svcValue := svcKey.NewValue().(*Service4ValueV2)
+		backend, err := lbBackEnd2Backend(be)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		svcValue.SetRevNat(int(svc.FE.ID))
+		svcValue.SetWeight(be.Weight)
+		// TODO(brb) check whether be.ID is 16bits long!
+		svcValue.SetBackendID(uint16(be.ID))
+
+		backends = append(backends, backend)
+		svcValues = append(svcValues, svcValue)
+		log.WithFields(logrus.Fields{
+			"lbFrontend": svcKey,
+			"lbBackend":  svcValue,
+		}).Debug("associating frontend -> backend")
+	}
+	log.WithFields(logrus.Fields{
+		"lbFrontend":        svc.FE.String(),
+		"lbBackend":         svc.BES,
+		logfields.ServiceID: svcKey,
+		logfields.Object:    logfields.Repr(svcValues),
+	}).Debug("converted LBSVC (frontend -> backend(s)), to Service Key and Value")
+	return svcKey, svcValues, backends, nil
+}
+
+// l3n4Addr2ServiceKeyV2 converts the given l3n4Addr to a ServiceKey (v2) with the slave ID
+// set to 0.
+func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) (*Service4KeyV2, error) {
+	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKey")
+	//if l3n4Addr.IsIPv6() {
+	//	return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
+	//}
+	proto, err := u8proto.ParseProtocol(string(l3n4Addr.Protocol))
+	if err != nil {
+		return nil, fmt.Errorf("invalid protocol %s: %s", l3n4Addr.Protocol, err)
+	}
+
+	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, proto, 0), nil
+}
+
+func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (*Backend4, error) {
+	//if be.IsIPv6() {
+	//	return ...
+	//}
+	proto, err := u8proto.ParseProtocol(string(be.Protocol))
+	if err != nil {
+		return nil, fmt.Errorf("invalid protocol %s: %s", be.Protocol, err)
+	}
+
+	return NewBackend4(uint16(be.ID), be.IP, be.Port, proto)
+}
+
+func lookupServiceV2(key *Service4KeyV2) (*Service4ValueV2, error) {
+	var svc *Service4ValueV2
+
+	val, err := key.Map().Lookup(key.ToNetwork())
+	if err != nil {
+		return nil, err
+	}
+
+	//if key.IsIPv6() {
+	//	svc = val.(*Service6Value)
+	//} else {
+	//	svc = val.(*Service4Value)
+	//}
+
+	svc = val.(*Service4ValueV2)
+
+	return svc.ToNetwork(), nil
+}
+
+func updateServiceV2(key *Service4KeyV2, value *Service4ValueV2) error {
+	log.WithFields(logrus.Fields{
+		"frontend": key,
+		"backend":  value,
+	}).Debug("adding frontend for backend to BPF maps")
+	if key.GetSlave() != 0 && value.RevNatKey().GetKey() == 0 {
+		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
+	}
+	if _, err := key.Map().OpenOrCreate(); err != nil {
+		return err
+	}
+
+	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
+}
+
+func updateMasterServiceV2(fe *Service4KeyV2, nbackends int, nonZeroWeights uint16) error {
+	fe.SetSlave(0)
+	//zeroValue := fe.NewValue().(ServiceValue)
+	zeroValue := fe.NewValue().(*Service4ValueV2)
+	zeroValue.SetCount(nbackends)
+	zeroValue.SetWeight(nonZeroWeights)
+
+	return updateServiceV2(fe, zeroValue)
+}
+
+// updateWrrSeq updates bpf map with the generated wrr sequence.
+func updateWrrSeqV2(fe *Service4KeyV2, weights []uint16) error {
+	sum := uint16(0)
+	for _, v := range weights {
+		sum += v
+	}
+	if sum == 0 {
+		return nil
+	}
+	svcRRSeq, err := generateWrrSeq(weights)
+	if err != nil {
+		return fmt.Errorf("unable to generate weighted round robin seq for %s with value %+v: %s", fe.String(), weights, err)
+	}
+	return updateServiceWeightsV2(fe, svcRRSeq)
+}
+
+// updateServiceWeightsV2 updates cilium_lb6_rr_seq or cilium_lb4_rr_seq bpf maps.
+func updateServiceWeightsV2(key *Service4KeyV2, value *RRSeqValue) error {
+	if _, err := key.RRMap().OpenOrCreate(); err != nil {
+		return err
+	}
+
+	return key.RRMap().Update(key.ToNetwork(), value)
+}
+
+func deleteServiceLockedV2(key *Service4KeyV2) error {
+	err := key.Map().Delete(key.ToNetwork())
+	if err != nil {
+		return err
+	}
+	err = lookupAndDeleteServiceWeightsV2(key)
+	// TODO(brb) perhaps proper delete
+	//if err == nil {
+	//	cache.delete(key)
+	//}
+	return err
+}
+
+// lookupAndDeleteServiceWeightsV2 deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq
+func lookupAndDeleteServiceWeightsV2(key *Service4KeyV2) error {
+	_, err := key.RRMap().Lookup(key.ToNetwork())
+	if err != nil {
+		// Ignore if entry is not found.
+		return nil
+	}
+
+	return key.RRMap().Delete(key.ToNetwork())
 }
