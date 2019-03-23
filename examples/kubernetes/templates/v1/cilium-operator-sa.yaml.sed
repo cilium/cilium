@@ -23,6 +23,7 @@ rules:
   resources:
   - services
   - endpoints
+  - nodes
   verbs:
   - get
   - list
