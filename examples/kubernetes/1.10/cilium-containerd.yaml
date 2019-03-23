@@ -512,17 +512,31 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
-  - deployments
+  # to get k8s version and status
   - componentstatuses
   verbs:
-  - '*'
+  - get
 - apiGroups:
   - ""
   resources:
+  # to automatically delete [core|kube]dns pods so that are starting to being
+  # managed by Cilium
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  # to automatically read from k8s and import the node's pod CIDR to cilium's
+  # etcd so all nodes know how to reach another pod running in in a different
+  # node.
+  - nodes
+  # to perform the translation of a CNP that contains `ToGroup` to its endpoints
   - services
   - endpoints
-  - nodes
   verbs:
   - get
   - list
