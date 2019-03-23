@@ -755,63 +755,96 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	go ciliumV2Controller.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
 
-	_, podController := k8s.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"pods", v1.NamespaceAll, fields.Everything()),
-		&v1.Pod{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { d.k8sEventReceived(metricPod, metricCreate, valid, equal) }()
-				if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
-					valid = true
-					serPods.Enqueue(func() error {
-						err := d.addK8sPodV1(pod)
-						updateK8sEventMetric(metricPod, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { d.k8sEventReceived(metricPod, metricUpdate, valid, equal) }()
-				if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
-					valid = true
-					if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
-						if k8s.EqualV1Pod(oldPod, newPod) {
-							equal = true
-							return
-						}
-
-						serPods.Enqueue(func() error {
-							err := d.updateK8sPodV1(oldPod, newPod)
-							updateK8sEventMetric(metricPod, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { d.k8sEventReceived(metricPod, metricDelete, valid, equal) }()
-				if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
-					valid = true
-					serPods.Enqueue(func() error {
-						err := d.deleteK8sPodV1(pod)
-						updateK8sEventMetric(metricPod, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-		},
-		k8s.ConvertToPod,
-	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, podController, k8sAPIGroupPodV1Core)
-	go podController.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
-
 	asyncControllers := sync.WaitGroup{}
+	asyncControllers.Add(1)
+	go func() {
+		var once sync.Once
+		for {
+			createPodController := func(fieldSelector fields.Selector) cache.Controller {
+				_, podController := k8s.NewInformer(
+					cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+						"pods", v1.NamespaceAll, fieldSelector),
+					&v1.Pod{},
+					0,
+					cache.ResourceEventHandlerFuncs{
+						AddFunc: func(obj interface{}) {
+							var valid, equal bool
+							defer func() { d.k8sEventReceived(metricPod, metricCreate, valid, equal) }()
+							if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
+								valid = true
+								serPods.Enqueue(func() error {
+									err := d.addK8sPodV1(pod)
+									updateK8sEventMetric(metricPod, metricCreate, err == nil)
+									return nil
+								}, serializer.NoRetry)
+							}
+						},
+						UpdateFunc: func(oldObj, newObj interface{}) {
+							var valid, equal bool
+							defer func() { d.k8sEventReceived(metricPod, metricUpdate, valid, equal) }()
+							if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
+								valid = true
+								if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
+									if k8s.EqualV1Pod(oldPod, newPod) {
+										equal = true
+										return
+									}
+
+									serPods.Enqueue(func() error {
+										err := d.updateK8sPodV1(oldPod, newPod)
+										updateK8sEventMetric(metricPod, metricUpdate, err == nil)
+										return nil
+									}, serializer.NoRetry)
+								}
+							}
+						},
+						DeleteFunc: func(obj interface{}) {
+							var valid, equal bool
+							defer func() { d.k8sEventReceived(metricPod, metricDelete, valid, equal) }()
+							if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
+								valid = true
+								serPods.Enqueue(func() error {
+									err := d.deleteK8sPodV1(pod)
+									updateK8sEventMetric(metricPod, metricDelete, err == nil)
+									return nil
+								}, serializer.NoRetry)
+							}
+						},
+					},
+					k8s.ConvertToPod,
+				)
+				return podController
+			}
+			podController := createPodController(fields.Everything())
+
+			isConnected := make(chan struct{})
+			// once isConnected is closed, it will stop waiting on caches to be
+			// synchronized.
+			d.blockWaitGroupToSyncResources(isConnected, podController, k8sAPIGroupPodV1Core)
+			once.Do(func() {
+				asyncControllers.Done()
+				d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+			})
+			go podController.Run(isConnected)
+
+			// Replace pod controller by only receiving events from our own
+			// node once we are connected to the kvstore.
+			<-kvstore.Client().Connected()
+			close(isConnected)
+
+			log.WithField(logfields.Node, node.GetName()).Info("Connected to KVStore, watching for pod events on node")
+			// Only watch for pod events for our node.
+			podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName()))
+			isConnected = make(chan struct{})
+			go podController.Run(isConnected)
+
+			// Create a new pod controller when we are disconnected with the
+			// kvstore
+			<-kvstore.Client().Disconnected()
+			log.Info("Disconnected from KVStore, watching for pod events all nodes")
+		}
+	}()
+
 	asyncControllers.Add(1)
 	go func() {
 		var once sync.Once
