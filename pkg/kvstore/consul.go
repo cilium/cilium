@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -359,6 +359,16 @@ func (c *consulClient) Watch(w *Watcher) {
 			return
 		}
 	}
+}
+
+// Connected unable to implement this in consulClient
+func (c *consulClient) Connected() <-chan struct{} {
+	panic("Connected() not implemented for consul")
+}
+
+// Connected unable to implement this in consulClient
+func (c *consulClient) Disconnected() <-chan struct{} {
+	panic("Disconnected() not implemented for consul")
 }
 
 func (c *consulClient) Status() (string, error) {
