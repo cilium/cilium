@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -809,73 +811,102 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	go podController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
 
-	_, nodeController := k8s.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"nodes", v1.NamespaceAll, fields.Everything()),
-		&v1.Node{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { d.k8sEventReceived(metricNode, metricCreate, valid, equal) }()
-				if Node := k8s.CopyObjToV1Node(obj); Node != nil {
-					valid = true
-					serNodes.Enqueue(func() error {
-						err := d.addK8sNodeV1(Node)
-						updateK8sEventMetric(metricNode, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { d.k8sEventReceived(metricNode, metricUpdate, valid, equal) }()
-				if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
-					valid = true
-					if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
-						if k8s.EqualV1Node(oldNode, newNode) {
-							equal = true
-							return
+	asyncControllers := sync.WaitGroup{}
+	asyncControllers.Add(1)
+	go func() {
+		var once sync.Once
+		for {
+			_, nodeController := k8s.NewInformer(
+				cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+					"nodes", v1.NamespaceAll, fields.Everything()),
+				&v1.Node{},
+				0,
+				cache.ResourceEventHandlerFuncs{
+					AddFunc: func(obj interface{}) {
+						var valid, equal bool
+						defer func() { d.k8sEventReceived(metricNode, metricCreate, valid, equal) }()
+						if Node := k8s.CopyObjToV1Node(obj); Node != nil {
+							valid = true
+							serNodes.Enqueue(func() error {
+								err := d.addK8sNodeV1(Node)
+								updateK8sEventMetric(metricNode, metricCreate, err == nil)
+								return nil
+							}, serializer.NoRetry)
 						}
+					},
+					UpdateFunc: func(oldObj, newObj interface{}) {
+						var valid, equal bool
+						defer func() { d.k8sEventReceived(metricNode, metricUpdate, valid, equal) }()
+						if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
+							valid = true
+							if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
+								if k8s.EqualV1Node(oldNode, newNode) {
+									equal = true
+									return
+								}
 
+								serNodes.Enqueue(func() error {
+									err := d.updateK8sNodeV1(oldNode, newNode)
+									updateK8sEventMetric(metricNode, metricUpdate, err == nil)
+									return nil
+								}, serializer.NoRetry)
+							}
+						}
+					},
+					DeleteFunc: func(obj interface{}) {
+						var valid, equal bool
+						defer func() { d.k8sEventReceived(metricNode, metricDelete, valid, equal) }()
+						node := k8s.CopyObjToV1Node(obj)
+						if node == nil {
+							deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+							if !ok {
+								return
+							}
+							// Delete was not observed by the watcher but is
+							// removed from kube-apiserver. This is the last
+							// known state and the object no longer exists.
+							node = k8s.CopyObjToV1Node(deletedObj.Obj)
+							if node == nil {
+								return
+							}
+						}
+						valid = true
 						serNodes.Enqueue(func() error {
-							err := d.updateK8sNodeV1(oldNode, newNode)
-							updateK8sEventMetric(metricNode, metricUpdate, err == nil)
+							err := d.deleteK8sNodeV1(node)
+							updateK8sEventMetric(metricNode, metricDelete, err == nil)
 							return nil
 						}, serializer.NoRetry)
-					}
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { d.k8sEventReceived(metricNode, metricDelete, valid, equal) }()
-				node := k8s.CopyObjToV1Node(obj)
-				if node == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					node = k8s.CopyObjToV1Node(deletedObj.Obj)
-					if node == nil {
-						return
-					}
-				}
-				valid = true
-				serNodes.Enqueue(func() error {
-					err := d.deleteK8sNodeV1(node)
-					updateK8sEventMetric(metricNode, metricDelete, err == nil)
-					return nil
-				}, serializer.NoRetry)
-			},
-		},
-		k8s.ConvertToNode,
-	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, nodeController, k8sAPIGroupNodeV1Core)
-	go nodeController.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+					},
+				},
+				k8s.ConvertToNode,
+			)
+			isConnected := make(chan struct{})
+			// once isConnected is closed, it will stop waiting on caches to be
+			// synchronized.
+			d.blockWaitGroupToSyncResources(isConnected, nodeController, k8sAPIGroupNodeV1Core)
+
+			once.Do(func() {
+				// Signalize that we have put node controller in the wait group
+				// to sync resources.
+				asyncControllers.Done()
+			})
+			d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+			go nodeController.Run(isConnected)
+			// TODO: do we really need to wait until etcd watcher signalizes
+			// "listDone" or connected to it is sufficient?
+			<-kvstore.Client().Connected()
+			close(isConnected)
+
+			log.Info("Connected to KVStore, stopping k8s node watcher")
+
+			d.k8sAPIGroups.removeAPI(k8sAPIGroupNodeV1Core)
+			// Create a new node controller when we are disconnected with the
+			// kvstore
+			<-kvstore.Client().Disconnected()
+
+			log.Info("Disconnected from KVStore, restarting k8s node watcher")
+		}
+	}()
 
 	_, namespaceController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -912,6 +943,8 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 
 	go namespaceController.Run(wait.NeverStop)
 	d.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
+
+	asyncControllers.Wait()
 
 	return nil
 }
