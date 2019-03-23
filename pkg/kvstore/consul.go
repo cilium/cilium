@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
 
@@ -167,9 +168,11 @@ var (
 
 type consulClient struct {
 	*consulAPI.Client
-	lease        string
-	controllers  *controller.Manager
-	extraOptions *ExtraOptions
+	lease          string
+	controllers    *controller.Manager
+	extraOptions   *ExtraOptions
+	disconnectedMu lock.RWMutex
+	disconnected   chan struct{}
 }
 
 func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOperations, error) {
@@ -223,12 +226,20 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 		lease:        lease,
 		controllers:  controller.NewManager(),
 		extraOptions: opts,
+		disconnected: make(chan struct{}),
 	}
 
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				_, _, err := c.Session().Renew(lease, nil)
+				if err != nil {
+					// consider disconnected!
+					client.disconnectedMu.Lock()
+					close(client.disconnected)
+					client.disconnected = make(chan struct{})
+					client.disconnectedMu.Unlock()
+				}
 				return err
 			},
 			RunInterval: KeepAliveInterval,
@@ -359,6 +370,32 @@ func (c *consulClient) Watch(w *Watcher) {
 			return
 		}
 	}
+}
+
+// Connected closes the returned channel when the etcd client is connected.
+func (c *consulClient) Connected() <-chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		for {
+			// TODO find out if there's a better way to do this for consul
+			_, _, err := c.Session().Info(c.lease, &consulAPI.QueryOptions{})
+			if err == nil {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+// Disconnected closes the returned channel when consul detects the client
+// is disconnected from the server.
+func (c *consulClient) Disconnected() <-chan struct{} {
+	c.disconnectedMu.RLock()
+	ch := c.disconnected
+	c.disconnectedMu.RUnlock()
+	return ch
 }
 
 func (c *consulClient) Status() (string, error) {

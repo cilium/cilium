@@ -131,6 +131,13 @@ func getBackend(name string) backendModule {
 // must implement. Direct use of this interface is possible but will bypass the
 // tracing layer.
 type BackendOperations interface {
+	// Connected returns a channel which is closed whenever the kvstore client
+	// is connected to the kvstore server. (Only implemented for etcd)
+	Connected() <-chan struct{}
+
+	// Disconnected returns a channel which is closed whenever the kvstore
+	// client is not connected to the kvstore server. (Only implemented for etcd)
+	Disconnected() <-chan struct{}
 
 	// Status returns the status of the kvstore client including an
 	// eventual error
