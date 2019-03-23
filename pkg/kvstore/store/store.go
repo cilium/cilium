@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -323,6 +323,17 @@ func (s *SharedStore) UpdateLocalKeySync(key LocalKey) error {
 	}
 
 	return nil
+}
+
+// UpdateKeySync synchronously synchronizes a key with the kvstore.
+func (s *SharedStore) UpdateKeySync(key LocalKey) error {
+	err := s.syncLocalKey(key)
+	if err != nil {
+		s.DeleteLocalKey(key)
+		return err
+	}
+
+	return err
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
