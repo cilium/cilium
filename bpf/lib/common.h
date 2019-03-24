@@ -74,6 +74,23 @@ union v6addr {
         __u8 addr[16];
 };
 
+static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
+{
+	void *data = (void *) (long) skb->data;
+	void *data_end = (void *) (long) skb->data_end;
+
+	if (data + ETH_HLEN > data_end)
+		return false;
+
+	struct ethhdr *eth = data;
+	*proto = eth->h_proto;
+
+	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
+		return false; // non-Ethernet II unsupported
+
+	return true;
+}
+
 static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 				     void **data_end_, void **l3,
 				     size_t l3_len)
@@ -283,6 +300,7 @@ enum {
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
 #define DROP_NO_CONFIG		-165
+#define DROP_UNSUPPORTED_L2		-166
 
 /* Cilium metrics reason for forwarding packet.
  * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
