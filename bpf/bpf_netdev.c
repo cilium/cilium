@@ -534,7 +534,12 @@ __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
 	__u32 identity = 0;
+	__u16 proto;
 	int ret;
+
+	if (!validate_ethertype(skb, &proto))
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
 
 #if defined ENABLE_IPSEC && defined ENCAP_IFINDEX
 	if (1) {
@@ -557,7 +562,7 @@ int from_netdev(struct __sk_buff *skb)
 	if (1) {
 
 #ifdef HOST_REDIRECT_TO_INGRESS
-	if (skb->protocol == bpf_htons(ETH_P_ARP)) {
+	if (proto == bpf_htons(ETH_P_ARP)) {
 		union macaddr mac = HOST_IFINDEX_MAC;
 		return arp_respond(skb, &mac, BPF_F_INGRESS);
 	}
@@ -577,7 +582,7 @@ int from_netdev(struct __sk_buff *skb)
 			  0, TRACE_PAYLOAD_LEN);
 #endif
 
-	switch (skb->protocol) {
+	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		/* This is considered the fast path, no tail call */

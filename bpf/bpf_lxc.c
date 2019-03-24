@@ -766,6 +766,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP) int tail_handle_arp(struct __s
 __section("from-container")
 int handle_xgress(struct __sk_buff *skb)
 {
+	__u16 proto;
 	int ret;
 
 	bpf_clear_cb(skb);
@@ -773,7 +774,12 @@ int handle_xgress(struct __sk_buff *skb)
 	send_trace_notify(skb, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0,
 			  TRACE_PAYLOAD_LEN);
 
-	switch (skb->protocol) {
+	if (!validate_ethertype(skb, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
@@ -796,6 +802,7 @@ int handle_xgress(struct __sk_buff *skb)
 		ret = DROP_UNKNOWN_L3;
 	}
 
+out:
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, SECLABEL, 0, 0, ret, TC_ACT_SHOT,
 					METRIC_EGRESS);
@@ -1120,10 +1127,16 @@ int tail_ipv4_policy(struct __sk_buff *skb)
  */
 __section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID) int handle_policy(struct __sk_buff *skb)
 {
-	int ret;
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
+	__u16 proto;
+	int ret;
 
-	switch (skb->protocol) {
+	if (!validate_ethertype(skb, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
@@ -1141,6 +1154,7 @@ __section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID) int handle_policy(struct __sk
 		break;
 	}
 
+out:
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ret, TC_ACT_SHOT, METRIC_INGRESS);

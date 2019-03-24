@@ -214,6 +214,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
+	__u16 proto;
 	int ret;
 
 	bpf_clear_cb(skb);
@@ -221,7 +222,13 @@ int from_overlay(struct __sk_buff *skb)
 	send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
 			  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 
-	switch (skb->protocol) {
+	if (!validate_ethertype(skb, &proto)) {
+		/* Pass unknown traffic to the stack */
+		ret = TC_ACT_OK;
+		goto out;
+	}
+
+	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
 		/* This is considered the fast path, no tail call */
@@ -245,6 +252,7 @@ int from_overlay(struct __sk_buff *skb)
 		ret = TC_ACT_OK;
 	}
 
+out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
 	else

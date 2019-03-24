@@ -171,11 +171,16 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
+	__u16 proto;
 	int ret;
 
 	bpf_clear_cb(skb);
 
-	switch (skb->protocol) {
+	if (!validate_ethertype(skb, &proto))
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
+
+	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ret = handle_ipv6(skb);
