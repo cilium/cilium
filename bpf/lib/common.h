@@ -457,14 +457,6 @@ struct lb4_key {
 	__u16 slave;		/* Backend iterator, 0 indicates the master service */
 } __attribute__((packed));
 
-struct lb4_service {
-	__be32 target;
-	__be16 port;
-	__u16 count;
-	__u16 rev_nat_index;
-	__u16 weight;
-} __attribute__((packed));
-
 struct lb4_key_v2 {
 	__be32 address;
     __be16 dport;		/* L4 port filter, if unset, all ports apply */
@@ -473,12 +465,27 @@ struct lb4_key_v2 {
     __u8 pad;
 } __attribute__((packed));
 
+struct lb4_service {
+	__be32 target;
+	__be16 port;
+	__u16 count;
+	__u16 rev_nat_index;
+	__u16 weight;
+} __attribute__((packed));
+
 struct lb4_service_v2 {
 	__u16 count;
 	__u16 backend_index;
 	__u16 rev_nat_index;
 	__u16 weight;
 } __attribute__((packed));
+
+struct lb4_backend {
+    __be32 address;
+    __be16 port;
+    __u8 proto;
+    __u8 pad;
+};
 
 struct lb4_reverse_nat {
 	__be32 address;
@@ -491,13 +498,6 @@ struct lb_sequence {
 	__u16 idx[LB_RR_MAX_SEQ];
 };
 
-struct lb4_backend {
-    __be32 address;
-    __be16 port;
-    __u8 proto;
-    __u8 pad;
-};
-
 struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
@@ -507,6 +507,7 @@ struct ct_state {
 	__be32 svc_addr;
 	__u32 src_sec_id;
 	__u16 slave;
+	__u16 backend_id;
 };
 
 /* Lifetime of a proxy redirection entry. All proxies should be using TCP

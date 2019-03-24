@@ -120,6 +120,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	void *data_end;
 	struct lb4_key_v2 key = {};
 	struct lb4_service_v2 *svc;
+	struct lb4_service_v2 foo;
 	struct lb4_backend *backend;
 	struct iphdr *ip;
 	struct csum_offset csum_off = {};
@@ -157,7 +158,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	}
 
 	slave = lb4_select_slave_v2(skb, &key, svc->count, svc->weight);
-	if (!(backend = lb4_lookup_slave_v2(skb, &key, slave)))
+	if (!(backend = lb4_lookup_slave_v2(skb, &key, slave, &foo)))
 		return DROP_NO_SERVICE;
 
 	new_dst = backend->address;

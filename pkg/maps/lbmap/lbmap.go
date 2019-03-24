@@ -117,6 +117,8 @@ type ServiceValue interface {
 
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceValue
+
+	BackendString() string
 }
 
 // TODO(brb) fix it when adding IPv6 support
@@ -872,8 +874,10 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 	}
 
 	backendIDs := []uint16{}
+	backendByID := map[uint16]*Backend4{}
 	for _, b := range backends {
 		id := b.Key.ID
+		backendByID[id] = b // TODO(brb) add note about Backend4.String() to match with legacy ServiceValue.String()
 		backendIDs = append(backendIDs, id)
 	}
 
@@ -900,6 +904,13 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 
 	for nsvc, v := range serviceValues {
 		serviceKey.SetSlave(nsvc + 1) // service count starts with 1
+		backend := backendByID[v.GetBackendID()]
+		pos, found := cache.getLegacyBackendPosition(serviceKey, backend.BackendString())
+		if !found {
+			// TODO(brb) blah
+		} else {
+			v.SetCount(pos) // HACK
+		}
 		if err := updateServiceV2(serviceKey, v); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", serviceKey, v, err)
 		}

@@ -247,6 +247,10 @@ func (s *Service4Value) String() string {
 	return fmt.Sprintf("%s:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
+func (s *Service4Value) BackendString() string {
+	return fmt.Sprintf("%s:%d", s.Address, s.Port)
+}
+
 type RevNat4Key struct {
 	Key uint16
 }
@@ -475,3 +479,6 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 
 func (b *Backend4) Map() *bpf.Map { return Backend4Map }
 func (b *Backend4) GetID() uint16 { return b.Key.ID }
+func (b *Backend4) BackendString() string {
+	return fmt.Sprintf("%s:%d", b.Value.Address, b.Value.Port)
+}

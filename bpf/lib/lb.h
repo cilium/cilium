@@ -610,11 +610,12 @@ static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int 
 }
 
 /** Extract IPv4 LB key from packet
- * @arg skb		packet
- * @arg tuple		tuple
+ * @arg skb			Packet
+ * @arg tuple		Tuple
  * @arg l4_off		Offset to L4 header
- * @arg key		Pointer to store LB key in
+ * @arg key			Pointer to store LB key in
  * @arg csum_off	Pointer to store L4 checksum field offset  in
+ * @arg dir         Flow direction
  *
  * Returns:
  *   - TC_ACT_OK on successful extraction
@@ -676,21 +677,19 @@ static inline struct lb4_service_v2 *lb4_lookup_service_v2(struct __sk_buff *skb
 	if (!svc)
 		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
 
-	//cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, svc->count, svc->rev_nat_index);
 	return svc;
 }
 
 static inline struct lb4_backend *lb4_lookup_slave_v2(struct __sk_buff *skb,
-						   struct lb4_key_v2 *key, __u16 slave)
+						   struct lb4_key_v2 *key, __u16 slave, struct lb4_service_v2 *svc)
 {
-	struct lb4_service_v2 *svc;
     struct lb4_backend *backend;
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc != NULL) {
-        backend = map_lookup_elem(&LB4_BACKEND_MAP, &slave);
+        backend = map_lookup_elem(&LB4_BACKEND_MAP, &svc->backend_index);
         if (backend != NULL) {
             cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, backend->address, backend->port);
             return backend;
@@ -746,23 +745,33 @@ lb4_xlate_v2(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	return TC_ACT_OK;
 }
 
-static inline int __inline__ lb4_local_v2(void *map, struct __sk_buff *skb,
+static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 				       int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb4_key_v2 *key,
-				       struct ipv4_ct_tuple *tuple, struct lb4_service_v2 *svc,
+				       struct ipv4_ct_tuple *tuple,
+					   struct lb4_service_v2 *svc,
 				       struct ct_state *state, __be32 saddr)
 {
 	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
     struct lb4_backend *backend;
+	int slave;
 	int ret;
+	struct lb4_service_v2 foo = {};
 
 	ret = ct_lookup4(map, tuple, skb, l4_off, CT_SERVICE, state, &monitor);
 	switch(ret) {
 	case CT_NEW:
-		state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
-        // TODO(brb) set rx_count=1 inside ct_create4 to indicate v2
+		slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
+		backend = lb4_lookup_slave_v2(skb, key, slave, &foo); // TODO(brb) lookup_slave_in_svc to avoid additional lookup
+		if (backend == NULL) {
+			tuple->flags = flags;
+			return DROP_NO_SERVICE;
+		}
+
+		state->backend_id = foo.backend_index;
+		state->slave = foo.count; // TODO(brb) explain this hack
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
@@ -785,19 +794,20 @@ static inline int __inline__ lb4_local_v2(void *map, struct __sk_buff *skb,
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
 	 */
-	if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
+	if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave, &foo))) {
 		if ((svc = lb4_lookup_service_v2(skb, key)) == NULL) {
 			tuple->flags = flags;
 			return DROP_NO_TUNNEL_ENDPOINT;
 			//return DROP_NO_SERVICE;
 		}
-		state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
-		ct_update4_slave(map, tuple, state);
-        // TODO(brb) There was probably a bug in the previous implementation
-	    if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
-            return DROP_UNKNOWN_CT;
-            //return DROP_NO_SERVICE;
-        }
+		return DROP_UNKNOWN_CT; // TODO(brb)
+		//state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
+		//ct_update4_slave(map, tuple, state);
+        //// TODO(brb) There was probably a bug in the previous implementation
+	    //if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
+        //    return DROP_UNKNOWN_CT;
+        //    //return DROP_NO_SERVICE;
+        //}
 	}
 
 	/* Restore flags so that SERVICE flag is only used in used when the

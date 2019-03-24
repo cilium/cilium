@@ -693,9 +693,13 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
-	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
-	entry.slave = ct_state->slave;
+
+    if (dir == CT_SERVICE) {
+	    entry.rev_nat_index = ct_state->rev_nat_index;
+	    entry.slave = ct_state->slave;
+        entry.rx_bytes = ct_state->backend_id; // TODO(brb) explain this hack
+    }
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 

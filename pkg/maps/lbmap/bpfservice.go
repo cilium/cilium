@@ -46,6 +46,9 @@ type bpfService struct {
 	// backend ID. A backend may be listed multiple times in
 	// backendsByMapIndex, it will only be listed once in uniqueBackends.
 	uniqueBackends serviceValueMap
+
+	// TODO(brb) comment
+	backendPos map[string]int
 }
 
 func newBpfService(key ServiceKey) *bpfService {
@@ -53,10 +56,11 @@ func newBpfService(key ServiceKey) *bpfService {
 		frontendKey:        key,
 		backendsByMapIndex: map[int]*bpfBackend{},
 		uniqueBackends:     map[string]ServiceValue{},
+		backendPos:         map[string]int{},
 	}
 }
 
-func (b *bpfService) addBackend(backend ServiceValue) {
+func (b *bpfService) addBackend(backend ServiceValue) int {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -67,6 +71,8 @@ func (b *bpfService) addBackend(backend ServiceValue) {
 	}
 
 	b.uniqueBackends[backend.String()] = backend
+
+	return nextSlot
 }
 
 func (b *bpfService) deleteBackend(backend ServiceValue) {
@@ -188,6 +194,24 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 	return nil
 }
 
+func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, backendString string) (int, bool) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	frontendID := fe.String()
+	bpfSvc, found := l.entries[frontendID]
+	if !found {
+		return 0, false
+	}
+
+	pos, found := bpfSvc.backendPos[backendString]
+	if !found {
+		return 0, false
+	}
+
+	return pos, true
+}
+
 func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfService {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -209,13 +233,15 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 	for key, b := range bpfSvc.uniqueBackends {
 		if _, ok := newBackendsMap[key]; !ok {
 			bpfSvc.deleteBackend(b)
+			delete(bpfSvc.backendPos, b.BackendString())
 		}
 	}
 
 	// Step 2: Add all backends that don't exist yet.
 	for _, b := range backends {
 		if _, ok := bpfSvc.uniqueBackends[b.String()]; !ok {
-			bpfSvc.addBackend(b)
+			pos := bpfSvc.addBackend(b)
+			bpfSvc.backendPos[b.BackendString()] = pos
 		}
 	}
 
@@ -239,7 +265,6 @@ func (l *lbmapCache) addServiceV2(svcID string, backendIDs []uint16) (map[uint16
 
 	existingBackendIDs, found := l.svcBackendsByID[svcID]
 	if !found {
-		fmt.Println("ADDDDDDDDING\n!!!!!!!!!!!!!!\n!!!!!!!!!!!!!!!!", svcID)
 		existingBackendIDs = map[uint16]struct{}{}
 		l.svcBackendsByID[svcID] = existingBackendIDs
 	}
