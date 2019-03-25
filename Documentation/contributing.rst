@@ -1536,42 +1536,20 @@ GitHub issues using the process below:
 +=======================================+==================================================================+
 | `Ginkgo-Tests-Validated-master`_      | Runs whenever a PR is merged into master                         |
 +---------------------------------------+------------------------------------------------------------------+
-| `Ginkgo-Tests-Validated-1.0`_         | Runs standard Ginkgo tests on merge into branch ``v1.0``         |
-+---------------------------------------+------------------------------------------------------------------+
 | `Ginkgo-CI-Tests-Pipeline`_           | Runs every two hours on the master branch                        |
 +---------------------------------------+------------------------------------------------------------------+
-| `Master-Nightly-Tests-All`_           | Runs durability tests every night                                |
+| `Master-Nightly`_                     | Runs durability tests every night                                |
 +---------------------------------------+------------------------------------------------------------------+
 | `Vagrant-Master-Boxes-Packer-Build`_  | Runs on merge into `github.com/cilium/packer-ci-build`_.         |
 +---------------------------------------+------------------------------------------------------------------+
-| `BETA-cilium-v1.1-standard`_          | Runs standard Ginkgo tests on merge into branch ``v1.1``         |
-+---------------------------------------+------------------------------------------------------------------+
-| `BETA-cilium-v1.1-K8s-all`_           | Runs K8s tests on merge into branch ``v1.1``                     |
-+---------------------------------------+------------------------------------------------------------------+
-| `BETA-cilium-v1.1-K8s-Upstream`_      | Runs K8s upstream tests on merge into branch ``v1.1``            |
-+---------------------------------------+------------------------------------------------------------------+
-| `BETA-cilium-v1.1-Docs`_              | Runs docs tests on merge into branch ``v1.1``                    |
-+---------------------------------------+------------------------------------------------------------------+
-| `BETA-cilium-v1.1-Nightly`_           | Runs durability tests on branch ``v1.1`` every night             |
+| :jenkins-branch:`Release-branch <>`   | Runs various Ginkgo tests on merge into branch "\ |SCM_BRANCH|"  |
 +---------------------------------------+------------------------------------------------------------------+
 
-.. note::
-
-  ``BETA-cilium-v1.0-*`` is currently not subject to the daily triage process
-  as the quality of the tests backported to that branch does not justify the
-  effort.
-
-.. _Ginkgo-Tests-Validated-master: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/lastBuild/
-.. _Ginkgo-Tests-Validated-1.0: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/v1.0/lastBuild/
+.. _Ginkgo-Tests-Validated-master: https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/
 .. _Ginkgo-CI-Tests-Pipeline: https://jenkins.cilium.io/job/Ginkgo-CI-Tests-Pipeline/
-.. _Master-Nightly-Tests-All: https://jenkins.cilium.io/job/Cilium-Master-Nightly-Tests-All/
+.. _Master-Nightly: https://jenkins.cilium.io/job/Cilium-Master-Nightly/
 .. _Vagrant-Master-Boxes-Packer-Build: https://jenkins.cilium.io/job/Vagrant-Master-Boxes-Packer-Build/
 .. _github.com/cilium/packer-ci-build: https://github.com/cilium/packer-ci-build/
-.. _BETA-cilium-v1.1-standard: https://jenkins.cilium.io/view/BETA-Cilium-v1.1/job/BETA-cilium-v1.1-standard/
-.. _BETA-cilium-v1.1-K8s-all: https://jenkins.cilium.io/view/BETA-Cilium-v1.1/job/BETA-cilium-v1.1-K8s-all/
-.. _BETA-cilium-v1.1-K8s-Upstream: https://jenkins.cilium.io/view/BETA-Cilium-v1.1/job/BETA-cilium-v1.1-K8s-Upstream/
-.. _BETA-cilium-v1.1-Nightly: https://jenkins.cilium.io/view/BETA-Cilium-v1.1/job/BETA-cilium-v1.1-Nightly/
-.. _BETA-cilium-v1.1-Docs: https://jenkins.cilium.io/view/BETA-Cilium-v1.1/job/BETA-cilium-v1.1-Docs/
 
 Triage process
 ^^^^^^^^^^^^^^
