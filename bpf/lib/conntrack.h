@@ -718,27 +718,24 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	if (map_update_elem(map, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
-	if (ct_state->addr) {
+	if (ct_state->addr && ct_state->loopback) {
 		__u8 flags = tuple->flags;
 		__be32 saddr, daddr;
 
 		saddr = tuple->saddr;
 		daddr = tuple->daddr;
-		if (dir == CT_INGRESS)
-			tuple->saddr = ct_state->addr;
-		else
-			tuple->daddr = ct_state->addr;
 
 		/* We are looping back into the origin endpoint through a service,
 		 * set up a conntrack tuple for the reply to ensure we do rev NAT
 		 * before attempting to route the destination address which will
 		 * not point back to the right source. */
-		if (ct_state->loopback) {
-			tuple->flags = TUPLE_F_IN;
-			if (dir == CT_INGRESS)
-				tuple->daddr = ct_state->svc_addr;
-			else
-				tuple->saddr = ct_state->svc_addr;
+		tuple->flags = TUPLE_F_IN;
+		if (dir == CT_INGRESS) {
+			tuple->saddr = ct_state->addr;
+			tuple->daddr = ct_state->svc_addr;
+		} else {
+			tuple->saddr = ct_state->svc_addr;
+			tuple->daddr = ct_state->addr;
 		}
 
 		if (map_update_elem(map, tuple, &entry, 0) < 0)
