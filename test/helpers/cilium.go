@@ -878,7 +878,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 func (s *SSHMeta) SetUpCilium() error {
 	template := `
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load
 INITSYSTEM=SYSTEMD`
 	return s.SetUpCiliumWithOptions(template)
 }
