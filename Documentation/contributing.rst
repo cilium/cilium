@@ -1563,7 +1563,7 @@ Triage process
 
        $ contrib/scripts/jenkins-failures.sh
 
-  .. note::
+   .. note::
 
      You can quickly assign SINCE with statements like ``SINCE=`date -d -3days```
 
