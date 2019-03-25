@@ -231,6 +231,10 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
 			ct_state->slave = entry->slave;
+            // TODO(brb) explain the hack
+            if (dir == CT_SERVICE) {
+                ct_state->backend_id = entry->rx_bytes;
+            }
 		}
 
 #ifdef ENABLE_NAT46
@@ -696,10 +700,10 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	entry.lb_loopback = ct_state->loopback;
 
     if (dir == CT_SERVICE) {
-	    entry.rev_nat_index = ct_state->rev_nat_index;
-	    entry.slave = ct_state->slave;
         entry.rx_bytes = ct_state->backend_id; // TODO(brb) explain this hack
     }
+	entry.rev_nat_index = ct_state->rev_nat_index;
+	entry.slave = ct_state->slave;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 

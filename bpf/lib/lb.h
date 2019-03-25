@@ -680,10 +680,26 @@ static inline struct lb4_service_v2 *lb4_lookup_service_v2(struct __sk_buff *skb
 	return svc;
 }
 
+static inline struct lb4_backend *lb4_lookup_backend(struct __sk_buff *skb,
+							__u16 backend_id)
+{
+	struct lb4_backend *backend;
+
+	backend = map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
+
+	if (!backend) {
+		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, backend_id, backend_id);
+		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, backend_id, 0);
+	}
+
+	return backend;
+}
+
 static inline struct lb4_backend *lb4_lookup_slave_v2(struct __sk_buff *skb,
-						   struct lb4_key_v2 *key, __u16 slave, struct lb4_service_v2 *svc)
+						   struct lb4_key_v2 *key, __u16 slave, struct lb4_service_v2 *foo)
 {
     struct lb4_backend *backend;
+	struct lb4_service_v2 *svc;
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
@@ -691,6 +707,7 @@ static inline struct lb4_backend *lb4_lookup_slave_v2(struct __sk_buff *skb,
 	if (svc != NULL) {
         backend = map_lookup_elem(&LB4_BACKEND_MAP, &svc->backend_index);
         if (backend != NULL) {
+			*foo = *svc;
             cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, backend->address, backend->port);
             return backend;
         }
@@ -769,7 +786,6 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			tuple->flags = flags;
 			return DROP_NO_SERVICE;
 		}
-
 		state->backend_id = foo.backend_index;
 		state->slave = foo.count; // TODO(brb) explain this hack
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
@@ -794,21 +810,30 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
 	 */
-	if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave, &foo))) {
-		if ((svc = lb4_lookup_service_v2(skb, key)) == NULL) {
-			tuple->flags = flags;
-			return DROP_NO_TUNNEL_ENDPOINT;
-			//return DROP_NO_SERVICE;
-		}
-		return DROP_UNKNOWN_CT; // TODO(brb)
-		//state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
-		//ct_update4_slave(map, tuple, state);
-        //// TODO(brb) There was probably a bug in the previous implementation
-	    //if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
-        //    return DROP_UNKNOWN_CT;
-        //    //return DROP_NO_SERVICE;
-        //}
+
+	if (!(backend = lb4_lookup_backend(skb, state->backend_id))) {
+		return DROP_NO_TUNNEL_ENDPOINT;
 	}
+
+	if (!(svc = lb4_lookup_service_v2(skb, key))) {
+		return DROP_UNKNOWN_CT;
+	}
+
+	//if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave, &foo))) {
+	//	if ((svc = lb4_lookup_service_v2(skb, key)) == NULL) {
+	//		tuple->flags = flags;
+	//		return DROP_NO_TUNNEL_ENDPOINT;
+	//		//return DROP_NO_SERVICE;
+	//	}
+	//	return DROP_UNKNOWN_CT; // TODO(brb)
+	//	//state->slave = lb4_select_slave_v2(skb, key, svc->count, svc->weight);
+	//	//ct_update4_slave(map, tuple, state);
+    //    //// TODO(brb) There was probably a bug in the previous implementation
+	//    //if (!(backend = lb4_lookup_slave_v2(skb, key, state->slave))) {
+    //    //    return DROP_UNKNOWN_CT;
+    //    //    //return DROP_NO_SERVICE;
+    //    //}
+	//}
 
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.

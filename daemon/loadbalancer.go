@@ -41,15 +41,18 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 	revNATID := int(feCilium.ID)
 	svcID := feCilium.String()
 
-	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
+	// The legacy service update should happen before v2, as the former caches
+	// backend addr:port -> slave pairs which are required for the backward
+	// compatibility
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
 		return err
 	}
 
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID); err != nil {
-		// TODO(brb) probably remove SVC v2?
+	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
+		// TODO(brb) probably remove the legacy svc?
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}

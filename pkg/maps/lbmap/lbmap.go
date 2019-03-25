@@ -908,6 +908,7 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 		pos, found := cache.getLegacyBackendPosition(serviceKey, backend.BackendString())
 		if !found {
 			// TODO(brb) blah
+			fmt.Println("not found!", backend.BackendString())
 		} else {
 			v.SetCount(pos) // HACK
 		}
