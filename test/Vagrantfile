@@ -27,37 +27,6 @@ end
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
 
-    config.vm.define "runtime" do |server|
-        server.vm.provider "virtualbox" do |vb|
-            vb.customize ["modifyvm", :id, "--hwvirtex", "on"]
-            vb.cpus = $CPU
-            vb.memory= $MEMORY
-            vb.linked_clone = true
-            vb.default_nic_type = "virtio"
-            # Prevent VirtualBox from interfering with host audio stack
-            vb.customize ["modifyvm", :id, "--audio", "none"]
-        end
-
-        server.vm.box =  "#{$SERVER_BOX}"
-        server.vm.box_version = $SERVER_VERSION
-        server.vm.boot_timeout = 600
-        server.vm.hostname = "runtime"
-
-        # This network is only used by NFS
-        server.vm.network "private_network", type: "dhcp"
-        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-            nfs: $NFS
-
-        # Provision section
-        server.vm.provision :shell,
-            :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
-        server.vm.provision "file", source: "provision/", destination: "/tmp/"
-        server.vm.provision "shell" do |sh|
-            sh.path = "./provision/runtime_install.sh"
-            sh.env = {}
-        end
-    end
-
     (1..$K8S_NODES).each do |i|
         config.vm.define "k8s#{i}-#{$K8S_VERSION}" do |server|
             server.vm.provider "virtualbox" do |vb|

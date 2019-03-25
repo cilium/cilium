@@ -104,7 +104,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(status.IntOutput()).Should(Equal(3), "Did not find expected number of entries in BPF tunnel map")
 		}
 
-		It("Check connectivity with VXLAN encapsulation", func() {
+		FIt("K8sXXXCheck connectivity with VXLAN encapsulation", func() {
 			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-vxlan.yaml")
@@ -113,7 +113,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			cleanService()
 		}, 600)
 
-		It("Check connectivity with Geneve encapsulation", func() {
+		FIt("K8sXXXCheck connectivity with Geneve encapsulation", func() {
 			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-geneve.yaml")
@@ -124,7 +124,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("DirectRouting", func() {
-		It("Check connectivity with automatic direct nodes routes", func() {
+		FIt("K8sXXXCheck connectivity with automatic direct nodes routes", func() {
 			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
@@ -134,7 +134,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("IPv4Only", func() {
-		It("Check connectivity with IPv6 disabled", func() {
+		FIt("K8sXXXCheck connectivity with IPv6 disabled", func() {
 			deployCilium("cilium-ds-patch-ipv4-only.yaml")
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
