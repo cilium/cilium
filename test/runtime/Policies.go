@@ -1143,6 +1143,62 @@ var _ = Describe("RuntimePolicies", func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 	})
 
+	It("Test egress with L7 policy to outside cluster", func() {
+		target := "http://cilium.io"
+
+		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
+		res.ExpectSuccess("Cannot connect without policy")
+
+		policy := `
+		[
+		  {
+			"endpointSelector": {
+			  "matchLabels": {"container:id.app1": ""}
+			},
+			"egress": [
+				{
+					"toPorts": [{
+						"ports":[{"port": "53", "protocol": "ANY"}],
+						"rules": {
+							"dns": [
+								{"matchPattern": "*"}
+							]
+						}
+					}]
+				},
+				{
+					"toFQDNs": [
+					  {"matchPattern": "*.cilium.io"}
+					]
+				},
+				{
+					"toPorts": [{
+						"ports": [
+							{"port": "80", "protocol": "tcp"},
+							{"port": "443", "protocol": "tcp"}
+						],
+						"rules": {
+							"HTTP": [{
+							  "method": "GET"
+							}]
+						}
+					}]
+				}
+			]
+		  }
+		]`
+
+		_, err := vm.PolicyRenderAndImport(policy)
+		Expect(err).To(BeNil(), "Cannot import policy")
+
+		res = vm.ContainerExec(helpers.App1, helpers.CurlFail(target))
+		res.ExpectSuccess("Cannot connect with policy")
+
+		res = vm.ContainerExec(helpers.App1, helpers.CurlWithHTTPCode(
+			fmt.Sprintf(`%s -d ""`, target)))
+		res.ExpectSuccess("403", "Post method is allowed when it should not work")
+	})
+
 	It("Tests EntityNone as a deny-all", func() {
 		worldIP := "1.1.1.1"
 
