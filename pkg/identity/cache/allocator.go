@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -69,6 +71,14 @@ var (
 	setupMutex lock.Mutex
 
 	watcher identityWatcher
+
+	// identityControllerManager contains all controllers used to synchornized
+	// the identities used locally with the kv-store
+	identityControllerManager *controller.Manager
+	// identityRefCountMutex protects the concurrent access of idPoolRefCount
+	identityRefCountMutex lock.Mutex
+	// idPoolRefCount maps an identity the a reference count of its usage.
+	idPoolRefCount map[idpool.ID]uint
 )
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -115,6 +125,9 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 		log.WithError(err).Fatal("Unable to initialize identity allocator")
 	}
 
+	identityControllerManager = controller.NewManager()
+	idPoolRefCount = map[idpool.ID]uint{}
+
 	IdentityAllocator = a
 	close(identityAllocatorInitialized)
 	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
@@ -135,6 +148,11 @@ func Close() {
 			log.Panic("Close() called without calling InitIdentityAllocator() first")
 		}
 	}
+
+	identityRefCountMutex.Lock()
+	idPoolRefCount = map[idpool.ID]uint{}
+	identityControllerManager.RemoveAllAndWait()
+	identityRefCountMutex.Unlock()
 
 	IdentityAllocator.Delete()
 	watcher.stop()
@@ -204,6 +222,35 @@ func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identi
 		return nil, false, err
 	}
 
+	identityRefCountMutex.Lock()
+	refCountNew := idPoolRefCount[id] == 0
+	if refCountNew {
+		identityControllerManager.UpdateController(fmt.Sprintf("sync-identity (%d)", id),
+			controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
+					// We just allocated the identity a couple lines above,
+					// when a controller is added / updated, it starts
+					// immediately, to avoid re-allocating the recently identity
+					// we will sleep for 5 minutes
+					t := time.NewTicker(5 * time.Minute)
+					defer t.Stop()
+					select {
+					case <-t.C:
+					case <-ctx.Done():
+						return fmt.Errorf("re-sync cancelled via context: %s", ctx.Err())
+					}
+					_, _, err := IdentityAllocator.Allocate(ctx, globalIdentity{lbls})
+					return err
+				},
+				// We need to setup a run interval as 0 prevents the controller
+				// from keep running.
+				RunInterval: time.Millisecond,
+			},
+		)
+	}
+	idPoolRefCount[id]++
+	identityRefCountMutex.Unlock()
+
 	log.WithFields(logrus.Fields{
 		logfields.Identity:       id,
 		logfields.IdentityLabels: lbls.String(),
@@ -235,7 +282,26 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 		return false, fmt.Errorf("allocator not initialized")
 	}
 
-	return IdentityAllocator.Release(ctx, globalIdentity{id.Labels})
+	lastUse, err := IdentityAllocator.Release(ctx, globalIdentity{id.Labels})
+
+	if err != nil {
+		return false, err
+	}
+
+	idty := idpool.ID(id.ID.Uint32())
+	identityRefCountMutex.Lock()
+	if refCount := idPoolRefCount[idty]; refCount > 0 {
+		lastRef := refCount == 1
+		if lastRef {
+			// As it is the last reference for this identity we can safely remove
+			// its controller
+			identityControllerManager.RemoveControllerAndWait(fmt.Sprintf("sync-identity (%d)", idty))
+		}
+		idPoolRefCount[idty]--
+	}
+	identityRefCountMutex.Unlock()
+
+	return lastUse, nil
 }
 
 // ReleaseSlice attempts to release a set of identities. It is a helper
