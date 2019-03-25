@@ -1837,7 +1837,7 @@ func (kub *Kubectl) ciliumPreFlightCheck() error {
 	default:
 		err = kub.ciliumHealthPreFlightCheck()
 		if err != nil {
-			return fmt.Errorf("connectivty health is failing: %s", err)
+			return fmt.Errorf("connectivity health is failing: %s", err)
 		}
 	}
 	err = kub.fillServiceCache()
