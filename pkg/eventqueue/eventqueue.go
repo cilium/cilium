@@ -168,7 +168,7 @@ func (ev *Event) WasCancelled() bool {
 // the queue is at its capacity for events.
 func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 
-	if ev == nil {
+	if q.notSafeToAccess() || ev == nil {
 		return nil
 	}
 
@@ -217,6 +217,11 @@ func (ev *Event) printStats(q *EventQueue) {
 // cancelled; any event which is currently being processed will not be
 // cancelled.
 func (q *EventQueue) Run() {
+
+	if q.notSafeToAccess() {
+		return
+	}
+
 	go q.eventQueueOnce.Do(func() {
 		for ev := range q.events {
 			select {
@@ -240,12 +245,20 @@ func (q *EventQueue) Run() {
 	})
 }
 
+func (q *EventQueue) notSafeToAccess() bool {
+	return q == nil || q.close == nil || q.drain == nil || q.events == nil
+}
+
 // Stop stops any further events from being processed by the EventQueue. Any
 // event which is currently being processed by the EventQueue will continue to
 // run. All other events waiting to be processed, and all events that may be
 // enqueued will not be processed by the event queue; they will be cancelled.
 // If the queue has already been stopped, this is a no-op.
 func (q *EventQueue) Stop() {
+	if q.notSafeToAccess() {
+		return
+	}
+
 	q.closeOnce.Do(func() {
 		q.getLogger().Debug("stopping EventQueue")
 		// Any event that is sent to the queue at this point will be cancelled
