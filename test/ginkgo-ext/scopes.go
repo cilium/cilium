@@ -257,7 +257,7 @@ func runAllAfterFail(cs *scope, testName string) {
 		for _, body := range cs.afterFail {
 			body()
 		}
-		GinkgoPrint("===================== Existing AfterFailed =====================")
+		GinkgoPrint("===================== Exiting AfterFailed =====================")
 	}
 
 	if cs.parent != nil {
