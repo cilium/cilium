@@ -234,8 +234,7 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress6(skb, tuple, *dstID,
-				     ipv6_ct_tuple_get_daddr(tuple));
+	verdict = policy_can_egress6(skb, tuple, *dstID);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
@@ -552,7 +551,7 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(skb, &tuple, *dstID, ipv4_ct_tuple_get_daddr(&tuple));
+	verdict = policy_can_egress4(skb, &tuple, *dstID);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		/* If the connection was previously known and packet is now
 		 * denied, remove the connection tracking entry */
