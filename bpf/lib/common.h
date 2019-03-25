@@ -414,17 +414,6 @@ struct ipv6_ct_tuple {
 	__u8		flags;
 } __attribute__((packed));
 
-static inline union v6addr *
-ipv6_ct_tuple_get_daddr(struct ipv6_ct_tuple *tuple)
-{
-#ifdef CONNTRACK
-	/* For outgoing connections, lib/conntrack.h swaps the src/dst. */
-	return &tuple->saddr;
-#else
-	return &tuple->daddr;
-#endif
-}
-
 struct ipv4_ct_tuple {
 	__be32		daddr;
 	__be32		saddr;
@@ -434,17 +423,6 @@ struct ipv4_ct_tuple {
 	__u8		nexthdr;
 	__u8		flags;
 } __attribute__((packed));
-
-static inline __be32
-ipv4_ct_tuple_get_daddr(struct ipv4_ct_tuple *tuple)
-{
-#ifdef CONNTRACK
-	/* For outgoing connections, lib/conntrack.h swaps the src/dst. */
-	return tuple->saddr;
-#else
-	return tuple->daddr;
-#endif
-}
 
 struct ct_entry {
 	__u64 rx_packets;
