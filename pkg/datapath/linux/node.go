@@ -61,7 +61,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 // with encapsulation mode enabled. The CIDR and IP of both the old and new
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
-func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, encapEnabled bool, encryptKey uint8) {
+func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) {
 	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
@@ -73,13 +73,13 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 		return
 	}
 
-	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP) {
+	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP, oldEncryptKey, newEncryptKey) {
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr: newIP,
 			"allocCIDR":      newCIDR,
 		}).Debug("Updating tunnel map entry")
 
-		if err := tunnel.TunnelMap.SetTunnelEndpoint(encryptKey, newCIDR.IP, newIP); err != nil {
+		if err := tunnel.TunnelMap.SetTunnelEndpoint(newEncryptKey, newCIDR.IP, newIP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": newCIDR,
 			}).Error("bpf: Unable to update in tunnel endpoint map")
@@ -102,7 +102,7 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 // cidrNodeMappingUpdateRequired returns true if the change from an old node
 // CIDR and node IP to a new node CIDR and node IP requires to insert/update
 // the new node CIDR.
-func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP) bool {
+func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, oldKey, newKey uint8) bool {
 	// node with single IP stack could have nil old and new CIDR
 	if oldCIDR == nil && newCIDR == nil {
 		return false
@@ -114,6 +114,10 @@ func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net
 
 	// Change in node IP
 	if !oldIP.Equal(newIP) {
+		return true
+	}
+
+	if newKey != oldKey {
 		return true
 	}
 
@@ -232,7 +236,7 @@ func (n *linuxNodeHandler) updateDirectRoute(oldCIDR, newCIDR *cidr.CIDR, oldIP,
 		return nil
 	}
 
-	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP) {
+	if cidrNodeMappingUpdateRequired(oldCIDR, newCIDR, oldIP, newIP, 0, 0) {
 		log.WithFields(logrus.Fields{
 			logfields.IPAddr: newIP,
 			"allocCIDR":      newCIDR,
@@ -426,7 +430,7 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode node.Node) error {
 	return nil
 }
 
-func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) uint8 {
+func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 	var spi uint8
 	var err error
 	upsertIPsecLog := func(err error, spec string, loc, rem *net.IPNet, spi uint8) {
@@ -491,7 +495,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) uint8 {
 			}
 		}
 	}
-	return spi
 }
 
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition bool) error {
@@ -500,7 +503,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		oldIP4, oldIP6         net.IP
 		newIP4                 = newNode.GetNodeIP(false)
 		newIP6                 = newNode.GetNodeIP(true)
-		encryptKey             uint8
+		oldKey, newKey         uint8
 	)
 
 	if oldNode != nil {
@@ -508,10 +511,12 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		oldIP6Cidr = oldNode.IPv6AllocCIDR
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
+		oldKey = oldNode.EncryptionKey
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		encryptKey = n.enableIPsec(newNode)
+		n.enableIPsec(newNode)
+		newKey = newNode.EncryptionKey
 	}
 
 	if newNode.IsLocal() {
@@ -532,9 +537,9 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, encryptKey)
+		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, encryptKey)
+		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.updateOrRemoveNodeRoutes([]*cidr.CIDR{oldIP4Cidr}, []*cidr.CIDR{newNode.IPv4AllocCIDR})

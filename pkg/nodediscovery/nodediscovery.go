@@ -110,6 +110,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.LocalNode.ClusterID = option.Config.ClusterID
+	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 
 	if node.GetExternalIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{

@@ -91,6 +91,9 @@ type Node struct {
 
 	// Source is the source where the node configuration was generated / created.
 	Source Source
+
+	// Key index used for transparent encryption or 0 for no encryption
+	EncryptionKey uint8
 }
 
 // Fullname returns the node's full name including the cluster name if a
