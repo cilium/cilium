@@ -15,6 +15,7 @@
 package api
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -39,6 +40,9 @@ type EndpointSelector struct {
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
 	requirements *k8sLbls.Requirements
+
+	// hash is the hash of the contents of the LabelSelector.
+	hash string
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -325,11 +329,14 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []metav1.Lab
 }
 
 // sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
+// It also populates fields internal to the EndpointSelector (e.g., the hash of
+// the LabelSelector).
 func (n *EndpointSelector) sanitize() error {
 	errList := validation.ValidateLabelSelector(n.LabelSelector, nil)
 	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %s", errList.ToAggregate().Error())
 	}
+	n.hash = fmt.Sprintf("%x", sha512.Sum512_256(([]byte)(n.LabelSelector.String())))
 	return nil
 }
 
