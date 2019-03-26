@@ -76,9 +76,6 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy)
 					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy)
 				} else {
-					if fromEndpoints.SelectsAllEndpoints() {
-						fromEndpoints = append(fromEndpoints, api.WildcardEndpointSelector)
-					}
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
 						if toPort.Rules.IsEmpty() {
@@ -111,9 +108,6 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy)
 					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy)
 				} else {
-					if toEndpoints.SelectsAllEndpoints() {
-						toEndpoints = append(toEndpoints, api.WildcardEndpointSelector)
-					}
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
 						if toPort.Rules.IsEmpty() {
