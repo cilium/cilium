@@ -219,7 +219,7 @@
   revision = "461401dc8f19d80baa4b70178935e4501286c00b"
 
 [[projects]]
-  digest = "1:95312968b2ba23adbf770086f402cb74c8c0b6a373c6056178e446386a4a7e0c"
+  digest = "1:217f54a01004e15731471f4b3d420c16b99ade200d9872d7c1f0d2684df60f14"
   name = "github.com/containernetworking/cni"
   packages = [
     "pkg/skel",
@@ -229,7 +229,7 @@
     "pkg/version",
   ]
   pruneopts = "NUT"
-  revision = "d2836a7b59485b780f49c64c07e8c41c06bde6ab"
+  revision = "v0.7.0-rc2"
 
 [[projects]]
   digest = "1:c76a35a17c17bc067b506dc24afb353ecb207087c079ef62a73febefbb20ed0b"
