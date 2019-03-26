@@ -2117,8 +2117,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	// 3 -> One for each rule, plus one from the l4-only rule (l7 scan).
-	c.Assert(len(filter.Endpoints), Equals, 3)
+	c.Assert(len(filter.Endpoints), Equals, 2)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
 
