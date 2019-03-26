@@ -66,7 +66,7 @@ strip bpf-map && \
 #
 # cni/loopback
 #
-curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz -o cni.tar.gz && \
+curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-amd64-v0.7.5.tgz -o cni.tar.gz && \
 tar -xvf cni.tar.gz ./loopback && \
 strip -s ./loopback && \
 #
