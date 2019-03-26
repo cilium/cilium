@@ -881,8 +881,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 
 	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
 		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-				tuple.nexthdr, sizeof(tuple.saddr),
-				&tuple.saddr, false);
+				tuple.nexthdr, false);
 	else
 		verdict = TC_ACT_OK;
 
@@ -1029,8 +1028,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
 		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
 						    tuple.nexthdr,
-						    sizeof(orig_sip),
-						    &orig_sip, is_fragment);
+						    is_fragment);
 	else
 		verdict = TC_ACT_OK;
 
