@@ -47,17 +47,18 @@ type bpfService struct {
 	// backendsByMapIndex, it will only be listed once in uniqueBackends.
 	uniqueBackends serviceValueMap
 
-	// TODO(brb) comment
-	// TODO(brb) slaveSlotByBackendLegacyID
-	backendPos map[LegacyBackendID]int
+	// slaveSlotByLegacyBackendID is a map for getting a position within svc
+	// value to any slave which points to a backend identified with
+	// the legacy ID.
+	slaveSlotByLegacyBackendID map[LegacyBackendID]int
 }
 
 func newBpfService(key ServiceKey) *bpfService {
 	return &bpfService{
-		frontendKey:        key,
-		backendsByMapIndex: map[int]*bpfBackend{},
-		uniqueBackends:     map[string]ServiceValue{},
-		backendPos:         map[LegacyBackendID]int{},
+		frontendKey:                key,
+		backendsByMapIndex:         map[int]*bpfBackend{},
+		uniqueBackends:             map[string]ServiceValue{},
+		slaveSlotByLegacyBackendID: map[LegacyBackendID]int{},
 	}
 }
 
@@ -180,8 +181,6 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 		l.entries[frontendID] = bpfSvc
 	}
 
-	// TODO(brb) backendPos
-
 	for index, backend := range serviceValues {
 		b := &bpfBackend{
 			id:       backend.String(),
@@ -191,6 +190,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 			b.isHole = true
 		} else {
 			bpfSvc.uniqueBackends[backend.String()] = backend
+			bpfSvc.slaveSlotByLegacyBackendID[backend.LegacyBackendID()] = index + 1
 		}
 
 		bpfSvc.backendsByMapIndex[index+1] = b
@@ -199,7 +199,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 	return nil
 }
 
-func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, legacyBackendID LegacyBackendID) (int, bool) {
+func (l *lbmapCache) getSlaveSlot(fe *Service4KeyV2, legacyBackendID LegacyBackendID) (int, bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -209,7 +209,7 @@ func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, legacyBackendID
 		return 0, false
 	}
 
-	pos, found := bpfSvc.backendPos[legacyBackendID]
+	pos, found := bpfSvc.slaveSlotByLegacyBackendID[legacyBackendID]
 	if !found {
 		return 0, false
 	}
@@ -238,7 +238,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 	for key, b := range bpfSvc.uniqueBackends {
 		if _, ok := newBackendsMap[key]; !ok {
 			bpfSvc.deleteBackend(b)
-			delete(bpfSvc.backendPos, b.LegacyBackendID())
+			delete(bpfSvc.slaveSlotByLegacyBackendID, b.LegacyBackendID())
 		}
 	}
 
@@ -246,7 +246,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 	for _, b := range backends {
 		if _, ok := bpfSvc.uniqueBackends[b.String()]; !ok {
 			pos := bpfSvc.addBackend(b)
-			bpfSvc.backendPos[b.LegacyBackendID()] = pos
+			bpfSvc.slaveSlotByLegacyBackendID[b.LegacyBackendID()] = pos
 		}
 	}
 

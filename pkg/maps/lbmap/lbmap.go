@@ -801,7 +801,6 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 // RestoreService restores a single service in the cache. This is required to
 // guarantee consistent backend ordering
 func RestoreService(svc loadbalancer.LBSVC) error {
-	// TODO(brb) restore backendPos (legacyBackendID -> slaveSlot) mapping
 	return cache.restoreService(svc)
 }
 
@@ -849,7 +848,7 @@ func RestoreService(svc loadbalancer.LBSVC) error {
 //				return err
 //			}
 //
-//			legacySlaveSlot, found = cache.getLegacyBackendPosition(svcKey, legacyID)
+//			legacySlaveSlot, found = cache.getSlaveSlot(svcKey, legacyID)
 //			svcVal = NewService4ValueV2(legacySlaveSlot, backendID, revNATID, val.GetWeight())
 //			svcKey.SetCount(nextSlot)
 //			nextSlot++
@@ -1005,7 +1004,7 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 	for nsvc, v := range serviceValues {
 		serviceKey.SetSlave(nsvc + 1) // service count starts with 1
 		backend := backendByID[v.GetBackendID()]
-		pos, found := cache.getLegacyBackendPosition(serviceKey, backend.LegacyBackendID())
+		pos, found := cache.getSlaveSlot(serviceKey, backend.LegacyBackendID())
 		if !found {
 			// TODO(brb) blah
 			fmt.Println("not found!", backend.LegacyBackendID())
