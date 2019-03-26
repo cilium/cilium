@@ -159,6 +159,7 @@ var _ = Describe("K8sServicesTest", func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
+			ExpectAllPodsTerminated(kubectl)
 		})
 
 		It("Checks ClusterIP Connectivity", func() {
