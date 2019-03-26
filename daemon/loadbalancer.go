@@ -124,12 +124,12 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 
 	// Acquire ID for each backend
 	for i, b := range beCpy {
-		beAddr, err := service.AcquireBackendID(b.L3n4Addr)
+		id, err := service.AcquireBackendID(b.L3n4Addr, 0)
 		if err != nil {
 			return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
 				b, err)
 		}
-		beCpy[i].ID = beAddr.ID
+		beCpy[i].ID = loadbalancer.ServiceID(id)
 	}
 
 	svc := loadbalancer.LBSVC{
@@ -560,6 +560,11 @@ func restoreServiceIDs() {
 		if err := lbmap.RestoreService(svc); err != nil {
 			log.WithError(err).Warning("Unable to restore service in cache")
 		}
+
+		//if err := lbmap.MigrateServiceToV2(svc, service.AcquireBackendID); err != nil {
+		//	// TODO(brb) add svc field
+		//	log.WithError(err).Warning("Unable to migrate service")
+		//}
 	}
 
 	log.WithFields(logrus.Fields{
@@ -568,6 +573,27 @@ func restoreServiceIDs() {
 		"skipped":  skipped,
 	}).Info("Restore service IDs from BPF maps")
 
+}
+
+// NOTE: should be called before creating v2 svc from legacy, otherwise backend IDs can be taken.
+// FIXME(brb): after obsoleting legacy svc, merge the function with restoreServiceIDs.
+func restoreBackendIDs() {
+	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
+	if err != nil {
+		log.WithError(err).Warning("Error occured while dumping backend table from datapath")
+		return
+	}
+
+	for _, lbBackend := range lbBackends {
+		newBackendID, err := service.AcquireBackendID(lbBackend.L3n4Addr, uint32(lbBackend.ID))
+		// TODO(brb) delete svc in this case?
+		if err != nil {
+			log.WithError(err).Warning("Unable to backend ID from datapath")
+		}
+		if newBackendID != uint16(lbBackend.ID) {
+			log.Warningf("Backend IDs do not match (%d != %d)", newBackendID, lbBackend.ID)
+		}
+	}
 }
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite

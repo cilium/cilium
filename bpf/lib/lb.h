@@ -627,7 +627,7 @@ static inline int __inline__ lb4_extract_key_v2(struct __sk_buff *skb,
 					     int l4_off, struct lb4_key_v2 *key,
 					     struct csum_offset *csum_off, int dir)
 {
-    key->proto = tuple->nexthdr;
+    key->proto = 0; // TODO(brb) NYI
 	key->address = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
@@ -787,7 +787,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			return DROP_NO_SERVICE;
 		}
 		state->backend_id = foo.backend_index;
-		state->slave = foo.count; // TODO(brb) explain this hack
+		state->slave = foo.count; // TODO(brb) explain this hack (old slave ID)
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.

@@ -30,8 +30,15 @@ func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 	return acquireLocalID(l3n4Addr, baseID)
 }
 
-func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (*loadbalancer.L3n4AddrID, error) {
-	return acquireLocalID(l3n4Addr, 0)
+// TODO(brb) uint32->uint16, no global ID is needed
+// TODO(brb) if new != previousID, then make it return an error
+func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr, previousID uint32) (uint16, error) {
+	l3n4AddrID, err := acquireLocalID(l3n4Addr, previousID)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint16(l3n4AddrID.ID), nil
 }
 
 // RestoreID restores  previously used service ID

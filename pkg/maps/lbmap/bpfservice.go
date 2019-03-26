@@ -177,6 +177,8 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 		l.entries[frontendID] = bpfSvc
 	}
 
+	// TODO(brb) backendPos
+
 	for index, backend := range serviceValues {
 		b := &bpfBackend{
 			id:       backend.String(),
@@ -194,7 +196,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 	return nil
 }
 
-func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, backendString string) (int, bool) {
+func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, legacyBackendID string) (int, bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -204,7 +206,7 @@ func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, backendString s
 		return 0, false
 	}
 
-	pos, found := bpfSvc.backendPos[backendString]
+	pos, found := bpfSvc.backendPos[legacyBackendID]
 	if !found {
 		return 0, false
 	}

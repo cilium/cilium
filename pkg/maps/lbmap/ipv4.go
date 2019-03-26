@@ -376,6 +376,17 @@ type Service4ValueV2 struct {
 	Weight    uint16 `align:"weight"`
 }
 
+func NewService4ValueV2(count uint16, backendID uint16, revNat uint16, weight uint16) *Service4ValueV2 {
+	svc := Service4ValueV2{
+		Count:     count,
+		BackendID: backendID,
+		RevNat:    revNat,
+		Weight:    weight,
+	}
+
+	return &svc
+}
+
 func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
 //func (s *Service4ValueV2) SetPort(port uint16)         { s.Port = port }
@@ -391,8 +402,6 @@ func (s *Service4ValueV2) GetBackendID() uint16    { return s.BackendID }
 func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
-	//n.Port = byteorder.HostToNetwork(n.Port).(uint16)
-	// TODO(brb) what's about backend ID?
 	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
 	return &n
 }
