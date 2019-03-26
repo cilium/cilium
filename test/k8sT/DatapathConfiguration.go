@@ -72,16 +72,25 @@ var _ = Describe("K8sDatapathConfig", func() {
 	}
 
 	deployCilium := func(ciliumDaemonSetPatchFile string) {
+		By("Installing DNS Deployment")
 		_ = kubectl.Apply(helpers.DNSDeployment())
 
+		By("Deploying etcd-operator")
 		err := kubectl.DeployETCDOperator()
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to deploy etcd operator")
 
+		By("Installing Cilium PatchFile")
 		err = kubectl.CiliumInstall(ciliumDaemonSetPatchFile, helpers.CiliumConfigMapPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to install Cilium")
 
-		ExpectCiliumReady(kubectl)
+		By("Installing Cilium-Operator")
+		err = kubectl.CiliumOperatorInstall("head")
+		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
+
 		ExpectETCDOperatorReady(kubectl)
+		Expect(kubectl.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
+		ExpectCiliumReady(kubectl)
+		ExpectKubeDNSReady(kubectl)
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")
