@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -221,9 +222,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		//   can lookup the endpoint related to it
 		// epAddr and serverAddr should match the original request, where epAddr is
 		// the source for egress (the only case current).
-		func(lookupTime time.Time, epAddr, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
+		func(lookupTime time.Time, epContext dnsproxy.EndpointNotifyContext, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
 			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
-
 			var verdict accesslog.FlowVerdict
 			var reason string
 			metricError := metricErrorAllow
@@ -273,24 +273,23 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 					log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
 				}
 			}
-
 			var ep *endpoint.Endpoint
-			epIP, _, err := net.SplitHostPort(epAddr)
-			if err != nil {
-				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+			if epContext.EpID == 0 {
+				log.Error("cannot extract endpoint ID from the DNS request")
 				// We are always egress
 				ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, accesslog.VerdictError)
 				endMetric()
-				return err
+				return errors.New("DNS request is not assigned to an endpoint")
 			}
-			ep = endpointmanager.LookupIPv4(epIP)
+
+			ep = endpointmanager.LookupCiliumID(uint16(epContext.EpID))
 			if ep == nil {
 				// This is a hard fail. We cannot proceed because record.Log requires a
 				// non-nil ep, and we also don't want to insert this data into the
 				// cache if we don't know that an endpoint asked for it (this is
 				// asserted via ep != nil here and msg.Response && msg.Rcode ==
 				// dns.RcodeSuccess below).
-				err := fmt.Errorf("Cannot find matching endpoint for IP %s", epAddr)
+				err := fmt.Errorf("Cannot find endpoint '%d' in the endpointManager", epContext.EpID)
 				log.WithError(err).Error("cannot find matching endpoint")
 				endMetric()
 				return err
@@ -307,7 +306,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
-					SrcIPPort:   epAddr,
+					SrcIPPort:   epContext.EpAddr,
 					DstIPPort:   serverAddr,
 					SrcIdentity: ep.GetIdentity().Uint32(),
 				}),
