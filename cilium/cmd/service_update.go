@@ -123,6 +123,7 @@ func updateService(cmd *cobra.Command, args []string) {
 			Fatalf("Cannot parse backend address \"%s\": %s", backend, err)
 		}
 
+		// The backend ID will be created by the agent
 		be := loadbalancer.NewLBBackEnd(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port), uint16(weight))
 
 		if be.IsIPv6() && faIP.To4() != nil {

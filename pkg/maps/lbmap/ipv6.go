@@ -193,8 +193,8 @@ func (s *Service6Value) String() string {
 	return fmt.Sprintf("[%s]:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
-func (s *Service6Value) BackendString() string {
-	return fmt.Sprintf("[%s]:%d", s.Address, s.Port)
+func (s *Service6Value) LegacyBackendID() LegacyBackendID {
+	return LegacyBackendID(fmt.Sprintf("[%s]:%d", s.Address, s.Port))
 }
 
 type RevNat6Key struct {

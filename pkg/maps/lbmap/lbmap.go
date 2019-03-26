@@ -122,7 +122,7 @@ type ServiceValue interface {
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceValue
 
-	BackendString() string
+	LegacyBackendID() LegacyBackendID
 }
 
 // TODO(brb) fix it when adding IPv6 support
@@ -801,7 +801,7 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 // RestoreService restores a single service in the cache. This is required to
 // guarantee consistent backend ordering
 func RestoreService(svc loadbalancer.LBSVC) error {
-	// TODO(brb) restore backendPos (legacyBackendId -> slaveSlot) mapping
+	// TODO(brb) restore backendPos (legacyBackendID -> slaveSlot) mapping
 	return cache.restoreService(svc)
 }
 
@@ -837,7 +837,7 @@ func RestoreService(svc loadbalancer.LBSVC) error {
 //		migratedBackends := map[string]struct{}{}
 //		nextSlot := 1
 //		for _, val := range legacySVCVals {
-//			legacyID := val.BackendString()
+//			legacyID := val.LegacyBackendID()
 //			if _, found := migratedBackends[legacyID]; found {
 //				continue
 //			}
@@ -973,12 +973,12 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 		existingCount = svcValue.GetCount()
 	}
 
-	backendIDs := []uint16{}
+	backendIDs := map[uint16]LegacyBackendID{}
 	backendByID := map[uint16]*Backend4{}
 	for _, b := range backends {
 		id := b.Key.ID
 		backendByID[id] = b // TODO(brb) add note about Backend4.String() to match with legacy ServiceValue.String()
-		backendIDs = append(backendIDs, id)
+		backendIDs[id] = b.LegacyBackendID()
 	}
 
 	toAdd, toRemove, err := cache.addServiceV2(svcID, backendIDs)
@@ -1005,10 +1005,10 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 	for nsvc, v := range serviceValues {
 		serviceKey.SetSlave(nsvc + 1) // service count starts with 1
 		backend := backendByID[v.GetBackendID()]
-		pos, found := cache.getLegacyBackendPosition(serviceKey, backend.BackendString())
+		pos, found := cache.getLegacyBackendPosition(serviceKey, backend.LegacyBackendID())
 		if !found {
 			// TODO(brb) blah
-			fmt.Println("not found!", backend.BackendString())
+			fmt.Println("not found!", backend.LegacyBackendID())
 		} else {
 			v.SetCount(pos) // HACK
 		}
@@ -1335,3 +1335,5 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 
 	return newSVCMap, newSVCList, errors
 }
+
+type LegacyBackendID string

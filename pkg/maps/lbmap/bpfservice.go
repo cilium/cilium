@@ -48,7 +48,8 @@ type bpfService struct {
 	uniqueBackends serviceValueMap
 
 	// TODO(brb) comment
-	backendPos map[string]int
+	// TODO(brb) slaveSlotByBackendLegacyID
+	backendPos map[LegacyBackendID]int
 }
 
 func newBpfService(key ServiceKey) *bpfService {
@@ -56,7 +57,7 @@ func newBpfService(key ServiceKey) *bpfService {
 		frontendKey:        key,
 		backendsByMapIndex: map[int]*bpfBackend{},
 		uniqueBackends:     map[string]ServiceValue{},
-		backendPos:         map[string]int{},
+		backendPos:         map[LegacyBackendID]int{},
 	}
 }
 
@@ -138,17 +139,19 @@ func (b *bpfService) getBackends() []ServiceValue {
 }
 
 type lbmapCache struct {
-	mutex           lock.Mutex
-	svcBackendsByID map[string]map[uint16]struct{} // svc ID -> [backend ID]
-	backendRefCount map[uint16]int                 // backend ID -> count
-	entries         map[string]*bpfService
+	mutex                      lock.Mutex
+	svcBackendsByID            map[string]map[uint16]LegacyBackendID
+	backendRefCount            map[uint16]int // backend ID -> count
+	backendIDByLegacyBackendID map[LegacyBackendID]uint16
+	entries                    map[string]*bpfService
 }
 
 func newLBMapCache() lbmapCache {
 	return lbmapCache{
-		entries:         map[string]*bpfService{},
-		svcBackendsByID: make(map[string]map[uint16]struct{}),
-		backendRefCount: map[uint16]int{},
+		entries:                    map[string]*bpfService{},
+		svcBackendsByID:            map[string]map[uint16]LegacyBackendID{},
+		backendRefCount:            map[uint16]int{},
+		backendIDByLegacyBackendID: map[LegacyBackendID]uint16{},
 	}
 }
 
@@ -196,7 +199,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 	return nil
 }
 
-func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, legacyBackendID string) (int, bool) {
+func (l *lbmapCache) getLegacyBackendPosition(fe *Service4KeyV2, legacyBackendID LegacyBackendID) (int, bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -235,7 +238,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 	for key, b := range bpfSvc.uniqueBackends {
 		if _, ok := newBackendsMap[key]; !ok {
 			bpfSvc.deleteBackend(b)
-			delete(bpfSvc.backendPos, b.BackendString())
+			delete(bpfSvc.backendPos, b.LegacyBackendID())
 		}
 	}
 
@@ -243,7 +246,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfS
 	for _, b := range backends {
 		if _, ok := bpfSvc.uniqueBackends[b.String()]; !ok {
 			pos := bpfSvc.addBackend(b)
-			bpfSvc.backendPos[b.BackendString()] = pos
+			bpfSvc.backendPos[b.LegacyBackendID()] = pos
 		}
 	}
 
@@ -258,7 +261,7 @@ func (l *lbmapCache) delete(fe ServiceKey) {
 
 // Returns new backend IDs which need to be inserted into the BPF map
 // TODO(brb) we need to define svcID type, otherwise someome will make for sure a mistake!
-func (l *lbmapCache) addServiceV2(svcID string, backendIDs []uint16) (map[uint16]struct{}, []uint16, error) {
+func (l *lbmapCache) addServiceV2(svcID string, backendIDs map[uint16]LegacyBackendID) (map[uint16]struct{}, []uint16, error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -267,23 +270,23 @@ func (l *lbmapCache) addServiceV2(svcID string, backendIDs []uint16) (map[uint16
 
 	existingBackendIDs, found := l.svcBackendsByID[svcID]
 	if !found {
-		existingBackendIDs = map[uint16]struct{}{}
+		existingBackendIDs = map[uint16]LegacyBackendID{}
 		l.svcBackendsByID[svcID] = existingBackendIDs
 	}
 
-	backendIDsMap := map[uint16]struct{}{}
-	for _, id := range backendIDs {
-		backendIDsMap[id] = struct{}{}
+	backendIDsMap := map[uint16]LegacyBackendID{}
+	for id, legacyID := range backendIDs {
+		backendIDsMap[id] = legacyID
 		if _, found := existingBackendIDs[id]; !found {
-			if add := l.addBackendV2Locked(id); add {
+			if add := l.addBackendV2Locked(id, legacyID); add {
 				toAdd[id] = struct{}{}
 			}
 		}
 	}
 
 	for id := range existingBackendIDs {
-		if _, found := backendIDsMap[id]; !found {
-			removed, err := l.delBackendV2Locked(id)
+		if legacyID, found := backendIDsMap[id]; !found {
+			removed, err := l.delBackendV2Locked(id, legacyID)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -312,8 +315,8 @@ func (l *lbmapCache) removeServiceV2(svcID string) (int, []uint16, error) {
 
 	count := len(existingBackendIDs)
 
-	for id := range existingBackendIDs {
-		remove, err := l.delBackendV2Locked(id)
+	for id, legacyID := range existingBackendIDs {
+		remove, err := l.delBackendV2Locked(id, legacyID)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -328,13 +331,15 @@ func (l *lbmapCache) removeServiceV2(svcID string) (int, []uint16, error) {
 }
 
 // Returns true if new
-func (l *lbmapCache) addBackendV2Locked(id uint16) bool {
+func (l *lbmapCache) addBackendV2Locked(id uint16, legacyID LegacyBackendID) bool {
 	l.backendRefCount[id]++
+
+	l.backendIDByLegacyBackendID[legacyID] = id
 
 	return l.backendRefCount[id] == 1
 }
 
-func (l *lbmapCache) delBackendV2Locked(id uint16) (bool, error) {
+func (l *lbmapCache) delBackendV2Locked(id uint16, legacyID LegacyBackendID) (bool, error) {
 	count, found := l.backendRefCount[id]
 	if !found {
 		return false, fmt.Errorf("backend %d not found", id)
@@ -342,6 +347,7 @@ func (l *lbmapCache) delBackendV2Locked(id uint16) (bool, error) {
 
 	if count == 1 {
 		delete(l.backendRefCount, id)
+		delete(l.backendIDByLegacyBackendID, legacyID)
 		return true, nil
 	}
 

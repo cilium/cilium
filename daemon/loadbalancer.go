@@ -578,7 +578,7 @@ func restoreServiceIDs() {
 		}
 
 		// Make v2 and legacy SVCs backward compatible
-		// TODO(brb)
+		// TODO NEXT
 
 	}
 
