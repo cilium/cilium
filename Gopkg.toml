@@ -88,10 +88,10 @@ required = [
 
 [[constraint]]
   name = "github.com/containernetworking/cni"
-  revision = "d2836a7b59485b780f49c64c07e8c41c06bde6ab"
+  revision = "v0.7.0-rc2"
 
   # main-usage = "plugins/cni"
-  # on-revision = "a stable realease was not released for the CNI chaining that Cilium needs"
+  # on-revision = "latest stable release"
 
 [[constraint]]
   name = "github.com/containernetworking/plugins"
