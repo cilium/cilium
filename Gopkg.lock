@@ -236,7 +236,7 @@
   name = "github.com/containernetworking/plugins"
   packages = ["pkg/ns"]
   pruneopts = "NUT"
-  revision = "v0.7.4"
+  revision = "v0.7.5"
 
 [[projects]]
   digest = "1:d37f9e5bed67b56e4f1431c47ae2cd4b995369a5a23c52c0997dcbd8301e78bd"
