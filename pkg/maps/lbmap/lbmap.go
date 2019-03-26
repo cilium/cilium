@@ -913,9 +913,34 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID) error {
 	return nil
 }
 
+func CreateServiceV2(svc *loadbalancer.LBSVC, acquireBackendID func(loadbalancer.L3n4Addr) (uint16, error)) error {
+	// Acquire IDs for backend first
+	for i, lbBE := range svc.BES {
+		backendID, err := acquireBackendID(lbBE.L3n4Addr)
+		if err != nil {
+			return fmt.Errorf("Failed to acquire backend ID for %s", lbBE)
+		}
+		svc.BES[i].ID = loadbalancer.ServiceID(backendID)
+	}
+
+	svcKeyV2, svcValuesV2, backendsV2, err := LBSVC2ServiceKeynValuenBackendV2(svc)
+	if err != nil {
+		return err
+	}
+
+	// TODO(brb) add revNat info to svc
+	addRevNat := true
+	revNATID := int(svc.FE.ID)
+	svcIDStr := svc.FE.String()
+
+	return UpdateServiceV2(svcIDStr, svcKeyV2, svcValuesV2, backendsV2, addRevNat, revNATID)
+}
+
 // UpdateServiceV2 adds or updates the given service (v2) in the bpf maps
 func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2,
 	backends []*Backend4, addRevNAT bool, revNATID int) error {
+
+	// TODO(brb) introduce a type for svcID
 
 	var (
 		weights         []uint16
@@ -1033,7 +1058,7 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 }
 
 // LBSVC2ServiceKeynValuenBackendValueV2 transforms the SVC Cilium type into a bpf SVC v2 type.
-func LBSVC2ServiceKeynValuenBackendV2(svc loadbalancer.LBSVC) (*Service4KeyV2, []*Service4ValueV2, []*Backend4, error) {
+func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (*Service4KeyV2, []*Service4ValueV2, []*Backend4, error) {
 	log.WithFields(logrus.Fields{
 		"lbFrontend": svc.FE.String(),
 		"lbBackend":  svc.BES,

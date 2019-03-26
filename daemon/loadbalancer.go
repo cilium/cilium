@@ -143,7 +143,7 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 		return false, err
 	}
 
-	svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(svc)
+	svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
 	if err != nil {
 		return false, err
 	}
@@ -516,15 +516,26 @@ func openServiceMaps() error {
 }
 
 func restoreServiceIDs() {
+	// We need to restore backend IDs first to avoid from them being overwritten
+	// when creating SVC V2 from legacy
+	restoreBackendIDs()
+
 	failed, restored, skipped := 0, 0, 0
 
 	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true)
-
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occured while dumping service table from datapath")
 	}
+	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2(true)
+	for _, err := range errors {
+		log.WithError(err).Warning("Error occured while dumping service table v2 from datapath")
+	}
 
-	for _, svc := range svcMap {
+	for feHash, svc := range svcMap {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.ServiceID: svc.FE.ID,
+			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
+		})
 		// Services where the service ID was missing in the BPF map
 		// cannot be restored
 		if uint32(svc.FE.ID) == uint32(0) {
@@ -537,11 +548,6 @@ func restoreServiceIDs() {
 		// service load-balancing needs to be enabled before the
 		// kvstore is guaranteed to be connected
 		if option.Config.LBInterface == "" {
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.ServiceID: svc.FE.ID,
-				logfields.ServiceIP: svc.FE.L3n4Addr.String(),
-			})
-
 			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
 
 			// TODO(brb) Restore Backend ID
@@ -561,10 +567,19 @@ func restoreServiceIDs() {
 			log.WithError(err).Warning("Unable to restore service in cache")
 		}
 
-		//if err := lbmap.MigrateServiceToV2(svc, service.AcquireBackendID); err != nil {
-		//	// TODO(brb) add svc field
-		//	log.WithError(err).Warning("Unable to migrate service")
-		//}
+		// Create SVC V2 from the legacy SVC
+		if _, found := svcMapV2[feHash]; !found {
+			acquireBackendID := func(b loadbalancer.L3n4Addr) (uint16, error) {
+				return service.AcquireBackendID(b, 0)
+			}
+			if err := lbmap.CreateServiceV2(&svc, acquireBackendID); err != nil {
+				scopedLog.WithError(err).Warning("Unable to create service v2")
+			}
+		}
+
+		// Make v2 and legacy SVCs backward compatible
+		// TODO(brb)
+
 	}
 
 	log.WithFields(logrus.Fields{
@@ -595,6 +610,8 @@ func restoreBackendIDs() {
 		}
 	}
 }
+
+func createServiceV2FromLegacy() {}
 
 // SyncLBMap syncs the bpf lbmap with the daemon's lb map. All bpf entries will overwrite
 // the daemon's LB map. If the bpf lbmap entry has a different service ID than the
@@ -657,7 +674,7 @@ func (d *Daemon) SyncLBMap() error {
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
 		}
 
-		svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(svc)
+		svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
 		if err != nil {
 			return fmt.Errorf("TODO(brb): %s", err)
 		}
