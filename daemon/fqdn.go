@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -202,13 +203,13 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	// StartProxySupport
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
 		// LookupEPByIP
-		func(endpointIP net.IP) (endpointID string, err error) {
+		func(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
 			e := endpointmanager.LookupIPv4(endpointIP.String())
 			if e == nil {
-				return "", fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
+				return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 			}
 
-			return e.StringID(), nil
+			return e, nil
 		},
 		// NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 		// events, proxy metrics and storing DNS data in the DNS cache. This may
@@ -221,9 +222,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		//   can lookup the endpoint related to it
 		// epAddr and serverAddr should match the original request, where epAddr is
 		// the source for egress (the only case current).
-		func(lookupTime time.Time, epAddr, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
+		func(lookupTime time.Time, ep *endpoint.Endpoint, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
 			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
-
 			var verdict accesslog.FlowVerdict
 			var reason string
 			metricError := metricErrorAllow
@@ -273,29 +273,17 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 					log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
 				}
 			}
-
-			var ep *endpoint.Endpoint
-			epIP, _, err := net.SplitHostPort(epAddr)
-			if err != nil {
-				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
-				// We are always egress
-				ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, accesslog.VerdictError)
-				endMetric()
-				return err
-			}
-			ep = endpointmanager.LookupIPv4(epIP)
 			if ep == nil {
 				// This is a hard fail. We cannot proceed because record.Log requires a
 				// non-nil ep, and we also don't want to insert this data into the
 				// cache if we don't know that an endpoint asked for it (this is
 				// asserted via ep != nil here and msg.Response && msg.Rcode ==
 				// dns.RcodeSuccess below).
-				err := fmt.Errorf("Cannot find matching endpoint for IP %s", epAddr)
+				err := errors.New("DNS request cannot be associated with an existing endpoint")
 				log.WithError(err).Error("cannot find matching endpoint")
 				endMetric()
 				return err
 			}
-
 			qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
 			if err != nil {
 				// This error is ok because all these values are used for reporting, or filling in the cache.
@@ -307,7 +295,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 				logger.LogTags.Verdict(verdict, reason),
 				logger.LogTags.Addressing(logger.AddressingInfo{
-					SrcIPPort:   epAddr,
+					SrcIPPort:   ep.String(),
 					DstIPPort:   serverAddr,
 					SrcIdentity: ep.GetIdentity().Uint32(),
 				}),
