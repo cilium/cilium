@@ -475,7 +475,7 @@ struct lb4_service {
 
 struct lb4_service_v2 {
 	__u16 count;
-	__u16 backend_index;
+	__u16 backend_id;
 	__u16 rev_nat_index;
 	__u16 weight;
 } __attribute__((packed));

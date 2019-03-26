@@ -372,7 +372,7 @@ func (k *Service4KeyV2) RevNatValue() *RevNat4Value {
 // Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
 type Service4ValueV2 struct {
 	Count     uint16 `align:"count"`
-	BackendID uint16 `align:"backend_index"`
+	BackendID uint16 `align:"backend_id"`
 	RevNat    uint16 `align:"rev_nat_index"`
 	Weight    uint16 `align:"weight"`
 }
