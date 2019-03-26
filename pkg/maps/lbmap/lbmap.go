@@ -105,7 +105,8 @@ type ServiceValue interface {
 	// Set port to map to (left blank for master)
 	SetPort(uint16)
 
-	//GetPort() uint16
+	// Get the port number
+	GetPort() uint16
 
 	// Set reverse NAT identifier
 	SetRevNat(int)
@@ -473,7 +474,7 @@ func l3n4Addr2ServiceKey(l3n4Addr loadbalancer.L3n4AddrID) ServiceKey {
 }
 
 // LBSVC2ServiceKeynValue transforms the SVC Cilium type into a bpf SVC type.
-func LBSVC2ServiceKeynValue(svc loadbalancer.LBSVC) (ServiceKey, []ServiceValue, error) {
+func LBSVC2ServiceKeynValue(svc *loadbalancer.LBSVC) (ServiceKey, []ServiceValue, error) {
 	log.WithFields(logrus.Fields{
 		"lbFrontend": svc.FE.String(),
 		"lbBackend":  svc.BES,
@@ -551,7 +552,7 @@ func serviceKey2L3n4AddrV2(svcKey *Service4KeyV2) *loadbalancer.L3n4Addr {
 	svc4Key := svcKey
 	feIP = svc4Key.Address.IP()
 	fePort = svc4Key.Port
-	feProto = loadbalancer.L4Type(u8proto.U8proto(svc4Key.Proto).String())
+	feProto = loadbalancer.NONE
 	//}
 	return loadbalancer.NewL3n4Addr(feProto, feIP, fePort)
 }
@@ -564,6 +565,7 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 		svcID    loadbalancer.ServiceID
 		bePort   uint16
 		beWeight uint16
+		beID     uint16
 	)
 
 	log.WithFields(logrus.Fields{
@@ -577,16 +579,18 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 		beIP = svc6Val.Address.IP()
 		bePort = svc6Val.Port
 		beWeight = svc6Val.Weight
+		beID = svc6Val.Count
 	} else {
 		svc4Val := svcValue.(*Service4Value)
 		svcID = loadbalancer.ServiceID(svc4Val.RevNat)
 		beIP = svc4Val.Address.IP()
 		bePort = svc4Val.Port
 		beWeight = svc4Val.Weight
+		beID = svc4Val.Count
 	}
 
 	feL3n4Addr := serviceKey2L3n4Addr(svcKey)
-	beLBBackEnd := loadbalancer.NewLBBackEnd(0, loadbalancer.NONE, beIP, bePort, beWeight)
+	beLBBackEnd := loadbalancer.NewLBBackEnd(beID, loadbalancer.NONE, beIP, bePort, beWeight)
 
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
@@ -622,7 +626,7 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey *Service4KeyV2, svcValue *Servic
 	beIP = backendValue.Address.IP()
 	bePort = backendValue.Port
 	beWeight = svcValue.Weight
-	beProto = loadbalancer.L4Type(u8proto.U8proto(svcKey.Proto).String())
+	beProto = loadbalancer.NONE
 	//}
 
 	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
@@ -689,7 +693,6 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 // which correspond to "master" backend values in the BPF maps. Returns the
 // errors that occurred while dumping the maps.
 func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
-
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
@@ -882,12 +885,7 @@ func RestoreService(svc loadbalancer.LBSVC) error {
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID) error {
 	id := svc.String()
 
-	proto, err := u8proto.ParseProtocol(string(svc.Protocol))
-	if err != nil {
-		return err
-	}
-
-	svcKey := NewService4KeyV2(svc.IP, svc.Port, proto, 0)
+	svcKey := NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	svcKey.SetSlave(0)
 
 	count, backendIDs, err := cache.removeServiceV2(id)
@@ -922,6 +920,10 @@ func CreateServiceV2(svc *loadbalancer.LBSVC, acquireBackendID func(loadbalancer
 		svc.BES[i].ID = loadbalancer.ServiceID(backendID)
 	}
 
+	svcKey, svcValues, err := LBSVC2ServiceKeynValue(svc)
+	if err != nil {
+		return err
+	}
 	svcKeyV2, svcValuesV2, backendsV2, err := LBSVC2ServiceKeynValuenBackendV2(svc)
 	if err != nil {
 		return err
@@ -932,12 +934,13 @@ func CreateServiceV2(svc *loadbalancer.LBSVC, acquireBackendID func(loadbalancer
 	revNATID := int(svc.FE.ID)
 	svcIDStr := svc.FE.String()
 
-	return UpdateServiceV2(svcIDStr, svcKeyV2, svcValuesV2, backendsV2, addRevNat, revNATID)
+	return UpdateServiceV2(svcIDStr, svcKeyV2, svcValuesV2, backendsV2, addRevNat, revNATID, svcKey, svcValues)
 }
 
 // UpdateServiceV2 adds or updates the given service (v2) in the bpf maps
 func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*Service4ValueV2,
-	backends []*Backend4, addRevNAT bool, revNATID int) error {
+	backends []*Backend4, addRevNAT bool, revNATID int,
+	svcLegacyKey ServiceKey, svcLegacyValues []ServiceValue) error {
 
 	// TODO(brb) introduce a type for svcID
 
@@ -1004,12 +1007,13 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 	for nsvc, v := range serviceValues {
 		serviceKey.SetSlave(nsvc + 1) // service count starts with 1
 		backend := backendByID[v.GetBackendID()]
-		pos, found := cache.getSlaveSlot(serviceKey, backend.LegacyBackendID())
+		slotNr, found := cache.getSlaveSlot(serviceKey, backend.LegacyBackendID())
 		if !found {
-			// TODO(brb) blah
-			fmt.Println("not found!", backend.LegacyBackendID())
+			// TODO(brb) propper logging
+			fmt.Println("!!!!!!!!!", backend.LegacyBackendID())
 		} else {
-			v.SetCount(pos) // HACK
+			// TODO(brb) explain this hack
+			v.SetCount(slotNr)
 		}
 		if err := updateServiceV2(serviceKey, v); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", serviceKey, v, err)
@@ -1049,9 +1053,30 @@ func UpdateServiceV2(svcID string, serviceKey *Service4KeyV2, serviceValues []*S
 			return fmt.Errorf("unable to delete service %+v: %s", serviceKey, err)
 		}
 	}
-
 	// TODO(brb) fix gaps ^^
 	// TODO(brb) return to be released backend IDs
+
+	// Update legacy SVC values to point to backend IDs for backward compatibility
+	plusOne := 1
+	for slotNr, svcLegacyVal := range svcLegacyValues {
+		// Skip service which already has backend ID
+		if svcLegacyVal.GetCount() != 0 {
+			continue
+		}
+		// Skip master service
+		if slotNr == 0 && svcLegacyVal.GetPort() == 0 {
+			plusOne = 0
+			continue
+		}
+
+		legacyBackendID := svcLegacyVal.LegacyBackendID()
+		backendID := cache.getBackendID(legacyBackendID)
+		svcLegacyKey.SetBackend(slotNr + plusOne)
+		svcLegacyVal.SetCount(int(backendID))
+		if err := updateService(svcLegacyKey, svcLegacyVal); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -1079,7 +1104,6 @@ func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (*Service4KeyV2, 
 
 		svcValue.SetRevNat(int(svc.FE.ID))
 		svcValue.SetWeight(be.Weight)
-		// TODO(brb) check whether be.ID is 16bits long!
 		svcValue.SetBackendID(uint16(be.ID))
 
 		backends = append(backends, backend)
@@ -1105,25 +1129,16 @@ func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) (*Service4KeyV2, er
 	//if l3n4Addr.IsIPv6() {
 	//	return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 	//}
-	// TODO(brb) none protocol
-	proto, err := u8proto.ParseProtocol(string(l3n4Addr.Protocol))
-	if err != nil {
-		return nil, fmt.Errorf("invalid protocol %s: %s", l3n4Addr.Protocol, err)
-	}
 
-	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, proto, 0), nil
+	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0), nil
 }
 
 func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (*Backend4, error) {
 	//if be.IsIPv6() {
 	//	return ...
 	//}
-	proto, err := u8proto.ParseProtocol(string(be.Protocol))
-	if err != nil {
-		return nil, fmt.Errorf("invalid protocol %s: %s", be.Protocol, err)
-	}
 
-	return NewBackend4(uint16(be.ID), be.IP, be.Port, proto)
+	return NewBackend4(uint16(be.ID), be.IP, be.Port, u8proto.All)
 }
 
 func lookupServiceV2(key *Service4KeyV2) (*Service4ValueV2, error) {
@@ -1201,12 +1216,7 @@ func deleteServiceLockedV2(key *Service4KeyV2) error {
 	if err != nil {
 		return err
 	}
-	err = lookupAndDeleteServiceWeightsV2(key)
-	// TODO(brb) perhaps proper delete
-	//if err == nil {
-	//	cache.delete(key)
-	//}
-	return err
+	return lookupAndDeleteServiceWeightsV2(key)
 }
 
 // lookupAndDeleteServiceWeightsV2 deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq

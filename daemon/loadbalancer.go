@@ -51,13 +51,15 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 		return err
 	}
 
-	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID); err != nil {
+	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID, feBPF, besBPF); err != nil {
 		// TODO(brb) probably remove the legacy svc?
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
 		return err
 	}
+
+	// TODO(brb) Add to legacySVC counts -> backendIDs
 
 	if addRevNAT {
 		log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to RevNATMap")
@@ -138,7 +140,7 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 		Sha256: feL3n4Addr.L3n4Addr.SHA256Sum(),
 	}
 
-	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
 	if err != nil {
 		return false, err
 	}
@@ -186,8 +188,6 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		if err != nil {
 			return api.Error(PutServiceIDInvalidBackendCode, err)
 		}
-		// TODO(brb): parse it properly
-		b.Protocol = "tcp"
 		backends = append(backends, *b)
 	}
 
@@ -515,6 +515,7 @@ func openServiceMaps() error {
 	return nil
 }
 
+// TODO(brb) rename to restoreServices
 func restoreServiceIDs() {
 	// We need to restore backend IDs first to avoid from them being overwritten
 	// when creating SVC V2 from legacy
@@ -549,9 +550,6 @@ func restoreServiceIDs() {
 		// kvstore is guaranteed to be connected
 		if option.Config.LBInterface == "" {
 			_, err := service.RestoreID(svc.FE.L3n4Addr, uint32(svc.FE.ID))
-
-			// TODO(brb) Restore Backend ID
-
 			if err != nil {
 				failed++
 				scopedLog.WithError(err).Warning("Unable to restore service ID from datapath")
@@ -576,10 +574,6 @@ func restoreServiceIDs() {
 				scopedLog.WithError(err).Warning("Unable to create service v2")
 			}
 		}
-
-		// Make v2 and legacy SVCs backward compatible
-		// TODO NEXT
-
 	}
 
 	log.WithFields(logrus.Fields{
@@ -592,6 +586,7 @@ func restoreServiceIDs() {
 
 // NOTE: should be called before creating v2 svc from legacy, otherwise backend IDs can be taken.
 // FIXME(brb): after obsoleting legacy svc, merge the function with restoreServiceIDs.
+// TODO(brb): return an error instead of logging
 func restoreBackendIDs() {
 	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
@@ -668,7 +663,7 @@ func (d *Daemon) SyncLBMap() error {
 			newRevNATMap[svc.FE.ID] = revNAT
 		}
 
-		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
 		if err != nil {
 			return fmt.Errorf("Unable to create a BPF key and values for service FE: %s and backends: %+v. Error: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)

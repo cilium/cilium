@@ -206,6 +206,7 @@ func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16, w
 
 func (s *Service4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 func (s *Service4Value) SetPort(port uint16)         { s.Port = port }
+func (s *Service4Value) GetPort() uint16             { return s.Port }
 func (s *Service4Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int               { return int(s.Count) }
 func (s *Service4Value) SetRevNat(id int)            { s.RevNat = uint16(id) }

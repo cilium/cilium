@@ -120,6 +120,7 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 	}
 
 	delete(b.uniqueBackends, idToRemove)
+	delete(b.slaveSlotByLegacyBackendID, backend.LegacyBackendID())
 }
 
 func (b *bpfService) getBackends() []ServiceValue {
@@ -170,7 +171,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 
 	frontendID := svc.FE.String()
 
-	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(svc)
+	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(&svc)
 	if err != nil {
 		return err
 	}
@@ -215,6 +216,13 @@ func (l *lbmapCache) getSlaveSlot(fe *Service4KeyV2, legacyBackendID LegacyBacke
 	}
 
 	return pos, true
+}
+
+func (l *lbmapCache) getBackendID(legacyID LegacyBackendID) uint16 {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	return l.backendIDByLegacyBackendID[legacyID]
 }
 
 func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) *bpfService {

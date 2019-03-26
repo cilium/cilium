@@ -155,6 +155,7 @@ func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16, w
 
 func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 func (s *Service6Value) SetPort(port uint16)         { s.Port = port }
+func (s *Service6Value) GetPort() uint16             { return s.Port }
 func (s *Service6Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int               { return int(s.Count) }
 func (s *Service6Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
