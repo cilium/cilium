@@ -43,7 +43,7 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
             }
         }
@@ -63,9 +63,9 @@ pipeline {
             steps {
                 script {
                     parallel(
-                        "K8s-1.9":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.9 vagrant provision k8s1-1.9; K8S_VERSION=1.9 vagrant provision k8s2-1.9'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.9 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        "K8s-1.10":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.13":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant provision k8s1-1.13; K8S_VERSION=1.13 vagrant provision k8s2-1.13'
@@ -89,7 +89,7 @@ pipeline {
     }
     post {
         always {
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.9 vagrant destroy -f || true'
+            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.13 vagrant destroy -f || true'
             cleanWs()
         }
