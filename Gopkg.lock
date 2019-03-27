@@ -822,11 +822,11 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:9eb209803c010083b606dd9f53eed558c72de5e83d2a1201b240a52c72d6e1cf"
+  digest = "1:159c36d31cd2915f1104d2051680b8ee9cc73549898d3a22dbed6c87486d738e"
   name = "github.com/miekg/dns"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "164b22ef9acc6ebfaef7169ab51caaef67390823"
+  revision = "77b2eb00b557733c7022b5d2df85d54d858488eb"
   source = "github.com/cilium/dns"
 
 [[projects]]
@@ -1859,6 +1859,8 @@
     "golang.org/x/crypto/ssh",
     "golang.org/x/crypto/ssh/agent",
     "golang.org/x/net/context",
+    "golang.org/x/net/ipv4",
+    "golang.org/x/net/ipv6",
     "golang.org/x/net/netutil",
     "golang.org/x/sync/semaphore",
     "golang.org/x/sys/unix",
