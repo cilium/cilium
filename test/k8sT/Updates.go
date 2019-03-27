@@ -132,6 +132,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		// from master instead of create the new ones.
 		_ = kubectl.Delete(helpers.DNSDeployment())
 
+		// Delete all etcd pods otherwise they will be kept running but the bpf
+		// endpoints will be cleaned up when we restart cilium with a clean state
+		// a couple lines bellow
+		_ = kubectl.DeleteResource("pods", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.KubeSystemNamespace))
+
 		ExpectAllPodsTerminated(kubectl)
 
 		By("Installing a cleaning state of Cilium")
