@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/kvstore"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -42,6 +44,23 @@ func Test(t *testing.T) { TestingT(t) }
 type EndpointSuite struct{}
 
 var _ = Suite(&EndpointSuite{})
+
+type testIdentityAllocator struct{}
+
+func (t *testIdentityAllocator) TriggerPolicyUpdates(bool, string) {}
+
+func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
+
+func (s *EndpointSuite) SetUpTest(c *C) {
+	/* Required to test endpoint CEP policy model */
+	kvstore.SetupDummy("etcd")
+	cache.InitIdentityAllocator(&testIdentityAllocator{})
+}
+
+func (s *EndpointSuite) TearDownTest(c *C) {
+	cache.Close()
+	kvstore.Close()
+}
 
 func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	eps := NewEndpointStatus()

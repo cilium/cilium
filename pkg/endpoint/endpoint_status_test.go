@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -206,6 +207,78 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
 	cep := e.GetCiliumEndpointStatus()
 
 	c.Assert(len(cep.Status.Log), check.Equals, cilium_v2.EndpointStatusLogEntries)
+}
+
+func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
+	e := newEndpoint(c, endpointGeneratorSpec{
+		fakeControllerManager:    true,
+		failingControllers:       10,
+		logErrors:                maxLogs,
+		allowedIngressIdentities: 100,
+		allowedEgressIdentities:  100,
+		numPortsPerIdentity:      10,
+	})
+	// Policy not enabled; allow all.
+	apiPolicy := e.getEndpointPolicy()
+	c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, cilium_v2.AllowedIdentityList(nil))
+	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, cilium_v2.AllowedIdentityList(nil))
+
+	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
+	fooIdentity, _, err := cache.AllocateIdentity(context.Background(), fooLbls)
+	c.Assert(err, check.Equals, nil)
+	defer cache.Release(context.Background(), fooIdentity)
+
+	e.desiredPolicy = &policy.EndpointPolicy{
+		PolicyMapState: policy.MapState{
+			// L3-only map state
+			{
+				Identity: uint32(fooIdentity.ID),
+				DestPort: 0,
+				Nexthdr:  0,
+			}: {},
+			// L4-only map state
+			{
+				Identity: 0,
+				DestPort: 80,
+				Nexthdr:  6,
+			}: {},
+			// L3-dependent L4 map state
+			{
+				Identity: uint32(fooIdentity.ID),
+				DestPort: 80,
+				Nexthdr:  6,
+			}: {},
+		},
+		IngressPolicyEnabled: true,
+		EgressPolicyEnabled:  true,
+	}
+
+	apiPolicy = e.getEndpointPolicy()
+	expectedIdentityList := cilium_v2.AllowedIdentityList{
+		{
+			Identity: uint64(fooIdentity.ID),
+			IdentityLabels: map[string]string{
+				"unspec:foo": "",
+			},
+		},
+		{
+			Identity:       0,
+			DestPort:       80,
+			Protocol:       6,
+			IdentityLabels: map[string]string(nil),
+		},
+		{
+			Identity: uint64(fooIdentity.ID),
+			DestPort: 80,
+			Protocol: 6,
+			IdentityLabels: map[string]string{
+				"unspec:foo": "",
+			},
+		},
+	}
+	expectedIdentityList.Sort()
+	c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, expectedIdentityList)
+	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, cilium_v2.AllowedIdentityList(nil))
 }
 
 func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatusDeepEqual(c *check.C) {
