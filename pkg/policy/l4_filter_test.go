@@ -106,7 +106,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
+	c.Assert(filter.Endpoints.SelectsAllEndpoints(false), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
@@ -148,7 +148,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
+	c.Assert(filter.Endpoints.SelectsAllEndpoints(false), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
@@ -267,7 +267,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(filter.Endpoints.SelectsAllEndpoints(), Equals, true)
+	c.Assert(filter.Endpoints.SelectsAllEndpoints(false), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 1)

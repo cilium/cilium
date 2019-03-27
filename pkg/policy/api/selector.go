@@ -362,11 +362,17 @@ func (s EndpointSelectorSlice) Matches(ctx labels.LabelArray) bool {
 }
 
 // SelectsAllEndpoints returns whether the EndpointSelectorSlice selects all
-// endpoints (if it contains the WildcardEndpointSelector, or if it is empty).
-func (s EndpointSelectorSlice) SelectsAllEndpoints() bool {
+// endpoints. Depending on what "layer" of policy is being computed for this
+// EndpointSelectorSlice (L3, or L4), an empty slice represents different
+// behavior: at L3, an empty slice does not allow traffic, while at L4, it does.
+// If a slice contains the WildcardEndpointSelector, it of course selects all
+// endpoints.
+func (s EndpointSelectorSlice) SelectsAllEndpoints(isL3Only bool) bool {
 
 	if len(s) == 0 {
-		return true
+		if !isL3Only {
+			return true
+		}
 	}
 
 	for _, selector := range s {

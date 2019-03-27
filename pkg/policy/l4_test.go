@@ -75,12 +75,12 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 	for _, selector := range selectors {
 		eps := []api.EndpointSelector{selector}
 		// Regardless of ingress/egress, we should end up with
-		// a single L7 rule whether the selector is wildcarded
+		// a single L7 rule whether the selector is wildcardeds
 		// or if it is based on specific labels.
-		filter := CreateL4IngressFilter(eps, nil, portrule, tuple, tuple.Protocol, nil)
+		filter := CreateL4IngressFilter(eps, nil, portrule, tuple, tuple.Protocol, nil, false)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 
-		filter = CreateL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil)
+		filter = CreateL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil, false)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 	}
 }

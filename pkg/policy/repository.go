@@ -671,13 +671,13 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 	ingressCtx := SearchContext{
 		To:                            labels,
 		rulesSelect:                   true,
-		skipL4RequirementsAggregation: true,
+		skipL4RequirementsAggregation: false,
 	}
 
 	egressCtx := SearchContext{
 		From:                          labels,
 		rulesSelect:                   true,
-		skipL4RequirementsAggregation: true,
+		skipL4RequirementsAggregation: false,
 	}
 
 	if option.Config.TracingEnabled() {
@@ -704,16 +704,11 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 			egressCtx.To = labels
 
 			ingressAccess := matchingRules.canReachIngressRLocked(&ingressCtx)
-			if ingressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if ingressAccess == api.Denied {
+			if ingressAccess == api.Denied {
 				calculatedPolicy.DeniedIngressIdentities[identity] = labels
 			}
 		}
+
 	} else {
 		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Ingress)
 	}

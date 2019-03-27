@@ -786,6 +786,15 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	c.Assert(err, IsNil)
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": {
+			Port:             0,
+			Protocol:         api.ProtoAny,
+			U8Proto:          0x0,
+			Endpoints:        []api.EndpointSelector{selBar1},
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{labelsL3},
+		},
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
@@ -1223,6 +1232,17 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP, labelsL4},
 		},
+		"0/ANY": {
+			Port:             0,
+			Protocol:         "ANY",
+			U8Proto:          0x0,
+			allowsAllAtL3:    false,
+			Endpoints:        api.EndpointSelectorSlice{selBar1},
+			L7Parser:         "",
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          false,
+			DerivedFromRules: labels.LabelArrayList{labelsL4},
+		},
 	}
 	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
 }
@@ -1445,12 +1465,23 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(len(*policy), Equals, 2)
+	c.Assert(len(*policy), Equals, 3)
 	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
 	selWorld := (*policy)["80/TCP"].Endpoints[1]
 	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": {
+			Port:             0,
+			Protocol:         "ANY",
+			U8Proto:          0x0,
+			allowsAllAtL3:    false,
+			Endpoints:        []api.EndpointSelector{selWorld},
+			L7Parser:         "",
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{labelsL3},
+		},
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
@@ -1567,12 +1598,23 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 
 	policy, err := repo.ResolveL4EgressPolicy(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(len(*policy), Equals, 2)
+	c.Assert(len(*policy), Equals, 3)
 	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
 	selWorld := (*policy)["80/TCP"].Endpoints[1]
 	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": {
+			Port:             0,
+			Protocol:         "ANY",
+			U8Proto:          0x0,
+			allowsAllAtL3:    false,
+			Endpoints:        api.EndpointSelectorSlice{selWorld},
+			L7Parser:         "",
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          false,
+			DerivedFromRules: labels.LabelArrayList{labelsL3},
+		},
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
@@ -1879,7 +1921,7 @@ Label verdict: undecided
 
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 Ingress rules
+    Labels [any:baz] not found
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Found all required labels
     Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
@@ -1908,7 +1950,7 @@ Label verdict: undecided
 
 Resolving ingress port policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    No L4 Ingress rules
+    Labels [any:bar] not found
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Labels [any:bar] not found
 2/2 rules selected
