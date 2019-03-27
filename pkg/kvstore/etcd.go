@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	client "github.com/coreos/etcd/clientv3"
@@ -508,7 +509,10 @@ reList:
 		}
 
 		nextRev := res.Header.Revision + 1
-		scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)
+
+		if option.Config.Debug {
+			scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)
+		}
 
 		if res.Count > 0 {
 			for _, key := range res.Kvs {
@@ -518,7 +522,9 @@ reList:
 				}
 
 				localCache.MarkInUse(key.Key)
-				scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
+				if option.Config.Debug {
+					scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
+				}
 
 				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
@@ -544,7 +550,9 @@ reList:
 				Typ: EventTypeDelete,
 			}
 
-			scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+			if option.Config.Debug {
+				scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
+			}
 			queueStart := spanstat.Start()
 			w.Events <- event
 			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
@@ -557,7 +565,9 @@ reList:
 		}
 
 	recreateWatcher:
-		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
+		if option.Config.Debug {
+			scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
+		}
 
 		e.limiter.Wait(ctx.TODO())
 		etcdWatch := e.client.Watch(ctx.Background(), w.prefix,
@@ -595,7 +605,10 @@ reList:
 				}
 
 				nextRev = r.Header.Revision + 1
-				scopedLog.Debugf("Received event from etcd: %+v", r)
+
+				if option.Config.Debug {
+					scopedLog.Debugf("Received event from etcd: %+v", r)
+				}
 
 				for _, ev := range r.Events {
 					event := KeyValueEvent{
@@ -615,7 +628,9 @@ reList:
 						localCache.MarkInUse(ev.Kv.Key)
 					}
 
-					scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
+					if option.Config.Debug {
+						scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
+					}
 
 					queueStart := spanstat.Start()
 					w.Events <- event
