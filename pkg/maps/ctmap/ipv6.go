@@ -25,7 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-//CtKey6 represents the key for IPv6 entries in the local BPF conntrack map.
+// CtKey6 represents the key for IPv6 entries in the BPF conntrack maps.
+// Address field names are correct for return traffic, i.e., they are reversed
+// compared to the original direction traffic.
 type CtKey6 struct {
 	DestAddr   types.IPv6      `align:"daddr"`
 	SourceAddr types.IPv6      `align:"saddr"`

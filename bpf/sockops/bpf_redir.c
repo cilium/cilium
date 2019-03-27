@@ -45,12 +45,12 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 	struct remote_endpoint_info *info;
 	__u64 flags = BPF_F_INGRESS;
 	struct sock_key key = {};
-	__u32 srcID, dstID = 0;
-	int verdict, err;
+	__u32 dstID = 0;
+	int verdict;
 
 	sk_msg_extract4_key(msg, &key);
 
-	/* Currently, pulling proxy port and dstIP out of policy and endpoint
+	/* Currently, pulling dstIP out of endpoint
 	 * tables. This can be simplified by caching this information with the
 	 * socket to avoid extra overhead. This would require the agent though
 	 * to flush the sock ops map on policy changes.
@@ -61,39 +61,10 @@ int bpf_redir_proxy(struct sk_msg_md *msg)
 	else
 		dstID = WORLD_ID;
 
-	info = lookup_ip4_remote_endpoint(key.sip4);
-	if (info != NULL && info->sec_label)
-		srcID = info->sec_label;
-	else
-		srcID = WORLD_ID;
-
 	verdict = policy_sk_egress(dstID, key.sip4, key.dport);
-	if (redirect_to_proxy(verdict)) {
-		struct proxy4_tbl_value value = {
-			.orig_daddr = key.dip4,
-			.orig_dport = key.dport,
-			.identity = srcID,
-		};
-		struct proxy4_tbl_key proxy_key = {
-			.saddr = key.sip4,
-			.sport = key.sport,
-			.dport = verdict,
-			.nexthdr = IPPROTO_TCP,
-		};
-		__be32 host_ip = IPV4_GATEWAY;
-
-		value.lifetime = bpf_ktime_get_sec() + PROXY_DEFAULT_LIFETIME;
-
-		key.dport = verdict;
-		key.dip4 = host_ip;
-
-		if (map_update_elem(&PROXY4_MAP, &proxy_key, &value, 0) < 0)
-			return SK_PASS;
-		err = msg_redirect_hash(msg, &SOCK_OPS_MAP, &key, flags);
-	} else if (!verdict) {
+	if (verdict >= 0) {
 		msg_redirect_hash(msg, &SOCK_OPS_MAP, &key, flags);
 	}
-
 	return SK_PASS;
 }
 

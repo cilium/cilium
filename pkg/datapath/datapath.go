@@ -46,4 +46,12 @@ type Datapath interface {
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options for the endpoint to the specified writer.
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
+
+	// InstallProxyRules creates the necessary datapath config (e.g., iptables
+	// rules for redirecting host proxy traffic on a specific ProxyPort)
+	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
+
+	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
+	// rules for redirecting host proxy traffic on a specific ProxyPort)
+	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
 }

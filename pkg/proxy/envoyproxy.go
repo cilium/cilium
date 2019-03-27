@@ -28,7 +28,7 @@ import (
 // the global Envoy instance
 var envoyProxy *envoy.Envoy
 
-// envoyRedirect implements the Redirect interface for an l7 proxy.
+// envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
 type envoyRedirect struct {
 	listenerName string
 	xdsServer    *envoy.XDSServer
@@ -44,18 +44,19 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
 	})
 
+	l := r.listener
 	if envoyProxy != nil {
 		redir := &envoyRedirect{
-			listenerName: fmt.Sprintf("%s:%d", r.listenerName, r.ProxyPort),
+			listenerName: fmt.Sprintf("%s:%d", l.name, l.proxyPort),
 			xdsServer:    xdsServer,
 		}
 
-		xdsServer.AddListener(redir.listenerName, r.parserType, r.ProxyPort, r.ingress, wg)
+		xdsServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress, wg)
 
 		return redir, nil
 	}
 
-	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", r.listenerName)
+	return nil, fmt.Errorf("%s: Envoy proxy process failed to start, cannot add redirect", l.name)
 }
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the

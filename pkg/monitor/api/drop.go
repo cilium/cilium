@@ -29,7 +29,7 @@ var errors = map[uint8]string{
 	135: "CT: Truncated or invalid header",
 	136: "CT: Missing TCP ACK flag",
 	137: "CT: Unknown L4 protocol",
-	138: "CT: Can't create entry from packet",
+	138: "CT: Can't create entry from packet", // Unused
 	139: "Unsupported L3 protocol",
 	140: "Missed tail call",
 	141: "Error writing to packet",
@@ -39,8 +39,8 @@ var errors = map[uint8]string{
 	145: "Unknown ICMPv6 code",
 	146: "Unknown ICMPv6 type",
 	147: "Error retrieving tunnel key",
-	148: "Error retrieving tunnel options",
-	149: "Invalid Geneve option",
+	148: "Error retrieving tunnel options", // Unused
+	149: "Invalid Geneve option",           // Unused
 	150: "Unknown L3 target address",
 	151: "Not a local target address",
 	152: "No matching local container found",
@@ -52,7 +52,7 @@ var errors = map[uint8]string{
 	158: "Service backend not found",
 	159: "Policy denied (L4)",
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
-	161: "Failed to insert into proxymap",
+	161: "Failed to insert into proxymap", // Unused
 	162: "Policy denied (CIDR)",
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
