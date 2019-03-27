@@ -2014,8 +2014,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	owner.ClearPolicyConsumers(e.ID).Wait()
-
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/identity"
 	identity2 "github.com/cilium/cilium/pkg/identity"
 	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -2286,35 +2287,29 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 
 	addedRule := repo.rules[0]
 
-	selectedEndpointID := uint16(12345)
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedEndpointIdentity := identity2.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
+	selectedIdentity := identity2.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
 
-	notSelectedEndpointID := uint16(6789)
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedEndpointIdentity := identity2.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
+	notSelectedIdentity := identity2.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	c.Assert(addedRule.matches(notSelectedEndpointID, notSelectedEndpointIdentity), Equals, false)
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{})
+	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{notSelectedIdentity: false})
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{selectedEndpointID: selectedEndpointIdentity})
+	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{selectedIdentity: true, notSelectedIdentity: false})
 
 	// Test again to check for caching working correctly.
-	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{selectedEndpointID: selectedEndpointIdentity})
+	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{selectedIdentity: true, notSelectedIdentity: false})
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	c.Assert(addedRule.matches(selectedEndpointID, notSelectedEndpointIdentity), Equals, false)
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}, notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity2.Identity{})
+	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{selectedIdentity: true, notSelectedIdentity: false})
 }

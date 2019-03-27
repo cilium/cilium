@@ -367,7 +367,7 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 	securityIdentity := ep.GetSecurityIdentity()
 
 	for _, r := range rules {
-		if ruleMatches := r.matches(id, securityIdentity); ruleMatches {
+		if ruleMatches := r.matches(securityIdentity); ruleMatches {
 			epIDSet.Mutex.Lock()
 			epIDSet.IDs[id] = struct{}{}
 			epIDSet.Mutex.Unlock()
@@ -381,16 +381,14 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 	return false
 }
 
-func (rules ruleSlice) refreshRulesForEndpoint(ep Endpoint) {
+func (rules ruleSlice) refreshRulesCache(ep Endpoint) {
 	if ep == nil {
 		return
 	}
 
-	id := ep.GetID16()
 	securityIdentity := ep.GetSecurityIdentity()
-
 	for _, r := range rules {
 		// matches updates the caches within the rules
-		r.matches(id, securityIdentity)
+		r.matches(securityIdentity)
 	}
 }
