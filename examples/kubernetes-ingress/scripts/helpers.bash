@@ -76,8 +76,8 @@ cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"172.20.0.1"}
 #cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"FD03::A"}
 #cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"FD03::1"}
 
-k8s_version="v1.13.3"
-etcd_version="v3.3.11"
+k8s_version="v1.14.0"
+etcd_version="v3.3.12"
 
 function restore_flag {
   check_num_params "$#" "2"
