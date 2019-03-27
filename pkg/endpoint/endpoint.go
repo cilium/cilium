@@ -408,14 +408,16 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
-		ID:            ID,
-		OpLabels:      pkgLabels.NewOpLabels(),
-		Status:        NewEndpointStatus(),
-		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		state:         state,
-		hasBPFProgram: make(chan struct{}, 0),
-		controllers:   controller.NewManager(),
-		EventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		ID:             ID,
+		OpLabels:       pkgLabels.NewOpLabels(),
+		Status:         NewEndpointStatus(),
+		DNSHistory:     fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		state:          state,
+		hasBPFProgram:  make(chan struct{}, 0),
+		controllers:    controller.NewManager(),
+		EventQueue:     eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
+		desiredPolicy:  policy.NewEndpointPolicy(),
+		realizedPolicy: policy.NewEndpointPolicy(),
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
@@ -447,8 +449,8 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
-		desiredPolicy:    &policy.EndpointPolicy{},
-		realizedPolicy:   &policy.EndpointPolicy{},
+		desiredPolicy:    policy.NewEndpointPolicy(),
+		realizedPolicy:   policy.NewEndpointPolicy(),
 		controllers:      controller.NewManager(),
 	}
 
@@ -1053,8 +1055,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
-	ep.desiredPolicy = &policy.EndpointPolicy{}
-	ep.realizedPolicy = &policy.EndpointPolicy{}
+	ep.desiredPolicy = policy.NewEndpointPolicy()
+	ep.realizedPolicy = policy.NewEndpointPolicy()
 	ep.controllers = controller.NewManager()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -150,10 +150,16 @@ type DummyOwner struct{}
 func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 	return 0
 }
+
+func (d DummyOwner) GetSecurityIdentity() *identity.Identity {
+	return fooIdentity
+}
+
 func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		repo.ResolvePolicy(9001, fooIdentity, DummyOwner{}, identityCache)
+		ip, _ := repo.ResolvePolicyLocked(9001, fooIdentity)
+		_ = ip.DistillPolicy(DummyOwner{}, identityCache)
 	}
 }
 
@@ -194,44 +200,50 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 	identityCache = cache.GetIdentityCache()
-	policy, err := repo.ResolvePolicy(10, fooIdentity, DummyOwner{}, identityCache)
+	identityPolicy, err := repo.ResolvePolicyLocked(10, fooIdentity)
 	c.Assert(err, IsNil)
+	policy := identityPolicy.DistillPolicy(DummyOwner{}, identityCache)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		ID: 10,
-		L4Policy: &L4Policy{
-			Ingress: L4PolicyMap{
-				"80/TCP": {
-					Port:     80,
-					Protocol: api.ProtoTCP,
-					U8Proto:  0x6,
-					Endpoints: []api.EndpointSelector{
-						api.WildcardEndpointSelector,
-					},
-					allowsAllAtL3: true,
-					L7Parser:      ParserTypeHTTP,
-					Ingress:       true,
-					L7RulesPerEp: L7DataMap{
-						api.WildcardEndpointSelector: api.L7Rules{
-							HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+		SelectorPolicy: &SelectorPolicy{
+			ID: 10,
+			L4Policy: &L4Policy{
+				Ingress: L4PolicyMap{
+					"80/TCP": {
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						Endpoints: []api.EndpointSelector{
+							api.WildcardEndpointSelector,
 						},
+						allowsAllAtL3: true,
+						L7Parser:      ParserTypeHTTP,
+						Ingress:       true,
+						L7RulesPerEp: L7DataMap{
+							api.WildcardEndpointSelector: api.L7Rules{
+								HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+							},
+						},
+						DerivedFromRules: labels.LabelArrayList{nil},
 					},
-					DerivedFromRules: labels.LabelArrayList{nil},
 				},
+				Egress: L4PolicyMap{},
 			},
-			Egress: L4PolicyMap{},
+			CIDRPolicy:           policy.CIDRPolicy,
+			IngressPolicyEnabled: true,
+			EgressPolicyEnabled:  false,
 		},
-		IngressPolicyEnabled:    true,
-		EgressPolicyEnabled:     false,
 		PolicyOwner:             DummyOwner{},
 		DeniedIngressIdentities: cache.IdentityCache{},
 		DeniedEgressIdentities:  cache.IdentityCache{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		CIDRPolicy:     policy.CIDRPolicy,
 		PolicyMapState: policy.PolicyMapState,
 	}
 
+	// Ignore the matching rules, this is intermediate state during
+	// generation of the EndpointPolicy.
+	policy.matchingRules = nil
 	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
 
@@ -278,44 +290,50 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	identityCache = cache.GetIdentityCache()
-	policy, err := repo.ResolvePolicy(10, fooIdentity, DummyOwner{}, identityCache)
+	identityPolicy, err := repo.ResolvePolicyLocked(10, fooIdentity)
 	c.Assert(err, IsNil)
+	policy := identityPolicy.DistillPolicy(DummyOwner{}, identityCache)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		ID: 10,
-		L4Policy: &L4Policy{
-			Ingress: L4PolicyMap{
-				"80/TCP": {
-					Port:     80,
-					Protocol: api.ProtoTCP,
-					U8Proto:  0x6,
-					Endpoints: []api.EndpointSelector{
-						api.WildcardEndpointSelector,
-					},
-					allowsAllAtL3: true,
-					L7Parser:      ParserTypeHTTP,
-					Ingress:       true,
-					L7RulesPerEp: L7DataMap{
-						api.WildcardEndpointSelector: api.L7Rules{
-							HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+		SelectorPolicy: &SelectorPolicy{
+			ID: 10,
+			L4Policy: &L4Policy{
+				Ingress: L4PolicyMap{
+					"80/TCP": {
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						Endpoints: []api.EndpointSelector{
+							api.WildcardEndpointSelector,
 						},
-						api.ReservedEndpointSelectors[labels.IDNameHost]: api.L7Rules{},
+						allowsAllAtL3: true,
+						L7Parser:      ParserTypeHTTP,
+						Ingress:       true,
+						L7RulesPerEp: L7DataMap{
+							api.WildcardEndpointSelector: api.L7Rules{
+								HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
+							},
+							api.ReservedEndpointSelectors[labels.IDNameHost]: api.L7Rules{},
+						},
+						DerivedFromRules: labels.LabelArrayList{nil},
 					},
-					DerivedFromRules: labels.LabelArrayList{nil},
 				},
+				Egress: L4PolicyMap{},
 			},
-			Egress: L4PolicyMap{},
+			CIDRPolicy:           policy.CIDRPolicy,
+			IngressPolicyEnabled: true,
+			EgressPolicyEnabled:  false,
 		},
-		IngressPolicyEnabled:    true,
-		EgressPolicyEnabled:     false,
 		PolicyOwner:             DummyOwner{},
 		DeniedIngressIdentities: cache.IdentityCache{},
 		DeniedEgressIdentities:  cache.IdentityCache{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		CIDRPolicy:     policy.CIDRPolicy,
 		PolicyMapState: policy.PolicyMapState,
 	}
 
+	// Ignore the matching rules, this is intermediate state during
+	// generation of the EndpointPolicy.
+	policy.matchingRules = nil
 	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
