@@ -501,10 +501,19 @@ func openServiceMaps() error {
 		if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 			return err
 		}
+		if _, err := lbmap.Backend4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
 		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RRSeq4MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := proxymap.Proxy4Map.OpenOrCreate(); err != nil {
