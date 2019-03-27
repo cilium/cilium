@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2017 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -128,11 +128,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
 			continue
 		}
-
-		if endpoints.SelectsAllEndpoints() {
-			endpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-		}
-
 		switch filter.L7Parser {
 		case ParserTypeNone:
 			continue

@@ -76,6 +76,13 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy)
 					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy)
 				} else {
+					// L4-only or L3-dependent L4 rule.
+					//
+					// "fromEndpoints" may be empty here, which indicates that all L3 peers should
+					// be selected. If so, add the wildcard selector.
+					if len(fromEndpoints) == 0 {
+						fromEndpoints = append(fromEndpoints, api.WildcardEndpointSelector)
+					}
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
 						if toPort.Rules.IsEmpty() {
@@ -108,6 +115,13 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy)
 					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy)
 				} else {
+					// L4-only or L3-dependent L4 rule.
+					//
+					// "toEndpoints" may be empty here, which indicates that all L3 peers should
+					// be selected. If so, add the wildcard selector.
+					if len(toEndpoints) == 0 {
+						toEndpoints = append(toEndpoints, api.WildcardEndpointSelector)
+					}
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
 						if toPort.Rules.IsEmpty() {
