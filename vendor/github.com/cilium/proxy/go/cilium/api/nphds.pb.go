@@ -4,11 +4,11 @@
 package cilium
 
 import (
+	context "context"
 	fmt "fmt"
 	v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	proto "github.com/golang/protobuf/proto"
 	_ "github.com/lyft/protoc-gen-validate/validate"
-	context "golang.org/x/net/context"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
 	math "math"

@@ -106,7 +106,7 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
-  digest = "1:70ecb94718c7e45fa5102f715d15c765fad2aac2fe83ee611d917079f0ad9960"
+  digest = "1:800108506e5262966dfbdde932c9ed62356f53f4463dfa2f1724f8e9fe892f1f"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -126,7 +126,7 @@
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
+  revision = "529a626ce098095f3ade827b018639bbd3071fc7"
 
 [[projects]]
   digest = "1:623d36e1d9d7aa38d5c0b92ed0a19279b3847a6c287ffa3e328f9535a3bef17b"
@@ -1817,6 +1817,7 @@
     "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/duration",
     "github.com/golang/protobuf/ptypes/struct",
+    "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/google/gopacket",
     "github.com/google/gopacket/layers",
     "github.com/google/gops/agent",
