@@ -1120,6 +1120,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
 	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
+	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)
