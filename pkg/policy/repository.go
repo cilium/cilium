@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,11 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 // Repository is a list of policy rules which in combination form the security
@@ -641,23 +639,13 @@ func (p *Repository) GetRulesList() *models.Policy {
 	}
 }
 
-// ResolvePolicy returns the EndpointPolicy for the provided set of labels against the
-// set of rules in the repository, and the provided set of identities.
-// If the policy cannot be generated due to conflicts at L4 or L7, returns an
-// error.
-func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identity, policyOwner PolicyOwner, identityCache cache.IdentityCache) (*EndpointPolicy, error) {
-
-	labels := securityIdentity.LabelArray
-
-	calculatedPolicy := &EndpointPolicy{
-		ID:                      id,
-		L4Policy:                NewL4Policy(),
-		CIDRPolicy:              NewCIDRPolicy(),
-		PolicyMapState:          make(MapState),
-		PolicyOwner:             policyOwner,
-		DeniedIngressIdentities: cache.IdentityCache{},
-		DeniedEgressIdentities:  cache.IdentityCache{},
-	}
+// ResolvePolicyLocked returns the EndpointPolicy for the provided set of
+// labels against the set of rules in the repository, and the provided set of
+// identities. If the policy cannot be generated due to conflicts at L4 or L7,
+// returns an error.
+//
+// Must be performed while holding the Repository lock.
+func (p *Repository) ResolvePolicyLocked(id uint16, securityIdentity *identity.Identity) (*IdentityPolicy, error) {
 
 	// First obtain whether policy applies in both traffic directions, as well
 	// as list of rules which actually select this endpoint. This allows us
@@ -665,9 +653,19 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(id, securityIdentity)
+
+	calculatedPolicy := &IdentityPolicy{
+		ID:                   id,
+		L4Policy:             NewL4Policy(),
+		CIDRPolicy:           NewCIDRPolicy(),
+		matchingRules:        matchingRules,
+		IngressPolicyEnabled: ingressEnabled,
+		EgressPolicyEnabled:  egressEnabled,
+	}
 	calculatedPolicy.IngressPolicyEnabled = ingressEnabled
 	calculatedPolicy.EgressPolicyEnabled = egressEnabled
 
+	labels := securityIdentity.LabelArray
 	ingressCtx := SearchContext{
 		To:                            labels,
 		rulesSelect:                   true,
@@ -698,24 +696,6 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 
 		calculatedPolicy.CIDRPolicy.Ingress = newCIDRIngressPolicy.Ingress
 		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy.Ingress
-
-		for identity, labels := range identityCache {
-			ingressCtx.From = labels
-			egressCtx.To = labels
-
-			ingressAccess := matchingRules.canReachIngressRLocked(&ingressCtx)
-			if ingressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if ingressAccess == api.Denied {
-				calculatedPolicy.DeniedIngressIdentities[identity] = labels
-			}
-		}
-	} else {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Ingress)
 	}
 
 	if egressEnabled {
@@ -731,29 +711,7 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 
 		calculatedPolicy.CIDRPolicy.Egress = newCIDREgressPolicy.Egress
 		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy.Egress
-
-		for identity, labels := range identityCache {
-			egressCtx.To = labels
-
-			egressAccess := matchingRules.canReachEgressRLocked(&egressCtx)
-			if egressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Egress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if egressAccess == api.Denied {
-				calculatedPolicy.DeniedEgressIdentities[identity] = labels
-			}
-		}
-	} else {
-		// Allow all identities
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Egress)
 	}
-
-	calculatedPolicy.computeDesiredL4PolicyMapEntries(identityCache)
-	calculatedPolicy.PolicyMapState.DetermineAllowLocalhost(calculatedPolicy.L4Policy)
-	calculatedPolicy.PolicyMapState.DetermineAllowFromWorld()
 
 	return calculatedPolicy, nil
 }
