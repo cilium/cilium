@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -1284,6 +1285,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
+	identitymanager.Subscribe(d.policy)
 
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
@@ -1604,10 +1606,4 @@ func (d *Daemon) GetNodeSuffix() string {
 	}
 
 	return ip.String()
-}
-
-// ClearPolicyConsumers removes references to the specified id from the rules in
-// the daemon's policy repository.
-func (d *Daemon) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
-	return d.policy.RemoveEndpointIDFromRuleCaches(id)
 }

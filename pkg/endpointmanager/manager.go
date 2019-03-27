@@ -224,19 +224,11 @@ func releaseID(ep *endpoint.Endpoint) {
 	}
 }
 
-// RuleCacheOwner is an interface representing anything which needs to be
-// notified upon endpoint removal from the endpointmanager.
-type RuleCacheOwner interface {
-	// ClearPolicyConsumers removes references to the specified id from the
-	// policy rules managed by RuleCacheOwner.
-	ClearPolicyConsumers(id uint16) *sync.WaitGroup
-}
-
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
-func WaitEndpointRemoved(ep *endpoint.Endpoint, owner RuleCacheOwner) {
+func WaitEndpointRemoved(ep *endpoint.Endpoint) {
 	select {
-	case <-Remove(ep, owner):
+	case <-Remove(ep):
 		return
 	}
 }
@@ -246,7 +238,7 @@ func WaitEndpointRemoved(ep *endpoint.Endpoint, owner RuleCacheOwner) {
 // Must be called with ep.Mutex.RLock held. Releasing of the ID of the endpoint
 // is done asynchronously. Once the ID of the endpoint is released, the returned
 // channel is closed.
-func Remove(ep *endpoint.Endpoint, owner RuleCacheOwner) <-chan struct{} {
+func Remove(ep *endpoint.Endpoint) <-chan struct{} {
 
 	epRemoved := make(chan struct{})
 
@@ -267,15 +259,6 @@ func Remove(ep *endpoint.Endpoint, owner RuleCacheOwner) <-chan struct{} {
 		// this endpoint.
 		ep.EventQueue.WaitToBeDrained()
 
-		// Now that queue is drained, no more regenerations are occurring for
-		// this endpoint. Safe to remove references to it from the policy
-		// repository
-		wg := owner.ClearPolicyConsumers(ep.ID)
-
-		// Need to wait for cleanup for consumers of endpoint ID to be done
-		// before endpoint ID is released so that there aren't stale references
-		// laying around if another endpoint with the same ID is created.
-		wg.Wait()
 		releaseID(ep)
 		close(epRemoved)
 	}(ep)
