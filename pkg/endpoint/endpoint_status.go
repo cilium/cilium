@@ -162,16 +162,25 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 				continue
 			}
 
-			identity := identitycache.LookupIdentityByID(identity.NumericIdentity(policyKey.Identity))
-			if identity != nil {
-				var l labels.Labels
-				if identity.CIDRLabel != nil {
-					l = identity.CIDRLabel
-				} else {
-					l = identity.Labels
-				}
+			// IdentityUnknown denotes that this is an L4-only BPF
+			// allow, so it applies to all identities. In this case
+			// we should skip resolving the labels, because the
+			// value 0 does not denote an allow for the "unknown"
+			// identity, but instead an allow of all identities for
+			// that port.
+			secID := identity.NumericIdentity(policyKey.Identity)
+			if secID != identity.IdentityUnknown {
+				identity := identitycache.LookupIdentityByID(secID)
+				if identity != nil {
+					var l labels.Labels
+					if identity.CIDRLabel != nil {
+						l = identity.CIDRLabel
+					} else {
+						l = identity.Labels
+					}
 
-				allowedIdentityTuple.IdentityLabels = l.StringMap()
+					allowedIdentityTuple.IdentityLabels = l.StringMap()
+				}
 			}
 
 			switch {
