@@ -174,6 +174,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identity
 			}
 		}
 	}
+
 	return keysToAdd
 }
 
@@ -226,7 +227,7 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []api.Endp
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool) L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, l3Only bool) L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
@@ -235,7 +236,7 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 
 	filterEndpoints := peerEndpoints
 	allowsAllL3 := false
-	if peerEndpoints.SelectsAllEndpoints() {
+	if peerEndpoints.SelectsAllEndpoints(l3Only) {
 		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 		allowsAllL3 = true
 	}
@@ -282,9 +283,9 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 // endpointsWithL3Override determines selectors for which L7 rules should be
 // wildcarded (eg, host / world in the relevant daemon modes).
 func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWithL3Override []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, isL3Only bool) L4Filter {
 
-	filter := CreateL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true)
+	filter := CreateL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true, isL3Only)
 
 	// If the filter would apply L7 rules for endpointsWithL3Override,
 	// then wildcard those specific endpoints at L7.
@@ -302,9 +303,9 @@ func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWit
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func CreateL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, isL3Only bool) L4Filter {
 
-	return CreateL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false)
+	return CreateL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false, isL3Only)
 }
 
 // IsRedirect returns true if the L4 filter contains a port redirection
