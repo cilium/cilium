@@ -53,7 +53,7 @@ type Redirect struct {
 	// listening on
 	ProxyPort      uint16
 	endpointID     uint64
-	id             string
+	listenerName   string
 	ingress        bool
 	localEndpoint  logger.EndpointUpdater
 	parserType     policy.L7ParserType
@@ -67,10 +67,10 @@ type Redirect struct {
 	rules       policy.L7DataMap
 }
 
-func newRedirect(localEndpoint logger.EndpointUpdater, id string) *Redirect {
+func newRedirect(localEndpoint logger.EndpointUpdater, listenerName string) *Redirect {
 	return &Redirect{
 		localEndpoint: localEndpoint,
-		id:            id,
+		listenerName:  listenerName,
 		created:       time.Now(),
 		lastUpdated:   time.Now(),
 	}
