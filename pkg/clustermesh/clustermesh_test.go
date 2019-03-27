@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -105,6 +106,8 @@ func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool, reason str
 func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"
 }
+
+func (i *identityAllocatorOwnerMock) ReleaseIdentity(*identity.Identity) {}
 
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	kvstore.SetupDummy("etcd")

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 var (
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
-	IdentityAllocator *allocator.Allocator
+	IdentityAllocator *identityAllocator
 	// identityAllocatorInitialized is closed whenever the identity allocator is
 	// initialized
 	identityAllocatorInitialized = make(chan struct{})
@@ -80,6 +80,15 @@ type IdentityAllocatorOwner interface {
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
+
+	// ReleaseIdentity must eventually clean up all references to the
+	// specified identity.
+	ReleaseIdentity(identity *identity.Identity)
+}
+
+type identityAllocator struct {
+	*allocator.Allocator
+	owner IdentityAllocatorOwner
 }
 
 // InitIdentityAllocator creates the the identity allocator. Only the first
@@ -115,7 +124,10 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 		log.WithError(err).Fatal("Unable to initialize identity allocator")
 	}
 
-	IdentityAllocator = a
+	IdentityAllocator = &identityAllocator{
+		Allocator: a,
+		owner:     owner,
+	}
 	close(identityAllocatorInitialized)
 	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
 
@@ -217,6 +229,14 @@ func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identi
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
 func Release(ctx context.Context, id *identity.Identity) (bool, error) {
+	lastUse, err := release(ctx, id)
+	if err != nil && lastUse {
+		IdentityAllocator.owner.ReleaseIdentity(id)
+	}
+	return lastUse, err
+}
+
+func release(ctx context.Context, id *identity.Identity) (bool, error) {
 	if id.IsReserved() {
 		return false, nil
 	}

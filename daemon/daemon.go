@@ -1604,8 +1604,21 @@ func (d *Daemon) GetNodeSuffix() string {
 	return ip.String()
 }
 
-// ClearPolicyConsumers removes references to the specified id from the rules in
-// the daemon's policy repository.
-func (d *Daemon) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
-	return d.policy.RemoveEndpointIDFromRuleCaches(id)
+// ReleaseIdentity asynchronously removes references to the specified identity
+// from the rules in the daemon's policy repository.
+func (d *Daemon) ReleaseIdentity(identity *identity.Identity) {
+	scopedLog := log.WithField(logfields.Identity, identity)
+	// We only need to worry about global identities, because for now the
+	// policy repository rule selector cache only caches the selectors that
+	// are used to determine which endpoints that the rule applies to, not
+	// the content of the rules (eg toEndpoints/fromEndpoints).
+	if !identity.IsGlobal() {
+		scopedLog.Debug("Ignoring identity release for rule selector cache")
+		return
+	}
+
+	go func() {
+		d.policy.RemoveIdentityFromRuleCaches(identity).Wait()
+		scopedLog.Debug("Finished cleaning policy cache")
+	}()
 }

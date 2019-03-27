@@ -140,8 +140,6 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 		e.LXCMAC = ProdHardAddr
 		e.SetNodeMACLocked(ProdHardAddr)
 	}
-	identityChangedWG := ds.d.ClearPolicyConsumers(e.ID)
-	identityChangedWG.Wait()
 	e.SetIdentity(identity)
 
 	wg := ds.d.policy.UpdateLocalConsumers([]policy.Endpoint{e})

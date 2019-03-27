@@ -28,9 +28,6 @@ import (
 // IdentityPolicy is a structure which contains the resolved policy across all
 // layers (L3, L4, and L7), but still determined in terms of EndpointSelectors.
 type IdentityPolicy struct {
-	// ID is the node-local identifier of this EndpointPolicy.
-	ID uint16
-
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy *L4Policy
 
