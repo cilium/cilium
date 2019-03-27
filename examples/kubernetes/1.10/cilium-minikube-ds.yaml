@@ -113,6 +113,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_MODULE
           privileged: true
         volumeMounts:
         - mountPath: /sys/fs/bpf
@@ -137,6 +138,12 @@ spec:
           readOnly: true
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
+          readOnly: true
+        - mountPath: /lib/modules
+          name: lib-modules
+          readOnly: true
+        - mountPath: /sbin/modprobe
+          name: sbin-modprobe
           readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
@@ -202,6 +209,15 @@ spec:
           path: /etc/cni/net.d
           type: DirectoryOrCreate
         name: etc-cni-netd
+        # To be able to load ip[6]tables kernel modules
+      - hostPath:
+          path: /lib/modules
+          type: Directory
+        name: lib-modules
+      - hostPath:
+          path: /sbin/modprobe
+          type: File
+        name: sbin-modprobe
         # To read the etcd config stored in config maps
       - configMap:
           defaultMode: 420
