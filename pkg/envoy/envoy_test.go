@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
@@ -65,6 +66,9 @@ func (r *dummyEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *ac
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
+	option.Config.Populate()
+	option.Config.ProxyConnectTimeout = 1
+	c.Assert(option.Config.ProxyConnectTimeout, Not(Equals), 0)
 	log.Logger.SetLevel(logrus.DebugLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -92,13 +96,13 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	log.Debug("started Envoy")
 
 	log.Debug("adding listener1")
-	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, "1.2.3.4", 8081, true, s.waitGroup)
+	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, 8081, true, s.waitGroup)
 
 	log.Debug("adding listener2")
-	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, "1.2.3.4", 8082, true, s.waitGroup)
+	xdsServer.AddListener("listener2", policy.ParserTypeHTTP, 8082, true, s.waitGroup)
 
 	log.Debug("adding listener3")
-	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.ParserTypeHTTP, 8083, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -116,7 +120,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", policy.L7ParserType("test.headerparser"), "1.2.3.4", 8083, false, s.waitGroup)
+	xdsServer.AddListener("listener3", policy.L7ParserType("test.headerparser"), 8083, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -167,7 +171,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	rName := "listener:22"
 
 	log.Debug("adding ", rName)
-	xdsServer.AddListener(rName, policy.ParserTypeHTTP, "1.2.3.4", 22, true, s.waitGroup)
+	xdsServer.AddListener(rName, policy.ParserTypeHTTP, 22, true, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, Not(IsNil))
