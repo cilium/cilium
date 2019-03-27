@@ -249,8 +249,10 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 				Nexthdr:  6,
 			}: {},
 		},
-		IngressPolicyEnabled: true,
-		EgressPolicyEnabled:  true,
+		IdentityPolicy: &policy.IdentityPolicy{
+			IngressPolicyEnabled: true,
+			EgressPolicyEnabled:  true,
+		},
 	}
 
 	apiPolicy = e.getEndpointPolicy()
