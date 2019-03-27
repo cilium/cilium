@@ -17,6 +17,7 @@ package policy
 import (
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -187,7 +188,7 @@ func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Polic
 // TODO: Coalesce l7 rules?
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 
-	result, err := p.rules.resolveL4IngressPolicy(ctx, p.revision)
+	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision())
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +203,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(ctx, p.revision)
+	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision())
 
 	if err != nil {
 		return nil, err
@@ -375,7 +376,7 @@ func (p *Repository) Add(r api.Rule, localRuleConsumers []Endpoint) (uint64, map
 	defer p.Mutex.Unlock()
 
 	if err := r.Sanitize(); err != nil {
-		return p.revision, nil, err
+		return p.GetRevision(), nil, err
 	}
 
 	newList := make([]*api.Rule, 1)
@@ -398,11 +399,11 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 	}
 
 	p.rules = append(p.rules, newList...)
-	p.revision++
+	p.BumpRevision()
 	metrics.PolicyCount.Add(float64(len(newList)))
 	metrics.PolicyRevision.Inc()
 
-	return newList, p.revision
+	return newList, p.GetRevision()
 }
 
 // UpdateLocalConsumers updates the cache within each rule in the given repository
@@ -484,13 +485,13 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (ruleSlice, 
 	}
 
 	if deleted > 0 {
-		p.revision++
+		p.BumpRevision()
 		p.rules = new
 		metrics.PolicyCount.Sub(float64(deleted))
 		metrics.PolicyRevision.Inc()
 	}
 
-	return deletedRules, p.revision, deleted
+	return deletedRules, p.GetRevision(), deleted
 }
 
 // DeleteByLabels deletes all rules in the policy repository which contain the
@@ -586,7 +587,7 @@ func (p *Repository) NumRules() int {
 
 // GetRevision returns the revision of the policy repository
 func (p *Repository) GetRevision() uint64 {
-	return p.revision
+	return atomic.LoadUint64(&p.revision)
 }
 
 // Empty returns 'true' if repository has no rules, 'false' otherwise.
@@ -623,9 +624,7 @@ func (p *Repository) TranslateRules(translator Translator) (*TranslationResult, 
 // BumpRevision allows forcing policy regeneration
 func (p *Repository) BumpRevision() {
 	metrics.PolicyRevision.Inc()
-	p.Mutex.Lock()
-	defer p.Mutex.Unlock()
-	p.revision++
+	atomic.AddUint64(&p.revision, 1)
 }
 
 // GetRulesList returns the current policy
@@ -687,7 +686,7 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.revision)
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision())
 		if err != nil {
 			return nil, err
 		}
@@ -720,7 +719,7 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.revision)
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision())
 		if err != nil {
 			return nil, err
 		}
