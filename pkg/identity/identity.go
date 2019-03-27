@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -138,6 +138,11 @@ func (id *Identity) IsFixed() bool {
 // (true), or not (false).
 func (id *Identity) IsWellKnown() bool {
 	return WellKnown.lookupByNumericIdentity(id.ID) != nil
+}
+
+// IsGlobal returns true if the identity is backed by a global identity.
+func (id *Identity) IsGlobal() bool {
+	return RequiresGlobalIdentity(id.Labels)
 }
 
 // NewIdentity creates a new identity

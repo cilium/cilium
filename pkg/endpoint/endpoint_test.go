@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -50,6 +51,8 @@ type testIdentityAllocator struct{}
 func (t *testIdentityAllocator) TriggerPolicyUpdates(bool, string) {}
 
 func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
+
+func (t *testIdentityAllocator) ReleaseIdentity(*identity.Identity) {}
 
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
