@@ -562,7 +562,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	endpointmanager.Remove(ep, d)
+	endpointmanager.Remove(ep)
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {

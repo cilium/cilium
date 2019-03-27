@@ -16,7 +16,6 @@ package endpoint
 
 import (
 	"context"
-	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -63,8 +62,4 @@ type Owner interface {
 
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
-
-	// ClearPolicyConsumers removes references to the specified id from the
-	// policy rules managed by Owner.
-	ClearPolicyConsumers(id uint16) *sync.WaitGroup
 }

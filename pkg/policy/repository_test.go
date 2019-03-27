@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -131,130 +131,74 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 			combinedLabel,
 		},
 	}
-	dummyEndpointID := uint16(7777)
 
-	convertedFooIngressRule1 := &rule{
-		Rule: fooIngressRule1,
-		metadata: &ruleMetadata{
-			EndpointsSelected: map[uint16]*identity.Identity{
-				dummyEndpointID: fooIdentity,
-			},
-			AllEndpoints: map[uint16]struct{}{
-				dummyEndpointID: {},
-			},
-		},
-	}
-	convertedFooIngressRule2 := &rule{
-		Rule: fooIngressRule2,
-		metadata: &ruleMetadata{
-			EndpointsSelected: map[uint16]*identity.Identity{
-				dummyEndpointID: fooIdentity,
-			},
-			AllEndpoints: map[uint16]struct{}{
-				dummyEndpointID: {},
-			},
-		},
-	}
-	convertedFooEgressRule1 := &rule{
-		Rule: fooEgressRule1,
-		metadata: &ruleMetadata{
-			EndpointsSelected: map[uint16]*identity.Identity{
-				dummyEndpointID: fooIdentity,
-			},
-			AllEndpoints: map[uint16]struct{}{
-				dummyEndpointID: {},
-			},
-		},
-	}
-	convertedFooEgressRule2 := &rule{
-		Rule: fooEgressRule2,
-		metadata: &ruleMetadata{
-			EndpointsSelected: map[uint16]*identity.Identity{
-				dummyEndpointID: fooIdentity,
-			},
-			AllEndpoints: map[uint16]struct{}{
-				dummyEndpointID: {},
-			},
-		},
-	}
-	convertedCombinedRule := &rule{
-		Rule: combinedRule,
-		metadata: &ruleMetadata{
-			EndpointsSelected: map[uint16]*identity.Identity{
-				dummyEndpointID: fooIdentity,
-			},
-			AllEndpoints: map[uint16]struct{}{
-				dummyEndpointID: {},
-			},
-		},
-	}
-
-	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no rules are in repository"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
 	_, _, err := repo.Add(fooIngressRule1, []Endpoint{})
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooIngressRule1}, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressRule1, Commentf("returned matching rules did not match"))
 
 	_, _, err = repo.Add(fooIngressRule2, []Endpoint{})
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooIngressRule1, convertedFooIngressRule2}, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressRule1, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[1].Rule, checker.DeepEquals, fooIngressRule2, Commentf("returned matching rules did not match"))
 
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no egress rules select"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooIngressRule2}, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooIngressRule2, Commentf("returned matching rules did not match"))
 
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressRule2Label})
 	c.Assert(numDeleted, Equals, 1)
 
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no rules are in repository"))
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since no rules are in repository"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
 
 	_, _, err = repo.Add(fooEgressRule1, []Endpoint{})
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no ingress rules select"))
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules select"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooEgressRule1}, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooEgressRule1, Commentf("returned matching rules did not match"))
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule1Label})
 	c.Assert(numDeleted, Equals, 1)
 
 	_, _, err = repo.Add(fooEgressRule2, []Endpoint{})
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since no ingress rules select"))
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules select"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedFooEgressRule2}, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, fooEgressRule2, Commentf("returned matching rules did not match"))
 
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressRule2Label})
 	c.Assert(numDeleted, Equals, 1)
 
 	_, _, err = repo.Add(combinedRule, []Endpoint{})
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules selects"))
-	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{convertedCombinedRule}, Commentf("returned matching rules did not match"))
+	c.Assert(matchingRules[0].Rule, checker.DeepEquals, combinedRule, Commentf("returned matching rules did not match"))
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{combinedLabel})
 	c.Assert(numDeleted, Equals, 1)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, true, Commentf("ingress policy enforcement should apply since ingress rule selects"))
 	c.Assert(egr, Equals, true, Commentf("egress policy enforcement should apply since egress rules selects"))
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("returned matching rules did not match"))
@@ -262,7 +206,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	SetPolicyEnabled(option.NeverEnforce)
 	_, _, err = repo.Add(combinedRule, []Endpoint{})
 	c.Assert(err, IsNil, Commentf("unable to add rule to policy repository"))
-	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(dummyEndpointID, fooIdentity)
+	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	c.Assert(ing, Equals, false, Commentf("ingress policy enforcement should not apply since policy enforcement is disabled "))
 	c.Assert(egr, Equals, false, Commentf("egress policy enforcement should not apply since policy enforcement is disabled"))
 	c.Assert(matchingRules, IsNil, Commentf("no rules should be returned since policy enforcement is disabled"))
@@ -273,19 +217,19 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	// If the mode is "default", check that the policy is always enforced for
 	// endpoints with the reserved:init label. If no policy rules match
 	// reserved:init, this drops all ingress and egress traffic.
-	ingress, egress, matchingRules := repo.computePolicyEnforcementAndRules(dummyEndpointID, initIdentity)
+	ingress, egress, matchingRules := repo.computePolicyEnforcementAndRules(initIdentity)
 	c.Assert(ingress, Equals, true)
 	c.Assert(egress, Equals, true)
 	c.Assert(matchingRules, checker.DeepEquals, ruleSlice{}, Commentf("no rules should be returned since policy enforcement is disabled"))
 
 	// Check that the "always" and "never" modes are not affected.
 	SetPolicyEnabled(option.AlwaysEnforce)
-	ingress, egress, _ = repo.computePolicyEnforcementAndRules(dummyEndpointID, initIdentity)
+	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	c.Assert(ingress, Equals, true)
 	c.Assert(egress, Equals, true)
 
 	SetPolicyEnabled(option.NeverEnforce)
-	ingress, egress, _ = repo.computePolicyEnforcementAndRules(dummyEndpointID, initIdentity)
+	ingress, egress, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	c.Assert(ingress, Equals, false)
 	c.Assert(egress, Equals, false)
 
@@ -2025,7 +1969,7 @@ Label verdict: undecided
 	c.Assert(verdict, Equals, api.Allowed)
 }
 
-func (ds *PolicyTestSuite) TestRemoveEndpointIDFromRuleCaches(c *C) {
+func (ds *PolicyTestSuite) TestremoveIdentityFromRuleCaches(c *C) {
 
 	testRepo := parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2038,34 +1982,27 @@ func (ds *PolicyTestSuite) TestRemoveEndpointIDFromRuleCaches(c *C) {
 
 	addedRule := testRepo.rules[0]
 
-	selectedEndpointID := uint16(12345)
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedEndpointIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
+	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
 
-	notSelectedEndpointID := uint16(6789)
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedEndpointIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
+	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	c.Assert(addedRule.matches(selectedEndpointID, selectedEndpointIdentity), Equals, true)
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{selectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{selectedEndpointID: selectedEndpointIdentity})
+	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{selectedIdentity: true})
 
-	wg := testRepo.RemoveEndpointIDFromRuleCaches(selectedEndpointID)
+	wg := testRepo.removeIdentityFromRuleCaches(selectedIdentity)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{})
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{})
 
-	c.Assert(addedRule.matches(notSelectedEndpointID, notSelectedEndpointIdentity), Equals, false)
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{notSelectedEndpointID: {}})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{})
+	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{notSelectedIdentity: false})
 
-	wg = testRepo.RemoveEndpointIDFromRuleCaches(notSelectedEndpointID)
+	wg = testRepo.removeIdentityFromRuleCaches(notSelectedIdentity)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.AllEndpoints, checker.DeepEquals, map[uint16]struct{}{})
-	c.Assert(addedRule.metadata.EndpointsSelected, checker.DeepEquals, map[uint16]*identity.Identity{})
-
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{})
 }

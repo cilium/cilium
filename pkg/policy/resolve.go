@@ -29,9 +29,6 @@ import (
 // particular Identity across all layers (L3, L4, and L7), with the policy
 // still determined in terms of EndpointSelectors.
 type SelectorPolicy struct {
-	// ID is the node-local identifier of this EndpointPolicy.
-	ID uint16
-
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy *L4Policy
 

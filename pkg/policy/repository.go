@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -403,22 +404,35 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 	return newList, p.GetRevision()
 }
 
-// RemoveEndpointIDFromRuleCaches removes identifier from the processedConsumers
-// and localRuleConsumers sets in each rule within the repository. Returns a
-// sync.WaitGroup which can be waited on once all rules have been processed in
-// relation to the identifier.
-func (p *Repository) RemoveEndpointIDFromRuleCaches(endpointID uint16) *sync.WaitGroup {
-	p.Mutex.RLock()
-	defer p.Mutex.RUnlock()
+// removeIdentityFromRuleCaches removes the identity from the selector cache
+// in each rule in the repository.
+//
+// Returns a sync.WaitGroup that blocks until the policy operation is complete.
+// The repository read lock must be held until the waitgroup is complete.
+func (p *Repository) removeIdentityFromRuleCaches(identity *identity.Identity) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(len(p.rules))
 	for _, r := range p.rules {
 		go func(rr *rule, wgg *sync.WaitGroup) {
-			rr.metadata.deleteID(endpointID)
+			rr.metadata.delete(identity)
 			wgg.Done()
 		}(r, &wg)
 	}
 	return &wg
+}
+
+// LocalEndpointIdentityRemoved handles local identity removal events to
+// remove references from rules in the repository to the specified identity.
+func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
+	go func() {
+		scopedLog := log.WithField(logfields.Identity, identity)
+		scopedLog.Debug("Removing identity references from policy cache")
+		p.Mutex.RLock()
+		wg := p.removeIdentityFromRuleCaches(identity)
+		wg.Wait()
+		p.Mutex.RUnlock()
+		scopedLog.Debug("Finished cleaning policy cache")
+	}()
 }
 
 // AddList inserts a rule into the policy repository. It is used for
@@ -538,12 +552,12 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bo
 // a slice of all rules which match.
 //
 // Must be called with p.Mutex held
-func (p *Repository) getMatchingRules(id uint16, securityIdentity *identity.Identity) (ingressMatch bool, egressMatch bool, matchingRules ruleSlice) {
+func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (ingressMatch bool, egressMatch bool, matchingRules ruleSlice) {
 	matchingRules = []*rule{}
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
-		if ruleMatches := r.matches(id, securityIdentity); ruleMatches {
+		if ruleMatches := r.matches(securityIdentity); ruleMatches {
 			// Don't need to update whether ingressMatch is true if it already
 			// has been determined to be true - allows us to not have to check
 			// lenth of slice.
@@ -628,17 +642,16 @@ func (p *Repository) GetRulesList() *models.Policy {
 // returns an error.
 //
 // Must be performed while holding the Repository lock.
-func (p *Repository) ResolvePolicyLocked(id uint16, securityIdentity *identity.Identity) (*SelectorPolicy, error) {
+func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*SelectorPolicy, error) {
 
 	// First obtain whether policy applies in both traffic directions, as well
 	// as list of rules which actually select this endpoint. This allows us
 	// to not have to iterate through the entire rule list multiple times and
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
-	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(id, securityIdentity)
+	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &SelectorPolicy{
-		ID:                   id,
 		L4Policy:             NewL4Policy(),
 		CIDRPolicy:           NewCIDRPolicy(),
 		matchingRules:        matchingRules,
@@ -704,18 +717,18 @@ func (p *Repository) ResolvePolicyLocked(id uint16, securityIdentity *identity.I
 // the set of labels.
 //
 // Must be called with repo mutex held for reading.
-func (p *Repository) computePolicyEnforcementAndRules(id uint16, securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
+func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
 
 	lbls := securityIdentity.LabelArray
 	// Check if policy enforcement should be enabled at the daemon level.
 	switch GetPolicyEnabled() {
 	case option.AlwaysEnforce:
-		_, _, matchingRules = p.getMatchingRules(id, securityIdentity)
+		_, _, matchingRules = p.getMatchingRules(securityIdentity)
 		// If policy enforcement is enabled for the daemon, then it has to be
 		// enabled for the endpoint.
 		return true, true, matchingRules
 	case option.DefaultEnforcement:
-		ingress, egress, matchingRules = p.getMatchingRules(id, securityIdentity)
+		ingress, egress, matchingRules = p.getMatchingRules(securityIdentity)
 		// If the endpoint has the reserved:init label, i.e. if it has not yet
 		// received any labels, always enforce policy (default deny).
 		if lbls.Has(labels.IDNameInit) {
