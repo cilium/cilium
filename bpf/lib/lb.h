@@ -862,8 +862,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	case CT_REPLY:
 		break;
 	default:
-		tuple->flags = flags;
-		return DROP_NO_SERVICE;
+        goto drop_no_service;
 	}
 
 	// CT hasn't been migrated to use v2 yet, so do it now
@@ -874,9 +873,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
         }
 		if ((svc = lb4_lookup_slave(skb, (struct lb4_key *)key, state->slave)) == NULL) {
 			// TODO(brb) select other slave instead of dropping
-			// TODO(brb) goto drop_no_service
-            tuple->flags = flags;
-            return DROP_NO_SERVICE;
+            goto drop_no_service;
 		}
 		state->backend_id = svc->count;
 		ct_update4_backend_id(map, tuple, state);
@@ -888,25 +885,19 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	 */
 	if ((backend = lb4_lookup_backend(skb, state->backend_id)) == NULL) {
 		if ((svc_v2 = lb4_lookup_service_v2(skb, key)) == NULL) {
-			// TODO(brb) goto drop_no_service and for the rest below
-			tuple->flags = flags;
-			return DROP_NO_SERVICE;
+            goto drop_no_service;
 		}
 		slave = lb4_select_slave_v2(skb, key, svc_v2->count, svc_v2->weight);
 		if ((slave_svc = lb4_lookup_slave_v2(skb, key, slave)) == NULL) {
-			tuple->flags = flags;
-			return DROP_NO_SERVICE;
+            goto drop_no_service;
 		}
 		backend = lb4_lookup_backend(skb, slave_svc->backend_id);
 		if (backend == NULL) {
-			tuple->flags = flags;
-			return DROP_NO_SERVICE;
+            goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
 		state->slave = slave_svc->count;
-		// TODO(brb) optimize
-		ct_update4_backend_id(map, tuple, state);
-		ct_update4_slave(map, tuple, state);
+		ct_update4_slave_and_backend_id(map, tuple, state);
 	}
 
 	/* Restore flags so that SERVICE flag is only used in used when the
@@ -938,6 +929,10 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	return lb4_xlate_v2(skb, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 svc_v2, backend);
+
+drop_no_service:
+		tuple->flags = flags;
+		return DROP_NO_SERVICE;
 }
 #endif /* ENABLE_IPV4 */
 

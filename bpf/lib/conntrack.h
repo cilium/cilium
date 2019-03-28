@@ -702,6 +702,21 @@ static inline void __inline__ ct_update4_backend_id(void *map,
 	return;
 }
 
+static inline void __inline__ ct_update4_slave_and_backend_id(void *map,
+					       struct ipv4_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->slave = state->slave;
+	entry->rx_bytes = state->backend_id;
+	return;
+}
+
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
@@ -832,6 +847,12 @@ static inline void __inline__ ct_update4_slave(void *map,
 }
 
 static inline void __inline__ ct_update4_backend_id(void *map,
+					       struct ipv4_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+}
+
+static inline void __inline__ ct_update4_slave_and_backend_id(void *map,
 					       struct ipv4_ct_tuple *tuple,
 					       struct ct_state *state)
 {
