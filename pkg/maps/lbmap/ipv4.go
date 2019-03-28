@@ -435,7 +435,7 @@ type Backend4Value struct {
 	Pad     uint8
 }
 
-func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
+func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4Value, error) {
 	ip4 := ip.To4()
 	if ip4 == nil {
 		return nil, fmt.Errorf("Not an IPv4 address")
