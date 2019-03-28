@@ -43,6 +43,9 @@
 #endif
 
 #define __inline__ __attribute__((always_inline))
+#ifndef __always_inline
+#define __always_inline inline __inline__
+#endif
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
