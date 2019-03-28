@@ -814,10 +814,6 @@ func initEnv(cmd *cobra.Command) {
 		loadinfo.StartBackgroundLogger()
 	}
 
-	if !option.Config.InstallIptRules {
-		option.Config.Masquerade = false
-	}
-
 	if option.Config.DisableEnvoyVersionCheck {
 		log.Info("Envoy version check disabled")
 	} else {
@@ -1022,6 +1018,22 @@ func initEnv(cmd *cobra.Command) {
 	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled {
 		log.WithField(logfields.Tunnel, option.Config.Tunnel).
 			Fatal("Currently ipsec only works with tunneling enabled.")
+	}
+
+	// BPF masquerade specified, rejecting unsupported options for this mode.
+	if !option.Config.InstallIptRules && option.Config.Masquerade {
+		if option.Config.DatapathMode != option.DatapathModeIpvlan {
+			log.WithField(logfields.DatapathMode, option.Config.DatapathMode).
+				Fatal("BPF masquerade currently only in ipvlan datapath mode (restriction will be lifted soon)")
+		}
+		if option.Config.Tunnel != option.TunnelDisabled {
+			log.WithField(logfields.Tunnel, option.Config.Tunnel).
+				Fatal("BPF masquerade only in direct routing mode supported")
+		}
+		if option.Config.Device == "undefined" {
+			log.WithField(logfields.Device, option.Config.Device).
+				Fatal("BPF masquerade needs external facing device specified")
+		}
 	}
 
 	// If device has been specified, use it to derive better default

@@ -25,6 +25,7 @@ XDP_DEV=$7
 XDP_MODE=$8
 MTU=$9
 IPSEC=${10}
+MASQ=${11}
 
 ID_HOST=1
 ID_WORLD=2
@@ -251,15 +252,23 @@ function bpf_load()
 	OUT=$5
 	SEC=$6
 	CALLS_MAP=$7
+	SKIP=$8
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
-	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
-	bpf_compile $IN $OUT obj "$OPTS"
+	if [ "$WHERE" == "ingress" ]; then
+		OPTS_DIR="-DBPF_PKT_DIR=1"
+	else
+		OPTS_DIR="-DBPF_PKT_DIR=0"
+	fi
 
-	tc qdisc del dev $DEV clsact 2> /dev/null || true
-	tc qdisc add dev $DEV clsact
+	OPTS="${OPTS} ${OPTS_DIR} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
+	bpf_compile $IN $OUT obj "$OPTS"
+	if [ "$SKIP" != "no_qdisc_reset" ]; then
+		tc qdisc del dev $DEV clsact 2> /dev/null || true
+		tc qdisc add dev $DEV clsact
+	fi
 	cilium-map-migrate -s $OUT
 	set +e
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
@@ -381,8 +390,8 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
 	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-	OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
-	bpf_load $ENCAP_DEV "$OPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
+	COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 else
 	# Remove eventual existing encapsulation device from previous run
 	ip link del cilium_vxlan 2> /dev/null || true
@@ -399,8 +408,16 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ]; then
 
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-		OPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
-		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_netdev.c bpf_netdev.o from-netdev $CALLS_MAP
+		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+		if [ "$MASQ" = "true" ]; then
+			SECTION="masq-pre"
+		else
+			SECTION="from-netdev"
+		fi
+		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o $SECTION $CALLS_MAP
+		if [ "$MASQ" = "true" ]; then
+			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o masq $CALLS_MAP "no_qdisc_reset"
+		fi
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -413,8 +430,8 @@ elif [ "$MODE" = "lb" ]; then
 		fi
 
 		CALLS_MAP="cilium_calls_lb"
-		OPTS="-DLB_L3 -DLB_L4"
-		bpf_load $NATIVE_DEV "$OPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev $CALLS_MAP
+		COPTS="-DLB_L3 -DLB_L4"
+		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev $CALLS_MAP
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -431,11 +448,11 @@ fi
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
 POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
-OPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
+COPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST} -DPOLICY_MAP=${POLICY_MAP}"
 if [ "$MODE" == "ipvlan" ]; then
-	OPTS+=" -DENABLE_EXTRA_HOST_DEV"
+	COPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi
-bpf_load $HOST_DEV1 "$OPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
 if [ "$IPSEC" == "true" ]; then
 	bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
@@ -443,8 +460,8 @@ fi
 
 if [ -n "$XDP_DEV" ]; then
 	CIDR_MAP="cilium_cidr_v*"
-	OPTS=""
-	xdp_load $XDP_DEV $XDP_MODE "$OPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
+	COPTS=""
+	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
 
 # Compile dummy BPF file containing all shared struct definitions used by

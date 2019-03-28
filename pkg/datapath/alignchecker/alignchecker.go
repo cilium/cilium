@@ -66,6 +66,9 @@ func CheckStructAlignments(path string) error {
 		"proxy6_tbl_value":     {reflect.TypeOf(proxymap.Proxy6Value{})},
 		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
 		"ep_config":            {reflect.TypeOf(configmap.EndpointConfig{})},
+		// TODO: alignchecker does not support nested structs yet.
+		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
+		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),

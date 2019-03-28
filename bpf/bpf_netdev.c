@@ -47,7 +47,7 @@
 #include "lib/policy.h"
 #include "lib/drop.h"
 #include "lib/encap.h"
-
+#include "lib/nat.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
 static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
@@ -530,8 +530,7 @@ static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, _
 }
 #endif
 
-__section("from-netdev")
-int from_netdev(struct __sk_buff *skb)
+static __always_inline int do_netdev(struct __sk_buff *skb)
 {
 	__u32 identity = 0;
 	__u16 proto;
@@ -614,6 +613,36 @@ int from_netdev(struct __sk_buff *skb)
 		ret = TC_ACT_OK;
 	}
 
+	return ret;
+}
+
+__section("from-netdev")
+int from_netdev(struct __sk_buff *skb)
+{
+	return do_netdev(skb);
+}
+
+__section("masq")
+int do_masq(struct __sk_buff *skb)
+{
+	return snat_process(skb, BPF_PKT_DIR);
+}
+
+__section("masq-pre")
+int do_masq_pre(struct __sk_buff *skb)
+{
+	int ret = snat_process(skb, BPF_PKT_DIR);
+	if (!ret)
+		ret = do_netdev(skb);
+	return ret;
+}
+
+__section("masq-post")
+int do_masq_post(struct __sk_buff *skb)
+{
+	int ret = do_netdev(skb);
+	if (!ret)
+		ret = snat_process(skb, BPF_PKT_DIR);
 	return ret;
 }
 
