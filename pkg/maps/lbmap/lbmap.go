@@ -128,7 +128,6 @@ type ServiceValue interface {
 	IsIPv6() bool
 }
 
-// TODO(brb) fix it when adding IPv6 support
 type BackendValue interface {
 	bpf.MapValue
 
@@ -443,7 +442,11 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 
 	cache.addBackendIDs(newBackendIDs)
 
-	svc, addedBackends, removedBackendIDs := cache.prepareUpdate(fe, backends)
+	svc, addedBackends, removedBackendIDs, err := cache.prepareUpdate(fe, backends)
+	if err != nil {
+		return err
+	}
+
 	besValues := svc.getBackends()
 
 	log.WithFields(logrus.Fields{
@@ -857,7 +860,6 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 		}
 	}
 
-	// TODO(brb)
 	//if option.Config.EnableIPv6 {
 	//	err := Service6Map.DumpWithCallback(parseSVCEntries)
 	//	if err != nil {
@@ -1165,7 +1167,7 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 		backendID := svcValue.GetBackendID()
 		backendValue, found := backendValueMap[backendID]
 		if !found {
-			// TODO(brb) return an error?
+			errors = append(errors, fmt.Errorf("backend %d not found", backendID))
 			return
 		}
 

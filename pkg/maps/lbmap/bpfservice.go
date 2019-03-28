@@ -237,7 +237,7 @@ func (l *lbmapCache) getSlaveSlot(fe *Service4KeyV2, legacyBackendID LegacyBacke
 }
 
 // assumes that backends doesn't contain frontend service
-func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpfService, map[uint16]ServiceValue, []uint16) {
+func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpfService, map[uint16]ServiceValue, []uint16, error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -268,7 +268,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpf
 		if _, ok := newBackendsMap[legacyID]; !ok {
 			last, err := l.delBackendV2Locked(legacyID)
 			if err != nil {
-				panic("TODO(brb) NYI")
+				return nil, nil, nil, err
 			}
 			if last {
 				removedBackendIDs = append(removedBackendIDs, l.backendIDByLegacyID[legacyID])
@@ -297,7 +297,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpf
 		}
 	}
 
-	return bpfSvc, addedBackendIDs, removedBackendIDs
+	return bpfSvc, addedBackendIDs, removedBackendIDs, nil
 }
 
 func (l *lbmapCache) delete(fe ServiceKey) {
@@ -386,10 +386,10 @@ func (l *lbmapCache) removeServiceV2(svcKey *Service4KeyV2) ([]uint16, int, erro
 		if last {
 			backendsToRemove = append(backendsToRemove, l.backendIDByLegacyID[legacyID])
 		}
+		delete(l.backendIDByLegacyID, legacyID)
 	}
 
 	delete(l.entries, frontendID)
-	// TODO(brb) remove l.backendIDByLegacyID(legacy => Id)
 
 	return backendsToRemove, count, nil
 }
