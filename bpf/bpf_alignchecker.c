@@ -61,6 +61,8 @@ int main() {
     DECLARE_STRUCT(ep_config, iter);
     DECLARE_STRUCT(policy_key, iter);
     DECLARE_STRUCT(policy_entry, iter);
+    DECLARE_STRUCT(ipv4_nat_entry, iter);
+    DECLARE_STRUCT(ipv6_nat_entry, iter);
 
     return 0;
 }

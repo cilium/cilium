@@ -59,12 +59,6 @@
 #endif
 
 #ifdef CONNTRACK
-
-#define TUPLE_F_OUT		0	/* Outgoing flow */
-#define TUPLE_F_IN		1	/* Incoming flow */
-#define TUPLE_F_RELATED		2	/* Flow represents related packets */
-#define TUPLE_F_SERVICE		4	/* Flow represents service/slave map */
-
 enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,

@@ -39,12 +39,33 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define INIT_ID 5
 #define HOST_IFINDEX_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 #define NAT46_PREFIX { .addr = { 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#define ENABLE_MASQUERADE 1
+#define BPF_PKT_DIR 1
+
+#ifdef ENABLE_MASQUERADE
+#define SNAT_MAPPING_MIN_PORT 1024
+#define SNAT_MAPPING_MAX_PORT 65535
+#define SNAT_COLLISION_RETRIES 16
+#endif
 
 #ifdef ENABLE_IPV4
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_LOOPBACK 0x1ffff50a
-#endif
+#ifdef ENABLE_MASQUERADE
+#define SNAT_IPV4_EXTERNAL IPV4_GATEWAY
+#define SNAT_MAPPING_IPV4 cilium_snat_v4_external
+#define SNAT_MAPPING_IPV4_SIZE 524288
+#endif /* ENABLE_MASQUERADE */
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+#ifdef ENABLE_MASQUERADE
+DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
+#define SNAT_MAPPING_IPV6 cilium_snat_v6_external
+#define SNAT_MAPPING_IPV6_SIZE 524288
+#endif /* ENABLE_MASQUERADE */
+#endif /* ENABLE_IPV6 */
 
 #define ENCAP_GENEVE 1
 #define ENDPOINTS_MAP test_cilium_lxc
@@ -82,3 +103,14 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define MONITOR_AGGREGATION 5
 #define MTU 1500
 #define ENABLE_IPSEC
+
+#ifdef ENABLE_MASQUERADE
+#define CT_MAP_TCP6 test_cilium_ct_tcp6_65535
+#define CT_MAP_ANY6 test_cilium_ct_any6_65535
+#define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
+#define CT_MAP_ANY4 test_cilium_ct_any4_65535
+#define CT_MAP_SIZE_TCP 4096
+#define CT_MAP_SIZE_ANY 4096
+#define CONNTRACK
+#define CONNTRACK_ACCOUNTING
+#endif

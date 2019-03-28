@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,6 +58,8 @@ var errors = map[uint8]string{
 	164: "Local host is unreachable",
 	165: "No configuration available to perform policy decision",
 	166: "Unsupported L2 protocol",
+	167: "No mapping for NAT masquerade",
+	168: "Unsupported protocol for NAT masquerade",
 }
 
 // DropReason prints the drop reason in a human readable string

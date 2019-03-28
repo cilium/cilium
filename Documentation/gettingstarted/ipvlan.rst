@@ -99,6 +99,15 @@ This fix is included in stable kernels ``v4.9.155``, ``4.14.98``, ``4.19.20``,
 ``4.20.6`` or higher. Without this kernel fix, ipvlan in L3S mode cannot
 connect to kube-apiserver.
 
+Masquerading with iptables in L3-only mode is not possible since netfilter
+hooks are bypassed in the kernel in this mode, hence L3S (symmetric) had
+to be introduced in the kernel at the cost of performance. However, Cilium
+supports its own BPF-based masquerading which does not rely in any way on
+iptables masquerading. If the ``--install-iptables-rules`` parameter is set
+to ``"false"`` and ``--masquerade`` set to ``"true"``, then Cilium will
+use the more efficient BPF-based masquerading where ipvlan can remain in
+L3 mode as well (instead of L3S).
+
 Example ConfigMap extract for ipvlan in pure L3 mode:
 
 ::
@@ -109,8 +118,8 @@ Example ConfigMap extract for ipvlan in pure L3 mode:
   install-iptables-rules: "false"
   auto-direct-node-routes: "true"
 
-Example ConfigMap extract for ipvlan in L3S mode with masquerading
-all traffic leaving the node:
+Example ConfigMap extract for ipvlan in L3S mode with iptables
+masquerading all traffic leaving the node:
 
 ::
 
@@ -118,6 +127,18 @@ all traffic leaving the node:
   ipvlan-master-device: "bond0"
   tunnel: "disabled"
   masquerade: "true"
+  auto-direct-node-routes: "true"
+
+Example ConfigMap extract for ipvlan in L3 mode with more efficient
+BPF-based masquerading instead of iptables-based:
+
+::
+
+  datapath-mode: "ipvlan"
+  ipvlan-master-device: "bond0"
+  tunnel: "disabled"
+  masquerade: "true"
+  install-iptables-rules: "false"
   auto-direct-node-routes: "true"
 
 Apply the DaemonSet file to deploy Cilium and verify that it has
