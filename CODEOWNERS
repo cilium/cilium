@@ -113,6 +113,7 @@ pkg/proxy/ @cilium/proxy
 pkg/proxy/accesslog @cilium/api
 pkg/serializer @cilium/agent
 pkg/service @cilium/policy
+pkg/tuple @cilium/bpf
 plugins/cilium-cni/ @cilium/kubernetes
 plugins/cilium-docker/ @cilium/docker
 proxylib/ @cilium/proxy
