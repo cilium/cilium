@@ -335,9 +335,15 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMPV6:
 		if (1) {
+			__be16 identifier = 0;
 			__u8 type;
 
 			if (skb_load_bytes(skb, l4_off, &type, 1) < 0)
+				return DROP_CT_INVALID_HDR;
+			if ((type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) &&
+			     skb_load_bytes(skb, l4_off + offsetof(struct icmp6hdr,
+								   icmp6_dataun.u_echo.identifier),
+					    &identifier, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			tuple->sport = 0;
@@ -352,11 +358,11 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 				break;
 
 			case ICMPV6_ECHO_REPLY:
-				tuple->dport = ICMPV6_ECHO_REQUEST;
+				tuple->sport = identifier;
 				break;
 
 			case ICMPV6_ECHO_REQUEST:
-				tuple->sport = type;
+				tuple->dport = identifier;
 				/* fall through */
 			default:
 				action = ACTION_CREATE;
@@ -492,9 +498,14 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP:
 		if (1) {
+			__be16 identifier = 0;
 			__u8 type;
 
 			if (skb_load_bytes(skb, off, &type, 1) < 0)
+				return DROP_CT_INVALID_HDR;
+			if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
+			     skb_load_bytes(skb, off + offsetof(struct icmphdr, un.echo.id),
+					    &identifier, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			tuple->sport = 0;
@@ -508,11 +519,11 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 				break;
 
 			case ICMP_ECHOREPLY:
-				tuple->dport = ICMP_ECHO;
+				tuple->sport = identifier;
 				break;
 
 			case ICMP_ECHO:
-				tuple->sport = type;
+				tuple->dport = identifier;
 				/* fall through */
 			default:
 				action = ACTION_CREATE;
