@@ -162,6 +162,7 @@ func (s *Service6Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service6Value) RevNatKey() RevNatKey        { return &RevNat6Key{s.RevNat} }
 func (s *Service6Value) SetWeight(weight uint16)     { s.Weight = weight }
 func (s *Service6Value) GetWeight() uint16           { return s.Weight }
+func (s *Service6Value) IsIPv6() bool                { return true }
 
 func (s *Service6Value) SetAddress(ip net.IP) error {
 	if ip.To4() != nil {

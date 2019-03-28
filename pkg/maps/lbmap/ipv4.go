@@ -212,6 +212,7 @@ func (s *Service4Value) GetCount() int               { return int(s.Count) }
 func (s *Service4Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service4Value) SetWeight(weight uint16)     { s.Weight = weight }
 func (s *Service4Value) GetWeight() uint16           { return s.Weight }
+func (s *Service4Value) IsIPv6() bool                { return false }
 
 func (s *Service4Value) SetAddress(ip net.IP) error {
 	ip4 := ip.To4()
@@ -463,6 +464,10 @@ func (v *Backend4Value) ToNetwork() *Backend4Value {
 	return &n
 }
 
+func (b *Backend4Value) LegacyBackendID() LegacyBackendID {
+	return LegacyBackendID(fmt.Sprintf("%s:%d", b.Address, b.Port))
+}
+
 type Backend4 struct {
 	Key   *Backend4Key
 	Value *Backend4Value
@@ -490,5 +495,5 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 func (b *Backend4) Map() *bpf.Map { return Backend4Map }
 func (b *Backend4) GetID() uint16 { return b.Key.ID }
 func (b *Backend4) LegacyBackendID() LegacyBackendID {
-	return LegacyBackendID(fmt.Sprintf("%s:%d", b.Value.Address, b.Value.Port))
+	return b.Value.LegacyBackendID()
 }

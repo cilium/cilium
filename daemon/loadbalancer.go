@@ -39,27 +39,20 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
 	revNATID := int(feCilium.ID)
-	svcID := feCilium.String()
 
-	// The legacy service update should happen before v2, as the former caches
-	// backend addr:port -> slave pairs which are required for the backward
-	// compatibility
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID); err != nil {
+	acquireBackendID := func(b loadbalancer.L3n4Addr) (uint16, error) {
+		return service.AcquireBackendID(b, 0)
+	}
+	releaseBackendID := func(id uint16) error {
+		fmt.Println("!!! releaseBackendID", id)
+		return nil
+	}
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, acquireBackendID, releaseBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
 		return err
 	}
-
-	if err := lbmap.UpdateServiceV2(svcID, svcKeyV2, svcValuesV2, backendsV2, addRevNAT, revNATID, feBPF, besBPF); err != nil {
-		// TODO(brb) probably remove the legacy svc?
-		if addRevNAT {
-			delete(d.loadBalancer.RevNATMap, feCilium.ID)
-		}
-		return err
-	}
-
-	// TODO(brb) Add to legacySVC counts -> backendIDs
 
 	if addRevNAT {
 		log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to RevNATMap")
@@ -124,15 +117,15 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 		beCpy = append(beCpy, v)
 	}
 
-	// Acquire ID for each backend
-	for i, b := range beCpy {
-		id, err := service.AcquireBackendID(b.L3n4Addr, 0)
-		if err != nil {
-			return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
-				b, err)
-		}
-		beCpy[i].ID = loadbalancer.ServiceID(id)
-	}
+	//// Acquire ID for each backend
+	//for i, b := range beCpy {
+	//	id, err := service.AcquireBackendID(b.L3n4Addr, 0)
+	//	if err != nil {
+	//		return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
+	//			b, err)
+	//	}
+	//	beCpy[i].ID = loadbalancer.ServiceID(id)
+	//}
 
 	svc := loadbalancer.LBSVC{
 		FE:     feL3n4Addr,
@@ -528,7 +521,11 @@ func openServiceMaps() error {
 func restoreServiceIDs() {
 	// We need to restore backend IDs first to avoid from them being overwritten
 	// when creating SVC V2 from legacy
-	restoreBackendIDs()
+	restoredBackendIDs, err := restoreBackendIDs()
+	if err != nil {
+		log.WithError(err).Warning("Error occured while restoring backend IDs")
+	}
+	lbmap.AddBackendIDs(restoredBackendIDs)
 
 	failed, restored, skipped := 0, 0, 0
 
@@ -542,6 +539,7 @@ func restoreServiceIDs() {
 	}
 
 	for feHash, svc := range svcMap {
+		fmt.Println("!!! restoreServiceID", feHash, svc)
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.FE.ID,
 			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
@@ -570,17 +568,32 @@ func restoreServiceIDs() {
 
 		// Restore the service cache to guarantee backend ordering
 		// across restarts
-		if err := lbmap.RestoreService(svc); err != nil {
+		_, v2Exists := svcMapV2[feHash]
+		if err := lbmap.RestoreService(svc, v2Exists); err != nil {
 			log.WithError(err).Warning("Unable to restore service in cache")
 		}
 
 		// Create SVC V2 from the legacy SVC
-		if _, found := svcMapV2[feHash]; !found {
+		if !v2Exists {
+			fmt.Println("!!!! createServiceV2", svc)
 			acquireBackendID := func(b loadbalancer.L3n4Addr) (uint16, error) {
 				return service.AcquireBackendID(b, 0)
 			}
-			if err := lbmap.CreateServiceV2(&svc, acquireBackendID); err != nil {
-				scopedLog.WithError(err).Warning("Unable to create service v2")
+			releaseBackendID := func(id uint16) error {
+				fmt.Println("!!!! releaseBackendID", id)
+				return nil
+			}
+
+			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
+			if err != nil {
+				fmt.Println("!!! err #1")
+			}
+			addRevNAT := true // TODO(brb) explain why
+			revNATID := int(svc.FE.ID)
+			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID,
+				acquireBackendID, releaseBackendID)
+			if err != nil {
+				fmt.Println("!!! err #2")
 			}
 		}
 	}
@@ -594,25 +607,26 @@ func restoreServiceIDs() {
 }
 
 // NOTE: should be called before creating v2 svc from legacy, otherwise backend IDs can be taken.
-// FIXME(brb): after obsoleting legacy svc, merge the function with restoreServiceIDs.
-// TODO(brb): return an error instead of logging
-func restoreBackendIDs() {
+func restoreBackendIDs() (map[lbmap.LegacyBackendID]uint16, error) {
 	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
-		log.WithError(err).Warning("Error occured while dumping backend table from datapath")
-		return
+		return nil, err
 	}
 
-	for _, lbBackend := range lbBackends {
+	restoredBackendIDs := map[lbmap.LegacyBackendID]uint16{}
+
+	for legacyID, lbBackend := range lbBackends {
 		newBackendID, err := service.AcquireBackendID(lbBackend.L3n4Addr, uint32(lbBackend.ID))
-		// TODO(brb) delete svc in this case?
 		if err != nil {
-			log.WithError(err).Warning("Unable to backend ID from datapath")
+			return nil, err
 		}
 		if newBackendID != uint16(lbBackend.ID) {
-			log.Warningf("Backend IDs do not match (%d != %d)", newBackendID, lbBackend.ID)
+			return nil, fmt.Errorf("backend IDs do not match (%d != %d)", newBackendID, lbBackend.ID)
 		}
+		restoredBackendIDs[legacyID] = newBackendID
 	}
+
+	return restoredBackendIDs, nil
 }
 
 func createServiceV2FromLegacy() {}
@@ -700,6 +714,8 @@ func (d *Daemon) SyncLBMap() error {
 		log.WithError(err).Warn("Unable to list services in RevNat BPF map")
 	}
 
+	// TODO(brb) A note why we don't sync backendIDs here (assuming that they are restored from Count)
+
 	// Need to do this outside of parseSVCEntries to avoid deadlock, because we
 	// are modifying the BPF maps, and calling Dump on a Map RLocks the maps.
 	for _, svc := range newSVCList {
@@ -724,10 +740,11 @@ func (d *Daemon) SyncLBMap() error {
 			svc.FE.ID = kvL3n4AddrID.ID
 			// If we cannot add the service to the BPF maps, update the list of
 			// services that failed to sync.
+			// TODO(brb) Check V2
 			if err := addSVC2BPFMap(oldID, *svc); err != nil {
 				scopedLog.WithError(err).Error("Unable to synchronize service to BPF map")
 
-				// TODO(brb) this will have new ID, bad! so, use string for ID
+				// TODO(brb) this will have new ID, bad! so, use string for ID. m?
 				failedSyncSVC = append(failedSyncSVC, *svc)
 				delete(newSVCMap, svc.Sha256)
 
@@ -748,6 +765,7 @@ func (d *Daemon) SyncLBMap() error {
 
 	// Clean services and rev nats from BPF maps that failed to be restored.
 	for _, svc := range failedSyncSVC {
+		// TODO(brb) Check V2
 		if err := d.svcDeleteBPF(svc.FE); err != nil {
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).
 				Warn("Unable to remove unrestorable service from BPF map")
