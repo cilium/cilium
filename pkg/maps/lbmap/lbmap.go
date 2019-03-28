@@ -289,6 +289,7 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 }
 
 func deleteBackend(backendID uint16) error {
+	// TODO(brb) do we need to lock here?
 	key := NewBackend4Key(backendID)
 
 	return key.Map().Delete(key)
@@ -537,8 +538,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		}
 
 		slot := 1
-		// TODO(brb) lock
-
 		fmt.Println("### create service", svc4Key)
 		for legacyID, svcVal := range svc.backendsV2 {
 			svc4Val := svcVal.(*Service4Value)

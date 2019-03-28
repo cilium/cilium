@@ -341,7 +341,6 @@ func (k *Service4KeyV2) SetSlave(slave int) { k.Slave = uint16(slave) }
 func (k *Service4KeyV2) GetSlave() int      { return int(k.Slave) }
 
 func (k *Service4KeyV2) String() string {
-	// TODO(brb) Add proto
 	return fmt.Sprintf("%s:%d", k.Address, k.Port)
 }
 
@@ -453,7 +452,6 @@ type Backend4Value struct {
 func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (v *Backend4Value) String() string {
-	// TODO(brb) v.Port.ToHost()?
 	return fmt.Sprintf("%s://%s:%d", v.Proto, v.Address, v.Port)
 }
 

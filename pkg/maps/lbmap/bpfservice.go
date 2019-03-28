@@ -236,6 +236,7 @@ func (l *lbmapCache) getSlaveSlot(fe *Service4KeyV2, legacyBackendID LegacyBacke
 	return pos, true
 }
 
+// assumes that backends doesn't contain frontend service
 func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpfService, map[uint16]ServiceValue, []uint16) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -264,7 +265,6 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpf
 	}
 
 	for legacyID := range bpfSvc.backendsV2 {
-		// TODO(brb) ignore master svc backends
 		if _, ok := newBackendsMap[legacyID]; !ok {
 			last, err := l.delBackendV2Locked(legacyID)
 			if err != nil {
@@ -282,13 +282,11 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpf
 			legacyID := b.LegacyBackendID()
 			backendID := l.backendIDByLegacyID[legacyID]
 			pos := bpfSvc.addBackend(b, backendID)
-			// TODO(brb) ignore master svc backends
 			bpfSvc.slaveSlotByLegacyBackendID[legacyID] = pos
 		}
 	}
 
 	for _, b := range backends {
-		// TODO(brb) ignore master svc backends
 		legacyID := b.LegacyBackendID()
 		if _, ok := bpfSvc.backendsV2[legacyID]; !ok {
 			bpfSvc.backendsV2[legacyID] = b

@@ -727,7 +727,6 @@ func (d *Daemon) SyncLBMap() error {
 			svc.FE.ID = kvL3n4AddrID.ID
 			// If we cannot add the service to the BPF maps, update the list of
 			// services that failed to sync.
-			// TODO(brb) Check V2
 			if err := addSVC2BPFMap(oldID, *svc); err != nil {
 				scopedLog.WithError(err).Error("Unable to synchronize service to BPF map")
 
