@@ -86,6 +86,7 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
+	// TODO(brb) -> BackendLegacyID
 	idToRemove := backend.LegacyBackendID()
 	indicesToRemove := []int{}
 	duplicateCount := map[LegacyBackendID]int{}

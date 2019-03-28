@@ -51,12 +51,12 @@ func (b *LBMapTestSuite) TestScaleService(c *C) {
 	c.Assert(svc, Not(IsNil))
 
 	b1 := createBackend(c, "2.2.2.2", 80, 1)
-	svc.addBackend(b1)
+	svc.addBackend(b1, 1)
 	c.Assert(len(svc.backendsByMapIndex), Equals, 1)
 	c.Assert(svc.backendsByMapIndex[1].bpfValue, Equals, b1)
 
 	b2 := createBackend(c, "3.3.3.3", 80, 1)
-	svc.addBackend(b2)
+	svc.addBackend(b2, 2)
 	c.Assert(len(svc.backendsByMapIndex), Equals, 2)
 	c.Assert(svc.backendsByMapIndex[1].bpfValue, Equals, b1)
 	c.Assert(svc.backendsByMapIndex[2].bpfValue, Equals, b2)
@@ -68,7 +68,7 @@ func (b *LBMapTestSuite) TestScaleService(c *C) {
 	c.Assert(svc.backendsByMapIndex[2].bpfValue, Equals, b2)
 
 	b3 := createBackend(c, "4.4.4.4", 80, 1)
-	svc.addBackend(b3)
+	svc.addBackend(b3, 3)
 	c.Assert(len(svc.backendsByMapIndex), Equals, 3)
 	c.Assert(svc.backendsByMapIndex[1].bpfValue, Equals, b2)
 	c.Assert(svc.backendsByMapIndex[1].isHole, Equals, true)
@@ -78,7 +78,7 @@ func (b *LBMapTestSuite) TestScaleService(c *C) {
 	c.Assert(svc.backendsByMapIndex[3].isHole, Equals, false)
 
 	b4 := createBackend(c, "5.5.5.5", 80, 1)
-	svc.addBackend(b4)
+	svc.addBackend(b4, 4)
 	c.Assert(len(svc.backendsByMapIndex), Equals, 4)
 	c.Assert(svc.backendsByMapIndex[1].bpfValue, Equals, b2)
 	c.Assert(svc.backendsByMapIndex[1].isHole, Equals, true)
@@ -114,7 +114,7 @@ func (b *LBMapTestSuite) TestScaleService(c *C) {
 	svc.deleteBackend(b2)
 	c.Assert(len(svc.backendsByMapIndex), Equals, 0)
 
-	svc.addBackend(b4)
+	svc.addBackend(b4, 4)
 	c.Assert(len(svc.backendsByMapIndex), Equals, 1)
 	c.Assert(svc.backendsByMapIndex[1].bpfValue, Equals, b4)
 }
@@ -130,7 +130,7 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	b2 := createBackend(c, "3.3.3.3", 80, 1)
 	b3 := createBackend(c, "4.4.4.4", 80, 1)
 
-	bpfSvc := cache.prepareUpdate(frontend, []ServiceValue{b1, b2})
+	bpfSvc, _, _, _ := cache.prepareUpdate(frontend, []ServiceValue{b1, b2})
 	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, checker.DeepEquals, b1)
 	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
 
@@ -139,7 +139,7 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	c.Assert(backends[0], checker.DeepEquals, b1)
 	c.Assert(backends[1], checker.DeepEquals, b2)
 
-	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{b1, b2, b3})
+	bpfSvc, _, _, _ = cache.prepareUpdate(frontend, []ServiceValue{b1, b2, b3})
 	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, checker.DeepEquals, b1)
 	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
 	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, checker.DeepEquals, b3)
@@ -150,7 +150,7 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	c.Assert(backends[1], checker.DeepEquals, b2)
 	c.Assert(backends[2], checker.DeepEquals, b3)
 
-	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{b2, b3})
+	bpfSvc, _, _, _ = cache.prepareUpdate(frontend, []ServiceValue{b2, b3})
 	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, Not(DeepEquals), b1)
 	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
 	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, checker.DeepEquals, b3)
@@ -161,7 +161,7 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	c.Assert(backends[1], checker.DeepEquals, b2)
 	c.Assert(backends[2], checker.DeepEquals, b3)
 
-	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{b1, b2, b3})
+	bpfSvc, _, _, _ = cache.prepareUpdate(frontend, []ServiceValue{b1, b2, b3})
 	c.Assert(bpfSvc.backendsByMapIndex[1].bpfValue, Not(DeepEquals), b1)
 	c.Assert(bpfSvc.backendsByMapIndex[2].bpfValue, checker.DeepEquals, b2)
 	c.Assert(bpfSvc.backendsByMapIndex[3].bpfValue, checker.DeepEquals, b3)
@@ -174,7 +174,7 @@ func (b *LBMapTestSuite) TestPrepareUpdate(c *C) {
 	c.Assert(backends[2], checker.DeepEquals, b3)
 	c.Assert(backends[3], checker.DeepEquals, b1)
 
-	bpfSvc = cache.prepareUpdate(frontend, []ServiceValue{})
+	bpfSvc, _, _, _ = cache.prepareUpdate(frontend, []ServiceValue{})
 	c.Assert(len(bpfSvc.backendsByMapIndex), Equals, 0)
 
 	backends = bpfSvc.getBackends()
