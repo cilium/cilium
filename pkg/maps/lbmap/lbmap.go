@@ -937,35 +937,30 @@ func RestoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 	return cache.restoreService(svc, v2Exists)
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// v2                                                                        //
-///////////////////////////////////////////////////////////////////////////////
+func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
+	releaseBackendID func(uint16) error) error {
 
-func DeleteServiceV2(svc loadbalancer.L3n4AddrID) error {
-	// TODO(brb)
-	//id := svc.String()
+	svcKey := NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
+	if err != nil {
+		return err
+	}
 
-	//svcKey := NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
-	//svcKey.SetSlave(0)
+	for slot := 0; slot <= backendsCount; slot++ {
+		svcKey.SetSlave(slot)
+		if err := svcKey.MapDelete(); err != nil {
+			return err
+		}
+	}
 
-	//count, backendIDs, err := cache.removeServiceV2(id)
-	//if err != nil {
-	//	return err
-	//}
-
-	//for i := 0; i <= count; i++ {
-	//	svcKey.SetSlave(i)
-	//	if err := svcKey.MapDelete(); err != nil {
-	//		return fmt.Errorf("OMG: %s: %s", svcKey, err)
-	//	}
-	//}
-
-	//for _, id := range backendIDs {
-	//	backendKey := NewBackend4Key(id)
-	//	if err := backendKey.MapDelete(); err != nil {
-	//		return err
-	//	}
-	//}
+	for _, id := range backendsToRemove {
+		if err := deleteBackend(id); err != nil {
+			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
+		}
+		if err := releaseBackendID(id); err != nil {
+			return fmt.Errorf("Unable to release backend ID %d: %s", id, err)
+		}
+	}
 
 	return nil
 }

@@ -363,3 +363,32 @@ func (l *lbmapCache) getBackendIDByLegacyID(legacyID LegacyBackendID) uint16 {
 
 	return l.backendIDByLegacyID[legacyID]
 }
+
+func (l *lbmapCache) removeServiceV2(svcKey *Service4KeyV2) ([]uint16, int, error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	frontendID := svcKey.String()
+	bpfSvc, ok := l.entries[frontendID]
+	if !ok {
+		return nil, 0, fmt.Errorf("Service %s not found", frontendID)
+	}
+
+	backendsToRemove := []uint16{}
+	count := len(bpfSvc.backendsV2)
+
+	for legacyID := range bpfSvc.backendsV2 {
+		last, err := l.delBackendV2Locked(legacyID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if last {
+			backendsToRemove = append(backendsToRemove, l.backendIDByLegacyID[legacyID])
+		}
+	}
+
+	delete(l.entries, frontendID)
+	// TODO(brb) remove l.backendIDByLegacyID(legacy => Id)
+
+	return backendsToRemove, count, nil
+}
