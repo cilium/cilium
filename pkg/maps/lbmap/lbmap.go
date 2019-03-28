@@ -52,6 +52,8 @@ var (
 	cache = newLBMapCache()
 )
 
+type LegacyBackendID string
+
 // ServiceKey is the interface describing protocol independent key for services map.
 type ServiceKey interface {
 	bpf.MapKey
@@ -100,8 +102,6 @@ type ServiceValue interface {
 	// Set address to map to (left blank for master)
 	SetAddress(net.IP) error
 
-	//GetAddress() net.IP
-
 	// Set port to map to (left blank for master)
 	SetPort(uint16)
 
@@ -123,8 +123,10 @@ type ServiceValue interface {
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceValue
 
+	// Get LegacyBackendID of the service value
 	LegacyBackendID() LegacyBackendID
 
+	// Returns true if the value is of type IPv6
 	IsIPv6() bool
 }
 
@@ -145,8 +147,6 @@ type BackendValue interface {
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceKey
 }
-
-type LegacyBackendID string
 
 type RRSeqValue struct {
 	// Length of Generated sequence
@@ -182,6 +182,13 @@ func updateBackend(backend *Backend4) error {
 		return err
 	}
 	return backend.Map().Update(backend.Key, backend.Value.ToNetwork())
+}
+
+func deleteBackend(backendID uint16) error {
+	// TODO(brb) do we need to lock here?
+	key := NewBackend4Key(backendID)
+
+	return key.Map().Delete(key)
 }
 
 // DeleteService deletes a service from the lbmap. key should be the master (i.e., with backend set to zero).
@@ -287,13 +294,6 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 	return updateRevNatLocked(key, value)
 }
 
-func deleteBackend(backendID uint16) error {
-	// TODO(brb) do we need to lock here?
-	key := NewBackend4Key(backendID)
-
-	return key.Map().Delete(key)
-}
-
 func deleteRevNatLocked(key RevNatKey) error {
 	log.WithField(logfields.BPFMapKey, key).Debug("deleting RevNatKey")
 
@@ -390,23 +390,6 @@ func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) er
 	zeroValue.SetWeight(nonZeroWeights)
 
 	return updateService(fe, zeroValue)
-}
-
-func serviceValue2L3n4Addr(svcVal ServiceValue) *loadbalancer.L3n4Addr {
-	var (
-		beIP   net.IP
-		bePort uint16
-	)
-	if svcVal.IsIPv6() {
-		svc6Val := svcVal.(*Service6Value)
-		beIP = svc6Val.Address.IP()
-		bePort = svc6Val.Port
-	} else {
-		svc4Val := svcVal.(*Service4Value)
-		beIP = svc4Val.Address.IP()
-		bePort = svc4Val.Port
-	}
-	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, beIP, bePort)
 }
 
 // UpdateService adds or updates the given service in the bpf maps
@@ -1225,4 +1208,21 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 
 func AddBackendIDs(backendIDs map[LegacyBackendID]uint16) {
 	cache.addBackendIDs(backendIDs)
+}
+
+func serviceValue2L3n4Addr(svcVal ServiceValue) *loadbalancer.L3n4Addr {
+	var (
+		beIP   net.IP
+		bePort uint16
+	)
+	if svcVal.IsIPv6() {
+		svc6Val := svcVal.(*Service6Value)
+		beIP = svc6Val.Address.IP()
+		bePort = svc6Val.Port
+	} else {
+		svc4Val := svcVal.(*Service4Value)
+		beIP = svc4Val.Address.IP()
+		bePort = svc4Val.Port
+	}
+	return loadbalancer.NewL3n4Addr(loadbalancer.NONE, beIP, bePort)
 }

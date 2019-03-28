@@ -303,10 +303,6 @@ func NewRevNat4Value(ip net.IP, port uint16) *RevNat4Value {
 	return &revNat
 }
 
-//////////////////////////////////////////////////////////////////////////////
-// v2                                                                       //
-//////////////////////////////////////////////////////////////////////////////
-
 // Service4KeyV2 must match 'struct lb4_key_v2' in "bpf/lib/common.h".
 type Service4KeyV2 struct {
 	Address types.IPv4 `align:"address"`
@@ -390,7 +386,6 @@ func NewService4ValueV2(count uint16, backendID uint16, revNat uint16, weight ui
 
 func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-//func (s *Service4ValueV2) SetPort(port uint16)         { s.Port = port }
 func (s *Service4ValueV2) SetCount(count int)      { s.Count = uint16(count) }
 func (s *Service4ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
 func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
@@ -406,15 +401,6 @@ func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {
 	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
 	return &n
 }
-
-//// ToHost converts Service4ValueV2 to host byte order.
-//func (s *Service4ValueV2) ToHost() ServiceValue {
-//	n := *s
-//	n.RevNat = byteorder.NetworkToHost(n.RevNat).(uint16)
-//	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
-//	n.Weight = byteorder.NetworkToHost(n.Weight).(uint16)
-//	return &n
-//}
 
 func (s *Service4ValueV2) RevNatKey() *RevNat4Key {
 	return &RevNat4Key{s.RevNat}
@@ -449,6 +435,21 @@ type Backend4Value struct {
 	Pad     uint8
 }
 
+func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return nil, fmt.Errorf("Not an IPv4 address")
+	}
+
+	val := Backend4Value{
+		Port:  port,
+		Proto: proto,
+	}
+	copy(val.Address[:], ip.To4())
+
+	return &val, nil
+}
+
 func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (v *Backend4Value) String() string {
@@ -477,17 +478,15 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 		return nil, fmt.Errorf("Not an IPv4 address")
 	}
 
-	backend := Backend4{
-		Key: NewBackend4Key(id),
-		// TODO(brb) NewBackend4Value
-		Value: &Backend4Value{
-			Port:  port,
-			Proto: proto,
-		},
+	val, err := NewBackend4Value(ip, port, proto)
+	if err != nil {
+		return nil, err
 	}
-	copy(backend.Value.Address[:], ip.To4())
 
-	return &backend, nil
+	return &Backend4{
+		Key:   NewBackend4Key(id),
+		Value: val,
+	}, nil
 }
 
 func (b *Backend4) Map() *bpf.Map { return Backend4Map }
