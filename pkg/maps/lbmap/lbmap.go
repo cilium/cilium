@@ -179,14 +179,12 @@ func updateService(key ServiceKey, value ServiceValue) error {
 }
 
 func updateBackend(backend *Backend4) error {
-	// TODO(brb) update, m???
 	if _, err := backend.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 	return backend.Map().Update(backend.Key, backend.Value.ToNetwork())
 }
 
-// TODO(brb) merge with v2
 // DeleteService deletes a service from the lbmap. key should be the master (i.e., with backend set to zero).
 func DeleteService(key ServiceKey) error {
 	mutex.Lock()
@@ -291,7 +289,6 @@ func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 }
 
 func deleteBackend(backendID uint16) error {
-	// TODO(brb) locking
 	key := NewBackend4Key(backendID)
 
 	return key.Map().Delete(key)
@@ -549,7 +546,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 			if !found {
 				return fmt.Errorf("Slave slot not found for backend with legacy ID %s", legacyID)
 			}
-			// TODO(brb) maybe remove revNATID
 			backendID := cache.getBackendIDByLegacyID(legacyID) // TODO(brb) we can extract from svcVal
 			svcValV2 := NewService4ValueV2(uint16(legacySlaveSlot), backendID, uint16(revNATID), svc4Val.GetWeight())
 			svcValV2.SetCount(legacySlaveSlot)
