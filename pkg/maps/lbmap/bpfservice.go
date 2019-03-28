@@ -264,6 +264,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpf
 	}
 
 	for legacyID := range bpfSvc.backendsV2 {
+		// TODO(brb) ignore master svc backends
 		if _, ok := newBackendsMap[legacyID]; !ok {
 			last, err := l.delBackendV2Locked(legacyID)
 			if err != nil {
@@ -281,11 +282,13 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (*bpf
 			legacyID := b.LegacyBackendID()
 			backendID := l.backendIDByLegacyID[legacyID]
 			pos := bpfSvc.addBackend(b, backendID)
+			// TODO(brb) ignore master svc backends
 			bpfSvc.slaveSlotByLegacyBackendID[legacyID] = pos
 		}
 	}
 
 	for _, b := range backends {
+		// TODO(brb) ignore master svc backends
 		legacyID := b.LegacyBackendID()
 		if _, ok := bpfSvc.backendsV2[legacyID]; !ok {
 			bpfSvc.backendsV2[legacyID] = b

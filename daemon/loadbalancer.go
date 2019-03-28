@@ -533,7 +533,7 @@ func restoreServices() {
 
 	failed, restored, skipped := 0, 0, 0
 
-	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace(true)
+	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace()
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occured while dumping service table from datapath")
 	}
@@ -708,7 +708,7 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(false)
+	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace()
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("Unable to list services in services BPF map")
 	}
@@ -825,7 +825,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace(true)
+	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace()
 	if len(lbmapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range lbmapDumpErrors {

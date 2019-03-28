@@ -822,7 +822,7 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 // includeMasterBackend is true, the returned values will also include services
 // which correspond to "master" backend values in the BPF maps. Returns the
 // errors that occurred while dumping the maps.
-func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
@@ -830,10 +830,6 @@ func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap,
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKey)
-		//It's the frontend service so we don't add this one
-		if svcKey.GetBackend() == 0 && !includeMasterBackend {
-			return
-		}
 		svcValue := value.(ServiceValue)
 
 		scopedLog := log.WithFields(logrus.Fields{
@@ -851,8 +847,11 @@ func DumpServiceMapsToUserspace(includeMasterBackend bool) (loadbalancer.SVCMap,
 			idCache[fe.String()] = loadbalancer.ServiceID(k)
 		}
 
-		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
-		newSVCList = append(newSVCList, svc)
+		// Do not include master services
+		if svcKey.GetBackend() != 0 {
+			svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
+			newSVCList = append(newSVCList, svc)
+		}
 	}
 
 	mutex.RLock()
