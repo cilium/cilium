@@ -20,6 +20,7 @@
 #include "node_config.h"
 #include "lib/conntrack.h"
 #include "lib/maps.h"
+#include "lib/nat.h"
 #include "sockops/bpf_sockops.h"
 
 // DECLARE_STRUCT declares a unique usage of the struct 'x' on the stack.

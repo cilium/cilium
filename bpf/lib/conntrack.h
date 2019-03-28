@@ -585,14 +585,6 @@ out:
 	return ret;
 }
 
-static inline void __inline__ ct_delete6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb)
-{
-	int err;
-
-	if ((err = map_delete_elem(map, tuple)) < 0)
-		cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
-}
-
 static inline void __inline__ ct_update6_slave(void *map,
 					       struct ipv6_ct_tuple *tuple,
 					       struct ct_state *state)
@@ -660,14 +652,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	}
 
 	return 0;
-}
-
-static inline void __inline__ ct_delete4(void *map, struct ipv4_ct_tuple *tuple, struct __sk_buff *skb)
-{
-	int err;
-
-	if ((err = map_delete_elem(map, tuple)) < 0)
-		cilium_dbg(skb, DBG_ERROR_RET, BPF_FUNC_map_delete_elem, err);
 }
 
 static inline void __inline__ ct_update4_slave(void *map,
@@ -779,10 +763,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	return 0;
 }
 
-static inline void __inline__ ct_delete6(void *map, struct ipv6_ct_tuple *tuple, struct __sk_buff *skb)
-{
-}
-
 static inline void __inline__ ct_update6_slave(void *map,
 					      struct ipv6_ct_tuple *tuple,
 					      struct ct_state *state)
@@ -794,10 +774,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct ct_state *ct_state)
 {
 	return 0;
-}
-
-static inline void __inline__ ct_delete4(void *map, struct ipv4_ct_tuple *tuple, struct __sk_buff *skb)
-{
 }
 
 static inline void __inline__ ct_update4_slave(void *map,
