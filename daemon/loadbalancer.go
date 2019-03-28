@@ -211,7 +211,6 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	svc, ok := d.loadBalancer.SVCMapID[loadbalancer.ServiceID(params.ID)]
-	// TODO(brb) we should set backendID inside svc.BES
 
 	if !ok {
 		return NewDeleteServiceIDNotFound()
@@ -573,14 +572,17 @@ func restoreServices() {
 		if !v2Exists {
 			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
 			if err != nil {
-				fmt.Println("!!! err #1")
+				failed++
+				log.WithError(err).Warning("Unable to convert service key and values")
+				continue
 			}
 			addRevNAT := true // TODO(brb) explain why
 			revNATID := int(svc.FE.ID)
 			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID,
 				service.AcquireBackendID, service.DeleteBackendID)
 			if err != nil {
-				fmt.Println("!!! err #2")
+				failed++
+				log.WithError(err).Warning("Unable to restore service v2")
 			}
 		}
 	}
