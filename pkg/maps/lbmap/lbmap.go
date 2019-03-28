@@ -415,7 +415,7 @@ func serviceValue2L3n4Addr(svcVal ServiceValue) *loadbalancer.L3n4Addr {
 // UpdateService adds or updates the given service in the bpf maps
 func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNATID int,
 	acquireBackendID func(loadbalancer.L3n4Addr) (uint16, error),
-	releaseBackendID func(uint16) error) error {
+	releaseBackendID func(uint16)) error {
 
 	var (
 		weights         []uint16
@@ -585,9 +585,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		if err := deleteBackend(backendID); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
 		}
-		if err := releaseBackendID(backendID); err != nil {
-			return fmt.Errorf("Unable to release backend ID %d: %s", backendID, err)
-		}
+		releaseBackendID(backendID)
 	}
 
 	return nil

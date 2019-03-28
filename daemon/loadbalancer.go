@@ -40,14 +40,7 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 
 	revNATID := int(feCilium.ID)
 
-	acquireBackendID := func(b loadbalancer.L3n4Addr) (uint16, error) {
-		return service.AcquireBackendID(b, 0)
-	}
-	releaseBackendID := func(id uint16) error {
-		fmt.Println("!!! releaseBackendID", id)
-		return nil
-	}
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, acquireBackendID, releaseBackendID); err != nil {
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
@@ -578,15 +571,6 @@ func restoreServices() {
 
 		// Create SVC V2 from the legacy SVC
 		if !v2Exists {
-			fmt.Println("!!!! createServiceV2", svc)
-			acquireBackendID := func(b loadbalancer.L3n4Addr) (uint16, error) {
-				return service.AcquireBackendID(b, 0)
-			}
-			releaseBackendID := func(id uint16) error {
-				fmt.Println("!!!! releaseBackendID", id)
-				return nil
-			}
-
 			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
 			if err != nil {
 				fmt.Println("!!! err #1")
@@ -594,7 +578,7 @@ func restoreServices() {
 			addRevNAT := true // TODO(brb) explain why
 			revNATID := int(svc.FE.ID)
 			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID,
-				acquireBackendID, releaseBackendID)
+				service.AcquireBackendID, service.DeleteBackendID)
 			if err != nil {
 				fmt.Println("!!! err #2")
 			}
@@ -619,7 +603,7 @@ func restoreBackendIDs() (map[lbmap.LegacyBackendID]uint16, error) {
 	restoredBackendIDs := map[lbmap.LegacyBackendID]uint16{}
 
 	for legacyID, lbBackend := range lbBackends {
-		newBackendID, err := service.AcquireBackendID(lbBackend.L3n4Addr, uint32(lbBackend.ID))
+		newBackendID, err := service.RestoreBackendID(lbBackend.L3n4Addr, uint16(lbBackend.ID))
 		if err != nil {
 			return nil, err
 		}
@@ -768,7 +752,6 @@ func (d *Daemon) SyncLBMap() error {
 
 	// Clean services and rev nats from BPF maps that failed to be restored.
 	for _, svc := range failedSyncSVC {
-		// TODO(brb) Check V2
 		if err := d.svcDeleteBPF(svc.FE); err != nil {
 			log.WithError(err).WithField(logfields.Object, logfields.Repr(svc)).
 				Warn("Unable to remove unrestorable service from BPF map")
