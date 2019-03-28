@@ -562,19 +562,30 @@ func (kub *Kubectl) WaitForPodsRunning(namespace, filter string, minPodsSchedule
 // pods achieve the aforementioned desired state within timeout seconds. Returns
 // false and an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforNPods(namespace string, filter string, podsRunning int, timeout time.Duration) error {
-	data, err := kub.GetPods(namespace, filter).Filter("{.items[*].metadata.deletionTimestamp}")
-	if err != nil {
-		return fmt.Errorf("Cannot get pods with filter '%s': %s", filter, err)
-	}
-	if data.String() != "" {
-		return fmt.Errorf(
-			"There are some pods with filter %s that are marked to be deleted", filter)
-	}
-
 	body := func() bool {
-
+		var deletePath = "{.items[*].metadata.deletionTimestamp}"
 		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
-		data, err = kub.GetPods(namespace, filter).Filter(jsonPath)
+
+		res := kub.GetPods(namespace, filter)
+		if !res.WasSuccessful() {
+			kub.logger.Errorf("could not get pods: %v", res.CombineOutput())
+			return false
+		}
+
+		terminated, err := res.Filter(deletePath)
+		if err != nil {
+			kub.logger.WithError(err).Errorf("cannot decode json output")
+			return false
+		}
+
+		if terminated.String() != "" {
+			kub.logger.Errorf(
+				"There are some pods with filter %s that are marked to be deleted",
+				filter)
+			return false
+		}
+
+		data, err := res.Filter(jsonPath)
 		if err != nil {
 			kub.logger.Errorf("could not get pods: %s", err)
 			return false
