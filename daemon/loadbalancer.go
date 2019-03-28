@@ -521,14 +521,14 @@ func openServiceMaps() error {
 	return nil
 }
 
-// TODO(brb) rename to restoreServices
-func restoreServiceIDs() {
+func restoreServices() {
 	// We need to restore backend IDs first to avoid from them being overwritten
 	// when creating SVC V2 from legacy
 	restoredBackendIDs, err := restoreBackendIDs()
 	if err != nil {
 		log.WithError(err).Warning("Error occured while restoring backend IDs")
 	}
+	fmt.Println("!!! restoredBackendIDs", restoredBackendIDs)
 	lbmap.AddBackendIDs(restoredBackendIDs)
 
 	failed, restored, skipped := 0, 0, 0
@@ -543,7 +543,6 @@ func restoreServiceIDs() {
 	}
 
 	for feHash, svc := range svcMap {
-		fmt.Println("!!! restoreServiceID", feHash, svc)
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.FE.ID,
 			logfields.ServiceIP: svc.FE.L3n4Addr.String(),

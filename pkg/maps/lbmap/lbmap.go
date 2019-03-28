@@ -476,7 +476,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 	// Create new backends
 	for backendID, svcVal := range addedBackends {
 		if !svcVal.IsIPv6() {
-			fmt.Println("### create backend", svcVal)
+			fmt.Println("### create backend", backendID, svcVal)
 			svc4Val := svcVal.(*Service4Value)
 			b, err := NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
 			if err != nil {

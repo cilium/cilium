@@ -974,7 +974,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// use an existing service ID.
 	if option.Config.RestoreState && !option.Config.DryMode {
 		bootstrapStats.restore.Start()
-		restoreServiceIDs()
+		restoreServices()
 		bootstrapStats.restore.End(true)
 	}
 
