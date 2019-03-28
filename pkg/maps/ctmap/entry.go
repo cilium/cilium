@@ -59,9 +59,3 @@ func (c *CtEntry) String() string {
 		c.Slave,
 		c.SourceSecurityID)
 }
-
-// CtEntryDump represents the key and value contained in the conntrack map.
-type CtEntryDump struct {
-	Key   CtKey
-	Value CtEntry
-}
