@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -998,23 +997,4 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	return nil
-}
-
-func (e *Endpoint) syncPolicyMapController() {
-	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
-	e.controllers.UpdateController(ctrlName,
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) (reterr error) {
-				// Failure to lock is not an error, it means
-				// that the endpoint was disconnected and we
-				// should exit gracefully.
-				if err := e.LockAlive(); err != nil {
-					return controller.NewExitReason("Endpoint disappeared")
-				}
-				defer e.Unlock()
-				return e.syncPolicyMap()
-			},
-			RunInterval: 1 * time.Minute,
-		},
-	)
 }

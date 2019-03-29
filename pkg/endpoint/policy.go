@@ -360,11 +360,6 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
 
-	// Keep PolicyMap for this endpoint in sync with desired / realized state.
-	if !option.Config.DryMode {
-		e.syncPolicyMapController()
-	}
-
 	e.realizedBPFConfig = e.desiredBPFConfig
 
 	// Set realized state to desired state fields.
