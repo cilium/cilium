@@ -130,42 +130,30 @@ type ServiceValue interface {
 	IsIPv6() bool
 }
 
-// ServiceKey is the interface describing protocol independent key for services map.
+// ServiceKey is the interface describing protocol independent key for services map v2.
 type ServiceKeyV2 interface {
 	bpf.MapKey
 
-	// Returns true if the key is of type IPv6
+	// Return true if the key is of type IPv6
 	IsIPv6() bool
 
-	// Returns the BPF map matching the key type
+	// Return the BPF map matching the key type
 	Map() *bpf.Map
 
-	// Returns the BPF Weighted Round Robin map matching the key type
+	// Return the BPF Weighted Round Robin map matching the key type
 	RRMap() *bpf.Map
 
+	// Set slave slot for the key
 	SetSlave(slave int)
+
+	// Get slave slot of the key
 	GetSlave() int
-
-	//// Returns a RevNatValue matching a ServiceKey
-	//RevNatValue() RevNatValue
-
-	//// Returns the port set in the key or 0
-	//GetPort() uint16
-
-	//// Set the backend index (master: 0, backend: nth backend)
-	//SetBackend(int)
-
-	//// Return backend index
-	//GetBackend() int
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() ServiceKeyV2
-
-	//// ToHost converts fields to host byte order.
-	//ToHost() ServiceKey
 }
 
-// ServiceValue is the interface describing protocol independent value for services map.
+// ServiceValue is the interface describing protocol independent value for services map v2.
 type ServiceValueV2 interface {
 	bpf.MapValue
 
@@ -178,81 +166,74 @@ type ServiceValueV2 interface {
 	// Get the number of backends
 	GetCount() int
 
-	// Set address to map to (left blank for master)
-	//SetAddress(net.IP) error
-
-	//// Set port to map to (left blank for master)
-	//SetPort(uint16)
-
-	//// Get the port number
-	//GetPort() uint16
-
 	// Set reverse NAT identifier
 	SetRevNat(int)
 
+	// Get reverse NAT identifier
 	GetRevNat() int
 
-	// Set Weight
+	// Set weight
 	SetWeight(uint16)
 
-	// Get Weight
+	// Get weight
 	GetWeight() uint16
 
-	// ToNetwork converts fields to network byte order.
+	// Convert fields to network byte order.
 	ToNetwork() ServiceValueV2
 
-	//// ToHost converts fields to host byte order.
-	//ToHost() ServiceValue
-
-	//// Get LegacyBackendID of the service value
-	//LegacyBackendID() LegacyBackendID
-
-	//// Returns true if the value is of type IPv6
-	//IsIPv6() bool
-
+	// Set backend identifier
 	SetBackendID(id uint16)
+
+	// Get backend identifier
 	GetBackendID() uint16
 }
 
+// Backend is the interface describing protocol independent backend used by services v2.
 type Backend interface {
-	GetID() uint16
-
-	// Returns true if the value is of type IPv6
+	// Return true if the value is of type IPv6
 	IsIPv6() bool
 
-	// Returns the BPF map matching the key type
+	// Return the BPF map matching the type
 	Map() *bpf.Map
 
+	// Get backend identifier
+	GetID() uint16
+
+	// Get key of the backend entry
 	GetKey() bpf.MapKey
+
+	// Get value of the backend entry
 	GetValue() BackendValue
-
-	//// ToNetwork converts fields to network byte order.
-	//ToNetwork() ServiceKey
-
-	// ToHost converts fields to host byte order.
-	//ToHost() ServiceKey
-
 }
 
+// BackendKey is the interface describing protocol independent backend key.
 type BackendKey interface {
 	bpf.MapKey
 
+	// Return the BPF map matching the type
 	Map() *bpf.Map
 
+	// Set backend identifier
 	SetID(uint16)
 
+	// Get backend identifier
 	GetID() uint16
 }
 
+// BackendValue is the interface describing protocol independent backend value.
 type BackendValue interface {
 	bpf.MapValue
 
+	// Convert fields to network byte order.
 	ToNetwork() BackendValue
 
+	// Get backend address
 	GetAddress() net.IP
 
+	// Get backend port
 	GetPort() uint16
 
+	// Get backend legacy identifier
 	LegacyBackendID() LegacyBackendID
 }
 
