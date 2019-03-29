@@ -34,7 +34,7 @@ import (
 // RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
 	besBPF []lbmap.ServiceValue,
-	svcKeyV2 *lbmap.Service4KeyV2, svcValuesV2 []*lbmap.Service4ValueV2, backendsV2 []*lbmap.Backend4,
+	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2, backendsV2 []lbmap.Backend,
 	addRevNAT bool) error {
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
@@ -109,16 +109,6 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	for _, v := range bes {
 		beCpy = append(beCpy, v)
 	}
-
-	//// Acquire ID for each backend
-	//for i, b := range beCpy {
-	//	id, err := service.AcquireBackendID(b.L3n4Addr, 0)
-	//	if err != nil {
-	//		return false, fmt.Errorf("Unable to acquire ID for backend %s: %s",
-	//			b, err)
-	//	}
-	//	beCpy[i].ID = loadbalancer.ServiceID(id)
-	//}
 
 	svc := loadbalancer.LBSVC{
 		FE:     feL3n4Addr,

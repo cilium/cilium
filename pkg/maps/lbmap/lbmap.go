@@ -130,10 +130,86 @@ type ServiceValue interface {
 	IsIPv6() bool
 }
 
-type BackendValue interface {
+// ServiceKey is the interface describing protocol independent key for services map.
+type ServiceKeyV2 interface {
+	bpf.MapKey
+
+	// Returns true if the key is of type IPv6
+	IsIPv6() bool
+
+	//// Returns the BPF map matching the key type
+	//Map() *bpf.Map
+
+	//// Returns the BPF Weighted Round Robin map matching the key type
+	//RRMap() *bpf.Map
+
+	//// Returns a RevNatValue matching a ServiceKey
+	//RevNatValue() RevNatValue
+
+	//// Returns the port set in the key or 0
+	//GetPort() uint16
+
+	//// Set the backend index (master: 0, backend: nth backend)
+	//SetBackend(int)
+
+	//// Return backend index
+	//GetBackend() int
+
+	//// ToNetwork converts fields to network byte order.
+	//ToNetwork() ServiceKey
+
+	//// ToHost converts fields to host byte order.
+	//ToHost() ServiceKey
+}
+
+// ServiceValue is the interface describing protocol independent value for services map.
+type ServiceValueV2 interface {
 	bpf.MapValue
 
-	ID() uint16
+	//// Returns a RevNatKey matching a ServiceValue
+	//RevNatKey() RevNatKey
+
+	//// Set the number of backends
+	//SetCount(int)
+
+	//// Get the number of backends
+	//GetCount() int
+
+	// Set address to map to (left blank for master)
+	SetAddress(net.IP) error
+
+	//// Set port to map to (left blank for master)
+	//SetPort(uint16)
+
+	//// Get the port number
+	//GetPort() uint16
+
+	// Set reverse NAT identifier
+	SetRevNat(int)
+
+	// Set Weight
+	SetWeight(uint16)
+
+	//// Get Weight
+	//GetWeight() uint16
+
+	//// ToNetwork converts fields to network byte order.
+	//ToNetwork() ServiceValue
+
+	//// ToHost converts fields to host byte order.
+	//ToHost() ServiceValue
+
+	//// Get LegacyBackendID of the service value
+	//LegacyBackendID() LegacyBackendID
+
+	//// Returns true if the value is of type IPv6
+	//IsIPv6() bool
+
+	SetBackendID(id uint16)
+}
+
+type Backend interface {
+	GetID() uint16
 
 	// Returns true if the value is of type IPv6
 	IsIPv6() bool
@@ -141,11 +217,28 @@ type BackendValue interface {
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
 
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() ServiceKey
+	Key() bpf.MapKey
+	Value() BackendValue
+
+	//// ToNetwork converts fields to network byte order.
+	//ToNetwork() ServiceKey
 
 	// ToHost converts fields to host byte order.
-	ToHost() ServiceKey
+	//ToHost() ServiceKey
+}
+
+type BackendKey interface {
+	bpf.MapKey
+
+	Map() *bpf.Map
+
+	SetID(uint16)
+}
+
+type BackendValue interface {
+	bpf.MapValue
+
+	ToNetwork() BackendValue
 }
 
 type RRSeqValue struct {
@@ -177,17 +270,15 @@ func updateService(key ServiceKey, value ServiceValue) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-func updateBackend(backend *Backend4) error {
+func updateBackend(backend Backend) error {
 	if _, err := backend.Map().OpenOrCreate(); err != nil {
 		return err
 	}
-	return backend.Map().Update(backend.Key, backend.Value.ToNetwork())
+	return backend.Map().Update(backend.Key(), backend.Value().ToNetwork())
 }
 
-func deleteBackend(backendID uint16) error {
+func deleteBackend(key BackendKey) error {
 	// TODO(brb) do we need to lock here?
-	key := NewBackend4Key(backendID)
-
 	return key.Map().Delete(key)
 }
 
@@ -401,6 +492,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		weights         []uint16
 		nNonZeroWeights uint16
 		existingCount   int
+		backendKey      BackendKey
 	)
 
 	// Acquire missing backend IDs
@@ -459,16 +551,20 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 
 	// Create new backends
 	for backendID, svcVal := range addedBackends {
-		if !svcVal.IsIPv6() {
-			fmt.Println("### create backend", backendID, svcVal)
+		var b Backend
+
+		fmt.Println("### create backend", backendID, svcVal)
+
+		if svcVal.IsIPv6() {
+		} else {
 			svc4Val := svcVal.(*Service4Value)
-			b, err := NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
-			if err != nil {
-				return err
-			}
-			if err := updateBackend(b); err != nil {
-				return err
-			}
+			b, err = NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
+		}
+		if err != nil {
+			return err
+		}
+		if err := updateBackend(b); err != nil {
+			return err
 		}
 	}
 
@@ -562,8 +658,15 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 	}
 
 	// Delete no longer needed backends
+	if fe.IsIPv6() {
+		//
+	} else {
+		backendKey = NewBackend4Key(0)
+	}
+
 	for _, backendID := range removedBackendIDs {
-		if err := deleteBackend(backendID); err != nil {
+		backendKey.SetID(backendID)
+		if err := deleteBackend(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
 		}
 		releaseBackendID(backendID)
@@ -617,6 +720,46 @@ func LBSVC2ServiceKeynValue(svc *loadbalancer.LBSVC) (ServiceKey, []ServiceValue
 	return fe, besValues, nil
 }
 
+// LBSVC2ServiceKeynValuenBackendValueV2 transforms the SVC Cilium type into a bpf SVC v2 type.
+func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []ServiceValueV2, []Backend, error) {
+	log.WithFields(logrus.Fields{
+		"lbFrontend": svc.FE.String(),
+		"lbBackend":  svc.BES,
+	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
+	svcKey, err := l3n4Addr2ServiceKeyV2(svc.FE)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	backends := []Backend{}
+	svcValues := []ServiceValueV2{}
+	for _, be := range svc.BES {
+		svcValue := svcKey.NewValue().(ServiceValueV2)
+		backend, err := lbBackEnd2Backend(be)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		svcValue.SetRevNat(int(svc.FE.ID))
+		svcValue.SetWeight(be.Weight)
+		svcValue.SetBackendID(uint16(be.ID))
+
+		backends = append(backends, backend)
+		svcValues = append(svcValues, svcValue)
+		log.WithFields(logrus.Fields{
+			"lbFrontend": svcKey,
+			"lbBackend":  svcValue,
+		}).Debug("associating frontend -> backend")
+	}
+	log.WithFields(logrus.Fields{
+		"lbFrontend":        svc.FE.String(),
+		"lbBackend":         svc.BES,
+		logfields.ServiceID: svcKey,
+		logfields.Object:    logfields.Repr(svcValues),
+	}).Debug("converted LBSVC (frontend -> backend(s)), to Service Key and Value")
+	return svcKey, svcValues, backends, nil
+}
+
 // L3n4Addr2RevNatKeynValue converts the given L3n4Addr to a RevNatKey and RevNatValue.
 func L3n4Addr2RevNatKeynValue(svcID loadbalancer.ServiceID, feL3n4Addr loadbalancer.L3n4Addr) (RevNatKey, RevNatValue) {
 	if feL3n4Addr.IsIPv6() {
@@ -645,24 +788,23 @@ func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
 }
 
 // serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
-func serviceKey2L3n4AddrV2(svcKey *Service4KeyV2) *loadbalancer.L3n4Addr {
+func serviceKey2L3n4AddrV2(svcKey ServiceKeyV2) *loadbalancer.L3n4Addr {
 	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
 	var (
 		feIP    net.IP
 		fePort  uint16
 		feProto loadbalancer.L4Type
 	)
-	//if svcKey.IsIPv6() {
-	//	svc6Key := svcKey.(*Service6Key)
-	//	feIP = svc6Key.Address.IP()
-	//	fePort = svc6Key.Port
-	//} else {
-	//svc4Key := svcKey.(*Service4Key)
-	svc4Key := svcKey
-	feIP = svc4Key.Address.IP()
-	fePort = svc4Key.Port
 	feProto = loadbalancer.NONE
-	//}
+	if svcKey.IsIPv6() {
+		//svc6Key := svcKey.(*Service6KeyV2)
+		//feIP = svc6Key.Address.IP()
+		//fePort = svc6Key.Port
+	} else {
+		svc4Key := svcKey.(*Service4KeyV2)
+		feIP = svc4Key.Address.IP()
+		fePort = svc4Key.Port
+	}
 	return loadbalancer.NewL3n4Addr(feProto, feIP, fePort)
 }
 
@@ -917,6 +1059,8 @@ func RestoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 	releaseBackendID func(uint16) error) error {
 
+	var backendKey BackendKey
+
 	svcKey := NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
 	if err != nil {
@@ -930,8 +1074,15 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 		}
 	}
 
+	if svcKey.IsIPv6() {
+		//
+	} else {
+		backendKey = NewBackend4Key(0)
+	}
+
 	for _, id := range backendsToRemove {
-		if err := deleteBackend(id); err != nil {
+		backendKey.SetID(id)
+		if err := deleteBackend(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
 		}
 		if err := releaseBackendID(id); err != nil {
@@ -942,51 +1093,10 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 	return nil
 }
 
-// LBSVC2ServiceKeynValuenBackendValueV2 transforms the SVC Cilium type into a bpf SVC v2 type.
-func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (*Service4KeyV2, []*Service4ValueV2, []*Backend4, error) {
-	log.WithFields(logrus.Fields{
-		"lbFrontend": svc.FE.String(),
-		"lbBackend":  svc.BES,
-	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
-	svcKey, err := l3n4Addr2ServiceKeyV2(svc.FE)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	backends := []*Backend4{}
-	svcValues := []*Service4ValueV2{}
-	for _, be := range svc.BES {
-		//svcValue := svcKey.NewValue().(ServiceValue)
-		svcValue := svcKey.NewValue().(*Service4ValueV2)
-		backend, err := lbBackEnd2Backend(be)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-
-		svcValue.SetRevNat(int(svc.FE.ID))
-		svcValue.SetWeight(be.Weight)
-		svcValue.SetBackendID(uint16(be.ID))
-
-		backends = append(backends, backend)
-		svcValues = append(svcValues, svcValue)
-		log.WithFields(logrus.Fields{
-			"lbFrontend": svcKey,
-			"lbBackend":  svcValue,
-		}).Debug("associating frontend -> backend")
-	}
-	log.WithFields(logrus.Fields{
-		"lbFrontend":        svc.FE.String(),
-		"lbBackend":         svc.BES,
-		logfields.ServiceID: svcKey,
-		logfields.Object:    logfields.Repr(svcValues),
-	}).Debug("converted LBSVC (frontend -> backend(s)), to Service Key and Value")
-	return svcKey, svcValues, backends, nil
-}
-
 // l3n4Addr2ServiceKeyV2 converts the given l3n4Addr to a ServiceKey (v2) with the slave ID
 // set to 0.
-func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) (*Service4KeyV2, error) {
-	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKey")
+func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) (ServiceKeyV2, error) {
+	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKeyV2")
 	//if l3n4Addr.IsIPv6() {
 	//	return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
 	//}
@@ -994,7 +1104,7 @@ func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) (*Service4KeyV2, er
 	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0), nil
 }
 
-func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (*Backend4, error) {
+func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
 	//if be.IsIPv6() {
 	//	return ...
 	//}
@@ -1098,7 +1208,7 @@ func DumpBackendMapsToUserspace() (map[LegacyBackendID]*loadbalancer.LBBackEnd, 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(*Backend4Key)
 		backendValue := value.(*Backend4Value)
-		backendValueMap[backendKey.ID] = backendValue
+		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
 	if option.Config.EnableIPv4 {
@@ -1131,7 +1241,7 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(*Backend4Key)
 		backendValue := value.(*Backend4Value)
-		backendValueMap[backendKey.ID] = backendValue
+		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
