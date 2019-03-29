@@ -403,7 +403,7 @@ func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {
 	return &n
 }
 
-func (s *Service4ValueV2) RevNatKey() *RevNat4Key {
+func (s *Service4ValueV2) RevNatKey() RevNatKey {
 	return &RevNat4Key{s.RevNat}
 }
 

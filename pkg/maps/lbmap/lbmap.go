@@ -170,7 +170,7 @@ type ServiceValueV2 interface {
 	bpf.MapValue
 
 	// Returns a RevNatKey matching a ServiceValue
-	GetRevNatKey() RevNatKey
+	RevNatKey() RevNatKey
 
 	//// Set the number of backends
 	//SetCount(int)
@@ -179,7 +179,7 @@ type ServiceValueV2 interface {
 	//GetCount() int
 
 	// Set address to map to (left blank for master)
-	SetAddress(net.IP) error
+	//SetAddress(net.IP) error
 
 	//// Set port to map to (left blank for master)
 	//SetPort(uint16)
@@ -1265,7 +1265,7 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 		// Build a cache to map frontend IP to service ID. The master
 		// service key does not have the service ID set so the cache
 		// needs to be built based on backend key entries.
-		if k := svcValue.GetRevNatKey().GetKey(); k != uint16(0) {
+		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
 			idCache[fe.String()] = loadbalancer.ServiceID(k)
 		}
 
