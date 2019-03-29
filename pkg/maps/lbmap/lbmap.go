@@ -172,11 +172,11 @@ type ServiceValueV2 interface {
 	// Returns a RevNatKey matching a ServiceValue
 	RevNatKey() RevNatKey
 
-	//// Set the number of backends
-	//SetCount(int)
+	// Set the number of backends
+	SetCount(int)
 
-	//// Get the number of backends
-	//GetCount() int
+	// Get the number of backends
+	GetCount() int
 
 	// Set address to map to (left blank for master)
 	//SetAddress(net.IP) error
@@ -198,8 +198,8 @@ type ServiceValueV2 interface {
 	// Get Weight
 	GetWeight() uint16
 
-	//// ToNetwork converts fields to network byte order.
-	//ToNetwork() ServiceValue
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceValueV2
 
 	//// ToHost converts fields to host byte order.
 	//ToHost() ServiceValue
@@ -223,8 +223,8 @@ type Backend interface {
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
 
-	Key() bpf.MapKey
-	Value() BackendValue
+	GetKey() bpf.MapKey
+	GetValue() BackendValue
 
 	//// ToNetwork converts fields to network byte order.
 	//ToNetwork() ServiceKey
@@ -252,6 +252,8 @@ type BackendValue interface {
 	GetAddress() net.IP
 
 	GetPort() uint16
+
+	LegacyBackendID() LegacyBackendID
 }
 
 type RRSeqValue struct {
@@ -287,7 +289,7 @@ func updateBackend(backend Backend) error {
 	if _, err := backend.Map().OpenOrCreate(); err != nil {
 		return err
 	}
-	return backend.Map().Update(backend.Key(), backend.Value().ToNetwork())
+	return backend.Map().Update(backend.GetKey(), backend.GetValue().ToNetwork())
 }
 
 func deleteBackend(key BackendKey) error {
@@ -506,6 +508,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		nNonZeroWeights uint16
 		existingCount   int
 		backendKey      BackendKey
+		svcKeyV2        ServiceKeyV2
 	)
 
 	// Acquire missing backend IDs
@@ -622,29 +625,32 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		}
 	}
 
-	// HERE
-	//if fe.IsIPv6() {
-	//} else {
-	svc4Key := fe.(*Service4Key)
-	svcKeyV2 := NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.All, 0)
+	if fe.IsIPv6() {
+	} else {
+		svc4Key := fe.(*Service4Key)
+		svcKeyV2 = NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.All, 0)
 
-	existingCount = 0
-	svcValV2, err := lookupServiceV2(svcKeyV2)
-	if err == nil {
-		existingCount = svcValV2.GetCount()
+		existingCount = 0
+		svcValV2, err := lookupServiceV2(svcKeyV2)
+		if err == nil {
+			existingCount = svcValV2.GetCount()
+		}
 	}
-	//}
 
+	fmt.Println("### create service", svcKeyV2)
+
+	svcValV2 := svcKeyV2.NewValue().(ServiceValueV2)
 	slot := 1
-	fmt.Println("### create service", svc4Key)
 	for legacyID, svcVal := range svc.backendsV2 {
-		svc4Val := svcVal.(*Service4Value)
 		legacySlaveSlot, found := svc.getSlaveSlot(legacyID)
 		if !found {
 			return fmt.Errorf("Slave slot not found for backend with legacy ID %s", legacyID)
 		}
 		backendID := cache.getBackendIDByLegacyID(legacyID) // TODO(brb) we can extract from svcVal
-		svcValV2 := NewService4ValueV2(uint16(legacySlaveSlot), backendID, uint16(revNATID), svc4Val.GetWeight())
+		svcValV2.SetCount(legacySlaveSlot)
+		svcValV2.SetBackendID(backendID)
+		svcValV2.SetRevNat(revNATID)
+		svcValV2.SetWeight(svcVal.GetWeight())
 		svcValV2.SetCount(legacySlaveSlot)
 		svcKeyV2.SetSlave(slot)
 		slot++
@@ -982,12 +988,12 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 		}
 	}
 
-	//if option.Config.EnableIPv6 {
-	//	err := Service6Map.DumpWithCallback(parseSVCEntries)
-	//	if err != nil {
-	//		errors = append(errors, err)
-	//	}
-	//}
+	if option.Config.EnableIPv6 {
+		err := Service6Map.DumpWithCallback(parseSVCEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
 
 	// serviceKeynValue2FEnBE() cannot fill in the service ID reliably as
 	// not all BPF map entries contain the service ID. Do a pass over all
@@ -1109,13 +1115,12 @@ func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
 	return NewBackend4(uint16(be.ID), be.IP, be.Port, u8proto.All)
 }
 
-func lookupServiceV2(key *Service4KeyV2) (*Service4ValueV2, error) {
-	var svc *Service4ValueV2
-
+func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
 	val, err := key.Map().Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
 	}
+	svc := val.(ServiceValueV2)
 
 	//if key.IsIPv6() {
 	//	svc = val.(*Service6Value)
@@ -1123,12 +1128,12 @@ func lookupServiceV2(key *Service4KeyV2) (*Service4ValueV2, error) {
 	//	svc = val.(*Service4Value)
 	//}
 
-	svc = val.(*Service4ValueV2)
+	//svc = val.(*Service4ValueV2)
 
 	return svc.ToNetwork(), nil
 }
 
-func updateServiceV2(key *Service4KeyV2, value *Service4ValueV2) error {
+func updateServiceV2(key ServiceKeyV2, value ServiceValueV2) error {
 	log.WithFields(logrus.Fields{
 		"frontend": key,
 		"backend":  value,
@@ -1143,7 +1148,7 @@ func updateServiceV2(key *Service4KeyV2, value *Service4ValueV2) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-func updateMasterServiceV2(fe *Service4KeyV2, nbackends int, nonZeroWeights uint16, revNATID int) error {
+func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16, revNATID int) error {
 	fe.SetSlave(0)
 	//zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue := fe.NewValue().(*Service4ValueV2)
@@ -1155,7 +1160,7 @@ func updateMasterServiceV2(fe *Service4KeyV2, nbackends int, nonZeroWeights uint
 }
 
 // updateWrrSeq updates bpf map with the generated wrr sequence.
-func updateWrrSeqV2(fe *Service4KeyV2, weights []uint16) error {
+func updateWrrSeqV2(fe ServiceKeyV2, weights []uint16) error {
 	sum := uint16(0)
 	for _, v := range weights {
 		sum += v
@@ -1199,12 +1204,12 @@ func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
 }
 
 func DumpBackendMapsToUserspace() (map[LegacyBackendID]*loadbalancer.LBBackEnd, error) {
-	backendValueMap := map[uint16]*Backend4Value{}
+	backendValueMap := map[uint16]BackendValue{}
 	lbBackends := map[LegacyBackendID]*loadbalancer.LBBackEnd{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		backendKey := key.(*Backend4Key)
-		backendValue := value.(*Backend4Value)
+		backendKey := key.(BackendKey)
+		backendValue := value.(BackendValue)
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
@@ -1216,9 +1221,10 @@ func DumpBackendMapsToUserspace() (map[LegacyBackendID]*loadbalancer.LBBackEnd, 
 	}
 
 	for backendID, backendVal := range backendValueMap {
-		ip := backendVal.Address.IP()
-		port := backendVal.Port
-		weight := uint16(0)
+		//ip := backendVal.GetAddress().IP()
+		ip := backendVal.GetAddress()
+		port := backendVal.GetPort()
+		weight := uint16(0) // FIXME
 		proto := loadbalancer.NONE
 		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, weight)
 		lbBackends[backendVal.LegacyBackendID()] = lbBackend

@@ -396,7 +396,7 @@ func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
 func (s *Service4ValueV2) GetBackendID() uint16    { return s.BackendID }
 
 // ToNetwork converts Service4ValueV2 to network byte order.
-func (s *Service4ValueV2) ToNetwork() *Service4ValueV2 {
+func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
@@ -412,19 +412,19 @@ func (s *Service4ValueV2) String() string {
 }
 
 type Backend4Key struct {
-	id uint16
+	ID uint16
 }
 
 func NewBackend4Key(id uint16) *Backend4Key {
-	return &Backend4Key{id: id}
+	return &Backend4Key{ID: id}
 }
 
 func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
 func (k *Backend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Backend4Key) String() string            { return fmt.Sprintf("%d", k.id) }
+func (k *Backend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
 func (k *Backend4Key) Map() *bpf.Map             { return Backend4Map }
-func (k *Backend4Key) SetID(id uint16)           { k.id = id }
-func (k *Backend4Key) GetID() uint16             { return k.id }
+func (k *Backend4Key) SetID(id uint16)           { k.ID = id }
+func (k *Backend4Key) GetID() uint16             { return k.ID }
 
 func (k *Backend4Key) MapDelete() error {
 	return k.Map().Delete(k)
@@ -475,8 +475,8 @@ func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend4Value) GetPort() uint16    { return b.Port }
 
 type Backend4 struct {
-	key   *Backend4Key
-	value *Backend4Value
+	Key   *Backend4Key
+	Value *Backend4Value
 }
 
 func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
@@ -491,18 +491,18 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 	}
 
 	return &Backend4{
-		key:   NewBackend4Key(id),
-		value: val,
+		Key:   NewBackend4Key(id),
+		Value: val,
 	}, nil
 }
 
 func (b *Backend4) Map() *bpf.Map { return Backend4Map }
-func (b *Backend4) GetID() uint16 { return b.key.GetID() }
+func (b *Backend4) GetID() uint16 { return b.Key.GetID() }
 func (b *Backend4) LegacyBackendID() LegacyBackendID {
-	return b.value.LegacyBackendID()
+	return b.Value.LegacyBackendID()
 }
-func (b *Backend4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(b.value) }
+func (b *Backend4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(b.Value) }
 func (b *Backend4) IsIPv6() bool                { return false }
 func (b *Backend4) String() string              { return string(b.LegacyBackendID()) }
-func (b *Backend4) Key() bpf.MapKey             { return b.key }
-func (b *Backend4) Value() BackendValue         { return b.value }
+func (b *Backend4) GetKey() bpf.MapKey          { return b.Key }
+func (b *Backend4) GetValue() BackendValue      { return b.Value }
