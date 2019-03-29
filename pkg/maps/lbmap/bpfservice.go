@@ -219,7 +219,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error
 	return nil
 }
 
-func (l *lbmapCache) getSlaveSlot(fe *Service4KeyV2, legacyBackendID LegacyBackendID) (int, bool) {
+func (l *lbmapCache) getSlaveSlot(fe ServiceKeyV2, legacyBackendID LegacyBackendID) (int, bool) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -366,7 +366,7 @@ func (l *lbmapCache) getBackendIDByLegacyID(legacyID LegacyBackendID) uint16 {
 	return l.backendIDByLegacyID[legacyID]
 }
 
-func (l *lbmapCache) removeServiceV2(svcKey *Service4KeyV2) ([]uint16, int, error) {
+func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]uint16, int, error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 

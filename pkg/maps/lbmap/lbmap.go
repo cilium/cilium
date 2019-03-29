@@ -137,11 +137,11 @@ type ServiceKeyV2 interface {
 	// Returns true if the key is of type IPv6
 	IsIPv6() bool
 
-	//// Returns the BPF map matching the key type
-	//Map() *bpf.Map
+	// Returns the BPF map matching the key type
+	Map() *bpf.Map
 
-	//// Returns the BPF Weighted Round Robin map matching the key type
-	//RRMap() *bpf.Map
+	// Returns the BPF Weighted Round Robin map matching the key type
+	RRMap() *bpf.Map
 
 	SetSlave(slave int)
 	GetSlave() int
@@ -158,8 +158,8 @@ type ServiceKeyV2 interface {
 	//// Return backend index
 	//GetBackend() int
 
-	//// ToNetwork converts fields to network byte order.
-	//ToNetwork() ServiceKey
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceKeyV2
 
 	//// ToHost converts fields to host byte order.
 	//ToHost() ServiceKey
@@ -622,52 +622,53 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		}
 	}
 
-	if !fe.IsIPv6() {
-		svc4Key := fe.(*Service4Key)
-		svcKeyV2 := NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.All, 0)
+	// HERE
+	//if fe.IsIPv6() {
+	//} else {
+	svc4Key := fe.(*Service4Key)
+	svcKeyV2 := NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.All, 0)
 
-		existingCount = 0
-		svcValV2, err := lookupServiceV2(svcKeyV2)
-		if err == nil {
-			existingCount = svcValV2.GetCount()
+	existingCount = 0
+	svcValV2, err := lookupServiceV2(svcKeyV2)
+	if err == nil {
+		existingCount = svcValV2.GetCount()
+	}
+	//}
+
+	slot := 1
+	fmt.Println("### create service", svc4Key)
+	for legacyID, svcVal := range svc.backendsV2 {
+		svc4Val := svcVal.(*Service4Value)
+		legacySlaveSlot, found := svc.getSlaveSlot(legacyID)
+		if !found {
+			return fmt.Errorf("Slave slot not found for backend with legacy ID %s", legacyID)
+		}
+		backendID := cache.getBackendIDByLegacyID(legacyID) // TODO(brb) we can extract from svcVal
+		svcValV2 := NewService4ValueV2(uint16(legacySlaveSlot), backendID, uint16(revNATID), svc4Val.GetWeight())
+		svcValV2.SetCount(legacySlaveSlot)
+		svcKeyV2.SetSlave(slot)
+		slot++
+		if err := updateServiceV2(svcKeyV2, svcValV2); err != nil {
+			return fmt.Errorf("Unable to update service %+v with the value %+v: %s",
+				svcKeyV2, svcValV2, err)
+		}
+	}
+
+	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
+	if err != nil {
+		return fmt.Errorf("unable to update service %+v: %s", svcKeyV2, err)
+	}
+
+	err = updateWrrSeqV2(svcKeyV2, weights)
+	if err != nil {
+		return fmt.Errorf("unable to update service weights for %s with value %+v: %s", svcKeyV2.String(), weights, err)
+	}
+	for i := slot; i <= existingCount; i++ {
+		svcKeyV2.SetSlave(i)
+		if err := deleteServiceLockedV2(svcKeyV2); err != nil {
+			return fmt.Errorf("unable to delete service %+v: %s", svcKeyV2, err)
 		}
 
-		slot := 1
-		fmt.Println("### create service", svc4Key)
-		for legacyID, svcVal := range svc.backendsV2 {
-			svc4Val := svcVal.(*Service4Value)
-			legacySlaveSlot, found := svc.getSlaveSlot(legacyID)
-			if !found {
-				return fmt.Errorf("Slave slot not found for backend with legacy ID %s", legacyID)
-			}
-			backendID := cache.getBackendIDByLegacyID(legacyID) // TODO(brb) we can extract from svcVal
-			svcValV2 := NewService4ValueV2(uint16(legacySlaveSlot), backendID, uint16(revNATID), svc4Val.GetWeight())
-			svcValV2.SetCount(legacySlaveSlot)
-			svcKeyV2.SetSlave(slot)
-			slot++
-			if err := updateServiceV2(svcKeyV2, svcValV2); err != nil {
-				return fmt.Errorf("Unable to update service %+v with the value %+v: %s",
-					svcKeyV2, svcValV2, err)
-			}
-
-		}
-
-		err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
-		if err != nil {
-			return fmt.Errorf("unable to update service %+v: %s", svcKeyV2, err)
-		}
-
-		err = updateWrrSeqV2(svcKeyV2, weights)
-		if err != nil {
-			return fmt.Errorf("unable to update service weights for %s with value %+v: %s", svcKeyV2.String(), weights, err)
-		}
-		for i := slot; i <= existingCount; i++ {
-			svcKeyV2.SetSlave(i)
-			if err := deleteServiceLockedV2(svcKeyV2); err != nil {
-				return fmt.Errorf("unable to delete service %+v: %s", svcKeyV2, err)
-			}
-
-		}
 	}
 
 	// Delete no longer needed backends
@@ -1169,8 +1170,8 @@ func updateWrrSeqV2(fe *Service4KeyV2, weights []uint16) error {
 	return updateServiceWeightsV2(fe, svcRRSeq)
 }
 
-// updateServiceWeightsV2 updates cilium_lb6_rr_seq or cilium_lb4_rr_seq bpf maps.
-func updateServiceWeightsV2(key *Service4KeyV2, value *RRSeqValue) error {
+// updateServiceWeightsV2 updates cilium_lb6_rr_seq_v2 or cilium_lb4_rr_seq_v2 bpf maps.
+func updateServiceWeightsV2(key ServiceKeyV2, value *RRSeqValue) error {
 	if _, err := key.RRMap().OpenOrCreate(); err != nil {
 		return err
 	}
@@ -1178,7 +1179,7 @@ func updateServiceWeightsV2(key *Service4KeyV2, value *RRSeqValue) error {
 	return key.RRMap().Update(key.ToNetwork(), value)
 }
 
-func deleteServiceLockedV2(key *Service4KeyV2) error {
+func deleteServiceLockedV2(key ServiceKeyV2) error {
 	err := key.Map().Delete(key.ToNetwork())
 	if err != nil {
 		return err
@@ -1187,7 +1188,7 @@ func deleteServiceLockedV2(key *Service4KeyV2) error {
 }
 
 // lookupAndDeleteServiceWeightsV2 deletes entry from cilium_lb6_rr_seq or cilium_lb4_rr_seq
-func lookupAndDeleteServiceWeightsV2(key *Service4KeyV2) error {
+func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
 	_, err := key.RRMap().Lookup(key.ToNetwork())
 	if err != nil {
 		// Ignore if entry is not found.

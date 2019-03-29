@@ -341,14 +341,14 @@ func (k *Service4KeyV2) String() string {
 }
 
 // ToNetwork converts Service4KeyV2 port to network byte order.
-func (k *Service4KeyV2) ToNetwork() *Service4KeyV2 {
+func (k *Service4KeyV2) ToNetwork() ServiceKeyV2 {
 	n := *k
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
 }
 
 // ToHost converts Service4KeyV2 port to network byte order.
-func (k *Service4KeyV2) ToHost() *Service4KeyV2 {
+func (k *Service4KeyV2) ToHost() ServiceKeyV2 {
 	n := *k
 	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
 	return &n
