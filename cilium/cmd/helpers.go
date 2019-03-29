@@ -325,7 +325,10 @@ func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 // Adds the entry to the PolicyMap if add is true, otherwise the entry is
 // deleted.
 func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
-	policyMap, _, err := policymap.OpenOrCreate(pa.path)
+	// The map needs not to be transparently initialized here even if
+	// it's not present for some reason. Triggering map recreation with
+	// OpenOrCreate when some map attribute had changed would be much worse.
+	policyMap, err := policymap.Open(pa.path)
 	if err != nil {
 		Fatalf("Cannot open policymap %q : %s", pa.path, err)
 	}
