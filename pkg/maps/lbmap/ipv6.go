@@ -325,6 +325,8 @@ func (k *Service6KeyV2) Map() *bpf.Map             { return Service6MapV2 }
 func (k *Service6KeyV2) RRMap() *bpf.Map           { return RRSeq6MapV2 }
 func (k *Service6KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
 func (k *Service6KeyV2) GetSlave() int             { return int(k.Slave) }
+func (k *Service6KeyV2) GetAddress() net.IP        { return k.Address.IP() }
+func (k *Service6KeyV2) GetPort() uint16           { return k.Port }
 func (k *Service6KeyV2) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
 
 func (k *Service6KeyV2) ToNetwork() ServiceKeyV2 {

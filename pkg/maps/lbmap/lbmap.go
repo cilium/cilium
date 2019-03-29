@@ -149,6 +149,12 @@ type ServiceKeyV2 interface {
 	// Get slave slot of the key
 	GetSlave() int
 
+	// Get frontend IP address
+	GetAddress() net.IP
+
+	// Get frontend port
+	GetPort() uint16
+
 	// Delete entry identified with the key from the matching map
 	MapDelete() error
 
@@ -553,9 +559,9 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 	for backendID, svcVal := range addedBackends {
 		var b Backend
 
-		fmt.Println("### create backend", backendID, svcVal)
-
 		if svcVal.IsIPv6() {
+			svc6Val := svcVal.(*Service6Value)
+			b, err = NewBackend6(backendID, svc6Val.Address.IP(), svc6Val.Port, u8proto.All)
 		} else {
 			svc4Val := svcVal.(*Service4Value)
 			b, err = NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
@@ -610,20 +616,20 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 	}
 
 	if fe.IsIPv6() {
+		svc6Key := fe.(*Service6Key)
+		svcKeyV2 = NewService6KeyV2(svc6Key.Address.IP(), svc6Key.Port, u8proto.All, 0)
 	} else {
 		svc4Key := fe.(*Service4Key)
 		svcKeyV2 = NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.All, 0)
-
-		existingCount = 0
-		svcValV2, err := lookupServiceV2(svcKeyV2)
-		if err == nil {
-			existingCount = svcValV2.GetCount()
-		}
 	}
 
-	fmt.Println("### create service", svcKeyV2)
+	existingCount = 0
+	svcValV2, err := lookupServiceV2(svcKeyV2)
+	if err == nil {
+		existingCount = svcValV2.GetCount()
+	}
 
-	svcValV2 := svcKeyV2.NewValue().(ServiceValueV2)
+	svcValV2 = svcKeyV2.NewValue().(ServiceValueV2)
 	slot := 1
 	for legacyID, svcVal := range svc.backendsV2 {
 		legacySlaveSlot, found := svc.getSlaveSlot(legacyID)
@@ -663,7 +669,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 
 	// Delete no longer needed backends
 	if fe.IsIPv6() {
-		//
+		backendKey = NewBackend6Key(0)
 	} else {
 		backendKey = NewBackend4Key(0)
 	}
@@ -730,10 +736,7 @@ func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []
 		"lbFrontend": svc.FE.String(),
 		"lbBackend":  svc.BES,
 	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
-	svcKey, err := l3n4Addr2ServiceKeyV2(svc.FE)
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	svcKey := l3n4Addr2ServiceKeyV2(svc.FE)
 
 	backends := []Backend{}
 	svcValues := []ServiceValueV2{}
@@ -794,21 +797,11 @@ func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
 // serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
 func serviceKey2L3n4AddrV2(svcKey ServiceKeyV2) *loadbalancer.L3n4Addr {
 	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
-	var (
-		feIP    net.IP
-		fePort  uint16
-		feProto loadbalancer.L4Type
-	)
-	feProto = loadbalancer.NONE
-	if svcKey.IsIPv6() {
-		//svc6Key := svcKey.(*Service6KeyV2)
-		//feIP = svc6Key.Address.IP()
-		//fePort = svc6Key.Port
-	} else {
-		svc4Key := svcKey.(*Service4KeyV2)
-		feIP = svc4Key.Address.IP()
-		fePort = svc4Key.Port
-	}
+
+	feProto := loadbalancer.NONE
+	feIP := svcKey.GetAddress()
+	fePort := svcKey.GetPort()
+
 	return loadbalancer.NewL3n4Addr(feProto, feIP, fePort)
 }
 
@@ -1052,6 +1045,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 	)
 
 	if svc.IsIPv6() {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	} else {
 		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	}
@@ -1069,7 +1063,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 	}
 
 	if svcKey.IsIPv6() {
-		//
+		backendKey = NewBackend6Key(0)
 	} else {
 		backendKey = NewBackend4Key(0)
 	}
@@ -1089,19 +1083,19 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 
 // l3n4Addr2ServiceKeyV2 converts the given l3n4Addr to a ServiceKey (v2) with the slave ID
 // set to 0.
-func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) (ServiceKeyV2, error) {
+func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) ServiceKeyV2 {
 	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKeyV2")
-	//if l3n4Addr.IsIPv6() {
-	//	return NewService6Key(l3n4Addr.IP, l3n4Addr.Port, 0)
-	//}
+	if l3n4Addr.IsIPv6() {
+		return NewService6KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0)
+	}
 
-	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0), nil
+	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0)
 }
 
 func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
-	//if be.IsIPv6() {
-	//	return ...
-	//}
+	if be.IsIPv6() {
+		return NewBackend6(uint16(be.ID), be.IP, be.Port, u8proto.All)
+	}
 
 	return NewBackend4(uint16(be.ID), be.IP, be.Port, u8proto.All)
 }
@@ -1112,14 +1106,6 @@ func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
 		return nil, err
 	}
 	svc := val.(ServiceValueV2)
-
-	//if key.IsIPv6() {
-	//	svc = val.(*Service6Value)
-	//} else {
-	//	svc = val.(*Service4Value)
-	//}
-
-	//svc = val.(*Service4ValueV2)
 
 	return svc.ToNetwork(), nil
 }
