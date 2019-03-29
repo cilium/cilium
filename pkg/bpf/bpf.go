@@ -96,9 +96,18 @@ const (
 )
 
 // EnableMapPreAllocation enables BPF map pre-allocation on map types that
-// support it.
+// support it. This does not take effect on existing map although some map
+// types could be recreated later when objCheck() runs.
 func EnableMapPreAllocation() {
 	atomic.StoreUint32(&preAllocateMapSetting, 0)
+}
+
+// DisableMapPreAllocation disables BPF map pre-allocation as a default
+// setting. Some map types enforces pre-alloc strategy so this does not
+// take effect in that case. Also note that this does not take effect on
+// existing map although could be recreated later when objCheck() runs.
+func DisableMapPreAllocation() {
+	atomic.StoreUint32(&preAllocateMapSetting, 1)
 }
 
 // GetPreAllocateMapFlags returns the map flags for map which use conditional
