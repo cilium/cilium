@@ -388,6 +388,7 @@ func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s
 
 func (s *Service4ValueV2) SetCount(count int)      { s.Count = uint16(count) }
 func (s *Service4ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
+func (s *Service4ValueV2) GetRevNat() int          { return int(s.RevNat) }
 func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
 func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
 func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
@@ -468,6 +469,10 @@ func (v *Backend4Value) ToNetwork() BackendValue {
 func (b *Backend4Value) LegacyBackendID() LegacyBackendID {
 	return LegacyBackendID(fmt.Sprintf("%s:%d", b.Address, b.Port))
 }
+
+// TODO(brb) copy addr
+func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
+func (b *Backend4Value) GetPort() uint16    { return b.Port }
 
 type Backend4 struct {
 	key   *Backend4Key

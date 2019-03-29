@@ -143,6 +143,9 @@ type ServiceKeyV2 interface {
 	//// Returns the BPF Weighted Round Robin map matching the key type
 	//RRMap() *bpf.Map
 
+	SetSlave(slave int)
+	GetSlave() int
+
 	//// Returns a RevNatValue matching a ServiceKey
 	//RevNatValue() RevNatValue
 
@@ -166,8 +169,8 @@ type ServiceKeyV2 interface {
 type ServiceValueV2 interface {
 	bpf.MapValue
 
-	//// Returns a RevNatKey matching a ServiceValue
-	//RevNatKey() RevNatKey
+	// Returns a RevNatKey matching a ServiceValue
+	GetRevNatKey() RevNatKey
 
 	//// Set the number of backends
 	//SetCount(int)
@@ -187,11 +190,13 @@ type ServiceValueV2 interface {
 	// Set reverse NAT identifier
 	SetRevNat(int)
 
+	GetRevNat() int
+
 	// Set Weight
 	SetWeight(uint16)
 
-	//// Get Weight
-	//GetWeight() uint16
+	// Get Weight
+	GetWeight() uint16
 
 	//// ToNetwork converts fields to network byte order.
 	//ToNetwork() ServiceValue
@@ -206,6 +211,7 @@ type ServiceValueV2 interface {
 	//IsIPv6() bool
 
 	SetBackendID(id uint16)
+	GetBackendID() uint16
 }
 
 type Backend interface {
@@ -225,6 +231,7 @@ type Backend interface {
 
 	// ToHost converts fields to host byte order.
 	//ToHost() ServiceKey
+
 }
 
 type BackendKey interface {
@@ -233,12 +240,18 @@ type BackendKey interface {
 	Map() *bpf.Map
 
 	SetID(uint16)
+
+	GetID() uint16
 }
 
 type BackendValue interface {
 	bpf.MapValue
 
 	ToNetwork() BackendValue
+
+	GetAddress() net.IP
+
+	GetPort() uint16
 }
 
 type RRSeqValue struct {
@@ -851,34 +864,17 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 	return feL3n4AddrID, beLBBackEnd
 }
 
-func serviceKeynValuenBackendValue2FEnBE(svcKey *Service4KeyV2, svcValue *Service4ValueV2, backendID uint16, backendValue *Backend4Value) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
-	var (
-		beIP     net.IP
-		svcID    loadbalancer.ServiceID
-		bePort   uint16
-		beWeight uint16
-		beProto  loadbalancer.L4Type
-	)
-
+func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceValueV2, backendID uint16, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
 	log.WithFields(logrus.Fields{
 		logfields.ServiceID: svcKey,
 		logfields.Object:    logfields.Repr(svcValue),
-	}).Debug("converting ServiceKey and ServiceValue to frontend and backend")
+	}).Debug("converting ServiceKey, ServiceValue and Backend to frontend and backend")
 
-	//if svcKey.IsIPv6() {
-	//	svc6Val := svcValue.(*Service6Value)
-	//	svcID = loadbalancer.ServiceID(svc6Val.RevNat)
-	//	beIP = svc6Val.Address.IP()
-	//	bePort = svc6Val.Port
-	//	beWeight = svc6Val.Weight
-	//} else {
-	//svc4Val := svcValue.(*Service4Value)
-	svcID = loadbalancer.ServiceID(svcValue.RevNat)
-	beIP = backendValue.Address.IP()
-	bePort = backendValue.Port
-	beWeight = svcValue.Weight
-	beProto = loadbalancer.NONE
-	//}
+	svcID := loadbalancer.ServiceID(svcValue.GetRevNat())
+	beIP := backend.GetAddress()
+	bePort := backend.GetPort()
+	beWeight := svcValue.GetWeight()
+	beProto := loadbalancer.NONE
 
 	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
 	beLBBackEnd := loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort, beWeight)
@@ -1235,22 +1231,21 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
 	idCache := map[string]loadbalancer.ServiceID{}
-
-	backendValueMap := map[uint16]*Backend4Value{}
+	backendValueMap := map[uint16]BackendValue{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		backendKey := key.(*Backend4Key)
-		backendValue := value.(*Backend4Value)
+		backendKey := key.(BackendKey)
+		backendValue := value.(BackendValue)
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.(*Service4KeyV2)
+		svcKey := key.(ServiceKeyV2)
 		//It's the frontend service so we don't add this one
 		if svcKey.GetSlave() == 0 && !includeMasterBackend {
 			return
 		}
-		svcValue := value.(*Service4ValueV2)
+		svcValue := value.(ServiceValueV2)
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.BPFMapKey:   svcKey,
@@ -1265,13 +1260,12 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 		}
 
 		scopedLog.Debug("parsing service mapping")
-		// TODO(brb) use Backend4 instead of ID+Backend4Value
 		fe, be := serviceKeynValuenBackendValue2FEnBE(svcKey, svcValue, backendID, backendValue)
 
 		// Build a cache to map frontend IP to service ID. The master
 		// service key does not have the service ID set so the cache
 		// needs to be built based on backend key entries.
-		if k := svcValue.RevNatKey().GetKey(); k != uint16(0) {
+		if k := svcValue.GetRevNatKey().GetKey(); k != uint16(0) {
 			idCache[fe.String()] = loadbalancer.ServiceID(k)
 		}
 
