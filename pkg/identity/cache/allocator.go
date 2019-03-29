@@ -74,9 +74,8 @@ var (
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
 // must implement
 type IdentityAllocatorOwner interface {
-	// TriggerPolicyUpdates will be called whenever a policy recalculation
-	// must be triggered
-	TriggerPolicyUpdates(force bool, reason string)
+	// UpdateIdentities will be called when identities have changed
+	UpdateIdentities(added, deleted IdentityCache)
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string

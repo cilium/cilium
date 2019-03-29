@@ -50,7 +50,6 @@ func GetIdentityCache() IdentityCache {
 	cache := IdentityCache{}
 
 	if IdentityAllocator != nil {
-
 		IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(globalIdentity); ok {
@@ -103,25 +102,63 @@ type identityWatcher struct {
 	stopChan chan bool
 }
 
+func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) bool {
+	if gi, ok := event.Key.(globalIdentity); ok {
+		id := identity.NumericIdentity(event.ID)
+		lbls := gi.LabelArray()
+		if event.Typ == kvstore.EventTypeCreate {
+			added[id] = lbls
+		} else {
+			deleted[id] = lbls
+		}
+		return true
+	} else {
+		log.Warningf("Ignoring unknown identity type '%s': %+v",
+			reflect.TypeOf(event.Key), event.Key)
+	}
+	return false
+}
+
 // watch starts the identity watcher
 func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
 	w.stopChan = make(chan bool)
 
 	go func() {
 		for {
+			added := IdentityCache{}
+			deleted := IdentityCache{}
+
+			// Wait for one identity add or delete or stop
 			select {
 			case event := <-events:
-
+				// Collect first added and deleted labels
 				switch event.Typ {
 				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-					owner.TriggerPolicyUpdates(true, "one or more identities created or deleted")
-
+					if collectEvent(event, added, deleted) {
+						break
+					}
 				case kvstore.EventTypeModify:
 					// Ignore modify events
 				}
 
 			case <-w.stopChan:
 				return
+			}
+
+			// see if there is more, but do not wait nor stop
+			select {
+			case event := <-events:
+				// Collect more added and deleted labels
+				switch event.Typ {
+				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+					collectEvent(event, added, deleted)
+				case kvstore.EventTypeModify:
+					// Ignore modify events
+				}
+
+			default:
+				// Issue collected updates
+				owner.UpdateIdentities(added, deleted)
 			}
 		}
 	}()

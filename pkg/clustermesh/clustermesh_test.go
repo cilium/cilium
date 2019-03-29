@@ -99,8 +99,7 @@ func (o *testObserver) OnDelete(k store.Key) {
 
 type identityAllocatorOwnerMock struct{}
 
-func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool, reason string) {
-}
+func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"
