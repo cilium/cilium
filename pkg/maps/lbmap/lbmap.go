@@ -149,6 +149,9 @@ type ServiceKeyV2 interface {
 	// Get slave slot of the key
 	GetSlave() int
 
+	// Delete entry identified with the key from the matching map
+	MapDelete() error
+
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() ServiceKeyV2
 }
@@ -156,9 +159,6 @@ type ServiceKeyV2 interface {
 // ServiceValue is the interface describing protocol independent value for services map v2.
 type ServiceValueV2 interface {
 	bpf.MapValue
-
-	// Returns a RevNatKey matching a ServiceValue
-	RevNatKey() RevNatKey
 
 	// Set the number of backends
 	SetCount(int)
@@ -178,32 +178,17 @@ type ServiceValueV2 interface {
 	// Get weight
 	GetWeight() uint16
 
-	// Convert fields to network byte order.
-	ToNetwork() ServiceValueV2
-
 	// Set backend identifier
 	SetBackendID(id uint16)
 
 	// Get backend identifier
 	GetBackendID() uint16
-}
 
-// Backend is the interface describing protocol independent backend used by services v2.
-type Backend interface {
-	// Return true if the value is of type IPv6
-	IsIPv6() bool
+	// Returns a RevNatKey matching a ServiceValue
+	RevNatKey() RevNatKey
 
-	// Return the BPF map matching the type
-	Map() *bpf.Map
-
-	// Get backend identifier
-	GetID() uint16
-
-	// Get key of the backend entry
-	GetKey() bpf.MapKey
-
-	// Get value of the backend entry
-	GetValue() BackendValue
+	// Convert fields to network byte order.
+	ToNetwork() ServiceValueV2
 }
 
 // BackendKey is the interface describing protocol independent backend key.
@@ -224,9 +209,6 @@ type BackendKey interface {
 type BackendValue interface {
 	bpf.MapValue
 
-	// Convert fields to network byte order.
-	ToNetwork() BackendValue
-
 	// Get backend address
 	GetAddress() net.IP
 
@@ -235,6 +217,27 @@ type BackendValue interface {
 
 	// Get backend legacy identifier
 	BackendLegacyID() BackendLegacyID
+
+	// Convert fields to network byte order.
+	ToNetwork() BackendValue
+}
+
+// Backend is the interface describing protocol independent backend used by services v2.
+type Backend interface {
+	// Return true if the value is of type IPv6
+	IsIPv6() bool
+
+	// Return the BPF map matching the type
+	Map() *bpf.Map
+
+	// Get backend identifier
+	GetID() uint16
+
+	// Get key of the backend entry
+	GetKey() bpf.MapKey
+
+	// Get value of the backend entry
+	GetValue() BackendValue
 }
 
 type RRSeqValue struct {
@@ -1043,9 +1046,16 @@ func RestoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID,
 	releaseBackendID func(uint16) error) error {
 
-	var backendKey BackendKey
+	var (
+		backendKey BackendKey
+		svcKey     ServiceKeyV2
+	)
 
-	svcKey := NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	if svc.IsIPv6() {
+	} else {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	}
+
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
 	if err != nil {
 		return err

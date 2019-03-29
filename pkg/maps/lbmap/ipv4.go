@@ -324,45 +324,23 @@ func NewService4KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint1
 	return &key
 }
 
-func (k Service4KeyV2) IsIPv6() bool               { return false }
-func (k *Service4KeyV2) Map() *bpf.Map             { return Service4MapV2 }
-func (k *Service4KeyV2) RRMap() *bpf.Map           { return RRSeq4MapV2 }
-func (k *Service4KeyV2) NewValue() bpf.MapValue    { return &Service4ValueV2{} }
-func (k *Service4KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-//func (k *Service4KeyV2) GetPort() uint16           { return k.Port }
-//func (k *Service4KeyV2) SetPort(port uint16)       { k.Port = port }
-
-func (k *Service4KeyV2) SetSlave(slave int) { k.Slave = uint16(slave) }
-func (k *Service4KeyV2) GetSlave() int      { return int(k.Slave) }
-
 func (k *Service4KeyV2) String() string {
 	return fmt.Sprintf("%s:%d", k.Address, k.Port)
 }
 
-// ToNetwork converts Service4KeyV2 port to network byte order.
+func (k *Service4KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *Service4KeyV2) NewValue() bpf.MapValue    { return &Service4ValueV2{} }
+func (k *Service4KeyV2) IsIPv6() bool              { return false }
+func (k *Service4KeyV2) Map() *bpf.Map             { return Service4MapV2 }
+func (k *Service4KeyV2) RRMap() *bpf.Map           { return RRSeq4MapV2 }
+func (k *Service4KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
+func (k *Service4KeyV2) GetSlave() int             { return int(k.Slave) }
+func (k *Service4KeyV2) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
+
 func (k *Service4KeyV2) ToNetwork() ServiceKeyV2 {
 	n := *k
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
-}
-
-// ToHost converts Service4KeyV2 port to network byte order.
-func (k *Service4KeyV2) ToHost() ServiceKeyV2 {
-	n := *k
-	n.Port = byteorder.NetworkToHost(n.Port).(uint16)
-	return &n
-}
-
-func (k *Service4KeyV2) MapDelete() error {
-	return k.Map().Delete(k.ToNetwork())
-}
-
-func (k *Service4KeyV2) RevNatValue() *RevNat4Value {
-	return &RevNat4Value{
-		Address: k.Address,
-		Port:    k.Port,
-	}
 }
 
 // Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
@@ -384,31 +362,27 @@ func NewService4ValueV2(count uint16, backendID uint16, revNat uint16, weight ui
 	return &svc
 }
 
+func (s *Service4ValueV2) String() string {
+	return fmt.Sprintf("%d (%d)", s.BackendID, s.RevNat)
+}
+
 func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
 func (s *Service4ValueV2) SetCount(count int)      { s.Count = uint16(count) }
+func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
 func (s *Service4ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
 func (s *Service4ValueV2) GetRevNat() int          { return int(s.RevNat) }
 func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
-func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
 func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
-func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
+func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
 func (s *Service4ValueV2) GetBackendID() uint16    { return s.BackendID }
+func (s *Service4ValueV2) RevNatKey() RevNatKey    { return &RevNat4Key{s.RevNat} }
 
-// ToNetwork converts Service4ValueV2 to network byte order.
 func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	n.Weight = byteorder.HostToNetwork(n.Weight).(uint16)
 	return &n
-}
-
-func (s *Service4ValueV2) RevNatKey() RevNatKey {
-	return &RevNat4Key{s.RevNat}
-}
-
-func (s *Service4ValueV2) String() string {
-	return fmt.Sprintf("%d (%d)", s.BackendID, s.RevNat)
 }
 
 type Backend4Key struct {
@@ -419,16 +393,12 @@ func NewBackend4Key(id uint16) *Backend4Key {
 	return &Backend4Key{ID: id}
 }
 
-func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
-func (k *Backend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Backend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
 func (k *Backend4Key) Map() *bpf.Map             { return Backend4Map }
 func (k *Backend4Key) SetID(id uint16)           { k.ID = id }
 func (k *Backend4Key) GetID() uint16             { return k.ID }
-
-func (k *Backend4Key) MapDelete() error {
-	return k.Map().Delete(k)
-}
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
 type Backend4Value struct {
@@ -453,26 +423,25 @@ func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V
 	return &val, nil
 }
 
-func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
 func (v *Backend4Value) String() string {
 	return fmt.Sprintf("%s://%s:%d", v.Proto, v.Address, v.Port)
 }
 
-// ToNetwork converts Backend4Value to network byte order.
-func (v *Backend4Value) ToNetwork() BackendValue {
-	n := *v
-	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
-	return &n
-}
+func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+// TODO(brb) maybe copy addr?
+func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
+func (b *Backend4Value) GetPort() uint16    { return b.Port }
 
 func (b *Backend4Value) BackendLegacyID() BackendLegacyID {
 	return BackendLegacyID(fmt.Sprintf("%s:%d", b.Address, b.Port))
 }
 
-// TODO(brb) copy addr
-func (b *Backend4Value) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend4Value) GetPort() uint16    { return b.Port }
+func (v *Backend4Value) ToNetwork() BackendValue {
+	n := *v
+	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
+	return &n
+}
 
 type Backend4 struct {
 	Key   *Backend4Key
@@ -496,13 +465,8 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 	}, nil
 }
 
-func (b *Backend4) Map() *bpf.Map { return Backend4Map }
-func (b *Backend4) GetID() uint16 { return b.Key.GetID() }
-func (b *Backend4) BackendLegacyID() BackendLegacyID {
-	return b.Value.BackendLegacyID()
-}
-func (b *Backend4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(b.Value) }
-func (b *Backend4) IsIPv6() bool                { return false }
-func (b *Backend4) String() string              { return string(b.BackendLegacyID()) }
-func (b *Backend4) GetKey() bpf.MapKey          { return b.Key }
-func (b *Backend4) GetValue() BackendValue      { return b.Value }
+func (b *Backend4) IsIPv6() bool           { return false }
+func (b *Backend4) Map() *bpf.Map          { return Backend4Map }
+func (b *Backend4) GetID() uint16          { return b.Key.GetID() }
+func (b *Backend4) GetKey() bpf.MapKey     { return b.Key }
+func (b *Backend4) GetValue() BackendValue { return b.Value }
