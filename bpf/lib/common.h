@@ -438,12 +438,35 @@ struct lb6_key {
 	__u16 slave;		/* Backend iterator, 0 indicates the master service */
 } __attribute__((packed));
 
+struct lb6_key_v2 {
+    union v6addr address;
+    __be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 slave;		/* Backend iterator, 0 indicates the master service */
+	__u8 proto;
+	__u8 pad;
+} __attribute__((packed));
+
+
 struct lb6_service {
 	union v6addr target;
 	__be16 port;
 	__u16 count;
 	__u16 rev_nat_index;
 	__u16 weight;
+} __attribute__((packed));
+
+struct lb6_service_v2 {
+	__u16 count;
+	__u16 backend_id;
+	__u16 rev_nat_index;
+	__u16 weight;
+} __attribute__((packed));
+
+struct lb6_backend {
+    union v6addr address;
+	__be16 port;
+	__u8 proto;
+	__u8 pad;
 } __attribute__((packed));
 
 struct lb6_reverse_nat {
