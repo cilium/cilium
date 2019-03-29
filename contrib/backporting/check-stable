@@ -132,23 +132,20 @@ generate_commit_list_for_pr () {
 
   url="https://api.github.com/repos/cilium/cilium/pulls/$pr/commits"
   pr_json="$($GHCURL $url)"
-  commits="$(echo -n $pr_json | jq -r '.[] | (.sha | tostring)')"
-
-  SAVEIFS=$IFS
-  IFS=$'\n'
-  commits=($commits)
-  IFS=$SAVEIFS
+  n_commits="$(echo -n $pr_json | jq -r '. | length')"
 
   tmp_file=`mktemp pr-correlation.XXXXXX`
   branch="check-for-stable-$pr"
   git fetch -q $remote pull/$pr/head:$branch
-  for commit in "${commits[@]}"; do
+  # Use GitHub to determine the number of commits to list, but then query
+  # the branch directly to determine the canonical order of the commits.
+  for commit in $(git rev-list --reverse -$n_commits $branch); do
     patchid="$(git show $commit | git patch-id)"
     subject="$(git show -s --pretty="%s" $commit)"
     echo "$patchid $subject" >> $tmp_file
   done
   git branch -q -D $branch
-  echo "   Merge with ${#commits[@]} commit(s) merged at: `date -R -d "$(echo $merged_at | sed 's/T/ /')"`!"
+  echo "   Merge with $n_commits commit(s) merged at: `date -R -d "$(echo $merged_at | sed 's/T/ /')"`!"
   echo "     Branch:     master (!)                          refs/pull/$pr/head"
   echo "                 ----------                          -------------------"
   echo "     v (start)"
