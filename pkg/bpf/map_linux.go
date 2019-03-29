@@ -36,8 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 
-	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -638,36 +636,6 @@ func (m *Map) DumpIfExists(hash map[string][]string) error {
 	return nil
 }
 
-// containsEntries returns true if the map contains at least one entry
-// must hold map mutex
-func (m *Map) containsEntries() (bool, error) {
-	key := make([]byte, m.KeySize)
-	nextKey := make([]byte, m.KeySize)
-	value := make([]byte, m.ValueSize)
-
-	err := GetNextKey(
-		m.fd,
-		unsafe.Pointer(&key[0]),
-		unsafe.Pointer(&nextKey[0]),
-	)
-
-	if err != nil {
-		return false, nil
-	}
-
-	err = LookupElement(
-		m.fd,
-		unsafe.Pointer(&nextKey[0]),
-		unsafe.Pointer(&value[0]),
-	)
-
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
 func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
@@ -867,22 +835,6 @@ func ConvertKeyValue(bKey []byte, bValue []byte, key interface{}, value interfac
 	}
 
 	return nil
-}
-
-// MetadataDiff compares the metadata of the BPF maps and returns false if the
-// metadata does not match
-func (m *Map) MetadataDiff(other *Map) bool {
-	switch {
-	case m == other:
-		return true
-	case m == nil || other == nil:
-		return false
-	default:
-		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			logging.MultiLine(log.Debug, comparator.Compare(m, other))
-		}
-		return m.DeepEquals(other)
-	}
 }
 
 // GetModel returns a BPF map in the representation served via the API
