@@ -52,7 +52,7 @@ var (
 	cache = newLBMapCache()
 )
 
-type LegacyBackendID string
+type BackendLegacyID string
 
 // ServiceKey is the interface describing protocol independent key for services map.
 type ServiceKey interface {
@@ -123,8 +123,8 @@ type ServiceValue interface {
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceValue
 
-	// Get LegacyBackendID of the service value
-	LegacyBackendID() LegacyBackendID
+	// Get BackendLegacyID of the service value
+	BackendLegacyID() BackendLegacyID
 
 	// Returns true if the value is of type IPv6
 	IsIPv6() bool
@@ -234,7 +234,7 @@ type BackendValue interface {
 	GetPort() uint16
 
 	// Get backend legacy identifier
-	LegacyBackendID() LegacyBackendID
+	BackendLegacyID() BackendLegacyID
 }
 
 type RRSeqValue struct {
@@ -494,15 +494,15 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 
 	// Acquire missing backend IDs
 
-	newBackendsByLegacyID := map[LegacyBackendID]ServiceValue{}
-	newBackendLegacyIDs := map[LegacyBackendID]struct{}{}
+	newBackendsByLegacyID := map[BackendLegacyID]ServiceValue{}
+	newBackendLegacyIDs := map[BackendLegacyID]struct{}{}
 	for _, b := range backends {
-		legacyID := b.LegacyBackendID()
+		legacyID := b.BackendLegacyID()
 		newBackendLegacyIDs[legacyID] = struct{}{}
 		newBackendsByLegacyID[legacyID] = b
 	}
-	newBackendLegacyIDs = cache.missingLegacyBackendIDs(newBackendLegacyIDs)
-	newBackendIDs := map[LegacyBackendID]uint16{}
+	newBackendLegacyIDs = cache.missingBackendLegacyIDs(newBackendLegacyIDs)
+	newBackendIDs := map[BackendLegacyID]uint16{}
 
 	for legacyID := range newBackendLegacyIDs {
 		backendID, err := acquireBackendID(*serviceValue2L3n4Addr(newBackendsByLegacyID[legacyID]))
@@ -1184,9 +1184,9 @@ func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
 	return key.RRMap().Delete(key.ToNetwork())
 }
 
-func DumpBackendMapsToUserspace() (map[LegacyBackendID]*loadbalancer.LBBackEnd, error) {
+func DumpBackendMapsToUserspace() (map[BackendLegacyID]*loadbalancer.LBBackEnd, error) {
 	backendValueMap := map[uint16]BackendValue{}
-	lbBackends := map[LegacyBackendID]*loadbalancer.LBBackEnd{}
+	lbBackends := map[BackendLegacyID]*loadbalancer.LBBackEnd{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
@@ -1208,7 +1208,7 @@ func DumpBackendMapsToUserspace() (map[LegacyBackendID]*loadbalancer.LBBackEnd, 
 		weight := uint16(0) // FIXME
 		proto := loadbalancer.NONE
 		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, weight)
-		lbBackends[backendVal.LegacyBackendID()] = lbBackend
+		lbBackends[backendVal.BackendLegacyID()] = lbBackend
 	}
 
 	return lbBackends, nil
@@ -1298,7 +1298,7 @@ func DumpServiceMapsToUserspaceV2(includeMasterBackend bool) (loadbalancer.SVCMa
 	return newSVCMap, newSVCList, errors
 }
 
-func AddBackendIDs(backendIDs map[LegacyBackendID]uint16) {
+func AddBackendIDs(backendIDs map[BackendLegacyID]uint16) {
 	cache.addBackendIDs(backendIDs)
 }
 

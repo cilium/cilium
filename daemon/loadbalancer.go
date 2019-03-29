@@ -586,13 +586,13 @@ func restoreServices() {
 }
 
 // NOTE: should be called before creating v2 svc from legacy, otherwise backend IDs can be taken.
-func restoreBackendIDs() (map[lbmap.LegacyBackendID]uint16, error) {
+func restoreBackendIDs() (map[lbmap.BackendLegacyID]uint16, error) {
 	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
 		return nil, err
 	}
 
-	restoredBackendIDs := map[lbmap.LegacyBackendID]uint16{}
+	restoredBackendIDs := map[lbmap.BackendLegacyID]uint16{}
 
 	for legacyID, lbBackend := range lbBackends {
 		newBackendID, err := service.RestoreBackendID(lbBackend.L3n4Addr, uint16(lbBackend.ID))

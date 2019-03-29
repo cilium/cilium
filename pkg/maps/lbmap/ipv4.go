@@ -249,8 +249,8 @@ func (s *Service4Value) String() string {
 	return fmt.Sprintf("%s:%d (%d)", s.Address, s.Port, s.RevNat)
 }
 
-func (s *Service4Value) LegacyBackendID() LegacyBackendID {
-	return LegacyBackendID(fmt.Sprintf("%s:%d", s.Address, s.Port))
+func (s *Service4Value) BackendLegacyID() BackendLegacyID {
+	return BackendLegacyID(fmt.Sprintf("%s:%d", s.Address, s.Port))
 }
 
 type RevNat4Key struct {
@@ -466,8 +466,8 @@ func (v *Backend4Value) ToNetwork() BackendValue {
 	return &n
 }
 
-func (b *Backend4Value) LegacyBackendID() LegacyBackendID {
-	return LegacyBackendID(fmt.Sprintf("%s:%d", b.Address, b.Port))
+func (b *Backend4Value) BackendLegacyID() BackendLegacyID {
+	return BackendLegacyID(fmt.Sprintf("%s:%d", b.Address, b.Port))
 }
 
 // TODO(brb) copy addr
@@ -498,11 +498,11 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 
 func (b *Backend4) Map() *bpf.Map { return Backend4Map }
 func (b *Backend4) GetID() uint16 { return b.Key.GetID() }
-func (b *Backend4) LegacyBackendID() LegacyBackendID {
-	return b.Value.LegacyBackendID()
+func (b *Backend4) BackendLegacyID() BackendLegacyID {
+	return b.Value.BackendLegacyID()
 }
 func (b *Backend4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(b.Value) }
 func (b *Backend4) IsIPv6() bool                { return false }
-func (b *Backend4) String() string              { return string(b.LegacyBackendID()) }
+func (b *Backend4) String() string              { return string(b.BackendLegacyID()) }
 func (b *Backend4) GetKey() bpf.MapKey          { return b.Key }
 func (b *Backend4) GetValue() BackendValue      { return b.Value }
