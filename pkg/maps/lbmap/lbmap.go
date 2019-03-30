@@ -510,7 +510,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		newBackendLegacyIDs[legacyID] = struct{}{}
 		newBackendsByLegacyID[legacyID] = b
 	}
-	newBackendLegacyIDs = cache.missingBackendLegacyIDs(newBackendLegacyIDs)
+	newBackendLegacyIDs = cache.newBackendLegacyIDs(newBackendLegacyIDs)
 	newBackendIDs := map[BackendLegacyID]uint16{}
 
 	for legacyID := range newBackendLegacyIDs {
@@ -1313,7 +1313,7 @@ func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
 	return key.RRMap().Delete(key.ToNetwork())
 }
 
-func AddBackendIDs(backendIDs map[BackendLegacyID]uint16) {
+func AddBackendIDsToCache(backendIDs map[BackendLegacyID]uint16) {
 	cache.addBackendIDs(backendIDs)
 }
 

@@ -814,7 +814,7 @@ func restoreServices() {
 	if err != nil {
 		log.WithError(err).Warning("Error occurred while restoring backend IDs")
 	}
-	lbmap.AddBackendIDs(restoredBackendIDs)
+	lbmap.AddBackendIDsToCache(restoredBackendIDs)
 
 	failed, restored, skipped := 0, 0, 0
 
