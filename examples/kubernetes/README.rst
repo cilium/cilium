@@ -4,7 +4,7 @@ Kubernetes Deployment
 This directory contains all Cilium deployment files that can be used in
 Kubernetes.
 
-Each directory represents a Kubernetes version, from :code:`1.8` to :code:`1.13`,
+Each directory represents a Kubernetes version, from :code:`1.10` to :code:`1.14`,
 and inside each version there is a list of files to deploy Cilium.
 
 The structure directory will be :code:`${k8s_major_version}.${k8s_minor_version}/*.yaml`.
