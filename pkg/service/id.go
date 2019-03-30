@@ -15,6 +15,8 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -81,18 +83,33 @@ func getMaxServiceID() (uint32, error) {
 }
 
 func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (uint16, error) {
-	return RestoreBackendID(l3n4Addr, 0)
+	return restoreBackendID(l3n4Addr, 0)
 }
 
-func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) (uint16, error) {
-	l3n4AddrID, err := backendIDAlloc.acquireLocalID(l3n4Addr, uint32(id))
+func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
+	newID, err := restoreBackendID(l3n4Addr, id)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	return uint16(l3n4AddrID.ID), nil
+	// TODO(brb) This shouldn't happen (otherwise, there is a bug in the code).
+	//           But maybe it makes sense to delete all svc v2 in this case.
+	if newID != id {
+		return fmt.Errorf("Restored backend ID for %s does not match (%d != %d)",
+			l3n4Addr, newID, id)
+	}
+
+	return nil
 }
 
 func DeleteBackendID(id uint16) {
 	backendIDAlloc.deleteLocalID(uint32(id))
+}
+
+func restoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) (uint16, error) {
+	l3n4AddrID, err := backendIDAlloc.acquireLocalID(l3n4Addr, uint32(id))
+	if err != nil {
+		return 0, err
+	}
+	return uint16(l3n4AddrID.ID), nil
 }

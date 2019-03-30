@@ -519,7 +519,8 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		if err != nil {
 			return fmt.Errorf("Unable to acquire backend ID for %s: %s", legacyID, err)
 		}
-		fmt.Println("!!! acquire backend ID", backendID, addr)
+		// TODO(brb) use logging fields
+		log.Debugf("Acquired backend %s ID %d", legacyID, backendID)
 		newBackendIDs[legacyID] = backendID
 	}
 
@@ -924,10 +925,8 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 
 // DumpServiceMapsToUserspace dumps the contents of both the IPv6 and IPv4
 // service / loadbalancer BPF maps, and converts them to a SVCMap and slice of
-// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled. If
-// includeMasterBackend is true, the returned values will also include services
-// which correspond to "master" backend values in the BPF maps. Returns the
-// errors that occurred while dumping the maps.
+// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled.
+// Returns the errors that occurred while dumping the maps.
 func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
@@ -1181,36 +1180,6 @@ func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
 	return key.RRMap().Delete(key.ToNetwork())
 }
 
-func DumpBackendMapsToUserspace() (map[BackendLegacyID]*loadbalancer.LBBackEnd, error) {
-	backendValueMap := map[uint16]BackendValue{}
-	lbBackends := map[BackendLegacyID]*loadbalancer.LBBackEnd{}
-
-	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		backendKey := key.(BackendKey)
-		backendValue := value.(BackendValue)
-		backendValueMap[backendKey.GetID()] = backendValue
-	}
-
-	if option.Config.EnableIPv4 {
-		err := Backend4Map.DumpWithCallback(parseBackendEntries)
-		if err != nil {
-			return nil, fmt.Errorf("Unable to dump LB4_BACKEND map: %s", err)
-		}
-	}
-
-	for backendID, backendVal := range backendValueMap {
-		//ip := backendVal.GetAddress().IP()
-		ip := backendVal.GetAddress()
-		port := backendVal.GetPort()
-		weight := uint16(0) // FIXME
-		proto := loadbalancer.NONE
-		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, weight)
-		lbBackends[backendVal.BackendLegacyID()] = lbBackend
-	}
-
-	return lbBackends, nil
-}
-
 func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
@@ -1269,6 +1238,8 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	defer mutex.RUnlock()
 
 	if option.Config.EnableIPv4 {
+		// TODO(brb) optimization: instead of dumping the backend map, we can
+		// pass its content to the function.
 		err := Backend4Map.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
@@ -1280,6 +1251,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	}
 
 	if option.Config.EnableIPv6 {
+		// TODO(brb) same ^^ optimization applies here as well.
 		err := Backend6Map.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
@@ -1304,6 +1276,42 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	}
 
 	return newSVCMap, newSVCList, errors
+}
+
+func DumpBackendMapsToUserspace() (map[BackendLegacyID]*loadbalancer.LBBackEnd, error) {
+	backendValueMap := map[uint16]BackendValue{}
+	lbBackends := map[BackendLegacyID]*loadbalancer.LBBackEnd{}
+
+	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		backendKey := key.(BackendKey)
+		backendValue := value.(BackendValue)
+		backendValueMap[backendKey.GetID()] = backendValue
+	}
+
+	if option.Config.EnableIPv4 {
+		err := Backend4Map.DumpWithCallback(parseBackendEntries)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to dump lb4 backends map: %s", err)
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		err := Backend6Map.DumpWithCallback(parseBackendEntries)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to dump lb6 backends map: %s", err)
+		}
+	}
+
+	for backendID, backendVal := range backendValueMap {
+		ip := backendVal.GetAddress()
+		port := backendVal.GetPort()
+		weight := uint16(0) // FIXME: set weight when we support it
+		proto := loadbalancer.NONE
+		lbBackend := loadbalancer.NewLBBackEnd(backendID, proto, ip, port, weight)
+		lbBackends[backendVal.BackendLegacyID()] = lbBackend
+	}
+
+	return lbBackends, nil
 }
 
 func AddBackendIDs(backendIDs map[BackendLegacyID]uint16) {
