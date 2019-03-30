@@ -885,5 +885,4 @@ func restoreServices() {
 		"failed":   failed,
 		"skipped":  skipped,
 	}).Info("Restore service IDs from BPF maps")
-
 }
