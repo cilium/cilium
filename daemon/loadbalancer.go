@@ -802,7 +802,7 @@ func restoreBackendIDs() (map[lbmap.BackendLegacyID]uint16, error) {
 	}
 
 	// TODO(brb) use logging field for the IDs
-	log.Debug("Restored backend IDs: %s", restoredBackendIDs)
+	log.Debugf("Restored backend IDs: %s", restoredBackendIDs)
 
 	return restoredBackendIDs, nil
 }

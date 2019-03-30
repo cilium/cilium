@@ -59,6 +59,50 @@ func DeleteService(key ServiceKey) error {
 	return deleteServiceLocked(key)
 }
 
+func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16)) error {
+	var (
+		backendKey BackendKey
+		svcKey     ServiceKeyV2
+	)
+
+	if svc.IsIPv6() {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	} else {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	}
+
+	log.Debugf("Deleting svc v2: %s", svc)
+
+	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
+	if err != nil {
+		return err
+	}
+
+	for slot := 0; slot <= backendsCount; slot++ {
+		svcKey.SetSlave(slot)
+		if err := svcKey.MapDelete(); err != nil {
+			return err
+		}
+	}
+
+	if svcKey.IsIPv6() {
+		backendKey = NewBackend6Key(0)
+	} else {
+		backendKey = NewBackend4Key(0)
+	}
+
+	for _, id := range backendsToRemove {
+		log.Debugf("Deleting backend id: %d", id)
+		backendKey.SetID(id)
+		if err := deleteBackend(backendKey); err != nil {
+			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
+		}
+		releaseBackendID(id)
+	}
+
+	return nil
+}
+
 func UpdateRevNat(key RevNatKey, value RevNatValue) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -238,6 +282,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		svcValV2.SetCount(legacySlaveSlot)
 		svcKeyV2.SetSlave(slot)
 		slot++
+		log.Debugf("updateServiceV2 %s -> %s", svcKeyV2, svcValV2)
 		if err := updateServiceV2(svcKeyV2, svcValV2); err != nil {
 			return fmt.Errorf("Unable to update service %+v with the value %+v: %s",
 				svcKeyV2, svcValV2, err)
@@ -255,6 +300,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 	for i := slot; i <= existingCount; i++ {
 		svcKeyV2.SetSlave(i)
+		log.Debugf("delete svc key v2: %s", svcKeyV2)
 		if err := deleteServiceLockedV2(svcKeyV2); err != nil {
 			return fmt.Errorf("unable to delete service %+v: %s", svcKeyV2, err)
 		}
@@ -268,6 +314,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 
 	for _, backendID := range removedBackendIDs {
+		log.Debugf("remove backend ID: %d", backendID)
 		backendKey.SetID(backendID)
 		if err := deleteBackend(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
@@ -539,48 +586,6 @@ func RestoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 	return cache.restoreService(svc, v2Exists)
 }
 
-func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16)) error {
-	var (
-		backendKey BackendKey
-		svcKey     ServiceKeyV2
-	)
-
-	if svc.IsIPv6() {
-		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
-	} else {
-		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
-	}
-
-	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
-	if err != nil {
-		return err
-	}
-
-	for slot := 0; slot <= backendsCount; slot++ {
-		svcKey.SetSlave(slot)
-		if err := svcKey.MapDelete(); err != nil {
-			return err
-		}
-	}
-
-	if svcKey.IsIPv6() {
-		backendKey = NewBackend6Key(0)
-	} else {
-		backendKey = NewBackend4Key(0)
-	}
-
-	for _, id := range backendsToRemove {
-		fmt.Println("!!! del backend", id)
-		backendKey.SetID(id)
-		if err := deleteBackend(backendKey); err != nil {
-			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
-		}
-		releaseBackendID(id)
-	}
-
-	return nil
-}
-
 func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
 	val, err := key.Map().Lookup(key.ToNetwork())
 	if err != nil {
@@ -612,6 +617,8 @@ func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetWeight(nonZeroWeights)
 	zeroValue.SetRevNat(revNATID)
+
+	log.Debugf("updateMasterServiceV2 %s -> %s (count=%d, rev_nat_id=%d)", fe, zeroValue, nbackends, revNATID)
 
 	return updateServiceV2(fe, zeroValue)
 }
