@@ -47,11 +47,13 @@ type bpfService struct {
 	// backendsByMapIndex, it will only be listed once in uniqueBackends.
 	uniqueBackends serviceValueMap
 
-	// slaveSlotByBackendLegacyID is a map for getting a position within svc
-	// value to any slave which points to a backend identified with
-	// the legacy ID.
+	// slaveSlotByBackendLegacyID is a map of slot numbers within the legacy
+	// service of slaves which are identified by the legacy ID. Used to
+	// map legacy svc backends by svc v2 for the backward compatibility.
 	slaveSlotByBackendLegacyID map[BackendLegacyID]int
 
+	// backendsV2 is a map of all service v2 backends indexed by the legacy IDs.
+	// TODO(brb) use list instead to preserve the ordering when svc backends change.
 	backendsV2 map[BackendLegacyID]ServiceValue
 }
 
@@ -70,7 +72,7 @@ func (b *bpfService) addBackend(backend ServiceValue, backendID uint16) int {
 	defer b.mutex.Unlock()
 
 	nextSlot := len(b.backendsByMapIndex) + 1
-	// TODO(brb) explain hack
+	// TODO(brb) explain hack (maybe not needed)
 	backend.SetCount(int(backendID))
 	b.backendsByMapIndex[nextSlot] = &bpfBackend{
 		bpfValue: backend,
@@ -166,14 +168,6 @@ func newLBMapCache() lbmapCache {
 		backendRefCount:     map[BackendLegacyID]int{},
 		backendIDByLegacyID: map[BackendLegacyID]uint16{},
 	}
-}
-
-func createBackendsMap(backends []ServiceValue) serviceValueMap {
-	m := serviceValueMap{}
-	for _, b := range backends {
-		m[b.BackendLegacyID()] = b
-	}
-	return m
 }
 
 func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
@@ -393,4 +387,12 @@ func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]uint16, int, error)
 	delete(l.entries, frontendID)
 
 	return backendsToRemove, count, nil
+}
+
+func createBackendsMap(backends []ServiceValue) serviceValueMap {
+	m := serviceValueMap{}
+	for _, b := range backends {
+		m[b.BackendLegacyID()] = b
+	}
+	return m
 }

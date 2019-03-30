@@ -488,7 +488,7 @@ func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) er
 	return updateService(fe, zeroValue)
 }
 
-// UpdateService adds or updates the given service in the bpf maps
+// UpdateService adds or updates the given service (legacy and v2) in the bpf maps.
 func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNATID int,
 	acquireBackendID func(loadbalancer.L3n4Addr) (uint16, error),
 	releaseBackendID func(uint16)) error {
@@ -1036,6 +1036,7 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 
 // RestoreService restores a single service in the cache. This is required to
 // guarantee consistent backend ordering
+// TODO(brb) mention slave_slot and backend_id ^^.
 func RestoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 	return cache.restoreService(svc, v2Exists)
 }
@@ -1195,7 +1196,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKeyV2)
-		//It's the frontend service so we don't add this one
+		//It's the frontend (aka master) service so we don't add this one
 		isFrontendService := svcKey.GetSlave() == 0
 
 		svcValue := value.(ServiceValueV2)
