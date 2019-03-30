@@ -320,7 +320,7 @@ func (k *Service6KeyV2) String() string {
 
 func (k *Service6KeyV2) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service6KeyV2) NewValue() bpf.MapValue    { return &Service6ValueV2{} }
-func (k *Service6KeyV2) IsIPv6() bool              { return false }
+func (k *Service6KeyV2) IsIPv6() bool              { return true }
 func (k *Service6KeyV2) Map() *bpf.Map             { return Service6MapV2 }
 func (k *Service6KeyV2) RRMap() *bpf.Map           { return RRSeq6MapV2 }
 func (k *Service6KeyV2) SetSlave(slave int)        { k.Slave = uint16(slave) }
@@ -457,7 +457,7 @@ func NewBackend6(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 	}, nil
 }
 
-func (b *Backend6) IsIPv6() bool           { return false }
+func (b *Backend6) IsIPv6() bool           { return true }
 func (b *Backend6) Map() *bpf.Map          { return Backend6Map }
 func (b *Backend6) GetID() uint16          { return b.Key.GetID() }
 func (b *Backend6) GetKey() bpf.MapKey     { return b.Key }
