@@ -94,6 +94,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
+	k8scache "k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -186,6 +187,8 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
+
+	identityStore k8scache.Store
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -1260,7 +1263,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
-	go cache.InitIdentityAllocator(&d)
+	go cache.InitIdentityAllocator(&d, k8s.CiliumClient(), d.identityStore)
 
 	bootstrapStats.clusterMeshInit.Start()
 	if path := option.Config.ClusterMeshConfig; path != "" {

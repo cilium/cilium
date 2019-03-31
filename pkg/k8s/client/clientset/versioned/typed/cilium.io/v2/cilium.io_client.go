@@ -26,6 +26,7 @@ import (
 type CiliumV2Interface interface {
 	RESTClient() rest.Interface
 	CiliumEndpointsGetter
+	CiliumIdentitiesGetter
 	CiliumNetworkPoliciesGetter
 }
 
@@ -36,6 +37,10 @@ type CiliumV2Client struct {
 
 func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterface {
 	return newCiliumEndpoints(c, namespace)
+}
+
+func (c *CiliumV2Client) CiliumIdentities(namespace string) CiliumIdentityInterface {
+	return newCiliumIdentities(c, namespace)
 }
 
 func (c *CiliumV2Client) CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyInterface {

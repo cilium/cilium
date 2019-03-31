@@ -71,3 +71,21 @@ type Namespace struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type Identity struct {
+	*v2.CiliumIdentity
+}
+
+// ConvertToIdentity converts a *v1.Namespace into a *types.Namespace.
+// WARNING calling this function will set *all* fields of the given Namespace as
+// empty.
+func ConvertToIdentity(obj interface{}) interface{} {
+	identity, ok := obj.(*v2.CiliumIdentity)
+	if !ok {
+		return nil
+	}
+	return &Identity{
+		CiliumIdentity: identity,
+	}
+}

@@ -24,13 +24,13 @@ import (
 
 func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	k := newLocalKeys()
-	key, val := "foo", idpool.ID(200)
-	key2, val2 := "bar", idpool.ID(300)
+	key, keyObj, val := "foo", TestType("foo"), idpool.ID(200)
+	key2, key2Obj, val2 := "bar", TestType("bar"), idpool.ID(300)
 
 	v := k.use(key)
 	c.Assert(v, Equals, idpool.NoID)
 
-	v, err := k.allocate(key, val) // refcnt=1
+	v, err := k.allocate(key, keyObj, val) // refcnt=1
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val)
 
@@ -40,11 +40,11 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	c.Assert(v, Equals, val)
 	k.release(key) // refcnt=1
 
-	v, err = k.allocate(key, val) // refcnt=2
+	v, err = k.allocate(key, keyObj, val) // refcnt=2
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val)
 
-	v, err = k.allocate(key2, val2) // refcnt=1
+	v, err = k.allocate(key2, key2Obj, val2) // refcnt=1
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val2)
 
@@ -53,7 +53,7 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	c.Assert(len(ids), Equals, 1)
 
 	// allocate with different value must fail
-	_, err = k.allocate(key2, val)
+	_, err = k.allocate(key2, key2Obj, val)
 	c.Assert(err, Not(IsNil))
 
 	k.release(key) // refcnt=1

@@ -547,3 +547,32 @@ type CiliumEndpointList struct {
 	// Items is a list of CiliumEndpoint
 	Items []CiliumEndpoint `json:"items"`
 }
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CiliumIdentity is an identity managed by Cilium
+type CiliumIdentity struct {
+	// +k8s:openapi-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	Status IdentityStatus `json:"status"`
+}
+
+// IdentityStatus is the status of an identity
+type IdentityStatus struct {
+	Nodes map[string]metav1.Time `json:"nodes,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+//
+// CiliumIdentityList is a list of CiliumIdentity objects
+type CiliumIdentityList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumIdentity
+	Items []CiliumIdentity `json:"items"`
+}

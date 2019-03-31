@@ -384,6 +384,16 @@ func NewLabelsFromSortedList(list string) Labels {
 	return NewLabelsFromModel(strings.Split(list, ";"))
 }
 
+// NewLabelArrayFromMap creates labels from a map
+func NewLabelArrayFromMap(base map[string]string, source string) LabelArray {
+	lbls := make(LabelArray, 0, len(base))
+	for k, v := range base {
+		lbls = append(lbls, NewLabel(k, v, source))
+	}
+
+	return lbls
+}
+
 // NewSelectLabelArrayFromModel parses a slice of strings and converts them
 // into an array of selecting labels, sorted by the key.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {

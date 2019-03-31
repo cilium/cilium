@@ -50,14 +50,17 @@ var (
 		},
 	}
 
-	k8sAPIServer        string
-	k8sKubeConfigPath   string
-	kvStore             string
-	kvStoreOpts         = make(map[string]string)
-	apiServerPort       uint16
-	shutdownSignal      = make(chan struct{})
-	synchronizeServices bool
-	enableCepGC         bool
+	k8sAPIServer                string
+	k8sKubeConfigPath           string
+	kvStore                     string
+	kvStoreOpts                 = make(map[string]string)
+	apiServerPort               uint16
+	shutdownSignal              = make(chan struct{})
+	synchronizeServices         bool
+	k8sIdentityGCInterval       time.Duration
+	k8sIdentityHeartbeatTimeout time.Duration
+	synchronizeIdentities       bool
+	enableCepGC                 bool
 
 	ciliumK8sClient clientset.Interface
 )
@@ -101,6 +104,9 @@ func init() {
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
 
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
+	flags.BoolVar(&synchronizeIdentities, "synchronize-identities", true, "Synchronize CRD backed identities to kvstore")
+	flags.DurationVar(&k8sIdentityGCInterval, "identity-gc-interval", 1*time.Minute, "Interval to run the identity garbage collector")
+	flags.DurationVar(&k8sIdentityHeartbeatTimeout, "identity-heartbeat-timeout", 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
@@ -169,6 +175,10 @@ func runOperator(cmd *cobra.Command) {
 
 	if synchronizeServices {
 		startSynchronizingServices()
+	}
+
+	if synchronizeIdentities {
+		startSynchronizingIdentities()
 	}
 
 	if enableCepGC {

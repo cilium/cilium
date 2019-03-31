@@ -442,6 +442,18 @@ const (
 
 	// K8sEventHandover is the name of the K8sEventHandover option
 	K8sEventHandover = "enable-k8s-event-handover"
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode = "identity-allocation-mode"
+
+	// IdentityAllocationModeKVstore enables use of a key-value store such
+	// as etcd or consul for identity allocation
+	IdentityAllocationModeKVstore = "kvstore"
+
+	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
+	// identity allocation
+	IdentityAllocationModeCRD = "crd"
 )
 
 // FQDNS variables
@@ -891,6 +903,10 @@ type DaemonConfig struct {
 	// mirroring it into the kvstore for reduced overhead in large
 	// clusters.
 	K8sEventHandover bool
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode string
 }
 
 var (
@@ -912,6 +928,7 @@ var (
 		KVStoreOpt:                make(map[string]string),
 		LogOpt:                    make(map[string]string),
 		SelectiveRegeneration:     defaults.SelectiveRegeneration,
+		IdentityAllocationMode:    IdentityAllocationModeKVstore,
 	}
 )
 
@@ -1147,6 +1164,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
+	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)

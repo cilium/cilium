@@ -24,6 +24,8 @@ import (
 type Interface interface {
 	// CiliumEndpoints returns a CiliumEndpointInformer.
 	CiliumEndpoints() CiliumEndpointInformer
+	// CiliumIdentities returns a CiliumIdentityInformer.
+	CiliumIdentities() CiliumIdentityInformer
 	// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
 	CiliumNetworkPolicies() CiliumNetworkPolicyInformer
 }
@@ -42,6 +44,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // CiliumEndpoints returns a CiliumEndpointInformer.
 func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumIdentities returns a CiliumIdentityInformer.
+func (v *version) CiliumIdentities() CiliumIdentityInformer {
+	return &ciliumIdentityInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
