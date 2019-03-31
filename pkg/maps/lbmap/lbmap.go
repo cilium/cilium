@@ -72,13 +72,15 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16))
 		svcKey     ServiceKeyV2
 	)
 
-	if svc.IsIPv6() {
+	isIPv6 := svc.IsIPv6()
+
+	log.WithField(logfields.ServiceName, svc).Debug("Deleting service")
+
+	if isIPv6 {
 		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	} else {
 		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	}
-
-	log.Debugf("Deleting svc v2: %s isipv6=%b", svc, svc.IsIPv6())
 
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
 	if err != nil {
@@ -92,19 +94,19 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16))
 		}
 	}
 
-	if svcKey.IsIPv6() {
+	if isIPv6 {
 		backendKey = NewBackend6Key(0)
 	} else {
 		backendKey = NewBackend4Key(0)
 	}
 
 	for _, id := range backendsToRemove {
-		log.Debugf("Deleting backend id: %d", id)
 		backendKey.SetID(id)
 		if err := deleteBackend(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
 		}
 		releaseBackendID(id)
+		log.WithField(logfields.BackendID, id).Debug("Deleted backend")
 	}
 
 	return nil
@@ -157,9 +159,11 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		if err != nil {
 			return fmt.Errorf("Unable to acquire backend ID for %s: %s", legacyID, err)
 		}
-		// TODO(brb) use logging fields
-		log.Debugf("Acquired backend %s ID %d", legacyID, backendID)
 		newBackendIDs[legacyID] = backendID
+		log.WithFields(logrus.Fields{
+			logfields.BackendName: legacyID,
+			logfields.BackendID:   backendID,
+		}).Debug("Acquired backend ID")
 	}
 
 	cache.addBackendIDs(newBackendIDs)
@@ -288,12 +292,16 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		svcValV2.SetWeight(svcVal.GetWeight())
 		svcValV2.SetCount(legacySlaveSlot)
 		svcKeyV2.SetSlave(slot)
-		slot++
-		log.Debugf("updateServiceV2 %s -> %s", svcKeyV2, svcValV2)
 		if err := updateServiceV2(svcKeyV2, svcValV2); err != nil {
 			return fmt.Errorf("Unable to update service %+v with the value %+v: %s",
 				svcKeyV2, svcValV2, err)
 		}
+		log.WithFields(logrus.Fields{
+			logfields.ServiceKey:   svcKeyV2,
+			logfields.ServiceValue: svcValV2,
+			logfields.SlaveSlot:    slot,
+		}).Debug("Upserted service entry")
+		slot++
 	}
 
 	err = updateMasterServiceV2(svcKeyV2, len(svc.backendsV2), nNonZeroWeights, revNATID)
@@ -307,10 +315,13 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 	for i := slot; i <= existingCount; i++ {
 		svcKeyV2.SetSlave(i)
-		log.Debugf("delete svc key v2: %s %d", svcKeyV2, i)
 		if err := deleteServiceLockedV2(svcKeyV2); err != nil {
 			return fmt.Errorf("unable to delete service %+v: %s", svcKeyV2, err)
 		}
+		log.WithFields(logrus.Fields{
+			logfields.SlaveSlot:  i,
+			logfields.ServiceKey: svcKeyV2,
+		}).Debug("Deleted service entry")
 	}
 
 	// Delete no longer needed backends
@@ -321,12 +332,12 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 
 	for _, backendID := range removedBackendIDs {
-		log.Debugf("remove backend ID: %d", backendID)
 		backendKey.SetID(backendID)
 		if err := deleteBackend(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
 		}
 		releaseBackendID(backendID)
+		log.WithField(logfields.BackendID, backendID).Debug("Deleted backend")
 	}
 
 	return nil
@@ -605,9 +616,11 @@ func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
 
 func updateServiceV2(key ServiceKeyV2, value ServiceValueV2) error {
 	log.WithFields(logrus.Fields{
-		"frontend": key,
-		"backend":  value,
-	}).Debug("adding frontend for backend to BPF maps")
+		logfields.ServiceKey:   key,
+		logfields.ServiceValue: value,
+		logfields.SlaveSlot:    key.GetSlave(),
+	}).Debug("Upserting service entry")
+
 	if key.GetSlave() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
@@ -624,8 +637,6 @@ func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetWeight(nonZeroWeights)
 	zeroValue.SetRevNat(revNATID)
-
-	log.Debugf("updateMasterServiceV2 %s -> %s (count=%d, rev_nat_id=%d)", fe, zeroValue, nbackends, revNATID)
 
 	return updateServiceV2(fe, zeroValue)
 }

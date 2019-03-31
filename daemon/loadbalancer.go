@@ -801,8 +801,8 @@ func restoreBackendIDs() (map[lbmap.BackendLegacyID]uint16, error) {
 		restoredBackendIDs[legacyID] = backendID
 	}
 
-	// TODO(brb) use logging field for the IDs
-	log.Debugf("Restored backend IDs: %s", restoredBackendIDs)
+	log.WithField(logfields.BackendIDs, restoredBackendIDs).
+		Debug("Restored backend IDs")
 
 	return restoredBackendIDs, nil
 }
@@ -824,7 +824,7 @@ func restoreServices() {
 	}
 	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range errors {
-		log.WithError(err).Warning("Error occured while dumping service table v2 from datapath")
+		log.WithError(err).Warning("Error occured while dumping service v2 table from datapath")
 	}
 
 	for feHash, svc := range svcMap {
@@ -866,7 +866,8 @@ func restoreServices() {
 			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(&svc)
 			if err != nil {
 				failed++
-				log.WithError(err).Warning("Unable to convert service key and values v2")
+				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+					WithError(err).Warning("Unable to convert service key and values v2")
 				continue
 			}
 			addRevNAT := true // TODO(brb) explain why
@@ -875,7 +876,8 @@ func restoreServices() {
 				service.AcquireBackendID, service.DeleteBackendID)
 			if err != nil {
 				failed++
-				log.WithError(err).Warning("Unable to restore service v2")
+				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+					Warning("Unable to restore service v2")
 			}
 		}
 	}
