@@ -26,7 +26,7 @@ import (
 
 type localKey struct {
 	val    idpool.ID
-	key    string
+	key    AllocatorKey
 	refcnt uint64
 
 	// verified is true when the key has been synced with the kvstore
@@ -51,24 +51,24 @@ func newLocalKeys() *localKeys {
 // allocate creates an entry for key in localKeys if needed and increments the
 // refcnt. The value associated with the key must match the local cache or an
 // error is returned
-func (lk *localKeys) allocate(key string, val idpool.ID) (idpool.ID, error) {
+func (lk *localKeys) allocate(keyString string, key AllocatorKey, val idpool.ID) (idpool.ID, error) {
 	lk.Lock()
 	defer lk.Unlock()
 
-	if k, ok := lk.keys[key]; ok {
+	if k, ok := lk.keys[keyString]; ok {
 		if val != k.val {
 			return idpool.NoID, fmt.Errorf("local key already allocated with different value (%s != %s)", val, k.val)
 		}
 
 		k.refcnt++
-		kvstore.Trace("Incremented local key refcnt", nil, logrus.Fields{fieldKey: key, fieldID: val, fieldRefCnt: k.refcnt})
+		kvstore.Trace("Incremented local key refcnt", nil, logrus.Fields{fieldKey: keyString, fieldID: val, fieldRefCnt: k.refcnt})
 		return k.val, nil
 	}
 
 	k := &localKey{key: key, val: val, refcnt: 1}
-	lk.keys[key] = k
+	lk.keys[keyString] = k
 	lk.ids[val] = k
-	kvstore.Trace("New local key", nil, logrus.Fields{fieldKey: key, fieldID: val, fieldRefCnt: 1})
+	kvstore.Trace("New local key", nil, logrus.Fields{fieldKey: keyString, fieldID: val, fieldRefCnt: 1})
 	return val, nil
 }
 
@@ -99,7 +99,7 @@ func (lk *localKeys) lookupKey(key string) idpool.ID {
 }
 
 // lookupID returns the key for a given ID or an empty string
-func (lk *localKeys) lookupID(id idpool.ID) string {
+func (lk *localKeys) lookupID(id idpool.ID) AllocatorKey {
 	lk.RLock()
 	defer lk.RUnlock()
 
@@ -107,7 +107,7 @@ func (lk *localKeys) lookupID(id idpool.ID) string {
 		return k.key
 	}
 
-	return ""
+	return nil
 }
 
 // use increments the refcnt of the key and returns its value
@@ -149,8 +149,8 @@ func (lk *localKeys) release(key string) (lastUse bool, err error) {
 	return false, fmt.Errorf("unable to find key in local cache")
 }
 
-func (lk *localKeys) getVerifiedIDs() map[idpool.ID]string {
-	ids := map[idpool.ID]string{}
+func (lk *localKeys) getVerifiedIDs() map[idpool.ID]AllocatorKey {
+	ids := map[idpool.ID]AllocatorKey{}
 	lk.RLock()
 	for id, localKey := range lk.ids {
 		if localKey.verified {

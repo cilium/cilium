@@ -103,6 +103,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
 		&CiliumEndpoint{},
+		&CiliumIdentity{},
+		&CiliumIdentityList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
@@ -116,6 +118,10 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	}
 
 	if err := createCEPCRD(clientset); err != nil {
+		return err
+	}
+
+	if err := createIdentityCRD(clientset); err != nil {
 		return err
 	}
 
@@ -166,6 +172,32 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 	}
 
 	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
+}
+
+// createIdentityCRD creates and updates the CiliumIdentity CRD. It should be
+// called on agent startup but is idempotent and safe to call again.
+func createIdentityCRD(clientset apiextensionsclient.Interface) error {
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ciliumidentities." + SchemeGroupVersion.Group,
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   SchemeGroupVersion.Group,
+			Version: SchemeGroupVersion.Version,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     "ciliumidentities",
+				Singular:   "ciliumidentity",
+				ShortNames: []string{"ciliumid", "identity"},
+				Kind:       "CiliumIdentity",
+			},
+			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
+				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
+			},
+			Scope: apiextensionsv1beta1.ClusterScoped,
+		},
+	}
+
+	return createUpdateCRD(clientset, "v2.CiliumIdentity", res)
 }
 
 // createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called
