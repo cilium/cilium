@@ -527,6 +527,18 @@ const (
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode = "identity-allocation-mode"
+
+	// IdentityAllocationModeKVstore enables use of a key-value store such
+	// as etcd or consul for identity allocation
+	IdentityAllocationModeKVstore = "kvstore"
+
+	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
+	// identity allocation
+	IdentityAllocationModeCRD = "crd"
 )
 
 // FQDNS variables
@@ -1083,6 +1095,10 @@ type DaemonConfig struct {
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode string
 }
 
 var (
@@ -1111,6 +1127,7 @@ var (
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
+		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 	}
 )
 
@@ -1422,6 +1439,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
+	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
 	c.IPAM = viper.GetString(IPAM)
 	c.IPv4Range = viper.GetString(IPv4Range)

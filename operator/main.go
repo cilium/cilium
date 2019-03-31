@@ -64,7 +64,10 @@ var (
 	enableMetrics       bool
 	metricsAddress      string
 
-	ciliumK8sClient clientset.Interface
+	k8sIdentityGCInterval       time.Duration
+	k8sIdentityHeartbeatTimeout time.Duration
+	synchronizeIdentities       bool
+	ciliumK8sClient             clientset.Interface
 )
 
 func main() {
@@ -110,6 +113,10 @@ func init() {
 	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&synchronizeNodes, "synchronize-k8s-nodes", true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
+	flags.BoolVar(&synchronizeIdentities, "synchronize-identities", true, "Synchronize CRD backed identities to kvstore")
+	// FIXME: this name conflicts with the name used for kvstore GC, and is a different default
+	flags.DurationVar(&k8sIdentityGCInterval, "identity-gc-interval", 1*time.Minute, "Interval to run the identity garbage collector")
+	flags.DurationVar(&k8sIdentityHeartbeatTimeout, "identity-heartbeat-timeout", 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
@@ -251,6 +258,10 @@ func runOperator(cmd *cobra.Command) {
 
 	if synchronizeServices {
 		startSynchronizingServices()
+	}
+
+	if synchronizeIdentities {
+		startSynchronizingIdentities()
 	}
 
 	if enableCepGC {

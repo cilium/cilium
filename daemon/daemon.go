@@ -82,6 +82,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
+	k8scache "k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -177,6 +178,9 @@ type Daemon struct {
 	ipam *ipam.IPAM
 
 	netConf *cnitypes.NetConf
+
+	//FIXME: rename this to be k8s/CRD specific
+	identityStore k8scache.Store
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -861,7 +865,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// well known identities have already been initialized above
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	cache.InitIdentityAllocator(&d)
+	cache.InitIdentityAllocator(&d, k8s.CiliumClient(), d.identityStore)
 
 	d.bootstrapClusterMesh(nodeMngr)
 
