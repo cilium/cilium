@@ -56,7 +56,14 @@ func DeleteService(key ServiceKey) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return deleteServiceLocked(key)
+	err := deleteServiceLocked(key)
+	if err != nil {
+		return err
+	}
+
+	cache.delete(key)
+
+	return nil
 }
 
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16)) error {
@@ -300,7 +307,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 	for i := slot; i <= existingCount; i++ {
 		svcKeyV2.SetSlave(i)
-		log.Debugf("delete svc key v2: %s", svcKeyV2)
+		log.Debugf("delete svc key v2: %s %d", svcKeyV2, i)
 		if err := deleteServiceLockedV2(svcKeyV2); err != nil {
 			return fmt.Errorf("unable to delete service %+v: %s", svcKeyV2, err)
 		}
@@ -704,9 +711,10 @@ func deleteServiceLocked(key ServiceKey) error {
 		return err
 	}
 	err = lookupAndDeleteServiceWeights(key)
-	if err == nil {
-		cache.delete(key)
-	}
+	// TODO(brb) this is a bug!
+	//if err == nil {
+	//	cache.delete(key)
+	//}
 	return err
 }
 

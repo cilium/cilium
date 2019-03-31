@@ -106,6 +106,7 @@ type ServiceValue interface {
 }
 
 // ServiceKey is the interface describing protocol independent key for services map v2.
+// NOTE: ServiceKeyV2.String() output should match output of ServiceKey.String()
 type ServiceKeyV2 interface {
 	bpf.MapKey
 

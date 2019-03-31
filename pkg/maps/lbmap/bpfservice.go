@@ -177,6 +177,7 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
+	// TODO(brb) replace with serviceKey.String()!
 	frontendID := svc.FE.String()
 
 	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(&svc)
@@ -387,7 +388,8 @@ func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]uint16, int, error)
 		}
 	}
 
-	delete(l.entries, frontendID)
+	// TODO(brb) comment why we cannot delete
+	//delete(l.entries, frontendID)
 
 	return backendsToRemove, count, nil
 }
