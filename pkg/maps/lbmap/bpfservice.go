@@ -273,6 +273,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (
 			if isLastInstance {
 				toRemoveBackendIDs = append(toRemoveBackendIDs,
 					l.backendIDByLegacyID[legacyID])
+				delete(l.backendIDByLegacyID, legacyID)
 			}
 			delete(bpfSvc.backendsV2, legacyID)
 		}
@@ -376,14 +377,14 @@ func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]uint16, int, error)
 	count := len(bpfSvc.backendsV2)
 
 	for legacyID := range bpfSvc.backendsV2 {
-		last, err := l.delBackendV2Locked(legacyID)
+		isLastInstance, err := l.delBackendV2Locked(legacyID)
 		if err != nil {
 			return nil, 0, err
 		}
-		if last {
+		if isLastInstance {
 			backendsToRemove = append(backendsToRemove, l.backendIDByLegacyID[legacyID])
+			delete(l.backendIDByLegacyID, legacyID)
 		}
-		delete(l.backendIDByLegacyID, legacyID)
 	}
 
 	delete(l.entries, frontendID)

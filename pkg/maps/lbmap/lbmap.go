@@ -71,7 +71,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16))
 		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
 	}
 
-	log.Debugf("Deleting svc v2: %s", svc)
+	log.Debugf("Deleting svc v2: %s isipv6=%b", svc, svc.IsIPv6())
 
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
 	if err != nil {

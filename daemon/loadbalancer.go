@@ -257,7 +257,7 @@ func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
 }
 
 func (d *Daemon) svcDeleteBPFV2(svc loadbalancer.L3n4AddrID) error {
-	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
+	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps v2")
 
 	if err := lbmap.DeleteServiceV2(svc, service.DeleteBackendID); err != nil {
 		return err
