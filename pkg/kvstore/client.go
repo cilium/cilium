@@ -30,7 +30,7 @@ func initClient(module backendModule, opts *ExtraOptions) error {
 	c, errChan := module.newClient(opts)
 	if c == nil {
 		err := <-errChan
-		log.WithError(err).Fatalf("Unable to create etcd client")
+		log.WithError(err).Fatalf("Unable to create kvstore %s client", module.getName())
 	}
 
 	defaultClient = c
