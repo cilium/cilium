@@ -17,6 +17,5 @@ package allocator
 const (
 	fieldID     = "id"
 	fieldKey    = "key"
-	fieldPrefix = "prefix"
 	fieldRefCnt = "refcnt"
 )

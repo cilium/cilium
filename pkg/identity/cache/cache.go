@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
-	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,7 +51,7 @@ func GetIdentityCache() IdentityCache {
 
 	if IdentityAllocator != nil {
 
-		IdentityAllocator.ForeachCache(func(id idpool.ID, val kvstoreallocator.AllocatorKey) {
+		IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(globalIdentity); ok {
 					cache[identity.NumericIdentity(id)] = gi.LabelArray
@@ -81,7 +80,7 @@ func GetIdentityCache() IdentityCache {
 func GetIdentities() IdentitiesModel {
 	identities := IdentitiesModel{}
 
-	IdentityAllocator.ForeachCache(func(id idpool.ID, val kvstoreallocator.AllocatorKey) {
+	IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if gi, ok := val.(globalIdentity); ok {
 			identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
 			identities = append(identities, identity.GetModel())
