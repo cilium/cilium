@@ -82,10 +82,14 @@ func getMaxServiceID() (uint32, error) {
 	return serviceIDAlloc.getLocalMaxServiceID()
 }
 
+// AcquireBackendID acquires a new local ID for the given backend.
 func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (uint16, error) {
 	return restoreBackendID(l3n4Addr, 0)
 }
 
+// RestoreBackendID tries to restore the given local ID for the given backend.
+//
+// If ID cannot be restored (ID already taken), returns an error.
 func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
 	newID, err := restoreBackendID(l3n4Addr, id)
 	if err != nil {
@@ -95,6 +99,7 @@ func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
 	// TODO(brb) This shouldn't happen (otherwise, there is a bug in the code).
 	//           But maybe it makes sense to delete all svc v2 in this case.
 	if newID != id {
+		DeleteBackendID(newID)
 		return fmt.Errorf("Restored backend ID for %s does not match (%d != %d)",
 			l3n4Addr, newID, id)
 	}
@@ -102,6 +107,8 @@ func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
 	return nil
 }
 
+// DeleteBackendID releases the given backend ID.
+// TODO(brb) maybe provide l3n4Addr as an arg for the extra safety.
 func DeleteBackendID(id uint16) {
 	backendIDAlloc.deleteLocalID(uint32(id))
 }

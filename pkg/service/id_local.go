@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+// IDAllocator contains an internal state of the ID allocator.
 type IDAllocator struct {
 	// Protects entitiesID, entities, nextID and maxID
 	lock.RWMutex
@@ -43,6 +44,7 @@ var (
 	backendIDAlloc = NewIDAllocator()
 )
 
+// NewIDAllocator creates a new ID allocator instance.
 func NewIDAllocator() *IDAllocator {
 	return &IDAllocator{
 		entitiesID: map[uint32]*loadbalancer.L3n4AddrID{},

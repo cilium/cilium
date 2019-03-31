@@ -50,8 +50,13 @@ var (
 	cache = newLBMapCache()
 )
 
-// DeleteService deletes a service from the lbmap. The given key has to be of
-// the master service.
+// AddBackendIDsToCache populates the given backend IDs to the lbmap local cache.
+func AddBackendIDsToCache(backendIDs map[BackendLegacyID]uint16) {
+	cache.addBackendIDs(backendIDs)
+}
+
+// DeleteService deletes a legacy service from the lbmap. The given key has to
+// be of the master service.
 func DeleteService(key ServiceKey) error {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -66,6 +71,10 @@ func DeleteService(key ServiceKey) error {
 	return nil
 }
 
+// DeleteService deletes a service from the lbmap and deletes backends of it if
+// they are not used by any other service.
+//
+//The given key has to be of the master service.
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16)) error {
 	var (
 		backendKey BackendKey
@@ -358,8 +367,7 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 
 // DumpServiceMapsToUserspace dumps the contents of both the IPv6 and IPv4
 // service / loadbalancer BPF maps, and converts them to a SVCMap and slice of
-// LBSVC. IPv4 maps may not be dumped depending on if skipIPv4 is enabled.
-// Returns the errors that occurred while dumping the maps.
+// LBSVC. Returns the errors that occurred while dumping the maps.
 func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
@@ -425,6 +433,8 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 	return newSVCMap, newSVCList, errors
 }
 
+// DumpServiceMapsToUserspaceV2 dumps the services in the same way as
+// DumpServiceMapsToUserspace.
 func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
@@ -520,6 +530,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	return newSVCMap, newSVCList, errors
 }
 
+// DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
 func DumpBackendMapsToUserspace() (map[BackendLegacyID]*loadbalancer.LBBackEnd, error) {
 	backendValueMap := map[uint16]BackendValue{}
 	lbBackends := map[BackendLegacyID]*loadbalancer.LBBackEnd{}
@@ -683,10 +694,6 @@ func lookupAndDeleteServiceWeightsV2(key ServiceKeyV2) error {
 	}
 
 	return key.RRMap().Delete(key.ToNetwork())
-}
-
-func AddBackendIDsToCache(backendIDs map[BackendLegacyID]uint16) {
-	cache.addBackendIDs(backendIDs)
 }
 
 func updateService(key ServiceKey, value ServiceValue) error {

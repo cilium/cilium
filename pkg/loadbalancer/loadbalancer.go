@@ -284,6 +284,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
 }
 
+// NewLBBackEnd creates the LBBackEnd struct instance from given params.
 func NewLBBackEnd(id uint16, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
 	lbport := NewL4Addr(protocol, portNumber)
 	lbbe := LBBackEnd{
