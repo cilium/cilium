@@ -55,7 +55,7 @@ func (gi globalIdentity) GetAsMap() map[string]string {
 }
 
 // PutKey() decodes a globalIdentity from its string representation
-func (gi globalIdentity) PutKey(v string) (kvstoreallocator.AllocatorKey, error) {
+func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 	b, err := kvstore.Decode(v)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (gi globalIdentity) PutKey(v string) (kvstoreallocator.AllocatorKey, error)
 // from GetAsMap can be parsed.
 // Note: NewLabelArrayFromMap will parse the ':' separated label source from
 // the keys because the source parameter is ""
-func (gi globalIdentity) PutKeyFromMap(v map[string]string) kvstoreallocator.AllocatorKey {
+func (gi globalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorKey {
 	return globalIdentity{labels.Map2Labels(v, "").LabelArray()}
 }
 
