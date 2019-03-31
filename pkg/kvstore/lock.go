@@ -41,6 +41,7 @@ var (
 	staleLockTimeout = time.Duration(30) * time.Second
 )
 
+// FIXME: This may be pkg/allocator.Lock now
 type KVLocker interface {
 	Unlock() error
 	// Comparator returns an object that should be used by the KVStore to make

@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -72,70 +73,37 @@ func (e *AllocatorConsulSuite) TearDownTest(c *C) {
 
 type TestType string
 
-func (t TestType) GetKey() string { return string(t) }
-func (t TestType) String() string { return string(t) }
-func (t TestType) PutKey(v string) (AllocatorKey, error) {
+func (t TestType) GetKey() string              { return string(t) }
+func (t TestType) GetAsMap() map[string]string { return map[string]string{string(t): string(t)} }
+func (t TestType) String() string              { return string(t) }
+func (t TestType) PutKey(v string) (allocator.AllocatorKey, error) {
 	return TestType(v), nil
+}
+func (t TestType) PutKeyFromMap(m map[string]string) allocator.AllocatorKey {
+	for _, v := range m {
+		return TestType(v)
+	}
+
+	panic("empty map")
 }
 
 func randomTestName() string {
 	return testutils.RandomRuneWithPrefix(testPrefix, 12)
 }
 
-func (s *AllocatorSuite) TestSelectID(c *C) {
-	allocatorName := randomTestName()
-	minID, maxID := idpool.ID(1), idpool.ID(5)
-	a, err := NewAllocator(allocatorName, TestType(""), WithMin(minID), WithMax(maxID), WithSuffix("a"))
-	c.Assert(err, IsNil)
-	c.Assert(a, Not(IsNil))
-
-	// allocate all available IDs
-	for i := minID; i <= maxID; i++ {
-		id, val, unmaskedID := a.selectAvailableID()
-		c.Assert(id, Not(Equals), idpool.NoID)
-		c.Assert(val, Equals, id.String())
-		c.Assert(id, Equals, unmaskedID)
-		a.mainCache.cache[id] = TestType(fmt.Sprintf("key-%d", i))
-	}
-
-	// we should be out of IDs
-	id, val, unmaskedID := a.selectAvailableID()
-	c.Assert(id, Equals, idpool.ID(0))
-	c.Assert(id, Equals, unmaskedID)
-	c.Assert(val, Equals, "")
-}
-
-func (s *AllocatorSuite) TestPrefixMask(c *C) {
-	allocatorName := randomTestName()
-	minID, maxID := idpool.ID(1), idpool.ID(5)
-	a, err := NewAllocator(allocatorName, TestType(""), WithMin(minID),
-		WithMax(maxID), WithSuffix("a"), WithPrefixMask(1<<16))
-	c.Assert(err, IsNil)
-	c.Assert(a, Not(IsNil))
-
-	// allocate all available IDs
-	for i := minID; i <= maxID; i++ {
-		id, val, unmaskedID := a.selectAvailableID()
-		c.Assert(id, Not(Equals), idpool.NoID)
-		c.Assert(id>>16, Equals, idpool.ID(1))
-		c.Assert(id, Not(Equals), unmaskedID)
-		c.Assert(val, Equals, id.String())
-	}
-
-	a.Delete()
-}
-
 func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + c.N)
-	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"))
+	backend, err := NewKVStoreBackend(allocatorName, "a", TestType(""))
 	c.Assert(err, IsNil)
-	c.Assert(allocator, Not(IsNil))
-	defer allocator.DeleteAllKeys()
+	a, err := allocator.NewAllocator(TestType(""), backend, allocator.WithMax(maxID))
+	c.Assert(err, IsNil)
+	c.Assert(a, Not(IsNil))
+	defer a.DeleteAllKeys()
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		_, _, err := allocator.Allocate(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
+		_, _, err := a.Allocate(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
 		c.Assert(err, IsNil)
 	}
 	c.StopTimer()
@@ -182,117 +150,85 @@ func (s *AllocatorSuite) TestGC(c *C) {
 }
 
 func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
-	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID),
-		WithSuffix(suffix), WithoutGC())
+	backend, err := NewKVStoreBackend(allocatorName, "a", TestType(""))
 	c.Assert(err, IsNil)
-	c.Assert(allocator, Not(IsNil))
+	a, err := allocator.NewAllocator(TestType(""), backend,
+		allocator.WithMax(maxID), allocator.WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(a, Not(IsNil))
 
 	// remove any keys which might be leftover
-	allocator.DeleteAllKeys()
+	a.DeleteAllKeys()
 
 	// allocate all available IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
-		id, new, err := allocator.Allocate(context.Background(), key)
+		id, new, err := a.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, true)
-
-		// refcnt must be 1
-		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
 	}
-
-	saved := allocator.backoffTemplate.Factor
-	allocator.backoffTemplate.Factor = 1.0
-
-	// we should be out of id space here
-	_, new, err := allocator.Allocate(context.Background(), TestType(fmt.Sprintf("key%04d", maxID+1)))
-	c.Assert(err, Not(IsNil))
-	c.Assert(new, Equals, false)
-
-	allocator.backoffTemplate.Factor = saved
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
-		id, new, err := allocator.Allocate(context.Background(), key)
+		id, new, err := a.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
-
-		// refcnt must now be 2
-		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(2))
 	}
 
 	// Create a 2nd allocator, refill it
-	allocator2, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID),
-		WithSuffix("b"), WithoutGC())
+	backend2, err := NewKVStoreBackend(allocatorName, "r", TestType(""))
 	c.Assert(err, IsNil)
-	c.Assert(allocator2, Not(IsNil))
+	a2, err := allocator.NewAllocator(TestType(""), backend2,
+		allocator.WithMax(maxID), allocator.WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(a2, Not(IsNil))
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
-		id, new, err := allocator2.Allocate(context.Background(), key)
+		id, new, err := a2.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
 
-		localKey := allocator2.localKeys.keys[key.GetKey()]
-		c.Assert(localKey, Not(IsNil))
-
-		// refcnt in the 2nd allocator is 1
-		c.Assert(localKey.refcnt, Equals, uint64(1))
-
-		allocator2.Release(context.Background(), key)
+		a2.Release(context.Background(), key)
 	}
 
 	// release 2nd reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
-		allocator.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
-	}
-
-	// refcnt should be back to 1
-	for i := idpool.ID(1); i <= maxID; i++ {
-		key := TestType(fmt.Sprintf("key%04d", i))
-		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
+		a.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
 	}
 
 	keysToDelete := map[string]uint64{}
 	// running the GC should not evict any entries
-	keysToDelete, err = allocator.RunGC(keysToDelete)
+	err = a.RunGC()
 	c.Assert(err, IsNil)
-	c.Assert(len(keysToDelete), Equals, 0)
 
-	v, err := kvstore.ListPrefix(allocator.idPrefix)
+	v, err := kvstore.ListPrefix(path.Join(allocatorName, "id"))
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, int(maxID))
 
 	// release final reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
-		allocator.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
-	}
-
-	for i := idpool.ID(1); i <= maxID; i++ {
-		key := TestType(fmt.Sprintf("key%04d", i))
-		c.Assert(allocator.localKeys.keys[key.GetKey()], IsNil)
+		a.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
 	}
 
 	// running the GC should evict all entries
-	keysToDelete, err = allocator.RunGC(keysToDelete)
+	err = a.RunGC(keysToDelete)
 	c.Assert(err, IsNil)
-	c.Assert(len(keysToDelete), Equals, int(maxID))
-	keysToDelete, err = allocator.RunGC(keysToDelete)
+	err = a.RunGC(keysToDelete)
 	c.Assert(err, IsNil)
-	c.Assert(len(keysToDelete), Equals, 0)
 
-	v, err = kvstore.ListPrefix(allocator.idPrefix)
+	v, err = kvstore.ListPrefix(path.Join(allocatorName, "id"))
 	c.Assert(err, IsNil)
 	c.Assert(len(v), Equals, 0)
 
-	allocator.DeleteAllKeys()
-	allocator.Delete()
-	allocator2.Delete()
+	a.DeleteAllKeys()
+	a.Delete()
+	a2.Delete()
 }
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
@@ -301,13 +237,15 @@ func (s *AllocatorSuite) TestAllocateCached(c *C) {
 
 func (s *AllocatorSuite) TestKeyToID(c *C) {
 	allocatorName := randomTestName()
-	a, err := NewAllocator(allocatorName, TestType(""), WithSuffix("a"))
+	backend, err := NewKVStoreBackend(allocatorName, "a", TestType(""))
+	c.Assert(err, IsNil)
+	a, err := allocator.NewAllocator(TestType(""), backend)
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
-	c.Assert(a.mainCache.keyToID(path.Join(allocatorName, "invalid"), false), Equals, idpool.NoID)
-	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "invalid"), false), Equals, idpool.NoID)
-	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "10"), false), Equals, idpool.ID(10))
+	c.Assert(backend.keyToID(path.Join(allocatorName, "invalid"), false), Equals, idpool.NoID)
+	c.Assert(backend.keyToID(path.Join(allocatorName, "id", "invalid"), false), Equals, idpool.NoID)
+	c.Assert(backend.keyToID(path.Join(allocatorName, "id", "10"), false), Equals, idpool.ID(10))
 }
 
 func testGetNoCache(c *C, maxID idpool.ID, testName string, suffix string) {
@@ -390,26 +328,34 @@ func (s *AllocatorSuite) TestGetNoCache(c *C) {
 
 func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	testName := randomTestName()
-	allocator, err := NewAllocator(testName, TestType(""), WithMax(idpool.ID(256)), WithSuffix("a"))
+	backend, err := NewKVStoreBackend(testName, "a", TestType(""))
 	c.Assert(err, IsNil)
-	c.Assert(allocator, Not(IsNil))
+	a, err := allocator.NewAllocator(TestType(""), backend, allocator.WithMax(idpool.ID(256)))
+	c.Assert(err, IsNil)
+	c.Assert(a, Not(IsNil))
 
 	// remove any keys which might be leftover
-	allocator.DeleteAllKeys()
+	a.DeleteAllKeys()
 
 	// allocate all available IDs
 	for i := idpool.ID(1); i <= idpool.ID(4); i++ {
 		key := TestType(fmt.Sprintf("key%04d", i))
-		_, _, err := allocator.Allocate(context.Background(), key)
+		_, _, err := a.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 	}
 
 	// wait for main cache to be populated
-	c.Assert(testutils.WaitUntil(func() bool { return len(allocator.mainCache.cache) == 4 }, 5*time.Second), IsNil)
+	c.Assert(testutils.WaitUntil(func() bool {
+		cacheLen := 0
+		a.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
+			cacheLen++
+		})
+		return cacheLen == 4
+	}, 5*time.Second), IsNil)
 
 	// count identical allocations returned
 	cache := map[idpool.ID]int{}
-	allocator.ForeachCache(func(id idpool.ID, val AllocatorKey) {
+	a.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		cache[id]++
 	})
 
@@ -420,15 +366,22 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	}
 
 	// watch the prefix in the same kvstore via a 2nd watcher
-	rc := allocator.WatchRemoteKVStore(kvstore.Client(), testName)
+	rc := a.WatchRemoteKVStore(kvstore.Client(), testName)
 	c.Assert(rc, Not(IsNil))
 
 	// wait for remote cache to be populated
-	c.Assert(testutils.WaitUntil(func() bool { return len(rc.cache.cache) == 4 }, 5*time.Second), IsNil)
+	c.Assert(testutils.WaitUntil(func() bool {
+		cacheLen := 0
+		a.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
+			cacheLen++
+		})
+		// 4 local + 4 remote
+		return cacheLen == 8
+	}, 5*time.Second), IsNil)
 
 	// count the allocations in the main cache *AND* the remote cache
 	cache = map[idpool.ID]int{}
-	allocator.ForeachCache(func(id idpool.ID, val AllocatorKey) {
+	a.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		cache[id]++
 	})
 
@@ -441,89 +394,6 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 
 	rc.Close()
 
-	allocator.DeleteAllKeys()
-	allocator.Delete()
+	a.DeleteAllKeys()
+	a.Delete()
 }
-
-// The following tests are currently disabled as they are not 100% reliable in
-// the Jenkins CI
-//
-//func testParallelAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
-//	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix(suffix))
-//	c.Assert(err, IsNil)
-//	c.Assert(allocator, Not(IsNil))
-//
-//	// allocate all available IDs
-//	for i := idpool.ID(1); i <= maxID; i++ {
-//		key := TestType(fmt.Sprintf("key%04d", i))
-//		id, _, err := allocator.Allocate(context.Background(), key)
-//		c.Assert(err, IsNil)
-//		c.Assert(id, Not(Equals), 0)
-//
-//		// refcnt must be 1
-//		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
-//	}
-//
-//	saved := allocator.backoffTemplate.Factor
-//	allocator.backoffTemplate.Factor = 1.0
-//
-//	// we should be out of id space here
-//	_, new, err := allocator.Allocate(context.Background(), TestType(fmt.Sprintf("key%04d", maxID+1)))
-//	c.Assert(err, Not(IsNil))
-//	c.Assert(new, Equals, false)
-//
-//	allocator.backoffTemplate.Factor = saved
-//
-//	// allocate all IDs again using the same set of keys, refcnt should go to 2
-//	for i := idpool.ID(1); i <= maxID; i++ {
-//		key := TestType(fmt.Sprintf("key%04d", i))
-//		id, _, err := allocator.Allocate(context.Background(), key)
-//		c.Assert(err, IsNil)
-//		c.Assert(id, Not(Equals), 0)
-//
-//		// refcnt must now be 2
-//		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(2))
-//	}
-//
-//	for i := idpool.ID(1); i <= maxID; i++ {
-//		allocator.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
-//	}
-//
-//	// release final reference of all IDs
-//	for i := idpool.ID(1); i <= maxID; i++ {
-//		allocator.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
-//	}
-//
-//	// running the GC should evict all entries
-//	allocator.RunGC()
-//
-//	v, err := kvstore.ListPrefix(allocator.idPrefix)
-//	c.Assert(err, IsNil)
-//	c.Assert(len(v), Equals, 0)
-//
-//	allocator.Delete()
-//}
-//
-//func (s *AllocatorSuite) TestParallelAllocation(c *C) {
-//	var (
-//		wg            sync.WaitGroup
-//		allocatorName = randomTestName()
-//	)
-//
-//	// create dummy allocator to delete all keys
-//	a, err := NewAllocator(allocatorName, TestType(""), WithSuffix("a"))
-//	c.Assert(err, IsNil)
-//	c.Assert(a, Not(IsNil))
-//	defer a.DeleteAllKeys()
-//	defer a.Delete()
-//
-//	for i := 0; i < 2; i++ {
-//		wg.Add(1)
-//		go func() {
-//			defer wg.Done()
-//			testParallelAllocator(c, idpool.ID(64), allocatorName, fmt.Sprintf("node-%d", i))
-//		}()
-//	}
-//
-//	wg.Wait()
-//}

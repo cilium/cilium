@@ -19,16 +19,20 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/allocator"
+	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
 )
 
 // globalIdentity is the structure used to store an identity in the kvstore
@@ -46,13 +50,29 @@ func (gi globalIdentity) GetKey() string {
 	return kvstore.Encode([]byte(str))
 }
 
-// PutKey() decodes a globalIdentity from its string representation
+// GetAsMap() encodes a globalIdentity as string
+func (gi globalIdentity) GetAsMap() map[string]string {
+	m := map[string]string{}
+
+	for _, v := range gi.LabelArray {
+		m[v.Source+":"+v.Key] = v.Value
+
+	}
+	return m
+}
+
+// PutKey() decides a globalIdentity from its string representation
 func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 	b, err := kvstore.Decode(v)
 	if err != nil {
 		return nil, err
 	}
 	return globalIdentity{labels.NewLabelArrayFromSortedList(string(b))}, nil
+}
+
+// PutKeyFromMap() decides a globalIdentity from its string representation
+func (gi globalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorKey {
+	return globalIdentity{labels.NewLabelArrayFromMap(v, "")}
 }
 
 var (
@@ -85,11 +105,9 @@ type IdentityAllocatorOwner interface {
 	GetNodeSuffix() string
 }
 
-// InitIdentityAllocator creates the the identity allocator. Only the
-// first invocation of this function will have an effect.  Caller must
-// have initialized well known identities before calling this (by
-// calling identity.InitWellKnownIdentities()).
-func InitIdentityAllocator(owner IdentityAllocatorOwner) {
+// InitIdentityAllocator creates the the identity allocator. Only the first
+// invocation of this function will have an effect.
+func InitIdentityAllocator(owner IdentityAllocatorOwner, client clientset.Interface, identityStore cache.Store) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
 
@@ -108,17 +126,41 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	// initial cache
 	watcher.watch(owner, events)
 
-	a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
+	var (
+		backend allocator.Backend
+		err     error
+	)
+
+	switch option.Config.IdentityAllocationMode {
+	case option.IdentityAllocationModeKVstore:
+		backend, err = kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), globalIdentity{})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+		}
+
+	case option.IdentityAllocationModeCRD:
+		log.Info("XXX: Using CRD mode")
+		backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
+			NodeName: owner.GetNodeSuffix(),
+			Store:    identityStore,
+			Client:   client,
+			KeyType:  globalIdentity{},
+		})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+		}
+	}
+
+	a, err := allocator.NewAllocator(globalIdentity{}, backend,
 		allocator.WithMax(maxID), allocator.WithMin(minID),
-		allocator.WithSuffix(owner.GetNodeSuffix()),
 		allocator.WithEvents(events),
 		allocator.WithMasterKeyProtection(),
 		allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize identity allocator")
 	}
-
 	IdentityAllocator = a
+
 	close(identityAllocatorInitialized)
 	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
 
