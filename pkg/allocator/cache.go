@@ -15,20 +15,20 @@
 package allocator
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
+	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
 )
 
 // idMap provides mapping from ID to an AllocatorKey
-type idMap map[idpool.ID]AllocatorKey
+type idMap map[idpool.ID]kvstoreallocator.AllocatorKey
 
 // keyMap provides mapping from AllocatorKey to ID
 type keyMap map[string]idpool.ID
@@ -92,9 +92,18 @@ func (c *cache) getLogger() *logrus.Entry {
 	})
 }
 
-func (c *cache) keyToID(key string) (id idpool.ID, err error) {
+func invalidKey(key, prefix string, deleteInvalid bool) {
+	log.WithFields(logrus.Fields{fieldKey: key, fieldPrefix: prefix}).Warning("Found invalid key outside of prefix")
+
+	if deleteInvalid {
+		kvstore.Delete(key)
+	}
+}
+
+func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
 	if !strings.HasPrefix(key, c.prefix) {
-		return idpool.NoID, fmt.Errorf("Found invalid key \"%s\" outside of prefix \"%s\"", key, c.prefix)
+		invalidKey(key, c.prefix, deleteInvalid)
+		return idpool.NoID
 	}
 
 	suffix := strings.TrimPrefix(key, c.prefix)
@@ -102,12 +111,13 @@ func (c *cache) keyToID(key string) (id idpool.ID, err error) {
 		suffix = suffix[1:]
 	}
 
-	idParsed, err := strconv.ParseUint(suffix, 10, 64)
+	id, err := strconv.ParseUint(suffix, 10, 64)
 	if err != nil {
-		return idpool.NoID, fmt.Errorf("Cannot parse key suffix \"%s\"", suffix)
+		invalidKey(key, c.prefix, deleteInvalid)
+		return idpool.NoID
 	}
 
-	return idpool.ID(idParsed), nil
+	return idpool.ID(id)
 }
 
 // start requests a LIST operation from the kvstore and starts watching the
@@ -151,19 +161,11 @@ func (c *cache) start(a *Allocator) waitChan {
 					continue
 				}
 
-				id, err := c.keyToID(event.Key)
-				switch {
-				case err != nil:
-					log.WithError(err).WithField(fieldKey, event.Value).Warning("Invalid key")
-
-					if c.deleteInvalidPrefixes {
-						kvstore.Delete(event.Key)
-					}
-
-				case id != idpool.NoID:
+				id := c.keyToID(event.Key, c.deleteInvalidPrefixes)
+				if id != 0 {
 					c.mutex.Lock()
 
-					var key AllocatorKey
+					var key kvstoreallocator.AllocatorKey
 
 					if len(event.Value) > 0 {
 						var err error
@@ -200,7 +202,7 @@ func (c *cache) start(a *Allocator) waitChan {
 
 						if a.enableMasterKeyProtection {
 							if value := a.localKeys.lookupID(id); value != "" {
-								a.recreateMasterKey(id, value, true)
+								a.backend.RecreateMasterKey(id, value, true)
 								break
 							}
 						}
@@ -256,7 +258,7 @@ func (c *cache) get(key string) idpool.ID {
 	return idpool.NoID
 }
 
-func (c *cache) getByID(id idpool.ID) AllocatorKey {
+func (c *cache) getByID(id idpool.ID) kvstoreallocator.AllocatorKey {
 	c.mutex.RLock()
 	if v, ok := c.cache[id]; ok {
 		c.mutex.RUnlock()
@@ -275,7 +277,7 @@ func (c *cache) foreach(cb RangeFunc) {
 	c.mutex.RUnlock()
 }
 
-func (c *cache) insert(key AllocatorKey, val idpool.ID) {
+func (c *cache) insert(key kvstoreallocator.AllocatorKey, val idpool.ID) {
 	c.mutex.Lock()
 	c.nextCache[val] = key
 	c.nextKeyCache[key.GetKey()] = val
