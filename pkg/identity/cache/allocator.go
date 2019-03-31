@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/allocator"
+	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -47,6 +48,17 @@ func (gi globalIdentity) GetKey() string {
 	return kvstore.Encode([]byte(str))
 }
 
+// GetAsMap() encodes a globalIdentity as string
+func (gi globalIdentity) GetAsMap() map[string]string {
+	m := map[string]string{}
+
+	for _, v := range gi.LabelArray {
+		m[v.Source+":"+v.Key] = v.Value
+
+	}
+	return m
+}
+
 // PutKey() decodes a globalIdentity from its string representation
 func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 	b, err := kvstore.Decode(v)
@@ -54,6 +66,11 @@ func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 		return nil, err
 	}
 	return globalIdentity{labels.NewLabelArrayFromSortedList(string(b))}, nil
+}
+
+// PutKeyFromMap() decodes a globalIdentity from its string representation
+func (gi globalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorKey {
+	return globalIdentity{labels.NewLabelArrayFromMap(v, "")}
 }
 
 var (
@@ -130,10 +147,14 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 		setupMutex.Lock()
 		defer setupMutex.Unlock()
 
-		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
+		backend, err := kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), globalIdentity{})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+		}
+
+		a, err := allocator.NewAllocator(globalIdentity{}, backend,
 			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithSuffix(owner.GetNodeSuffix()),
-			allocator.WithEvents(evs),
+			allocator.WithEvents(events),
 			allocator.WithMasterKeyProtection(),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 		if err != nil {
