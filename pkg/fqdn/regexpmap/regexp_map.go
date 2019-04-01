@@ -19,10 +19,77 @@ import (
 	"sort"
 )
 
-// lookupValueSet is a utility type. It is intended as a set of strings
-// inserted into a RegexpMap. Lookups are mapped to number of times
-// they were added to map.
-type lookupValueSet map[string]int
+// RegexpList is a utility struct that keeps an array of strings sorted by
+// length
+type RegexpList struct {
+	data []string
+}
+
+// NewRegexpList returns a new RegexpList, if any initialValues is in place
+// will add into the utility.
+func NewRegexpList(initialValues ...string) *RegexpList {
+	data := []string{}
+
+	for _, x := range initialValues {
+		data = append(data, x)
+	}
+
+	sort.Slice(data, func(i, j int) bool {
+		return len(data[i]) < len(data[j])
+	})
+
+	return &RegexpList{
+		data: data,
+	}
+}
+
+// Add function adds a new item in the list and sort the data based on the
+// length
+func (r *RegexpList) Add(val string) {
+	for _, item := range r.data {
+		if item == val {
+			return
+		}
+	}
+
+	tmpData := append(r.data, val)
+
+	sort.Slice(tmpData, func(i, j int) bool {
+		return len(tmpData[i]) < len(tmpData[j])
+	})
+
+	r.data = tmpData
+	return
+}
+
+// Remove removes the item from the internal array and keep the data sorted
+func (r *RegexpList) Remove(val string) {
+	tmpData := []string{}
+	for _, item := range r.data {
+		if item == val {
+			continue
+		}
+		tmpData = append(tmpData, item)
+	}
+
+	r.data = tmpData
+	return
+}
+
+// Empty empties the internal array
+func (r *RegexpList) Empty() {
+	r.data = []string{}
+}
+
+// Get return an array of strings ordered by string len
+func (r *RegexpList) Get() []string {
+	return r.data
+}
+
+// Len returns the len of the internal array.
+func (r *RegexpList) Len() int {
+	return len(r.data)
+}
 
 // RegexpMap is a map-like type that allows lookups to match regexp keys. These
 // keys are managed internally as strings, and are uniqued by this
@@ -32,41 +99,55 @@ type lookupValueSet map[string]int
 // Note: RegexpMap is not thread-safe and managing concurrent access is the
 // responsibility of the callers.
 type RegexpMap struct {
-	// lookups maps the original key string to the values added with it in .Add.
-	// These values are returned when a "key" (the matching regex in rules)
-	// matches.
-	lookups map[string]lookupValueSet
-	// rules maps the original key string to the compiled regex for it. A .Lookup
-	// call will iterate over all the values in this map.
+
+	// lookupValues is a map that use a lookupValue as a key and has a
+	// RegexpList with the rules that ONLY affect that lookupValue
+	lookupValues map[string]*RegexpList
+
+	// rules is a map that use a regular expression as a key and the value is
+	// the compiled regexp
 	rules map[string]*regexp.Regexp
+
+	// rulesRelation is a map that use a regular expression as a key and the
+	// values are all the lookupValues that has used this rule.
+	rulesRelation map[string]*RegexpList
 }
 
 // NewRegexpMap returns an initialized RegexpMap
 func NewRegexpMap() *RegexpMap {
 	return &RegexpMap{
-		lookups: make(map[string]lookupValueSet),
-		rules:   make(map[string]*regexp.Regexp),
+		lookupValues:  make(map[string]*RegexpList),
+		rules:         make(map[string]*regexp.Regexp),
+		rulesRelation: make(map[string]*RegexpList),
 	}
 }
 
-// Add associates lookupValue as a return value for reStr on lookup
-// Repeated calls with the same reStr will not recompile the regexp, but will
-// store all lookupValues in a set
+// Add associates a Regular expression to a lookupValue that will be used in
+// the lookup functions. It will return an error and data will be not saved if
+// the regexp does not compile correctly
 func (m *RegexpMap) Add(reStr string, lookupValue string) error {
-	// if this is the first Add of reStr, compile the regexp and setup the
-	// lookupValue set
-	if _, exists := m.rules[reStr]; !exists {
+	_, exists := m.rules[reStr]
+	if !exists {
 		rule, err := regexp.Compile(reStr)
 		if err != nil {
 			return err
 		}
 		m.rules[reStr] = rule
-		m.lookups[reStr] = lookupValueSet{}
 	}
 
-	// add the lookupValue to the set for reStr
-	m.lookups[reStr][lookupValue]++
+	val, exists := m.lookupValues[lookupValue]
+	if !exists {
+		val = NewRegexpList()
+		m.lookupValues[lookupValue] = val
+	}
+	val.Add(reStr)
 
+	val, exists = m.rulesRelation[reStr]
+	if !exists {
+		val = NewRegexpList()
+		m.rulesRelation[reStr] = val
+	}
+	val.Add(lookupValue)
 	return nil
 }
 
@@ -74,11 +155,14 @@ func (m *RegexpMap) Add(reStr string, lookupValue string) error {
 // matches lookupKey
 func (m *RegexpMap) LookupValues(lookupKey string) (lookupValues []string) {
 	for reStr, rule := range m.rules {
+
 		if !rule.MatchString(lookupKey) {
 			continue
 		}
-		for lookupValue := range m.lookups[reStr] {
-			lookupValues = append(lookupValues, lookupValue)
+
+		val, exists := m.rulesRelation[reStr]
+		if exists {
+			lookupValues = append(lookupValues, val.Get()...)
 		}
 	}
 	return keepUniqueStrings(lookupValues)
@@ -88,20 +172,17 @@ func (m *RegexpMap) LookupValues(lookupKey string) (lookupValues []string) {
 // matches lookupKey AND has a lookupValue, inserted via the same Add, that
 // matches expectedValue.
 func (m *RegexpMap) LookupContainsValue(lookupKey, expectedValue string) (found bool) {
-	for reStr, rule := range m.rules {
-		if !rule.MatchString(lookupKey) {
-			continue
-		}
+	val, exists := m.lookupValues[expectedValue]
+	if !exists {
+		return false
+	}
 
-		// The values are stored as a set, so a simple map lookup works.
-		// The double lookup here is safe because it seems to short-circuits when
-		// reStr is not present. The value in that case, which we don't use anyway,
-		// is an empty struct{}.
-		// Note: Lookups on nil maps work, hence the unguarded double lookup here.
-		// If reStr is not in m.lookups, the second lookup for expectedValue is
-		// also found==false.
-		if _, found := m.lookups[reStr][expectedValue]; found {
-			return true
+	for _, item := range val.Get() {
+		rule := m.rules[item]
+		if rule != nil {
+			if rule.MatchString(lookupKey) {
+				return true
+			}
 		}
 	}
 	return false
@@ -111,24 +192,22 @@ func (m *RegexpMap) LookupContainsValue(lookupKey, expectedValue string) (found 
 // lookupValues remain for reStr the internall regexp is deleted (later Adds
 // will recompile it).
 func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
-	if _, exists := m.rules[reStr]; !exists {
-		return false
+
+	val, exists := m.lookupValues[lookupValue]
+	if exists {
+		val.Remove(reStr)
 	}
 
-	if m.lookups[reStr][lookupValue] > 0 {
-		m.lookups[reStr][lookupValue]--
-	}
-	if m.lookups[reStr][lookupValue] == 0 {
-		delete(m.lookups[reStr], lookupValue)
-	}
-	if len(m.lookups[reStr]) > 0 {
-		// there are still references to this lookup so we do not clean it up below
-		return false
+	val, exists = m.rulesRelation[reStr]
+	if !exists {
+		delete(m.rules, reStr)
+		return true
 	}
 
-	// clean everything up
-	delete(m.lookups, reStr)
-	delete(m.rules, reStr)
+	val.Remove(lookupValue)
+	if val.Len() == 0 {
+		delete(m.rules, reStr)
+	}
 	return true
 }
 

@@ -34,6 +34,21 @@ type RegexpMapTestSuite struct{}
 
 var _ = Suite(&RegexpMapTestSuite{})
 
+func (ds *RegexpMapTestSuite) TestRegexList(c *C) {
+	m := NewRegexpList(".*", "foo.bar.", "www.*.com")
+
+	res := m.Get()
+	c.Assert(res, HasLen, 3)
+	c.Assert(res[0], Equals, ".*")
+	c.Assert(res[2], Equals, "www.*.com")
+
+	m.Remove(".*")
+	c.Assert(m.Get(), HasLen, 2)
+
+	m.Remove(".*")
+	c.Assert(m.Get(), HasLen, 2)
+}
+
 func (ds *RegexpMapTestSuite) TestREMapInsertLookup(c *C) {
 	// Can we compile and add entries
 	m := NewRegexpMap()
@@ -61,8 +76,8 @@ func (ds *RegexpMapTestSuite) TestREMapInsertLookup(c *C) {
 	c.Assert(match, Equals, false, Commentf("Match for key that matches & value that does not match"))
 	match = m.LookupContainsValue("notabar.com.", "ID2")
 	c.Assert(match, Equals, false, Commentf("Match for key that does not matche & value that does match"))
-
 	// Does removing an entry also remove it from lookup returns
+
 	m.Remove("foo.bar.com.", "ID1")
 	keys = m.LookupValues("foo.bar.com.")
 	c.Assert(len(keys), Equals, 1, Commentf("Incorrect number of values returned %v", keys))
@@ -82,26 +97,6 @@ func (ds *RegexpMapTestSuite) TestKeepUniqueStrings(c *C) {
 	for i, elem := range in[:2] {
 		c.Assert(elem, Equals, out[i])
 	}
-}
-
-func (ds *RegexpMapTestSuite) TestRefCount(c *C) {
-	m := NewRegexpMap()
-	domain := "foo.bar.com."
-	endpoint := "ID1"
-
-	m.Add(domain, endpoint)
-	m.Add(domain, endpoint)
-
-	c.Assert(m.lookups[domain][endpoint], Equals, 2)
-
-	m.Remove(domain, endpoint)
-
-	c.Assert(m.lookups[domain][endpoint], Equals, 1)
-
-	m.Remove(domain, endpoint)
-	_, found := m.lookups[domain]
-
-	c.Assert(found, Equals, false)
 }
 
 //  reSize is the number of distinct subpatterns/regexes to benchmark with
