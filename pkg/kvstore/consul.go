@@ -547,18 +547,18 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 	return pair.Value, nil
 }
 
-// GetPrefix returns the first key which matches the prefix
-func (c *consulClient) GetPrefix(prefix string) ([]byte, error) {
+// GetPrefix returns the first key which matches the prefix and its value
+func (c *consulClient) GetPrefix(prefix string) (string, []byte, error) {
 	pairs, _, err := c.KV().List(prefix, nil)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	if len(pairs) == 0 {
-		return nil, nil
+		return "", nil, nil
 	}
 
-	return pairs[0].Value, nil
+	return pairs[0].Key, pairs[0].Value, nil
 }
 
 // Update creates or updates a key with the value
