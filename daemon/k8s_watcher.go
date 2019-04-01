@@ -37,6 +37,7 @@ import (
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -49,9 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/spanstat"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -90,12 +89,6 @@ const (
 )
 
 var (
-	k8sServerVer *go_version.Version
-
-	networkPolicyV1VerConstr = versioncheck.MustCompile(">= 1.7.0")
-
-	ciliumv2VerConstr = versioncheck.MustCompile(">= 1.8.0")
-
 	k8sCM = controller.NewManager()
 
 	importMetadataCache = ruleImportMetadataCache{
@@ -350,21 +343,11 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	k8sServerVer, err = k8s.GetServerVersion()
+	err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
 	if err != nil {
-		return fmt.Errorf("unable to retrieve kubernetes serverversion: %s", err)
+		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}
-
-	switch {
-	case ciliumv2VerConstr.Check(k8sServerVer):
-		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
-		if err != nil {
-			return fmt.Errorf("Unable to create custom resource definition: %s", err)
-		}
-		d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
-	default:
-		return fmt.Errorf("Unsupported k8s version. Minimal supported version is %s", ciliumv2VerConstr.String())
-	}
+	d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 
 	ciliumNPClient := k8s.CiliumClient()
 
@@ -377,78 +360,75 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	serNodes := serializer.NewFunctionQueue(queueSize)
 	serNamespaces := serializer.NewFunctionQueue(queueSize)
 
-	switch {
-	case networkPolicyV1VerConstr.Check(k8sServerVer):
-		_, policyController := k8s.NewInformer(
-			cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
-				"networkpolicies", v1.NamespaceAll, fields.Everything()),
-			&networkingv1.NetworkPolicy{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() { d.k8sEventReceived(metricKNP, metricCreate, valid, equal) }()
-					if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
-						valid = true
+	_, policyController := k8s.NewInformer(
+		cache.NewListWatchFromClient(k8s.Client().NetworkingV1().RESTClient(),
+			"networkpolicies", v1.NamespaceAll, fields.Everything()),
+		&networkingv1.NetworkPolicy{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				var valid, equal bool
+				defer func() { d.k8sEventReceived(metricKNP, metricCreate, valid, equal) }()
+				if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
+					valid = true
+					serKNPs.Enqueue(func() error {
+						err := d.addK8sNetworkPolicyV1(k8sNP)
+						updateK8sEventMetric(metricKNP, metricCreate, err == nil)
+						return nil
+					}, serializer.NoRetry)
+				}
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				var valid, equal bool
+				defer func() { d.k8sEventReceived(metricKNP, metricUpdate, valid, equal) }()
+				if oldK8sNP := k8s.CopyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
+					valid = true
+					if newK8sNP := k8s.CopyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+						if k8s.EqualV1NetworkPolicy(oldK8sNP, newK8sNP) {
+							equal = true
+							return
+						}
+
 						serKNPs.Enqueue(func() error {
-							err := d.addK8sNetworkPolicyV1(k8sNP)
-							updateK8sEventMetric(metricKNP, metricCreate, err == nil)
+							err := d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+							updateK8sEventMetric(metricKNP, metricUpdate, err == nil)
 							return nil
 						}, serializer.NoRetry)
 					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					var valid, equal bool
-					defer func() { d.k8sEventReceived(metricKNP, metricUpdate, valid, equal) }()
-					if oldK8sNP := k8s.CopyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
-						valid = true
-						if newK8sNP := k8s.CopyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
-							if k8s.EqualV1NetworkPolicy(oldK8sNP, newK8sNP) {
-								equal = true
-								return
-							}
-
-							serKNPs.Enqueue(func() error {
-								err := d.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
-								updateK8sEventMetric(metricKNP, metricUpdate, err == nil)
-								return nil
-							}, serializer.NoRetry)
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() { d.k8sEventReceived(metricKNP, metricDelete, valid, equal) }()
-					k8sNP := k8s.CopyObjToV1NetworkPolicy(obj)
-					if k8sNP == nil {
-						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-						if !ok {
-							return
-						}
-						// Delete was not observed by the watcher but is
-						// removed from kube-apiserver. This is the last
-						// known state and the object no longer exists.
-						k8sNP = k8s.CopyObjToV1NetworkPolicy(deletedObj.Obj)
-						if k8sNP == nil {
-							return
-						}
-					}
-
-					valid = true
-					serKNPs.Enqueue(func() error {
-						err := d.deleteK8sNetworkPolicyV1(k8sNP)
-						updateK8sEventMetric(metricKNP, metricDelete, err == nil)
-						return nil
-					}, serializer.NoRetry)
-				},
+				}
 			},
-			k8s.ConvertToNetworkPolicy,
-		)
-		d.blockWaitGroupToSyncResources(policyController, k8sAPIGroupNetworkingV1Core)
-		go policyController.Run(wait.NeverStop)
+			DeleteFunc: func(obj interface{}) {
+				var valid, equal bool
+				defer func() { d.k8sEventReceived(metricKNP, metricDelete, valid, equal) }()
+				k8sNP := k8s.CopyObjToV1NetworkPolicy(obj)
+				if k8sNP == nil {
+					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+					if !ok {
+						return
+					}
+					// Delete was not observed by the watcher but is
+					// removed from kube-apiserver. This is the last
+					// known state and the object no longer exists.
+					k8sNP = k8s.CopyObjToV1NetworkPolicy(deletedObj.Obj)
+					if k8sNP == nil {
+						return
+					}
+				}
 
-		d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
-	}
+				valid = true
+				serKNPs.Enqueue(func() error {
+					err := d.deleteK8sNetworkPolicyV1(k8sNP)
+					updateK8sEventMetric(metricKNP, metricDelete, err == nil)
+					return nil
+				}, serializer.NoRetry)
+			},
+		},
+		k8s.ConvertToNetworkPolicy,
+	)
+	d.blockWaitGroupToSyncResources(policyController, k8sAPIGroupNetworkingV1Core)
+	go policyController.Run(wait.NeverStop)
+
+	d.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 
 	_, svcController := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
@@ -665,7 +645,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	)
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	switch {
-	case k8s.JSONPatchVerConstr.Check(k8sServerVer) || option.Config.K8sForceJSONPatch:
+	case k8sversion.Capabilities().Patch:
 		// k8s >= 1.13 does not require a store to update CNP status so
 		// we don't even need to keep the status of a CNP with us.
 		cnpConverterFunc = k8s.ConvertToCNP
@@ -1348,7 +1328,6 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
-		K8sServerVer:                k8sServerVer,
 		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
 	}
@@ -1400,7 +1379,6 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
-		K8sServerVer:                k8sServerVer,
 		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
 	}

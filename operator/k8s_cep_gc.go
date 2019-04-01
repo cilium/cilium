@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
@@ -34,12 +33,6 @@ import (
 // Note that only one node per cluster should run this, and most iterations
 // will simply return.
 const ciliumEndpointGCInterval = 30 * time.Minute
-
-var (
-	// ciliumEPControllerLimit is the range of k8s versions with which we are
-	// willing to run the EndpointCRD controllers
-	ciliumEPControllerLimit = versioncheck.MustCompile("> 1.6")
-)
 
 // enableCiliumEndpointSyncGC starts the node-singleton sweeper for
 // CiliumEndpoint objects where the managing node is no longer running. These
@@ -57,19 +50,6 @@ func enableCiliumEndpointSyncGC() {
 		controllerName = "to-k8s-ciliumendpoint-gc"
 		scopedLog      = log.WithField("controller", controllerName)
 	)
-
-	sv, err := k8s.GetServerVersion()
-	if err != nil {
-		scopedLog.WithError(err).Error("unable to retrieve kubernetes serverversion")
-		return
-	}
-	if !ciliumEPControllerLimit.Check(sv) {
-		scopedLog.WithFields(logrus.Fields{
-			"expected": sv,
-			"found":    ciliumEPControllerLimit,
-		}).Warn("cannot run with this k8s version")
-		return
-	}
 
 	ciliumClient := ciliumK8sClient.CiliumV2()
 

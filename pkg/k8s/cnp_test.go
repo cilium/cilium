@@ -33,11 +33,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -98,7 +98,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	//         this will make 2 attempts
 	// the code paths for A-1.13, B-1.13 and C-1.13 can be found in the comments
 
-	k8sServerVer, err := go_version.NewVersion(k8sVersion)
+	err := k8sversion.Force(k8sVersion)
 	c.Assert(err, IsNil)
 
 	cnp := &types.SlimCNP{
@@ -318,7 +318,6 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	updateContext := &CNPStatusUpdateContext{
 		CiliumNPClient: ciliumNPClient,
 		NodeName:       "k8s1",
-		K8sServerVer:   k8sServerVer,
 	}
 
 	cnpns := wantedCNPS.Nodes["k8s1"]
@@ -333,7 +332,6 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	updateContext = &CNPStatusUpdateContext{
 		CiliumNPClient: ciliumNPClient,
 		NodeName:       "k8s2",
-		K8sServerVer:   k8sServerVer,
 	}
 
 	cnpns = wantedCNPS.Nodes["k8s2"]
@@ -368,7 +366,6 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 	updateContext = &CNPStatusUpdateContext{
 		CiliumNPClient: ciliumNPClient,
 		NodeName:       "k8s1",
-		K8sServerVer:   k8sServerVer,
 	}
 
 	cnpns = wantedCNPS.Nodes["k8s1"]
@@ -407,7 +404,7 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 		c.Skip("Unit test only available with INTEGRATION=1")
 	}
 
-	k8sServerVer, err := go_version.NewVersion(k8sVersion)
+	err := k8sversion.Force(k8sVersion)
 	c.Assert(err, IsNil)
 
 	cnp := &types.SlimCNP{
@@ -451,7 +448,7 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 
 	var cnpStore cache.Store
 	switch {
-	case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+	case k8sversion.Capabilities().UpdateStatus:
 		// k8s >= 1.13 does not require a store
 	default:
 		// TODO create a cache.Store per node
@@ -477,7 +474,6 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 					CiliumNPClient: ciliumNPClients[i],
 					NodeName:       "k8s" + strconv.Itoa(i),
 					CiliumV2Store:  cnpStore,
-					K8sServerVer:   k8sServerVer,
 					WaitForEndpointsAtPolicyRev: func(ctx context.Context, rev uint64) error {
 						return nil
 					},
@@ -532,7 +528,7 @@ func (k *K8sIntegrationSuite) Benchmark_CNPNodeStatusController_1_13(c *C) {
 }
 
 func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool, nNodes int, nParallelClients int, k8sVersion string, c *C) {
-	k8sServerVer, err := go_version.NewVersion(k8sVersion)
+	err := k8sversion.Force(k8sVersion)
 	c.Assert(err, IsNil)
 	cnp := &types.SlimCNP{
 		CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{
@@ -602,7 +598,6 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 				updateContext := &CNPStatusUpdateContext{
 					CiliumNPClient: ciliumNPClients[i],
 					NodeName:       "k8s" + strconv.Itoa(i),
-					K8sServerVer:   k8sServerVer,
 				}
 				err := updateContext.update(cnp, true, true, nil, uint64(i), nil)
 				c.Assert(err, IsNil)

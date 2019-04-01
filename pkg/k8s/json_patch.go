@@ -14,15 +14,6 @@
 
 package k8s
 
-import (
-	"github.com/cilium/cilium/pkg/versioncheck"
-)
-
-var (
-	// JSONPatchVerConstr is the minimal k8s version supported for JSON Patch
-	JSONPatchVerConstr = versioncheck.MustCompile(">= 1.13.0")
-)
-
 // JSONPatch structure based on the RFC 6902
 type JSONPatch struct {
 	OP    string      `json:"op,omitempty"`

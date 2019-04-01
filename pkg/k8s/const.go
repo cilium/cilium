@@ -30,9 +30,4 @@ const (
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"
-
-	// compatibleK8sVersions is the range of k8s versions this cilium is able to
-	// work with. It will change as we add new support or deprecate older k8s
-	// versions.
-	compatibleK8sVersions = "> 1.6"
 )

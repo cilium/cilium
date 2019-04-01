@@ -23,10 +23,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/sirupsen/logrus"
 )
@@ -112,11 +112,6 @@ func useNodeCIDR(n *node.Node) {
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
 func Init() error {
-	compatibleVersions, err := versioncheck.Compile(compatibleK8sVersions)
-	if err != nil {
-		return fmt.Errorf("unable to parse compatible k8s verions: %s", err)
-	}
-
 	if err := createDefaultClient(); err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
@@ -125,12 +120,13 @@ func Init() error {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
 	}
 
-	sv, err := GetServerVersion()
-	if err != nil {
-		return fmt.Errorf("k8s client failed to talk to k8s api-server: %s", err)
+	if err := k8sversion.Update(Client()); err != nil {
+		return err
 	}
-	if !compatibleVersions.Check(sv) {
-		return fmt.Errorf("k8s version (%v) is not in compatible range (%v)", sv, compatibleK8sVersions)
+
+	if !k8sversion.Capabilities().MinimalVersionMet {
+		return fmt.Errorf("k8s version (%v) is not meeting the minimal requirement (%v)",
+			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {

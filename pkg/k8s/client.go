@@ -24,7 +24,6 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	go_version "github.com/hashicorp/go-version"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -101,35 +100,6 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 		log.Info("Connected to apiserver")
 	}
 	return cs, err
-}
-
-// GetServerVersion returns the kubernetes api-server version.
-func GetServerVersion() (ver *go_version.Version, err error) {
-	sv, err := Client().Discovery().ServerVersion()
-	if err != nil {
-		return nil, err
-	}
-
-	// Try GitVersion first. In case of error fallback to MajorMinor
-	if sv.GitVersion != "" {
-		// This is a string like "v1.9.0"
-		ver, err = go_version.NewVersion(sv.GitVersion)
-		if err == nil {
-			return ver, err
-		}
-	}
-
-	if sv.Major != "" && sv.Minor != "" {
-		ver, err = go_version.NewVersion(fmt.Sprintf("%s.%s", sv.Major, sv.Minor))
-		if err == nil {
-			return ver, nil
-		}
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
-	}
-	return nil, fmt.Errorf("cannot parse k8s server version from %+v", sv)
 }
 
 // isConnReady returns the err for the controller-manager status
