@@ -26,22 +26,15 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
-	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-)
-
-var (
-	ciliumPatchStatusVerConstr  = versioncheck.MustCompile(">= 1.13.0")
-	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
 )
 
 // ErrParse is an error to describe where policy fails to parse due any invalid
@@ -78,9 +71,6 @@ type CNPStatusUpdateContext struct {
 	// NodeManager implements the backoff.NodeManager interface and is used
 	// to provide cluster-size dependent backoff
 	NodeManager backoff.NodeManager
-
-	// K8sServerVer is the Kubernetes apiserver version
-	K8sServerVer *go_version.Version
 
 	// UpdateDuration must be populated using spanstart.Start() to provide
 	// the timestamp of when the status update operation was started. It is
@@ -285,10 +275,12 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 		err         error
 	)
 
+	capabilities := k8sversion.Capabilities()
+
 	switch {
 	case cnpAnnotations == nil:
 		// don't bother doing anything if cnpAnnotations is nil.
-	case ciliumPatchStatusVerConstr.Check(c.K8sServerVer) || option.Config.K8sForceJSONPatch:
+	case capabilities.Patch:
 		// in k8s versions that support JSON Patch we can safely modify the
 		// cnpAnnotations as the CNP, along with these annotations, is not sent to
 		// k8s api-server.
@@ -334,7 +326,7 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 	ns := k8sUtils.ExtractNamespace(&cnp.ObjectMeta)
 
 	switch {
-	case ciliumPatchStatusVerConstr.Check(c.K8sServerVer) || option.Config.K8sForceJSONPatch:
+	case capabilities.Patch:
 		// This is a JSON Patch [RFC 6902] used to create the `/status/nodes`
 		// field in the CNP. If we don't create, replacing the status for this
 		// node will fail as the path does not exist.
@@ -386,7 +378,7 @@ func (c *CNPStatusUpdateContext) update(cnp *types.SlimCNP, enforcing, ok bool, 
 			}
 			_, err = c.CiliumNPClient.CiliumV2().CiliumNetworkPolicies(ns).Patch(cnp.GetName(), k8sTypes.JSONPatchType, createStatusAndNodePatchJSON, "status")
 		}
-	case ciliumUpdateStatusVerConstr.Check(c.K8sServerVer):
+	case capabilities.UpdateStatus:
 		// k8s < 1.13 as minimal support for JSON patch where kube-apiserver
 		// can print Error messages and even panic in k8s < 1.10.
 		cnp.SetPolicyStatus(c.NodeName, cnpns)

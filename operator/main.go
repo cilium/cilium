@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -158,6 +159,11 @@ func runOperator(cmd *cobra.Command) {
 	}
 
 	ciliumK8sClient = k8s.CiliumClient()
+	k8sversion.Update(k8s.Client())
+	if !k8sversion.Capabilities().MinimalVersionMet {
+		log.Fatalf("Minimal kubernetes version not met: %s < %s",
+			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
+	}
 
 	if synchronizeServices {
 		startSynchronizingServices()

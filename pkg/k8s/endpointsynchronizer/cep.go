@@ -25,12 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/versioncheck"
-	go_version "github.com/hashicorp/go-version"
 
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,16 +39,6 @@ import (
 // TODO - see whether folding the global variables below into this function
 // is cleaner.
 type EndpointSynchronizer struct{}
-
-var (
-	// ciliumEPControllerLimit is the range of k8s versions with which we are
-	// willing to run the EndpointCRD controllers
-	ciliumEPControllerLimit = versioncheck.MustCompile("> 1.6")
-
-	// ciliumUpdateStatusVerConstr is the minimal version supported for
-	// to perform a CRD UpdateStatus.
-	ciliumUpdateStatusVerConstr = versioncheck.MustCompile(">= 1.11.0")
-)
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD. It is expected that each CEP
@@ -84,10 +72,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	}
 
 	var (
-		lastMdl      *cilium_v2.EndpointStatus
-		localCEP     *cilium_v2.CiliumEndpoint // the local copy of the CEP object. Reused.
-		needInit     = true                    // needInit indicates that we may need to create the CEP
-		k8sServerVer *go_version.Version       // CEPs are not supported with certain versions
+		lastMdl  *cilium_v2.EndpointStatus
+		localCEP *cilium_v2.CiliumEndpoint // the local copy of the CEP object. Reused.
+		needInit = true                    // needInit indicates that we may need to create the CEP
 	)
 
 	// NOTE: The controller functions do NOT hold the endpoint locks
@@ -99,26 +86,11 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// was created.
 				scopedLog = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 
-				// This lookup can fail but once we do it once, we no longer want to try again.
-				if k8sServerVer == nil {
-					var err error
-					k8sServerVer, err = k8s.GetServerVersion()
-					switch {
-					case err != nil:
-						scopedLog.WithError(err).Error("Unable to retrieve kubernetes server version")
-						return err
+				if k8sversion.Version() == nil {
+					return fmt.Errorf("Kubernetes apiserver is not available")
+				}
 
-					case !ciliumEPControllerLimit.Check(k8sServerVer):
-						scopedLog.WithFields(logrus.Fields{
-							"found":    k8sServerVer,
-							"expected": ciliumEPControllerLimit,
-						}).Warn("Cannot run with this k8s version")
-						return nil
-					}
-				}
-				if k8sServerVer == nil || !ciliumEPControllerLimit.Check(k8sServerVer) {
-					return nil // silently return when k8s is incompatible
-				}
+				capabilities := k8sversion.Capabilities()
 
 				// K8sPodName and K8sNamespace are not always available when an
 				// endpoint is first created, so we collect them here.
@@ -204,7 +176,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				}
 
 				switch {
-				case k8s.JSONPatchVerConstr.Check(k8sServerVer) || option.Config.K8sForceJSONPatch:
+				case capabilities.Patch:
 					// For json patch we don't need to perform a GET for endpoints
 
 					// If it fails it means the test from the previous patch failed
@@ -229,7 +201,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					scopedLog.Debug("Updating CEP from local copy")
 					mdl.DeepCopyInto(&localCEP.Status)
 					switch {
-					case ciliumUpdateStatusVerConstr.Check(k8sServerVer):
+					case capabilities.UpdateStatus:
 						localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(localCEP)
 					default:
 						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Update(localCEP)

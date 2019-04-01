@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	go_version "github.com/hashicorp/go-version"
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -302,9 +301,6 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			},
 		},
 	}
-	var err error
-	k8sServerVer, err = go_version.NewVersion("1.13")
-	c.Assert(err, IsNil)
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
