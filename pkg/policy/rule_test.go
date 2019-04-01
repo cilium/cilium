@@ -2019,11 +2019,11 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(len(filter.Endpoints), Equals, 2)
 	c.Assert(filter.Endpoints[0], Equals, api.WildcardEndpointSelector)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
 
 	// Test the reverse order as well; ensure that we check both conditions
 	// for if L4-only policy is in the L4Filter for the same port-protocol tuple,
@@ -2069,10 +2069,10 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
 
-	c.Assert(len(filter.Endpoints), Equals, 1)
+	c.Assert(len(filter.Endpoints), Equals, 2)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
+	c.Assert(len(filter.L7RulesPerEp), Equals, 2)
 
 	// Second, test the explicit allow at L3.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
