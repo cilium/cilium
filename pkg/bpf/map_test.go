@@ -42,7 +42,6 @@ var (
 		4,
 		maxEntries,
 		BPF_F_NO_PREALLOC,
-		0,
 		nil)
 )
 

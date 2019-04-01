@@ -12,23 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build privileged_tests
+
 package bpf
 
 import (
 	"net"
-	"testing"
 
 	. "gopkg.in/check.v1"
 )
-
-// Hook up gocheck into the "go test" runner.
-type BPFTestSuite struct{}
-
-var _ = Suite(&BPFTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
 	tests := []struct {
