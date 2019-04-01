@@ -21,8 +21,8 @@ with Kubernetes:
   as beta.
 
 - The extended `CiliumNetworkPolicy` format which is available as a
-  `ThirdPartyResource` and `CustomResourceDefinition` which supports to specify
-  policies at Layers 3-7 for both ingress and egress.
+  `CustomResourceDefinition` which supports specification of policies
+  at Layers 3-7 for both ingress and egress.
 
 It is recommended to only use one of the above policy types at a time to
 minimize unintended effects arising from the interaction between the

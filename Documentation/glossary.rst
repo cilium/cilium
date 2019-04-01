@@ -70,8 +70,5 @@ with words you expected to see here.
    CustomResourceDefinition
      https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions
 
-   ThirdPartyResource
-     https://kubernetes.io/docs/tasks/access-kubernetes-api/migrate-third-party-resource/
-
    HeadlessServices
      https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
