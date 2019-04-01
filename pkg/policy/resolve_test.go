@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -49,6 +50,7 @@ var (
 type dummyEndpoint struct {
 	ID               uint16
 	SecurityIdentity *identity.Identity
+	mutex            lock.RWMutex
 }
 
 func (d *dummyEndpoint) GetID16() uint16 {
@@ -57,6 +59,30 @@ func (d *dummyEndpoint) GetID16() uint16 {
 
 func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
 	return d.SecurityIdentity
+}
+
+func (d *dummyEndpoint) LockAlive() error {
+	return nil
+}
+
+func (d *dummyEndpoint) Unlock() {
+	return
+}
+
+func (d *dummyEndpoint) RLockAlive() error {
+	return nil
+}
+
+func (d *dummyEndpoint) RUnlock() {
+	return
+}
+
+func (d *dummyEndpoint) UnconditionalLock() {
+	return
+}
+
+func (d *dummyEndpoint) UnconditionalRLock() {
+	return
 }
 
 func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
