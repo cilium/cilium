@@ -54,6 +54,38 @@ Key                                                           Value
 
 .. _service.ClusterService: https://godoc.org/github.com/cilium/cilium/pkg/service#ClusterService
 
+Identities
+----------
+
+Any time a new endpoint is started on a Cilium node, it will determine whether
+the labels for the endpoint are unique and allocate an identity for that set of
+labels. These identities are only meaningful within the local cluster.
+
+============================================================= ====================
+Key                                                           Value
+============================================================= ====================
+``cilium/state/identities/v1/id/<identity>``                  labels.LabelArray_
+``cilium/state/identities/v1/value/<labels>/<node>``          identity.NumericIdentity_
+============================================================= ====================
+
+.. _identity.NumericIdentity: https://godoc.org/github.com/cilium/cilium/pkg/identity#NumericIdentity
+.. _labels.LabelArray: https://godoc.org/github.com/cilium/cilium/pkg/labels#LabelArray
+
+Endpoints
+---------
+
+All endpoint IPs and corresponding identities are mirrored to the kvstore by
+the agent on the node where the endpoint is launched, to allow peer nodes to
+configure egress policies to endpoints backed by these IPs.
+
+============================================================= ====================
+Key                                                           Value
+============================================================= ====================
+``cilium/state/ip/v1/<cluster>/<ip>``                         identity.IPIdentityPair_
+============================================================= ====================
+
+.. _identity.IPIdentityPair: https://godoc.org/github.com/cilium/cilium/pkg/identity#IPIdentityPair
+
 Leases
 ======
 
