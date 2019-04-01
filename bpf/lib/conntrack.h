@@ -608,6 +608,34 @@ static inline void __inline__ ct_update6_slave(void *map,
 	return;
 }
 
+static inline void __inline__ ct_update6_backend_id(void *map,
+					       struct ipv6_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->rx_bytes = state->backend_id;
+	return;
+}
+
+static inline void __inline__ ct_update6_slave_and_backend_id(void *map,
+					       struct ipv6_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->slave = state->slave;
+	entry->rx_bytes = state->backend_id;
+	return;
+}
 
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
@@ -618,6 +646,10 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
+
+    if (dir == CT_SERVICE) {
+        entry.rx_bytes = ct_state->backend_id; // TODO(brb) explain this hack
+    }
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
@@ -808,6 +840,18 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 static inline void __inline__ ct_update6_slave(void *map,
 					      struct ipv6_ct_tuple *tuple,
 					      struct ct_state *state)
+{
+}
+
+static inline void __inline__ ct_update6_backend_id(void *map,
+					       struct ipv6_ct_tuple *tuple,
+					       struct ct_state *state)
+{
+}
+
+static inline void __inline__ ct_update6_slave_and_backend_id(void *map,
+					       struct ipv6_ct_tuple *tuple,
+					       struct ct_state *state)
 {
 }
 
