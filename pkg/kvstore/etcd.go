@@ -806,17 +806,17 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 	return getR.Kvs[0].Value, nil
 }
 
-// GetPrefix returns the first key which matches the prefix
-func (e *etcdClient) GetPrefix(prefix string) ([]byte, error) {
+// GetPrefix returns the first key which matches the prefix and its value
+func (e *etcdClient) GetPrefix(prefix string) (string, []byte, error) {
 	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	if getR.Count == 0 {
-		return nil, nil
+		return "", nil, nil
 	}
-	return getR.Kvs[0].Value, nil
+	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
 }
 
 // Set sets value of key
