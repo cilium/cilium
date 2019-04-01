@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
@@ -40,7 +41,7 @@ func init() {
 func enableCNPWatcher() error {
 	log.Info("Starting to garbage collect stale CiliumNetworkPolicy status field entries...")
 
-	_, ciliumV2Controller := k8s.NewInformer(
+	_, ciliumV2Controller := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
 			"ciliumnetworkpolicies", v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNetworkPolicy{},

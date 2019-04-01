@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -60,7 +61,7 @@ func runNodeWatcher() error {
 		return err
 	}
 
-	k8sNodeStore, nodeController := k8s.NewInformer(
+	k8sNodeStore, nodeController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"nodes", v1.NamespaceAll, fields.Everything()),
 		&v1.Node{},

@@ -14,16 +14,17 @@
 
 // +build !privileged_tests
 
-package k8s
+package informer
 
 import (
 	"encoding/json"
 	"os"
 	"strconv"
 	"sync"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/k8s"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -33,6 +34,24 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type K8sIntegrationSuite struct{}
+
+var _ = Suite(&K8sIntegrationSuite{})
+
+func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
+	if os.Getenv("INTEGRATION") != "" {
+		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
+			k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig")
+		} else {
+			k8s.Configure("", k8sConfigPath)
+		}
+	}
+}
 
 var nodeSampleJSON = `{
     "apiVersion": "v1",
@@ -435,21 +454,18 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 			&v1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					if k8sNP := CopyObjToV1Node(obj); k8sNP != nil {
-					}
-				},
+				AddFunc: func(obj interface{}) {},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := CopyObjToV1Node(oldObj); oldK8sNP != nil {
-						if newK8sNP := CopyObjToV1Node(newObj); newK8sNP != nil {
-							if EqualV1Node(oldK8sNP, newK8sNP) {
+					if oldK8sNP := k8s.CopyObjToV1Node(oldObj); oldK8sNP != nil {
+						if newK8sNP := k8s.CopyObjToV1Node(newObj); newK8sNP != nil {
+							if k8s.EqualV1Node(oldK8sNP, newK8sNP) {
 								return
 							}
 						}
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					k8sNP := CopyObjToV1Node(obj)
+					k8sNP := k8s.CopyObjToV1Node(obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -458,7 +474,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						k8sNP = CopyObjToV1Node(deletedObj.Obj)
+						k8sNP = k8s.CopyObjToV1Node(deletedObj.Obj)
 						if k8sNP == nil {
 							return
 						}
@@ -466,7 +482,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 					wg.Done()
 				},
 			},
-			ConvertToNode,
+			k8s.ConvertToNode,
 		)
 		go controller.Run(wait.NeverStop)
 	} else {
@@ -475,10 +491,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 			&v1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					if k8sNP := OldCopyObjToV1Node(obj); k8sNP != nil {
-					}
-				},
+				AddFunc: func(obj interface{}) {},
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					if oldK8sNP := OldCopyObjToV1Node(oldObj); oldK8sNP != nil {
 						if newK8sNP := OldCopyObjToV1Node(newObj); newK8sNP != nil {
@@ -531,8 +544,6 @@ func OldEqualV1Node(node1, node2 *v1.Node) bool {
 func OldCopyObjToV1Node(obj interface{}) *v1.Node {
 	node, ok := obj.(*v1.Node)
 	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Node")
 		return nil
 	}
 	return node.DeepCopy()
