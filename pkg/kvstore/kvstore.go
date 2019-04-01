@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,11 +44,11 @@ func Get(key string) ([]byte, error) {
 	return v, err
 }
 
-// GetPrefix returns the first key which matches the prefix
-func GetPrefix(ctx context.Context, prefix string) ([]byte, error) {
-	v, err := Client().GetPrefix(ctx, prefix)
-	Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldValue: string(v)})
-	return v, err
+// GetPrefix returns the first key which matches the prefix and its value.
+func GetPrefix(ctx context.Context, prefix string) (k string, v []byte, err error) {
+	k, v, err = Client().GetPrefix(ctx, prefix)
+	Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(v)})
+	return
 }
 
 // ListPrefix returns the list of keys matching the prefix

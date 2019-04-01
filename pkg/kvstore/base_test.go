@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,18 +60,20 @@ func (s *BaseTests) TestGetSet(c *C) {
 	DeletePrefix(prefix)
 	defer DeletePrefix(prefix)
 
-	val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
+	c.Assert(key, Equals, "")
 
 	for i := 0; i < maxID; i++ {
 		val, err = Get(testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		val, err = GetPrefix(context.Background(), testKey(prefix, i))
+		key, val, err = GetPrefix(context.Background(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
+		c.Assert(key, Equals, "")
 
 		c.Assert(Set(testKey(prefix, i), testValue(i)), IsNil)
 
@@ -91,14 +93,16 @@ func (s *BaseTests) TestGetSet(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
 
-		val, err = GetPrefix(context.Background(), testKey(prefix, i))
+		key, val, err = GetPrefix(context.Background(), testKey(prefix, i))
 		c.Assert(err, IsNil)
 		c.Assert(val, IsNil)
+		c.Assert(key, Equals, "")
 	}
 
-	val, err = GetPrefix(context.Background(), prefix)
+	key, val, err = GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
+	c.Assert(key, Equals, "")
 }
 
 func (s *BaseTests) BenchmarkGet(c *C) {
@@ -133,9 +137,10 @@ func (s *BaseTests) TestUpdate(c *C) {
 	DeletePrefix(prefix)
 	defer DeletePrefix(prefix)
 
-	val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
+	c.Assert(key, Equals, "")
 
 	// create
 	c.Assert(Update(context.Background(), testKey(prefix, 0), testValue(0), true), IsNil)
@@ -158,9 +163,10 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 	DeletePrefix(prefix)
 	defer DeletePrefix(prefix)
 
-	val, err := GetPrefix(context.Background(), prefix)
+	key, val, err := GetPrefix(context.Background(), prefix)
 	c.Assert(err, IsNil)
 	c.Assert(val, IsNil)
+	c.Assert(key, Equals, "")
 
 	c.Assert(CreateOnly(context.Background(), testKey(prefix, 0), testValue(0), false), IsNil)
 
