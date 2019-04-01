@@ -143,3 +143,38 @@ func (ds *RegexpMapTestSuite) BenchmarkRegexGroups(c *C) {
 		re.FindSubmatchIndex(in)
 	}
 }
+
+func RunRegexpMapBenchmark(c *C, matchAll bool) {
+	c.StopTimer()
+	iterations := 30000
+	m := NewRegexpMap()
+	matchformat := "foo%d.com."
+	lastMatch := 0
+
+	for i := 0; i < iterations; i++ {
+		key := fmt.Sprintf(matchformat, lastMatch)
+		val := fmt.Sprintf("ID%d", i)
+		m.Add(key, val)
+		if matchAll {
+			m.Add(".*", val)
+		}
+		if i%3 == 0 {
+			lastMatch = i
+		}
+	}
+	c.StartTimer()
+	for i := 0; i < iterations; i++ {
+		key := fmt.Sprintf(matchformat, lastMatch)
+		val := fmt.Sprintf("ID%d", i)
+		m.LookupContainsValue(key, val)
+	}
+	return
+}
+
+func (ds *RegexpMapTestSuite) BenchmarkLookupContainsValue(c *C) {
+	RunRegexpMapBenchmark(c, false)
+}
+
+func (ds *RegexpMapTestSuite) BenchmarkLookupContainsValueWithMatchAll(c *C) {
+	RunRegexpMapBenchmark(c, true)
+}
