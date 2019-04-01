@@ -59,6 +59,30 @@ func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
 	return d.SecurityIdentity
 }
 
+func (d *dummyEndpoint) LockAlive() error {
+	return nil
+}
+
+func (d *dummyEndpoint) Unlock() {
+	return
+}
+
+func (d *dummyEndpoint) RLockAlive() error {
+	return nil
+}
+
+func (d *dummyEndpoint) RUnlock() {
+	return
+}
+
+func (d *dummyEndpoint) UnconditionalLock() {
+	return
+}
+
+func (d *dummyEndpoint) UnconditionalRLock() {
+	return
+}
+
 func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
 	return
 }

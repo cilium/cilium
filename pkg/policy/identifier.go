@@ -43,6 +43,12 @@ type Endpoint interface {
 	GetID16() uint16
 	GetSecurityIdentity() *identity.Identity
 	PolicyRevisionBumpEvent(rev uint64)
+	LockAlive() error
+	Unlock()
+	RLockAlive() error
+	RUnlock()
+	UnconditionalLock()
+	UnconditionalRLock()
 }
 
 // EndpointSet is used to be able to group together a given set of Endpoints

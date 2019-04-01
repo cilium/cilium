@@ -278,7 +278,9 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 		return true
 	}
 	id := ep.GetID16()
+	ep.UnconditionalRLock()
 	securityIdentity := ep.GetSecurityIdentity()
+	ep.RUnlock()
 
 	for _, r := range rules {
 		if ruleMatches := r.matches(id, securityIdentity); ruleMatches {
@@ -301,7 +303,9 @@ func (rules ruleSlice) refreshRulesForEndpoint(ep Endpoint) {
 	}
 
 	id := ep.GetID16()
+	ep.UnconditionalRLock()
 	securityIdentity := ep.GetSecurityIdentity()
+	ep.RUnlock()
 
 	for _, r := range rules {
 		// matches updates the caches within the rules
