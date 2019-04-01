@@ -306,8 +306,8 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	dump1 := map[string][]string{}
 	testMap.Dump(dump1)
 	c.Assert(dump1, checker.DeepEquals, map[string][]string{
-		"key=105": []string{"value=205"},
-		"key=106": []string{"value=206"},
+		"key=105": {"value=205"},
+		"key=106": {"value=206"},
 	})
 
 	dump2 := map[string][]string{}
@@ -316,8 +316,8 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	}
 	testMap.DumpWithCallback(customCb)
 	c.Assert(dump2, checker.DeepEquals, map[string][]string{
-		"key=105": []string{"custom-value=205"},
-		"key=106": []string{"custom-value=206"},
+		"key=105": {"custom-value=205"},
+		"key=106": {"custom-value=206"},
 	})
 
 	dump3 := map[string][]string{}
