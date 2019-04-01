@@ -22,17 +22,6 @@ keys may be manually distributed but that is not shown here.
     This is a beta feature. Please provide feedback and file a GitHub issue
     if you experience any problems.
 
-.. note::
-
-    Transparent encryption is currently subject to the following limitations:
-
-    * Only works in tunnel mode
-    * Not compatible with the etcd-operator
-
-
-    Both limitations will be resolved with upcoming releases.
-
-
 Generate & import the PSK
 =========================
 
@@ -124,6 +113,12 @@ with the required cilium-agent options and included IPSec keys.
         - name: cilium-ipsec-secrets
           secret:
             secretName: cilium-ipsec-keys
+
+If direct routing is being used an additional argument to identify the network facing
+interface is needed.
+
+.. parsed-literal::
+  --encrypt-interface=ethX
 
 The above shows the ``cilium-ipsec.yaml`` used with the following ``kubectl
 patch`` command:
