@@ -20,12 +20,14 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/lock"
 
 	. "gopkg.in/check.v1"
 )
 
 type DummyEndpoint struct {
-	rev uint64
+	rev   uint64
+	mutex lock.RWMutex
 }
 
 func (d *DummyEndpoint) GetID16() uint16 {
@@ -34,6 +36,10 @@ func (d *DummyEndpoint) GetID16() uint16 {
 
 func (d *DummyEndpoint) GetSecurityIdentity() *identity.Identity {
 	return nil
+}
+
+func (d *DummyEndpoint) GetMutex() *lock.RWMutex {
+	return &d.mutex
 }
 
 func (d *DummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {

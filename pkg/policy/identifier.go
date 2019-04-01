@@ -43,6 +43,7 @@ type Endpoint interface {
 	GetID16() uint16
 	GetSecurityIdentity() *identity.Identity
 	PolicyRevisionBumpEvent(rev uint64)
+	GetMutex() *lock.RWMutex
 }
 
 // EndpointSet is used to be able to group together a given set of Endpoints

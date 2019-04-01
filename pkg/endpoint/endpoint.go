@@ -811,6 +811,11 @@ func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
 	return e.SecurityIdentity
 }
 
+// GetMutex returns endpoint mutex
+func (e *Endpoint) GetMutex() *lock.RWMutex {
+	return &e.mutex
+}
+
 // GetID16 returns the endpoint's ID as a 16-bit unsigned integer.
 func (e *Endpoint) GetID16() uint16 {
 	return e.ID

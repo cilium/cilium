@@ -414,6 +414,8 @@ func (p *Repository) UpdateLocalConsumers(eps []Endpoint) *sync.WaitGroup {
 	for _, ep := range eps {
 		policySelectionWG.Add(1)
 		go func(epp Endpoint) {
+			epp.GetMutex().Lock()
+			defer epp.GetMutex().Unlock()
 			p.rules.refreshRulesForEndpoint(epp)
 			policySelectionWG.Done()
 		}(ep)
@@ -460,6 +462,8 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision *EndpointS
 	}
 
 	endpointsToBumpRevision.ForEach(policySelectionWG, func(epp Endpoint) {
+		epp.GetMutex().RLock()
+		defer epp.GetMutex().RUnlock()
 		if endpointSelected := r.updateEndpointsCaches(epp, endpointsToRegenerate); endpointSelected {
 			endpointsToBumpRevision.Delete(epp)
 		}
