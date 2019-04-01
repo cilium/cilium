@@ -652,6 +652,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 	tuple->flags = flags;
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 	addr = &tuple->daddr;
+	state->rev_nat_index = svc_v2->rev_nat_index;
 
 	if (state)
 		state->rev_nat_index = svc->rev_nat_index;
