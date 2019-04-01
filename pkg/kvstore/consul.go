@@ -440,21 +440,21 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 	return pair.Value, nil
 }
 
-// GetPrefix returns the first key which matches the prefix
-func (c *consulClient) GetPrefix(ctx context.Context, prefix string) ([]byte, error) {
+// GetPrefix returns the first key which matches the prefix and its value
+func (c *consulClient) GetPrefix(ctx context.Context, prefix string) (string, []byte, error) {
 	duration := spanstat.Start()
 	opts := &consulAPI.QueryOptions{}
 	pairs, _, err := c.KV().List(prefix, opts.WithContext(ctx))
 	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	if len(pairs) == 0 {
-		return nil, nil
+		return "", nil, nil
 	}
 
-	return pairs[0].Value, nil
+	return pairs[0].Key, pairs[0].Value, nil
 }
 
 // Update creates or updates a key with the value

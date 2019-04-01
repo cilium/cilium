@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -590,18 +590,31 @@ func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error
 	return a.GetNoCache(ctx, key)
 }
 
+func prefixMatchesKey(prefix, key string) bool {
+	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
+	lastSlash := strings.LastIndex(key, "/")
+	return len(prefix) == lastSlash
+}
+
 // Get returns the ID which is allocated to a key in the kvstore
 func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
+	// GetPrefix() will choose any "first" key with the same prefix as the
+	// specified key. In the worst case this may alternate between
+	// returning the prefix that is specified and returning a key with a
+	// longer prefix (even if this exact prefix already exists in the
+	// kvstore). In that case, we will potentially allocate duplicate
+	// identities for the same set of labels. This is not efficient, but
+	// should have the correct identity properties.
 	prefix := path.Join(a.valuePrefix, key.GetKey())
-	value, err := kvstore.GetPrefix(ctx, prefix)
-	kvstore.Trace("AllocateGet", err, logrus.Fields{fieldPrefix: prefix, fieldValue: value})
-	if err != nil || value == nil {
+	k, v, err := kvstore.GetPrefix(ctx, prefix)
+	kvstore.Trace("AllocateGet", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: v})
+	if err != nil || v == nil || !prefixMatchesKey(prefix, k) {
 		return 0, err
 	}
 
-	id, err := strconv.ParseUint(string(value), 10, 64)
+	id, err := strconv.ParseUint(string(v), 10, 64)
 	if err != nil {
-		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %s", value, err)
+		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %s", v, err)
 	}
 
 	return idpool.ID(id), nil

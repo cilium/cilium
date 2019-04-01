@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -439,6 +439,10 @@ func (l Labels) SortedList() []byte {
 	for _, k := range keys {
 		// We don't care if the values already have a '=' since this method is
 		// only used to calculate a SHA256Sum
+		//
+		// We absolutely care that the final character is a semi-colon.
+		// Identity allocation in the kvstore depends on this (see
+		// kvstore.prefixMatchesKey())
 		result += fmt.Sprintf(`%s:%s=%s;`, l[k].Source, k, l[k].Value)
 	}
 

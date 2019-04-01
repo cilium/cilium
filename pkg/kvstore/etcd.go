@@ -750,20 +750,20 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 	return getR.Kvs[0].Value, nil
 }
 
-// GetPrefix returns the first key which matches the prefix
-func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) ([]byte, error) {
+// GetPrefix returns the first key which matches the prefix and its value
+func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (string, []byte, error) {
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
 	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
-		return nil, Hint(err)
+		return "", nil, Hint(err)
 	}
 
 	if getR.Count == 0 {
-		return nil, nil
+		return "", nil, nil
 	}
-	return getR.Kvs[0].Value, nil
+	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
 }
 
 // Set sets value of key
