@@ -622,8 +622,6 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 		ct_update6_backend_id(map, tuple, state);
 	}
 
-    return 0;
-
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
@@ -652,9 +650,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb, int l3_
 	tuple->flags = flags;
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 	addr = &tuple->daddr;
-
-	if (state)
-		state->rev_nat_index = svc_v2->rev_nat_index;
+	state->rev_nat_index = svc_v2->rev_nat_index;
 
 	return lb6_xlate_v2(skb, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, svc_v2, backend);
