@@ -108,3 +108,11 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeWithoutErrorAndNoIPs(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(newRule, checker.DeepEquals, &EgressRule{})
 }
+
+func (s *PolicyAPITestSuite) TestRequiresDerivativeRuleWithToServices(c *C) {
+	eg := EgressRule{}
+	eg.ToServices = []Service{
+		GetToServicesRule(),
+	}
+	c.Assert(eg.RequiresDerivative(), Equals, true)
+}
