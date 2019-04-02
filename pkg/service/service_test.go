@@ -73,9 +73,9 @@ var _ = Suite(&ServiceLocalSuite{})
 
 func (e *ServiceLocalSuite) SetUpTest(c *C) {
 	EnableGlobalServiceID(false)
-	resetLocalID()
+	serviceIDAlloc.resetLocalID()
 }
 
 func (e *ServiceLocalSuite) TearDownTest(c *C) {
-	resetLocalID()
+	serviceIDAlloc.resetLocalID()
 }
