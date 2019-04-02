@@ -46,13 +46,24 @@ type bpfService struct {
 	// backend ID. A backend may be listed multiple times in
 	// backendsByMapIndex, it will only be listed once in uniqueBackends.
 	uniqueBackends serviceValueMap
+
+	// slaveSlotByBackendAddrID is a map of slot numbers within the legacy
+	// service of slaves which are identified by the legacy ID. Used to
+	// map legacy svc backends by svc v2 for the backward compatibility.
+	slaveSlotByBackendAddrID map[BackendAddrID]int
+
+	// backendsV2 is a map of all service v2 backends indexed by the legacy IDs.
+	// TODO(brb) use list instead to preserve the ordering when svc backends change.
+	backendsV2 map[BackendAddrID]ServiceValue
 }
 
 func newBpfService(key ServiceKey) *bpfService {
 	return &bpfService{
-		frontendKey:        key,
-		backendsByMapIndex: map[int]*bpfBackend{},
-		uniqueBackends:     map[BackendAddrID]ServiceValue{},
+		frontendKey:              key,
+		backendsByMapIndex:       map[int]*bpfBackend{},
+		uniqueBackends:           map[BackendAddrID]ServiceValue{},
+		slaveSlotByBackendAddrID: map[BackendAddrID]int{},
+		backendsV2:               map[BackendAddrID]ServiceValue{},
 	}
 }
 
@@ -114,6 +125,7 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 	}
 
 	delete(b.uniqueBackends, idToRemove)
+	delete(b.slaveSlotByBackendAddrID, backend.BackendAddrID())
 }
 
 func (b *bpfService) getBackends() []ServiceValue {
@@ -131,6 +143,20 @@ func (b *bpfService) getBackends() []ServiceValue {
 	}
 	b.mutex.RUnlock()
 	return backends
+}
+
+// getSlaveSlot returns a slot number (lb{4,6}_key.slave) in the given service.
+// The slot number points to any backend identified by the addr ID in the
+// legacy service.
+//
+// As the legacy svc maps are append-only, we can point to any slot number
+// in the v2 svc.
+func (b *bpfService) getSlaveSlot(id BackendAddrID) (int, bool) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	slot, found := b.slaveSlotByBackendAddrID[id]
+	return slot, found
 }
 
 type lbmapCache struct {
