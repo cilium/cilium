@@ -819,6 +819,37 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	return Hint(err)
 }
 
+// UpdateIfDIfferent is using a transaction to only update the key if the value
+// is different to avoid unnecessary updates. Upon error, a fall-back to
+// Update() occurs.
+func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) error {
+	select {
+	case <-e.firstSession:
+	case <-ctx.Done():
+		return fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	}
+
+	duration := spanstat.Start()
+	var leaseID client.LeaseID
+	if lease {
+		leaseID = e.GetLeaseID()
+	}
+
+	e.limiter.Wait(ctx)
+	createRequest := e.createOpPut(key, value, leaseID)
+	ifDifferent := client.Compare(client.Value(key), "!=", string(value))
+	_, err := e.client.Txn(ctx).If(ifDifferent).Then(*createRequest).Commit()
+	if err != nil {
+		// When the tranaction fail, the key likely does not exist ot
+		// the kvstore is unreachable, fall back to using an Update()
+		// to create the key if needed.
+		return e.Update(ctx, key, value, lease)
+	}
+
+	increaseMetric(key, metricSet, "UpdateIfDifferent", duration.EndError(err).Total(), err)
+	return nil
+}
+
 // CreateOnly creates a key with the value and will fail if the key already exists
 func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	duration := spanstat.Start()

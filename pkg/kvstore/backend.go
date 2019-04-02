@@ -163,6 +163,10 @@ type BackendOperations interface {
 	// Update atomically creates a key or fails if it already exists
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 
+	// UpdateIfDifferent atomically updates a key but only if the value is
+	// different
+	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) error
+
 	// CreateOnly atomically creates a key or fails if it already exists
 	CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 
