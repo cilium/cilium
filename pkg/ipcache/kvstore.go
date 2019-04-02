@@ -71,7 +71,7 @@ type kvstoreImplementation struct{}
 // upsert places the mapping of {key, value} into the kvstore, optionally with
 // a lease.
 func (k kvstoreImplementation) upsert(ctx context.Context, key string, value []byte, lease bool) error {
-	return kvstore.Update(ctx, key, value, lease)
+	return kvstore.UpdateIfDifferent(ctx, key, value, lease)
 }
 
 // release removes the specified key from the kvstore.
