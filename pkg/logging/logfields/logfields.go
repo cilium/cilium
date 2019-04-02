@@ -180,6 +180,24 @@ const (
 	// ServiceIP is the IP of the service
 	ServiceIP = "serviceIP"
 
+	// ServiceKey is the key of the service in a BPF map
+	ServiceKey = "svcKey"
+
+	// ServiceValue is the value of the service in a BPF map
+	ServiceValue = "svcVal"
+
+	// BackendIDs is the map of backend IDs (lbmap) indexed by backend address
+	BackendIDs = "backendIDs"
+
+	// BackendID is the ID of the backend
+	BackendID = "backendIDs"
+
+	// BackendName is the name of the backend
+	BackendName = "backendName"
+
+	// SlaveSlot is the slot number in a service BPF map
+	SlaveSlot = "slaveSlot"
+
 	// CiliumNetworkPolicy is a cilium specific NetworkPolicy
 	CiliumNetworkPolicy = "ciliumNetworkPolicy"
 
