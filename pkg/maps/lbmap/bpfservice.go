@@ -160,15 +160,17 @@ func (b *bpfService) getSlaveSlot(id BackendAddrID) (int, bool) {
 }
 
 type lbmapCache struct {
-	mutex           lock.Mutex
-	entries         map[string]*bpfService
-	backendRefCount map[BackendAddrID]int
+	mutex             lock.Mutex
+	entries           map[string]*bpfService
+	backendRefCount   map[BackendAddrID]int
+	backendIDByAddrID map[BackendAddrID]uint16
 }
 
 func newLBMapCache() lbmapCache {
 	return lbmapCache{
-		entries:         map[string]*bpfService{},
-		backendRefCount: map[BackendAddrID]int{},
+		entries:           map[string]*bpfService{},
+		backendRefCount:   map[BackendAddrID]int{},
+		backendIDByAddrID: map[BackendAddrID]uint16{},
 	}
 }
 
@@ -254,6 +256,24 @@ func (l *lbmapCache) delete(fe ServiceKey) {
 	l.mutex.Unlock()
 }
 
+func (l *lbmapCache) getSlaveSlot(fe ServiceKeyV2, addrID BackendAddrID) (int, bool) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	frontendID := fe.String()
+	bpfSvc, found := l.entries[frontendID]
+	if !found {
+		return 0, false
+	}
+
+	pos, found := bpfSvc.slaveSlotByBackendAddrID[addrID]
+	if !found {
+		return 0, false
+	}
+
+	return pos, true
+}
+
 // addBackendV2Locked increments a ref count for the given backend and returns
 // whether any instance of the backend existed before.
 func (l *lbmapCache) addBackendV2Locked(addrID BackendAddrID) bool {
@@ -276,4 +296,39 @@ func (l *lbmapCache) delBackendV2Locked(addrID BackendAddrID) (bool, error) {
 
 	l.backendRefCount[addrID]--
 	return false, nil
+}
+
+func (l *lbmapCache) addBackendIDs(backendIDs map[BackendAddrID]uint16) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	for addrID, backendID := range backendIDs {
+		l.backendIDByAddrID[addrID] = backendID
+	}
+}
+
+// newBackendAddrIDs returns backend legacy IDs which did not exist before
+// in the cache.
+func (l *lbmapCache) newBackendAddrIDs(
+	backendAddrIDs map[BackendAddrID]struct{}) map[BackendAddrID]struct{} {
+
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	newIDs := map[BackendAddrID]struct{}{}
+
+	for addrID := range backendAddrIDs {
+		if _, found := l.backendIDByAddrID[addrID]; !found {
+			newIDs[addrID] = struct{}{}
+		}
+	}
+
+	return newIDs
+}
+
+func (l *lbmapCache) getBackendIDByAddrID(addrID BackendAddrID) uint16 {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	return l.backendIDByAddrID[addrID]
 }
