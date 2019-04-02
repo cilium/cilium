@@ -405,6 +405,150 @@ func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs cniArgsS
 	return nil
 }
 
+func setUPWithOpenshift(logger *logrus.Entry, args *skel.CmdArgs, cniArgs cniArgsSpec, n *netConf, c *client.Client) (err error) {
+	err = cniVersion.ParsePrevResult(&n.NetConf)
+	if err != nil {
+		return fmt.Errorf("unable to understand network config: %s", err)
+	}
+	r, err := cniTypesVer.GetResult(n.PrevResult)
+	if err != nil {
+		return fmt.Errorf("unable to get previous network result: %s", err)
+	}
+	// We only care about the veth interface that is on the host side
+	// and cni0. Interfaces should be similar as:
+	// "interfaces": [
+	//   {
+	//     "name": "eth0",
+	//     "sandbox": "/proc/29112/ns/net"
+	//   }
+	// ],
+
+	defer func() {
+		if err != nil {
+			logger.WithError(err).
+				WithFields(logrus.Fields{"cni-pre-result": n.PrevResult.String()}).
+				Errorf("Unable to create endpoint")
+		}
+	}()
+	var (
+		gwIP                                      net.IP
+		hostMac, vethHostName, vethLXCMac, vethIP string
+		vethHostIdx, vethSliceIdx                 int
+	)
+	for i, iDev := range r.Interfaces {
+		// We only care about the veth interface mac address on the container side.
+		if iDev.Sandbox != "" {
+			err := ns.WithNetNSPath(iDev.Sandbox, func(_ ns.NetNS) error {
+				l, err := netlink.LinkByName(iDev.Name)
+				if err != nil {
+					return err
+				}
+				vethLXCMac = l.Attrs().HardwareAddr.String()
+				vethHostIdx = l.Attrs().ParentIndex
+				return netlink.LinkDel(l)
+			})
+			if err != nil {
+				return err
+			}
+			vethSliceIdx = i
+			continue
+		}
+	}
+
+	// get the IP address of the veth in the container side
+	for _, ipCfg := range r.IPs {
+		if ipCfg.Interface != nil && *ipCfg.Interface == vethSliceIdx {
+			vethIP = ipCfg.Address.IP.String()
+			break
+		}
+	}
+
+	// get the veth's name on the host side
+	l, err := netlink.LinkByIndex(vethHostIdx)
+	if err != nil {
+		return err
+	}
+	vethHostName = l.Attrs().Name
+
+	// We derive the host mac address of the bridge interface based on the
+	// interface that has the IP of the gateway for the container.
+	// "routes": [
+	//   {
+	//     "dst": "0.0.0.0/0",
+	//     "gw": "10.128.0.1"   <<--- which will be this one
+	//   },
+	//   {
+	//     "dst": "224.0.0.0/4"
+	//   },
+	//   {
+	//     "dst": "10.128.0.0/14"
+	//   }
+	// ],
+
+	for _, r := range r.Routes {
+		if r.GW != nil {
+			gwIP = r.GW
+			break
+		}
+	}
+
+	ll, err := netlink.LinkList()
+	for _, l := range ll {
+		addrs, err := netlink.AddrList(l, netlink.FAMILY_ALL)
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if addr.IP.Equal(gwIP) {
+				hostMac = l.Attrs().HardwareAddr.String()
+				break
+			}
+		}
+		if hostMac != "" {
+			break
+		}
+	}
+
+	switch {
+	case hostMac == "":
+		return errors.New("unable to determine MAC address of bridge interface (cni0)")
+	case vethHostName == "":
+		return errors.New("unable to determine name of veth pair on the host side")
+	case vethLXCMac == "":
+		return errors.New("unable to determine MAC address of veth pair on the container side")
+	case vethIP == "":
+		return errors.New("unable to determine IP address of the container")
+	case vethHostIdx == 0:
+		return errors.New("unable to determine index interface of veth pair on the host side")
+	}
+
+	ep := &models.EndpointChangeRequest{
+		Addressing: &models.AddressPair{
+			IPV4: vethIP,
+		},
+		ContainerID:       args.ContainerID,
+		State:             models.EndpointStateWaitingForIdentity,
+		HostMac:           hostMac,
+		InterfaceIndex:    int64(vethHostIdx),
+		Mac:               vethLXCMac,
+		InterfaceName:     vethHostName,
+		K8sPodName:        string(cniArgs.K8S_POD_NAME),
+		K8sNamespace:      string(cniArgs.K8S_POD_NAMESPACE),
+		SyncBuildEndpoint: true,
+	}
+
+	err = c.EndpointCreate(ep)
+	if err != nil {
+		logger.WithError(err).WithFields(logrus.Fields{
+			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+		return fmt.Errorf("unable to create endpoint: %s", err)
+	}
+
+	logger.WithFields(logrus.Fields{
+		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
+	return nil
+}
+
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	logger := log.WithField("eventUUID", uuid.NewUUID())
 	logger.WithField("args", args).Debug("Processing CNI ADD request")
@@ -428,6 +572,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		switch n.Name {
 		case "cbr0":
 			err := setUPWithFlannel(logger, args, cniArgs, n, cniVer, c)
+			if err != nil {
+				return err
+			}
+			return cniTypes.PrintResult(&cniTypesVer.Result{}, cniVer)
+		case "br0":
+			err := setUPWithOpenshift(logger, args, cniArgs, n, c)
 			if err != nil {
 				return err
 			}
