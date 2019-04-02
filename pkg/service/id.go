@@ -15,6 +15,8 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -27,7 +29,7 @@ func AcquireID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 		return acquireGlobalID(l3n4Addr, baseID)
 	}
 
-	return acquireLocalID(l3n4Addr, baseID)
+	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
 // RestoreID restores  previously used service ID
@@ -41,7 +43,7 @@ func RestoreID(l3n4Addr loadbalancer.L3n4Addr, baseID uint32) (*loadbalancer.L3n
 		return acquireGlobalID(l3n4Addr, 0)
 	}
 
-	return acquireLocalID(l3n4Addr, baseID)
+	return serviceIDAlloc.acquireLocalID(l3n4Addr, baseID)
 }
 
 // GetID returns the L3n4AddrID that belongs to the given id.
@@ -50,7 +52,7 @@ func GetID(id uint32) (*loadbalancer.L3n4AddrID, error) {
 		return getGlobalID(id)
 	}
 
-	return getLocalID(id)
+	return serviceIDAlloc.getLocalID(id)
 }
 
 // DeleteID deletes the L3n4AddrID belonging to the given id from the kvstore.
@@ -61,7 +63,7 @@ func DeleteID(id uint32) error {
 		return deleteGlobalID(id)
 	}
 
-	return deleteLocalID(id)
+	return serviceIDAlloc.deleteLocalID(id)
 }
 
 func setIDSpace(next, max uint32) error {
@@ -69,7 +71,7 @@ func setIDSpace(next, max uint32) error {
 		return setGlobalIDSpace(next, max)
 	}
 
-	return setLocalIDSpace(next, max)
+	return serviceIDAlloc.setLocalIDSpace(next, max)
 }
 
 func getMaxServiceID() (uint32, error) {
@@ -77,5 +79,44 @@ func getMaxServiceID() (uint32, error) {
 		return getGlobalMaxServiceID()
 	}
 
-	return getLocalMaxServiceID()
+	return serviceIDAlloc.getLocalMaxServiceID()
+}
+
+// AcquireBackendID acquires a new local ID for the given backend.
+func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (uint16, error) {
+	return restoreBackendID(l3n4Addr, 0)
+}
+
+// RestoreBackendID tries to restore the given local ID for the given backend.
+//
+// If ID cannot be restored (ID already taken), returns an error.
+func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
+	newID, err := restoreBackendID(l3n4Addr, id)
+	if err != nil {
+		return err
+	}
+
+	// TODO(brb) This shouldn't happen (otherwise, there is a bug in the code).
+	//           But maybe it makes sense to delete all svc v2 in this case.
+	if newID != id {
+		DeleteBackendID(newID)
+		return fmt.Errorf("Restored backend ID for %+v does not match (%d != %d)",
+			l3n4Addr, newID, id)
+	}
+
+	return nil
+}
+
+// DeleteBackendID releases the given backend ID.
+// TODO(brb) maybe provide l3n4Addr as an arg for the extra safety.
+func DeleteBackendID(id uint16) {
+	backendIDAlloc.deleteLocalID(uint32(id))
+}
+
+func restoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) (uint16, error) {
+	l3n4AddrID, err := backendIDAlloc.acquireLocalID(l3n4Addr, uint32(id))
+	if err != nil {
+		return 0, err
+	}
+	return uint16(l3n4AddrID.ID), nil
 }
