@@ -403,7 +403,7 @@ func (a *Allocator) createValueNodeKey(ctx context.Context, key string, newID id
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(a.valuePrefix, key, a.suffix)
-	if err := kvstore.Update(ctx, valueKey, []byte(newID.String()), true); err != nil {
+	if err := kvstore.UpdateIfDifferent(ctx, valueKey, []byte(newID.String()), true); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
@@ -699,11 +699,16 @@ func (a *Allocator) RunGC() error {
 }
 
 func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissing bool) {
+	createOP := kvstore.UpdateIfDifferent
+	if reliablyMissing {
+		createOP = kvstore.CreateOnly
+	}
+
 	keyPath := path.Join(a.idPrefix, id.String())
 
-	// Use of CreateOnly() ensures that any existing potentially
-	// conflicting key is never overwritten.
-	err := kvstore.CreateOnly(context.TODO(), keyPath, []byte(value), false)
+	// Use of UpdateIfDifferent() and CreateOnly() ensures that any
+	// existing potentially conflicting key is never overwritten.
+	err := createOP(context.TODO(), keyPath, []byte(value), false)
 	if reliablyMissing || err == nil {
 		log.WithError(err).WithField(fieldKey, keyPath).Warning("Re-created potentially missing master key")
 	}
@@ -712,7 +717,7 @@ func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissin
 	// ensure that the next garbage collection cycle of any participating
 	// node does not remove the master key again.
 	valueKey := path.Join(a.valuePrefix, value, a.suffix)
-	err = kvstore.CreateOnly(context.TODO(), valueKey, []byte(id.String()), true)
+	err = createOP(context.TODO(), valueKey, []byte(id.String()), true)
 	if reliablyMissing || err == nil {
 		log.WithError(err).WithField(fieldKey, valueKey).Warning("Re-created potentially missing slave key")
 	}
