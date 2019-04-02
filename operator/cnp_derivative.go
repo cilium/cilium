@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	// imported for registration of group providers
 	_ "github.com/cilium/cilium/pkg/policy/groups"
 
 	"github.com/sirupsen/logrus"
@@ -151,7 +153,13 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 	k8sCNPStatus.SetDerivedPolicyStatus(derivativeName, status)
 	cnpCache.UpdateCNP(k8sCNPStatus)
 	// TODO: switch to JSON Patch
-	_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(cnp)
+	capabilities := k8sversion.Capabilities()
+	switch {
+	case capabilities.UpdateStatus:
+		_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(k8sCNPStatus)
+	default:
+		_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Update(k8sCNPStatus)
+	}
 	return err
 }
 
@@ -221,14 +229,14 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	if err != nil {
 		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
 		if statusErr != nil {
-			scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
+			scopedLog.WithError(err).Error("Cannot update CNP status for parent policy after failing to create derivative policy")
 		}
 		return statusErr
 	}
 
 	err = updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, nil)
 	if err != nil {
-		scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
+		scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy after creating derivative policy")
 	}
 	return err
 }

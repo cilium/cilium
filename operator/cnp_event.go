@@ -16,19 +16,21 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/serializer"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -40,9 +42,13 @@ func init() {
 	runtime.ErrorHandlers = []func(error){
 		k8s.K8sErrorHandler,
 	}
+
+	cnpCache.cache = make(map[types.UID]*cilium_v2.CiliumNetworkPolicy)
 }
 
 func enableCNPWatcher() error {
+
+	serCNPs := serializer.NewFunctionQueue(1024)
 
 	_, ciliumV2Controller := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
@@ -61,12 +67,9 @@ func enableCNPWatcher() error {
 						return
 					}
 
-					controllerManager.UpdateController(fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
-						controller.ControllerParams{
-							DoFunc: func(ctx context.Context) error {
-								return addDerivativeCNP(cnp.CiliumNetworkPolicy)
-							},
-						})
+					serCNPs.Enqueue(func() error {
+						return addDerivativeCNP(cnp.CiliumNetworkPolicy)
+					}, serializer.NoRetry)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -84,23 +87,17 @@ func enableCNPWatcher() error {
 									logfields.K8sNamespace:            newCNP.ObjectMeta.Namespace,
 								}).Info("New CNP does not have derivative policy, but old had. Deleted old policies")
 
-								controllerManager.UpdateController(fmt.Sprintf("delete-derivatve-cnp-%s", oldCNP.ObjectMeta.Name),
-									controller.ControllerParams{
-										DoFunc: func(ctx context.Context) error {
-											return DeleteDerivativeCNP(oldCNP.CiliumNetworkPolicy)
-										},
-									})
+								serCNPs.Enqueue(func() error {
+									return DeleteDerivativeCNP(oldCNP.CiliumNetworkPolicy)
+								}, serializer.NoRetry)
 							}
 
 							return
 						}
 
-						controllerManager.UpdateController(fmt.Sprintf("CNP-Derivative-update-%s", newCNP.ObjectMeta.Name),
-							controller.ControllerParams{
-								DoFunc: func(ctx context.Context) error {
-									return addDerivativeCNP(newCNP.CiliumNetworkPolicy)
-								},
-							})
+						serCNPs.Enqueue(func() error {
+							return addDerivativeCNP(newCNP.CiliumNetworkPolicy)
+						}, serializer.NoRetry)
 					}
 				}
 			},
@@ -122,7 +119,9 @@ func enableCNPWatcher() error {
 				}
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.
-				DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
+				serCNPs.Enqueue(func() error {
+					return DeleteDerivativeCNP(cnp.CiliumNetworkPolicy)
+				}, serializer.NoRetry)
 			},
 		},
 		k8s.ConvertToCNP,
@@ -142,13 +141,19 @@ func enableCNPWatcher() error {
 				// maxConcurrentUpdates.
 				cnpToUpdate := cnpCache.GetAllCNP()
 				sem := make(chan bool, maxConcurrentUpdates)
+				wg := sync.WaitGroup{}
+				wg.Add(len(cnpToUpdate))
 				for _, cnp := range cnpToUpdate {
 					sem <- true
 					go func(cnp *cilium_v2.CiliumNetworkPolicy) {
-						defer func() { <-sem }()
+						defer func() {
+							<-sem
+							wg.Done()
+						}()
 						addDerivativeCNP(cnp)
 					}(cnp)
 				}
+				wg.Wait()
 				return nil
 			},
 			RunInterval: 5 * time.Minute,
@@ -160,22 +165,28 @@ func enableCNPWatcher() error {
 var cnpCache = cnpCacheMap{}
 
 type cnpCacheMap struct {
-	sync.Map
+	cache map[types.UID]*cilium_v2.CiliumNetworkPolicy
+	mutex lock.RWMutex
 }
 
 func (cnpCache *cnpCacheMap) UpdateCNP(cnp *cilium_v2.CiliumNetworkPolicy) {
-	cnpCache.Store(cnp.ObjectMeta.UID, cnp)
+	cnpCache.mutex.Lock()
+	defer cnpCache.mutex.Unlock()
+	cnpCache.cache[cnp.ObjectMeta.UID] = cnp
 }
 
 func (cnpCache *cnpCacheMap) DeleteCNP(cnp *cilium_v2.CiliumNetworkPolicy) {
-	cnpCache.Delete(cnp.ObjectMeta.UID)
+	cnpCache.mutex.Lock()
+	defer cnpCache.mutex.Unlock()
+	delete(cnpCache.cache, cnp.ObjectMeta.UID)
 }
 
 func (cnpCache *cnpCacheMap) GetAllCNP() []*cilium_v2.CiliumNetworkPolicy {
 	result := []*cilium_v2.CiliumNetworkPolicy{}
-	cnpCache.Range(func(k, v interface{}) bool {
-		result = append(result, v.(*cilium_v2.CiliumNetworkPolicy))
-		return true
-	})
+	cnpCache.mutex.Lock()
+	defer cnpCache.mutex.Unlock()
+	for _, cnp := range cnpCache.cache {
+		result = append(result, cnp)
+	}
 	return result
 }

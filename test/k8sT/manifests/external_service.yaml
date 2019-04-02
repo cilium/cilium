@@ -6,7 +6,6 @@ metadata:
     zgroup: external
     test: external
 spec:
-  clusterIP: ""
   ports:
   - protocol: TCP
     port: 80

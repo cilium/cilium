@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
@@ -43,9 +44,6 @@ func k8sServiceHandler() {
 			return
 		}
 
-		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-		svc.Cluster = option.Config.ClusterName
-
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
 			logfields.K8sNamespace: event.ID.Namespace,
@@ -55,7 +53,21 @@ func k8sServiceHandler() {
 			"shared":               event.Service.Shared,
 		}).Debug("Kubernetes service definition changed")
 
+		svcID := api.NewK8sServiceIdentifier(event.ID.Name, event.ID.Namespace, event.Service.Labels)
+
+		func() {
+			cnpCache.mutex.RLock()
+			defer cnpCache.mutex.RUnlock()
+			for _, cnp := range cnpCache.cache {
+				if cnp.MatchesServiceIdentifier(svcID) {
+					addDerivativeCNP(cnp)
+				}
+			}
+		}()
+
 		if synchronizeServices {
+			svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
+			svc.Cluster = option.Config.ClusterName
 
 			if !event.Service.Shared {
 				// The annotation may have been added, delete an eventual existing service
@@ -159,6 +171,7 @@ func startSynchronizingServices() {
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
+					log.Debugf("Received endpoints addition %+v", k8sEP)
 					k8sSvcCache.UpdateEndpoints(k8sEP)
 				}
 			},
@@ -169,6 +182,7 @@ func startSynchronizingServices() {
 						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
 							return
 						}
+						log.Debugf("Received endpoints update %+v", newk8sEP)
 						k8sSvcCache.UpdateEndpoints(newk8sEP)
 					}
 				}
@@ -189,6 +203,7 @@ func startSynchronizingServices() {
 						return
 					}
 				}
+				log.Debugf("Received endpoints deletion %+v", k8sEP)
 				k8sSvcCache.DeleteEndpoints(k8sEP)
 			},
 		},

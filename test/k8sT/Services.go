@@ -231,19 +231,24 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("External services", func() {
 
 		var (
-			expectedCIDR = "198.49.23.144/32"
-			podName      = "toservices"
+			expectedCIDR  = "198.49.23.144/32"
+			podName       = "toservices"
+			secondPodName = "toservices-updated"
 
 			endpointPath      = helpers.ManifestGet("external_endpoint.yaml")
 			podPath           = helpers.ManifestGet("external_pod.yaml")
 			policyPath        = helpers.ManifestGet("external-policy.yaml")
 			policyLabeledPath = helpers.ManifestGet("external-policy-labeled.yaml")
 			servicePath       = helpers.ManifestGet("external_service.yaml")
+
+			updatedPolicyPath = helpers.ManifestGet("external-policy-updated.yaml")
+			secondPodPath     = helpers.ManifestGet("external_pod_updated.yaml")
 		)
 
 		BeforeAll(func() {
 			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
 			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
+			kubectl.Apply(secondPodPath).ExpectSuccess("cannot install pod path")
 
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
@@ -255,6 +260,7 @@ var _ = Describe("K8sServicesTest", func() {
 		AfterAll(func() {
 			_ = kubectl.Delete(servicePath)
 			_ = kubectl.Delete(podPath)
+			_ = kubectl.Delete(secondPodPath)
 
 			ExpectAllPodsTerminated(kubectl)
 		})
@@ -263,34 +269,35 @@ var _ = Describe("K8sServicesTest", func() {
 			_ = kubectl.Delete(policyLabeledPath)
 			_ = kubectl.Delete(policyPath)
 			_ = kubectl.Delete(endpointPath)
+			_ = kubectl.Delete(updatedPolicyPath)
 		})
 
-		validateEgress := func() {
+		validateEgress := func(podName, expectedCIDR string) {
 			By("Checking that toServices CIDR is plumbed into CEP")
-			Eventually(func() string {
+			EventuallyWithOffset(1, func() string {
 				res := kubectl.Exec(fmt.Sprintf(
 					"%s -n %s get cep %s -o json",
 					helpers.KubectlCmd,
 					helpers.DefaultNamespace,
 					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
+				ExpectWithOffset(2, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
 				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+				ExpectWithOffset(2, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
 			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
-		validateEgressAfterDeletion := func() {
+		validateEgressAfterDeletion := func(podName, expectedCIDR string) {
 			By("Checking that toServices CIDR is no longer plumbed into CEP")
-			Eventually(func() string {
+			EventuallyWithOffset(2, func() string {
 				res := kubectl.Exec(fmt.Sprintf(
 					"%s -n %s get cep %s -o json",
 					helpers.KubectlCmd,
 					helpers.DefaultNamespace,
 					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
+				ExpectWithOffset(2, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
 				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+				ExpectWithOffset(2, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
 			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
 		}
@@ -300,11 +307,11 @@ var _ = Describe("K8sServicesTest", func() {
 			res.ExpectSuccess()
 
 			applyPolicy(policyPath)
-			validateEgress()
+			validateEgress(podName, expectedCIDR)
 
 			kubectl.Delete(policyPath)
 			kubectl.Delete(endpointPath)
-			validateEgressAfterDeletion()
+			validateEgressAfterDeletion(podName, expectedCIDR)
 		})
 
 		It("To Services first policy", func() {
@@ -312,11 +319,11 @@ var _ = Describe("K8sServicesTest", func() {
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
-			validateEgress()
+			validateEgress(podName, expectedCIDR)
 
 			kubectl.Delete(policyPath)
 			kubectl.Delete(endpointPath)
-			validateEgressAfterDeletion()
+			validateEgressAfterDeletion(podName, expectedCIDR)
 		})
 
 		It("To Services first endpoint creation match service by labels", func() {
@@ -326,11 +333,11 @@ var _ = Describe("K8sServicesTest", func() {
 
 			applyPolicy(policyLabeledPath)
 
-			validateEgress()
+			validateEgress(podName, expectedCIDR)
 
 			kubectl.Delete(policyLabeledPath)
 			kubectl.Delete(endpointPath)
-			validateEgressAfterDeletion()
+			validateEgressAfterDeletion(podName, expectedCIDR)
 		})
 
 		It("To Services first policy, match service by labels", func() {
@@ -340,11 +347,27 @@ var _ = Describe("K8sServicesTest", func() {
 			res := kubectl.Apply(endpointPath)
 			res.ExpectSuccess()
 
-			validateEgress()
+			validateEgress(podName, expectedCIDR)
 
 			kubectl.Delete(policyLabeledPath)
 			kubectl.Delete(endpointPath)
-			validateEgressAfterDeletion()
+			validateEgressAfterDeletion(podName, expectedCIDR)
+		})
+
+		It("To Services update policy", func() {
+			res := kubectl.Apply(endpointPath)
+			res.ExpectSuccess()
+
+			applyPolicy(policyPath)
+			validateEgress(podName, expectedCIDR)
+
+			applyPolicy(updatedPolicyPath)
+			validateEgress(secondPodName, expectedCIDR)
+			validateEgressAfterDeletion(podName, expectedCIDR)
+
+			kubectl.Delete(policyPath)
+			kubectl.Delete(endpointPath)
+			validateEgressAfterDeletion(secondPodName, expectedCIDR)
 		})
 	})
 
