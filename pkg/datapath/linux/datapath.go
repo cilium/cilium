@@ -23,6 +23,8 @@ import (
 type DatapathConfiguration struct {
 	// HostDevice is the name of the device to be used to access the host.
 	HostDevice string
+	// EncryptInterface is the name of the device to be used for direct ruoting encryption
+	EncryptInterface string
 }
 
 type linuxDatapath struct {

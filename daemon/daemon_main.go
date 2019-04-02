@@ -1109,7 +1109,8 @@ func endParallelMapMode() {
 
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: option.Config.HostDevice,
+		HostDevice:       option.Config.HostDevice,
+		EncryptInterface: option.Config.EncryptInterface,
 	}
 
 	log.Info("Initializing daemon")
