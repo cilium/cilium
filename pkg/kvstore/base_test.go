@@ -105,6 +105,40 @@ func (s *BaseTests) TestGetSet(c *C) {
 	c.Assert(key, Equals, "")
 }
 
+func (s *BaseTests) TestGetPrefix(c *C) {
+	prefix := "unit-test/"
+
+	DeletePrefix(prefix)
+	defer DeletePrefix(prefix)
+
+	key, val, err := GetPrefix(context.Background(), prefix)
+	c.Assert(err, IsNil)
+	c.Assert(val, IsNil)
+	c.Assert(key, Equals, "")
+
+	// create
+	labelsLong := "foo;/;bar;"
+	labelsShort := "foo;/"
+	testKey := fmt.Sprintf("%s%s/%010d", prefix, labelsLong, 0)
+	c.Assert(Update(context.Background(), testKey, testValue(0), true), IsNil)
+
+	val, err = Get(testKey)
+	c.Assert(err, IsNil)
+	c.Assert(val, checker.DeepEquals, testValue(0))
+
+	prefixes := []string{
+		prefix,
+		fmt.Sprintf("%s%s", prefix, labelsLong),
+		fmt.Sprintf("%s%s", prefix, labelsShort),
+	}
+	for _, p := range prefixes {
+		key, val, err = GetPrefix(context.Background(), p)
+		c.Assert(err, IsNil)
+		c.Assert(val, checker.DeepEquals, testValue(0))
+		c.Assert(key, Equals, testKey)
+	}
+}
+
 func (s *BaseTests) BenchmarkGet(c *C) {
 	prefix := "unit-test/"
 	DeletePrefix(prefix)
