@@ -59,8 +59,12 @@ type FEPortName string
 // ServiceID is the service's ID.
 type ServiceID uint16
 
+// BackendID is the backend's ID.
+type BackendID uint16
+
 // LBBackEnd represents load balancer backend.
 type LBBackEnd struct {
+	ID BackendID
 	L3n4Addr
 	Weight uint16
 }
@@ -280,9 +284,11 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
 }
 
-func NewLBBackEnd(protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
+// NewLBBackEnd creates the LBBackEnd struct instance from given params.
+func NewLBBackEnd(id uint16, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
 	lbport := NewL4Addr(protocol, portNumber)
 	lbbe := LBBackEnd{
+		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 		Weight:   weight,
 	}
