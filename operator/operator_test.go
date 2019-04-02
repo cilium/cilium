@@ -14,26 +14,19 @@
 
 // +build !privileged_tests
 
-package groups
+package main
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
 
-func (s *GroupsTestSuite) TestCacheWorkingCorrectly(c *C) {
-
-	cnps := groupsCNPCache.GetAllCNP()
-	c.Assert(len(cnps), Equals, 0)
-
-	cnp := getSamplePolicy("test", "test")
-	groupsCNPCache.UpdateCNP(cnp)
-
-	cnps = groupsCNPCache.GetAllCNP()
-	c.Assert(len(cnps), Equals, 1)
-
-	groupsCNPCache.DeleteCNP(cnp)
-
-	cnps = groupsCNPCache.GetAllCNP()
-	c.Assert(len(cnps), Equals, 0)
-
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
 }
+
+type OperatorTestSuite struct{}
+
+var _ = Suite(&OperatorTestSuite{})

@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package groups
+package main
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	_ "github.com/cilium/cilium/pkg/policy/groups"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,9 +33,16 @@ const (
 	cnpKindName = "derivative"
 	parentCNP   = "io.cilium.network.policy.parent.uuid"
 	cnpKindKey  = "io.cilium.network.policy.kind"
+
+	// maxNumberOfAttempts Number of times that try to retrieve a information from a cloud provider.
+	maxNumberOfAttempts = 5
+
+	// sleepDuration time that sleep in case that can't retrieve information from a cloud provider.
+	sleepDuration = 5 * time.Second
 )
 
 var (
+	controllerManager     = controller.NewManager()
 	blockOwnerDeletionPtr = true
 )
 
@@ -133,12 +145,90 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 		// This case should not happen, but if the UID does not match make sure
 		// that the new policy is not in the cache to not loop over it. The
 		// kubernetes watcher should take care about that.
-		groupsCNPCache.DeleteCNP(k8sCNPStatus)
+		cnpCache.DeleteCNP(k8sCNPStatus)
 		return fmt.Errorf("Policy UID mistmatch")
 	}
 	k8sCNPStatus.SetDerivedPolicyStatus(derivativeName, status)
-	groupsCNPCache.UpdateCNP(k8sCNPStatus)
+	cnpCache.UpdateCNP(k8sCNPStatus)
 	// TODO: switch to JSON Patch
 	_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(cnp)
+	return err
+}
+
+// DeleteDerivativeFromCache deletes the given CNP from the cnpCache to
+// no continue pooling new data.
+func DeleteDerivativeFromCache(cnp *cilium_v2.CiliumNetworkPolicy) {
+	cnpCache.DeleteCNP(cnp)
+}
+
+// DeleteDerivativeCNP if the given policy has a derivative constraint,the
+// given CNP will be deleted from store and the cache.
+func DeleteDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
+	})
+
+	if !cnp.RequiresDerivative() {
+		scopedLog.Debug("CNP does not have derivative policies, skipped")
+		return nil
+	}
+
+	err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).DeleteCollection(
+		&v1.DeleteOptions{},
+		v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", parentCNP, cnp.ObjectMeta.UID)})
+	if err != nil {
+		return err
+	}
+
+	DeleteDerivativeFromCache(cnp)
+	return nil
+}
+
+func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
+		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
+	})
+
+	var derivativeCNP *cilium_v2.CiliumNetworkPolicy
+	var derivativeErr error
+
+	// The maxNumberOfAttempts is to not hit the limits of cloud providers API.
+	// Also, the derivativeErr is never returned, if not the controller will
+	// hit this function and the cloud providers limit will be raised. This
+	// will cause a disaster, due all other policies will hit the limit as
+	// well.
+	// If the createDerivativeCNP() fails, a new all block rule will be inserted and
+	// the derivative status in the parent policy  will be updated with the
+	// error.
+	for numAttempts := 0; numAttempts <= maxNumberOfAttempts; numAttempts++ {
+		derivativeCNP, derivativeErr = createDerivativeCNP(cnp)
+		if derivativeErr == nil {
+			break
+		}
+		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
+		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, derivativeErr)
+		if statusErr != nil {
+			scopedLog.WithError(statusErr).Error("Cannot update CNP status for derivative policy")
+		}
+		time.Sleep(sleepDuration)
+	}
+	cnpCache.UpdateCNP(cnp)
+	_, err := updateOrCreateCNP(derivativeCNP)
+	if err != nil {
+		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
+		if statusErr != nil {
+			scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
+		}
+		return statusErr
+	}
+
+	err = updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, nil)
+	if err != nil {
+		scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
+	}
 	return err
 }
