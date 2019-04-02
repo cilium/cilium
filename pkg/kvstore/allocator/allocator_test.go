@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -261,6 +261,91 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 	c.Assert(a.mainCache.keyToID(path.Join(allocatorName, "invalid"), false), Equals, idpool.NoID)
 	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "invalid"), false), Equals, idpool.NoID)
 	c.Assert(a.mainCache.keyToID(path.Join(a.idPrefix, "10"), false), Equals, idpool.ID(10))
+}
+
+func testGetNoCache(c *C, maxID idpool.ID, testName string, suffix string) {
+	allocator, err := NewAllocator(testName, TestType(""), WithMax(maxID),
+		WithSuffix(suffix), WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(allocator, Not(IsNil))
+
+	// remove any keys which might be leftover
+	allocator.DeleteAllKeys()
+	defer allocator.DeleteAllKeys()
+
+	labelsLong := "foo;/;bar;"
+	key := TestType(fmt.Sprintf("%s%010d", labelsLong, 0))
+	longID, new, err := allocator.Allocate(context.Background(), key)
+	c.Assert(err, IsNil)
+	c.Assert(longID, Not(Equals), 0)
+	c.Assert(new, Equals, true)
+
+	observedID, err := allocator.GetNoCache(context.Background(), key)
+	c.Assert(err, IsNil)
+	c.Assert(observedID, Not(Equals), 0)
+
+	labelsShort := "foo;/;"
+	shortKey := TestType(labelsShort)
+	observedID, err = allocator.GetNoCache(context.Background(), shortKey)
+	c.Assert(err, IsNil)
+	c.Assert(observedID, Equals, idpool.NoID)
+
+	// Limitation: If we now insert the key for the short labels because
+	// it's not found, then we will have two keys with the same "foo;/;"
+	// prefix. At that point it's not deterministic whether we will find
+	// the key or not, because GetNoCache() only checks the first key that
+	// matches a given prefix.
+	shortID, new, err := allocator.Allocate(context.Background(), shortKey)
+	c.Assert(err, IsNil)
+	c.Assert(shortID, Not(Equals), 0)
+	c.Assert(new, Equals, true)
+
+	// So, if we look this up, the only thing we can be sure of is that it
+	// must not find the longID. It will either be idpool.NoID or shortID.
+	observedID, err = allocator.GetNoCache(context.Background(), shortKey)
+	c.Assert(err, IsNil)
+	c.Assert(observedID, Not(Equals), longID)
+}
+
+func (s *AllocatorSuite) TestprefixMatchesKey(c *C) {
+	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
+
+	tests := []struct {
+		prefix   string
+		key      string
+		expected bool
+	}{
+		{
+			prefix:   "foo",
+			key:      "foo/bar",
+			expected: true,
+		},
+		{
+			prefix:   "foo/;bar;baz;/;a;",
+			key:      "foo/;bar;baz;/;a;/alice",
+			expected: true,
+		},
+		{
+			prefix:   "foo/;bar;baz;",
+			key:      "foo/;bar;baz;/;a;/alice",
+			expected: false,
+		},
+		{
+			prefix:   "foo/;bar;baz;/;a;/baz",
+			key:      "foo/;bar;baz;/;a;/alice",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		c.Logf("prefixMatchesKey(%q, %q) expected to be %t", tt.prefix, tt.key, tt.expected)
+		result := prefixMatchesKey(tt.prefix, tt.key)
+		c.Assert(result, Equals, tt.expected)
+	}
+}
+
+func (s *AllocatorSuite) TestGetNoCache(c *C) {
+	testGetNoCache(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
 }
 
 func (s *AllocatorSuite) TestRemoteCache(c *C) {
