@@ -377,3 +377,35 @@ func (l *lbmapCache) getBackendIDByAddrID(addrID BackendAddrID) uint16 {
 
 	return l.backendIDByAddrID[addrID]
 }
+
+// removeServiceV2 removes the service v2 from the cache.
+func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]uint16, int, error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	frontendID := svcKey.String()
+	bpfSvc, ok := l.entries[frontendID]
+	if !ok {
+		return nil, 0, fmt.Errorf("Service %s not found", frontendID)
+	}
+
+	backendsToRemove := []uint16{}
+	count := len(bpfSvc.backendsV2)
+
+	for addrID := range bpfSvc.backendsV2 {
+		isLastInstance, err := l.delBackendV2Locked(addrID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if isLastInstance {
+			backendsToRemove = append(backendsToRemove, l.backendIDByAddrID[addrID])
+			delete(l.backendIDByAddrID, addrID)
+		}
+	}
+
+	// FIXME(brb) uncomment the following line after we have removed the support for
+	// legacy svc.
+	//delete(l.entries, frontendID)
+
+	return backendsToRemove, count, nil
+}
