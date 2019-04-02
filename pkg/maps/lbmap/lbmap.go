@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@ package lbmap
 
 import (
 	"fmt"
-	"net"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -25,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 )
@@ -50,87 +49,6 @@ var (
 	// combined
 	cache = newLBMapCache()
 )
-
-// ServiceKey is the interface describing protocol independent key for services map.
-type ServiceKey interface {
-	bpf.MapKey
-
-	// Returns true if the key is of type IPv6
-	IsIPv6() bool
-
-	// Returns the BPF map matching the key type
-	Map() *bpf.Map
-
-	// Returns the BPF Weighted Round Robin map matching the key type
-	RRMap() *bpf.Map
-
-	// Returns a RevNatValue matching a ServiceKey
-	RevNatValue() RevNatValue
-
-	// Returns the port set in the key or 0
-	GetPort() uint16
-
-	// Set the backend index (master: 0, backend: nth backend)
-	SetBackend(int)
-
-	// Return backend index
-	GetBackend() int
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() ServiceKey
-
-	// ToHost converts fields to host byte order.
-	ToHost() ServiceKey
-}
-
-// ServiceValue is the interface describing protocol independent value for services map.
-type ServiceValue interface {
-	bpf.MapValue
-
-	// Returns a RevNatKey matching a ServiceValue
-	RevNatKey() RevNatKey
-
-	// Set the number of backends
-	SetCount(int)
-
-	// Get the number of backends
-	GetCount() int
-
-	// Set address to map to (left blank for master)
-	SetAddress(net.IP) error
-
-	// Set port to map to (left blank for master)
-	SetPort(uint16)
-
-	// Set reverse NAT identifier
-	SetRevNat(int)
-
-	// Set Weight
-	SetWeight(uint16)
-
-	// Get Weight
-	GetWeight() uint16
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() ServiceValue
-
-	// ToHost converts fields to host byte order.
-	ToHost() ServiceValue
-}
-
-type RRSeqValue struct {
-	// Length of Generated sequence
-	Count uint16
-
-	// Generated Sequence
-	Idx [MaxSeq]uint16
-}
-
-func (s *RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
-
-func (s *RRSeqValue) String() string {
-	return fmt.Sprintf("count=%d idx=%v", s.Count, s.Idx)
-}
 
 func updateService(key ServiceKey, value ServiceValue) error {
 	log.WithFields(logrus.Fields{
@@ -202,29 +120,6 @@ func lookupAndDeleteServiceWeights(key ServiceKey) error {
 	}
 
 	return key.RRMap().Delete(key.ToNetwork())
-}
-
-type RevNatKey interface {
-	bpf.MapKey
-
-	// Returns true if the key is of type IPv6
-	IsIPv6() bool
-
-	// Returns the BPF map matching the key type
-	Map() *bpf.Map
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() RevNatKey
-
-	// Returns the key value
-	GetKey() uint16
-}
-
-type RevNatValue interface {
-	bpf.MapValue
-
-	// ToNetwork converts fields to network byte order.
-	ToNetwork() RevNatValue
 }
 
 func updateRevNatLocked(key RevNatKey, value RevNatValue) error {

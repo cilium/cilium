@@ -15,7 +15,9 @@
 package lbmap
 
 import (
+	"fmt"
 	"net"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 )
@@ -23,6 +25,82 @@ import (
 // BackendAddrID is the type of a service endpoint's unique identifier which
 // consists of "IP:PORT"
 type BackendAddrID string
+
+// ServiceKey is the interface describing protocol independent key for services map.
+type ServiceKey interface {
+	bpf.MapKey
+
+	// Returns true if the key is of type IPv6
+	IsIPv6() bool
+
+	// Returns the BPF map matching the key type
+	Map() *bpf.Map
+
+	// Returns the BPF Weighted Round Robin map matching the key type
+	RRMap() *bpf.Map
+
+	// Returns a RevNatValue matching a ServiceKey
+	RevNatValue() RevNatValue
+
+	// Returns the port set in the key or 0
+	GetPort() uint16
+
+	// Set the backend index (master: 0, backend: nth backend)
+	SetBackend(int)
+
+	// Return backend index
+	GetBackend() int
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceKey
+}
+
+// ServiceValue is the interface describing protocol independent value for services map.
+type ServiceValue interface {
+	bpf.MapValue
+
+	// Returns a RevNatKey matching a ServiceValue
+	RevNatKey() RevNatKey
+
+	// Set the number of backends
+	SetCount(int)
+
+	// Get the number of backends
+	GetCount() int
+
+	// Set address to map to (left blank for master)
+	SetAddress(net.IP) error
+
+	// Set port to map to (left blank for master)
+	SetPort(uint16)
+
+	// Get the port number
+	GetPort() uint16
+
+	// Set reverse NAT identifier
+	SetRevNat(int)
+
+	// Set Weight
+	SetWeight(uint16)
+
+	// Get Weight
+	GetWeight() uint16
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() ServiceValue
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceValue
+
+	// Get BackendAddrID of the service value
+	BackendAddrID() BackendAddrID
+
+	// Returns true if the value is of type IPv6
+	IsIPv6() bool
+}
 
 // ServiceKey is the interface describing protocol independent key for services map v2.
 //
@@ -140,4 +218,41 @@ type Backend interface {
 
 	// Get value of the backend entry
 	GetValue() BackendValue
+}
+
+type RevNatKey interface {
+	bpf.MapKey
+
+	// Returns true if the key is of type IPv6
+	IsIPv6() bool
+
+	// Returns the BPF map matching the key type
+	Map() *bpf.Map
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() RevNatKey
+
+	// Returns the key value
+	GetKey() uint16
+}
+
+type RevNatValue interface {
+	bpf.MapValue
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() RevNatValue
+}
+
+type RRSeqValue struct {
+	// Length of Generated sequence
+	Count uint16
+
+	// Generated Sequence
+	Idx [MaxSeq]uint16
+}
+
+func (s *RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
+
+func (s *RRSeqValue) String() string {
+	return fmt.Sprintf("count=%d idx=%v", s.Count, s.Idx)
 }
