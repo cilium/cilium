@@ -432,10 +432,19 @@ func openServiceMaps() error {
 		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
 			return err
 		}
+		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Backend6Map.OpenOrCreate(); err != nil {
+			return err
+		}
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RRSeq6MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := proxymap.Proxy6Map.OpenOrCreate(); err != nil {
@@ -447,10 +456,19 @@ func openServiceMaps() error {
 		if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
 			return err
 		}
+		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.Backend4Map.OpenOrCreate(); err != nil {
+			return err
+		}
 		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
+			return err
+		}
+		if _, err := lbmap.RRSeq4MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := proxymap.Proxy4Map.OpenOrCreate(); err != nil {
