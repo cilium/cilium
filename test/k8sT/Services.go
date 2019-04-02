@@ -267,30 +267,30 @@ var _ = Describe("K8sServicesTest", func() {
 
 		validateEgress := func() {
 			By("Checking that toServices CIDR is plumbed into CEP")
-			Eventually(func() string {
+			EventuallyWithOffset(1, func() string {
 				res := kubectl.Exec(fmt.Sprintf(
 					"%s -n %s get cep %s -o json",
 					helpers.KubectlCmd,
 					helpers.DefaultNamespace,
 					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
+				ExpectWithOffset(2, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
 				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+				ExpectWithOffset(2, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
 			}, 2*time.Minute, 2*time.Second).Should(ContainSubstring(expectedCIDR))
 		}
 
 		validateEgressAfterDeletion := func() {
 			By("Checking that toServices CIDR is no longer plumbed into CEP")
-			Eventually(func() string {
+			EventuallyWithOffset(2, func() string {
 				res := kubectl.Exec(fmt.Sprintf(
 					"%s -n %s get cep %s -o json",
 					helpers.KubectlCmd,
 					helpers.DefaultNamespace,
 					podName))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
+				ExpectWithOffset(2, res).Should(helpers.CMDSuccess(), "cannot get Cilium endpoint")
 				data, err := res.Filter(`{.status.policy.egress}`)
-				ExpectWithOffset(1, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
+				ExpectWithOffset(2, err).To(BeNil(), "unable to get endpoint %s metadata", podName)
 				return data.String()
 			}, 2*time.Minute, 2*time.Second).ShouldNot(ContainSubstring(expectedCIDR))
 		}

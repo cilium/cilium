@@ -221,14 +221,14 @@ func addDerivativeCNP(cnp *cilium_v2.CiliumNetworkPolicy) error {
 	if err != nil {
 		statusErr := updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, err)
 		if statusErr != nil {
-			scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
+			scopedLog.WithError(err).Error("Cannot update CNP status for parent policy after failing to create derivative policy")
 		}
 		return statusErr
 	}
 
 	err = updateDerivativeStatus(cnp, derivativeCNP.ObjectMeta.Name, nil)
 	if err != nil {
-		scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy")
+		scopedLog.WithError(err).Error("Cannot update CNP status for derivative policy after creating derivative policy")
 	}
 	return err
 }
