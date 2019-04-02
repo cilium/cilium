@@ -5,8 +5,8 @@ metadata:
   labels:
     zgroup: external
     test: external
+  namespace: default
 spec:
-  clusterIP: ""
   ports:
   - protocol: TCP
     port: 80
