@@ -363,7 +363,7 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 	}
 
 	feL3n4Addr := serviceKey2L3n4Addr(svcKey)
-	beLBBackEnd := loadbalancer.NewLBBackEnd(loadbalancer.NONE, beIP, bePort, beWeight)
+	beLBBackEnd := loadbalancer.NewLBBackEnd(0, loadbalancer.NONE, beIP, bePort, beWeight)
 
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
