@@ -246,6 +246,18 @@ func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 }
 
 func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
+	errV2 := lbmap.DeleteServiceV2(svc, service.DeleteBackendID)
+	errLegacy := d.svcDeleteBPFLegacy(svc)
+
+	if errV2 != nil || errLegacy != nil {
+		return fmt.Errorf("Deleting service from BPF maps failed: %s (v2), %s (legacy)",
+			errV2, errLegacy)
+	}
+
+	return nil
+}
+
+func (d *Daemon) svcDeleteBPFLegacy(svc loadbalancer.L3n4AddrID) error {
 	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
 	var svcKey lbmap.ServiceKey
 	if !svc.IsIPv6() {

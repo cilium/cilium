@@ -65,12 +65,20 @@ func updateService(key ServiceKey, value ServiceValue) error {
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }
 
-// DeleteService deletes a service from the lbmap. key should be the master (i.e., with backend set to zero).
+// DeleteService deletes a legacy service from the lbmap. The given key has to
+// be of the master service.
 func DeleteService(key ServiceKey) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	return deleteServiceLocked(key)
+	err := deleteServiceLocked(key)
+	if err != nil {
+		return err
+	}
+
+	cache.delete(key)
+
+	return nil
 }
 
 func deleteServiceLocked(key ServiceKey) error {
@@ -78,11 +86,7 @@ func deleteServiceLocked(key ServiceKey) error {
 	if err != nil {
 		return err
 	}
-	err = lookupAndDeleteServiceWeights(key)
-	if err == nil {
-		cache.delete(key)
-	}
-	return err
+	return lookupAndDeleteServiceWeights(key)
 }
 
 func lookupService(key ServiceKey) (ServiceValue, error) {
@@ -822,4 +826,57 @@ func updateServiceV2(key ServiceKeyV2, value ServiceValueV2) error {
 // AddBackendIDsToCache populates the given backend IDs to the lbmap local cache.
 func AddBackendIDsToCache(backendIDs map[BackendAddrID]uint16) {
 	cache.addBackendIDs(backendIDs)
+}
+
+// DeleteServiceV2 deletes a service from the lbmap and deletes backends of it if
+// they are not used by any other service.
+//
+//The given key has to be of the master service.
+func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16)) error {
+	var (
+		backendKey BackendKey
+		svcKey     ServiceKeyV2
+	)
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	isIPv6 := svc.IsIPv6()
+
+	log.WithField(logfields.ServiceName, svc).Debug("Deleting service")
+
+	if isIPv6 {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	} else {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	}
+
+	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
+	if err != nil {
+		return err
+	}
+
+	for slot := 0; slot <= backendsCount; slot++ {
+		svcKey.SetSlave(slot)
+		if err := svcKey.MapDelete(); err != nil {
+			return err
+		}
+	}
+
+	if isIPv6 {
+		backendKey = NewBackend6Key(0)
+	} else {
+		backendKey = NewBackend4Key(0)
+	}
+
+	for _, id := range backendsToRemove {
+		backendKey.SetID(id)
+		if err := deleteBackendLocked(backendKey); err != nil {
+			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
+		}
+		releaseBackendID(id)
+		log.WithField(logfields.BackendID, id).Debug("Deleted backend")
+	}
+
+	return nil
 }
