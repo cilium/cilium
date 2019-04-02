@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -471,6 +472,19 @@ func (c *consulClient) Update(ctx context.Context, key string, value []byte, lea
 	_, err := c.KV().Put(k, opts.WithContext(ctx))
 	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return err
+}
+
+func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
+	existingValue, err := c.Get(key)
+	// On error, attempt update blindly
+	if err == nil {
+		// Value already exists, do not update
+		if bytes.Equal(existingValue, value) {
+			return false, nil
+		}
+	}
+
+	return true, c.Update(ctx, key, value, lease)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
