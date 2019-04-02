@@ -131,12 +131,12 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr
 		e.LXCMAC = QAHardAddr
-		e.SetNodeMACLocked(QAHardAddr)
+		e.NodeMAC = QAHardAddr
 	} else {
 		e.IPv6 = ProdIPv6Addr
 		e.IPv4 = ProdIPv4Addr
 		e.LXCMAC = ProdHardAddr
-		e.SetNodeMACLocked(ProdHardAddr)
+		e.NodeMAC = ProdHardAddr
 	}
 	e.SetIdentity(identity)
 

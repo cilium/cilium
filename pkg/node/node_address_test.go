@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 
 	. "gopkg.in/check.v1"
