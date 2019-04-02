@@ -77,6 +77,9 @@ type ServiceValue interface {
 	// Set port to map to (left blank for master)
 	SetPort(uint16)
 
+	// Get the port number
+	GetPort() uint16
+
 	// Set reverse NAT identifier
 	SetRevNat(int)
 
@@ -91,6 +94,12 @@ type ServiceValue interface {
 
 	// ToHost converts fields to host byte order.
 	ToHost() ServiceValue
+
+	// Get BackendAddrID of the service value
+	BackendAddrID() BackendAddrID
+
+	// Returns true if the value is of type IPv6
+	IsIPv6() bool
 }
 
 // ServiceKey is the interface describing protocol independent key for services map v2.

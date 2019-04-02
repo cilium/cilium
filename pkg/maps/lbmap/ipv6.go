@@ -202,12 +202,14 @@ func NewService6Value(count uint16, target net.IP, port uint16, revNat uint16, w
 
 func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 func (s *Service6Value) SetPort(port uint16)         { s.Port = port }
+func (s *Service6Value) GetPort() uint16             { return s.Port }
 func (s *Service6Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service6Value) GetCount() int               { return int(s.Count) }
 func (s *Service6Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service6Value) RevNatKey() RevNatKey        { return &RevNat6Key{s.RevNat} }
 func (s *Service6Value) SetWeight(weight uint16)     { s.Weight = weight }
 func (s *Service6Value) GetWeight() uint16           { return s.Weight }
+func (s *Service6Value) IsIPv6() bool                { return true }
 
 func (s *Service6Value) SetAddress(ip net.IP) error {
 	if ip.To4() != nil {
@@ -238,6 +240,10 @@ func (s *Service6Value) ToHost() ServiceValue {
 
 func (s *Service6Value) String() string {
 	return fmt.Sprintf("[%s]:%d (%d)", s.Address, s.Port, s.RevNat)
+}
+
+func (s *Service6Value) BackendAddrID() BackendAddrID {
+	return BackendAddrID(fmt.Sprintf("[%s]:%d", s.Address, s.Port))
 }
 
 type RevNat6Key struct {
