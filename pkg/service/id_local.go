@@ -21,119 +21,135 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-var (
-	// mutex protects servicesID, services, nextID and maxID
-	mutex lock.RWMutex
+// IDAllocator contains an internal state of the ID allocator.
+type IDAllocator struct {
+	// Protects entitiesID, entities, nextID and maxID
+	lock.RWMutex
 
-	// servicesID is a map of all services indexed by service ID
-	servicesID = map[uint32]*loadbalancer.L3n4AddrID{}
+	// entitiesID is a map of all entities indexed by service ID
+	entitiesID map[uint32]*loadbalancer.L3n4AddrID
 
-	// services is a map of all services indexed by L3n4Addr.StringID()
-	services = map[string]uint32{}
+	// entities is a map of all entities indexed by L3n4Addr.StringID()
+	entities map[string]uint32
 
 	// nextID is the next service ID to attempt to allocate
-	nextID = FirstFreeServiceID
+	nextID uint32
 
 	// maxID is the maximum service ID available for allocation
-	maxID = MaxSetOfServiceID
+	maxID uint32
+}
+
+var (
+	serviceIDAlloc = NewIDAllocator()
+	backendIDAlloc = NewIDAllocator()
 )
 
-func newServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
-	return &loadbalancer.L3n4AddrID{
-		L3n4Addr: svc,
-		ID:       loadbalancer.ServiceID(id),
+// NewIDAllocator creates a new ID allocator instance.
+func NewIDAllocator() *IDAllocator {
+	return &IDAllocator{
+		entitiesID: map[uint32]*loadbalancer.L3n4AddrID{},
+		entities:   map[string]uint32{},
+		nextID:     FirstFreeServiceID,
+		maxID:      MaxSetOfServiceID,
 	}
 }
 
-func addServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
+func (alloc *IDAllocator) addServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	svcID := newServiceID(svc, id)
-	servicesID[id] = svcID
-	services[svc.StringID()] = id
+	alloc.entitiesID[id] = svcID
+	alloc.entities[svc.StringID()] = id
 
 	return svcID
 }
 
-func acquireLocalID(svc loadbalancer.L3n4Addr, desiredID uint32) (*loadbalancer.L3n4AddrID, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func (alloc *IDAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID uint32) (*loadbalancer.L3n4AddrID, error) {
+	alloc.Lock()
+	defer alloc.Unlock()
 
-	if svcID, ok := services[svc.StringID()]; ok {
-		if svc, ok := servicesID[svcID]; ok {
+	if svcID, ok := alloc.entities[svc.StringID()]; ok {
+		if svc, ok := alloc.entitiesID[svcID]; ok {
 			return svc, nil
 		}
 	}
 
 	if desiredID != 0 {
-		if _, ok := servicesID[desiredID]; !ok {
-			return addServiceID(svc, desiredID), nil
+		if _, ok := alloc.entitiesID[desiredID]; !ok {
+			return alloc.addServiceID(svc, desiredID), nil
 		}
 	}
 
-	startingID := nextID
+	startingID := alloc.nextID
 	rollover := false
 	for {
-		if nextID == startingID && rollover {
+		if alloc.nextID == startingID && rollover {
 			break
-		} else if nextID == maxID {
-			nextID = FirstFreeServiceID
+		} else if alloc.nextID == alloc.maxID {
+			alloc.nextID = FirstFreeServiceID
 			rollover = true
 		}
 
-		if _, ok := servicesID[nextID]; !ok {
-			svcID := addServiceID(svc, nextID)
-			nextID++
+		if _, ok := alloc.entitiesID[alloc.nextID]; !ok {
+			svcID := alloc.addServiceID(svc, alloc.nextID)
+			alloc.nextID++
 			return svcID, nil
 		}
 
-		nextID++
+		alloc.nextID++
 	}
 
 	return nil, fmt.Errorf("no service ID available")
 }
 
-func getLocalID(id uint32) (*loadbalancer.L3n4AddrID, error) {
-	mutex.RLock()
-	defer mutex.RUnlock()
+func (alloc *IDAllocator) getLocalID(id uint32) (*loadbalancer.L3n4AddrID, error) {
+	alloc.RLock()
+	defer alloc.RUnlock()
 
-	if svc, ok := servicesID[id]; ok {
+	if svc, ok := alloc.entitiesID[id]; ok {
 		return svc, nil
 	}
 
 	return nil, nil
 }
 
-func deleteLocalID(id uint32) error {
-	mutex.Lock()
-	defer mutex.Unlock()
+func (alloc *IDAllocator) deleteLocalID(id uint32) error {
+	alloc.Lock()
+	defer alloc.Unlock()
 
-	if svc, ok := servicesID[id]; ok {
-		delete(servicesID, id)
-		delete(services, svc.StringID())
+	if svc, ok := alloc.entitiesID[id]; ok {
+		delete(alloc.entitiesID, id)
+		delete(alloc.entities, svc.StringID())
 	}
 
 	return nil
 }
 
-func setLocalIDSpace(next, max uint32) error {
-	mutex.Lock()
-	nextID = next
-	maxID = max
-	mutex.Unlock()
+func (alloc *IDAllocator) setLocalIDSpace(next, max uint32) error {
+	alloc.Lock()
+	alloc.nextID = next
+	alloc.maxID = max
+	alloc.Unlock()
 
 	return nil
 }
 
-func getLocalMaxServiceID() (uint32, error) {
-	mutex.RLock()
-	defer mutex.RUnlock()
-	return nextID, nil
+func (alloc *IDAllocator) getLocalMaxServiceID() (uint32, error) {
+	alloc.RLock()
+	defer alloc.RUnlock()
+	return alloc.nextID, nil
 }
 
-func resetLocalID() {
-	mutex.Lock()
-	servicesID = map[uint32]*loadbalancer.L3n4AddrID{}
-	services = map[string]uint32{}
-	nextID = FirstFreeServiceID
-	maxID = MaxSetOfServiceID
-	mutex.Unlock()
+func (alloc *IDAllocator) resetLocalID() {
+	alloc.Lock()
+	alloc.entitiesID = map[uint32]*loadbalancer.L3n4AddrID{}
+	alloc.entities = map[string]uint32{}
+	alloc.nextID = FirstFreeServiceID
+	alloc.maxID = MaxSetOfServiceID
+	alloc.Unlock()
+}
+
+func newServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
+	return &loadbalancer.L3n4AddrID{
+		L3n4Addr: svc,
+		ID:       loadbalancer.ServiceID(id),
+	}
 }
