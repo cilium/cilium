@@ -426,3 +426,97 @@ func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) *loadb
 
 	return &loadbalancer.L3n4AddrID{L3n4Addr: *be, ID: svcID}
 }
+
+// LBSVC2ServiceKeynValuenBackendValueV2 transforms the SVC Cilium type into a bpf SVC v2 type.
+func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []ServiceValueV2, []Backend, error) {
+	log.WithFields(logrus.Fields{
+		"lbFrontend": svc.FE.String(),
+		"lbBackend":  svc.BES,
+	}).Debug("converting Cilium load-balancer service (frontend -> backend(s)) into BPF service")
+	svcKey := l3n4Addr2ServiceKeyV2(svc.FE)
+
+	backends := []Backend{}
+	svcValues := []ServiceValueV2{}
+	for _, be := range svc.BES {
+		svcValue := svcKey.NewValue().(ServiceValueV2)
+		backend, err := lbBackEnd2Backend(be)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		svcValue.SetRevNat(int(svc.FE.ID))
+		svcValue.SetWeight(be.Weight)
+		svcValue.SetBackendID(uint16(be.ID))
+
+		backends = append(backends, backend)
+		svcValues = append(svcValues, svcValue)
+		log.WithFields(logrus.Fields{
+			"lbFrontend": svcKey,
+			"lbBackend":  svcValue,
+		}).Debug("associating frontend -> backend")
+	}
+	log.WithFields(logrus.Fields{
+		"lbFrontend":        svc.FE.String(),
+		"lbBackend":         svc.BES,
+		logfields.ServiceID: svcKey,
+		logfields.Object:    logfields.Repr(svcValues),
+	}).Debug("converted LBSVC (frontend -> backend(s)), to Service Key and Value")
+	return svcKey, svcValues, backends, nil
+}
+
+// serviceKey2L3n4Addr converts the given svcKey to a L3n4Addr.
+func serviceKey2L3n4AddrV2(svcKey ServiceKeyV2) *loadbalancer.L3n4Addr {
+	log.WithField(logfields.ServiceID, svcKey).Debug("creating L3n4Addr for ServiceKey")
+
+	feProto := loadbalancer.NONE
+	feIP := svcKey.GetAddress()
+	fePort := svcKey.GetPort()
+
+	return loadbalancer.NewL3n4Addr(feProto, feIP, fePort)
+}
+
+func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceValueV2,
+	backendID uint16, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceID: svcKey,
+		logfields.Object:    logfields.Repr(svcValue),
+	}).Debug("converting ServiceKey, ServiceValue and Backend (v2) to frontend and backend")
+	var beLBBackEnd *loadbalancer.LBBackEnd
+
+	svcID := loadbalancer.ServiceID(svcValue.GetRevNat())
+	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
+	feL3n4AddrID := &loadbalancer.L3n4AddrID{
+		L3n4Addr: *feL3n4Addr,
+		ID:       svcID,
+	}
+
+	if backendID != 0 {
+		beIP := backend.GetAddress()
+		bePort := backend.GetPort()
+		beWeight := svcValue.GetWeight()
+		beProto := loadbalancer.NONE
+		beLBBackEnd = loadbalancer.NewLBBackEnd(backendID, beProto, beIP, bePort, beWeight)
+	}
+
+	return feL3n4AddrID, beLBBackEnd
+}
+
+// l3n4Addr2ServiceKeyV2 converts the given l3n4Addr to a ServiceKey (v2) with the slave ID
+// set to 0.
+func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) ServiceKeyV2 {
+	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKeyV2")
+	if l3n4Addr.IsIPv6() {
+		return NewService6KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0)
+	}
+
+	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0)
+}
+
+func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
+	if be.IsIPv6() {
+		return NewBackend6(uint16(be.ID), be.IP, be.Port, u8proto.All)
+	}
+
+	return NewBackend4(uint16(be.ID), be.IP, be.Port, u8proto.All)
+}
