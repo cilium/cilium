@@ -6,10 +6,7 @@ sudo: required
 go:
  - 1.12.1
 
-# This will travis to build on branch updates only for the master branch
-branches:
-  only:
-  - master
+if: branch = master OR type = pull_request
 
 addons:
   apt:
