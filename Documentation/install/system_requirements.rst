@@ -26,21 +26,23 @@ When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
 - `clang+LLVM`_ >=5.0 (Recommended: >=7.0)
-- iproute2_ >= 4.8.0
+- iproute2_ with BPF templating patches [#iproute2_foot]_
 
 .. _`clang+LLVM`: https://llvm.org
 .. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
 
+======================== ========================== ===================
+Requirement              Minimum Version            In cilium container
+======================== ========================== ===================
+`Linux kernel`_          >= 4.9.17                  no
+Key-Value store (etcd)   >= 3.1.0                   no
+Key-Value store (consul) >= 0.6.4                   no
+clang+LLVM               >= 5.0.0                   yes
+iproute2                 >= 5.0.0 [#iproute2_foot]_ yes
+======================== ========================== ===================
 
-======================== =============== ===================
-Requirement              Minimum Version In cilium container
-======================== =============== ===================
-`Linux kernel`_          >= 4.9.17       no
-Key-Value store (etcd)   >= 3.1.0        no
-Key-Value store (consul) >= 0.6.4        no
-clang+LLVM               >= 5.0.0        yes
-iproute2                 >= 4.8.0        yes
-======================== =============== ===================
+.. [#iproute2_foot] Requires support for BPF templating as documented
+   :ref:`below <iproute2_requirements>`.
 
 Linux Distribution Compatibility Matrix
 =======================================
@@ -127,13 +129,13 @@ clang+LLVM
 
 LLVM is the compiler suite that Cilium uses to generate BPF bytecode programs
 to be loaded into the Linux kernel. The minimum supported version of LLVM
-available to ``cilium-agent`` should be >=3.7.1. The version of clang installed
+available to ``cilium-agent`` should be >=5.0. The version of clang installed
 must be compiled with the BPF backend enabled.
 
 See https://releases.llvm.org/ for information on how to download and install
 LLVM.
 
-.. note:: Beginning with clang 3.9.x, the minimum kernel version is >= 4.9.17.
+.. _iproute2_requirements:
 
 iproute2
 ========
@@ -142,13 +144,23 @@ iproute2
           host machine. iproute2 is included in the ``cilium/cilium`` container
           image.
 
-iproute2 is a low level tool used to configure various networking related
+iproute2_ is a low level tool used to configure various networking related
 subsystems of the Linux kernel. Cilium uses iproute2 to configure networking
 and ``tc``, which is part of iproute2, to load BPF programs into the kernel.
 
-The minimum version of iproute2_ must be >= 4.8.0. Please see
-https://www.kernel.org/pub/linux/utils/net/iproute2/ for documentation on how
-to install iproute2.
+The version of iproute2 must include the BPF templating patches. See the
+links in the table below for documentation on how to install the correct
+version of iproute2 for your distribution.
+
+================= =========================
+Distribution      Link
+================= =========================
+Binary (OpenSUSE) `Open Build Service`_
+Source            `Cilium iproute2 source`_
+================= =========================
+
+.. _`Open Build Service`: https://build.opensuse.org/package/show/security:netfilter/iproute2
+.. _`Cilium iproute2 source`: https://github.com/cilium/iproute2/tree/static-data
 
 .. _firewall_requirements:
 
