@@ -33,10 +33,14 @@ import (
 // addSVC2BPFMap adds the given bpf service to the bpf maps. If addRevNAT is set, adds the
 // RevNAT value (feCilium.L3n4Addr) to the lb's RevNAT map for the given feCilium.ID.
 func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.ServiceKey,
-	besBPF []lbmap.ServiceValue, addRevNAT bool) error {
+	besBPF []lbmap.ServiceValue,
+	svcKeyV2 lbmap.ServiceKeyV2, svcValuesV2 []lbmap.ServiceValueV2, backendsV2 []lbmap.Backend,
+	addRevNAT bool) error {
 	log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to BPF maps")
 
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, int(feCilium.ID)); err != nil {
+	revNATID := int(feCilium.ID)
+
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, feCilium.ID)
 		}
@@ -113,7 +117,11 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	}
 
 	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
+	if err != nil {
+		return false, err
+	}
 
+	svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
 	if err != nil {
 		return false, err
 	}
@@ -121,7 +129,7 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
-	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, addRevNAT)
+	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT)
 	if err != nil {
 		return false, err
 	}
@@ -591,7 +599,13 @@ func (d *Daemon) SyncLBMap() error {
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
 		}
 
-		err = d.addSVC2BPFMap(svc.FE, fe, besValues, false)
+		svcKeyV2, svcValuesV2, backendsV2, err := lbmap.LBSVC2ServiceKeynValuenBackendV2(&svc)
+		if err != nil {
+			return fmt.Errorf("Unable to create a BPF key and values for service v2 FE: %s and backends: %+v. Error: %s."+
+				" This entry will be removed from the bpf's LB map.", svc.FE.String(), svc.BES, err)
+		}
+
+		err = d.addSVC2BPFMap(svc.FE, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, false)
 		if err != nil {
 			return fmt.Errorf("Unable to add service FE: %s: %s."+
 				" This entry will be removed from the bpf's LB map.", svc.FE.String(), err)
