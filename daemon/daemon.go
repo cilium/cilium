@@ -978,9 +978,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Kubernetes apiserver and serving the API to ensure service IDs are
 	// not changing across restarts or that a new service could accidentally
 	// use an existing service ID.
+	// Also, create missing v2 services from the corresponding legacy ones.
 	if option.Config.RestoreState && !option.Config.DryMode {
 		bootstrapStats.restore.Start()
-		restoreServiceIDs()
+		restoreServices()
 		bootstrapStats.restore.End(true)
 	}
 
