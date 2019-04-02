@@ -54,6 +54,15 @@ struct bpf_elf_map __section_maps LB6_SERVICES_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
+struct bpf_elf_map __section_maps LB6_SERVICES_MAP_V2 = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb6_key_v2),
+	.size_value	= sizeof(struct lb6_service_v2),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
 struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.size_key       = sizeof(struct lb6_key),
@@ -62,6 +71,25 @@ struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP = {
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 	.flags		= CONDITIONAL_PREALLOC,
 };
+
+struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP_V2 = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.size_key       = sizeof(struct lb6_key_v2),
+	.size_value     = sizeof(struct lb_sequence),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = CILIUM_LB_MAP_MAX_FE,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
+struct bpf_elf_map __section_maps LB6_BACKEND_MAP = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.size_key       = sizeof(__u16),
+	.size_value     = sizeof(struct lb6_backend),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags          = CONDITIONAL_PREALLOC,
+};
+
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -83,6 +111,15 @@ struct bpf_elf_map __section_maps LB4_SERVICES_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
+struct bpf_elf_map __section_maps LB4_SERVICES_MAP_V2 = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb4_key_v2),
+	.size_value	= sizeof(struct lb4_service_v2),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
 struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
 	.type           = BPF_MAP_TYPE_HASH,
 	.size_key       = sizeof(struct lb4_key),
@@ -91,6 +128,25 @@ struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
 	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 	.flags		= CONDITIONAL_PREALLOC,
 };
+
+struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP_V2 = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.size_key       = sizeof(struct lb4_key_v2),
+	.size_value     = sizeof(struct lb_sequence),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = CILIUM_LB_MAP_MAX_FE,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
+struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.size_key       = sizeof(__u16),
+	.size_value     = sizeof(struct lb4_backend),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags          = CONDITIONAL_PREALLOC,
+};
+
 #endif /* ENABLE_IPV4 */
 
 
