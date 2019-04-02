@@ -403,7 +403,7 @@ func (a *Allocator) createValueNodeKey(ctx context.Context, key string, newID id
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(a.valuePrefix, key, a.suffix)
-	if err := kvstore.Update(ctx, valueKey, []byte(newID.String()), true); err != nil {
+	if err := kvstore.UpdateIfDifferent(ctx, valueKey, []byte(newID.String()), true); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
@@ -712,11 +712,20 @@ func (a *Allocator) RunGC() error {
 }
 
 func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissing bool) {
-	keyPath := path.Join(a.idPrefix, id.String())
+	var (
+		err      error
+		success  bool
+		keyPath  = path.Join(a.idPrefix, id.String())
+		valueKey = path.Join(a.valuePrefix, value, a.suffix)
+	)
 
 	// Use of CreateOnly() ensures that any existing potentially
 	// conflicting key is never overwritten.
-	success, err := kvstore.CreateOnly(context.TODO(), keyPath, []byte(value), false)
+	if reliablyMissing {
+		success, err = kvstore.CreateOnly(context.TODO(), keyPath, []byte(value), false)
+	} else {
+		err = kvstore.UpdateIfDifferent(context.TODO(), keyPath, []byte(value), false)
+	}
 	switch {
 	case err != nil:
 		log.WithError(err).WithField(fieldKey, keyPath).Warning("Unable to re-create missing master key")
@@ -727,8 +736,12 @@ func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissin
 	// Also re-create the slave key in case it has been deleted. This will
 	// ensure that the next garbage collection cycle of any participating
 	// node does not remove the master key again.
-	valueKey := path.Join(a.valuePrefix, value, a.suffix)
-	success, err = kvstore.CreateOnly(context.TODO(), valueKey, []byte(id.String()), true)
+	success = true
+	if reliablyMissing {
+		success, err = kvstore.CreateOnly(context.TODO(), valueKey, []byte(id.String()), true)
+	} else {
+		err = kvstore.UpdateIfDifferent(context.TODO(), valueKey, []byte(id.String()), true)
+	}
 	switch {
 	case err != nil:
 		log.WithError(err).WithField(fieldKey, valueKey).Warning("Unable to re-create missing slave key")

@@ -838,11 +838,16 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 	e.limiter.Wait(ctx)
 	createRequest := e.createOpPut(key, value, leaseID)
 	ifDifferent := client.Compare(client.Value(key), "!=", string(value))
-	_, err := e.client.Txn(ctx).If(ifDifferent).Then(*createRequest).Commit()
-	if err != nil {
-		// When the tranaction fail, the key likely does not exist ot
-		// the kvstore is unreachable, fall back to using an Update()
-		// to create the key if needed.
+	tx, err := e.client.Txn(ctx).If(ifDifferent).Then(*createRequest).Else(client.OpGet(key)).Commit()
+
+	// The following conditions result in falling back to Update()
+	// err != nil: kvstore interaction failed
+	// tx == nil: Transaction failed
+	// len(tx.Responses) != 0: The Else() was executed
+	//   GetResponseRange() == nil: Range() was unsuccessful, key status is unknown
+	//   GetResponseRange().Count == 0: Range() was successful and key does not exist
+	if err != nil || tx == nil ||
+		(len(tx.Responses) != 0 && (tx.Responses[0].GetResponseRange() == nil || tx.Responses[0].GetResponseRange().Count == 0)) {
 		return e.Update(ctx, key, value, lease)
 	}
 
