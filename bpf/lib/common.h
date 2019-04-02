@@ -476,6 +476,35 @@ struct lb6_service {
 	__u16 weight;
 } __attribute__((packed));
 
+struct lb6_key_v2 {
+	union v6addr address;	/* Service virtual IPv6 address */
+	__be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 slave;		/* Backend iterator, 0 indicates the master service */
+	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
+	__u8 pad;
+} __attribute__((packed));
+
+/* See lb4_service_v2 comments */
+struct lb6_service_v2 {
+	/* For the master service, count denotes number of service endpoints,
+	 * while for any service endpoint, count contains a slave slot number
+	 * in a corresponding legacy service which points to the same backend
+	 * (used for the backward compatibility)
+	 */
+	__u16 count;
+	__u16 backend_id;
+	__u16 rev_nat_index;
+	__u16 weight;
+} __attribute__((packed));
+
+/* See lb4_backend comments */
+struct lb6_backend {
+	union v6addr address;
+	__be16 port;
+	__u8 proto;
+	__u8 pad;
+} __attribute__((packed));
+
 struct lb6_reverse_nat {
 	union v6addr address;
 	__be16 port;
@@ -494,6 +523,28 @@ struct lb4_service {
 	__u16 rev_nat_index;
 	__u16 weight;
 } __attribute__((packed));
+
+struct lb4_key_v2 {
+	__be32 address;		/* Service virtual IPv4 address */
+	__be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 slave;		/* Backend iterator, 0 indicates the master service */
+	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
+	__u8 pad;
+} __attribute__((packed));
+
+struct lb4_service_v2 {
+	__u16 count;
+	__u16 backend_id;	/* Backend ID in lb4_backends */
+	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
+	__u16 weight;		/* Currently not used */
+} __attribute__((packed));
+
+struct lb4_backend {
+	__be32 address;		/* Service endpoint IPv4 address */
+	__be16 port;		/* L4 port filter */
+	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
+	__u8 pad;
+};
 
 struct lb4_reverse_nat {
 	__be32 address;
