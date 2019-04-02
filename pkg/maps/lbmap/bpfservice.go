@@ -19,10 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-type serviceValueMap map[string]ServiceValue
+type serviceValueMap map[BackendAddrID]ServiceValue
 
 type bpfBackend struct {
-	id       string
+	id       BackendAddrID
 	isHole   bool
 	bpfValue ServiceValue
 }
@@ -50,30 +50,32 @@ func newBpfService(key ServiceKey) *bpfService {
 	return &bpfService{
 		frontendKey:        key,
 		backendsByMapIndex: map[int]*bpfBackend{},
-		uniqueBackends:     map[string]ServiceValue{},
+		uniqueBackends:     map[BackendAddrID]ServiceValue{},
 	}
 }
 
-func (b *bpfService) addBackend(backend ServiceValue) {
+func (b *bpfService) addBackend(backend ServiceValue) int {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
 	nextSlot := len(b.backendsByMapIndex) + 1
 	b.backendsByMapIndex[nextSlot] = &bpfBackend{
 		bpfValue: backend,
-		id:       backend.String(),
+		id:       backend.BackendAddrID(),
 	}
 
-	b.uniqueBackends[backend.String()] = backend
+	b.uniqueBackends[backend.BackendAddrID()] = backend
+
+	return nextSlot
 }
 
 func (b *bpfService) deleteBackend(backend ServiceValue) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	idToRemove := backend.String()
+	idToRemove := backend.BackendAddrID()
 	indicesToRemove := []int{}
-	duplicateCount := map[string]int{}
+	duplicateCount := map[BackendAddrID]int{}
 
 	for index, backend := range b.backendsByMapIndex {
 		// create a slice of all backend indices that match the backend
@@ -87,7 +89,7 @@ func (b *bpfService) deleteBackend(backend ServiceValue) {
 
 	// select the backend with the most duplicates that is not the backend
 	var lowestCount int
-	var fillBackendID string
+	var fillBackendID BackendAddrID
 	for backendID, count := range duplicateCount {
 		if lowestCount == 0 || count < lowestCount {
 			lowestCount = count
@@ -143,7 +145,7 @@ func newLBMapCache() lbmapCache {
 func createBackendsMap(backends []ServiceValue) serviceValueMap {
 	m := serviceValueMap{}
 	for _, b := range backends {
-		m[b.String()] = b
+		m[b.BackendAddrID()] = b
 	}
 	return m
 }
