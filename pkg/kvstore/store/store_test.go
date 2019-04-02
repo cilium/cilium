@@ -230,10 +230,8 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	err = store.UpdateLocalKeySync(&localKey2)
 	c.Assert(err, IsNil)
 
-	// the sync interval occurs every 10 millisecond, wait until 3 updates
-	// have occurred
-	c.Assert(expect(func() bool { return localKey1.updated() >= 3 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.updated() >= 3 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.updated() >= 1 }), IsNil)
 
 	store.DeleteLocalKey(&localKey1)
 	store.DeleteLocalKey(&localKey2)
@@ -286,8 +284,8 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 	c.Assert(err, IsNil)
 
 	// wait until local keys was inserted and until the kvstore has confirmed the
-	c.Assert(expect(func() bool { return localKey1.updated() >= 2 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.updated() >= 2 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.updated() >= 1 }), IsNil)
 
 	c.Assert(len(store.getLocalKeys()), Equals, 2)
 
