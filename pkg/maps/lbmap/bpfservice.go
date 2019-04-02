@@ -15,6 +15,8 @@
 package lbmap
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -132,13 +134,15 @@ func (b *bpfService) getBackends() []ServiceValue {
 }
 
 type lbmapCache struct {
-	mutex   lock.Mutex
-	entries map[string]*bpfService
+	mutex           lock.Mutex
+	entries         map[string]*bpfService
+	backendRefCount map[BackendAddrID]int
 }
 
 func newLBMapCache() lbmapCache {
 	return lbmapCache{
-		entries: map[string]*bpfService{},
+		entries:         map[string]*bpfService{},
+		backendRefCount: map[BackendAddrID]int{},
 	}
 }
 
@@ -222,4 +226,28 @@ func (l *lbmapCache) delete(fe ServiceKey) {
 	l.mutex.Lock()
 	delete(l.entries, fe.String())
 	l.mutex.Unlock()
+}
+
+// addBackendV2Locked increments a ref count for the given backend and returns
+// whether any instance of the backend existed before.
+func (l *lbmapCache) addBackendV2Locked(addrID BackendAddrID) bool {
+	l.backendRefCount[addrID]++
+	return l.backendRefCount[addrID] == 1
+}
+
+// delBackendV2Locked decrements a ref count for the given backend aand returns
+// whether there are any instance of the backend left.
+func (l *lbmapCache) delBackendV2Locked(addrID BackendAddrID) (bool, error) {
+	count, found := l.backendRefCount[addrID]
+	if !found {
+		return false, fmt.Errorf("backend %s not found", addrID)
+	}
+
+	if count == 1 {
+		delete(l.backendRefCount, addrID)
+		return true, nil
+	}
+
+	l.backendRefCount[addrID]--
+	return false, nil
 }
