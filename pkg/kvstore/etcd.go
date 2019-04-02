@@ -15,6 +15,7 @@
 package kvstore
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/url"
@@ -817,6 +818,25 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	_, err := e.client.Put(ctx, key, string(value))
 	increaseMetric(key, metricSet, "Update", duration.EndError(err).Total(), err)
 	return Hint(err)
+}
+
+func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
+	select {
+	case <-e.firstSession:
+	case <-ctx.Done():
+		return false, fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	}
+
+	existingValue, err := e.Get(key)
+	// On error, attempt update blindly
+	if err == nil {
+		// Value already exists, do not update
+		if bytes.Equal(existingValue, value) {
+			return false, nil
+		}
+	}
+
+	return true, e.Update(ctx, key, value, lease)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists

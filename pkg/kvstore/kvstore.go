@@ -76,6 +76,18 @@ func Update(ctx context.Context, key string, value []byte, lease bool) error {
 	return err
 }
 
+// UpdateIfDifferent updates a key if the value is different
+func UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
+	recreated, err := Client().UpdateIfDifferent(ctx, key, value, lease)
+	Trace("Update", err, logrus.Fields{
+		fieldKey:         key,
+		fieldValue:       string(value),
+		fieldAttachLease: lease,
+		"recreated":      recreated,
+	})
+	return recreated, err
+}
+
 // CreateIfExists creates a key with the value only if key condKey exists
 func CreateIfExists(condKey, key string, value []byte, lease bool) error {
 	err := Client().CreateIfExists(condKey, key, value, lease)
