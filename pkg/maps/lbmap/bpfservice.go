@@ -182,16 +182,18 @@ func createBackendsMap(backends []ServiceValue) serviceValueMap {
 	return m
 }
 
-func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
+// restoreService restores service cache of the given legacy svc. If v2Exists
+// is set, the cache for the respective svc v2 is restored as well.
+func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	frontendID := svc.FE.String()
-
-	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(svc)
+	serviceKey, serviceValues, err := LBSVC2ServiceKeynValue(&svc)
 	if err != nil {
 		return err
 	}
+
+	frontendID := serviceKey.String()
 
 	bpfSvc, ok := l.entries[frontendID]
 	if !ok {
@@ -201,16 +203,24 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 
 	for index, backend := range serviceValues {
 		b := &bpfBackend{
-			id:       backend.String(),
+			id:       backend.BackendAddrID(),
 			bpfValue: backend,
 		}
-		if _, ok := bpfSvc.uniqueBackends[backend.String()]; ok {
+		if _, ok := bpfSvc.uniqueBackends[backend.BackendAddrID()]; ok {
 			b.isHole = true
 		} else {
-			bpfSvc.uniqueBackends[backend.String()] = backend
+			bpfSvc.uniqueBackends[backend.BackendAddrID()] = backend
+			bpfSvc.slaveSlotByBackendAddrID[backend.BackendAddrID()] = index + 1
 		}
 
 		bpfSvc.backendsByMapIndex[index+1] = b
+	}
+
+	if v2Exists {
+		for addrID, backend := range bpfSvc.uniqueBackends {
+			bpfSvc.backendsV2[addrID] = backend
+			l.addBackendV2Locked(addrID)
+		}
 	}
 
 	return nil
