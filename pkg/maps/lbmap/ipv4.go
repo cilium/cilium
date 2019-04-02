@@ -202,11 +202,13 @@ func NewService4Value(count uint16, target net.IP, port uint16, revNat uint16, w
 
 func (s *Service4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 func (s *Service4Value) SetPort(port uint16)         { s.Port = port }
+func (s *Service4Value) GetPort() uint16             { return s.Port }
 func (s *Service4Value) SetCount(count int)          { s.Count = uint16(count) }
 func (s *Service4Value) GetCount() int               { return int(s.Count) }
 func (s *Service4Value) SetRevNat(id int)            { s.RevNat = uint16(id) }
 func (s *Service4Value) SetWeight(weight uint16)     { s.Weight = weight }
 func (s *Service4Value) GetWeight() uint16           { return s.Weight }
+func (s *Service4Value) IsIPv6() bool                { return false }
 
 func (s *Service4Value) SetAddress(ip net.IP) error {
 	ip4 := ip.To4()
@@ -241,6 +243,10 @@ func (s *Service4Value) RevNatKey() RevNatKey {
 
 func (s *Service4Value) String() string {
 	return fmt.Sprintf("%s:%d (%d)", s.Address, s.Port, s.RevNat)
+}
+
+func (s *Service4Value) BackendAddrID() BackendAddrID {
+	return BackendAddrID(fmt.Sprintf("%s:%d", s.Address, s.Port))
 }
 
 type RevNat4Key struct {
