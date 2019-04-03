@@ -1362,3 +1362,43 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 }
+
+func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
+
+	allowWorldRule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					ToEntities: api.EntitySlice{api.EntityAll},
+				},
+			},
+		}}
+
+	buffer := new(bytes.Buffer)
+	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctxFromA.Logging = logging.NewLogBackend(buffer, "", 0)
+	c.Log(buffer)
+
+	expected := NewL4Policy()
+	expected.Egress["0/ANY"] = L4Filter{
+		Port:             0,
+		Protocol:         api.ProtoAny,
+		U8Proto:          0,
+		Endpoints:        api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+		L7Parser:         ParserTypeNone,
+		L7RulesPerEp:     L7DataMap{},
+		Ingress:          false,
+		allowsAllAtL3:    true,
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}
+
+	state := traceState{}
+	res, err := allowWorldRule.resolveL4EgressPolicy(&ctxFromA, &state, NewL4Policy(), nil)
+
+	c.Assert(err, IsNil)
+	c.Assert(res, Not(IsNil))
+	c.Assert(*res, checker.DeepEquals, *expected)
+	c.Assert(state.selectedRules, Equals, 1)
+	c.Assert(state.matchedRules, Equals, 0)
+}
