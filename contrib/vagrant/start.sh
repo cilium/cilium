@@ -352,6 +352,7 @@ EOF
 cat <<EOF >> "$filename"
 sleep 2s
 sed -i '10s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
+sed -i '10s+.*+ExecStart=/usr/bin/cilium-operator --debug \$CILIUM_OPERATOR_OPTS+' /lib/systemd/system/cilium-operator.service
 echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
 echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
@@ -370,6 +371,7 @@ if [ -n "\${K8S}" ]; then
     done
 fi
 
+systemctl daemon-reload
 service cilium restart
 /home/vagrant/go/src/github.com/cilium/cilium/test/provision/wait-cilium.sh
 EOF
@@ -386,6 +388,7 @@ function create_master(){
     fi
 
     write_cilium_cfg 1 "${ipv4_array[3]}" "${master_cilium_ipv6}" "${output_file}"
+    echo "service cilium-operator restart" >> ${output_file}
 }
 
 function create_workers(){
