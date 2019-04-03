@@ -287,7 +287,7 @@ func (kr *PortRuleKafka) Sanitize() error {
 	return nil
 }
 
-func (pr *L7Rules) sanitize() error {
+func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 	nTypes := 0
 
 	if pr.HTTP != nil {
@@ -309,6 +309,17 @@ func (pr *L7Rules) sanitize() error {
 	}
 
 	if pr.DNS != nil {
+		// Forthcoming TPROXY redirection restricts DNS proxy to the standard DNS port (53).
+		// Require the port 53 be explicitly configured, and disallow other port numbers.
+		if len(ports) == 0 {
+			return fmt.Errorf("Port 53 must be specified for DNS rules")
+		}
+		for _, port := range ports {
+			if port.Port != "53" {
+				return fmt.Errorf("DNS rules are only allowed on port 53")
+			}
+		}
+
 		nTypes++
 		for i := range pr.DNS {
 			if err := pr.DNS[i].Sanitize(); err != nil {
@@ -355,7 +366,7 @@ func (pr *PortRule) sanitize() error {
 
 	// Sanitize L7 rules
 	if !pr.Rules.IsEmpty() {
-		if err := pr.Rules.sanitize(); err != nil {
+		if err := pr.Rules.sanitize(pr.Ports); err != nil {
 			return err
 		}
 	}

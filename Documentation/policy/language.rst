@@ -990,6 +990,11 @@ DNS Proxy (preferred)
   DNS requests. It allows L3 connections to ``cilium.io``, ``sub.cilium.io``
   and any subdomains of ``sub.cilium.io``.
 
+.. note:: The port number 53 shown in the examples is currently the
+          only supported port number on which DNS requests can be
+          proxied. This is the standard DNS port number, so it should
+          work for most uses.
+
 .. only:: html
 
    .. tabs::
