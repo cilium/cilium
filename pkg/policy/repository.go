@@ -727,14 +727,7 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 		for identity, labels := range identityCache {
 			egressCtx.To = labels
 
-			egressAccess := matchingRules.canReachEgressRLocked(&egressCtx)
-			if egressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Egress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if egressAccess == api.Denied {
+			if matchingRules.analyzeEgressRequirements(&egressCtx) == api.Denied {
 				calculatedPolicy.DeniedEgressIdentities[identity] = labels
 			}
 		}

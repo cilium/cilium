@@ -453,7 +453,6 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 }
 
 func (r *rule) canReachIngressV2(ctx *SearchContext, state *traceState) api.Decision {
-
 	// assume requirements have already been analyzed.
 	for _, r := range r.Ingress {
 		for _, sel := range r.GetSourceEndpointSelectors() {
@@ -468,6 +467,27 @@ func (r *rule) canReachIngressV2(ctx *SearchContext, state *traceState) api.Deci
 				ctx.PolicyTrace("        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage\n")
 			} else {
 				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
+			}
+		}
+	}
+	return api.Undecided
+}
+
+func (r *rule) canReachEgressV2(ctx *SearchContext, state *traceState) api.Decision {
+	// assume requirements have already been analyzed.
+	for _, r := range r.Egress {
+		for _, sel := range r.GetDestinationEndpointSelectors() {
+			ctx.PolicyTrace("    Allows to labels %+v", sel)
+			if sel.Matches(ctx.To) {
+				ctx.PolicyTrace("      Found all required labels")
+				if len(r.ToPorts) == 0 {
+					ctx.PolicyTrace("+       No L4 restrictions\n")
+					state.matchedRules++
+					return api.Allowed
+				}
+				ctx.PolicyTrace("        Rule restricts traffic from specific L4 destinations; deferring policy decision to L4 policy stage\n")
+			} else {
+				ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
 			}
 		}
 	}
