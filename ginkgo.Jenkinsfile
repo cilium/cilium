@@ -2,14 +2,14 @@
 
 pipeline {
     agent {
-        label 'baremetal'
+        label 'eloy'
     }
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         MEMORY = "4096"
-        SERVER_BOX = "cilium/ubuntu"
+        SERVER_BOX = "eloycoto/cilium"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
     }
 
