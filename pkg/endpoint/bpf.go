@@ -855,11 +855,11 @@ func (e *Endpoint) SkipStateClean() {
 // endpoints map
 func (e *Endpoint) GetBPFKeys() []*lxcmap.EndpointKey {
 	keys := []*lxcmap.EndpointKey{}
-	if e.IPv6 != nil {
+	if e.IPv6.IsSet() {
 		keys = append(keys, lxcmap.NewEndpointKey(e.IPv6.IP()))
 	}
 
-	if e.IPv4 != nil {
+	if e.IPv4.IsSet() {
 		keys = append(keys, lxcmap.NewEndpointKey(e.IPv4.IP()))
 	}
 
