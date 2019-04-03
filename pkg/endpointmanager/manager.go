@@ -260,12 +260,12 @@ func Remove(ep *endpoint.Endpoint, owner RuleCacheOwner) <-chan struct{} {
 
 		// The endpoint's EventQueue may not be stopped yet (depending on whether
 		// the caller of the EventQueue has stopped it or not). Call it here
-		// to be safe so that ep.IsDrained() does not hang forever.
+		// to be safe so that ep.WaitToBeDrained() does not hang forever.
 		ep.EventQueue.Stop()
 
 		// Wait for no more events (primarily regenerations) to be occurring for
 		// this endpoint.
-		<-ep.EventQueue.IsDrained()
+		ep.EventQueue.WaitToBeDrained()
 
 		// Now that queue is drained, no more regenerations are occurring for
 		// this endpoint. Safe to remove references to it from the policy

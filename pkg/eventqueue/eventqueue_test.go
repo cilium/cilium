@@ -75,7 +75,7 @@ func (s *EventQueueSuite) TestDrained(c *C) {
 	defer cancel()
 
 	select {
-	case <-q.IsDrained():
+	case <-q.close:
 	case <-ctx.Done():
 		c.Log("timed out waiting for queue to be drained")
 		c.Fail()
