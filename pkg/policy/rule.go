@@ -452,6 +452,48 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 	return api.Undecided
 }
 
+func (r *rule) canReachIngressV2(ctx *SearchContext, state *traceState) api.Decision {
+
+	// assume requirements have already been analyzed.
+	for _, r := range r.Ingress {
+		for _, sel := range r.GetSourceEndpointSelectors() {
+			ctx.PolicyTrace("    Allows from labels %+v", sel)
+			if sel.Matches(ctx.From) {
+				ctx.PolicyTrace("      Found all required labels")
+				if len(r.ToPorts) == 0 {
+					ctx.PolicyTrace("+       No L4 restrictions\n")
+					state.matchedRules++
+					return api.Allowed
+				}
+				ctx.PolicyTrace("        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage\n")
+			} else {
+				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
+			}
+		}
+	}
+	return api.Undecided
+}
+
+// canReachIngress returns the decision as to whether the set of labels specified
+// in ctx.From match with the label selectors specified in the ingress rules
+// contained within r.
+func (r *rule) meetsRequirementsIngress(ctx *SearchContext, state *traceState) api.Decision {
+
+	state.selectRule(ctx, r)
+	for _, r := range r.Ingress {
+		for _, sel := range r.FromRequires {
+			ctx.PolicyTrace("    Requires from labels %+v", sel)
+			if !sel.Matches(ctx.From) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.From)
+				state.constrainedRules++
+				return api.Denied
+			}
+			ctx.PolicyTrace("+     Found all required labels\n")
+		}
+	}
+	return api.Undecided
+}
+
 func (r *rule) matches(id uint16, securityIdentity *identity.Identity) bool {
 	r.metadata.Mutex.Lock()
 	defer r.metadata.Mutex.Unlock()

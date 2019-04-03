@@ -701,8 +701,7 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 			ingressCtx.From = labels
 			egressCtx.To = labels
 
-			ingressAccess := matchingRules.canReachIngressRLocked(&ingressCtx)
-			if ingressAccess == api.Denied {
+			if matchingRules.analyzeIngressRequirements(&ingressCtx) == api.Denied {
 				calculatedPolicy.DeniedIngressIdentities[identity] = labels
 			}
 		}
