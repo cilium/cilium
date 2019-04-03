@@ -280,11 +280,18 @@ func (q *EventQueue) Stop() {
 	})
 }
 
-// IsDrained returns the channel which waits for the EventQueue to have been
+// WaitToBeDrained returns the channel which waits for the EventQueue to have been
 // stopped. This allows for queuers to ensure that all events in the queue have
-// been processed or cancelled.
-func (q *EventQueue) IsDrained() <-chan struct{} {
-	return q.close
+// been processed or cancelled. If the queue is nil, returns immediately.
+func (q *EventQueue) WaitToBeDrained() {
+	if q == nil {
+		return
+	}
+
+	select {
+	case <-q.close:
+		return
+	}
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events
