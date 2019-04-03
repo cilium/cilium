@@ -144,7 +144,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identity
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
-	if l4.AllowsAllAtL3() {
+	if l4.AllowsAllAtL3() && l4.Port != 0 {
 		keyToAdd := Key{
 			Identity: 0,
 			// NOTE: Port is in host byte-order!
