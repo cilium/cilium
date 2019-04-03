@@ -23,6 +23,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 # Check more cli options using cilium-agent -h
 
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500
+CILIUM_OPERATOR_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --k8s-kubeconfig-path=/home/vagrant/.kube/config
+
+HOME=/home/vagrant
 
 ## Path:                System/Management
 ## Description:         init system cilium is running on 

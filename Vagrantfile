@@ -57,6 +57,7 @@ sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-con
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-docker.service /lib/systemd/system
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-etcd.service /lib/systemd/system
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium.service /lib/systemd/system
+sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium-operator.service /lib/systemd/system
 sudo cp /home/vagrant/go/src/github.com/cilium/cilium/contrib/systemd/cilium /etc/sysconfig
 
 sudo usermod -a -G cilium vagrant
