@@ -33,18 +33,57 @@ func (rules ruleSlice) canReachIngressRLocked(ctx *SearchContext) api.Decision {
 loop:
 	for i, r := range rules {
 		state.ruleID = i
-		switch r.canReachIngress(ctx, &state) {
-		// The rule contained a constraint which was not met, this
-		// connection is not allowed
+
+		if !ctx.rulesSelect {
+			// No need to do further analysis on the rule, it doesn't select
+			// this endpoint.
+			if !r.EndpointSelector.Matches(ctx.To) {
+				state.unSelectRule(ctx, ctx.To, r)
+				continue
+			}
+		}
+
+		switch r.meetsRequirementsIngress(ctx, &state) {
+		// The rule contained a constraint which was not met; this
+		// connection is not allowed.
 		case api.Denied:
 			decision = api.Denied
 			break loop
 
-			// The rule allowed the connection but a later rule may impose
-			// additional constraints, so we store the decision but allow
-			// it to be overwritten by an additional requirement
-		case api.Allowed:
-			decision = api.Allowed
+		default:
+			// If this connection is allowed by any rule, we want to cache that.
+			// Do not overwrite 'allowed' verdict with 'undecided' verdict yet.
+			// Can't break here because requirements in rule which was not
+			// analyzed may actually deny traffic.
+			if r.canReachIngressV2(ctx, &state) == api.Allowed {
+				decision = api.Allowed
+			}
+		}
+	}
+
+	state.trace(rules, ctx)
+
+	return decision
+}
+
+func (rules ruleSlice) analyzeIngressRequirements(ctx *SearchContext) api.Decision {
+	decision := api.Undecided
+	state := traceState{}
+
+loop:
+	for i, r := range rules {
+		state.ruleID = i
+
+		if !ctx.rulesSelect {
+			if !r.EndpointSelector.Matches(ctx.To) {
+				state.unSelectRule(ctx, ctx.To, r)
+				continue
+			}
+		}
+
+		if r.meetsRequirementsIngress(ctx, &state) == api.Denied {
+			decision = api.Denied
+			break loop
 		}
 	}
 
