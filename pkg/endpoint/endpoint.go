@@ -2117,10 +2117,10 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done f
 // IPs returns the slice of valid IPs for this endpoint.
 func (e *Endpoint) IPs() []net.IP {
 	ips := []net.IP{}
-	if e.IPv4 != nil {
+	if e.IPv4.IsSet() {
 		ips = append(ips, e.IPv4.IP())
 	}
-	if e.IPv6 != nil {
+	if e.IPv6.IsSet() {
 		ips = append(ips, e.IPv6.IP())
 	}
 	return ips
