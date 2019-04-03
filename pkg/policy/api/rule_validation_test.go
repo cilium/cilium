@@ -53,7 +53,7 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	err := validPortRule.Sanitize()
 	c.Assert(err, IsNil)
 
-	// Rule is valid because all protocols are allowed for L7 rules with ToFQDNs.
+	// Rule is invalid because port is not 53 for DNS proxy rule.
 	validPortRule = Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
@@ -62,7 +62,50 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 				ToPorts: []PortRule{{
 					Ports: []PortProtocol{
 						{Port: "80", Protocol: ProtoTCP},
-						{Port: "12345", Protocol: ProtoUDP},
+					},
+					Rules: &L7Rules{
+						DNS: []PortRuleDNS{
+							{MatchName: "domain.com"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = validPortRule.Sanitize()
+	c.Assert(err, Not(IsNil), Commentf("Port 80 should not be allowed for DNS"))
+
+	// Rule is invalid because port is not 53 for DNS proxy rule.
+	validPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Rules: &L7Rules{
+						DNS: []PortRuleDNS{
+							{MatchName: "domain.com"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = validPortRule.Sanitize()
+	c.Assert(err, Not(IsNil), Commentf("Port 53 must be specified for DNS rules"))
+
+	// Rule is valid because all protocols are allowed for L7 rules with ToFQDNs.
+	validPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "53", Protocol: ProtoTCP},
+						{Port: "53", Protocol: ProtoUDP},
 					},
 					Rules: &L7Rules{
 						DNS: []PortRuleDNS{
