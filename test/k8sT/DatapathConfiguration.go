@@ -152,6 +152,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
+	Context("Transparent encryption DirectRouting", func() {
+		It("Check connectivity with automatic direct nodes routes", func() {
+			SkipIfFlannel()
+
+			deployCilium("cilium-ds-patch-auto-node-routes-ipsec.yaml")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
+
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
 			deployCilium("cilium-ds-patch-ipv4-only.yaml")
