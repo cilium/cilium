@@ -245,6 +245,12 @@ chapter into all of your clusters:
 
     kubectl -n kube-system delete pod -l k8s-app=cilium
 
+3. For global services to work (see below), also restart the cilium-operator:
+
+.. code:: bash
+
+    kubectl -n kube-system delete pod -l name=cilium-operator
+
 Test pod connectivity between clusters
 ======================================
 
