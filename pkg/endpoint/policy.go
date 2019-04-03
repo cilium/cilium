@@ -469,7 +469,7 @@ func (e *Endpoint) FormatGlobalEndpointID() string {
 // with the numerical ID representing its security identity.
 func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 
-	if endpointIP == nil {
+	if !endpointIP.IsSet() {
 		return
 	}
 
