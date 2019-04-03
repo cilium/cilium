@@ -11,5 +11,6 @@ Self-Managed Kubernetes
    :maxdepth: 1
    :glob:
 
+   k8s-install-kubeadm
    k8s-install-etcd-operator
    k8s-install-external-etcd
