@@ -1048,7 +1048,7 @@ var _ = Describe("RuntimePolicies", func() {
 			ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
 				"unexpectedly able to ping %q", helpers.App2)
 
-			By("Testing egress access to the world")
+			By("Testing egress access to the world from %s", helpers.App1)
 			pingFailures := 0
 			curlFailures := 0
 
