@@ -93,8 +93,8 @@ func (ds *RegexpMapTestSuite) TestREMapInsertLookup(c *C) {
 	c.Assert(match, Equals, false, Commentf("Match for key that matches & value that does not match"))
 	match = m.LookupContainsValue("notabar.com.", "ID2")
 	c.Assert(match, Equals, false, Commentf("Match for key that does not matche & value that does match"))
-	// Does removing an entry also remove it from lookup returns
 
+	// Does removing an entry also remove it from lookup returns
 	m.Remove("foo.bar.com.", "ID1")
 	keys = m.LookupValues("foo.bar.com.")
 	c.Assert(len(keys), Equals, 1, Commentf("Incorrect number of values returned %v", keys))
@@ -159,4 +159,43 @@ func (ds *RegexpMapTestSuite) BenchmarkRegexGroups(c *C) {
 	for i := c.N; i > 0; i-- {
 		re.FindSubmatchIndex(in)
 	}
+}
+
+func RunRegexpMapBenchmark(c *C, matchAll bool) {
+	c.StopTimer()
+	iterations := 30000
+	m := NewRegexpMap()
+	matchformat := "foo%d.com."
+	lastMatch := 0
+
+	// We create the map and per each entry in the LookupValues we create one
+	// regexpmap.
+	// If matchAll is set, per each entry a matchall regular expression will be
+	// added.
+	for i := 0; i < iterations; i++ {
+		key := fmt.Sprintf(matchformat, lastMatch)
+		val := fmt.Sprintf("ID%d", i)
+		m.Add(key, val)
+		if matchAll {
+			m.Add(".*", val)
+		}
+		if i%3 == 0 {
+			lastMatch = i
+		}
+	}
+	c.StartTimer()
+	for i := 0; i < c.N; i++ {
+		key := fmt.Sprintf(matchformat, lastMatch)
+		val := fmt.Sprintf("ID%d", i)
+		m.LookupContainsValue(key, val)
+	}
+	return
+}
+
+func (ds *RegexpMapTestSuite) BenchmarkLookupContainsValue(c *C) {
+	RunRegexpMapBenchmark(c, false)
+}
+
+func (ds *RegexpMapTestSuite) BenchmarkLookupContainsValueWithMatchAll(c *C) {
+	RunRegexpMapBenchmark(c, true)
 }
