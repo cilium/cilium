@@ -286,24 +286,83 @@ func (rules ruleSlice) canReachEgressRLocked(egressCtx *SearchContext) api.Decis
 egressLoop:
 	for i, r := range rules {
 		egressState.ruleID = i
-		switch r.canReachEgress(egressCtx, &egressState) {
-		// The rule contained a constraint which was not met, this
-		// connection is not allowed
+
+		if !egressCtx.rulesSelect {
+			// No need to do further analysis on the rule, it doesn't select
+			// this endpoint.
+			if !r.EndpointSelector.Matches(egressCtx.From) {
+				egressState.unSelectRule(egressCtx, egressCtx.From, r)
+				continue
+			}
+		}
+
+		switch r.meetsRequirementsEgress(egressCtx, &egressState) {
+		// The rule contained a constraint which was not met; this
+		// connection is not allowed.
 		case api.Denied:
 			egressDecision = api.Denied
 			break egressLoop
 
-			// The rule allowed the connection but a later rule may impose
-			// additional constraints, so we store the decision but allow
-			// it to be overwritten by an additional requirement
-		case api.Allowed:
-			egressDecision = api.Allowed
+		default:
+			// If this connection is allowed by any rule, we want to cache that.
+			// Do not overwrite 'allowed' verdict with 'undecided' verdict yet.
+			// Can't break here because requirements in rule which was not
+			// analyzed may actually deny traffic.
+			if r.canReachEgressV2(egressCtx, &egressState) == api.Allowed {
+				egressDecision = api.Allowed
+			}
 		}
 	}
 
 	egressState.trace(rules, egressCtx)
 
 	return egressDecision
+}
+
+func (rules ruleSlice) analyzeEgressRequirements(ctx *SearchContext) api.Decision {
+	decision := api.Undecided
+	state := traceState{}
+
+loop:
+	for i, r := range rules {
+		state.ruleID = i
+
+		if !ctx.rulesSelect {
+			if !r.EndpointSelector.Matches(ctx.From) {
+				state.unSelectRule(ctx, ctx.From, r)
+				return api.Undecided
+			}
+		}
+
+		if r.meetsRequirementsEgress(ctx, &state) == api.Denied {
+			decision = api.Denied
+			break loop
+		}
+	}
+
+	state.trace(rules, ctx)
+
+	return decision
+}
+
+// canReachIngress returns the decision as to whether the set of labels specified
+// in ctx.From match with the label selectors specified in the ingress rules
+// contained within r.
+func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) api.Decision {
+
+	state.selectRule(ctx, r)
+	for _, r := range r.Egress {
+		for _, sel := range r.ToRequires {
+			ctx.PolicyTrace("    Requires from labels %+v", sel)
+			if !sel.Matches(ctx.To) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
+				state.constrainedRules++
+				return api.Denied
+			}
+			ctx.PolicyTrace("+     Found all required labels\n")
+		}
+	}
+	return api.Undecided
 }
 
 // updateEndpointsCaches iterates over a given list of rules to update the cache
