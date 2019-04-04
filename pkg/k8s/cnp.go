@@ -124,6 +124,7 @@ func (c *CNPStatusUpdateContext) prepareUpdate(cnp *types.SlimCNP, scopedLog *lo
 		serverRule = localCopy.DeepCopy()
 		_, err = serverRule.Parse()
 		if err != nil {
+			err = ErrParse{err.Error()}
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(serverRule)).
 				Warn("Error parsing new CiliumNetworkPolicy rule")
 		} else {
@@ -196,7 +197,6 @@ func (c *CNPStatusUpdateContext) UpdateStatus(ctx context.Context, cnp *types.Sl
 			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 		})
 	)
-
 	ctxEndpointWait, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
