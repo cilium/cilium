@@ -15,6 +15,7 @@
 package endpoint
 
 import (
+	"context"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -48,7 +49,7 @@ type Owner interface {
 	RemoveNetworkPolicy(e *Endpoint)
 
 	// QueueEndpointBuild puts the given endpoint in the processing queue
-	QueueEndpointBuild(epID uint64) func()
+	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
 
 	// RemoveFromEndpointQueue removes an endpoint from the working queue
 	RemoveFromEndpointQueue(epID uint64)

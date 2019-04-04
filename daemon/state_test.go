@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -108,14 +109,15 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		}
 	}()
 
-	ds.OnQueueEndpointBuild = func(epID uint64) func() {
+	ds.OnQueueEndpointBuild = func(ctx context.Context, epID uint64) (func(), error) {
 		builders++
 		var once sync.Once
-		return func() {
+		doneFunc := func() {
 			once.Do(func() {
 				builders--
 			})
 		}
+		return doneFunc, nil
 	}
 
 	ds.OnTracingEnabled = func() bool {
