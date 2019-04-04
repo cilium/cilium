@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/distillery"
 	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
@@ -159,11 +160,15 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	e.prevIdentityCache = labelsMap
 
 	stats.policyCalculation.Start()
-	identityPolicy, err := repo.ResolvePolicyLocked(e.SecurityIdentity)
-	if err != nil {
+	if e.IdentityPolicy == nil {
+		e.IdentityPolicy = distillery.Upsert(e)
+	}
+	// In future this should be triggered closer to policy change handlers,
+	// but for now let's just update it here.
+	if err := distillery.UpdatePolicy(repo, e); err != nil {
 		return err
 	}
-	calculatedPolicy := identityPolicy.DistillPolicy(e, *labelsMap)
+	calculatedPolicy := e.IdentityPolicy.Consume(e, *labelsMap)
 	stats.policyCalculation.End(true)
 
 	e.desiredPolicy = calculatedPolicy
