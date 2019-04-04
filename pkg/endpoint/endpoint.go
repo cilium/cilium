@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/distillery"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -287,6 +288,10 @@ type Endpoint struct {
 	ctCleaned bool
 
 	hasBPFProgram chan struct{}
+
+	// selectorPolicy represents a reference to the shared SelectorPolicy
+	// for all endpoints that have the same Identity.
+	selectorPolicy distillery.SelectorPolicy
 
 	desiredPolicy *policy.EndpointPolicy
 
@@ -1327,6 +1332,12 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	if e.bpfConfigMap != nil {
 		if err := e.bpfConfigMap.Close(); err != nil {
 			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.BPFConfigMapPath(), err))
+		}
+	}
+
+	if e.selectorPolicy != nil {
+		if err := distillery.Remove(e); err != nil {
+			errors = append(errors, fmt.Errorf("unable to release SelectorPolicy reference: %s", err))
 		}
 	}
 

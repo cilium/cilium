@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/distillery"
 	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
@@ -160,11 +161,16 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	e.prevIdentityCache = labelsMap
 
 	stats.policyCalculation.Start()
-	identityPolicy, err := repo.ResolvePolicyLocked(e.SecurityIdentity)
-	if err != nil {
+	if e.selectorPolicy == nil {
+		e.selectorPolicy = distillery.Upsert(e)
+	}
+	// TODO: GH-7515: This should be triggered closer to policy change
+	// handlers, but for now let's just update it here.
+	if err := distillery.UpdatePolicy(repo, e); err != nil {
+		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
-	calculatedPolicy := identityPolicy.DistillPolicy(e, *labelsMap)
+	calculatedPolicy := e.selectorPolicy.Consume(e, *labelsMap)
 	stats.policyCalculation.End(true)
 
 	e.desiredPolicy = calculatedPolicy
@@ -573,6 +579,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	// identity for the endpoint.
 	identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	e.SecurityIdentity = identity
+
+	// Clear selectorPolicy. It will be determined at next regeneration.
+	e.selectorPolicy = nil
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
