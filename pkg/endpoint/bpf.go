@@ -380,7 +380,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	stats.waitingForLock.End(true)
 	defer owner.GetCompilationLock().RUnlock()
 
-	datapathRegenCtxt.prepareForProxyUpdates()
+	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
 	err = e.runPreCompilationSteps(owner, regenContext)
