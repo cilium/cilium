@@ -501,8 +501,8 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	// create /id/<ID> and fail if it already exists
 	keyPath := path.Join(a.idPrefix, strID)
-	err = kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
-	if err != nil {
+	success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
+	if err != nil || !success {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
 		releaseKeyAndID()
@@ -716,18 +716,24 @@ func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissin
 
 	// Use of CreateOnly() ensures that any existing potentially
 	// conflicting key is never overwritten.
-	err := kvstore.CreateOnly(context.TODO(), keyPath, []byte(value), false)
-	if reliablyMissing || err == nil {
-		log.WithError(err).WithField(fieldKey, keyPath).Warning("Re-created potentially missing master key")
+	success, err := kvstore.CreateOnly(context.TODO(), keyPath, []byte(value), false)
+	switch {
+	case err != nil:
+		log.WithError(err).WithField(fieldKey, keyPath).Warning("Unable to re-create missing master key")
+	case success:
+		log.WithField(fieldKey, keyPath).Warning("Re-created missing master key")
 	}
 
 	// Also re-create the slave key in case it has been deleted. This will
 	// ensure that the next garbage collection cycle of any participating
 	// node does not remove the master key again.
 	valueKey := path.Join(a.valuePrefix, value, a.suffix)
-	err = kvstore.CreateOnly(context.TODO(), valueKey, []byte(id.String()), true)
-	if reliablyMissing || err == nil {
-		log.WithError(err).WithField(fieldKey, valueKey).Warning("Re-created potentially missing slave key")
+	success, err = kvstore.CreateOnly(context.TODO(), valueKey, []byte(id.String()), true)
+	switch {
+	case err != nil:
+		log.WithError(err).WithField(fieldKey, valueKey).Warning("Unable to re-create missing slave key")
+	case success:
+		log.WithField(fieldKey, valueKey).Warning("Re-created missing slave key")
 	}
 }
 

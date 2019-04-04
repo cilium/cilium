@@ -164,7 +164,7 @@ type BackendOperations interface {
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 
 	// CreateOnly atomically creates a key or fails if it already exists
-	CreateOnly(ctx context.Context, key string, value []byte, lease bool) error
+	CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 
 	// CreateIfExists creates a key with the value only if key condKey exists
 	CreateIfExists(condKey, key string, value []byte, lease bool) error

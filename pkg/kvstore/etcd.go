@@ -820,7 +820,7 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
-func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) error {
+func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	duration := spanstat.Start()
 	var leaseID client.LeaseID
 	if lease {
@@ -834,14 +834,10 @@ func (e *etcdClient) CreateOnly(ctx context.Context, key string, value []byte, l
 	increaseMetric(key, metricSet, "CreateOnly", duration.EndError(err).Total(), err)
 	if err != nil {
 		e.checkSession(err, leaseID)
-		return Hint(err)
+		return false, Hint(err)
 	}
 
-	if txnresp.Succeeded == false {
-		return fmt.Errorf("create was unsuccessful")
-	}
-
-	return nil
+	return txnresp.Succeeded, nil
 }
 
 // CreateIfExists creates a key with the value only if key condKey exists
