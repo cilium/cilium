@@ -151,6 +151,11 @@ skip_service_lookup:
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = info->key;
+			if (encrypt_key) {
+				__u8 k = get_encrypt_key(0);
+
+				encrypt_key = k < encrypt_key ? k : encrypt_key;
+			}
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -474,6 +479,11 @@ skip_service_lookup:
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = info->key;
+			if (encrypt_key) {
+				__u8 k = get_encrypt_key(0);
+
+				encrypt_key = k < encrypt_key ? k : encrypt_key;
+			}
 		} else {
 			*dstID = WORLD_ID;
 		}

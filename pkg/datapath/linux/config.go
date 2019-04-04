@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -101,6 +102,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
 	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
 	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
+	fmt.Fprintf(fw, "#define ENCRYPT_MAP %s\n", encrypt.MapName)
 
 	if option.Config.DatapathMode == option.DatapathModeIpvlan {
 		fmt.Fprintf(fw, "#define ENABLE_SECCTX_FROM_IPCACHE 1\n")

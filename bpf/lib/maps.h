@@ -189,6 +189,14 @@ struct bpf_elf_map __section_maps IPCACHE_MAP = {
 	.flags		= BPF_F_NO_PREALLOC,
 };
 
+struct bpf_elf_map __section_maps ENCRYPT_MAP = {
+	.type		= BPF_MAP_TYPE_ARRAY,
+	.size_key	= sizeof(struct encrypt_key),
+	.size_value	= sizeof(struct encrypt_config),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1,
+};
+
 #ifndef SKIP_CALLS_MAP
 static __always_inline void ep_tail_call(struct __sk_buff *skb, uint32_t index)
 {

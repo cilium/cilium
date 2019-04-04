@@ -31,6 +31,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/vishvananda/netlink"
 
 	"github.com/sirupsen/logrus"
@@ -358,6 +359,8 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 		"spi": spi,
 	})
 
+	encrypt.EncryptMapCreate()
+
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
@@ -438,6 +441,7 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 			}()
 		}
 	}
+	encrypt.EncryptMapUpdateContext(0, spi)
 	return spi, nil
 }
 

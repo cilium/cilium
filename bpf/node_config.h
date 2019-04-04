@@ -75,6 +75,7 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define POLICY_CALL_MAP test_cilium_policy
 #define SOCK_OPS_MAP test_sock_ops_map
 #define IPCACHE_MAP test_cilium_ipcache
+#define ENCRYPT_MAP test_cilium_encrypt_state
 #define PROXY4_MAP test_cilium_proxy4
 #define PROXY6_MAP test_cilium_proxy6
 #define TUNNEL_MAP test_cilium_tunnel_map

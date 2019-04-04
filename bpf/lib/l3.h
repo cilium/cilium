@@ -135,4 +135,16 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	return DROP_MISSED_TAIL_CALL;
 }
 
+static inline __u8 __inline__ get_encrypt_key(__u32 ctx)
+{
+	struct encrypt_key key = {.ctx = ctx};
+	struct encrypt_config *cfg;
+
+	cfg = map_lookup_elem(&ENCRYPT_MAP, &key);
+	/* Having no key info for a context is the same as no encryption */
+	if (!cfg)
+		return 0;
+	return cfg->encrypt_key;
+}
+
 #endif
