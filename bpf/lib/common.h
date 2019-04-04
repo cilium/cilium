@@ -127,42 +127,6 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 		dst.p4 = a4;			\
 	})
 
-/* Macros for building proxy port/nexthdr maps */
-#define EVAL0(...) __VA_ARGS__
-#define EVAL1(...) EVAL0 (EVAL0 (EVAL0 (__VA_ARGS__)))
-#define EVAL2(...) EVAL1 (EVAL1 (EVAL1 (__VA_ARGS__)))
-#define EVAL(...)  EVAL2 (EVAL2 (EVAL2 (__VA_ARGS__)))
-
-#define BPF_L4_MAP_OUT
-#define BPF_L4_MAP_END(...)
-#define BPF_L4_MAP_GET_END() 0, BPF_L4_MAP_END
-#define BPF_L4_MAP_NEXT0(dst, port, hdr, index, map, next, ...) next BPF_L4_MAP_OUT
-#define BPF_L4_MAP_NEXT1(dst, port, hdr, index, map, next) BPF_L4_MAP_NEXT0(dst, port, hdr, index, map, next, 0)
-#define BPF_L4_MAP_NEXT(dst, port, hdr, index, map, next) BPF_L4_MAP_NEXT1 (dst, port, hdr, index, BPF_L4_MAP_GET_END map, next)
-
-#define F(dst, port, hdr, index, map0, map1, map2)				\
-	({									\
-		dst = (dst > -1 ? dst : ((map0 && map0 == port) ?		\
-			((map2 && map2 == hdr) ? map1 : DROP_POLICY_L4) :	\
-			DROP_POLICY_L4));					\
-	});
-
-#define BPF_L4_MAP0(dst, port, hdr, index, map0, map1, map2, next, ...) \
-	F(dst, port, hdr, index, map0, map1, map2) BPF_L4_MAP_NEXT(dst, port, hdr, index, next, BPF_L4_MAP1)(dst, port, hdr, next, __VA_ARGS__)
-#define BPF_L4_MAP1(dst, port, hdr, index, map0, map1, map2, next, ...) \
-	F(dst, port, hdr, index, map0, map1, map2) BPF_L4_MAP_NEXT(dst, port, hdr, index, next, BPF_L4_MAP0)(dst, port, hdr, next, __VA_ARGS__)
-
-#define BPF_L4_MAP(dst, port, hdr, ...)				\
-	({							\
-		EVAL (BPF_L4_MAP1(dst, port, hdr, __VA_ARGS__))	\
-	})
-
-/* Examples to illustrate how to use BPF_L4_MAP and BPF_V6_16
- *
- * BPF_L4_MAP(my_map, 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0)
- * BPF_V6_16(my_dst, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
- */
-
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
