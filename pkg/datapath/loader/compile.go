@@ -268,7 +268,12 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 					logfields.Params: logfields.Repr(p),
 					logfields.Debug:  debug,
 				})
-				scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
+				// Only log an error here if the context was not canceled or not
+				// timed out; this log message should only represent failures
+				// with respect to compiling the program.
+				if ctx.Err() == nil {
+					scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
+				}
 				return err
 			}
 		}
@@ -280,7 +285,12 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 			logfields.Params: logfields.Repr(datapathProg),
 			logfields.Debug:  false,
 		})
-		scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+		// Only log an error here if the context was not canceled or not timed
+		// out; this log message should only represent failures with respect to
+		// compiling the program.
+		if ctx.Err() == nil {
+			scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+		}
 		return err
 	}
 
