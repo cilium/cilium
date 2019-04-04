@@ -267,7 +267,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// proxy configuration, this code would effectively deadlock addition
 		// of endpoints.
 		ep.Regenerate(d, &endpoint.ExternalRegenerationMetadata{
-			Reason: "Initial build on endpoint creation",
+			Reason:        "Initial build on endpoint creation",
+			ParentContext: ctx,
 		})
 	}
 

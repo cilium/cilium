@@ -279,7 +279,7 @@ func (d *Daemon) QueueEndpointBuild(epID uint64) func() {
 	}
 
 	// Acquire succeeded, but the context was canceled after?
-	if ctx.Err() == context.Canceled {
+	if ctx.Err() != nil {
 		d.buildEndpointSem.Release(1)
 		return nil
 	}
