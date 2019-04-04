@@ -243,45 +243,45 @@ func (d *Daemon) RemoveNetworkPolicy(e *endpoint.Endpoint) {
 // start building.  The returned function must then be called to
 // release the "build permit" when the most resource intensive parts
 // of the build are done. The returned function is idempotent, so it
-// may be called more than once. Returns nil if the caller should NOT
+// may be called more than once. Returns a nil function if the caller should NOT
 // start building the endpoint. This may happen due to a build being
 // queued for the endpoint already, or due to the wait for the build
 // permit being canceled. The latter case happens when the endpoint is
-// being deleted.
-func (d *Daemon) QueueEndpointBuild(epID uint64) func() {
+// being deleted. Returns an error if the build permit could not be acquired.
+func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	d.uniqueIDMU.Lock()
 	// Skip new build requests if the endpoint is already in the queue
 	// waiting. In this case the queued build will pick up any changes
 	// made so far, so there is no need to queue another build now.
 	if _, queued := d.uniqueID[epID]; queued {
 		d.uniqueIDMU.Unlock()
-		return nil
+		return nil, nil
 	}
 	// Store a cancel function to the 'uniqueID' map so that we can
 	// cancel the wait when the endpoint is being deleted.
-	ctx, cancel := context.WithCancel(context.Background())
+	uniqueIDCtx, cancel := context.WithCancel(ctx)
 	d.uniqueID[epID] = cancel
 	d.uniqueIDMU.Unlock()
 
 	// Acquire build permit. This may block.
-	err := d.buildEndpointSem.Acquire(ctx, 1)
+	err := d.buildEndpointSem.Acquire(uniqueIDCtx, 1)
 
 	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
-	// The caller may still cancel the build by calling the cancel func\
-	// after we return it. After this point another build may be queued for
-	// this endpoint.
+	// The caller may still cancel the build by calling the cancel func after we
+	// return it. After this point another build may be queued for this
+	// endpoint.
 	d.uniqueIDMU.Lock()
 	delete(d.uniqueID, epID)
 	d.uniqueIDMU.Unlock()
 
 	if err != nil {
-		return nil // Acquire failed
+		return nil, err // Acquire failed
 	}
 
 	// Acquire succeeded, but the context was canceled after?
-	if ctx.Err() != nil {
+	if uniqueIDCtx.Err() != nil {
 		d.buildEndpointSem.Release(1)
-		return nil
+		return nil, uniqueIDCtx.Err()
 	}
 
 	// At this point the build permit has been acquired. It must
@@ -289,11 +289,12 @@ func (d *Daemon) QueueEndpointBuild(epID uint64) func() {
 	// when the heavy lifting of the build is done.
 	// Using sync.Once to make the returned function idempotent.
 	var once sync.Once
-	return func() {
+	doneFunc := func() {
 		once.Do(func() {
 			d.buildEndpointSem.Release(1)
 		})
 	}
+	return doneFunc, nil
 }
 
 // RemoveFromEndpointQueue removes the endpoint from the "build permit" queue,
