@@ -423,7 +423,18 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
-	regenContext := regenMetadata.toRegenerationContext()
+	var (
+		ctx   context.Context
+		cFunc context.CancelFunc
+	)
+
+	if regenMetadata.ParentContext != nil {
+		ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)
+	} else {
+		ctx, cFunc = context.WithCancel(context.Background())
+	}
+
+	regenContext := regenMetadata.toRegenerationContext(ctx, cFunc)
 
 	epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
 		owner:        owner,
@@ -437,6 +448,9 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 	resChan := e.EventQueue.Enqueue(epEvent)
 
 	go func() {
+
+		// Free up resources with context.
+		defer cFunc()
 
 		var buildSuccess bool
 		var regenError error
