@@ -715,7 +715,7 @@ func (t *TestSpec) InvalidNetworkPolicyApply() (*cnpv2.CiliumNetworkPolicy, erro
 	err = helpers.WithTimeout(
 		body,
 		fmt.Sprintf("CNP %q is not ready after timeout", t.Prefix),
-		&helpers.TimeoutConfig{Timeout: 100})
+		&helpers.TimeoutConfig{Timeout: 100 * time.Second})
 	if err != nil {
 		return nil, err
 	}
