@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -66,7 +67,7 @@ type DaemonSuite struct {
 	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
 	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap, deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e *e.Endpoint)
-	OnQueueEndpointBuild      func(epID uint64) func()
+	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnDebugEnabled            func() bool
 	OnGetCompilationLock      func() *lock.RWMutex
@@ -237,9 +238,9 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e *e.Endpoint) {
 	panic("RemoveNetworkPolicy should not have been called")
 }
 
-func (ds *DaemonSuite) QueueEndpointBuild(epID uint64) func() {
+func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
 	if ds.OnQueueEndpointBuild != nil {
-		return ds.OnQueueEndpointBuild(epID)
+		return ds.OnQueueEndpointBuild(ctx, epID)
 	}
 	panic("QueueEndpointBuild should not have been called")
 }
