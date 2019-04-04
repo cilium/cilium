@@ -100,6 +100,11 @@ func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.Endpoint
 	return identities
 }
 
+// NewSelectorPolicy returns an empty SelectorPolicy stub.
+func NewSelectorPolicy() *SelectorPolicy {
+	return &SelectorPolicy{}
+}
+
 // DistillPolicy filters down the specified SelectorPolicy (which acts upon
 // selectors) into a set of concrete map entries based on the specified
 // identityCache. These can subsequently be plumbed into the datapath.
@@ -215,7 +220,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy() *EndpointPolicy {
 	return &EndpointPolicy{
-		SelectorPolicy: &SelectorPolicy{},
+		SelectorPolicy: NewSelectorPolicy(),
 	}
 }
 
