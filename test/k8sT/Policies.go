@@ -17,6 +17,8 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"time"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
@@ -255,6 +257,32 @@ var _ = Describe("K8sPolicyTest", func() {
 			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
 				appPods[helpers.App3], clusterIP)
 		}, 500)
+
+		It("Invalid Policy report status correctly", func() {
+			manifest := helpers.ManifestGet("invalid_cnp.yaml")
+			cnpName := "foo"
+			kubectl.Apply(manifest).ExpectSuccess("Cannot apply policy manifest")
+
+			body := func() bool {
+				cnp := kubectl.GetCNP(helpers.DefaultNamespace, cnpName)
+				if cnp != nil && len(cnp.Status.Nodes) > 0 {
+					for _, node := range cnp.Status.Nodes {
+						if node.Error == "" {
+							return false
+						}
+					}
+					return true
+				}
+				return false
+			}
+
+			err := helpers.WithTimeout(
+				body,
+				fmt.Sprintf("CNP %q does not report the status correctly after timeout", cnpName),
+				&helpers.TimeoutConfig{Timeout: 100 * time.Second})
+
+			Expect(err).To(BeNil(), "CNP status for invalid policy did not update correctly")
+		})
 
 		It("ServiceAccount Based Enforcement", func() {
 			// Load policy allowing serviceAccount of app2 to talk
