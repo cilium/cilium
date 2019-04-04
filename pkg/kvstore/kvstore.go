@@ -59,10 +59,14 @@ func ListPrefix(prefix string) (KeyValuePairs, error) {
 }
 
 // CreateOnly atomically creates a key or fails if it already exists
-func CreateOnly(ctx context.Context, key string, value []byte, lease bool) error {
-	err := Client().CreateOnly(ctx, key, value, lease)
-	Trace("CreateOnly", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
-	return err
+func CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
+	success, err := Client().CreateOnly(ctx, key, value, lease)
+	Trace("CreateOnly", err, logrus.Fields{
+		fieldKey: key, fieldValue: string(value),
+		fieldAttachLease: lease,
+		"success":        success,
+	})
+	return success, err
 }
 
 // Update creates or updates a key value pair
