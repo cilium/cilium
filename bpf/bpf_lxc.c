@@ -341,7 +341,7 @@ pass_to_stack:
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 #ifdef ENABLE_IPSEC
-	if (*dstID > UNMANAGED_ID && encrypt_key) {
+	if (*dstID > WORLD_ID && encrypt_key) {
 		set_encrypt_key(skb, encrypt_key);
 		set_identity(skb, SECLABEL);
 	}
@@ -665,7 +665,7 @@ pass_to_stack:
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
 			  forwarding_reason, monitor);
 #ifdef ENABLE_IPSEC
-	if (*dstID > UNMANAGED_ID && encrypt_key) {
+	if (*dstID > WORLD_ID && encrypt_key) {
 		set_encrypt_key(skb, encrypt_key);
 		set_identity(skb, SECLABEL);
 	}
