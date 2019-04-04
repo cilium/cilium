@@ -57,7 +57,12 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 			})
-			scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			// Don't log an error here if the context was canceled or timed out;
+			// this log message should only represent failures with respect to
+			// loading the program.
+			if ctx.Err() == nil {
+				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			}
 			return err
 		}
 	} else {
@@ -66,7 +71,12 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
 			})
-			scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			// Don't log an error here if the context was canceled or timed out;
+			// this log message should only represent failures with respect to
+			// loading the program.
+			if ctx.Err() == nil {
+				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+			}
 			return err
 		}
 	}
