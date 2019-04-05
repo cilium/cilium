@@ -1,4 +1,9 @@
 #
+# cilium-envoy from github.com/cilium/proxy
+#
+FROM quay.io/cilium/cilium-envoy:fd8566c74481c22cfe2805ac1c445e312ed08a83 as cilium-envoy
+
+#
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
 #
 # cilium-builder tag is the date on which the compatible build image
@@ -33,6 +38,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V SKIP_DOCS=true DESTDIR=/tmp/insta
 FROM quay.io/cilium/cilium-runtime:2018-09-13
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
+COPY --from=cilium-envoy / /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 WORKDIR /root
