@@ -52,7 +52,7 @@ func newPolicyCache() *policyCache {
 // upsert adds the specified Identity to the policy cache, with a reference
 // from the specified Endpoint, then returns the threadsafe copy of the policy
 // and whether policy has been computed for this identity.
-func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) SelectorPolicy {
+func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) (SelectorPolicy, bool) {
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity]
@@ -62,7 +62,7 @@ func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) Se
 	}
 	cip.users[ep] = struct{}{}
 
-	return cip
+	return cip, cip.revision > 0
 }
 
 // remove forgets about any cached SelectorPolicy that this endpoint uses.
@@ -90,19 +90,28 @@ func (cache *policyCache) remove(ep Endpoint) (bool, error) {
 }
 
 // updateSelectorPolicy resolves the policy for the security identity of the
-// specified endpoint and stores it internally.
+// specified endpoint and stores it internally. It will skip policy resolution
+// if the cached policy is already at the revision specified in the repo.
 //
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
 func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoint) (bool, error) {
 	identity := ep.GetSecurityIdentity()
+	revision := repo.GetRevision()
 
+	// Don't resolve policy if it was already done for this Identity.
+	var currentRevision uint64
 	cache.Lock()
 	cip, ok := cache.policies[identity]
+	if ok {
+		currentRevision = cip.revision
+	}
 	cache.Unlock()
 	if !ok {
 		return false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
+	} else if revision == currentRevision {
+		return false, nil
 	}
 
 	// Resolve the policies, which could fail
@@ -111,10 +120,29 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 		return false, err
 	}
 
+	// We don't cover the ResolvePolicyLocked() call above with the cache
+	// Mutex because it's potentially expensive, and endpoints with
+	// different identities should be able to concurrently compute policy.
+	//
+	// However, as long as UpdatePolicy() is triggered from endpoint
+	// regeneration, it's possible for two endpoints with the *same*
+	// identity to race to the revision check above, both find that the
+	// policy is out-of-date, and resolve the policy then race down to
+	// here. Don't update the policy if we're late to the party.
+	//
+	// Note that because repo.Mutex is held, the two racing threads will be
+	// guaranteed to compute policy for the same revision of the policy.
+	// We could save some CPU by, for example, forcing resolution of policy
+	// for the same identity to block on a channel/lock, but this is
+	// skipped for now as there are upcoming changes to the cache update
+	// logic which would render such mechanisms obsolete.
 	cache.Lock()
 	defer cache.Unlock()
-	cip.setPolicyLocked(identityPolicy)
-	return true, nil
+	changed := revision > cip.revision
+	if changed {
+		cip.setPolicyLocked(identityPolicy, revision)
+	}
+	return changed, nil
 }
 
 // Upsert notifies the global policy cache that the specified endpoint requires
@@ -122,7 +150,7 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 // for that identity.
 func Upsert(ep Endpoint) SelectorPolicy {
 	identity := ep.GetSecurityIdentity()
-	cip := globalPolicyCache.upsert(identity, ep)
+	cip, _ := globalPolicyCache.upsert(identity, ep)
 	return cip
 }
 
@@ -136,6 +164,7 @@ func Remove(ep Endpoint) error {
 // particular Identity.
 type PolicyRepository interface {
 	ResolvePolicyLocked(*identityPkg.Identity) (*policy.SelectorPolicy, error)
+	GetRevision() uint64
 }
 
 // Endpoint represents a user of an SelectorPolicy. It is used for managing
