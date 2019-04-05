@@ -20,6 +20,7 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -226,6 +227,10 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 		released := localIdentities.release(id)
 		return released, nil
 	}
+
+	// identitymanager only tracks global identities in use by local endpoints,
+	// not local identities.
+	identitymanager.Delete(id)
 
 	// This will block until the kvstore can be accessed and all identities
 	// were succesfully synced
