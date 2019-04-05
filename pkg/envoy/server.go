@@ -457,26 +457,26 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 		StaticResources: &envoy_config_bootstrap_v2.Bootstrap_StaticResources{
 			Clusters: []*envoy_api_v2.Cluster{
 				{
-					Name:              egressClusterName,
-					Type:              envoy_api_v2.Cluster_ORIGINAL_DST,
-					ConnectTimeout:    &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:   &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:          envoy_api_v2.Cluster_ORIGINAL_DST_LB,
-					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					Name:                 egressClusterName,
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:             envoy_api_v2.Cluster_ORIGINAL_DST_LB,
+					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
-					Name:              ingressClusterName,
-					Type:              envoy_api_v2.Cluster_ORIGINAL_DST,
-					ConnectTimeout:    &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					CleanupInterval:   &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:          envoy_api_v2.Cluster_ORIGINAL_DST_LB,
-					ProtocolSelection: envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					Name:                 ingressClusterName,
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
+					LbPolicy:             envoy_api_v2.Cluster_ORIGINAL_DST_LB,
+					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
-					Name:           "xds-grpc-cilium",
-					Type:           envoy_api_v2.Cluster_STATIC,
-					ConnectTimeout: &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					LbPolicy:       envoy_api_v2.Cluster_ROUND_ROBIN,
+					Name:                 "xds-grpc-cilium",
+					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_STATIC},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					LbPolicy:             envoy_api_v2.Cluster_ROUND_ROBIN,
 					Hosts: []*envoy_api_v2_core.Address{
 						{
 							Address: &envoy_api_v2_core.Address_Pipe{

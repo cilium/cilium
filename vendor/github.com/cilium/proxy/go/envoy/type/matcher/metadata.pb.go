@@ -19,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // MetadataMatcher provides a general interface to check if a given value is matched in
 // :ref:`Metadata <envoy_api_msg_core.Metadata>`. It uses `filter` and `path` to retrieve the value
@@ -198,55 +198,11 @@ func (m *MetadataMatcher_PathSegment) GetKey() string {
 	return ""
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*MetadataMatcher_PathSegment) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _MetadataMatcher_PathSegment_OneofMarshaler, _MetadataMatcher_PathSegment_OneofUnmarshaler, _MetadataMatcher_PathSegment_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*MetadataMatcher_PathSegment) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*MetadataMatcher_PathSegment_Key)(nil),
 	}
-}
-
-func _MetadataMatcher_PathSegment_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*MetadataMatcher_PathSegment)
-	// segment
-	switch x := m.Segment.(type) {
-	case *MetadataMatcher_PathSegment_Key:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.Key)
-	case nil:
-	default:
-		return fmt.Errorf("MetadataMatcher_PathSegment.Segment has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _MetadataMatcher_PathSegment_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*MetadataMatcher_PathSegment)
-	switch tag {
-	case 1: // segment.key
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Segment = &MetadataMatcher_PathSegment_Key{x}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _MetadataMatcher_PathSegment_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*MetadataMatcher_PathSegment)
-	// segment
-	switch x := m.Segment.(type) {
-	case *MetadataMatcher_PathSegment_Key:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.Key)))
-		n += len(x.Key)
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -257,7 +213,7 @@ func init() {
 func init() { proto.RegisterFile("envoy/type/matcher/metadata.proto", fileDescriptor_865eaf6a1e9e266d) }
 
 var fileDescriptor_865eaf6a1e9e266d = []byte{
-	// 262 bytes of a gzipped FileDescriptorProto
+	// 285 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,
 	0x4d, 0x2d, 0x49, 0x4c, 0x49, 0x2c, 0x49, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x02,
@@ -272,7 +228,8 @@ var fileDescriptor_865eaf6a1e9e266d = []byte{
 	0x5e, 0x09, 0x66, 0x05, 0x46, 0x0d, 0x6e, 0x23, 0x05, 0x6c, 0x26, 0x86, 0x81, 0x14, 0x40, 0x8d,
 	0x83, 0x1a, 0xd1, 0xc5, 0xc8, 0x24, 0xc0, 0x18, 0x04, 0xd1, 0x2a, 0x65, 0xc7, 0xc5, 0x8d, 0x64,
 	0x89, 0x90, 0x2c, 0x17, 0x73, 0x76, 0x6a, 0x25, 0x86, 0x1f, 0x3c, 0x18, 0x82, 0x40, 0xe2, 0x4e,
-	0x02, 0x5c, 0xec, 0xc5, 0x50, 0x95, 0xac, 0x3b, 0x5e, 0x1e, 0x60, 0x66, 0x74, 0xe2, 0x8c, 0x62,
-	0x87, 0x5a, 0x95, 0xc4, 0x06, 0x0e, 0x1d, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0x16, 0x6e,
-	0x90, 0x30, 0x8f, 0x01, 0x00, 0x00,
+	0x02, 0x5c, 0xec, 0xc5, 0x50, 0x95, 0xac, 0x3b, 0x5e, 0x1e, 0x60, 0x66, 0x74, 0xb2, 0xe1, 0x52,
+	0xc8, 0xcc, 0x87, 0x58, 0x5c, 0x50, 0x94, 0x5f, 0x51, 0x89, 0xc5, 0x0d, 0x4e, 0xbc, 0x30, 0x6f,
+	0x05, 0x80, 0x82, 0x2f, 0x80, 0x31, 0x8a, 0x1d, 0x2a, 0x93, 0xc4, 0x06, 0x0e, 0x50, 0x63, 0x40,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xa2, 0x9c, 0x8d, 0x97, 0xc2, 0x01, 0x00, 0x00,
 }
