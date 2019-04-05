@@ -510,10 +510,6 @@ func init() {
 	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
 	option.BindEnv(option.K8sKubeConfigPath)
 
-	option.BindEnv(option.K8sLegacyHostAllowsWorld)
-	// This needs to be set manually for backward compatibility
-	viper.BindEnv(option.K8sLegacyHostAllowsWorld, "CILIUM_LEGACY_HOST_ALLOWS_WORLD")
-
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium is deployed in")
 	flags.MarkHidden(option.K8sNamespaceName)
 	option.BindEnv(option.K8sNamespaceName)

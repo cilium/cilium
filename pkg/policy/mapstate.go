@@ -73,22 +73,6 @@ type MapStateEntry struct {
 	ProxyPort uint16
 }
 
-// DetermineAllowFromWorld determines whether world should be allowed to
-// communicate with the endpoint, based on legacy Cilium 1.0 behaviour. It
-// inserts the Key corresponding to the world in the desiredPolicyKeys
-// if the legacy mode is enabled.
-//
-// This must be run after DetermineAllowLocalhost().
-//
-// For more information, see https://cilium.link/host-vs-world
-func (keys MapState) DetermineAllowFromWorld() {
-
-	_, localHostAllowed := keys[localHostKey]
-	if option.Config.HostAllowsWorld && localHostAllowed {
-		keys[worldKey] = MapStateEntry{}
-	}
-}
-
 // DetermineAllowLocalhost determines whether communication should be allowed to
 // the localhost. It inserts the Key corresponding to the localhost in
 // the desiredPolicyKeys if the endpoint is allowed to communicate with the

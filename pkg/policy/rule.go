@@ -212,9 +212,6 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 	endpointsWithL3Override := []api.EndpointSelector{}
 	if option.Config.AlwaysAllowLocalhost() {
 		endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameHost])
-		if option.Config.HostAllowsWorld {
-			endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameWorld])
-		}
 	}
 
 	for _, r := range rule.ToPorts {
