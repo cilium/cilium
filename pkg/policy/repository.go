@@ -753,7 +753,6 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 
 	calculatedPolicy.computeDesiredL4PolicyMapEntries(identityCache)
 	calculatedPolicy.PolicyMapState.DetermineAllowLocalhost(calculatedPolicy.L4Policy)
-	calculatedPolicy.PolicyMapState.DetermineAllowFromWorld()
 
 	return calculatedPolicy, nil
 }

@@ -26,13 +26,6 @@ accordingly with your changes.
 * ``clean-cilium-state`` - Removes any Cilium state, e.g. BPF policy maps,
   before starting the Cilium agent;
 
-* ``legacy-host-allows-world`` - If true, the policy with the entity
-  ``reserved:host`` allows traffic from ``world``. If false, the policy needs
-  to explicitly have the entity ``reserved:world`` to allow traffic from
-  ``world``. It is recommended to set it to false. This option provides
-  compatibility with Cilium 1.0 which was not able to differentiate between
-  NodePort traffic and traffic from the host.
-
 Any changes that you perform in the Cilium `ConfigMap` and in
 ``cilium-etcd-secrets`` ``Secret`` will require you to restart any existing
 Cilium pods in order for them to pick the latest configuration.
@@ -69,8 +62,6 @@ enabled.
       enable-ipv4: "true"
       # If you want to clean cilium state; change this value to true
       clean-cilium-state: "false"
-      legacy-host-allows-world: "false"
-
 
 CNI
 ===
