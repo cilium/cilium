@@ -345,27 +345,6 @@ loop:
 	return decision
 }
 
-// meetsRequirementsEgress returns whether the labels in ctx.To do not
-// meet the requirements in the provided rule. If a rule does meet the
-// requirements in the rule, that does not mean that the rule allows traffic
-// from the labels in ctx.To, merely that the rule does not deny it.
-func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) api.Decision {
-
-	state.selectRule(ctx, r)
-	for _, r := range r.Egress {
-		for _, sel := range r.ToRequires {
-			ctx.PolicyTrace("    Requires from labels %+v", sel)
-			if !sel.Matches(ctx.To) {
-				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
-				state.constrainedRules++
-				return api.Denied
-			}
-			ctx.PolicyTrace("+     Found all required labels\n")
-		}
-	}
-	return api.Undecided
-}
-
 // updateEndpointsCaches iterates over a given list of rules to update the cache
 // within the rule which determines whether or not the given identity is
 // selected by that rule. If a rule in the list does select said identity, it is
