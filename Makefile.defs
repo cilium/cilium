@@ -1,4 +1,5 @@
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+RELATIVE_DIR := $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
 include $(ROOT_DIR)/Makefile.quiet
 
 PREFIX?=/usr
@@ -20,7 +21,8 @@ else
 	GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
 BUILD = $(VERSION) $(GIT_VERSION) $(shell go version)
-GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"'
+CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
+GOBUILD = -ldflags '-X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)" -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"'
 
 # Uncomment to enable race detection
 #GOBUILD += -race
