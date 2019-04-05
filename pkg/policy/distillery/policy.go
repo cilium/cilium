@@ -23,15 +23,16 @@ import (
 )
 
 type cachedSelectorPolicy struct {
-	users  map[Endpoint]struct{}
-	policy unsafe.Pointer
+	users    map[Endpoint]struct{}
+	policy   unsafe.Pointer
+	revision uint64
 }
 
 func newCachedSelectorPolicy() *cachedSelectorPolicy {
 	cip := &cachedSelectorPolicy{
 		users: make(map[Endpoint]struct{}),
 	}
-	cip.setPolicyLocked(policy.NewSelectorPolicy())
+	cip.setPolicyLocked(policy.NewSelectorPolicy(), 0)
 	return cip
 }
 
@@ -43,8 +44,9 @@ func (cip *cachedSelectorPolicy) getPolicy() *policy.SelectorPolicy {
 }
 
 // setPolicyLocked updates the reference to the SelectorPolicy that is cached.
-func (cip *cachedSelectorPolicy) setPolicyLocked(policy *policy.SelectorPolicy) {
+func (cip *cachedSelectorPolicy) setPolicyLocked(policy *policy.SelectorPolicy, revision uint64) {
 	atomic.StorePointer(&cip.policy, unsafe.Pointer(policy))
+	cip.revision = revision
 }
 
 // Consume returns the EndpointPolicy that defines connectivity policy to
