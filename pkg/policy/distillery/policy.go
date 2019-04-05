@@ -23,15 +23,16 @@ import (
 )
 
 type cachedIdentityPolicy struct {
-	users  map[Endpoint]struct{}
-	policy unsafe.Pointer
+	users    map[Endpoint]struct{}
+	policy   unsafe.Pointer
+	revision uint64
 }
 
 func newCachedIdentityPolicy() *cachedIdentityPolicy {
 	cip := &cachedIdentityPolicy{
 		users: make(map[Endpoint]struct{}),
 	}
-	cip.setPolicyLocked(policy.NewIdentityPolicy())
+	cip.setPolicyLocked(policy.NewIdentityPolicy(), 0)
 	return cip
 }
 
@@ -43,8 +44,9 @@ func (cip *cachedIdentityPolicy) getPolicy() *policy.IdentityPolicy {
 }
 
 // setPolicyLocked updates the reference to the IdentityPolicy that is cached.
-func (cip *cachedIdentityPolicy) setPolicyLocked(policy *policy.IdentityPolicy) {
+func (cip *cachedIdentityPolicy) setPolicyLocked(policy *policy.IdentityPolicy, revision uint64) {
 	atomic.StorePointer(&cip.policy, unsafe.Pointer(policy))
+	cip.revision = revision
 }
 
 // Consume returns the EndpointPolicy that defines connectivity policy to
