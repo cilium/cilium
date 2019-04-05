@@ -4,11 +4,11 @@
 package cilium
 
 import (
+	context "context"
 	fmt "fmt"
 	v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	proto "github.com/golang/protobuf/proto"
 	_ "github.com/lyft/protoc-gen-validate/validate"
-	context "golang.org/x/net/context"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
 	math "math"
@@ -23,7 +23,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // The mapping of a network policy identifier to the IP addresses of all the
 // hosts on which the network policy is enforced.

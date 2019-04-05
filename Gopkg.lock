@@ -107,7 +107,7 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
-  digest = "1:70ecb94718c7e45fa5102f715d15c765fad2aac2fe83ee611d917079f0ad9960"
+  digest = "1:355757e8cf49a9961398b8ed508016f08c08028a17241998448f65b60dc4b5c1"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -121,13 +121,12 @@
     "go/envoy/config/bootstrap/v2",
     "go/envoy/config/metrics/v2",
     "go/envoy/config/overload/v2alpha",
-    "go/envoy/config/ratelimit/v2",
     "go/envoy/config/trace/v2",
     "go/envoy/type",
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
+  revision = "19442becad85fe3a9d3eab7856bdb31206f3ae68"
 
 [[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
@@ -515,7 +514,7 @@
   revision = "v0.4-3-gc0656ed"
 
 [[projects]]
-  digest = "1:a69e319c474caf18c6b5ff39aa57366ee12c72b3366506695f3e3617c75d4ba4"
+  digest = "1:99d26c39807a3709c762366daaaa7b58805163882d9cea00076327583984f5b1"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -529,7 +528,7 @@
     "ptypes/wrappers",
   ]
   pruneopts = "NUT"
-  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
+  revision = "v1.3.1"
 
 [[projects]]
   branch = "master"
