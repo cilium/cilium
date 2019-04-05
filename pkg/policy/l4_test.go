@@ -77,10 +77,10 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcardeds
 		// or if it is based on specific labels.
-		filter := CreateL4IngressFilter(eps, nil, portrule, tuple, tuple.Protocol, nil, false)
+		filter := CreateL4IngressFilter(eps, nil, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 
-		filter = CreateL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil, false)
+		filter = CreateL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 	}
 }
