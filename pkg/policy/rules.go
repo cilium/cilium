@@ -43,6 +43,8 @@ loop:
 			}
 		}
 
+		state.selectRule(ctx, r)
+
 		switch r.meetsRequirementsIngress(ctx, &state) {
 		// The rule contained a constraint which was not met; this
 		// connection is not allowed.
@@ -80,6 +82,8 @@ loop:
 				continue
 			}
 		}
+
+		state.selectRule(ctx, r)
 
 		if r.meetsRequirementsIngress(ctx, &state) == api.Denied {
 			decision = api.Denied
@@ -296,6 +300,8 @@ egressLoop:
 			}
 		}
 
+		egressState.selectRule(egressCtx, r)
+
 		switch r.meetsRequirementsEgress(egressCtx, &egressState) {
 		// The rule contained a constraint which was not met; this
 		// connection is not allowed.
@@ -333,6 +339,8 @@ loop:
 				return api.Undecided
 			}
 		}
+
+		state.selectRule(ctx, r)
 
 		if r.meetsRequirementsEgress(ctx, &state) == api.Denied {
 			decision = api.Denied
