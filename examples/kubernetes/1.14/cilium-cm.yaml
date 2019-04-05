@@ -148,3 +148,6 @@ data:
   # [0] http://docs.cilium.io/en/stable/policy/language/#dns-based
   # [1] http://docs.cilium.io/en/stable/install/upgrade/#changes-that-may-require-action
   tofqdns-enable-poller: "false"
+
+  # wait-bpf-mount makes init container wait until bpf filesystem is mounted
+  wait-bpf-mount: "false"
