@@ -345,9 +345,10 @@ loop:
 	return decision
 }
 
-// canReachIngress returns the decision as to whether the set of labels specified
-// in ctx.From match with the label selectors specified in the ingress rules
-// contained within r.
+// meetsRequirementsEgress returns whether the labels in ctx.To do not
+// meet the requirements in the provided rule. If a rule does meet the
+// requirements in the rule, that does not mean that the rule allows traffic
+// from the labels in ctx.To, merely that the rule does not deny it.
 func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) api.Decision {
 
 	state.selectRule(ctx, r)
