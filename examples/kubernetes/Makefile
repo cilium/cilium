@@ -4,7 +4,7 @@ ifeq ($(CILIUM_VERSION),)
     CILIUM_VERSION = "v$(shell cat ../../VERSION)"
 endif
 
-CILIUM_INIT_VERSION = "2018-10-16"
+CILIUM_INIT_VERSION = "2019-04-05"
 CILIUM_ETCD_OPERATOR_VERSION = "v2.0.6"
 K8S_VERSIONS = 1.10 1.11 1.12 1.13 1.14
 
@@ -121,7 +121,8 @@ cilium-with-node-init.yaml:
 	    sed -i 's+namespace: kube-system+namespace: cilium+' cilium-with-node-init.yaml; \
 	    sed -i '/priorityClassName: system-node-critical/d' cilium-with-node-init.yaml; \
 	    sed -i 's+path: /opt/cni/bin+path: /home/kubernetes/bin+' cilium-with-node-init.yaml; \
-	    sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://cilium-etcd-client.cilium.svc:2379+' cilium-with-node-init.yaml); \
+	    sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://cilium-etcd-client.cilium.svc:2379+' cilium-with-node-init.yaml; \
+        sed -i 's+wait-bpf-mount: "false"+wait-bpf-mount: "true"+' cilium-with-node-init.yaml); \
 	done
 
 cilium-external-etcd.yaml:
