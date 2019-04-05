@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -566,6 +567,10 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		oldIdentity = e.SecurityIdentity.StringID()
 	}
 
+	// Current security identity for endpoint is its old identity - delete its
+	// reference from global identity manager, add add a reference to the new
+	// identity for the endpoint.
+	identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	e.SecurityIdentity = identity
 
 	// Sets endpoint state to ready if was waiting for identity

@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
@@ -1316,6 +1317,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	}
 
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
+		identitymanager.Remove(e.SecurityIdentity)
 		_, err := cache.Release(context.Background(), e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
