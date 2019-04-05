@@ -508,8 +508,6 @@ func (r *rule) canReachEgressV2(ctx *SearchContext, state *traceState) api.Decis
 // requirements in the rule, that does not mean that the rule allows traffic
 // from the labels in ctx.From, merely that the rule does not deny it.
 func (r *rule) meetsRequirementsIngress(ctx *SearchContext, state *traceState) api.Decision {
-
-	state.selectRule(ctx, r)
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromRequires {
 			ctx.PolicyTrace("    Requires from labels %+v", sel)
@@ -616,8 +614,6 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 // requirements in the rule, that does not mean that the rule allows traffic
 // from the labels in ctx.To, merely that the rule does not deny it.
 func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) api.Decision {
-
-	state.selectRule(ctx, r)
 	for _, r := range r.Egress {
 		for _, sel := range r.ToRequires {
 			ctx.PolicyTrace("    Requires from labels %+v", sel)
