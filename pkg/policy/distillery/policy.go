@@ -25,16 +25,23 @@ import (
 // cachedSelectorPolicy is a wrapper around a SelectorPolicy (stored in the
 // 'policy' field). It is always nested directly in the owning policyCache,
 // and is protected against concurrent writes via the policyCache mutex.
+//
+// 'policy' and 'revesion' are only consistent if queried while holding a lock.
 type cachedSelectorPolicy struct {
-	users  map[Endpoint]struct{}
-	policy unsafe.Pointer
+	users map[Endpoint]struct{}
+
+	// policy is managed via getPolicy() / setPolicyLocked() to ensure that
+	// writes are performed atomically and reads can be entirely lockless
+	// via Consume() (assuming platform support in the atomics library).
+	policy   unsafe.Pointer
+	revision uint64
 }
 
 func newCachedSelectorPolicy() *cachedSelectorPolicy {
 	cip := &cachedSelectorPolicy{
 		users: make(map[Endpoint]struct{}),
 	}
-	cip.setPolicyLocked(policy.NewSelectorPolicy())
+	cip.setPolicyLocked(policy.NewSelectorPolicy(), 0)
 	return cip
 }
 
@@ -46,8 +53,10 @@ func (cip *cachedSelectorPolicy) getPolicy() *policy.SelectorPolicy {
 }
 
 // setPolicyLocked updates the reference to the SelectorPolicy that is cached.
-func (cip *cachedSelectorPolicy) setPolicyLocked(policy *policy.SelectorPolicy) {
+func (cip *cachedSelectorPolicy) setPolicyLocked(policy *policy.SelectorPolicy, revision uint64) {
+	// A lock must be held to ensure consistency between these fields.
 	atomic.StorePointer(&cip.policy, unsafe.Pointer(policy))
+	cip.revision = revision
 }
 
 // Consume returns the EndpointPolicy that defines connectivity policy to
