@@ -427,6 +427,15 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 	}
 
 	state.selectRule(ctx, r)
+
+	// If a requirement explicitly denies access, we can return.
+	if r.meetsRequirementsIngress(ctx, state) == api.Denied {
+		return api.Denied
+	}
+
+	// At this point we only know whether anything is not denied by requirements.
+	// Now we need to determine whether rule allows traffic based off of
+	// SearchContext.
 	for _, r := range r.Ingress {
 		for _, sel := range r.FromRequires {
 			ctx.PolicyTrace("    Requires from labels %+v", sel)
@@ -439,26 +448,7 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 		}
 	}
 
-	// separate loop is needed as failure to meet FromRequires always takes
-	// precedence over FromEndpoints and FromEntities
-	for _, r := range r.Ingress {
-		for _, sel := range r.GetSourceEndpointSelectors() {
-			ctx.PolicyTrace("    Allows from labels %+v", sel)
-			if sel.Matches(ctx.From) {
-				ctx.PolicyTrace("      Found all required labels")
-				if len(r.ToPorts) == 0 {
-					ctx.PolicyTrace("+       No L4 restrictions\n")
-					state.matchedRules++
-					return api.Allowed
-				}
-				ctx.PolicyTrace("        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage\n")
-			} else {
-				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
-			}
-		}
-	}
-
-	return api.Undecided
+	return r.canReachFromEndpoints(ctx, state)
 }
 
 func (r *rule) canReachFromEndpoints(ctx *SearchContext, state *traceState) api.Decision {
@@ -575,38 +565,11 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 
 	state.selectRule(ctx, r)
 
-	for _, r := range r.Egress {
-		for _, sel := range r.ToRequires {
-			ctx.PolicyTrace("    Requires from labels %+v", sel)
-			if !sel.Matches(ctx.To) {
-				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
-				state.constrainedRules++
-				return api.Denied
-			}
-			ctx.PolicyTrace("+     Found all required labels\n")
-		}
+	if r.meetsRequirementsEgress(ctx, state) == api.Denied {
+		return api.Denied
 	}
 
-	// Separate loop is needed as failure to meet ToRequires always takes
-	// precedence over ToEndpoints and ToEntities
-	for _, r := range r.Egress {
-		for _, sel := range r.GetDestinationEndpointSelectors() {
-			ctx.PolicyTrace("    Allows to labels %+v", sel)
-			if sel.Matches(ctx.To) {
-				ctx.PolicyTrace("      Found all required labels")
-				if len(r.ToPorts) == 0 {
-					ctx.PolicyTrace("+       No L4 restrictions\n")
-					state.matchedRules++
-					return api.Allowed
-				}
-				ctx.PolicyTrace("        Rule restricts traffic from specific L4 destinations; deferring policy decision to L4 policy stage\n")
-			} else {
-				ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
-			}
-		}
-	}
-
-	return api.Undecided
+	return r.canReachToEndpoints(ctx, state)
 }
 
 // meetsRequirementsEgress returns whether the labels in ctx.To do not
