@@ -180,9 +180,6 @@ const (
 	// KeepBPFTemplates do not restore BPF template files from binary
 	KeepBPFTemplates = "keep-bpf-templates"
 
-	// K8sLegacyHostAllowsWorld is the legacy option to that allows policy host to talk with world
-	K8sLegacyHostAllowsWorld = "k8s-legacy-host-allows-world"
-
 	// KVStore key-value store type
 	KVStore = "kvstore"
 
@@ -582,10 +579,6 @@ type DaemonConfig struct {
 	// values: { auto | always | policy }
 	AllowLocalhost string
 
-	// HostAllowsWorld applies the same policy to world-sourced traffic as
-	// host-sourced traffic, to provide compatibility with Cilium 1.0.
-	HostAllowsWorld bool
-
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
 
@@ -753,7 +746,6 @@ type DaemonConfig struct {
 	IPv6ServiceRange              string
 	K8sAPIServer                  string
 	K8sKubeConfigPath             string
-	K8sLegacyHostAllowsWorld      string
 	K8sWatcherEndpointSelector    string
 	KVStore                       string
 	KVStoreOpt                    map[string]string
@@ -1067,7 +1059,6 @@ func ReplaceDeprecatedFields(m map[string]interface{}) {
 		"monitor-aggregation-level":   MonitorAggregationName,
 		"ct-global-max-entries-tcp":   CTMapEntriesGlobalTCPName,
 		"ct-global-max-entries-other": CTMapEntriesGlobalAnyName,
-		"legacy-host-allows-world":    K8sLegacyHostAllowsWorld,
 	}
 	for deprecatedOption, newOption := range deprecatedFields {
 		if deprecatedValue, ok := m[deprecatedOption]; ok {
@@ -1216,7 +1207,6 @@ func (c *DaemonConfig) Populate() {
 	c.HTTP403Message = viper.GetString(HTTP403Message)
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
 	c.K8sNamespace = viper.GetString(K8sNamespaceName)
-	c.K8sLegacyHostAllowsWorld = viper.GetString(K8sLegacyHostAllowsWorld)
 	c.MaxControllerInterval = viper.GetInt(MaxCtrlIntervalName)
 	c.SidecarHTTPProxy = viper.GetBool(SidecarHTTPProxy)
 	c.CMDRefDir = viper.GetString(CMDRef)
