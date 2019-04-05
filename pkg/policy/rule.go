@@ -608,6 +608,27 @@ func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decisio
 	return api.Undecided
 }
 
+// meetsRequirementsEgress returns whether the labels in ctx.To do not
+// meet the requirements in the provided rule. If a rule does meet the
+// requirements in the rule, that does not mean that the rule allows traffic
+// from the labels in ctx.To, merely that the rule does not deny it.
+func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) api.Decision {
+
+	state.selectRule(ctx, r)
+	for _, r := range r.Egress {
+		for _, sel := range r.ToRequires {
+			ctx.PolicyTrace("    Requires from labels %+v", sel)
+			if !sel.Matches(ctx.To) {
+				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
+				state.constrainedRules++
+				return api.Denied
+			}
+			ctx.PolicyTrace("+     Found all required labels\n")
+		}
+	}
+	return api.Undecided
+}
+
 func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	toEndpoints := rule.GetDestinationEndpointSelectors()
