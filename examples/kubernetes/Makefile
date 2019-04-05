@@ -121,7 +121,8 @@ cilium-with-node-init.yaml:
 	    sed -i 's+namespace: kube-system+namespace: cilium+' cilium-with-node-init.yaml; \
 	    sed -i '/priorityClassName: system-node-critical/d' cilium-with-node-init.yaml; \
 	    sed -i 's+path: /opt/cni/bin+path: /home/kubernetes/bin+' cilium-with-node-init.yaml; \
-	    sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://cilium-etcd-client.cilium.svc:2379+' cilium-with-node-init.yaml); \
+	    sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+https://cilium-etcd-client.cilium.svc:2379+' cilium-with-node-init.yaml; \
+		sed -i 's+wait-bpf-mount: "false"+wait-bpf-mount: "true"+' cilium-with-node-init.yaml); \
 	done
 
 cilium-external-etcd.yaml:
