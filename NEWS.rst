@@ -2,6 +2,43 @@
 NEWS
 ******
 
+v1.3.5
+======
+
+::
+
+    André Martins (5):
+          contrib/backporting: print helper message how to install missing library
+          contrib/backporting: add direct URL to create github tokens
+          kvstore: forcefully close etcd session on error
+          kvstore: make session orphan if the leaseID was used on a failed request
+          k8s: ignore kubectl.kubernetes.io/last-applied-configuration annotation
+
+    Daniel Borkmann (1):
+          daemon: fix conntrack map dump wrt addresses
+
+    Ian Vernon (1):
+          fix misc. issues with unit tests
+
+    Jarno Rajahalme (3):
+          proxylib: Fix unit test flake when counting access log entries
+          proxy: Break GC loop between Redirect and RedirectImplementation
+          envoy: Use fixed envoy image
+
+    Joe Stringer (8):
+          daemon/policy: Consolidate policy testing primitives
+          daemon/policy: Refactor test endpoint initialization
+          daemon/policy: Share labels declarations in tests
+          policy: Generate L7 allow-all for L4-only rules
+          contrib/backporting: Fix commit order in check-stable
+          kvstore: Fix identity override with labels prefix
+          kvstore/allocator: Add test for identity clash
+          kvstore: Add test for GetPrefix()
+
+    Thomas Graf (2):
+          store: Protect from deletion of local key via kvstore event
+          ipcache: Protect from delete events for alive IP but mismatching key
+
 v1.3.4
 ======
 
