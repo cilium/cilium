@@ -19,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Specifies the way to match a string.
 type StringMatcher struct {
@@ -122,100 +122,14 @@ func (m *StringMatcher) GetRegex() string {
 	return ""
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*StringMatcher) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _StringMatcher_OneofMarshaler, _StringMatcher_OneofUnmarshaler, _StringMatcher_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*StringMatcher) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*StringMatcher_Exact)(nil),
 		(*StringMatcher_Prefix)(nil),
 		(*StringMatcher_Suffix)(nil),
 		(*StringMatcher_Regex)(nil),
 	}
-}
-
-func _StringMatcher_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*StringMatcher)
-	// match_pattern
-	switch x := m.MatchPattern.(type) {
-	case *StringMatcher_Exact:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.Exact)
-	case *StringMatcher_Prefix:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.Prefix)
-	case *StringMatcher_Suffix:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.Suffix)
-	case *StringMatcher_Regex:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.Regex)
-	case nil:
-	default:
-		return fmt.Errorf("StringMatcher.MatchPattern has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _StringMatcher_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*StringMatcher)
-	switch tag {
-	case 1: // match_pattern.exact
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.MatchPattern = &StringMatcher_Exact{x}
-		return true, err
-	case 2: // match_pattern.prefix
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.MatchPattern = &StringMatcher_Prefix{x}
-		return true, err
-	case 3: // match_pattern.suffix
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.MatchPattern = &StringMatcher_Suffix{x}
-		return true, err
-	case 4: // match_pattern.regex
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.MatchPattern = &StringMatcher_Regex{x}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _StringMatcher_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*StringMatcher)
-	// match_pattern
-	switch x := m.MatchPattern.(type) {
-	case *StringMatcher_Exact:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.Exact)))
-		n += len(x.Exact)
-	case *StringMatcher_Prefix:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.Prefix)))
-		n += len(x.Prefix)
-	case *StringMatcher_Suffix:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.Suffix)))
-		n += len(x.Suffix)
-	case *StringMatcher_Regex:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.Regex)))
-		n += len(x.Regex)
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // Specifies a list of ways to match a string.
@@ -266,7 +180,7 @@ func init() {
 func init() { proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptor_1dc62c75a0f154e3) }
 
 var fileDescriptor_1dc62c75a0f154e3 = []byte{
-	// 255 bytes of a gzipped FileDescriptorProto
+	// 278 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0x2f,
 	0x2e, 0x29, 0xca, 0xcc, 0x4b, 0xd7, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x02, 0x2b, 0xd0,
@@ -281,6 +195,8 @@ var fileDescriptor_1dc62c75a0f154e3 = []byte{
 	0x58, 0x52, 0x92, 0x5a, 0x94, 0x27, 0xc4, 0xba, 0xe3, 0xe5, 0x01, 0x66, 0x46, 0xa5, 0x38, 0x2e,
 	0x41, 0x9f, 0xcc, 0xe2, 0x12, 0x54, 0x27, 0x7b, 0x72, 0x71, 0x40, 0x95, 0x15, 0x4b, 0x30, 0x2a,
 	0x30, 0x6b, 0x70, 0x1b, 0x29, 0xea, 0x61, 0x06, 0x82, 0x1e, 0x8a, 0x26, 0xa8, 0xb5, 0x93, 0x18,
-	0x99, 0x38, 0x18, 0x83, 0xe0, 0xda, 0x9d, 0x38, 0xa3, 0xd8, 0xa1, 0xca, 0x93, 0xd8, 0xc0, 0x21,
-	0x64, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0x69, 0x80, 0x73, 0xdd, 0x71, 0x01, 0x00, 0x00,
+	0x99, 0x38, 0x18, 0x83, 0xe0, 0xda, 0x9d, 0xac, 0xb8, 0x14, 0x32, 0xf3, 0x21, 0x9a, 0x0b, 0x8a,
+	0xf2, 0x2b, 0x2a, 0xb1, 0x98, 0xe3, 0xc4, 0x0d, 0x31, 0x28, 0x00, 0x14, 0x80, 0x01, 0x8c, 0x51,
+	0xec, 0x50, 0xf1, 0x24, 0x36, 0x70, 0x90, 0x1a, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0xc5, 0xb1,
+	0x9f, 0x1e, 0xa2, 0x01, 0x00, 0x00,
 }

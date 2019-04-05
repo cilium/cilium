@@ -20,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Specifies the way to match a double value.
 type DoubleMatcher struct {
@@ -95,73 +95,12 @@ func (m *DoubleMatcher) GetExact() float64 {
 	return 0
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*DoubleMatcher) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _DoubleMatcher_OneofMarshaler, _DoubleMatcher_OneofUnmarshaler, _DoubleMatcher_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*DoubleMatcher) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*DoubleMatcher_Range)(nil),
 		(*DoubleMatcher_Exact)(nil),
 	}
-}
-
-func _DoubleMatcher_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*DoubleMatcher)
-	// match_pattern
-	switch x := m.MatchPattern.(type) {
-	case *DoubleMatcher_Range:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Range); err != nil {
-			return err
-		}
-	case *DoubleMatcher_Exact:
-		b.EncodeVarint(2<<3 | proto.WireFixed64)
-		b.EncodeFixed64(math.Float64bits(x.Exact))
-	case nil:
-	default:
-		return fmt.Errorf("DoubleMatcher.MatchPattern has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _DoubleMatcher_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*DoubleMatcher)
-	switch tag {
-	case 1: // match_pattern.range
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(_type.DoubleRange)
-		err := b.DecodeMessage(msg)
-		m.MatchPattern = &DoubleMatcher_Range{msg}
-		return true, err
-	case 2: // match_pattern.exact
-		if wire != proto.WireFixed64 {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeFixed64()
-		m.MatchPattern = &DoubleMatcher_Exact{math.Float64frombits(x)}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _DoubleMatcher_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*DoubleMatcher)
-	// match_pattern
-	switch x := m.MatchPattern.(type) {
-	case *DoubleMatcher_Range:
-		s := proto.Size(x.Range)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *DoubleMatcher_Exact:
-		n += 1 // tag and wire
-		n += 8
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -171,7 +110,7 @@ func init() {
 func init() { proto.RegisterFile("envoy/type/matcher/number.proto", fileDescriptor_58ad3770a33c5fc2) }
 
 var fileDescriptor_58ad3770a33c5fc2 = []byte{
-	// 185 bytes of a gzipped FileDescriptorProto
+	// 209 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,
 	0x2b, 0xcd, 0x4d, 0x4a, 0x2d, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x02, 0x2b, 0xd0,
@@ -182,6 +121,8 @@ var fileDescriptor_58ad3770a33c5fc2 = []byte{
 	0x04, 0x92, 0xf6, 0x60, 0x08, 0x82, 0xa8, 0x13, 0x12, 0xe3, 0x62, 0x4d, 0xad, 0x48, 0x4c, 0x2e,
 	0x91, 0x60, 0x52, 0x60, 0xd4, 0x60, 0x04, 0x89, 0x83, 0xb9, 0x4e, 0x62, 0x5c, 0xbc, 0x60, 0x57,
 	0xc5, 0x17, 0x24, 0x96, 0x94, 0xa4, 0x16, 0xe5, 0x09, 0xb1, 0xee, 0x78, 0x79, 0x80, 0x99, 0xd1,
-	0x89, 0x33, 0x8a, 0x1d, 0xea, 0xda, 0x24, 0x36, 0xb0, 0x1b, 0x8c, 0x01, 0x01, 0x00, 0x00, 0xff,
-	0xff, 0xe6, 0xb0, 0xc9, 0x95, 0xeb, 0x00, 0x00, 0x00,
+	0xc9, 0x8a, 0x4b, 0x21, 0x33, 0x1f, 0x62, 0x6a, 0x41, 0x51, 0x7e, 0x45, 0xa5, 0x1e, 0xa6, 0x37,
+	0x9c, 0xb8, 0xfd, 0xc0, 0x1e, 0x0d, 0x00, 0x39, 0x31, 0x80, 0x31, 0x8a, 0x1d, 0x2a, 0x9e, 0xc4,
+	0x06, 0x76, 0xb4, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0xc5, 0x9e, 0xa0, 0xd7, 0x1c, 0x01, 0x00,
+	0x00,
 }

@@ -53,7 +53,7 @@ required = [
 
 [[constraint]]
   name = "github.com/cilium/proxy"
-  revision = "84ee839e1d78ef858a39e390288ad417d35bb1d4"
+  revision = "19442becad85fe3a9d3eab7856bdb31206f3ae68"
 
   # main-usage = "pkg/envoy"
   # on-revision = "no stable releases released"
@@ -130,7 +130,7 @@ required = [
 
 [[constraint]]
   name = "github.com/golang/protobuf"
-  revision = "5831880292e721c76b58a16ecc60adc27d8e6355"
+  revision = "v1.3.1"
 
   # main-usage = "pkg/envoy and proxylib"
   # on-revision = ""

@@ -4,13 +4,13 @@
 package cilium
 
 import (
+	context "context"
 	fmt "fmt"
 	v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	proto "github.com/golang/protobuf/proto"
 	_ "github.com/lyft/protoc-gen-validate/validate"
-	context "golang.org/x/net/context"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
 	math "math"
@@ -25,7 +25,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // A network policy that is enforced by a filter on the network flows to/from
 // associated hosts.
@@ -287,97 +287,13 @@ func (m *PortNetworkPolicyRule) GetL7Rules() *L7NetworkPolicyRules {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*PortNetworkPolicyRule) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _PortNetworkPolicyRule_OneofMarshaler, _PortNetworkPolicyRule_OneofUnmarshaler, _PortNetworkPolicyRule_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*PortNetworkPolicyRule) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*PortNetworkPolicyRule_HttpRules)(nil),
 		(*PortNetworkPolicyRule_KafkaRules)(nil),
 		(*PortNetworkPolicyRule_L7Rules)(nil),
 	}
-}
-
-func _PortNetworkPolicyRule_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*PortNetworkPolicyRule)
-	// l7
-	switch x := m.L7.(type) {
-	case *PortNetworkPolicyRule_HttpRules:
-		b.EncodeVarint(100<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.HttpRules); err != nil {
-			return err
-		}
-	case *PortNetworkPolicyRule_KafkaRules:
-		b.EncodeVarint(101<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.KafkaRules); err != nil {
-			return err
-		}
-	case *PortNetworkPolicyRule_L7Rules:
-		b.EncodeVarint(102<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.L7Rules); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("PortNetworkPolicyRule.L7 has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _PortNetworkPolicyRule_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*PortNetworkPolicyRule)
-	switch tag {
-	case 100: // l7.http_rules
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(HttpNetworkPolicyRules)
-		err := b.DecodeMessage(msg)
-		m.L7 = &PortNetworkPolicyRule_HttpRules{msg}
-		return true, err
-	case 101: // l7.kafka_rules
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(KafkaNetworkPolicyRules)
-		err := b.DecodeMessage(msg)
-		m.L7 = &PortNetworkPolicyRule_KafkaRules{msg}
-		return true, err
-	case 102: // l7.l7_rules
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(L7NetworkPolicyRules)
-		err := b.DecodeMessage(msg)
-		m.L7 = &PortNetworkPolicyRule_L7Rules{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _PortNetworkPolicyRule_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*PortNetworkPolicyRule)
-	// l7
-	switch x := m.L7.(type) {
-	case *PortNetworkPolicyRule_HttpRules:
-		s := proto.Size(x.HttpRules)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *PortNetworkPolicyRule_KafkaRules:
-		s := proto.Size(x.KafkaRules)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *PortNetworkPolicyRule_L7Rules:
-		s := proto.Size(x.L7Rules)
-		n += 2 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 // A set of network policy rules that match HTTP requests.
