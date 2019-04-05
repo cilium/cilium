@@ -57,7 +57,7 @@ loop:
 			// Do not overwrite 'allowed' verdict with 'undecided' verdict yet.
 			// Can't break here because requirements in rule which was not
 			// analyzed may actually deny traffic.
-			if r.canReachIngressV2(ctx, &state) == api.Allowed {
+			if r.canReachFromEndpoints(ctx, &state) == api.Allowed {
 				decision = api.Allowed
 			}
 		}
@@ -314,7 +314,7 @@ egressLoop:
 			// Do not overwrite 'allowed' verdict with 'undecided' verdict yet.
 			// Can't break here because requirements in rule which was not
 			// analyzed may actually deny traffic.
-			if r.canReachEgressV2(egressCtx, &egressState) == api.Allowed {
+			if r.canReachToEndpoints(egressCtx, &egressState) == api.Allowed {
 				egressDecision = api.Allowed
 			}
 		}

@@ -461,7 +461,7 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 	return api.Undecided
 }
 
-func (r *rule) canReachIngressV2(ctx *SearchContext, state *traceState) api.Decision {
+func (r *rule) canReachFromEndpoints(ctx *SearchContext, state *traceState) api.Decision {
 	// assume requirements have already been analyzed.
 	for _, r := range r.Ingress {
 		for _, sel := range r.GetSourceEndpointSelectors() {
@@ -482,7 +482,7 @@ func (r *rule) canReachIngressV2(ctx *SearchContext, state *traceState) api.Deci
 	return api.Undecided
 }
 
-func (r *rule) canReachEgressV2(ctx *SearchContext, state *traceState) api.Decision {
+func (r *rule) canReachToEndpoints(ctx *SearchContext, state *traceState) api.Decision {
 	// assume requirements have already been analyzed.
 	for _, r := range r.Egress {
 		for _, sel := range r.GetDestinationEndpointSelectors() {
