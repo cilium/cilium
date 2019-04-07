@@ -37,6 +37,7 @@ var _ = Suite(&IPSecSuitePrivileged{})
 var (
 	path           = "ipsec_keys_test"
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n")
+	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
 )
 
@@ -63,6 +64,9 @@ func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
 	keys := bytes.NewReader(keysDat)
 	_, err := loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
+	keys = bytes.NewReader(keysAeadDat)
+	_, err = loadIPSecKeys(keys)
+	c.Assert(err, IsNil)
 }
 
 func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
@@ -80,6 +84,24 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 		ReqID: 1,
 		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
+	c.Assert(err, IsNil)
+
+	ipsecDeleteXfrmSpi(0)
+
+	aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
+	c.Assert(err, IsNil)
+	key = &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Aead:  &netlink.XfrmStateAlgo{Name: "rfc4106(gcm(aes))", Key: aeadKey, ICVLen: 128},
+		Crypt: nil,
+		Auth:  nil,
 	}
 
 	ipSecKeysGlobal["1.2.3.4"] = key
@@ -108,6 +130,25 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 		ReqID: 1,
 		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.1.3.4"] = key
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
+	c.Assert(err, IsNil)
+
+	ipsecDeleteXfrmSpi(0)
+
+	aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
+	c.Assert(err, IsNil)
+	key = &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Aead:  &netlink.XfrmStateAlgo{Name: "rfc4106(gcm(aes))", Key: aeadKey, ICVLen: 128},
+		Crypt: nil,
+		Auth:  nil,
 	}
 
 	ipSecKeysGlobal["1.1.3.4"] = key
