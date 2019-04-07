@@ -48,6 +48,7 @@ type ipSecKey struct {
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
+	Aead  *netlink.XfrmStateAlgo
 }
 
 // ipSecKeysGlobal is safe to read unlocked because the only writers are from
@@ -93,8 +94,12 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 }
 
 func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
-	state.Auth = keys.Auth
-	state.Crypt = keys.Crypt
+	if keys.Aead != nil {
+		state.Aead = keys.Aead
+	} else {
+		state.Crypt = keys.Crypt
+		state.Auth = keys.Auth
+	}
 	state.Spi = int(keys.Spi)
 	state.Reqid = keys.ReqID
 }
@@ -303,7 +308,7 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 		// Scanning IPsec keys formatted as follows,
 		//    auth-algo auth-key enc-algo enc-key
 		s := strings.Split(scanner.Text(), " ")
-		if len(s) < 4 {
+		if len(s) < 2 {
 			return 0, fmt.Errorf("missing IPSec keys or invalid format")
 		}
 
@@ -328,20 +333,29 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 		}
 		authname := s[1+offset]
 
-		enckey, err := decodeIPSecKey(s[4+offset])
-		if err != nil {
-			return 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
-		}
-		encname := s[3+offset]
+		if strings.HasPrefix(authname, "rfc") {
+			ipSecKey.Aead = &netlink.XfrmStateAlgo{
+				Name:   authname,
+				Key:    authkey,
+				ICVLen: 128,
+			}
+		} else {
+			enckey, err := decodeIPSecKey(s[4+offset])
+			if err != nil {
+				return 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
+			}
+			encname := s[3+offset]
 
-		ipSecKey.Auth = &netlink.XfrmStateAlgo{
-			Name: authname,
-			Key:  authkey,
+			ipSecKey.Auth = &netlink.XfrmStateAlgo{
+				Name: authname,
+				Key:  authkey,
+			}
+			ipSecKey.Crypt = &netlink.XfrmStateAlgo{
+				Name: encname,
+				Key:  enckey,
+			}
 		}
-		ipSecKey.Crypt = &netlink.XfrmStateAlgo{
-			Name: encname,
-			Key:  enckey,
-		}
+
 		ipSecKey.Spi = spi
 
 		if len(s) == 6+offset {
