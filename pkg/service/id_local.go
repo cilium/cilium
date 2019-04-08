@@ -142,6 +142,7 @@ func (alloc *IDAllocator) resetLocalID() {
 	alloc.Lock()
 	alloc.entitiesID = map[uint32]*loadbalancer.L3n4AddrID{}
 	alloc.entities = map[string]uint32{}
+	// TODO(brb) s/ServiceID//
 	alloc.nextID = FirstFreeServiceID
 	alloc.maxID = MaxSetOfServiceID
 	alloc.Unlock()
@@ -150,6 +151,6 @@ func (alloc *IDAllocator) resetLocalID() {
 func newServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	return &loadbalancer.L3n4AddrID{
 		L3n4Addr: svc,
-		ID:       loadbalancer.ServiceID(id),
+		ID:       loadbalancer.ID(id),
 	}
 }
