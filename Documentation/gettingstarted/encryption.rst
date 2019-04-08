@@ -28,14 +28,12 @@ Generate & import the PSK
 First create a Kubernetes secret for the IPSec keys to be stored.
 This will generate the necessary IPSec keys which will be distributed as a
 Kubernetes secret called ``cilium-ipsec-keys``. In this example we use
-AES-CBC with HMAC-256 (hash based authentication code), but any of the supported
+GMC-128-AES, but any of the supported
 Linux algorithms may be used. To generate use the following
 
 .. parsed-literal::
-
-    kubectl create -n kube-system secret generic cilium-ipsec-keys \\
-       --from-literal=keys="hmac(sha256) $(echo \`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64\`) cbc(aes) $(echo \`dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64\`)"
-
+    $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
+        --from-literal=keys="3 rfc4106(gcm(aes)) $(echo `dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64`) 128"
 
 The secret can be displayed with 'kubectl -n kube-system get secret' and will be
 listed as 'cilium-ipsec-keys'.
