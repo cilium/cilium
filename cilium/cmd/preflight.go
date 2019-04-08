@@ -83,7 +83,7 @@ func preflightPoller() {
 	}
 
 	// Build a cache from this data to be serialized
-	cache := fqdn.NewDNSCache()
+	cache := fqdn.NewDNSCache(0)
 	for name, IPs := range DNSData {
 		cache.Update(lookupTime, name, IPs, toFQDNsPreCacheTTL)
 	}
