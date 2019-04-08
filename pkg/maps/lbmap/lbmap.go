@@ -50,7 +50,7 @@ var (
 	cache = newLBMapCache()
 )
 
-func updateService(key ServiceKey, value ServiceValue) error {
+func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	log.WithFields(logrus.Fields{
 		"frontend": key,
 		"backend":  value,
@@ -244,7 +244,7 @@ func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) er
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetWeight(nonZeroWeights)
 
-	return updateService(fe, zeroValue)
+	return updateServiceEndpoint(fe, zeroValue)
 }
 
 // UpdateService adds or updates the given service in the bpf maps (in both -
@@ -257,40 +257,19 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	var (
 		weights         []uint16
 		nNonZeroWeights uint16
-		existingCount   int
-		backendKey      BackendKey
-		svcKeyV2        ServiceKeyV2
 	)
 
 	// Find out which backends are new (i.e. the ones which do not exist yet and
 	// will be created in this function) and acquire IDs for them
-
-	newBackendsByAddrID := map[BackendAddrID]ServiceValue{}
-	for _, b := range backends {
-		newBackendsByAddrID[b.BackendAddrID()] = b
-	}
-	newBackendsByAddrID = cache.filterNewBackends(newBackendsByAddrID)
-	newBackendIDs := map[BackendAddrID]uint16{}
-
-	for addrID := range newBackendsByAddrID {
-		addr := *serviceValue2L3n4Addr(newBackendsByAddrID[addrID])
-		backendID, err := acquireBackendID(addr)
-		if err != nil {
-			return fmt.Errorf("Unable to acquire backend ID for %s: %s", addrID, err)
-		}
-		newBackendIDs[addrID] = backendID
-		log.WithFields(logrus.Fields{
-			logfields.BackendName: addrID,
-			logfields.BackendID:   backendID,
-		}).Debug("Acquired backend ID")
+	newBackendIDs, err := acquireNewBackendIDs(backends, acquireBackendID)
+	if err != nil {
+		return err
 	}
 
 	// Store mapping of backend addr ID => backend ID in the cache
-
 	cache.addBackendIDs(newBackendIDs)
 
 	// Prepare the service cache for the updates
-
 	svc, addedBackends, removedBackendIDs, err := cache.prepareUpdate(fe, backends)
 	if err != nil {
 		return err
@@ -313,15 +292,60 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// Check if the service already exists, it is not failure scenario if
-	// the services doesn't exist. That's simply a new service. Even if the
-	// service cannot be looked up for an existing service, it is still
-	// better to proceed and update the service, at the cost of a slightly
-	// less atomic update.
-	svcValue, err := lookupService(fe)
-	if err == nil {
-		existingCount = svcValue.GetCount()
+	// Add the new backends to the BPF maps
+	if err := updateBackendsLocked(addedBackends); err != nil {
+		return err
 	}
+
+	// Update the legacy service BPF maps
+	if err := updateServiceLegacyLocked(fe, besValues, addRevNAT, revNATID,
+		weights, nNonZeroWeights); err != nil {
+		return err
+	}
+
+	// Update the v2 service BPF maps
+	if err := updateServiceV2Locked(fe, svc, addRevNAT, revNATID, weights,
+		nNonZeroWeights); err != nil {
+		return err
+	}
+
+	// Delete no longer needed backends
+	if err := removeBackendsLocked(removedBackendIDs, fe.IsIPv6(),
+		releaseBackendID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func acquireNewBackendIDs(backends []ServiceValue,
+	acquireBackendID func(loadbalancer.L3n4Addr) (uint16, error)) (
+	map[BackendAddrID]uint16, error) {
+
+	newBackendsByAddrID := map[BackendAddrID]ServiceValue{}
+	for _, b := range backends {
+		newBackendsByAddrID[b.BackendAddrID()] = b
+	}
+	newBackendsByAddrID = cache.filterNewBackends(newBackendsByAddrID)
+	newBackendIDs := map[BackendAddrID]uint16{}
+
+	for addrID := range newBackendsByAddrID {
+		addr := *serviceValue2L3n4Addr(newBackendsByAddrID[addrID])
+		backendID, err := acquireBackendID(addr)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to acquire backend ID for %s: %s", addrID, err)
+		}
+		newBackendIDs[addrID] = backendID
+		log.WithFields(logrus.Fields{
+			logfields.BackendName: addrID,
+			logfields.BackendID:   backendID,
+		}).Debug("Acquired backend ID")
+	}
+	return newBackendIDs, nil
+}
+
+func updateBackendsLocked(addedBackends map[uint16]ServiceValue) error {
+	var err error
 
 	// Create new backends
 	for backendID, svcVal := range addedBackends {
@@ -341,6 +365,27 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 			return err
 		}
 	}
+	return nil
+
+}
+
+func updateServiceLegacyLocked(fe ServiceKey, besValues []ServiceValue,
+	addRevNAT bool, revNATID int,
+	weights []uint16, nNonZeroWeights uint16) error {
+
+	var (
+		existingCount int
+	)
+
+	// Check if the service already exists, it is not failure scenario if
+	// the services doesn't exist. That's simply a new service. Even if the
+	// service cannot be looked up for an existing service, it is still
+	// better to proceed and update the service, at the cost of a slightly
+	// less atomic update.
+	svcValue, err := lookupService(fe)
+	if err == nil {
+		existingCount = svcValue.GetCount()
+	}
 
 	// Update the legacy svc entries to point to the backends for the backward
 	// compatibility
@@ -348,7 +393,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		fe.SetBackend(nsvc + 1) // service count starts with 1
 		backendID := cache.getBackendIDByAddrID(be.BackendAddrID())
 		be.SetCount(int(backendID)) // For the backward-compatibility
-		if err := updateService(fe, be); err != nil {
+		if err := updateServiceEndpoint(fe, be); err != nil {
 			return fmt.Errorf("unable to update service %+v with the value %+v: %s", fe, be, err)
 		}
 	}
@@ -387,6 +432,18 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		}
 	}
 
+	return nil
+}
+
+func updateServiceV2Locked(fe ServiceKey, svc *bpfService,
+	addRevNAT bool, revNATID int,
+	weights []uint16, nNonZeroWeights uint16) error {
+
+	var (
+		existingCount int
+		svcKeyV2      ServiceKeyV2
+	)
+
 	if fe.IsIPv6() {
 		svc6Key := fe.(*Service6Key)
 		svcKeyV2 = NewService6KeyV2(svc6Key.Address.IP(), svc6Key.Port, u8proto.All, 0)
@@ -397,7 +454,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 
 	// Do the corresponding updates to the v2 svc maps
 
-	existingCount = 0
 	svcValV2, err := lookupServiceV2(svcKeyV2)
 	if err == nil {
 		existingCount = svcValV2.GetCount()
@@ -417,7 +473,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		svcValV2.SetWeight(svcVal.GetWeight())
 		svcValV2.SetCount(legacySlaveSlot) // For the backward-compatibility
 		svcKeyV2.SetSlave(slot)
-		if err := updateServiceV2(svcKeyV2, svcValV2); err != nil {
+		if err := updateServiceEndpointV2(svcKeyV2, svcValV2); err != nil {
 			return fmt.Errorf("Unable to update service %+v with the value %+v: %s",
 				svcKeyV2, svcValV2, err)
 		}
@@ -449,8 +505,15 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		}).Debug("Deleted service entry")
 	}
 
-	// Delete no longer needed backends
-	if fe.IsIPv6() {
+	return nil
+}
+
+func removeBackendsLocked(removedBackendIDs []uint16, isIPv6 bool,
+	releaseBackendID func(uint16)) error {
+
+	var backendKey BackendKey
+
+	if isIPv6 {
 		backendKey = NewBackend6Key(0)
 	} else {
 		backendKey = NewBackend4Key(0)
@@ -494,6 +557,11 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 		svcKey := key.(ServiceKey)
 		svcValue := value.(ServiceValue)
 
+		// Skip master service
+		if svcKey.GetBackend() == 0 {
+			return
+		}
+
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.BPFMapKey:   svcKey,
 			logfields.BPFMapValue: svcValue,
@@ -509,11 +577,8 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 			idCache[fe.String()] = loadbalancer.ServiceID(k)
 		}
 
-		// Do not include master services
-		if svcKey.GetBackend() != 0 {
-			svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
-			newSVCList = append(newSVCList, svc)
-		}
+		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetBackend())
+		newSVCList = append(newSVCList, svc)
 	}
 
 	mutex.RLock()
@@ -748,7 +813,7 @@ func updateMasterServiceV2(fe ServiceKeyV2, nbackends int, nonZeroWeights uint16
 	zeroValue.SetWeight(nonZeroWeights)
 	zeroValue.SetRevNat(revNATID)
 
-	return updateServiceV2(fe, zeroValue)
+	return updateServiceEndpointV2(fe, zeroValue)
 }
 
 // updateWrrSeq updates bpf map with the generated wrr sequence.
@@ -806,7 +871,7 @@ func deleteBackendLocked(key BackendKey) error {
 	return key.Map().Delete(key)
 }
 
-func updateServiceV2(key ServiceKeyV2, value ServiceValueV2) error {
+func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 	log.WithFields(logrus.Fields{
 		logfields.ServiceKey:   key,
 		logfields.ServiceValue: value,
