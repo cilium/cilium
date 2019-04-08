@@ -62,6 +62,9 @@ type ServiceID uint16
 // BackendID is the backend's ID.
 type BackendID uint16
 
+// ID is the ID of L3n4Addr endpoint (either service or backend).
+type ID uint32
+
 // LBBackEnd represents load balancer backend.
 type LBBackEnd struct {
 	ID BackendID
@@ -130,7 +133,7 @@ func (lb *LoadBalancer) AddService(svc LBSVC) bool {
 		logfields.SHA:         svc.Sha256,
 	})
 
-	oldSvc, ok := lb.SVCMapID[svc.FE.ID]
+	oldSvc, ok := lb.SVCMapID[ServiceID(svc.FE.ID)]
 	if ok {
 		// If service already existed, remove old entry from Cilium's map
 		scopedLog.Debug("service is already in lb.SVCMapID; deleting old entry and updating it with new entry")
@@ -141,7 +144,7 @@ func (lb *LoadBalancer) AddService(svc LBSVC) bool {
 	}
 	scopedLog.Debug("adding service to loadbalancer")
 	lb.SVCMap[svc.Sha256] = svc
-	lb.SVCMapID[svc.FE.ID] = &svc
+	lb.SVCMapID[ServiceID(svc.FE.ID)] = &svc
 	return !ok
 }
 
@@ -152,7 +155,7 @@ func (lb *LoadBalancer) DeleteService(svc *LBSVC) {
 		logfields.SHA:         svc.Sha256,
 	}).Debug("deleting service from loadbalancer")
 	delete(lb.SVCMap, svc.Sha256)
-	delete(lb.SVCMapID, svc.FE.ID)
+	delete(lb.SVCMapID, ServiceID(svc.FE.ID))
 	deleteMetric.Inc()
 }
 
@@ -285,7 +288,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 }
 
 // NewLBBackEnd creates the LBBackEnd struct instance from given params.
-func NewLBBackEnd(id uint16, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
+func NewLBBackEnd(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, weight uint16) *LBBackEnd {
 	lbport := NewL4Addr(protocol, portNumber)
 	lbbe := LBBackEnd{
 		ID:       BackendID(id),
@@ -410,11 +413,11 @@ func (a *L3n4Addr) IsIPv6() bool {
 // KVStore.
 type L3n4AddrID struct {
 	L3n4Addr
-	ID ServiceID
+	ID ID
 }
 
 // NewL3n4AddrID creates a new L3n4AddrID.
-func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ServiceID) *L3n4AddrID {
+func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ID) *L3n4AddrID {
 	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber)
 	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
 }
