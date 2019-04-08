@@ -68,6 +68,8 @@ const (
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
 	cfg := fqdn.Config{
+		MinTTL:         option.Config.ToFQDNsMinTTL,
+		OverLimit:      option.Config.ToFQDNsMaxIPsPerHost,
 		Cache:          fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
@@ -144,6 +146,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		DoFunc: func(ctx context.Context) error {
 
 			namesToClean := []string{}
+			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC()...)
 			endpoints := endpointmanager.GetEndpoints()
 			for _, ep := range endpoints {
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
@@ -166,6 +169,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			for _, ep := range endpoints {
 				cfg.Cache.UpdateFromCache(ep.DNSHistory, namesToClean)
 			}
+			// Also update from the poller.
+			cfg.Cache.UpdateFromCache(d.dnsPoller.DNSHistory, namesToClean)
 
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
@@ -421,7 +426,12 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 		matchPatternStr = *params.Matchpattern
 	}
 
-	namesToRegen, err := deleteDNSLookups(h.daemon.dnsRuleGen.GetDNSCache(), endpoints, time.Now(), matchPatternStr)
+	namesToRegen, err := deleteDNSLookups(
+		h.daemon.dnsRuleGen.GetDNSCache(),
+		h.daemon.dnsPoller.DNSHistory,
+		endpoints,
+		time.Now(),
+		matchPatternStr)
 	if err != nil {
 		return api.Error(DeleteFqdnCacheBadRequestCode, err)
 	}
@@ -527,7 +537,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	return lookups, nil
 }
 
-func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
+func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
 		nameMatcher, err = matchpattern.Validate(matchPatternStr)
@@ -537,10 +547,12 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint
 	}
 
 	// Clear any to-delete entries globally
+	// Clear any to-delete entries from the poller cache.
 	// Clear any to-delete entries in each endpoint, then update globally to
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
 	namesToRegen = append(namesToRegen, globalCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
+	namesToRegen = append(namesToRegen, pollerCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
 	for _, ep := range endpoints {
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
