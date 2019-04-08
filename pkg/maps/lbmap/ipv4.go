@@ -344,15 +344,16 @@ func (k *Service4KeyV2) ToNetwork() ServiceKeyV2 {
 
 // Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
 type Service4ValueV2 struct {
-	Count     uint16                 `align:"count"`
-	BackendID loadbalancer.BackendID `align:"backend_id"`
-	RevNat    uint16                 `align:"rev_nat_index"`
-	Weight    uint16                 `align:"weight"`
+	BackendID uint32 `align:"backend_id"`
+	Count     uint16 `align:"count"`
+	RevNat    uint16 `align:"rev_nat_index"`
+	Weight    uint16 `align:"weight"`
+	Pad       uint16
 }
 
 func NewService4ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16, weight uint16) *Service4ValueV2 {
 	svc := Service4ValueV2{
-		BackendID: backendID,
+		BackendID: uint32(backendID),
 		Count:     count,
 		RevNat:    revNat,
 		Weight:    weight,
@@ -367,15 +368,20 @@ func (s *Service4ValueV2) String() string {
 
 func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-func (s *Service4ValueV2) SetCount(count int)                     { s.Count = uint16(count) }
-func (s *Service4ValueV2) GetCount() int                          { return int(s.Count) }
-func (s *Service4ValueV2) SetRevNat(id int)                       { s.RevNat = uint16(id) }
-func (s *Service4ValueV2) GetRevNat() int                         { return int(s.RevNat) }
-func (s *Service4ValueV2) SetWeight(weight uint16)                { s.Weight = weight }
-func (s *Service4ValueV2) GetWeight() uint16                      { return s.Weight }
-func (s *Service4ValueV2) SetBackendID(id loadbalancer.BackendID) { s.BackendID = id }
-func (s *Service4ValueV2) GetBackendID() loadbalancer.BackendID   { return s.BackendID }
-func (s *Service4ValueV2) RevNatKey() RevNatKey                   { return &RevNat4Key{s.RevNat} }
+func (s *Service4ValueV2) SetCount(count int)      { s.Count = uint16(count) }
+func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
+func (s *Service4ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
+func (s *Service4ValueV2) GetRevNat() int          { return int(s.RevNat) }
+func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
+func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
+func (s *Service4ValueV2) RevNatKey() RevNatKey    { return &RevNat4Key{s.RevNat} }
+
+func (s *Service4ValueV2) SetBackendID(id loadbalancer.BackendID) {
+	s.BackendID = uint32(id)
+}
+func (s *Service4ValueV2) GetBackendID() loadbalancer.BackendID {
+	return loadbalancer.BackendID(s.BackendID)
+}
 
 func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
 	n := *s
