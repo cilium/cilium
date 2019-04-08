@@ -265,6 +265,13 @@ Annotations:
 1.5 Upgrade Notes
 -----------------
 
+New Default Values
+~~~~~~~~~~~~~~~~~~
+
+ * The connection-tracking garbage collector intervals is now 12 hours when
+   using LRU maps (newer kernels) and 15 minutes an all older kernels. The
+   interval can be overwritten with the option ``--conntrack-gc-interval``.
+
 .. _1.5_new_options:
 
 New ConfigMap Options
@@ -276,6 +283,11 @@ New ConfigMap Options
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
+
+  * ``--conntrack-garbage-collector-interval`` has been deprecated. Please
+    use the option ``--conntrack-gc-interval`` which parses a duration as
+    string instead of a integer in seconds. Support for the deprecated option
+    will be removed in 1.6.
 
   * ``legacy-host-allows-world`` option is now removed as planned.
 

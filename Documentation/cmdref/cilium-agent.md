@@ -15,108 +15,108 @@ cilium-agent [flags]
 ### Options
 
 ```
-      --access-log string                           Path to access log of supported L7 requests observed
-      --agent-labels strings                        Additional labels to identify this agent
-      --allow-localhost string                      Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
-      --auto-direct-node-routes                     Enable automatic L2 routing between nodes
-      --bpf-compile-debug                           Enable debugging of the BPF compilation process
-      --bpf-ct-global-any-max int                   Maximum number of entries in non-TCP CT table (default 262144)
-      --bpf-ct-global-tcp-max int                   Maximum number of entries in TCP CT table (default 1000000)
-      --bpf-root string                             Path to BPF filesystem
-      --cgroup-root string                          Path to Cgroup2 filesystem
-      --cluster-id int                              Unique identifier of the cluster
-      --cluster-name string                         Name of the cluster (default "default")
-      --clustermesh-config string                   Path to the ClusterMesh configuration directory
-      --config string                               Configuration file (default "$HOME/ciliumd.yaml")
-      --config-dir string                           Configuration directory that contains a file for each option
-      --conntrack-garbage-collector-interval uint   Garbage collection interval for the connection tracking table (in seconds) (default 60)
-      --container-runtime strings                   Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
-      --container-runtime-endpoint map              Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
-      --datapath-mode string                        Datapath mode name (default "veth")
-  -D, --debug                                       Enable debugging mode
-      --debug-verbose strings                       List of enabled verbose debug groups
-  -d, --device string                               Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
-      --disable-conntrack                           Disable connection tracking
-      --disable-endpoint-crd                        Disable use of CiliumEndpoint CRD
-      --disable-k8s-services                        Disable east-west K8s load balancing by cilium
-  -e, --docker string                               Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")
-      --enable-health-checking                      Enable connectivity health checking (default true)
-      --enable-ipsec                                Enable IPSec support
-      --enable-ipv4                                 Enable IPv4 support (default true)
-      --enable-ipv6                                 Enable IPv6 support (default true)
-      --enable-policy string                        Enable policy enforcement (default "default")
-      --enable-tracing                              Enable tracing while determining policy (debugging)
-      --encrypt-interface string                    Transparent encryption interface
-      --endpoint-queue-size int                     size of EventQueue per-endpoint (default 25)
-      --envoy-log string                            Path to a separate Envoy log file, if any
-      --fixed-identity-mapping map                  Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
-      --flannel-manage-existing-containers          Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel. Require Cilium to be running in the hostPID.
-      --flannel-master-device string                Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
-      --flannel-uninstall-on-exit                   When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
-  -h, --help                                        help for cilium-agent
-      --http-idle-timeout uint                      Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
-      --http-max-grpc-timeout uint                  Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
-      --http-request-timeout uint                   Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
-      --http-retry-count uint                       Number of retries performed after a forwarded request attempt fails (default 3)
-      --http-retry-timeout uint                     Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
-      --identity-change-grace-period duration       Time to wait before using new identity on endpoint identity change (default 5s)
-      --install-iptables-rules                      Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
-      --ipsec-key-file string                       Path to IPSec key file
-      --ipv4-cluster-cidr-mask-size int             Mask size for the cluster wide CIDR (default 8)
-      --ipv4-node string                            IPv4 address of node (default "auto")
-      --ipv4-range string                           Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
-      --ipv4-service-range string                   Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
-      --ipv6-cluster-alloc-cidr string              IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
-      --ipv6-node string                            IPv6 address of node (default "auto")
-      --ipv6-range string                           Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
-      --ipv6-service-range string                   Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
-      --ipvlan-master-device string                 Device facing external network acting as ipvlan master (default "undefined")
-      --k8s-api-server string                       Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
-      --k8s-kubeconfig-path string                  Absolute path of the kubernetes kubeconfig file
-      --k8s-require-ipv4-pod-cidr                   Require IPv4 PodCIDR to be specified in node resource
-      --k8s-require-ipv6-pod-cidr                   Require IPv6 PodCIDR to be specified in node resource
-      --k8s-watcher-endpoint-selector string        K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
-      --k8s-watcher-queue-size uint                 Queue size used to serialize each k8s event type (default 1024)
-      --keep-bpf-templates                          Do not restore BPF template files from binary
-      --keep-config                                 When restoring state, keeps containers' configuration in place
-      --kvstore string                              Key-value store type
-      --kvstore-opt map                             Key-value store options (default map[])
-      --kvstore-periodic-sync duration              Periodic KVstore synchronization interval (default 5m0s)
-      --label-prefix-file string                    Valid label prefixes file path
-      --labels strings                              List of label prefixes used to determine identity of an endpoint
-      --lb string                                   Enables load balancer mode where load balancer bpf program is attached to the given interface
-      --lib-dir string                              Directory path to store runtime build environment (default "/var/lib/cilium")
-      --log-driver strings                          Logging endpoints to use for example syslog
-      --log-opt map                                 Log driver options for cilium (default map[])
-      --log-system-load                             Enable periodic logging of system load
-      --masquerade                                  Masquerade packets from endpoints leaving the host (default true)
-      --monitor-aggregation string                  Level of monitor aggregation for traces from the datapath (default "None")
-      --monitor-queue-size int                      Size of the event queue when reading monitor events (default 32768)
-      --mtu int                                     Overwrite auto-detected MTU of underlying network
-      --nat46-range string                          IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
-      --policy-queue-size int                       size of queues for policy-related events (default 100)
-      --pprof                                       Enable serving the pprof debugging API
-      --preallocate-bpf-maps                        Enable BPF map pre-allocation (default true)
-      --prefilter-device string                     Device facing external network for XDP prefiltering (default "undefined")
-      --prefilter-mode string                       Prefilter mode { native | generic } (default: native) (default "native")
-      --prepend-iptables-chains                     Prepend custom iptables chains instead of appending (default true)
-      --prometheus-serve-addr string                IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
-      --proxy-connect-timeout uint                  Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
-      --restore                                     Restores state, if possible, from previous daemon (default true)
-      --sidecar-istio-proxy-image string            Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
-      --single-cluster-route                        Use a single cluster route instead of per node routes
-      --socket-path string                          Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
-      --sockops-enable                              Enable sockops when kernel supported
-      --state-dir string                            Directory path to store runtime state (default "/var/run/cilium")
-      --tofqdns-dns-reject-response-code string     DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
-      --tofqdns-enable-poller                       Enable proactive polling of DNS names in toFQDNs.matchName rules.
-      --tofqdns-enable-poller-events                Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)
-      --tofqdns-endpoint-max-ip-per-hostname int    Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
-      --tofqdns-min-ttl int                         The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 when --tofqdns-enable-poller, 604800 otherwise)
-      --tofqdns-pre-cache string                    DNS cache data at this path is preloaded on agent startup
-      --tofqdns-proxy-port int                      Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
-      --trace-payloadlen int                        Length of payload to capture when tracing (default 128)
-  -t, --tunnel string                               Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
-      --version                                     Print version information
+      --access-log string                          Path to access log of supported L7 requests observed
+      --agent-labels strings                       Additional labels to identify this agent
+      --allow-localhost string                     Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
+      --auto-direct-node-routes                    Enable automatic L2 routing between nodes
+      --bpf-compile-debug                          Enable debugging of the BPF compilation process
+      --bpf-ct-global-any-max int                  Maximum number of entries in non-TCP CT table (default 262144)
+      --bpf-ct-global-tcp-max int                  Maximum number of entries in TCP CT table (default 1000000)
+      --bpf-root string                            Path to BPF filesystem
+      --cgroup-root string                         Path to Cgroup2 filesystem
+      --cluster-id int                             Unique identifier of the cluster
+      --cluster-name string                        Name of the cluster (default "default")
+      --clustermesh-config string                  Path to the ClusterMesh configuration directory
+      --config string                              Configuration file (default "$HOME/ciliumd.yaml")
+      --config-dir string                          Configuration directory that contains a file for each option
+      --conntrack-gc-interval duration             Overwrite the connection-tracking garbage collection interval
+      --container-runtime strings                  Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" ) (default [auto])
+      --container-runtime-endpoint map             Container runtime(s) endpoint(s). (default: --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock, --container-runtime-endpoint=crio=/var/run/crio/crio.sock, --container-runtime-endpoint=docker=unix:///var/run/docker.sock) (default map[])
+      --datapath-mode string                       Datapath mode name (default "veth")
+  -D, --debug                                      Enable debugging mode
+      --debug-verbose strings                      List of enabled verbose debug groups
+  -d, --device string                              Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
+      --disable-conntrack                          Disable connection tracking
+      --disable-endpoint-crd                       Disable use of CiliumEndpoint CRD
+      --disable-k8s-services                       Disable east-west K8s load balancing by cilium
+  -e, --docker string                              Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead) (default "unix:///var/run/docker.sock")
+      --enable-health-checking                     Enable connectivity health checking (default true)
+      --enable-ipsec                               Enable IPSec support
+      --enable-ipv4                                Enable IPv4 support (default true)
+      --enable-ipv6                                Enable IPv6 support (default true)
+      --enable-policy string                       Enable policy enforcement (default "default")
+      --enable-tracing                             Enable tracing while determining policy (debugging)
+      --encrypt-interface string                   Transparent encryption interface
+      --endpoint-queue-size int                    size of EventQueue per-endpoint (default 25)
+      --envoy-log string                           Path to a separate Envoy log file, if any
+      --fixed-identity-mapping map                 Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])
+      --flannel-manage-existing-containers         Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel. Require Cilium to be running in the hostPID.
+      --flannel-master-device string               Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
+      --flannel-uninstall-on-exit                  When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
+  -h, --help                                       help for cilium-agent
+      --http-idle-timeout uint                     Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
+      --http-max-grpc-timeout uint                 Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
+      --http-request-timeout uint                  Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
+      --http-retry-count uint                      Number of retries performed after a forwarded request attempt fails (default 3)
+      --http-retry-timeout uint                    Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
+      --identity-change-grace-period duration      Time to wait before using new identity on endpoint identity change (default 5s)
+      --install-iptables-rules                     Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
+      --ipsec-key-file string                      Path to IPSec key file
+      --ipv4-cluster-cidr-mask-size int            Mask size for the cluster wide CIDR (default 8)
+      --ipv4-node string                           IPv4 address of node (default "auto")
+      --ipv4-range string                          Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
+      --ipv4-service-range string                  Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
+      --ipv6-cluster-alloc-cidr string             IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
+      --ipv6-node string                           IPv6 address of node (default "auto")
+      --ipv6-range string                          Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
+      --ipv6-service-range string                  Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
+      --ipvlan-master-device string                Device facing external network acting as ipvlan master (default "undefined")
+      --k8s-api-server string                      Kubernetes api address server (for https use --k8s-kubeconfig-path instead)
+      --k8s-kubeconfig-path string                 Absolute path of the kubernetes kubeconfig file
+      --k8s-require-ipv4-pod-cidr                  Require IPv4 PodCIDR to be specified in node resource
+      --k8s-require-ipv6-pod-cidr                  Require IPv6 PodCIDR to be specified in node resource
+      --k8s-watcher-endpoint-selector string       K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
+      --k8s-watcher-queue-size uint                Queue size used to serialize each k8s event type (default 1024)
+      --keep-bpf-templates                         Do not restore BPF template files from binary
+      --keep-config                                When restoring state, keeps containers' configuration in place
+      --kvstore string                             Key-value store type
+      --kvstore-opt map                            Key-value store options (default map[])
+      --kvstore-periodic-sync duration             Periodic KVstore synchronization interval (default 5m0s)
+      --label-prefix-file string                   Valid label prefixes file path
+      --labels strings                             List of label prefixes used to determine identity of an endpoint
+      --lb string                                  Enables load balancer mode where load balancer bpf program is attached to the given interface
+      --lib-dir string                             Directory path to store runtime build environment (default "/var/lib/cilium")
+      --log-driver strings                         Logging endpoints to use for example syslog
+      --log-opt map                                Log driver options for cilium (default map[])
+      --log-system-load                            Enable periodic logging of system load
+      --masquerade                                 Masquerade packets from endpoints leaving the host (default true)
+      --monitor-aggregation string                 Level of monitor aggregation for traces from the datapath (default "None")
+      --monitor-queue-size int                     Size of the event queue when reading monitor events (default 32768)
+      --mtu int                                    Overwrite auto-detected MTU of underlying network
+      --nat46-range string                         IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
+      --policy-queue-size int                      size of queues for policy-related events (default 100)
+      --pprof                                      Enable serving the pprof debugging API
+      --preallocate-bpf-maps                       Enable BPF map pre-allocation (default true)
+      --prefilter-device string                    Device facing external network for XDP prefiltering (default "undefined")
+      --prefilter-mode string                      Prefilter mode { native | generic } (default: native) (default "native")
+      --prepend-iptables-chains                    Prepend custom iptables chains instead of appending (default true)
+      --prometheus-serve-addr string               IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
+      --proxy-connect-timeout uint                 Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
+      --restore                                    Restores state, if possible, from previous daemon (default true)
+      --sidecar-istio-proxy-image string           Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
+      --single-cluster-route                       Use a single cluster route instead of per node routes
+      --socket-path string                         Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
+      --sockops-enable                             Enable sockops when kernel supported
+      --state-dir string                           Directory path to store runtime state (default "/var/run/cilium")
+      --tofqdns-dns-reject-response-code string    DNS response code for rejecting DNS requests, available options are '[nameError refused]' (default "refused")
+      --tofqdns-enable-poller                      Enable proactive polling of DNS names in toFQDNs.matchName rules.
+      --tofqdns-enable-poller-events               Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled. (default true)
+      --tofqdns-endpoint-max-ip-per-hostname int   Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
+      --tofqdns-min-ttl int                        The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 when --tofqdns-enable-poller, 604800 otherwise)
+      --tofqdns-pre-cache string                   DNS cache data at this path is preloaded on agent startup
+      --tofqdns-proxy-port int                     Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
+      --trace-payloadlen int                       Length of payload to capture when tracing (default 128)
+  -t, --tunnel string                              Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
+      --version                                    Print version information
 ```
 

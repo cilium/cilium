@@ -367,11 +367,6 @@ func doGC(m *Map, filter *GCFilter) int {
 // It returns how many items were deleted from m.
 func GC(m *Map, filter *GCFilter) int {
 	if filter.RemoveExpired {
-		// If LRUHashtable, no need to garbage collect as LRUHashtable cleans itself up.
-		// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
-		// if m.MapInfo.MapType == bpf.MapTypeLRUHash {
-		// 	return 0
-		// }
 		t, _ := bpf.GetMtime()
 		tsec := t / 1000000000
 		filter.Time = uint32(tsec)
