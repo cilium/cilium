@@ -158,7 +158,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 			}
 
 			gen    = NewRuleGen(cfg)
-			poller = NewDNSPoller(cfg, gen, NewDNSCache(0))
+			poller = NewDNSPoller(cfg, gen)
 		)
 
 		rulesToAdd := []*api.Rule{}
