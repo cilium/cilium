@@ -126,13 +126,13 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
 type RemoteEndpointInfo struct {
-	SecurityIdentity uint32  `align:"sec_label"`
-	TunnelEndpoint   [4]byte `align:"tunnel_endpoint"`
-	Key              uint8   `align:"key"`
+	SecurityIdentity uint32     `align:"sec_label"`
+	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
+	Key              uint8      `align:"key"`
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("%d %d", v.SecurityIdentity, v.Key)
+	return fmt.Sprintf("%d %d %s", v.SecurityIdentity, v.Key, v.TunnelEndpoint)
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
