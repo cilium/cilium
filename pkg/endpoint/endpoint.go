@@ -1847,7 +1847,8 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeR
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
 	if blocking || cache.IdentityAllocationIsLocal(newLabels) {
-		scopedLog.Debug("Endpoint has reserved identity, changing synchronously")
+		scopedLog.Info("Resolving identity labels (blocking)")
+
 		err := e.identityLabelsChanged(ctx, owner, myChangeRev)
 		switch err {
 		case ErrNotAlive:
@@ -1858,6 +1859,8 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeR
 				scopedLog.WithError(err).Warn("Error changing endpoint identity")
 			}
 		}
+	} else {
+		scopedLog.Info("Resolving identity labels (non-blocking)")
 	}
 
 	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)

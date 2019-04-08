@@ -284,7 +284,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return ep, 0, nil
 	}
 
-	logger.Debug("Synchronously waiting for endpoint to regenerate")
+	logger.Info("Waiting for endpoint to be generated")
 
 	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
 	// in this function a bit below that timeout. If the timeout for clients
