@@ -132,7 +132,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		}}
 
 	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
-	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
+	pollerDNSCache := fqdn.NewDNSCacheWithLimit(
+		option.Config.ToFQDNsMinTTL,
+		option.Config.ToFQDNsMaxIPsPerHost)
+	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen, pollerDNSCache)
 	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
 	}
@@ -144,6 +147,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		DoFunc: func(ctx context.Context) error {
 
 			namesToClean := []string{}
+			namesToClean = append(namesToClean, pollerDNSCache.GC()...)
 			endpoints := endpointmanager.GetEndpoints()
 			for _, ep := range endpoints {
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
@@ -166,6 +170,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			for _, ep := range endpoints {
 				cfg.Cache.UpdateFromCache(ep.DNSHistory, namesToClean)
 			}
+			// Also update from the poller.
+			cfg.Cache.UpdateFromCache(pollerDNSCache, namesToClean)
 
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
