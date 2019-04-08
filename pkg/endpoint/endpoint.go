@@ -450,9 +450,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		realizedPolicy:   &policy.EndpointPolicy{},
 		controllers:      controller.NewManager(),
 	}
-	ep.UpdateLogger(nil)
 
-	ep.SetStateLocked(string(base.State), "Endpoint creation")
 	if base.Mac != "" {
 		m, err := mac.ParseMAC(base.Mac)
 		if err != nil {
@@ -488,6 +486,9 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
+
+	ep.UpdateLogger(nil)
+	ep.SetStateLocked(string(base.State), "Endpoint creation")
 
 	return ep, nil
 }
