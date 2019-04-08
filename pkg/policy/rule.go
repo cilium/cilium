@@ -433,21 +433,6 @@ func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decisi
 		return api.Denied
 	}
 
-	// At this point we only know whether anything is not denied by requirements.
-	// Now we need to determine whether rule allows traffic based off of
-	// SearchContext.
-	for _, r := range r.Ingress {
-		for _, sel := range r.FromRequires {
-			ctx.PolicyTrace("    Requires from labels %+v", sel)
-			if !sel.Matches(ctx.From) {
-				ctx.PolicyTrace("-     Labels %v not found\n", ctx.From)
-				state.constrainedRules++
-				return api.Denied
-			}
-			ctx.PolicyTrace("+     Found all required labels\n")
-		}
-	}
-
 	return r.canReachFromEndpoints(ctx, state)
 }
 
