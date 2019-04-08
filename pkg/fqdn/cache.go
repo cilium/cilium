@@ -26,11 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-// DefaultDNSCache is a global, shared, DNS cache. It is the default cache used
-// by DNSPoller instances, unless initialized to use another.
-// Note: The DNSCache type returns all DNS information, regardless of source.
-var DefaultDNSCache = NewDNSCache()
-
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally
 // equating to a DNS lookup. They are internal to DNSCache and should not be
 // returned.
@@ -137,10 +132,15 @@ type DNSCache struct {
 
 	// perHostLimit is the number of maximum number of IP per host.
 	perHostLimit int
+
+	// minTTL is the minimun TTL value that a cache entry can have, if the TTL
+	// sent in the Update is lower, the TTL will be owerwritten to this value.
+	// Due is only read-only is not protected by the mutex.
+	minTTL int
 }
 
 // NewDNSCache returns an initialized DNSCache
-func NewDNSCache() *DNSCache {
+func NewDNSCache(minTTL int) *DNSCache {
 	c := &DNSCache{
 		forward:      make(map[string]ipEntries),
 		reverse:      make(map[string]nameEntries),
@@ -148,14 +148,15 @@ func NewDNSCache() *DNSCache {
 		cleanup:      map[int64][]string{},
 		overLimit:    map[string]bool{},
 		perHostLimit: 0,
+		minTTL:       minTTL,
 	}
 	return c
 }
 
 // NewDNSCache returns an initialized DNSCache and set the max host limit to
 // the given argument
-func NewDNSCacheWithLimit(limit int) *DNSCache {
-	c := NewDNSCache()
+func NewDNSCacheWithLimit(minTTL int, limit int) *DNSCache {
+	c := NewDNSCache(minTTL)
 	c.perHostLimit = limit
 	return c
 }
@@ -170,6 +171,10 @@ func NewDNSCacheWithLimit(limit int) *DNSCache {
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
 func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl int) bool {
+	if c.minTTL > ttl {
+		ttl = c.minTTL
+	}
+
 	entry := &cacheEntry{
 		Name:           name,
 		LookupTime:     lookupTime,
@@ -180,7 +185,6 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl i
 
 	c.Lock()
 	defer c.Unlock()
-
 	return c.updateWithEntry(entry)
 }
 

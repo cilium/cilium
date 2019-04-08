@@ -45,7 +45,7 @@ func (ds *DNSCacheTestSuite) TestKeepUniqueNames(c *C) {
 func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesWithOtherCIDRSet(c *C) {
 	// Validate that if empty cache the ToCidrRule is always empty
 	rule := makeRule("cilium.io", "cilium.io")
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
 	rule.Egress = append(rule.Egress, api.EgressRule{
 		ToCIDRSet: api.IPsToCIDRRules([]net.IP{net.ParseIP("4.4.4.4")})})
@@ -58,7 +58,7 @@ func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesWithOtherCIDRSet(c *C) {
 func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesInvalidCache(c *C) {
 	// Validate that if empty cache the ToCidrRule is always empty
 	rule := makeRule("cilium.io", "cilium.io")
-	EmptyCache := NewDNSCache()
+	EmptyCache := NewDNSCache(0)
 	injectToCIDRSetRules(rule, EmptyCache, nil)
 	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
 
@@ -71,7 +71,7 @@ func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesInvalidCache(c *C) {
 
 func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesByMatchName(c *C) {
 	rule := makeRule("cilium.io", "cilium.io")
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
 
 	injectToCIDRSetRules(rule, cache, nil)
@@ -84,7 +84,7 @@ func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesByMatchPattern(c *C) {
 	rule.Egress[0].ToFQDNs = api.FQDNSelectorSlice{
 		{MatchPattern: "cilium.io"},
 	}
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
 	reg := regexpmap.NewRegexpMap()
 	reg.Add("cilium.io", "cilium.io")
