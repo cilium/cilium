@@ -45,7 +45,7 @@ func sortByName(entries []*cacheEntry) {
 func (ds *DNSCacheTestSuite) TestUpdateLookup(c *C) {
 	name := "test.com"
 	now := time.Now()
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	endTimeSeconds := 4
 
 	// Add 1 new entry "per second", and one with a redundant IP (with ttl/2).
@@ -96,7 +96,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 		"test3.com": net.ParseIP("2.2.2.3")}
 	sharedIP := net.ParseIP("1.1.1.1")
 	now := time.Now()
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 
 	// Insert 3 records with 1 shared IP and 3 with different IPs
 	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 5)
@@ -148,7 +148,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 
 func (ds *DNSCacheTestSuite) TestForceExpiredByNames(c *C) {
 	names := []string{"test1.com", "test2.com"}
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	for i := 1; i < 4; i++ {
 		cache.Update(
 			now,
@@ -174,7 +174,7 @@ func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
 		"test3.com": net.ParseIP("2.2.2.3")}
 	sharedIP := net.ParseIP("1.1.1.1")
 	now := time.Now()
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 
 	// insert 2 records, with 1 shared IP
 	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 2)
@@ -241,7 +241,7 @@ func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
 		"test3.com": net.ParseIP("2.2.2.3")}
 	sharedIP := net.ParseIP("1.1.1.1")
 	now := time.Now()
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 
 	// insert 3 records with 1 shared IP and 3 with different IPs
 	cache.Update(now, "test1.com", []net.IP{sharedIP}, 5)
@@ -255,7 +255,7 @@ func (ds *DNSCacheTestSuite) TestJSONMarshal(c *C) {
 	data, err := cache.MarshalJSON()
 	c.Assert(err, IsNil)
 
-	newCache := NewDNSCache()
+	newCache := NewDNSCache(0)
 	err = newCache.UnmarshalJSON(data)
 	c.Assert(err, IsNil)
 
@@ -353,7 +353,7 @@ func makeEntries(now time.Time, live, redundant, expired uint32) (entries []*cac
 func (ds *DNSCacheTestSuite) BenchmarkGetIPs(c *C) {
 	c.StopTimer()
 	now := time.Now()
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 60)
 	entries := cache.forward["test.com"]
 	for _, entry := range entriesOrig {
@@ -371,7 +371,7 @@ func (ds *DNSCacheTestSuite) BenchmarkUpdateIPs(c *C) {
 	for i := 0; i < c.N; i++ {
 		c.StopTimer()
 		now := time.Now()
-		cache := NewDNSCache()
+		cache := NewDNSCache(0)
 		cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 60)
 		entries := cache.forward["test.com"]
 		c.StartTimer()
@@ -445,7 +445,7 @@ func benchmarkMarshalJSON(c *C, numDNSEntries int) {
 	c.StopTimer()
 	ips := makeIPs(uint32(numIPsPerEntry))
 
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	for i := 0; i < numDNSEntries; i++ {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
@@ -466,7 +466,7 @@ func benchmarkUnmarshalJSON(c *C, numDNSEntries int) {
 	c.StopTimer()
 	ips := makeIPs(uint32(numIPsPerEntry))
 
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	for i := 0; i < numDNSEntries; i++ {
 		// TTL needs to be far enough in the future that the entry is serialized
 		cache.Update(time.Now(), fmt.Sprintf("domain-%v.com", i), ips, 86400)
@@ -477,7 +477,7 @@ func benchmarkUnmarshalJSON(c *C, numDNSEntries int) {
 
 	emptyCaches := make([]*DNSCache, c.N)
 	for i := 0; i < c.N; i++ {
-		emptyCaches[i] = NewDNSCache()
+		emptyCaches[i] = NewDNSCache(0)
 	}
 	c.StartTimer()
 
@@ -487,8 +487,50 @@ func benchmarkUnmarshalJSON(c *C, numDNSEntries int) {
 	}
 }
 
+func (ds *DNSCacheTestSuite) TestTTLInsertWithMinValue(c *C) {
+	now := time.Now()
+	cache := NewDNSCache(60)
+	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 3)
+
+	// Checking just now to validate that is inserted correctly
+	res := cache.lookupByTime(now, "test.com")
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0].String(), Equals, "1.2.3.4")
+
+	// Checking the latest match
+	res = cache.lookupByTime(now.Add(time.Second*3), "test.com")
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0].String(), Equals, "1.2.3.4")
+
+	// Validate that in future time the value is correct
+	future := time.Now().Add(time.Second * 70)
+	res = cache.lookupByTime(future, "test.com")
+	c.Assert(res, HasLen, 0)
+}
+
+func (ds *DNSCacheTestSuite) TestTTLInsertWithZeroValue(c *C) {
+	now := time.Now()
+	cache := NewDNSCache(0)
+	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 10)
+
+	// Checking just now to validate that is inserted correctly
+	res := cache.lookupByTime(now, "test.com")
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0].String(), Equals, "1.2.3.4")
+
+	// Checking the latest match
+	res = cache.lookupByTime(now.Add(time.Second*10), "test.com")
+	c.Assert(res, HasLen, 1)
+	c.Assert(res[0].String(), Equals, "1.2.3.4")
+
+	// Checking that expires correctly
+	future := now.Add(time.Second * 11)
+	res = cache.lookupByTime(future, "test.com")
+	c.Assert(res, HasLen, 0)
+}
+
 func (ds *DNSCacheTestSuite) TestTTLCleanupEntries(c *C) {
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []net.IP{net.ParseIP("1.2.3.4")}, 3)
 	c.Assert(len(cache.cleanup), Equals, 1)
 	entries, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
@@ -498,7 +540,7 @@ func (ds *DNSCacheTestSuite) TestTTLCleanupEntries(c *C) {
 }
 
 func (ds *DNSCacheTestSuite) TestTTLCleanupWithoutForward(c *C) {
-	cache := NewDNSCache()
+	cache := NewDNSCache(0)
 	now := time.Now()
 	cache.cleanup[now.Unix()] = []string{"test.com"}
 	// To make sure that all entries are validated correctly
@@ -510,7 +552,7 @@ func (ds *DNSCacheTestSuite) TestTTLCleanupWithoutForward(c *C) {
 
 func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 	limit := 5
-	cache := NewDNSCacheWithLimit(limit)
+	cache := NewDNSCacheWithLimit(0, limit)
 
 	cache.Update(now, "foo.bar", []net.IP{net.ParseIP("1.1.1.1")}, 1)
 	cache.Update(now, "bar.foo", []net.IP{net.ParseIP("2.1.1.1")}, 1)
@@ -528,7 +570,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 
 func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 	limit := 0
-	cache := NewDNSCacheWithLimit(limit)
+	cache := NewDNSCacheWithLimit(0, limit)
 	for i := 0; i < 5; i++ {
 		cache.Update(now, "test.com", []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
@@ -538,7 +580,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithoutLimit(c *C) {
 
 func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 	limit := 5
-	cache := NewDNSCacheWithLimit(limit)
+	cache := NewDNSCacheWithLimit(0, limit)
 
 	// Make sure that the cleanup takes all the changes from 1 minute ago.
 	cache.lastCleanup = time.Now().Add(-1 * time.Minute)
@@ -559,7 +601,7 @@ func (ds *DNSCacheTestSuite) TestGCOverlimitAfterTTLCleanup(c *C) {
 func (ds *DNSCacheTestSuite) TestOverlimitAfterDeleteForwardEntry(c *C) {
 	// Validate if something delete the forward entry no invalid key access on
 	// CG operation
-	dnsCache := NewDNSCache()
+	dnsCache := NewDNSCache(0)
 	dnsCache.overLimit["test.com"] = true
 	c.Assert(dnsCache.cleanupOverLimitEntries(), checker.DeepEquals, []string{})
 }

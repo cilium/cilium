@@ -86,7 +86,7 @@ type RuleGen struct {
 func NewRuleGen(config Config) *RuleGen {
 
 	if config.Cache == nil {
-		config.Cache = DefaultDNSCache
+		config.Cache = NewDNSCache(0)
 	}
 
 	if config.AddGeneratedRules == nil {
@@ -101,6 +101,11 @@ func NewRuleGen(config Config) *RuleGen {
 		cache:       config.Cache,
 	}
 
+}
+
+// GetDNSCache returns the DNSCache used by the RuleGen
+func (gen *RuleGen) GetDNSCache() *DNSCache {
+	return gen.cache
 }
 
 // PrepareFQDNRules adds a tracking label to rules that contain ToFQDN sections.

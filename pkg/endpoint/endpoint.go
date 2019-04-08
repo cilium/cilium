@@ -410,7 +410,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		ID:            ID,
 		OpLabels:      pkgLabels.NewOpLabels(),
 		Status:        NewEndpointStatus(),
-		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMaxIPsPerHost),
+		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
@@ -442,7 +442,7 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		DatapathMapID:    int(base.DatapathMapID),
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
-		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMaxIPsPerHost),
+		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
@@ -1041,7 +1041,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	}
 	ep := Endpoint{
 		OpLabels:   pkgLabels.NewOpLabels(),
-		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMaxIPsPerHost),
+		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 	}
 	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
 		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)

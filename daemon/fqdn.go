@@ -68,8 +68,7 @@ const (
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
 	cfg := fqdn.Config{
-		MinTTL:         option.Config.ToFQDNsMinTTL,
-		Cache:          fqdn.DefaultDNSCache,
+		Cache:          fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
 		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
 			// Insert the new rules into the policy repository. We need them to
@@ -185,7 +184,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
-			fqdn.DefaultDNSCache.UpdateFromCache(precache, nil)
+			d.dnsRuleGen.GetDNSCache().UpdateFromCache(precache, nil)
 		}
 	}
 
@@ -196,7 +195,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	for _, restoredEP := range restoredEndpoints.restored {
 		// Upgrades from old ciliums have this nil
 		if restoredEP.DNSHistory != nil {
-			fqdn.DefaultDNSCache.UpdateFromCache(restoredEP.DNSHistory, []string{})
+			d.dnsRuleGen.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
 		}
 	}
 	// Once we stop returning errors from StartDNSProxy this should live in
@@ -348,16 +347,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 				// This must happen before the ruleGen update below, to ensure that
 				// this data is included in the serialized Endpoint object.
-				// Note: We need to fixup minTTL to be consistent with how we insert it
-				// elsewhere i.e. we don't want to lose the lower bound for DNS data
-				// TTL if we reboot twice.
 				log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-				effectiveTTL := int(TTL)
-				if effectiveTTL < option.Config.ToFQDNsMinTTL {
-					effectiveTTL = option.Config.ToFQDNsMinTTL
-				}
-
-				if ep.DNSHistory.Update(lookupTime, qname, responseIPs, effectiveTTL) {
+				if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
 					ep.SyncEndpointHeaderFile(d)
 				}
 
@@ -365,7 +356,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 					qname: {
 						IPs: responseIPs,
-						TTL: int(effectiveTTL),
+						TTL: int(TTL),
 					}})
 				if err != nil {
 					log.WithError(err).Error("error updating internal DNS cache for rule generation")
@@ -410,7 +401,7 @@ func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
 		return NewGetFqdnCacheIDNotFound()
 	}
 
-	return NewGetFqdnCacheIDOK().WithPayload(lookups)
+	return NewGetFqdnCacheOK().WithPayload(lookups)
 }
 
 type deleteFqdnCache struct {
@@ -430,7 +421,7 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 		matchPatternStr = *params.Matchpattern
 	}
 
-	namesToRegen, err := deleteDNSLookups(endpoints, time.Now(), matchPatternStr)
+	namesToRegen, err := deleteDNSLookups(h.daemon.dnsRuleGen.GetDNSCache(), endpoints, time.Now(), matchPatternStr)
 	if err != nil {
 		return api.Error(DeleteFqdnCacheBadRequestCode, err)
 	}
@@ -536,7 +527,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	return lookups, nil
 }
 
-func deleteDNSLookups(endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
+func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
 		nameMatcher, err = matchpattern.Validate(matchPatternStr)
@@ -549,10 +540,10 @@ func deleteDNSLookups(endpoints []*endpoint.Endpoint, expireLookupsBefore time.T
 	// Clear any to-delete entries in each endpoint, then update globally to
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
-	namesToRegen = append(namesToRegen, fqdn.DefaultDNSCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
+	namesToRegen = append(namesToRegen, globalCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
 	for _, ep := range endpoints {
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
-		fqdn.DefaultDNSCache.UpdateFromCache(ep.DNSHistory, nil)
+		globalCache.UpdateFromCache(ep.DNSHistory, nil)
 	}
 
 	return namesToRegen, nil
@@ -566,7 +557,7 @@ func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
 		return nil, err
 	}
 
-	cache = fqdn.NewDNSCache() // no per-host limit here
+	cache = fqdn.NewDNSCache(0) // no per-host limit here
 	if err = cache.UnmarshalJSON(data); err != nil {
 		return nil, err
 	}
