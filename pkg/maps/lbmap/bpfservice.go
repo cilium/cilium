@@ -161,7 +161,7 @@ func (b *bpfService) getSlaveSlot(id BackendAddrID) (int, bool) {
 }
 
 type lbmapCache struct {
-	mutex             lock.Mutex
+	mutex             lock.RWMutex
 	entries           map[string]*bpfService
 	backendRefCount   map[BackendAddrID]int
 	backendIDByAddrID map[BackendAddrID]uint16
@@ -303,8 +303,8 @@ func (l *lbmapCache) delete(fe ServiceKey) {
 }
 
 func (l *lbmapCache) getSlaveSlot(fe ServiceKeyV2, addrID BackendAddrID) (int, bool) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
 
 	frontendID := fe.String()
 	bpfSvc, found := l.entries[frontendID]
@@ -357,8 +357,8 @@ func (l *lbmapCache) addBackendIDs(backendIDs map[BackendAddrID]uint16) {
 // map (i.e. keeps only new backends).
 func (l *lbmapCache) filterNewBackends(backends map[BackendAddrID]ServiceValue) map[BackendAddrID]ServiceValue {
 
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
 
 	newBackends := map[BackendAddrID]ServiceValue{}
 
@@ -372,8 +372,8 @@ func (l *lbmapCache) filterNewBackends(backends map[BackendAddrID]ServiceValue) 
 }
 
 func (l *lbmapCache) getBackendIDByAddrID(addrID BackendAddrID) uint16 {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
 
 	return l.backendIDByAddrID[addrID]
 }
