@@ -47,7 +47,7 @@ type IDAllocator struct {
 
 var (
 	serviceIDAlloc = NewIDAllocator(FirstFreeServiceID, MaxSetOfServiceID)
-	backendIDAlloc = NewIDAllocator(FirstFreeServiceID, MaxSetOfServiceID)
+	backendIDAlloc = NewIDAllocator(FirstFreeBackendID, MaxSetOfBackendID)
 )
 
 // NewIDAllocator creates a new ID allocator instance.

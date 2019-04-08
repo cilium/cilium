@@ -28,8 +28,16 @@ const (
 	// FirstFreeServiceID is the first ID for which the services should be assigned.
 	FirstFreeServiceID = uint32(1)
 
-	// MaxSetOfServiceID is maximum number of set of service IDs that can be stored in the kvstore.
+	// MaxSetOfServiceID is maximum number of set of service IDs that can be stored
+	// in the kvstore or the local ID allocator.
 	MaxSetOfServiceID = uint32(0xFFFF)
+
+	// FirstFreeBackendID is the first ID for which the backend should be assigned.
+	FirstFreeBackendID = uint32(1)
+
+	// MaxSetOfBackendID is maximum number of set of backendIDs IDs that can be
+	// stored in the local ID allocator.
+	MaxSetOfBackendID = uint32(0xFFFFFFFF)
 
 	serviceKvstorePrefix = common.OperationalPath + "/ServicesV2/"
 )
