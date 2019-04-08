@@ -43,7 +43,7 @@ func (ds *FQDNTestSuite) TestRuleGenCIDRGeneration(c *C) {
 
 		gen = NewRuleGen(Config{
 			MinTTL: 1,
-			Cache:  NewDNSCache(),
+			Cache:  NewDNSCache(0),
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)
@@ -107,6 +107,7 @@ func (ds *FQDNTestSuite) TestRuleGenDropCIDROnReinsert(c *C) {
 		generatedRules = make([]*api.Rule, 0)
 
 		gen = NewRuleGen(Config{
+			Cache: NewDNSCache(0),
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)
 			},
@@ -137,7 +138,7 @@ func (ds *FQDNTestSuite) TestRuleGenMultiIPUpdate(c *C) {
 
 		gen = NewRuleGen(Config{
 			MinTTL: 1,
-			Cache:  NewDNSCache(),
+			Cache:  NewDNSCache(0),
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)
@@ -208,7 +209,7 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 
 		gen = NewRuleGen(Config{
 			MinTTL: 1,
-			Cache:  NewDNSCache(),
+			Cache:  NewDNSCache(0),
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)
@@ -284,7 +285,7 @@ func (ds *FQDNTestSuite) TestPrepareFQDNRules(c *C) {
 
 		gen = NewRuleGen(Config{
 			MinTTL: 1,
-			Cache:  NewDNSCache(),
+			Cache:  NewDNSCache(0),
 
 			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 				return lookupFail(c, dnsNames)

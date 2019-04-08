@@ -45,7 +45,7 @@ func (ds *DaemonSuite) BenchmarkFqdnCache(c *C) {
 	for i := 0; i < c.N; i++ {
 		lookupTime := time.Now()
 		ep := &endpoint.Endpoint{} // only works because we only touch .DNSHistory
-		ep.DNSHistory = fqdn.NewDNSCache()
+		ep.DNSHistory = fqdn.NewDNSCache(0)
 
 		for i := 0; i < 1000; i++ {
 			ep.DNSHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)

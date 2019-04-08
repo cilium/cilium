@@ -145,7 +145,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 
 			cfg = Config{
 				MinTTL: 1,
-				Cache:  NewDNSCache(),
+				Cache:  NewDNSCache(0),
 
 				LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
 					return lookupDNSNames(ipLookups, lookups, dnsNames), nil
@@ -158,7 +158,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 			}
 
 			gen    = NewRuleGen(cfg)
-			poller = NewDNSPoller(cfg, gen)
+			poller = NewDNSPoller(cfg, gen, NewDNSCache(0))
 		)
 
 		rulesToAdd := []*api.Rule{}
