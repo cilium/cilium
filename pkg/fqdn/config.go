@@ -30,6 +30,9 @@ type Config struct {
 	// When set to 0, 2*DNSPollerInterval is used.
 	MinTTL int
 
+	// OverLimit is the number of max entries that a host can have in the DNS cache.
+	OverLimit int
+
 	// Cache is where the poller stores DNS data used to generate rules.
 	// When set to nil, it uses fqdn.DefaultDNSCache, a global cache instance.
 	Cache *DNSCache
