@@ -85,7 +85,7 @@ spec:
               name: cilium-aws
               optional: true
         image: docker.io/cilium/operator:__CILIUM_VERSION__
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
           httpGet:
