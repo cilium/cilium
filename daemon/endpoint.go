@@ -192,8 +192,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	infoLabels := labels.NewLabelsFromModel([]string{})
 
 	if len(addLabels) > 0 {
-		addLabels, _, ok := checkLabels(addLabels, nil)
-		if !ok {
+		addLabels, _, _ = checkLabels(addLabels, nil)
+		if len(addLabels) == 0 {
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
 		if lbls := addLabels.FindReserved(); lbls != nil {
