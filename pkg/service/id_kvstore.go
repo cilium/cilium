@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func updateL3n4AddrIDRef(id loadbalancer.ServiceID, l3n4AddrID loadbalancer.L3n4AddrID) error {
+func updateL3n4AddrIDRef(id loadbalancer.ID, l3n4AddrID loadbalancer.L3n4AddrID) error {
 	key := path.Join(ServiceIDKeyPath, strconv.FormatUint(uint64(id), 10))
 	value, err := json.Marshal(l3n4AddrID)
 	if err != nil {
@@ -142,7 +142,7 @@ func gasNewL3n4AddrID(l3n4AddrID *loadbalancer.L3n4AddrID, baseID uint32) error 
 	}
 
 	setIDtoL3n4Addr := func(id uint32) error {
-		l3n4AddrID.ID = loadbalancer.ServiceID(id)
+		l3n4AddrID.ID = loadbalancer.ID(id)
 		marshaledL3n4AddrID, err := json.Marshal(l3n4AddrID)
 		if err != nil {
 			return err

@@ -57,25 +57,25 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	l3n4AddrID, err := AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
+	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16))
 
 	l3n4AddrID, err = AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16)
+	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16))
 
 	l3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
+	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16+1))
 
 	// l3n4Addr3 should have the same ID as l3n4Addr2 since we are omitting the
 	// protocol type.
 	l3n4AddrID, err = AcquireID(l3n4Addr3, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(l3n4AddrID.ID, Equals, ffsIDu16+1)
+	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16+1))
 
 	gotL3n4AddrID, err := GetID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)
-	wantL3n4AddrID.ID = ffsIDu16
+	wantL3n4AddrID.ID = loadbalancer.ID(ffsIDu16)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr1
 	c.Assert(gotL3n4AddrID, checker.DeepEquals, wantL3n4AddrID)
 
@@ -87,7 +87,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = GetID(FirstFreeServiceID + 1)
 	c.Assert(err, Equals, nil)
-	wantL3n4AddrID.ID = loadbalancer.ServiceID(FirstFreeServiceID + 1)
+	wantL3n4AddrID.ID = loadbalancer.ID(FirstFreeServiceID + 1)
 	wantL3n4AddrID.L3n4Addr = l3n4Addr2
 	c.Assert(gotL3n4AddrID, checker.DeepEquals, wantL3n4AddrID)
 
@@ -105,7 +105,7 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ID(FirstFreeServiceID+1))
 
 	err = DeleteID(uint32(gotL3n4AddrID.ID))
 	c.Assert(err, Equals, nil)
@@ -116,22 +116,22 @@ func (ds *ServiceTestSuite) TestServices(c *C) {
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr2, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, ffsIDu16)
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16))
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ID(FirstFreeServiceID+1))
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(FirstFreeServiceID+1))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ID(FirstFreeServiceID+1))
 
 	err = DeleteID(uint32(FirstFreeServiceID + 1))
 	c.Assert(err, Equals, nil)
 
 	gotL3n4AddrID, err = AcquireID(l3n4Addr1, 99)
 	c.Assert(err, Equals, nil)
-	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ServiceID(99))
+	c.Assert(gotL3n4AddrID.ID, Equals, loadbalancer.ID(99))
 }
 
 func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {

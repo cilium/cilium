@@ -42,14 +42,14 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 
 	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
-			delete(d.loadBalancer.RevNATMap, feCilium.ID)
+			delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
 		}
 		return err
 	}
 
 	if addRevNAT {
 		log.WithField(logfields.ServiceName, feCilium.String()).Debug("adding service to RevNATMap")
-		d.loadBalancer.RevNATMap[feCilium.ID] = *feCilium.L3n4Addr.DeepCopy()
+		d.loadBalancer.RevNATMap[loadbalancer.ServiceID(feCilium.ID)] = *feCilium.L3n4Addr.DeepCopy()
 	}
 	return nil
 }
@@ -155,7 +155,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	frontend := loadbalancer.L3n4AddrID{
 		L3n4Addr: *f,
-		ID:       loadbalancer.ServiceID(params.Config.ID),
+		ID:       loadbalancer.ID(params.Config.ID),
 	}
 
 	backends := []loadbalancer.LBBackEnd{}
@@ -439,7 +439,7 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 
 	for k, v := range d.loadBalancer.RevNATMap {
 		dump = append(dump, loadbalancer.L3n4AddrID{
-			ID:       k,
+			ID:       loadbalancer.ID(k),
 			L3n4Addr: *v.DeepCopy(),
 		})
 	}
@@ -531,7 +531,8 @@ func (d *Daemon) SyncLBMap() error {
 		revNAT, ok := newRevNATMap[oldID]
 		if ok {
 			scopedLog.Debug("Service ID is present in BPF map, updating revnat key")
-			revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(svc.FE.ID, revNAT)
+			revNATK, revNATV := lbmap.L3n4Addr2RevNatKeynValue(
+				loadbalancer.ServiceID(svc.FE.ID), revNAT)
 			err := lbmap.UpdateRevNat(revNATK, revNATV)
 			if err != nil {
 				return fmt.Errorf("Unable to add revNAT: %s: %s."+
@@ -551,7 +552,7 @@ func (d *Daemon) SyncLBMap() error {
 				logfields.ServiceName: svc.FE.String(),
 				"revNAT":              revNAT,
 			}).Debug("adding service --> revNAT to newRevNATMap")
-			newRevNATMap[svc.FE.ID] = revNAT
+			newRevNATMap[loadbalancer.ServiceID(svc.FE.ID)] = revNAT
 		}
 
 		fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
@@ -603,7 +604,7 @@ func (d *Daemon) SyncLBMap() error {
 			scopedLog = scopedLog.WithField(logfields.ServiceID+".new", kvL3n4AddrID.ID)
 			scopedLog.WithError(err).Warning("Service ID in BPF map is out of sync with KVStore. Acquired new ID")
 
-			oldID := svc.FE.ID
+			oldID := loadbalancer.ServiceID(svc.FE.ID)
 			svc.FE.ID = kvL3n4AddrID.ID
 			// If we cannot add the service to the BPF maps, update the list of
 			// services that failed to sync.
@@ -613,19 +614,19 @@ func (d *Daemon) SyncLBMap() error {
 				failedSyncSVC = append(failedSyncSVC, *svc)
 				delete(newSVCMap, svc.Sha256)
 
-				revNAT, ok := newRevNATMap[svc.FE.ID]
+				revNAT, ok := newRevNATMap[loadbalancer.ServiceID(svc.FE.ID)]
 				if ok {
 					// Revert the old revNAT
 					newRevNATMap[oldID] = revNAT
-					failedSyncRevNAT[svc.FE.ID] = revNAT
-					delete(newRevNATMap, svc.FE.ID)
+					failedSyncRevNAT[loadbalancer.ServiceID(svc.FE.ID)] = revNAT
+					delete(newRevNATMap, loadbalancer.ServiceID(svc.FE.ID))
 				}
 				// Don't update the maps of services since the service failed to
 				// sync.
 				continue
 			}
 		}
-		newSVCMapID[svc.FE.ID] = svc
+		newSVCMapID[loadbalancer.ServiceID(svc.FE.ID)] = svc
 	}
 
 	// Clean services and rev nats from BPF maps that failed to be restored.
@@ -773,21 +774,20 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	return nil
 }
 
-func restoreBackendIDs() (map[lbmap.BackendAddrID]uint16, error) {
+func restoreBackendIDs() (map[lbmap.BackendAddrID]loadbalancer.BackendID, error) {
 	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to dump LB backend maps: %s", err)
 	}
 
-	restoredBackendIDs := map[lbmap.BackendAddrID]uint16{}
+	restoredBackendIDs := map[lbmap.BackendAddrID]loadbalancer.BackendID{}
 
 	for addrID, lbBackend := range lbBackends {
-		backendID := uint16(lbBackend.ID)
-		err := service.RestoreBackendID(lbBackend.L3n4Addr, backendID)
+		err := service.RestoreBackendID(lbBackend.L3n4Addr, lbBackend.ID)
 		if err != nil {
 			return nil, err
 		}
-		restoredBackendIDs[addrID] = backendID
+		restoredBackendIDs[addrID] = lbBackend.ID
 	}
 
 	log.WithField(logfields.BackendIDs, restoredBackendIDs).

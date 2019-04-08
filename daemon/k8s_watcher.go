@@ -1239,7 +1239,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 				logfields.ServiceID:   feAddrID.ID,
 				logfields.Object:      logfields.Repr(svc),
 			}).Debug("Got feAddr ID for service")
-			fePort.ID = feAddrID.ID
+			fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
 		}
 
 		besValues := []loadbalancer.LBBackEnd{}
@@ -1252,7 +1252,8 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			}
 		}
 
-		fe := loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP, fePort.Port, fePort.ID)
+		fe := loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP, fePort.Port,
+			loadbalancer.ID(fePort.ID))
 		if _, err := d.svcAdd(*fe, besValues, true); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
@@ -1336,7 +1337,8 @@ func (d *Daemon) updateIngressV1beta1(oldIngress, newIngress *types.Ingress) err
 				logfields.ServiceID: feAddrID.ID,
 			}).Debug("Got service ID for ingress")
 
-			if err := d.RevNATAdd(feAddrID.ID, feAddrID.L3n4Addr); err != nil {
+			if err := d.RevNATAdd(loadbalancer.ServiceID(feAddrID.ID),
+				feAddrID.L3n4Addr); err != nil {
 				scopedLog.WithError(err).WithFields(logrus.Fields{
 					logfields.ServiceID: feAddrID.ID,
 					logfields.IPAddr:    feAddrID.L3n4Addr.IP,
@@ -1384,7 +1386,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *types.Ingress) error {
 			// without accessing the KVStore.
 			svc := d.svcGetBySHA256Sum(feAddr.SHA256Sum())
 			if svc != nil {
-				if err := d.RevNATDelete(svc.FE.ID); err != nil {
+				if err := d.RevNATDelete(loadbalancer.ServiceID(svc.FE.ID)); err != nil {
 					scopedLog.WithError(err).WithFields(logrus.Fields{
 						logfields.ServiceID: svc.FE.ID,
 					}).Error("Error while removing RevNAT for ingress")
