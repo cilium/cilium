@@ -19,16 +19,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-)
-
-const (
-	// MinGcInterval is the minimum garbage collection interval.
-	MinGcInterval int = 5
 )
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
@@ -39,7 +37,7 @@ const (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
+func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType) {
 	var maps []*ctmap.Map
 
 	if e == nil {
@@ -67,6 +65,8 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
 		}
 		defer m.Close()
 
+		mapType = m.MapInfo.MapType
+
 		deleted := ctmap.GC(m, filter)
 
 		if deleted > 0 {
@@ -76,6 +76,8 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) {
 			}).Debug("Deleted filtered entries from map")
 		}
 	}
+
+	return
 }
 
 func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *ctmap.GCFilter {
@@ -98,21 +100,35 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *c
 	return filter
 }
 
+func calculateInterval(mapType bpf.MapType) time.Duration {
+	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
+		return val
+	}
+
+	bpfNAT := !option.Config.InstallIptRules && option.Config.Masquerade
+
+	//  Fall-back to short interval when BPF NAT is enabled for now as the
+	//  NAT entry expiration relies on a frequent cleanup
+	if mapType == bpf.MapTypeLRUHash && !bpfNAT {
+		return defaults.ConntrackGCIntervalLRU
+	}
+
+	return defaults.ConntrackGCIntervalNonLRU
+}
+
 // EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*endpoint.Endpoint) {
-	initialScan := true
-	initialScanComplete := make(chan struct{})
+func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) {
+	var (
+		initialScan         = true
+		initialScanComplete = make(chan struct{})
+		mapType             bpf.MapType
+	)
 
 	go func() {
-		if gcinterval < MinGcInterval {
-			gcinterval = MinGcInterval
-			log.Warnf("Setting conntrack garbage collector interval to its minimum value(%d seconds)", gcinterval)
-		}
-		sleepTime := time.Duration(gcinterval) * time.Second
 		for {
 			eps := GetEndpoints()
 			if len(eps) > 0 || initialScan {
-				runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+				mapType = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
@@ -127,7 +143,7 @@ func EnableConntrackGC(ipv4, ipv6 bool, gcinterval int, restoredEndpoints []*end
 				initialScan = false
 			}
 
-			time.Sleep(sleepTime)
+			time.Sleep(calculateInterval(mapType))
 		}
 	}()
 

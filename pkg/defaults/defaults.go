@@ -181,4 +181,12 @@ const (
 	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
 	// should watch for.
 	K8sWatcherEndpointSelector = "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager"
+
+	// ConntrackGCIntervalLRU is the default connection tracking interval
+	// when using LRU maps
+	ConntrackGCIntervalLRU = 12 * time.Hour
+
+	// ConntrackGCIntervalNonLRU is the default connection tracking
+	// interval when using non-LRU maps
+	ConntrackGCIntervalNonLRU = 15 * time.Minute
 )
