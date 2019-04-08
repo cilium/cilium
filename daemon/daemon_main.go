@@ -376,8 +376,12 @@ func init() {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(option.ConfigDir)
 
-	flags.Uint(option.ConntrackGarbageCollectorInterval, 60, "Garbage collection interval for the connection tracking table (in seconds)")
-	option.BindEnv(option.ConntrackGarbageCollectorInterval)
+	flags.Uint(option.ConntrackGarbageCollectorIntervalDeprecated, 0, "Garbage collection interval for the connection tracking table (in seconds)")
+	flags.MarkDeprecated(option.ConntrackGarbageCollectorIntervalDeprecated, fmt.Sprintf("please use --%s", option.ConntrackGCInterval))
+	option.BindEnv(option.ConntrackGarbageCollectorIntervalDeprecated)
+
+	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
+	option.BindEnv(option.ConntrackGCInterval)
 
 	flags.StringSlice(option.ContainerRuntime, []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	option.BindEnv(option.ContainerRuntime)
@@ -1153,7 +1157,6 @@ func runDaemon() {
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
 	endpointmanager.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
-		option.Config.ConntrackGarbageCollectorInterval,
 		restoredEndpoints.restored)
 	bootstrapStats.enableConntrack.End(true)
 
