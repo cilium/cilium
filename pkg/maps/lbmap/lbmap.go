@@ -251,8 +251,8 @@ func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) er
 // legacy and v2).
 func UpdateService(fe ServiceKey, backends []ServiceValue,
 	addRevNAT bool, revNATID int,
-	acquireBackendID func(loadbalancer.L3n4Addr) (uint16, error),
-	releaseBackendID func(uint16)) error {
+	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
+	releaseBackendID func(loadbalancer.BackendID)) error {
 
 	var (
 		weights         []uint16
@@ -319,15 +319,15 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 }
 
 func acquireNewBackendIDs(backends []ServiceValue,
-	acquireBackendID func(loadbalancer.L3n4Addr) (uint16, error)) (
-	map[BackendAddrID]uint16, error) {
+	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error)) (
+	map[BackendAddrID]loadbalancer.BackendID, error) {
 
 	newBackendsByAddrID := map[BackendAddrID]ServiceValue{}
 	for _, b := range backends {
 		newBackendsByAddrID[b.BackendAddrID()] = b
 	}
 	newBackendsByAddrID = cache.filterNewBackends(newBackendsByAddrID)
-	newBackendIDs := map[BackendAddrID]uint16{}
+	newBackendIDs := map[BackendAddrID]loadbalancer.BackendID{}
 
 	for addrID := range newBackendsByAddrID {
 		addr := *serviceValue2L3n4Addr(newBackendsByAddrID[addrID])
@@ -344,7 +344,7 @@ func acquireNewBackendIDs(backends []ServiceValue,
 	return newBackendIDs, nil
 }
 
-func updateBackendsLocked(addedBackends map[uint16]ServiceValue) error {
+func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue) error {
 	var err error
 
 	// Create new backends
@@ -508,8 +508,8 @@ func updateServiceV2Locked(fe ServiceKey, svc *bpfService,
 	return nil
 }
 
-func removeBackendsLocked(removedBackendIDs []uint16, isIPv6 bool,
-	releaseBackendID func(uint16)) error {
+func removeBackendsLocked(removedBackendIDs []loadbalancer.BackendID, isIPv6 bool,
+	releaseBackendID func(loadbalancer.BackendID)) error {
 
 	var backendKey BackendKey
 
@@ -602,12 +602,12 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 	// not all BPF map entries contain the service ID. Do a pass over all
 	// parsed entries and fill in the service ID
 	for i := range newSVCList {
-		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+		newSVCList[i].FE.ID = loadbalancer.ID(idCache[newSVCList[i].FE.String()])
 	}
 
 	// Do the same for the svcMap
 	for key, svc := range newSVCMap {
-		svc.FE.ID = idCache[svc.FE.String()]
+		svc.FE.ID = loadbalancer.ID(idCache[svc.FE.String()])
 		newSVCMap[key] = svc
 	}
 
@@ -621,7 +621,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
 	idCache := map[string]loadbalancer.ServiceID{}
-	backendValueMap := map[uint16]BackendValue{}
+	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
@@ -699,12 +699,12 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	// not all BPF map entries contain the service ID. Do a pass over all
 	// parsed entries and fill in the service ID
 	for i := range newSVCList {
-		newSVCList[i].FE.ID = idCache[newSVCList[i].FE.String()]
+		newSVCList[i].FE.ID = loadbalancer.ID(idCache[newSVCList[i].FE.String()])
 	}
 
 	// Do the same for the svcMap
 	for key, svc := range newSVCMap {
-		svc.FE.ID = idCache[svc.FE.String()]
+		svc.FE.ID = loadbalancer.ID(idCache[svc.FE.String()])
 		newSVCMap[key] = svc
 	}
 
@@ -713,7 +713,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 
 // DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
 func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
-	backendValueMap := map[uint16]BackendValue{}
+	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	lbBackends := map[BackendAddrID]*loadbalancer.LBBackEnd{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -766,7 +766,7 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 
 		scopedLog.Debug("parsing BPF revNAT mapping")
 		fe := revNatValue2L3n4AddrID(revNatK, revNatV)
-		newRevNATMap[fe.ID] = fe.L3n4Addr
+		newRevNATMap[loadbalancer.ServiceID(fe.ID)] = fe.L3n4Addr
 	}
 
 	mutex.RLock()
@@ -889,7 +889,7 @@ func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 }
 
 // AddBackendIDsToCache populates the given backend IDs to the lbmap local cache.
-func AddBackendIDsToCache(backendIDs map[BackendAddrID]uint16) {
+func AddBackendIDsToCache(backendIDs map[BackendAddrID]loadbalancer.BackendID) {
 	cache.addBackendIDs(backendIDs)
 }
 
@@ -897,7 +897,7 @@ func AddBackendIDsToCache(backendIDs map[BackendAddrID]uint16) {
 // they are not used by any other service.
 //
 //The given key has to be of the master service.
-func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(uint16)) error {
+func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbalancer.BackendID)) error {
 	var (
 		backendKey BackendKey
 		svcKey     ServiceKeyV2

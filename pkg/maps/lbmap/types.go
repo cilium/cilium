@@ -164,10 +164,10 @@ type ServiceValueV2 interface {
 	GetWeight() uint16
 
 	// Set backend identifier
-	SetBackendID(id uint16)
+	SetBackendID(id loadbalancer.BackendID)
 
 	// Get backend identifier
-	GetBackendID() uint16
+	GetBackendID() loadbalancer.BackendID
 
 	// Returns a RevNatKey matching a ServiceValue
 	RevNatKey() RevNatKey
@@ -184,10 +184,10 @@ type BackendKey interface {
 	Map() *bpf.Map
 
 	// Set backend identifier
-	SetID(uint16)
+	SetID(loadbalancer.BackendID)
 
 	// Get backend identifier
-	GetID() uint16
+	GetID() loadbalancer.BackendID
 }
 
 // BackendValue is the interface describing protocol independent backend value.
@@ -216,7 +216,7 @@ type Backend interface {
 	Map() *bpf.Map
 
 	// Get backend identifier
-	GetID() uint16
+	GetID() loadbalancer.BackendID
 
 	// Get key of the backend entry
 	GetKey() bpf.MapKey
@@ -339,7 +339,7 @@ func serviceKey2L3n4Addr(svcKey ServiceKey) *loadbalancer.L3n4Addr {
 func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
 	var (
 		beIP     net.IP
-		svcID    loadbalancer.ServiceID
+		svcID    loadbalancer.ID
 		bePort   uint16
 		beWeight uint16
 	)
@@ -351,13 +351,13 @@ func serviceKeynValue2FEnBE(svcKey ServiceKey, svcValue ServiceValue) (*loadbala
 
 	if svcKey.IsIPv6() {
 		svc6Val := svcValue.(*Service6Value)
-		svcID = loadbalancer.ServiceID(svc6Val.RevNat)
+		svcID = loadbalancer.ID(svc6Val.RevNat)
 		beIP = svc6Val.Address.IP()
 		bePort = svc6Val.Port
 		beWeight = svc6Val.Weight
 	} else {
 		svc4Val := svcValue.(*Service4Value)
-		svcID = loadbalancer.ServiceID(svc4Val.RevNat)
+		svcID = loadbalancer.ID(svc4Val.RevNat)
 		beIP = svc4Val.Address.IP()
 		bePort = svc4Val.Port
 		beWeight = svc4Val.Weight
@@ -404,18 +404,18 @@ func revNat4Value2L3n4Addr(revNATV *RevNat4Value) *loadbalancer.L3n4Addr {
 // revNatValue2L3n4AddrID converts the given RevNatKey and RevNatValue to a L3n4AddrID.
 func revNatValue2L3n4AddrID(revNATKey RevNatKey, revNATValue RevNatValue) *loadbalancer.L3n4AddrID {
 	var (
-		svcID loadbalancer.ServiceID
+		svcID loadbalancer.ID
 		be    *loadbalancer.L3n4Addr
 	)
 	if revNATKey.IsIPv6() {
 		revNat6Key := revNATKey.(*RevNat6Key)
-		svcID = loadbalancer.ServiceID(revNat6Key.Key)
+		svcID = loadbalancer.ID(revNat6Key.Key)
 
 		revNat6Value := revNATValue.(*RevNat6Value)
 		be = revNat6Value2L3n4Addr(revNat6Value)
 	} else {
 		revNat4Key := revNATKey.(*RevNat4Key)
-		svcID = loadbalancer.ServiceID(revNat4Key.Key)
+		svcID = loadbalancer.ID(revNat4Key.Key)
 
 		revNat4Value := revNATValue.(*RevNat4Value)
 		be = revNat4Value2L3n4Addr(revNat4Value)
@@ -443,7 +443,7 @@ func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []
 
 		svcValue.SetRevNat(int(svc.FE.ID))
 		svcValue.SetWeight(be.Weight)
-		svcValue.SetBackendID(uint16(be.ID))
+		svcValue.SetBackendID(loadbalancer.BackendID(be.ID))
 
 		backends = append(backends, backend)
 		svcValues = append(svcValues, svcValue)
@@ -473,7 +473,7 @@ func serviceKey2L3n4AddrV2(svcKey ServiceKeyV2) *loadbalancer.L3n4Addr {
 }
 
 func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceValueV2,
-	backendID uint16, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
+	backendID loadbalancer.BackendID, backend BackendValue) (*loadbalancer.L3n4AddrID, *loadbalancer.LBBackEnd) {
 
 	log.WithFields(logrus.Fields{
 		logfields.ServiceID: svcKey,
@@ -481,7 +481,7 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceVa
 	}).Debug("converting ServiceKey, ServiceValue and Backend to frontend and backend v2")
 	var beLBBackEnd *loadbalancer.LBBackEnd
 
-	svcID := loadbalancer.ServiceID(svcValue.GetRevNat())
+	svcID := loadbalancer.ID(svcValue.GetRevNat())
 	feL3n4Addr := serviceKey2L3n4AddrV2(svcKey)
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
@@ -512,8 +512,8 @@ func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) ServiceKeyV2 {
 
 func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
 	if be.IsIPv6() {
-		return NewBackend6(uint16(be.ID), be.IP, be.Port, u8proto.All)
+		return NewBackend6(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.All)
 	}
 
-	return NewBackend4(uint16(be.ID), be.IP, be.Port, u8proto.All)
+	return NewBackend4(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.All)
 }

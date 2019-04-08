@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -343,16 +344,16 @@ func (k *Service4KeyV2) ToNetwork() ServiceKeyV2 {
 
 // Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
 type Service4ValueV2 struct {
-	Count     uint16 `align:"count"`
-	BackendID uint16 `align:"backend_id"`
-	RevNat    uint16 `align:"rev_nat_index"`
-	Weight    uint16 `align:"weight"`
+	Count     uint16                 `align:"count"`
+	BackendID loadbalancer.BackendID `align:"backend_id"`
+	RevNat    uint16                 `align:"rev_nat_index"`
+	Weight    uint16                 `align:"weight"`
 }
 
-func NewService4ValueV2(count uint16, backendID uint16, revNat uint16, weight uint16) *Service4ValueV2 {
+func NewService4ValueV2(count uint16, backendID loadbalancer.BackendID, revNat uint16, weight uint16) *Service4ValueV2 {
 	svc := Service4ValueV2{
-		Count:     count,
 		BackendID: backendID,
+		Count:     count,
 		RevNat:    revNat,
 		Weight:    weight,
 	}
@@ -366,15 +367,15 @@ func (s *Service4ValueV2) String() string {
 
 func (s *Service4ValueV2) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
 
-func (s *Service4ValueV2) SetCount(count int)      { s.Count = uint16(count) }
-func (s *Service4ValueV2) GetCount() int           { return int(s.Count) }
-func (s *Service4ValueV2) SetRevNat(id int)        { s.RevNat = uint16(id) }
-func (s *Service4ValueV2) GetRevNat() int          { return int(s.RevNat) }
-func (s *Service4ValueV2) SetWeight(weight uint16) { s.Weight = weight }
-func (s *Service4ValueV2) GetWeight() uint16       { return s.Weight }
-func (s *Service4ValueV2) SetBackendID(id uint16)  { s.BackendID = id }
-func (s *Service4ValueV2) GetBackendID() uint16    { return s.BackendID }
-func (s *Service4ValueV2) RevNatKey() RevNatKey    { return &RevNat4Key{s.RevNat} }
+func (s *Service4ValueV2) SetCount(count int)                     { s.Count = uint16(count) }
+func (s *Service4ValueV2) GetCount() int                          { return int(s.Count) }
+func (s *Service4ValueV2) SetRevNat(id int)                       { s.RevNat = uint16(id) }
+func (s *Service4ValueV2) GetRevNat() int                         { return int(s.RevNat) }
+func (s *Service4ValueV2) SetWeight(weight uint16)                { s.Weight = weight }
+func (s *Service4ValueV2) GetWeight() uint16                      { return s.Weight }
+func (s *Service4ValueV2) SetBackendID(id loadbalancer.BackendID) { s.BackendID = id }
+func (s *Service4ValueV2) GetBackendID() loadbalancer.BackendID   { return s.BackendID }
+func (s *Service4ValueV2) RevNatKey() RevNatKey                   { return &RevNat4Key{s.RevNat} }
 
 func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
 	n := *s
@@ -384,19 +385,19 @@ func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
 }
 
 type Backend4Key struct {
-	ID uint16
+	ID loadbalancer.BackendID
 }
 
-func NewBackend4Key(id uint16) *Backend4Key {
+func NewBackend4Key(id loadbalancer.BackendID) *Backend4Key {
 	return &Backend4Key{ID: id}
 }
 
-func (k *Backend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
-func (k *Backend4Key) Map() *bpf.Map             { return Backend4Map }
-func (k *Backend4Key) SetID(id uint16)           { k.ID = id }
-func (k *Backend4Key) GetID() uint16             { return k.ID }
+func (k *Backend4Key) String() string                  { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend4Key) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
+func (k *Backend4Key) NewValue() bpf.MapValue          { return &Backend4Value{} }
+func (k *Backend4Key) Map() *bpf.Map                   { return Backend4Map }
+func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = id }
+func (k *Backend4Key) GetID() loadbalancer.BackendID   { return k.ID }
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
 type Backend4Value struct {
@@ -445,7 +446,7 @@ type Backend4 struct {
 	Value *Backend4Value
 }
 
-func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
+func NewBackend4(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4, error) {
 	val, err := NewBackend4Value(ip, port, proto)
 	if err != nil {
 		return nil, err
@@ -457,8 +458,8 @@ func NewBackend4(id uint16, ip net.IP, port uint16, proto u8proto.U8proto) (*Bac
 	}, nil
 }
 
-func (b *Backend4) IsIPv6() bool           { return false }
-func (b *Backend4) Map() *bpf.Map          { return Backend4Map }
-func (b *Backend4) GetID() uint16          { return b.Key.GetID() }
-func (b *Backend4) GetKey() bpf.MapKey     { return b.Key }
-func (b *Backend4) GetValue() BackendValue { return b.Value }
+func (b *Backend4) IsIPv6() bool                  { return false }
+func (b *Backend4) Map() *bpf.Map                 { return Backend4Map }
+func (b *Backend4) GetID() loadbalancer.BackendID { return b.Key.GetID() }
+func (b *Backend4) GetKey() bpf.MapKey            { return b.Key }
+func (b *Backend4) GetValue() BackendValue        { return b.Value }
