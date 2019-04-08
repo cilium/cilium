@@ -83,14 +83,14 @@ func getMaxServiceID() (uint32, error) {
 }
 
 // AcquireBackendID acquires a new local ID for the given backend.
-func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (uint16, error) {
+func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (loadbalancer.BackendID, error) {
 	return restoreBackendID(l3n4Addr, 0)
 }
 
 // RestoreBackendID tries to restore the given local ID for the given backend.
 //
 // If ID cannot be restored (ID already taken), returns an error.
-func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
+func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id loadbalancer.BackendID) error {
 	newID, err := restoreBackendID(l3n4Addr, id)
 	if err != nil {
 		return err
@@ -109,14 +109,14 @@ func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) error {
 
 // DeleteBackendID releases the given backend ID.
 // TODO(brb) maybe provide l3n4Addr as an arg for the extra safety.
-func DeleteBackendID(id uint16) {
+func DeleteBackendID(id loadbalancer.BackendID) {
 	backendIDAlloc.deleteLocalID(uint32(id))
 }
 
-func restoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id uint16) (uint16, error) {
+func restoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id loadbalancer.BackendID) (loadbalancer.BackendID, error) {
 	l3n4AddrID, err := backendIDAlloc.acquireLocalID(l3n4Addr, uint32(id))
 	if err != nil {
 		return 0, err
 	}
-	return uint16(l3n4AddrID.ID), nil
+	return loadbalancer.BackendID(l3n4AddrID.ID), nil
 }
