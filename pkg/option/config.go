@@ -78,9 +78,12 @@ const (
 	// represents the value of that option.
 	ConfigDir = "config-dir"
 
-	// ConntrackGarbageCollectorInterval is the garbage collection interval for
-	// the connection tracking table (in seconds)
-	ConntrackGarbageCollectorInterval = "conntrack-garbage-collector-interval"
+	// ConntrackGarbageCollectorIntervalDeprecated is the deprecated option
+	// name to set the conntrack gc interval
+	ConntrackGarbageCollectorIntervalDeprecated = "conntrack-garbage-collector-interval"
+
+	// ConntrackGCInterval is the name of the ConntrackGCInterval option
+	ConntrackGCInterval = "conntrack-gc-interval"
 
 	// ContainerRuntime sets the container runtime(s) used by Cilium
 	// { containerd | crio | docker | none | auto } ( "auto" uses the container
@@ -726,42 +729,41 @@ type DaemonConfig struct {
 
 	// CLI options
 
-	BPFRoot                           string
-	CGroupRoot                        string
-	BPFCompileDebug                   string
-	ConfigFile                        string
-	ConfigDir                         string
-	ConntrackGarbageCollectorInterval int
-	ContainerRuntimeEndpoint          map[string]string
-	Debug                             bool
-	DebugVerbose                      []string
-	DisableConntrack                  bool
-	DisableK8sServices                bool
-	DockerEndpoint                    string
-	EnablePolicy                      string
-	EnableTracing                     bool
-	EnvoyLog                          string
-	DisableEnvoyVersionCheck          bool
-	FixedIdentityMapping              map[string]string
-	FixedIdentityMappingValidator     func(val string) (string, error)
-	IPv4ClusterCIDRMaskSize           int
-	IPv4Range                         string
-	IPv6Range                         string
-	IPv4ServiceRange                  string
-	IPv6ServiceRange                  string
-	K8sAPIServer                      string
-	K8sKubeConfigPath                 string
-	K8sLegacyHostAllowsWorld          string
-	K8sWatcherEndpointSelector        string
-	KVStore                           string
-	KVStoreOpt                        map[string]string
-	LabelPrefixFile                   string
-	Labels                            []string
-	LogDriver                         []string
-	LogOpt                            map[string]string
-	Logstash                          bool
-	LogSystemLoadConfig               bool
-	NAT46Range                        string
+	BPFRoot                       string
+	CGroupRoot                    string
+	BPFCompileDebug               string
+	ConfigFile                    string
+	ConfigDir                     string
+	ContainerRuntimeEndpoint      map[string]string
+	Debug                         bool
+	DebugVerbose                  []string
+	DisableConntrack              bool
+	DisableK8sServices            bool
+	DockerEndpoint                string
+	EnablePolicy                  string
+	EnableTracing                 bool
+	EnvoyLog                      string
+	DisableEnvoyVersionCheck      bool
+	FixedIdentityMapping          map[string]string
+	FixedIdentityMappingValidator func(val string) (string, error)
+	IPv4ClusterCIDRMaskSize       int
+	IPv4Range                     string
+	IPv6Range                     string
+	IPv4ServiceRange              string
+	IPv6ServiceRange              string
+	K8sAPIServer                  string
+	K8sKubeConfigPath             string
+	K8sLegacyHostAllowsWorld      string
+	K8sWatcherEndpointSelector    string
+	KVStore                       string
+	KVStoreOpt                    map[string]string
+	LabelPrefixFile               string
+	Labels                        []string
+	LogDriver                     []string
+	LogOpt                        map[string]string
+	Logstash                      bool
+	LogSystemLoadConfig           bool
+	NAT46Range                    string
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
@@ -855,6 +857,10 @@ type DaemonConfig struct {
 	// are regenerated upon every policy change regardless of the scope of the
 	// policy change.
 	SelectiveRegeneration bool
+
+	// ConntrackGCInterval is the connection tracking garbage collection
+	// interval
+	ConntrackGCInterval time.Duration
 }
 
 var (
@@ -1085,7 +1091,6 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
-	c.ConntrackGarbageCollectorInterval = viper.GetInt(ConntrackGarbageCollectorInterval)
 	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
@@ -1198,6 +1203,13 @@ func (c *DaemonConfig) Populate() {
 
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
 		c.LogOpt = m
+	}
+
+	if viper.IsSet(ConntrackGarbageCollectorIntervalDeprecated) {
+		val := time.Duration(viper.GetInt(ConntrackGarbageCollectorIntervalDeprecated))
+		c.ConntrackGCInterval = val * time.Second
+	} else {
+		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
 
 	// Hidden options
