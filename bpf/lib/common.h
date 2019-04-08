@@ -486,10 +486,11 @@ struct lb6_key_v2 {
 
 /* See lb4_service_v2 comments */
 struct lb6_service_v2 {
+	__u32 backend_id;
 	__u16 count;
-	__u16 backend_id;
 	__u16 rev_nat_index;
 	__u16 weight;
+	__u16 pad;
 };
 
 /* See lb4_backend comments */
@@ -528,15 +529,16 @@ struct lb4_key_v2 {
 };
 
 struct lb4_service_v2 {
+	__u32 backend_id;	/* Backend ID in lb4_backends */
 	/* For the master service, count denotes number of service endpoints,
 	 * while for any service endpoint, count contains a slave slot number
 	 * in a corresponding legacy service which points to the same backend
 	 * (used for the backward compatibility)
 	 */
 	__u16 count;
-	__u16 backend_id;	/* Backend ID in lb4_backends */
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u16 weight;		/* Currently not used */
+	__u16 pad;
 };
 
 struct lb4_backend {
