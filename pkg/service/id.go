@@ -79,7 +79,7 @@ func getMaxServiceID() (uint32, error) {
 		return getGlobalMaxServiceID()
 	}
 
-	return serviceIDAlloc.getLocalMaxServiceID()
+	return serviceIDAlloc.getLocalMaxID()
 }
 
 // AcquireBackendID acquires a new local ID for the given backend.
