@@ -66,7 +66,7 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
-func mergeL4Port(ctx *SearchContext, endpoints []api.EndpointSelector, existingFilter, filterToMerge *L4Filter) error {
+func mergePortProto(ctx *SearchContext, endpoints []api.EndpointSelector, existingFilter, filterToMerge *L4Filter) error {
 	// Handle cases where filter we are merging new rule with, new rule itself
 	// allows all traffic on L3, or both rules allow all traffic on L3.
 	//
@@ -154,7 +154,7 @@ func mergeL4Port(ctx *SearchContext, endpoints []api.EndpointSelector, existingF
 	return nil
 }
 
-// mergeL4IngressPort merges all rules which share the same port & protocol that
+// mergeIngressPortProto merges all rules which share the same port & protocol that
 // select a given set of endpoints. It updates the L4Filter mapped to by the specified
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
@@ -164,7 +164,7 @@ func mergeL4Port(ctx *SearchContext, endpoints []api.EndpointSelector, existingF
 // then for the endpoints with L3 override, the L7 rules will be translated
 // into L7 wildcards (ie, traffic will be forwarded to the proxy for endpoints
 // matching those labels, but the proxy will allow all such traffic).
-func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, endpointsWithL3Override []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
+func mergeIngressPortProto(ctx *SearchContext, endpoints []api.EndpointSelector, endpointsWithL3Override []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
@@ -178,7 +178,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels)
 
-	if err := mergeL4Port(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
+	if err := mergePortProto(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
 		return 0, err
 	}
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
@@ -187,7 +187,7 @@ func mergeL4IngressPort(ctx *SearchContext, endpoints []api.EndpointSelector, en
 	return 1, nil
 }
 
-func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	fromEndpoints := rule.GetSourceEndpointSelectors()
 	found := 0
@@ -218,7 +218,7 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 	// L3-only rule without requirements.
 	if len(rule.ToPorts) == 0 && len(rule.FromRequires) == 0 {
-		cnt, err = mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
+		cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
 		}
@@ -251,19 +251,19 @@ func mergeL4Ingress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.
 
 		for _, p := range r.Ports {
 			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, p.Protocol, ruleLabels, resMap)
+				cnt, err := mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err := mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoTCP, ruleLabels, resMap)
+				cnt, err := mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4IngressPort(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoUDP, ruleLabels, resMap)
+				cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -284,8 +284,13 @@ func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArr
 	ctx.PolicyTraceVerbose("  Rule %s: did not select %+v\n", r, labels)
 }
 
-// resolveL4IngressPolicy determines whether (TODO ianvernon)
-func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
+// resolveIngressPolicy analyzes the rule against the given SearchContext, and
+// merges it with any prior-generated policy within the provided L4Policy.
+// Requirements based off of all Ingress requirements (set in FromRequires) in
+// other rules are stored in the specified slice of LabelSelectorRequirement.
+// These requirements are dynamically inserted into a copy of the receiver rule,
+// as requirements form conjunctions across all rules.
+func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
 	if !ctx.rulesSelect {
 		if !r.EndpointSelector.Matches(ctx.To) {
 			state.unSelectRule(ctx, ctx.To, r)
@@ -319,7 +324,7 @@ func (r *rule) resolveL4IngressPolicy(ctx *SearchContext, state *traceState, res
 			}
 			ruleCopy.SetAggregatedSelectors()
 		}
-		cnt, err := mergeL4Ingress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Ingress)
+		cnt, err := mergeIngress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Ingress)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +379,7 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 		allCIDRs = append(allCIDRs, ingressRule.FromCIDR...)
 		allCIDRs = append(allCIDRs, api.ComputeResultantCIDRSet(ingressRule.FromCIDRSet)...)
 
-		// CIDR + L4 rules are handled via mergeL4Ingress(),
+		// CIDR + L4 rules are handled via mergeIngress(),
 		// skip them here.
 		if len(allCIDRs) > 0 && len(ingressRule.ToPorts) > 0 {
 			continue
@@ -573,7 +578,7 @@ func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) ap
 	return api.Undecided
 }
 
-func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	toEndpoints := rule.GetDestinationEndpointSelectors()
 	found := 0
@@ -585,7 +590,7 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 
 	// L3-only rule
 	if len(rule.ToPorts) == 0 && len(rule.ToRequires) == 0 {
-		cnt, err = mergeL4EgressPort(ctx, toEndpoints, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
+		cnt, err = mergeEgressPortProto(ctx, toEndpoints, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
 		}
@@ -618,19 +623,19 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 
 		for _, p := range r.Ports {
 			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeL4EgressPort(ctx, toEndpoints, r, p, p.Protocol, ruleLabels, resMap)
+				cnt, err := mergeEgressPortProto(ctx, toEndpoints, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err := mergeL4EgressPort(ctx, toEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
+				cnt, err := mergeEgressPortProto(ctx, toEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeL4EgressPort(ctx, toEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap)
+				cnt, err = mergeEgressPortProto(ctx, toEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
 					return found, err
 				}
@@ -642,12 +647,12 @@ func mergeL4Egress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.La
 	return found, nil
 }
 
-// mergeL4EgressPort merges all rules which share the same port & protocol that
+// mergeEgressPortProto merges all rules which share the same port & protocol that
 // select a given set of endpoints. It updates the L4Filter mapped to by the specified
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
+func mergeEgressPortProto(ctx *SearchContext, endpoints []api.EndpointSelector, r api.PortRule, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	key := p.Port + "/" + string(proto)
@@ -661,7 +666,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	// for merging with the filter which is already in the policy map.
 	filterToMerge := CreateL4EgressFilter(endpoints, r, p, proto, ruleLabels)
 
-	if err := mergeL4Port(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
+	if err := mergePortProto(ctx, endpoints, &existingFilter, &filterToMerge); err != nil {
 		return 0, err
 	}
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
@@ -669,7 +674,7 @@ func mergeL4EgressPort(ctx *SearchContext, endpoints []api.EndpointSelector, r a
 	return 1, nil
 }
 
-func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
+func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement) (*L4Policy, error) {
 	if !ctx.rulesSelect {
 		if !r.EndpointSelector.Matches(ctx.From) {
 			state.unSelectRule(ctx, ctx.From, r)
@@ -703,7 +708,7 @@ func (r *rule) resolveL4EgressPolicy(ctx *SearchContext, state *traceState, resu
 			}
 			ruleCopy.SetAggregatedSelectors()
 		}
-		cnt, err := mergeL4Egress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)
+		cnt, err := mergeEgress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)
 		if err != nil {
 			return nil, err
 		}
