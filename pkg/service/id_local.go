@@ -26,36 +26,44 @@ type IDAllocator struct {
 	// Protects entitiesID, entities, nextID and maxID
 	lock.RWMutex
 
-	// entitiesID is a map of all entities indexed by service ID
+	// entitiesID is a map of all entities indexed by service or backend ID
 	entitiesID map[uint32]*loadbalancer.L3n4AddrID
 
 	// entities is a map of all entities indexed by L3n4Addr.StringID()
 	entities map[string]uint32
 
-	// nextID is the next service ID to attempt to allocate
+	// nextID is the next ID to attempt to allocate
 	nextID uint32
 
-	// maxID is the maximum service ID available for allocation
+	// maxID is the maximum ID available for allocation
 	maxID uint32
+
+	// initNextID is the initial nextID
+	initNextID uint32
+
+	// initMaxID is the initial maxID
+	initMaxID uint32
 }
 
 var (
-	serviceIDAlloc = NewIDAllocator()
-	backendIDAlloc = NewIDAllocator()
+	serviceIDAlloc = NewIDAllocator(FirstFreeServiceID, MaxSetOfServiceID)
+	backendIDAlloc = NewIDAllocator(FirstFreeServiceID, MaxSetOfServiceID)
 )
 
 // NewIDAllocator creates a new ID allocator instance.
-func NewIDAllocator() *IDAllocator {
+func NewIDAllocator(nextID uint32, maxID uint32) *IDAllocator {
 	return &IDAllocator{
 		entitiesID: map[uint32]*loadbalancer.L3n4AddrID{},
 		entities:   map[string]uint32{},
-		nextID:     FirstFreeServiceID,
-		maxID:      MaxSetOfServiceID,
+		nextID:     nextID,
+		maxID:      maxID,
+		initNextID: nextID,
+		initMaxID:  maxID,
 	}
 }
 
-func (alloc *IDAllocator) addServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
-	svcID := newServiceID(svc, id)
+func (alloc *IDAllocator) addID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
+	svcID := newID(svc, id)
 	alloc.entitiesID[id] = svcID
 	alloc.entities[svc.StringID()] = id
 
@@ -74,7 +82,7 @@ func (alloc *IDAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID ui
 
 	if desiredID != 0 {
 		if _, ok := alloc.entitiesID[desiredID]; !ok {
-			return alloc.addServiceID(svc, desiredID), nil
+			return alloc.addID(svc, desiredID), nil
 		}
 	}
 
@@ -89,7 +97,7 @@ func (alloc *IDAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID ui
 		}
 
 		if _, ok := alloc.entitiesID[alloc.nextID]; !ok {
-			svcID := alloc.addServiceID(svc, alloc.nextID)
+			svcID := alloc.addID(svc, alloc.nextID)
 			alloc.nextID++
 			return svcID, nil
 		}
@@ -132,7 +140,7 @@ func (alloc *IDAllocator) setLocalIDSpace(next, max uint32) error {
 	return nil
 }
 
-func (alloc *IDAllocator) getLocalMaxServiceID() (uint32, error) {
+func (alloc *IDAllocator) getLocalMaxID() (uint32, error) {
 	alloc.RLock()
 	defer alloc.RUnlock()
 	return alloc.nextID, nil
@@ -142,13 +150,12 @@ func (alloc *IDAllocator) resetLocalID() {
 	alloc.Lock()
 	alloc.entitiesID = map[uint32]*loadbalancer.L3n4AddrID{}
 	alloc.entities = map[string]uint32{}
-	// TODO(brb) s/ServiceID//
-	alloc.nextID = FirstFreeServiceID
-	alloc.maxID = MaxSetOfServiceID
+	alloc.nextID = alloc.initNextID
+	alloc.maxID = alloc.initMaxID
 	alloc.Unlock()
 }
 
-func newServiceID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
+func newID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	return &loadbalancer.L3n4AddrID{
 		L3n4Addr: svc,
 		ID:       loadbalancer.ID(id),
