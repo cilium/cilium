@@ -85,10 +85,6 @@ type RuleGen struct {
 // When config.Cache is nil, the global fqdn.DefaultDNSCache is used.
 func NewRuleGen(config Config) *RuleGen {
 
-	if config.Cache == nil {
-		config.Cache = DefaultDNSCache
-	}
-
 	if config.AddGeneratedRules == nil {
 		config.AddGeneratedRules = func(generatedRules []*api.Rule) error { return nil }
 	}
@@ -101,6 +97,10 @@ func NewRuleGen(config Config) *RuleGen {
 		cache:       config.Cache,
 	}
 
+}
+
+func (gen *RuleGen) LookupCache() *DNSCache {
+	return gen.cache
 }
 
 // PrepareFQDNRules adds a tracking label to rules that contain ToFQDN sections.
