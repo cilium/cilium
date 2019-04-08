@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package store
 import (
 	"path"
 
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node"
@@ -53,6 +55,25 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = node.FromKVStore
 		o.manager.NodeUpdated(*nodeCopy)
+
+		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
+		if ciliumIPv4 != nil {
+			hostIP := nodeCopy.GetNodeIP(false)
+			hostKey := node.GetIPsecKeyIdentity()
+			ipcache.IPIdentityCache.Upsert(ciliumIPv4.String(), hostIP, hostKey, ipcache.Identity{
+				ID:     identity.ReservedIdentityHost,
+				Source: ipcache.FromKVStore,
+			})
+		}
+		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
+		if ciliumIPv6 != nil {
+			hostIP := nodeCopy.GetNodeIP(true)
+			hostKey := node.GetIPsecKeyIdentity()
+			ipcache.IPIdentityCache.Upsert(ciliumIPv6.String(), hostIP, hostKey, ipcache.Identity{
+				ID:     identity.ReservedIdentityHost,
+				Source: ipcache.FromKVStore,
+			})
+		}
 	}
 }
 
@@ -61,6 +82,15 @@ func (o *NodeObserver) OnDelete(k store.Key) {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = node.FromKVStore
 		o.manager.NodeDeleted(*nodeCopy)
+
+		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
+		if ciliumIPv4 != nil {
+			ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), ipcache.FromKVStore)
+		}
+		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
+		if ciliumIPv6 != nil {
+			ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), ipcache.FromKVStore)
+		}
 	}
 }
 
