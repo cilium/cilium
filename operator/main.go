@@ -195,13 +195,8 @@ func runOperator(cmd *cobra.Command) {
 
 	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
-	for {
-		select {
-		case <-shutdownSignal:
-			// graceful exit
-			log.Info("Received termination signal. Shutting down")
-			return
-		case <-time.After(time.Second):
-		}
-	}
+	<-shutdownSignal
+	// graceful exit
+	log.Info("Received termination signal. Shutting down")
+	return
 }
