@@ -60,6 +60,7 @@ ginkgo-kubernetes-all.Jenkinsfile @cilium/ci
 Jenkinsfile @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 monitor/ @cilium/monitor
+operator/ @cilium/operator
 pkg/annotation @cilium/kubernetes
 pkg/apierror/ @cilium/api
 pkg/apipanic/ @cilium/api
