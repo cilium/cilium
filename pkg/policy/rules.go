@@ -207,7 +207,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	}
 
 	for _, r := range rules {
-		found, err := r.resolveL4IngressPolicy(ctx, &state, result, requirements)
+		found, err := r.resolveIngressPolicy(ctx, &state, result, requirements)
 		if err != nil {
 			return nil, err
 		}
@@ -251,7 +251,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	state := traceState{}
 	for i, r := range rules {
 		state.ruleID = i
-		found, err := r.resolveL4EgressPolicy(ctx, &state, result, requirements)
+		found, err := r.resolveEgressPolicy(ctx, &state, result, requirements)
 		if err != nil {
 			return nil, err
 		}
