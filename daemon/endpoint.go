@@ -17,7 +17,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -34,29 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/sirupsen/logrus"
 )
-
-var (
-	errEndpointExists = errors.New("endpoint exists")
-)
-
-type errEndpointInvalidParams struct {
-	msg string
-}
-
-func (e errEndpointInvalidParams) Error() string {
-	return e.msg
-}
-
-func isErrEndpointInvalidParams(err error) bool {
-	_, ok := err.(errEndpointInvalidParams)
-	return ok
-}
 
 type getEndpoint struct {
 	d *Daemon
@@ -161,21 +141,28 @@ func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error)
 	return identityLabels, infoLabels, nil
 }
 
-// createEndpoint attempts to create the endpoint corresponding to the change
-// request that was specified. Returns the following errors types:
-//  * errEndpointInvalidParams - If the parameters are not valid
-//  * errEndpointExists - If the endpoint already exists
-// All other error types should be treated as an internal error.
-func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, error) {
+func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
+	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	return nil, PutEndpointIDInvalidCode, err
+}
 
+func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
+	d.deleteEndpoint(ep)
+	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
+	return nil, PutEndpointIDFailedCode, err
+}
+
+// createEndpoint attempts to create the endpoint corresponding to the change
+// request that was specified.
+func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
 	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
 	if err != nil {
-		return nil, errEndpointInvalidParams{err.Error()}
+		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
 
 	oldEp := endpointmanager.LookupCiliumID(ep.ID)
 	if oldEp != nil {
-		return nil, errEndpointExists
+		return invalidDataError(ep, fmt.Errorf("endpoint ID %d already exists", ep.ID))
 	}
 
 	var checkIDs []string
@@ -191,14 +178,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	for _, id := range checkIDs {
 		oldEp, err := endpointmanager.Lookup(id)
 		if err != nil {
-			return nil, errEndpointInvalidParams{err.Error()}
+			return invalidDataError(ep, err)
 		} else if oldEp != nil {
-			return nil, errEndpointExists
+			return invalidDataError(ep, fmt.Errorf("IP %s is already in use", id))
 		}
 	}
 
 	if err = endpoint.APICanModify(ep); err != nil {
-		return nil, errEndpointInvalidParams{err.Error()}
+		return invalidDataError(ep, err)
 	}
 
 	addLabels := labels.NewLabelsFromModel(epTemplate.Labels)
@@ -207,10 +194,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if len(addLabels) > 0 {
 		addLabels, _, ok := checkLabels(addLabels, nil)
 		if !ok {
-			return nil, errEndpointInvalidParams{fmt.Sprintf("no valid label")}
+			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
 		if lbls := addLabels.FindReserved(); lbls != nil {
-			return nil, errEndpointInvalidParams{fmt.Sprintf("not allowed to add reserved labels: %s", lbls)}
+			return invalidDataError(ep, fmt.Errorf("not allowed to add reserved labels: %s", lbls))
 		}
 	}
 
@@ -236,33 +223,26 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	err = endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	logger := ep.Logger(daemonSubsys)
 	if err != nil {
-		logger.WithError(err).Warn("Aborting endpoint join")
-		return nil, err
+		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
 	ep.UpdateLabels(ctx, d, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
-		logger.WithError(ctx.Err()).Warn("Aborting endpoint join due client connection closed")
-		d.deleteEndpoint(ep)
-		return nil, fmt.Errorf("aborting endpoint %d join due client connection closed", ep.ID)
+		return d.errorDuringCreation(ep, fmt.Errorf("request cancelled while resolving identity"))
 	default:
 	}
 
 	if err := ep.LockAlive(); err != nil {
-		logger.Warn("endpoint was deleted while waiting for the identity")
-		d.deleteEndpoint(ep)
-		return nil, fmt.Errorf("endpoint was deleted while waiting for the identity")
+		return d.errorDuringCreation(ep, fmt.Errorf("endpoint was deleted while processing the request"))
 	}
 
 	// Now that we have ep.ID we can pin the map from this point. This
 	// also has to happen before the first build took place.
 	if err = ep.PinDatapathMap(); err != nil {
-		logger.WithError(err).Warn("Aborting endpoint tail call map pin")
 		ep.Unlock()
-		d.deleteEndpoint(ep)
-		return nil, err
+		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
 	build := ep.GetStateLocked() == endpoint.StateReady
@@ -300,7 +280,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 
 	// Wait for endpoint to be in "ready" state if specified in API call.
 	if !epTemplate.SyncBuildEndpoint {
-		return ep, nil
+		return ep, 0, nil
 	}
 
 	logger.Debug("Synchronously waiting for endpoint to regenerate")
@@ -330,13 +310,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		case <-revCh:
 			if ctx.Err() == nil {
 				// At least one BPF regeneration has successfully completed.
-				return ep, nil
+				return ep, 0, nil
 			}
 
 		case <-ctx.Done():
 		case <-ticker.C:
 			if err := ep.RLockAlive(); err != nil {
-				return nil, fmt.Errorf("error locking endpoint: %s", err.Error())
+				return d.errorDuringCreation(ep, fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete"))
 			}
 			hasSidecarProxy := ep.HasSidecarProxy()
 			ep.RUnlock()
@@ -345,16 +325,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 				// return immediately to let the sidecar container start,
 				// in case it is required to enforce L7 rules.
 				logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return ep, nil
+				return ep, 0, nil
 			}
 		}
 
 		if ctx.Err() != nil {
-			// Delete endpoint because PUT operation fails if timeout is
-			// exceeded.
-			logger.Warning("Endpoint did not synchronously regenerate after timeout")
-			d.deleteEndpoint(ep)
-			return nil, fmt.Errorf("endpoint %d did not synchronously regenerate after timeout", ep.ID)
+			return d.errorDuringCreation(ep, fmt.Errorf("timeout while waiting for initial endpoint generation to complete"))
 		}
 	}
 }
@@ -363,25 +339,14 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
 	epTemplate := params.Endpoint
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.ContainerID: epTemplate.ContainerID,
-		logfields.EventUUID:   uuid.NewUUID(),
-	})
-
-	_, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
-	switch {
-	case err == nil:
-		return NewPutEndpointIDCreated()
-	case err == errEndpointExists:
-		logger.WithError(err).Error("Endpoint cannot be created")
-		return api.Error(PutEndpointIDExistsCode, fmt.Errorf("endpoint ID %d exists", epTemplate.ID))
-	case isErrEndpointInvalidParams(err):
-		logger.WithError(err).Error("Endpoint cannot be created")
-		return api.Error(PutEndpointIDInvalidCode, err)
-	default:
-		logger.WithError(err).Error("Endpoint cannot be created")
-		return api.Error(PutEndpointIDFailedCode, err)
+	ep, code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
+	if err != nil {
+		return api.Error(code, err)
 	}
+
+	ep.Logger(daemonSubsys).Info("Successful endpoint creation")
+
+	return NewPutEndpointIDCreated()
 }
 
 type patchEndpointID struct {

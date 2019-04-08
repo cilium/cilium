@@ -1722,7 +1722,7 @@ func APICanModify(e *Endpoint) error {
 		return nil
 	}
 	if e.OpLabels.OrchestrationIdentity.IsReserved() {
-		return fmt.Errorf("Endpoint cannot be modified by API call")
+		return fmt.Errorf("endpoint may not be associated reserved labels")
 	}
 	return nil
 }
