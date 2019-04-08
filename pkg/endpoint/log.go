@@ -44,6 +44,10 @@ func (e *Endpoint) getLogger() *logrus.Entry {
 // Logger returns a logrus object with EndpointID, ContainerID and the Endpoint
 // revision fields. The caller must specify their subsystem.
 func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
+	if e == nil {
+		return log.WithField(logfields.LogSubsys, subsystem)
+	}
+
 	return e.getLogger().WithField(logfields.LogSubsys, subsystem)
 }
 
