@@ -113,7 +113,8 @@ func (s *symbols) sort() symbolSlice {
 }
 
 func isGlobalData(sym elf.Symbol) bool {
-	return elf.ST_TYPE(sym.Info) == elf.STT_NOTYPE &&
+	return (elf.ST_TYPE(sym.Info) == elf.STT_NOTYPE ||
+		elf.ST_TYPE(sym.Info) == elf.STT_OBJECT) &&
 		elf.ST_BIND(sym.Info) == elf.STB_GLOBAL &&
 		elf.ST_VISIBILITY(sym.Other) == elf.STV_DEFAULT
 }
@@ -166,6 +167,10 @@ func (s *symbols) extractFrom(e *elf.File) error {
 	// Scan symbol table for offsets of static data and symbol names.
 	symbolReader := symtab.Open()
 	for i, sym := range symbols {
+		// BTF extensions like line info not recognized by normal ELF parsers
+		if elf.ST_TYPE(sym.Info) == elf.STT_FILE {
+			continue
+		}
 		section := e.Sections[sym.Section]
 		switch {
 		case section.Flags&elf.SHF_COMPRESSED > 0:
