@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,6 +123,8 @@ var (
 )
 
 // Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Service4Key struct {
 	Address types.IPv4 `align:"address"`
 	Port    uint16     `align:"dport"`
@@ -180,6 +182,8 @@ func (k *Service4Key) RevNatValue() RevNatValue {
 }
 
 // Service4Value must match 'struct lb4_service' in "bpf/lib/common.h".
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Service4Value struct {
 	Address types.IPv4 `align:"target"`
 	Port    uint16     `align:"port"`
@@ -250,6 +254,8 @@ func (s *Service4Value) BackendAddrID() BackendAddrID {
 	return BackendAddrID(fmt.Sprintf("%s:%d", s.Address, s.Port))
 }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type RevNat4Key struct {
 	Key uint16
 }
@@ -272,6 +278,8 @@ func (k *RevNat4Key) ToNetwork() RevNatKey {
 	return &n
 }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RevNat4Value struct {
 	Address types.IPv4
 	Port    uint16
@@ -300,13 +308,23 @@ func NewRevNat4Value(ip net.IP, port uint16) *RevNat4Value {
 	return &revNat
 }
 
+type pad3uint8 [3]uint8
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
+	copy(out[:], in[:])
+	return
+}
+
 // Service4KeyV2 must match 'struct lb4_key_v2' in "bpf/lib/common.h".
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Service4KeyV2 struct {
 	Address types.IPv4 `align:"address"`
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
 	Proto   uint8      `align:"proto"`
-	Pad     [3]uint8
+	Pad     pad3uint8
 }
 
 func NewService4KeyV2(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service4KeyV2 {
@@ -343,6 +361,8 @@ func (k *Service4KeyV2) ToNetwork() ServiceKeyV2 {
 }
 
 // Service4ValueV2 must match 'struct lb4_service_v2' in "bpf/lib/common.h".
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Service4ValueV2 struct {
 	BackendID uint32 `align:"backend_id"`
 	Count     uint16 `align:"count"`
@@ -390,6 +410,8 @@ func (s *Service4ValueV2) ToNetwork() ServiceValueV2 {
 	return &n
 }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Backend4Key struct {
 	ID loadbalancer.BackendID
 }
@@ -406,6 +428,8 @@ func (k *Backend4Key) SetID(id loadbalancer.BackendID) { k.ID = id }
 func (k *Backend4Key) GetID() loadbalancer.BackendID   { return k.ID }
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Backend4Value struct {
 	Address types.IPv4      `align:"address"`
 	Port    uint16          `align:"port"`

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import (
 )
 
 // SockmapKey is the 5-tuple used to lookup a socket
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SockmapKey struct {
 	DIP    types.IPv6 `align:"$union0"`
 	SIP    types.IPv6 `align:"$union1"`
@@ -37,6 +39,8 @@ type SockmapKey struct {
 }
 
 // SockmapValue is the fd of a socket
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type SockmapValue struct {
 	fd uint32
 }
@@ -104,9 +108,9 @@ var (
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := SockmapKey{}, SockmapValue{}
+			k, v := &SockmapKey{}, &SockmapValue{}
 
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+			if err := bpf.ConvertKeyValue(key, value, k, v); err != nil {
 				return nil, nil, err
 			}
 
