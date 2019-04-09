@@ -49,6 +49,9 @@ type MapKey interface {
 
 	// Allocates a new value matching the key type
 	NewValue() MapValue
+
+	// DeepCopyMapKey returns a deep copy of the map key
+	DeepCopyMapKey() MapKey
 }
 
 type MapValue interface {
@@ -56,11 +59,16 @@ type MapValue interface {
 
 	// Returns pointer to start of value
 	GetValuePtr() unsafe.Pointer
+
+	// DeepCopyMapValue returns a deep copy of the map value
+	DeepCopyMapValue() MapValue
 }
 
 type MapInfo struct {
 	MapType       MapType
+	MapKey        MapKey
 	KeySize       uint32
+	MapValue      MapValue
 	ValueSize     uint32
 	MaxEntries    uint32
 	Flags         uint32
@@ -118,11 +126,13 @@ type Map struct {
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, keySize int, valueSize int, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
+func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue MapValue, valueSize int, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
+			MapKey:        mapKey,
 			KeySize:       uint32(keySize),
+			MapValue:      mapValue,
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
