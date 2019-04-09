@@ -113,7 +113,8 @@ func (s *symbols) sort() symbolSlice {
 }
 
 func isGlobalData(sym elf.Symbol) bool {
-	return elf.ST_TYPE(sym.Info) == elf.STT_NOTYPE &&
+	return (elf.ST_TYPE(sym.Info) == elf.STT_NOTYPE ||
+		elf.ST_TYPE(sym.Info) == elf.STT_OBJECT) &&
 		elf.ST_BIND(sym.Info) == elf.STB_GLOBAL &&
 		elf.ST_VISIBILITY(sym.Other) == elf.STV_DEFAULT
 }
@@ -166,17 +167,14 @@ func (s *symbols) extractFrom(e *elf.File) error {
 	// Scan symbol table for offsets of static data and symbol names.
 	symbolReader := symtab.Open()
 	for i, sym := range symbols {
+		// BTF extensions like line info not recognized by normal ELF parsers
+		if elf.ST_TYPE(sym.Info) == elf.STT_FILE {
+			continue
+		}
 		section := e.Sections[sym.Section]
 		switch {
 		case section.Flags&elf.SHF_COMPRESSED > 0:
 			return fmt.Errorf("compressed %s section not supported", section.Name)
-		case !isGlobalData(sym):
-			// LBB is a common llvm symbol prefix (basic block);
-			// Don't flood the logs with messages about it.
-			if !strings.HasPrefix(sym.Name, "LBB") {
-				log.Debugf("Skipping %s", sym.Name)
-			}
-			continue
 		case section.Name == dataSection:
 			// Offset from start of binary to variable inside .data
 			offset := section.Offset + sym.Value
@@ -196,6 +194,13 @@ func (s *symbols) extractFrom(e *elf.File) error {
 			symOffset := strtab.Offset + symOffsetInStrtab
 			stringOffsets[sym.Name] = newString(sym.Name, symOffset)
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found symbol with offset %d", symOffset)
+		case !isGlobalData(sym):
+			// LBB is a common llvm symbol prefix (basic block);
+			// Don't flood the logs with messages about it.
+			if !strings.HasPrefix(sym.Name, "LBB") {
+				log.Debugf("Skipping %s", sym.Name)
+			}
+			continue
 		default:
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found symbol with unknown section reference %d", sym.Section)
 		}
