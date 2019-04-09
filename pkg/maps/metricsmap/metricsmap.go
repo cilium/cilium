@@ -260,7 +260,9 @@ func init() {
 	Metrics = bpf.NewMap(
 		MapName,
 		bpf.BPF_MAP_TYPE_PERCPU_HASH,
+		&Key{},
 		int(unsafe.Sizeof(Key{})),
+		&Value{},
 		int(unsafe.Sizeof(Value{})),
 		MaxEntries,
 		0, 0,

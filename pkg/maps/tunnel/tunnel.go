@@ -44,7 +44,9 @@ type Map struct {
 func NewTunnelMap(name string) *Map {
 	return &Map{Map: bpf.NewMap(MapName,
 		bpf.MapTypeHash,
+		&TunnelEndpoint{},
 		int(unsafe.Sizeof(TunnelEndpoint{})),
+		&TunnelEndpoint{},
 		int(unsafe.Sizeof(TunnelEndpoint{})),
 		MaxEntries,
 		0, 0,

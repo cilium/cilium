@@ -29,7 +29,9 @@ import (
 var (
 	Service4Map = bpf.NewMap("cilium_lb4_services",
 		bpf.MapTypeHash,
+		&Service4Key{},
 		int(unsafe.Sizeof(Service4Key{})),
+		&Service4Value{},
 		int(unsafe.Sizeof(Service4Value{})),
 		MaxEntries,
 		0, 0,
@@ -44,7 +46,9 @@ var (
 		}).WithCache()
 	Service4MapV2 = bpf.NewMap("cilium_lb4_services_v2",
 		bpf.MapTypeHash,
+		&Service4KeyV2{},
 		int(unsafe.Sizeof(Service4KeyV2{})),
+		&Service4ValueV2{},
 		int(unsafe.Sizeof(Service4ValueV2{})),
 		MaxEntries,
 		0, 0,
@@ -59,7 +63,9 @@ var (
 		}).WithCache()
 	Backend4Map = bpf.NewMap("cilium_lb4_backends",
 		bpf.MapTypeHash,
+		&Backend4Key{},
 		int(unsafe.Sizeof(Backend4Key{})),
+		&Backend4Value{},
 		int(unsafe.Sizeof(Backend4Value{})),
 		MaxEntries,
 		0, 0,
@@ -74,7 +80,9 @@ var (
 		}).WithCache()
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
+		&RevNat4Key{},
 		int(unsafe.Sizeof(RevNat4Key{})),
+		&RevNat4Value{},
 		int(unsafe.Sizeof(RevNat4Value{})),
 		MaxEntries,
 		0, 0,
@@ -92,7 +100,9 @@ var (
 		}).WithCache()
 	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
 		bpf.MapTypeHash,
+		&Service4Key{},
 		int(unsafe.Sizeof(Service4Key{})),
+		&RRSeqValue{},
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
 		0, 0,
@@ -107,7 +117,9 @@ var (
 		}).WithCache()
 	RRSeq4MapV2 = bpf.NewMap("cilium_lb4_rr_seq_v2",
 		bpf.MapTypeHash,
+		&Service4KeyV2{},
 		int(unsafe.Sizeof(Service4KeyV2{})),
+		&RRSeqValue{},
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
 		0, 0,

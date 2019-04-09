@@ -88,6 +88,7 @@ const (
 )
 
 type mapAttributes struct {
+	mapKey     bpf.MapKey
 	keySize    int
 	maxEntries int
 	parser     bpf.DumpParser
@@ -95,9 +96,10 @@ type mapAttributes struct {
 	natMap     *nat.Map
 }
 
-func setupMapInfo(mapType MapType, define string, keySize, maxEntries int, parser bpf.DumpParser, nat *nat.Map) {
+func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize, maxEntries int, parser bpf.DumpParser, nat *nat.Map) {
 	mapInfo[mapType] = mapAttributes{
 		bpfDefine:  define,
+		mapKey:     mapKey,
 		keySize:    keySize,
 		maxEntries: maxEntries,
 		parser:     parser,
@@ -117,20 +119,24 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
 	mapType := MapTypeIPv4TCPLocal
 	for _, maxEntries := range []int{MapNumEntriesLocal, tcpMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
+			&tuple.TupleKey4{},
 			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
 			ct4DumpParser, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP6",
+			&tuple.TupleKey6{},
 			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
 			ct6DumpParser, natV6)
 		mapType++
 	}
 	for _, maxEntries := range []int{MapNumEntriesLocal, anyMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
+			&tuple.TupleKey4{},
 			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
 			ct4DumpParser, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY6",
+			&tuple.TupleKey6{},
 			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
 			ct6DumpParser, natV6)
 		mapType++
@@ -219,7 +225,9 @@ func NewMap(mapName string, mapType MapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
+			mapInfo[mapType].mapKey,
 			mapInfo[mapType].keySize,
+			&CtEntry{},
 			int(unsafe.Sizeof(CtEntry{})),
 			mapInfo[mapType].maxEntries,
 			0, 0,

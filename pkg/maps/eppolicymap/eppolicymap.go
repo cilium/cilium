@@ -47,7 +47,9 @@ var (
 
 	EpPolicyMap = bpf.NewMap(MapName,
 		bpf.MapTypeHashOfMaps,
+		&EndpointKey{},
 		int(unsafe.Sizeof(EndpointKey{})),
+		&EPPolicyValue{},
 		int(unsafe.Sizeof(EPPolicyValue{})),
 		MaxEntries,
 		0,

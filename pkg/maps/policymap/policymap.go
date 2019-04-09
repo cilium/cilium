@@ -256,7 +256,9 @@ func newMap(path string) *PolicyMap {
 		Map: bpf.NewMap(
 			path,
 			mapType,
+			&PolicyKey{},
 			int(unsafe.Sizeof(PolicyKey{})),
+			&PolicyEntry{},
 			int(unsafe.Sizeof(PolicyEntry{})),
 			MaxEntries,
 			flags, 0,

@@ -169,7 +169,9 @@ func OpenMapWithName(path string) (*EndpointConfigMap, bool, error) {
 
 	newMap := bpf.NewMap(path,
 		bpf.BPF_MAP_TYPE_ARRAY,
+		&Key{},
 		int(unsafe.Sizeof(uint32(0))),
+		&EndpointConfig{},
 		int(unsafe.Sizeof(EndpointConfig{})),
 		MaxEntries,
 		0,

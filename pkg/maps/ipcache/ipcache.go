@@ -158,7 +158,9 @@ func NewMap(name string) *Map {
 		Map: *bpf.NewMap(
 			name,
 			bpf.BPF_MAP_TYPE_LPM_TRIE,
+			&Key{},
 			int(unsafe.Sizeof(Key{})),
+			&RemoteEndpointInfo{},
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,

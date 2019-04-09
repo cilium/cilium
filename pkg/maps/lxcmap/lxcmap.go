@@ -40,7 +40,9 @@ var (
 	// LXCMap represents the BPF map for endpoints
 	LXCMap = bpf.NewMap(MapName,
 		bpf.MapTypeHash,
+		&EndpointKey{},
 		int(unsafe.Sizeof(EndpointKey{})),
+		&EndpointInfo{},
 		int(unsafe.Sizeof(EndpointInfo{})),
 		MaxEntries,
 		0, 0,

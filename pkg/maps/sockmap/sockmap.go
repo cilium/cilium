@@ -99,7 +99,9 @@ var (
 	// SockMap represents the BPF map for sockets
 	SockMap = bpf.NewMap(mapName,
 		bpf.MapTypeSockHash,
+		&SockmapKey{},
 		int(unsafe.Sizeof(SockmapKey{})),
+		&SockmapValue{},
 		4,
 		MaxEntries,
 		0, 0,

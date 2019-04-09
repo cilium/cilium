@@ -30,7 +30,9 @@ var (
 	// Service6Map represents the BPF map for services in IPv6 load balancer
 	Service6Map = bpf.NewMap("cilium_lb6_services",
 		bpf.MapTypeHash,
+		&Service6Key{},
 		int(unsafe.Sizeof(Service6Key{})),
+		&Service6Value{},
 		int(unsafe.Sizeof(Service6Value{})),
 		MaxEntries,
 		0, 0,
@@ -45,7 +47,9 @@ var (
 		}).WithCache()
 	Service6MapV2 = bpf.NewMap("cilium_lb6_services_v2",
 		bpf.MapTypeHash,
+		&Service6KeyV2{},
 		int(unsafe.Sizeof(Service6KeyV2{})),
+		&Service6ValueV2{},
 		int(unsafe.Sizeof(Service6ValueV2{})),
 		MaxEntries,
 		0, 0,
@@ -60,7 +64,9 @@ var (
 		}).WithCache()
 	Backend6Map = bpf.NewMap("cilium_lb6_backends",
 		bpf.MapTypeHash,
+		&Backend6Key{},
 		int(unsafe.Sizeof(Backend6Key{})),
+		&Backend6Value{},
 		int(unsafe.Sizeof(Backend6Value{})),
 		MaxEntries,
 		0, 0,
@@ -76,7 +82,9 @@ var (
 	// RevNat6Map represents the BPF map for reverse NAT in IPv6 load balancer
 	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
+		&RevNat6Key{},
 		int(unsafe.Sizeof(RevNat6Key{})),
+		&RevNat6Value{},
 		int(unsafe.Sizeof(RevNat6Value{})),
 		MaxEntries,
 		0, 0,
@@ -95,7 +103,9 @@ var (
 	// RRSeq6Map represents the BPF map for wrr sequences in IPv6 load balancer
 	RRSeq6Map = bpf.NewMap("cilium_lb6_rr_seq",
 		bpf.MapTypeHash,
+		&Service6Key{},
 		int(unsafe.Sizeof(Service6Key{})),
+		&RRSeqValue{},
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
 		0, 0,
@@ -111,7 +121,9 @@ var (
 	// RRSeq6MapV2 represents the BPF map for wrr sequences in IPv6 load balancer
 	RRSeq6MapV2 = bpf.NewMap("cilium_lb6_rr_seq_v2",
 		bpf.MapTypeHash,
+		&Service6KeyV2{},
 		int(unsafe.Sizeof(Service6KeyV2{})),
+		&RRSeqValue{},
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
 		0, 0,

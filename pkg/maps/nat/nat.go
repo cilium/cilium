@@ -100,13 +100,19 @@ func nat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) 
 func NewMap(name string, v4 bool) *Map {
 	var parser bpf.DumpParser
 	var sizeKey, sizeVal int
+	var mapKey bpf.MapKey
+	var mapValue bpf.MapValue
 
 	if v4 {
-		sizeKey = int(unsafe.Sizeof(tuple.TupleKey4{}))
+		mapKey = &tuple.TupleKey4Global{}
+		sizeKey = int(unsafe.Sizeof(tuple.TupleKey4Global{}))
+		mapValue = &NatEntry4{}
 		sizeVal = int(unsafe.Sizeof(NatEntry4{}))
 		parser = nat4DumpParser
 	} else {
-		sizeKey = int(unsafe.Sizeof(tuple.TupleKey6{}))
+		mapKey = &tuple.TupleKey6Global{}
+		sizeKey = int(unsafe.Sizeof(tuple.TupleKey6Global{}))
+		mapValue = &NatEntry6{}
 		sizeVal = int(unsafe.Sizeof(NatEntry6{}))
 		parser = nat6DumpParser
 	}
@@ -114,7 +120,9 @@ func NewMap(name string, v4 bool) *Map {
 		Map: *bpf.NewMap(
 			name,
 			bpf.MapTypeLRUHash,
+			mapKey,
 			sizeKey,
+			mapValue,
 			sizeVal,
 			MaxEntries,
 			0, 0,
