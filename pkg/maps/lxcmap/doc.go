@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,4 +16,5 @@
 // implemented as a hash table containing an entry for all local endpoints.
 // The hashtable can be accessed through the key EndpointKey and points which
 // points to the value EndpointInfo.
+// +groupName=maps
 package lxcmap
