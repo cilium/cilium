@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/vishvananda/netlink"
 
 	"github.com/sirupsen/logrus"
@@ -169,28 +168,6 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecDeleteStateOut(src, local net.IP) error {
-	state := ipSecNewState()
-
-	state.Src = src
-	state.Dst = local
-	err := netlink.XfrmStateDel(state)
-	return err
-}
-
-func ipSecDeleteStateIn(src, local net.IP) error {
-	state := ipSecNewState()
-
-	state.Src = src
-	state.Dst = local
-	err := netlink.XfrmStateDel(state)
-	return err
-}
-
-func ipSecDeletePolicy(src, local net.IP) error {
-	return nil
-}
-
 func ipsecDeleteXfrmSpi(spi uint8) {
 	var err error
 	scopedLog := log.WithFields(logrus.Fields{
@@ -310,27 +287,6 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 		}
 	}
 	return spi, nil
-}
-
-// DeleteIPSecEndpoint deletes the endpoint from IPSec SPD and SAD
-func DeleteIPSecEndpoint(src, local net.IP) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr: src,
-	})
-
-	err := ipSecDeleteStateIn(src, local)
-	if err != nil {
-		scopedLog.WithError(err).Warning("unable to delete IPSec (stateIn) context\n")
-	}
-	err = ipSecDeleteStateOut(src, local)
-	if err != nil {
-		scopedLog.WithError(err).Warning("unable to delete IPSec (stateOut) context\n")
-	}
-	err = ipSecDeletePolicy(src, local)
-	if err != nil {
-		scopedLog.WithError(err).Warning("unable to delete IPSec (policy) context\n")
-	}
-	return nil
 }
 
 func decodeIPSecKey(keyRaw string) ([]byte, error) {
