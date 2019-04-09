@@ -24,6 +24,8 @@ import (
 )
 
 // NatEntry4 represents an IPv4 entry in the NAT table.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type NatEntry4 struct {
 	Created   uint64     `align:"created"`
 	HostLocal uint64     `align:"host_local"`

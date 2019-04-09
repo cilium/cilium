@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,4 +19,5 @@
 // where the program has a direct lookup of the policy because each
 // program is attached to an endpoint, socket programs run on all sockets
 // regardless of endpoint.
+// +groupName=maps
 package eppolicymap

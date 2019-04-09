@@ -39,7 +39,12 @@ const (
 	MaxEntries = 65535
 )
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type EndpointKey struct{ bpf.EndpointKey }
+
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type EPPolicyValue struct{ Fd uint32 }
 
 var (
