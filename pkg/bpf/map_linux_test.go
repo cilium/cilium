@@ -217,10 +217,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(value, checker.DeepEquals, value2)
 
-	err = parallelMap.EndParallelMode()
-	c.Assert(err, IsNil)
-	err = parallelMap.EndParallelMode()
-	c.Assert(err, Not(IsNil))
+	parallelMap.EndParallelMode()
 }
 
 func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {

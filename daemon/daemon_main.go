@@ -1106,9 +1106,7 @@ func waitForHostDeviceWhenReady(ifaceName string) error {
 }
 
 func endParallelMapMode() {
-	if err := ipcachemap.IPCache.EndParallelMode(); err != nil {
-		log.WithError(err).Error("Unable to end parallel mode of ipcache map")
-	}
+	ipcachemap.IPCache.EndParallelMode()
 }
 
 func runDaemon() {
