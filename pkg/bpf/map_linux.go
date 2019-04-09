@@ -18,14 +18,10 @@ package bpf
 
 import (
 	"bufio"
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
-	"math"
 	"os"
 	"path"
-	"reflect"
 	"sync"
 	"syscall"
 	"time"
@@ -899,17 +895,15 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 
 // ConvertKeyValue converts key and value from bytes to given Golang struct pointers.
 func ConvertKeyValue(bKey []byte, bValue []byte, key MapKey, value MapValue) (MapKey, MapValue, error) {
-	keyBuf := bytes.NewBuffer(bKey)
-	valueBuf := bytes.NewBuffer(bValue)
 
 	if len(bKey) > 0 {
-		if err := binary.Read(keyBuf, byteorder.Native, key); err != nil {
+		if err := read(bKey, byteorder.Native, key); err != nil {
 			return nil, nil, fmt.Errorf("Unable to convert key: %s", err)
 		}
 	}
 
 	if len(bValue) > 0 {
-		if err := binary.Read(valueBuf, byteorder.Native, value); err != nil {
+		if err := read(bValue, byteorder.Native, value); err != nil {
 			return nil, nil, fmt.Errorf("Unable to convert value: %s", err)
 		}
 	}
