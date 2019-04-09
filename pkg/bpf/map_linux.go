@@ -880,7 +880,7 @@ func (m *Map) DeleteAll() error {
 	return nil
 }
 
-//GetNextKey returns the next key in the Map after key.
+// GetNextKey returns the next key in the Map after key.
 func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 	if err := m.Open(); err != nil {
 		return err
