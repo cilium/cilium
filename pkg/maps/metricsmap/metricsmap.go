@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,14 +64,26 @@ var direction = map[uint8]string{
 	2: "EGRESS",
 }
 
+type pad3uint16 [3]uint16
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *pad3uint16) DeepCopyInto(out *pad3uint16) {
+	copy(out[:], in[:])
+	return
+}
+
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key struct {
-	Reason   uint8     `align:"reason"`
-	Dir      uint8     `align:"dir"`
-	Reserved [3]uint16 `align:"reserved"`
+	Reason   uint8      `align:"reason"`
+	Dir      uint8      `align:"dir"`
+	Reserved pad3uint16 `align:"reserved"`
 }
 
 // Value must be in sync with struct metrics_value in <bpf/lib/common.h>
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Value struct {
 	Count uint64 `align:"count"`
 	Bytes uint64 `align:"bytes"`

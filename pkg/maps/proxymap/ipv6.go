@@ -27,6 +27,9 @@ import (
 
 var Proxy6MapName = "cilium_proxy6"
 
+// Proxy6Key
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Proxy6Key struct {
 	SAddr   types.IPv6 `align:"saddr"`
 	DPort   uint16     `align:"dport"`
@@ -41,6 +44,9 @@ func (k *Proxy6Key) HostPort() string {
 	return net.JoinHostPort(k.SAddr.IP().String(), portStr)
 }
 
+// Proxy6Value
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Proxy6Value struct {
 	OrigDAddr      types.IPv6 `align:"orig_daddr"`
 	OrigDPort      uint16     `align:"orig_dport"`

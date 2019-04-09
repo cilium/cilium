@@ -32,6 +32,9 @@ var (
 	Proxy4MapName = "cilium_proxy4"
 )
 
+// Proxy4Key
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Proxy4Key struct {
 	SAddr   types.IPv4 `align:"saddr"`
 	DPort   uint16     `align:"dport"`
@@ -46,6 +49,9 @@ func (k *Proxy4Key) HostPort() string {
 	return net.JoinHostPort(k.SAddr.IP().String(), portStr)
 }
 
+// Proxy4Value
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Proxy4Value struct {
 	OrigDAddr      types.IPv4 `align:"orig_daddr"`
 	OrigDPort      uint16     `align:"orig_dport"`

@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ const (
 // EndpointKey represents the key value of the endpoints BPF map
 //
 // Must be in sync with struct endpoint_key in <bpf/lib/common.h>
+// +k8s:deepcopy-gen=true
 type EndpointKey struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP     types.IPv6 `align:"$union0"`

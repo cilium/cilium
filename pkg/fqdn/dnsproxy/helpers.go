@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/miekg/dns"
 )
@@ -93,23 +94,23 @@ func createProxyMapKey(w dns.ResponseWriter) (mapKey proxymap.ProxyMapKey, err e
 	}
 
 	if clientSourceIP.To4() != nil {
-		key := proxymap.Proxy4Key{
-			SPort:   clientSourcePort,
-			DPort:   proxyListenPort,
-			Nexthdr: uint8(protocol),
+		key := tuple.TupleKey4{
+			SourcePort: clientSourcePort,
+			DestPort:   proxyListenPort,
+			NextHeader: u8proto.U8proto(protocol),
 		}
 
-		copy(key.SAddr[:], clientSourceIP.To4())
+		copy(key.SourceAddr[:], clientSourceIP.To4())
 		return key, nil
 	}
 
-	key := proxymap.Proxy6Key{
-		SPort:   uint16(clientSourcePort),
-		DPort:   uint16(proxyListenPort),
-		Nexthdr: uint8(protocol),
+	key := tuple.TupleKey6{
+		SourcePort: uint16(clientSourcePort),
+		DestPort:   uint16(proxyListenPort),
+		NextHeader: u8proto.U8proto(protocol),
 	}
 
-	copy(key.SAddr[:], clientSourceIP.To16())
+	copy(key.SourceAddr[:], clientSourceIP.To16())
 	return key, nil
 }
 

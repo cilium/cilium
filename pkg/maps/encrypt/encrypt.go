@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,15 @@ import (
 )
 
 // EncryptKey is the context ID for the encryption session
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type EncryptKey struct {
 	key uint32 `align:"ctx"`
 }
 
 // EncryptValue is ID assigned to the keys
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type EncryptValue struct {
 	encryptKeyID uint8
 }
@@ -78,7 +82,7 @@ var (
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := EncryptKey{}, EncryptValue{}
+			k, v := &EncryptKey{}, &EncryptValue{}
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
 			}
