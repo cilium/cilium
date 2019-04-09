@@ -26,7 +26,6 @@ import (
 	"runtime"
 
 	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -49,6 +48,15 @@ type progInfo struct {
 	Output string
 	// OutputType to be created by LLVM
 	OutputType OutputType
+}
+
+// String returns the program information as string
+func (p *progInfo) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+
+	return fmt.Sprintf("%s -> %s (%s)", p.Source, p.Output, p.OutputType)
 }
 
 // directoryInfo includes relevant directories for compilation and linking
@@ -257,31 +265,18 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 // * Assembly
 // * Object compiled with debug symbols
 func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debug bool) error {
-	// TODO: Consider logging kernel/clang versions here too
-	epLog := ep.Logger(Subsystem)
-
 	// Write out assembly and preprocessing files for debugging purposes
 	if debug {
 		for _, p := range debugProgs {
 			if err := compile(ctx, p, dirs, debug); err != nil {
-				scopedLog := epLog.WithFields(logrus.Fields{
-					logfields.Params: logfields.Repr(p),
-					logfields.Debug:  debug,
-				})
-				scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
-				return err
+				return fmt.Errorf("unable to compile %s: %s", p, err)
 			}
 		}
 	}
 
 	// Compile the new program
 	if err := compile(ctx, datapathProg, dirs, debug); err != nil {
-		scopedLog := epLog.WithFields(logrus.Fields{
-			logfields.Params: logfields.Repr(datapathProg),
-			logfields.Debug:  false,
-		})
-		scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
-		return err
+		return fmt.Errorf("unable to compile %s: %s", datapathProg, err)
 	}
 
 	return nil
@@ -312,5 +307,10 @@ func compileTemplate(ctx context.Context, out string) error {
 		Output:  out,
 		State:   out,
 	}
-	return compile(ctx, datapathProg, &dirs, option.Config.BPFCompilationDebug)
+	err := compile(ctx, datapathProg, &dirs, option.Config.BPFCompilationDebug)
+	// in case of cancellation, ignore any compilation specific error
+	if ctx.Err() != nil {
+		return fmt.Errorf("compilation was cancelled: %s", ctx.Err())
+	}
+	return err
 }

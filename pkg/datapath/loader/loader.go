@@ -53,7 +53,12 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	if ep.HasIpvlanDataPath() {
-		if err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint); err != nil {
+		err := graftDatapath(ctx, ep.MapPath(), objPath, symbolFromEndpoint)
+		// in case of cancellation, ignore any reload specific error
+		if ctx.Err() != nil {
+			return fmt.Errorf("request was cancelled: %s", ctx.Err())
+		}
+		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 			})
@@ -61,7 +66,12 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 			return err
 		}
 	} else {
-		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
+		err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint)
+		// in case of cancellation, ignore any reload specific error
+		if ctx.Err() != nil {
+			return fmt.Errorf("request was cancelled: %s", ctx.Err())
+		}
+		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
@@ -76,7 +86,14 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 
 func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
 	debug := option.Config.BPFCompilationDebug
-	if err := compileDatapath(ctx, ep, dirs, debug); err != nil {
+	err := compileDatapath(ctx, ep, dirs, debug)
+	// in case of cancellation, ignore any compilation specific error
+	if ctx.Err() != nil {
+		return fmt.Errorf("compilation was cancelled: %s", ctx.Err())
+	}
+	if err != nil {
+		// TODO: Consider logging kernel/clang versions here too
+		ep.Logger(Subsystem).WithError(err).Warning("JoinEP: Failed to compile endpoint")
 		return err
 	}
 
