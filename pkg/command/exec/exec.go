@@ -30,9 +30,9 @@ import (
 // options and logging errors, with an optional set of filtered outputs.
 func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
 	out, err := cmd.CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
-		scopedLog.WithField("cmd", cmd.Args).Error("Command execution failed: Timeout")
-		return nil, fmt.Errorf("Command execution failed: Timeout for %s", cmd.Args)
+	if ctx.Err() != nil {
+		scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+		return nil, fmt.Errorf("Command execution failed for %s: %s", cmd.Args, ctx.Err())
 	}
 	if err != nil {
 		if verbose {
