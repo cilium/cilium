@@ -90,9 +90,9 @@ spec:
           # avoid an endless kill & restart cycle if in the event that the initial
           # bootstrapping takes longer than expected.
           initialDelaySeconds: 120
-          periodSeconds: 10
+          periodSeconds: 30
           successThreshold: 1
-          timeoutSeconds: 1
+          timeoutSeconds: 5
         name: cilium-agent
         ports:
         - containerPort: 9090
@@ -107,9 +107,9 @@ spec:
             - --brief
           failureThreshold: 3
           initialDelaySeconds: 5
-          periodSeconds: 5
+          periodSeconds: 30
           successThreshold: 1
-          timeoutSeconds: 1
+          timeoutSeconds: 5
         securityContext:
           capabilities:
             add:
