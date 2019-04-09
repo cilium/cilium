@@ -46,15 +46,7 @@ var (
 		int(unsafe.Sizeof(EndpointInfo{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := EndpointKey{}, EndpointInfo{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-
-			return &k, &v, nil
-		},
+		bpf.ConvertKeyValue,
 	).WithCache()
 )
 
@@ -227,7 +219,7 @@ func DeleteElement(f EndpointFrontend) []error {
 func DumpToMap() (map[string]*EndpointInfo, error) {
 	m := map[string]*EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
-		if info, ok := value.(*EndpointInfo); ok {
+		if info, ok := value.DeepCopyMapValue().(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
 				m[endpointKey.ToIP().String()] = info
 			}

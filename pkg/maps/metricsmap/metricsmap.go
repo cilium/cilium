@@ -278,12 +278,6 @@ func init() {
 		int(unsafe.Sizeof(Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Key{}, Value{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-			return &k, &v, nil
-		})
+		bpf.ConvertKeyValue,
+	)
 }

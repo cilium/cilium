@@ -78,27 +78,8 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 	return fmt.Sprintf("%dsec", tsecStart-tsecCreated)
 }
 
-func nat4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tuple.TupleKey4Global{}, NatEntry4{}
-
-	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-		return nil, nil, err
-	}
-	return &k, &v, nil
-}
-
-func nat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tuple.TupleKey6Global{}, NatEntry6{}
-
-	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-		return nil, nil, err
-	}
-	return &k, &v, nil
-}
-
 // NewMap instantiates a Map.
 func NewMap(name string, v4 bool) *Map {
-	var parser bpf.DumpParser
 	var sizeKey, sizeVal int
 	var mapKey bpf.MapKey
 	var mapValue bpf.MapValue
@@ -108,13 +89,11 @@ func NewMap(name string, v4 bool) *Map {
 		sizeKey = int(unsafe.Sizeof(tuple.TupleKey4Global{}))
 		mapValue = &NatEntry4{}
 		sizeVal = int(unsafe.Sizeof(NatEntry4{}))
-		parser = nat4DumpParser
 	} else {
 		mapKey = &tuple.TupleKey6Global{}
 		sizeKey = int(unsafe.Sizeof(tuple.TupleKey6Global{}))
 		mapValue = &NatEntry6{}
 		sizeVal = int(unsafe.Sizeof(NatEntry6{}))
-		parser = nat6DumpParser
 	}
 	return &Map{
 		Map: *bpf.NewMap(
@@ -126,7 +105,7 @@ func NewMap(name string, v4 bool) *Map {
 			sizeVal,
 			MaxEntries,
 			0, 0,
-			parser,
+			bpf.ConvertKeyValue,
 		).WithCache(),
 		v4: v4,
 	}

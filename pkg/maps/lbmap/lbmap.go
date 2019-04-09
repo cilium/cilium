@@ -560,8 +560,8 @@ func DumpServiceMapsToUserspace() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, [
 	idCache := map[string]loadbalancer.ServiceID{}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.(ServiceKey)
-		svcValue := value.(ServiceValue)
+		svcKey := key.DeepCopyMapKey().(ServiceKey)
+		svcValue := value.DeepCopyMapValue().(ServiceValue)
 
 		// Skip master service
 		if svcKey.GetBackend() == 0 {
@@ -631,13 +631,13 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
-		backendValue := value.(BackendValue)
+		backendValue := value.DeepCopyMapValue().(BackendValue)
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.(ServiceKeyV2)
-		svcValue := value.(ServiceValueV2)
+		svcKey := key.DeepCopyMapKey().(ServiceKeyV2)
+		svcValue := value.DeepCopyMapValue().(ServiceValueV2)
 
 		// Skip master service
 		if svcKey.GetSlave() == 0 {
@@ -721,8 +721,10 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 	lbBackends := map[BackendAddrID]*loadbalancer.LBBackEnd{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		// No need to deep copy the key because we are using the ID which
+		// is a value.
 		backendKey := key.(BackendKey)
-		backendValue := value.(BackendValue)
+		backendValue := value.DeepCopyMapValue().(BackendValue)
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
@@ -761,8 +763,8 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 	errors := []error{}
 
 	parseRevNATEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		revNatK := key.(RevNatKey)
-		revNatV := value.(RevNatValue)
+		revNatK := key.DeepCopyMapKey().(RevNatKey)
+		revNatV := value.DeepCopyMapValue().(RevNatValue)
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.BPFMapKey:   revNatK,
 			logfields.BPFMapValue: revNatV,

@@ -180,14 +180,8 @@ func OpenMapWithName(path string) (*EndpointConfigMap, bool, error) {
 		MaxEntries,
 		0,
 		0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Key{}, EndpointConfig{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-			return &k, &v, nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 
 	isNewMap, err := newMap.OpenOrCreate()
 

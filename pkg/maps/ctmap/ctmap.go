@@ -121,24 +121,24 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
 			&tuple.TupleKey4{},
 			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
-			ct4DumpParser, natV4)
+			bpf.ConvertKeyValue, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP6",
 			&tuple.TupleKey6{},
 			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
-			ct6DumpParser, natV6)
+			bpf.ConvertKeyValue, natV6)
 		mapType++
 	}
 	for _, maxEntries := range []int{MapNumEntriesLocal, anyMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
 			&tuple.TupleKey4{},
 			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
-			ct4DumpParser, natV4)
+			bpf.ConvertKeyValue, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY6",
 			&tuple.TupleKey6{},
 			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
-			ct6DumpParser, natV6)
+			bpf.ConvertKeyValue, natV6)
 		mapType++
 	}
 }
@@ -190,6 +190,7 @@ func (m *Map) DumpEntries() (string, error) {
 	var buffer bytes.Buffer
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
+		// No need to deep copy as the values are used to create new strings
 		key := k.(tuple.TupleKey)
 		if !key.ToHost().Dump(&buffer, true) {
 			return
@@ -200,24 +201,6 @@ func (m *Map) DumpEntries() (string, error) {
 	// DumpWithCallback() must be called before buffer.String().
 	err := m.DumpWithCallback(cb)
 	return buffer.String(), err
-}
-
-func ct4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tuple.TupleKey4Global{}, CtEntry{}
-
-	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-		return nil, nil, err
-	}
-	return &k, &v, nil
-}
-
-func ct6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tuple.TupleKey6Global{}, CtEntry{}
-
-	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-		return nil, nil, err
-	}
-	return &k, &v, nil
 }
 
 // NewMap creates a new CT map of the specified type with the specified name.
@@ -239,7 +222,7 @@ func NewMap(mapName string, mapType MapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key *tuple.TupleKey6Global, natMap *nat.Map) error {
+func purgeCtEntry6(m *Map, key tuple.TupleKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
 		natMap.DeleteMapping(key)
@@ -262,25 +245,47 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	}
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		currentKey := key.(*tuple.TupleKey6Global)
 		entry := value.(*CtEntry)
 
-		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
-		// the destination of the packet received, therefore it's the packet's
-		// destination IP
-		action := filter.doFiltering(currentKey.DestAddr.IP(), currentKey.SourceAddr.IP(), currentKey.SourcePort,
-			uint8(currentKey.NextHeader), currentKey.Flags, entry)
+		switch obj := key.(type) {
+		case *tuple.TupleKey6Global:
+			currentKey6Global := obj
+			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
+			// the destination of the packet received, therefore it's the packet's
+			// destination IP
+			action := filter.doFiltering(currentKey6Global.DestAddr.IP(), currentKey6Global.SourceAddr.IP(), currentKey6Global.SourcePort,
+				uint8(currentKey6Global.NextHeader), currentKey6Global.Flags, entry)
 
-		switch action {
-		case deleteEntry:
-			err := purgeCtEntry6(m, currentKey, natMap)
-			if err != nil {
-				log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
-			} else {
-				stats.deleted++
+			switch action {
+			case deleteEntry:
+				err := purgeCtEntry6(m, currentKey6Global, natMap)
+				if err != nil {
+					log.WithError(err).WithField(logfields.Key, currentKey6Global.String()).Error("Unable to delete CT entry")
+				} else {
+					stats.deleted++
+				}
+			default:
+				stats.aliveEntries++
 			}
-		default:
-			stats.aliveEntries++
+		case *tuple.TupleKey6:
+			currentKey6 := obj
+			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
+			// the destination of the packet received, therefore it's the packet's
+			// destination IP
+			action := filter.doFiltering(currentKey6.DestAddr.IP(), currentKey6.SourceAddr.IP(), currentKey6.SourcePort,
+				uint8(currentKey6.NextHeader), currentKey6.Flags, entry)
+
+			switch action {
+			case deleteEntry:
+				err := purgeCtEntry6(m, currentKey6, natMap)
+				if err != nil {
+					log.WithError(err).WithField(logfields.Key, currentKey6.String()).Error("Unable to delete CT entry")
+				} else {
+					stats.deleted++
+				}
+			default:
+				stats.aliveEntries++
+			}
 		}
 	}
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
@@ -288,7 +293,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key *tuple.TupleKey4Global, natMap *nat.Map) error {
+func purgeCtEntry4(m *Map, key tuple.TupleKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
 		natMap.DeleteMapping(key)
@@ -311,25 +316,47 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	}
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
-		currentKey := key.(*tuple.TupleKey4Global)
 		entry := value.(*CtEntry)
 
-		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
-		// the destination of the packet received, therefore it's the packet's
-		// destination IP
-		action := filter.doFiltering(currentKey.DestAddr.IP(), currentKey.SourceAddr.IP(), currentKey.SourcePort,
-			uint8(currentKey.NextHeader), currentKey.Flags, entry)
+		switch obj := key.(type) {
+		case *tuple.TupleKey4Global:
+			currentKey4Global := obj
+			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
+			// the destination of the packet received, therefore it's the packet's
+			// destination IP
+			action := filter.doFiltering(currentKey4Global.DestAddr.IP(), currentKey4Global.SourceAddr.IP(), currentKey4Global.SourcePort,
+				uint8(currentKey4Global.NextHeader), currentKey4Global.Flags, entry)
 
-		switch action {
-		case deleteEntry:
-			err := purgeCtEntry4(m, currentKey, natMap)
-			if err != nil {
-				log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
-			} else {
-				stats.deleted++
+			switch action {
+			case deleteEntry:
+				err := purgeCtEntry4(m, currentKey4Global, natMap)
+				if err != nil {
+					log.WithError(err).WithField(logfields.Key, currentKey4Global.String()).Error("Unable to delete CT entry")
+				} else {
+					stats.deleted++
+				}
+			default:
+				stats.aliveEntries++
 			}
-		default:
-			stats.aliveEntries++
+		case *tuple.TupleKey4:
+			currentKey4 := obj
+			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
+			// the destination of the packet received, therefore it's the packet's
+			// destination IP
+			action := filter.doFiltering(currentKey4.DestAddr.IP(), currentKey4.SourceAddr.IP(), currentKey4.SourcePort,
+				uint8(currentKey4.NextHeader), currentKey4.Flags, entry)
+
+			switch action {
+			case deleteEntry:
+				err := purgeCtEntry4(m, currentKey4, natMap)
+				if err != nil {
+					log.WithError(err).WithField(logfields.Key, currentKey4.String()).Error("Unable to delete CT entry")
+				} else {
+					stats.deleted++
+				}
+			default:
+				stats.aliveEntries++
+			}
 		}
 	}
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)

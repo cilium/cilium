@@ -243,8 +243,8 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		eDump := PolicyEntryDump{
-			Key:         *key.(*PolicyKey),
-			PolicyEntry: *value.(*PolicyEntry),
+			Key:         *key.DeepCopyMapKey().(*PolicyKey),
+			PolicyEntry: *value.DeepCopyMapValue().(*PolicyEntry),
 		}
 		entries = append(entries, eDump)
 	}
@@ -266,15 +266,7 @@ func newMap(path string) *PolicyMap {
 			int(unsafe.Sizeof(PolicyEntry{})),
 			MaxEntries,
 			flags, 0,
-			func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-				k, v := PolicyKey{}, PolicyEntry{}
-
-				if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-					return nil, nil, err
-				}
-
-				return &k, &v, nil
-			},
+			bpf.ConvertKeyValue,
 		),
 	}
 }
