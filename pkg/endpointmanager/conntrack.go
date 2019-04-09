@@ -123,6 +123,7 @@ func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) 
 	go func() {
 		for {
 			eps := GetEndpoints()
+			log.Info("Running GC...")
 			if len(eps) > 0 || initialScan {
 				mapType = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
 			}
