@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,6 +132,24 @@ func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
 
 // LookupElement looks up for the map value stored in fd with the given key. The value
 // is stored in the value unsafe.Pointer.
+func LookupElementCT(fd int, ubaPtr, sizeOf uintptr) error {
+
+	ret, _, err := unix.Syscall(
+		unix.SYS_BPF,
+		BPF_MAP_LOOKUP_ELEM,
+		ubaPtr,
+		sizeOf,
+	)
+
+	if ret != 0 || err != 0 {
+		return fmt.Errorf("Unable to lookup element in map with file descriptor %d: %s", fd, err)
+	}
+
+	return nil
+}
+
+// LookupElement looks up for the map value stored in fd with the given key. The value
+// is stored in the value unsafe.Pointer.
 func LookupElement(fd int, key, value unsafe.Pointer) error {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(fd),
@@ -188,6 +206,23 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 
 	if ret != 0 || err != 0 {
 		return fmt.Errorf("Unable to delete element from map with file descriptor %d: %s", fd, err)
+	}
+
+	return nil
+}
+
+// GetNextKey stores, in nextKey, the next key after the key of the map in fd.
+func GetNextKeyCT(fd int, ubaPtr, sizeOf uintptr) error {
+
+	ret, _, err := unix.Syscall(
+		unix.SYS_BPF,
+		BPF_MAP_GET_NEXT_KEY,
+		ubaPtr,
+		sizeOf,
+	)
+
+	if ret != 0 || err != 0 {
+		return fmt.Errorf("Unable to get next key from map with file descriptor %d: %s", fd, err)
 	}
 
 	return nil
