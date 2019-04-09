@@ -424,7 +424,6 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 			ipSecKeysGlobal[""] = ipSecKey
 		}
 
-		scopedLog.WithError(err).Warning("newtimer: oldSPI %u new spi %u", oldSpi, ipSecKey.Spi)
 		// Detect a version change and call cleanup routine to remove old
 		// keys after a timeout period. We also want to ensure on restart
 		// we remove any stale keys for example when a restart changes keys.
