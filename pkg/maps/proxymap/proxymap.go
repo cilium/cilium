@@ -19,13 +19,14 @@ import (
 	"math"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/tuple"
 )
 
 const (
 	MaxEntries = 524288
 )
 
-// ProxyMapKey is the generic type for Proxy6Key or Proxy4Key
+// ProxyMapKey is the generic type for tuple.TupleKey6 or tuple.TupleKey4
 type ProxyMapKey interface{}
 
 type ProxyMapValue interface {
@@ -37,9 +38,9 @@ type ProxyMapValue interface {
 // Delete removes a proxymap map entry
 func Delete(key ProxyMapKey) error {
 	switch keyValue := key.(type) {
-	case Proxy4Key:
+	case tuple.TupleKey4:
 		return Proxy4Map.Delete(&keyValue)
-	case Proxy6Key:
+	case tuple.TupleKey6:
 		return Proxy6Map.Delete(&keyValue)
 	}
 
@@ -49,7 +50,7 @@ func Delete(key ProxyMapKey) error {
 // Lookup looks up an entry in the proxymap
 func Lookup(key ProxyMapKey) (ProxyMapValue, error) {
 	switch keyValue := key.(type) {
-	case Proxy4Key:
+	case tuple.TupleKey4:
 		val, err := lookupEgress4(&keyValue)
 		if err != nil {
 			return nil, fmt.Errorf("unable to find IPv4 proxy entry for %s: %s", &keyValue, err)
@@ -57,7 +58,7 @@ func Lookup(key ProxyMapKey) (ProxyMapValue, error) {
 
 		return val, nil
 
-	case Proxy6Key:
+	case tuple.TupleKey6:
 		val, err := lookupEgress6(&keyValue)
 		if err != nil {
 			return nil, fmt.Errorf("unable to find IPv6 proxy entry for %s: %s", &keyValue, err)

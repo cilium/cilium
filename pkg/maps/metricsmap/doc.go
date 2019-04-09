@@ -1,4 +1,4 @@
-// Copyright 2018Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,4 +15,5 @@
 // Package metricsmap represents the BPF metrics map in the BPF programs. It is
 // implemented as a hash table containing an entry of different drop and forward
 // counts for different drop/forward reasons and directions.
+// +groupName=maps
 package metricsmap

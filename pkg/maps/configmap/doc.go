@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,4 +16,5 @@
 // implemented as one array for each endpoint containing one entry.
 // The array can be accessed through the key and points which
 // points to the value EndpointConfig.
+// +groupName=maps
 package configmap

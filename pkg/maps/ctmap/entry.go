@@ -22,6 +22,8 @@ import (
 )
 
 // CtEntry represents an entry in the connection tracking table.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type CtEntry struct {
 	RxPackets uint64 `align:"rx_packets"`
 	RxBytes   uint64 `align:"rx_bytes"`

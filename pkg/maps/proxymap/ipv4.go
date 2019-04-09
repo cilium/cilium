@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -32,20 +34,9 @@ var (
 	Proxy4MapName = "cilium_proxy4"
 )
 
-type Proxy4Key struct {
-	SAddr   types.IPv4 `align:"saddr"`
-	DPort   uint16     `align:"dport"`
-	SPort   uint16     `align:"sport"`
-	Nexthdr uint8      `align:"nexthdr"`
-	Pad     uint8      `align:"pad"`
-}
-
-// HostPort returns host port for provided proxy key
-func (k *Proxy4Key) HostPort() string {
-	portStr := strconv.FormatUint(uint64(k.SPort), 10)
-	return net.JoinHostPort(k.SAddr.IP().String(), portStr)
-}
-
+// Proxy4Value
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Proxy4Value struct {
 	OrigDAddr      types.IPv4 `align:"orig_daddr"`
 	OrigDPort      uint16     `align:"orig_dport"`
@@ -68,12 +59,12 @@ var (
 	// Proxy4Map represents the BPF map for IPv4 proxy
 	Proxy4Map = bpf.NewMap(Proxy4MapName,
 		bpf.MapTypeHash,
-		int(unsafe.Sizeof(Proxy4Key{})),
+		int(unsafe.Sizeof(tuple.TupleKey4{})),
 		int(unsafe.Sizeof(Proxy4Value{})),
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Proxy4Key{}, Proxy4Value{}
+			k, v := tuple.TupleKey4{}, Proxy4Value{}
 
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
@@ -82,26 +73,6 @@ var (
 			return k.ToNetwork(), v.ToNetwork(), nil
 		}).WithNonPersistent()
 )
-
-func (k Proxy4Key) NewValue() bpf.MapValue {
-	return &Proxy4Value{}
-}
-
-func (k *Proxy4Key) GetKeyPtr() unsafe.Pointer {
-	return unsafe.Pointer(k)
-}
-
-func (k *Proxy4Key) String() string {
-	return fmt.Sprintf("%s (%d) => %d", k.HostPort(), k.Nexthdr, k.DPort)
-}
-
-// ToNetwork converts Proxy4Key ports to network byte order.
-func (k *Proxy4Key) ToNetwork() *Proxy4Key {
-	n := *k
-	n.SPort = byteorder.HostToNetwork(n.SPort).(uint16)
-	n.DPort = byteorder.HostToNetwork(n.DPort).(uint16)
-	return &n
-}
 
 func (v *Proxy4Value) GetValuePtr() unsafe.Pointer {
 	return unsafe.Pointer(v)
@@ -119,7 +90,7 @@ func (v *Proxy4Value) String() string {
 		v.OrigDAddr.IP().String(), v.OrigDPort, v.SourceIdentity, v.Lifetime)
 }
 
-func lookupEgress4(key *Proxy4Key) (*Proxy4Value, error) {
+func lookupEgress4(key *tuple.TupleKey4) (*Proxy4Value, error) {
 	val, err := Proxy4Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
@@ -159,7 +130,7 @@ func gc(time uint64) int {
 		return 0
 	}
 
-	var key, nextKey Proxy4Key
+	var key, nextKey tuple.TupleKey4
 	for doGc(unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted, uint32(tsec)) {
 		key = nextKey
 	}
@@ -175,14 +146,14 @@ func cleanupIPv4Redirects(proxyPort uint16) {
 
 	dportNetworkOrder := byteorder.HostToNetwork(proxyPort).(uint16)
 
-	var key, nextKey Proxy4Key
+	var key, nextKey tuple.TupleKey4
 	for {
 		err := bpf.GetNextKey(Proxy4Map.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
 		if err != nil {
 			return
 		}
 
-		if nextKey.DPort == dportNetworkOrder && nextKey.Nexthdr == uint8(6) {
+		if nextKey.DestPort == dportNetworkOrder && nextKey.NextHeader == u8proto.U8proto(6) {
 			log.Debugf("Cleaning up IPv4 proxymap, removing entry: %+v", nextKey)
 			bpf.DeleteElement(Proxy4Map.GetFd(), unsafe.Pointer(&nextKey))
 		}

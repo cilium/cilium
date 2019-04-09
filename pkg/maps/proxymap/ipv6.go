@@ -23,24 +23,15 @@ import (
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var Proxy6MapName = "cilium_proxy6"
 
-type Proxy6Key struct {
-	SAddr   types.IPv6 `align:"saddr"`
-	DPort   uint16     `align:"dport"`
-	SPort   uint16     `align:"sport"`
-	Nexthdr uint8      `align:"nexthdr"`
-	Pad     uint8      `align:"pad"`
-}
-
-// HostPort returns host port for provided proxy key
-func (k *Proxy6Key) HostPort() string {
-	portStr := strconv.FormatUint(uint64(k.SPort), 10)
-	return net.JoinHostPort(k.SAddr.IP().String(), portStr)
-}
-
+// Proxy6Value
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Proxy6Value struct {
 	OrigDAddr      types.IPv6 `align:"orig_daddr"`
 	OrigDPort      uint16     `align:"orig_dport"`
@@ -63,12 +54,12 @@ var (
 	// Proxy6Map represents the BPF map for IPv6 proxy
 	Proxy6Map = bpf.NewMap(Proxy6MapName,
 		bpf.MapTypeHash,
-		int(unsafe.Sizeof(Proxy6Key{})),
+		int(unsafe.Sizeof(tuple.TupleKey6{})),
 		int(unsafe.Sizeof(Proxy6Value{})),
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Proxy6Key{}, Proxy6Value{}
+			k, v := tuple.TupleKey6{}, Proxy6Value{}
 
 			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
@@ -77,26 +68,6 @@ var (
 			return k.ToNetwork(), v.ToNetwork(), nil
 		}).WithNonPersistent()
 )
-
-func (k Proxy6Key) NewValue() bpf.MapValue {
-	return &Proxy6Value{}
-}
-
-func (k *Proxy6Key) GetKeyPtr() unsafe.Pointer {
-	return unsafe.Pointer(k)
-}
-
-func (k *Proxy6Key) String() string {
-	return fmt.Sprintf("%s (%d) => %d", k.HostPort(), k.Nexthdr, k.DPort)
-}
-
-// ToNetwork converts Proxy6Key ports to network byte order.
-func (k *Proxy6Key) ToNetwork() *Proxy6Key {
-	n := *k
-	n.SPort = byteorder.HostToNetwork(n.SPort).(uint16)
-	n.DPort = byteorder.HostToNetwork(n.DPort).(uint16)
-	return &n
-}
 
 func (v *Proxy6Value) GetValuePtr() unsafe.Pointer {
 	return unsafe.Pointer(v)
@@ -114,7 +85,7 @@ func (v *Proxy6Value) String() string {
 		v.OrigDAddr.IP().String(), v.OrigDPort, v.SourceIdentity, v.Lifetime)
 }
 
-func lookupEgress6(key *Proxy6Key) (*Proxy6Value, error) {
+func lookupEgress6(key *tuple.TupleKey6) (*Proxy6Value, error) {
 	val, err := Proxy6Map.Lookup(key.ToNetwork())
 	if err != nil {
 		return nil, err
@@ -133,7 +104,7 @@ func gc6(time uint64) int {
 		return 0
 	}
 
-	var key, nextKey Proxy6Key
+	var key, nextKey tuple.TupleKey6
 	for doGc(unsafe.Pointer(&key), unsafe.Pointer(&nextKey), &deleted, uint32(tsec)) {
 		key = nextKey
 	}
@@ -149,14 +120,14 @@ func cleanupIPv6Redirects(proxyPort uint16) {
 
 	dportNetworkOrder := byteorder.HostToNetwork(proxyPort).(uint16)
 
-	var key, nextKey Proxy6Key
+	var key, nextKey tuple.TupleKey6
 	for {
 		err := bpf.GetNextKey(Proxy6Map.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
 		if err != nil {
 			return
 		}
 
-		if nextKey.DPort == dportNetworkOrder && nextKey.Nexthdr == uint8(6) {
+		if nextKey.DestPort == dportNetworkOrder && nextKey.NextHeader == u8proto.U8proto(6) {
 			log.Debugf("Cleaning up IPv6 proxymap, removing entry: %+v", nextKey)
 			bpf.DeleteElement(Proxy6Map.GetFd(), unsafe.Pointer(&nextKey))
 		}

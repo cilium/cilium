@@ -13,4 +13,5 @@
 // limitations under the License.
 
 // Package nat implements the BPF NAT map interaction code.
+// +groupName=maps
 package nat

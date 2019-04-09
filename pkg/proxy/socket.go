@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/proxymap"
+	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
@@ -498,22 +499,22 @@ func createProxyMapKey(addr string, proxyPort uint16) (proxymap.ProxyMapKey, err
 	}
 
 	if pIP.To4() != nil {
-		key := proxymap.Proxy4Key{
-			SPort:   uint16(sport),
-			DPort:   proxyPort,
-			Nexthdr: uint8(u8proto.TCP),
+		key := tuple.TupleKey4{
+			SourcePort: uint16(sport),
+			DestPort:   proxyPort,
+			NextHeader: u8proto.TCP,
 		}
 
-		copy(key.SAddr[:], pIP.To4())
+		copy(key.SourceAddr[:], pIP.To4())
 		return key, nil
 	}
 
-	key := proxymap.Proxy6Key{
-		SPort:   uint16(sport),
-		DPort:   proxyPort,
-		Nexthdr: uint8(u8proto.TCP),
+	key := tuple.TupleKey6{
+		SourcePort: uint16(sport),
+		DestPort:   proxyPort,
+		NextHeader: u8proto.TCP,
 	}
 
-	copy(key.SAddr[:], pIP.To16())
+	copy(key.SourceAddr[:], pIP.To16())
 	return key, nil
 }
