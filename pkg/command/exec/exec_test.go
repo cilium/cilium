@@ -35,7 +35,10 @@ const (
 // Hook up gocheck into the "go test" runner.
 type ExecTestSuite struct{}
 
-var _ = Suite(&ExecTestSuite{})
+var (
+	_      = Suite(&ExecTestSuite{})
+	fooLog = logging.DefaultLogger.WithField("foo", "bar")
+)
 
 func Test(t *testing.T) {
 	TestingT(t)
@@ -57,19 +60,26 @@ func (s *ExecTestSuite) TestWithCancel(c *C) {
 	cancel()
 }
 
+func (s *ExecTestSuite) TestCanceled(c *C) {
+	cmd, cancel := WithCancel(context.Background(), "sleep", "inf")
+	c.Assert(cancel, NotNil)
+	cancel()
+	_, err := cmd.CombinedOutput(fooLog, true)
+	c.Assert(err, ErrorMatches, ".*: context canceled")
+}
+
 func (s *ExecTestSuite) TestCombinedOutput(c *C) {
 	cmd := CommandContext(context.Background(), "echo", "foo")
-	scopedLog := logging.DefaultLogger.WithField("foo", "bar")
-	out, err := cmd.CombinedOutput(scopedLog, true)
+	out, err := cmd.CombinedOutput(fooLog, true)
 	c.Assert(err, IsNil)
 	c.Assert(string(out), Equals, "foo\n")
 }
 
 func (s *ExecTestSuite) TestCombinedOutputFailedTimeout(c *C) {
 	cmd := WithTimeout(timeout, "sleep", "inf")
-	scopedLog := logging.DefaultLogger.WithField("foo", "bar")
-	_, err := cmd.CombinedOutput(scopedLog, true)
-	c.Assert(err, ErrorMatches, "Command execution failed: Timeout for .*")
+	time.Sleep(timeout)
+	_, err := cmd.CombinedOutput(fooLog, true)
+	c.Assert(err, ErrorMatches, "Command execution failed for .*: context deadline exceeded")
 }
 
 // LoggingHook is a simple hook which saves Warn messages to a slice of strings.
