@@ -315,18 +315,14 @@ func (m *Map) setPathIfUnset() error {
 }
 
 // EndParallelMode ends the parallel mode of a map
-func (m *Map) EndParallelMode() error {
+func (m *Map) EndParallelMode() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if !m.inParallelMode {
-		return fmt.Errorf("map is not in parallel mode")
+	if m.inParallelMode {
+		m.inParallelMode = false
+		m.scopedLogger().Debug("End of parallel mode")
 	}
-
-	m.inParallelMode = false
-	m.scopedLogger().Debug("End of parallel mode")
-
-	return nil
 }
 
 // OpenParallel is similar to OpenOrCreate() but prepares the existing map to
