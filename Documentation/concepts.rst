@@ -47,14 +47,15 @@ Linux container node in the container cluster:
   (cilium-docker) that handles each Docker libnetwork call and passes data /
   requests on to the main Cilium Agent.
 
+In addition to these components, Cilium also depends on the following
+components running in the cluster:
 
-In addition to the components that run on each Linux container host, Cilium
-leverages a key-value store to share data between Cilium Agents running on
-different nodes. The currently supported key-value stores are:
+* **Key-Value Store:** Cilium shares data between Cilium Agents on different
+  nodes via a kvstore. The currently supported key-value stores are etcd or
+  consul.
 
-* etcd
-* consul
-
+* **Cilium Operator:** Daemon for handling cluster management duties which can
+  be handled once per cluster, rather than once per node.
 
 Cilium Agent
 ============
@@ -146,8 +147,23 @@ The Key-Value (KV) Store is used for the following state:
 To simplify things in a larger deployment, the key-value store can be the same
 one used by the container orchestrator (e.g., Kubernetes using etcd).
 
+Cilium Operator
+===============
+
+The Cilium Operator is responsible for managing duties in the cluster which
+should logically be handled once for the entire cluster, rather than once for
+each node in the cluster. Its design helps with scale limitations in large
+kubernetes clusters (>1000 nodes). The responsibilities of Cilium operator
+include:
+
+* Synchronizing kubernetes services with etcd for :ref:`Cluster Mesh`
+* Synchronizing node resources with etcd
+* Ensuring that DNS pods are managed by Cilium
+* Garbage-collection of Cilium Endpoints resources
+
+**********
 Assurances
-==========
+**********
 
 If Cilium loses connectivity with the KV-Store, it guarantees that:
 
@@ -609,6 +625,8 @@ This is typically achieved using two methods:
 
 There are two possible approaches to performing network forwarding for
 container-to-container traffic:
+
+.. _Cluster Mesh:
 
 Cluster Mesh
 ============
