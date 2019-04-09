@@ -211,7 +211,8 @@ static int bpf_map_verify_all_offs(struct bpf_elf_ctx *ctx, int end)
 			if (gelf_getsym(ctx->sym_tab, i, &sym) != &sym)
 				continue;
 			if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL ||
-			    GELF_ST_TYPE(sym.st_info) != STT_NOTYPE ||
+			    !(GELF_ST_TYPE(sym.st_info) == STT_NOTYPE ||
+			      GELF_ST_TYPE(sym.st_info) == STT_OBJECT) ||
 			    sym.st_shndx != ctx->map_sec)
 				continue;
 			if (sym.st_value == off)
@@ -234,7 +235,8 @@ static const char *bpf_map_fetch_name(struct bpf_elf_ctx *ctx, unsigned long off
 			continue;
 
 		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL ||
-		    GELF_ST_TYPE(sym.st_info) != STT_NOTYPE ||
+		    !(GELF_ST_TYPE(sym.st_info) == STT_NOTYPE ||
+		      GELF_ST_TYPE(sym.st_info) == STT_OBJECT) ||
 		    sym.st_shndx != ctx->map_sec ||
 		    sym.st_value != off)
 			continue;
@@ -254,7 +256,8 @@ static int bpf_map_num_sym(struct bpf_elf_ctx *ctx)
 			continue;
 
 		if (GELF_ST_BIND(sym.st_info) != STB_GLOBAL ||
-		    GELF_ST_TYPE(sym.st_info) != STT_NOTYPE ||
+		    !(GELF_ST_TYPE(sym.st_info) == STT_NOTYPE ||
+		      GELF_ST_TYPE(sym.st_info) == STT_OBJECT) ||
 		    sym.st_shndx != ctx->map_sec)
 			continue;
 		num++;
