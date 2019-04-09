@@ -1205,9 +1205,8 @@ func (c *DaemonConfig) Populate() {
 		c.LogOpt = m
 	}
 
-	if viper.IsSet(ConntrackGarbageCollectorIntervalDeprecated) {
-		val := time.Duration(viper.GetInt(ConntrackGarbageCollectorIntervalDeprecated))
-		c.ConntrackGCInterval = val * time.Second
+	if val := viper.GetInt(ConntrackGarbageCollectorIntervalDeprecated); val != 0 {
+		c.ConntrackGCInterval = time.Duration(val) * time.Second
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
