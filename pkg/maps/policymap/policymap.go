@@ -64,6 +64,8 @@ func (pe *PolicyEntry) String() string {
 
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
 // match the layout of policy_key in bpf/lib/common.h.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type PolicyKey struct {
 	Identity         uint32
 	DestPort         uint16 // In network byte-order
@@ -73,6 +75,8 @@ type PolicyKey struct {
 
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
 // match the layout of policy_entry in bpf/lib/common.h.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
 	ProxyPort uint16 // In network byte-order
 	Pad0      uint16
@@ -239,8 +243,8 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		eDump := PolicyEntryDump{
-			Key:         *key.(*PolicyKey),
-			PolicyEntry: *value.(*PolicyEntry),
+			Key:         *key.DeepCopyMapKey().(*PolicyKey),
+			PolicyEntry: *value.DeepCopyMapValue().(*PolicyEntry),
 		}
 		entries = append(entries, eDump)
 	}

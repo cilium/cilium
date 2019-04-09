@@ -24,6 +24,8 @@ import (
 )
 
 // NatEntry6 represents an IPv6 entry in the NAT table.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type NatEntry6 struct {
 	Created   uint64     `align:"created"`
 	HostLocal uint64     `align:"host_local"`

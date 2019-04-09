@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ const (
 // Key implements the bpf.MapKey interface.
 //
 // Must be in sync with struct ipcache_key in <bpf/lib/maps.h>
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Key struct {
 	Prefixlen uint32 `align:"lpm_key"`
 	Pad1      uint16 `align:"pad1"`
@@ -125,6 +127,8 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 
 // RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
 // security identity of a remote endpoint.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RemoteEndpointInfo struct {
 	SecurityIdentity uint32     `align:"sec_label"`
 	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
