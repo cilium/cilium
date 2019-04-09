@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package tuple defines keys used for connection tuples in multiple BPF maps.
-// +groupName=maps
-package tuple
+// Package bpf provides functions that allow golang programs to interact with
+// bpf maps.
+// +groupName=pkg
+package bpf

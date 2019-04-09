@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,9 +42,11 @@ type TestValue struct {
 func (k *TestKey) String() string            { return fmt.Sprintf("key=%d", k.Key) }
 func (k *TestKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *TestKey) NewValue() MapValue        { return &TestValue{} }
+func (k *TestKey) DeepCopyMapKey() MapKey    { return &TestKey{k.Key} }
 
 func (v *TestValue) String() string              { return fmt.Sprintf("value=%d", v.Value) }
 func (v *TestValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
 
 func DumpParserFunc(key []byte, value []byte) (MapKey, MapValue, error) {
 	k, v := TestKey{}, TestValue{}

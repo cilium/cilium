@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,9 +98,19 @@ type EndpointFrontend interface {
 	GetBPFValue() (*EndpointInfo, error)
 }
 
+type pad4uint32 [4]uint32
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *pad4uint32) DeepCopyInto(out *pad4uint32) {
+	copy(out[:], in[:])
+	return
+}
+
 // EndpointInfo represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/common.h>
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type EndpointInfo struct {
 	IfIndex uint32 `align:"ifindex"`
 	Unused  uint16 `align:"unused"`
@@ -108,14 +118,16 @@ type EndpointInfo struct {
 	Flags   uint32 `align:"flags"`
 	// go alignment
 	_       uint32
-	MAC     MAC       `align:"mac"`
-	NodeMAC MAC       `align:"node_mac"`
-	Pad     [4]uint32 `align:"pad"`
+	MAC     MAC        `align:"mac"`
+	NodeMAC MAC        `align:"node_mac"`
+	Pad     pad4uint32 `align:"pad"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value
 func (v *EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type EndpointKey struct {
 	bpf.EndpointKey
 }
@@ -213,7 +225,7 @@ func DeleteElement(f EndpointFrontend) []error {
 func DumpToMap() (map[string]*EndpointInfo, error) {
 	m := map[string]*EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
-		if info, ok := value.(*EndpointInfo); ok {
+		if info, ok := value.DeepCopyMapValue().(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
 				m[endpointKey.ToIP().String()] = info
 			}
