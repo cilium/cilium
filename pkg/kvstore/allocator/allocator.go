@@ -540,6 +540,12 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 
 	kvstore.Trace("Allocating key", nil, logrus.Fields{fieldKey: key})
 
+	select {
+	case <-a.initialListDone:
+	case <-ctx.Done():
+		return 0, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %s", ctx.Err())
+	}
+
 	// Check our list of local keys already in use and increment the
 	// refcnt. The returned key must be released afterwards. No kvstore
 	// operation was performed for this allocation
@@ -639,6 +645,12 @@ func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
 func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool, err error) {
+	select {
+	case <-a.initialListDone:
+	case <-ctx.Done():
+		return false, fmt.Errorf("release was cancelled while waiting for initial key list to be received: %s", ctx.Err())
+	}
+
 	k := key.GetKey()
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
