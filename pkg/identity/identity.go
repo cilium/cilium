@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ type Identity struct {
 
 	// ReferenceCount counts the number of references pointing to this
 	// identity. This field is used by the owning cache of the identity.
-	ReferenceCount int
+	ReferenceCount int `json:"-"`
 }
 
 // IPIdentityPair is a pairing of an IP and the security identity to which that
