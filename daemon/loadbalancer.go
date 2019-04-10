@@ -40,7 +40,9 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 
 	revNATID := int(feCilium.ID)
 
-	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID, service.AcquireBackendID, service.DeleteBackendID); err != nil {
+	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID,
+		option.Config.EnableLegacyServices,
+		service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
 		}
@@ -241,13 +243,22 @@ func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 	if err := d.svcDeleteBPF(svc.FE); err != nil {
 		return err
 	}
+
 	d.loadBalancer.DeleteService(svc)
+
 	return nil
 }
 
 func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
-	errV2 := lbmap.DeleteServiceV2(svc, service.DeleteBackendID)
-	errLegacy := d.svcDeleteBPFLegacy(svc)
+	var (
+		errV2     error
+		errLegacy error
+	)
+
+	errV2 = lbmap.DeleteServiceV2(svc, service.DeleteBackendID)
+	if option.Config.EnableLegacyServices {
+		errLegacy = d.svcDeleteBPFLegacy(svc)
+	}
 
 	if errV2 != nil || errLegacy != nil {
 		return fmt.Errorf("Deleting service from BPF maps failed: %s (v2), %s (legacy)",
@@ -577,7 +588,7 @@ func (d *Daemon) SyncLBMap() error {
 		return nil
 	}
 
-	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace()
+	newSVCMap, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range lbmapDumpErrors {
 		log.WithError(err).Warn("Unable to list services in services BPF map")
 	}
@@ -676,6 +687,11 @@ func (d *Daemon) SyncLBMap() error {
 // elsewhere it needed. Returns an error if any issues occur dumping BPF maps
 // or deleting entries from BPF maps.
 func (d *Daemon) syncLBMapsWithK8s() error {
+	var (
+		newSVCList      []*loadbalancer.LBSVC
+		lbmapDumpErrors []error
+	)
+
 	k8sDeletedServices := map[string]loadbalancer.L3n4AddrID{}
 	alreadyChecked := map[string]struct{}{}
 
@@ -689,7 +705,12 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspace()
+	if option.Config.EnableLegacyServices {
+		_, newSVCList, lbmapDumpErrors = lbmap.DumpServiceMapsToUserspace()
+	} else {
+		_, newSVCList, lbmapDumpErrors = lbmap.DumpServiceMapsToUserspaceV2()
+	}
+
 	if len(lbmapDumpErrors) > 0 {
 		errorStrings := ""
 		for _, err := range lbmapDumpErrors {
@@ -809,13 +830,16 @@ func restoreServices() {
 
 	failed, restored, skipped := 0, 0, 0
 
-	svcMap, _, errors := lbmap.DumpServiceMapsToUserspace()
-	for _, err := range errors {
-		log.WithError(err).Warning("Error occured while dumping service table from datapath")
-	}
 	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occured while dumping service v2 table from datapath")
+	}
+	svcMap := svcMapV2
+	if option.Config.EnableLegacyServices {
+		svcMap, _, errors = lbmap.DumpServiceMapsToUserspace()
+		for _, err := range errors {
+			log.WithError(err).Warning("Error occured while dumping service table from datapath")
+		}
 	}
 
 	for feHash, svc := range svcMap {
@@ -845,11 +869,19 @@ func restoreServices() {
 			}
 		}
 
+		v2Exists := true
+		if option.Config.EnableLegacyServices {
+			_, v2Exists = svcMapV2[feHash]
+		}
+
 		// Restore the service cache to guarantee backend ordering
 		// across restarts
-		_, v2Exists := svcMapV2[feHash]
 		if err := lbmap.RestoreService(svc, v2Exists); err != nil {
 			log.WithError(err).Warning("Unable to restore service in cache")
+		}
+
+		if !option.Config.EnableLegacyServices {
+			continue
 		}
 
 		// Create the svc v2 from the legacy one
@@ -864,7 +896,7 @@ func restoreServices() {
 			// We restore only services which has the revNat enabled
 			addRevNAT := true
 			revNATID := int(svc.FE.ID)
-			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID,
+			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID, true,
 				service.AcquireBackendID, service.DeleteBackendID)
 			if err != nil {
 				failed++
