@@ -364,6 +364,9 @@ const (
 	// DisableK8sServices disables east-west K8s load balancing by cilium
 	DisableK8sServices = "disable-k8s-services"
 
+	// EnableLegacyServices enables the legacy services
+	EnableLegacyServices = "enable-legacy-services"
+
 	// MaxCtrlIntervalName and MaxCtrlIntervalNameEnv allow configuration
 	// of MaxControllerInterval.
 	MaxCtrlIntervalName = "max-controller-interval"
@@ -732,6 +735,7 @@ type DaemonConfig struct {
 	DebugVerbose                  []string
 	DisableConntrack              bool
 	DisableK8sServices            bool
+	EnableLegacyServices          bool
 	DockerEndpoint                string
 	EnablePolicy                  string
 	EnableTracing                 bool
@@ -1093,6 +1097,7 @@ func (c *DaemonConfig) Populate() {
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
+	c.EnableLegacyServices = viper.GetBool(EnableLegacyServices)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
