@@ -60,12 +60,6 @@ spec:
                 systemctl enable sys-fs-bpf.mount
                 systemctl start sys-fs-bpf.mount
 
-                echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir=/home/kubernetes/bin"
-                mkdir -p /home/kubernetes/bin
-                sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir=/home/kubernetes/bin:g" /etc/default/kubelet
-                echo "Restarting kubelet..."
-                systemctl restart kubelet
-
                 echo "Installing /etc/cni/net.d/04-cilium-cni.conf"
                 mkdir -p /etc/cni/net.d/
                 cat >/etc/cni/net.d/04-cilium-cni.conf <<EOF
@@ -74,6 +68,12 @@ spec:
                 "type": "cilium-cni"
               }
               EOF
+
+                echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir=/home/kubernetes/bin"
+                mkdir -p /home/kubernetes/bin
+                sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir=/home/kubernetes/bin:g" /etc/default/kubelet
+                echo "Restarting kubelet..."
+                systemctl restart kubelet
 
                 if ip link show cbr0; then
                   echo "Detected cbr0 bridge. Deleting interface..."
