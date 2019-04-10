@@ -44,6 +44,7 @@ cilium-agent [flags]
       --enable-ipsec                               Enable IPSec support
       --enable-ipv4                                Enable IPv4 support (default true)
       --enable-ipv6                                Enable IPv6 support (default true)
+      --enable-legacy-services                     Enable legacy (prior-v1.5) services (default true)
       --enable-policy string                       Enable policy enforcement (default "default")
       --enable-tracing                             Enable tracing while determining policy (debugging)
       --encrypt-interface string                   Transparent encryption interface

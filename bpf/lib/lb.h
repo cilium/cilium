@@ -45,30 +45,12 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps LB6_SERVICES_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb6_key),
-	.size_value	= sizeof(struct lb6_service),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
 struct bpf_elf_map __section_maps LB6_SERVICES_MAP_V2 = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct lb6_key_v2),
 	.size_value	= sizeof(struct lb6_service_v2),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
-struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(struct lb6_key),
-	.size_value     = sizeof(struct lb_sequence),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
@@ -90,6 +72,26 @@ struct bpf_elf_map __section_maps LB6_BACKEND_MAP = {
 	.flags          = CONDITIONAL_PREALLOC,
 };
 
+#ifdef ENABLE_LEGACY_SERVICES
+struct bpf_elf_map __section_maps LB6_SERVICES_MAP = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb6_key),
+	.size_value	= sizeof(struct lb6_service),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
+struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.size_key       = sizeof(struct lb6_key),
+	.size_value     = sizeof(struct lb_sequence),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = CILIUM_LB_MAP_MAX_FE,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+#endif /* ENABLE_LEGACY_SERVICES */
+
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -102,30 +104,12 @@ struct bpf_elf_map __section_maps LB4_REVERSE_NAT_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
-struct bpf_elf_map __section_maps LB4_SERVICES_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb4_key),
-	.size_value	= sizeof(struct lb4_service),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
 struct bpf_elf_map __section_maps LB4_SERVICES_MAP_V2 = {
 	.type		= BPF_MAP_TYPE_HASH,
 	.size_key	= sizeof(struct lb4_key_v2),
 	.size_value	= sizeof(struct lb4_service_v2),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
-struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(struct lb4_key),
-	.size_value     = sizeof(struct lb_sequence),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_FE,
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
@@ -146,6 +130,26 @@ struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
 	.flags          = CONDITIONAL_PREALLOC,
 };
+
+#ifdef ENABLE_LEGACY_SERVICES
+struct bpf_elf_map __section_maps LB4_SERVICES_MAP = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct lb4_key),
+	.size_value	= sizeof(struct lb4_service),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+
+struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
+	.type           = BPF_MAP_TYPE_HASH,
+	.size_key       = sizeof(struct lb4_key),
+	.size_value     = sizeof(struct lb_sequence),
+	.pinning        = PIN_GLOBAL_NS,
+	.max_elem       = CILIUM_LB_MAP_MAX_FE,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+#endif /* ENABLE_LEGACY_SERVICES */
 
 #endif /* ENABLE_IPV4 */
 
@@ -420,6 +424,7 @@ static inline int __inline__ lb6_extract_key_v2(struct __sk_buff *skb,
 #endif
 }
 
+#ifdef ENABLE_LEGACY_SERVICES
 static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 						    struct lb6_key *key)
 {
@@ -450,6 +455,7 @@ static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 	cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER_FAIL, key->address.p2, key->address.p3);
 	return NULL;
 }
+#endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
 struct lb6_service_v2 *__lb6_lookup_service_v2(struct lb6_key_v2 *key)
@@ -509,6 +515,7 @@ static inline struct lb6_backend *lb6_lookup_backend(struct __sk_buff *skb,
 	return backend;
 }
 
+#ifdef ENABLE_LEGACY_SERVICES
 static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 						   struct lb6_key *key,
 						   __u16 slave)
@@ -526,6 +533,7 @@ static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 
 	return NULL;
 }
+#endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
 struct lb6_service_v2 *lb6_lookup_slave_v2(struct __sk_buff *skb,
@@ -589,7 +597,9 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
+#ifdef ENABLE_LEGACY_SERVICES
 	struct lb6_service *svc;
+#endif /* ENABLE_LEGACY_SERVICES */
 	struct lb6_service_v2 *slave_svc;
 	int slave;
 	int ret;
@@ -625,6 +635,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		goto drop_no_service;
 	}
 
+#ifdef ENABLE_LEGACY_SERVICES
 	if (state->backend_id == 0) {
 		if (!(svc = lb6_lookup_service(skb, (struct lb6_key *)key))) {
 			goto drop_no_service;
@@ -635,6 +646,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		state->backend_id = svc->count;
 		ct_update6_backend_id(map, tuple, state);
 	}
+#endif /* ENABLE_LEGACY_SERVICES */
 
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
@@ -801,6 +813,8 @@ static inline int __inline__ lb4_extract_key_v2(struct __sk_buff *skb,
 #endif
 }
 
+#ifdef ENABLE_LEGACY_SERVICES
+
 static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
 #ifdef LB_L4
@@ -840,6 +854,8 @@ static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
 	return svc;
 }
+
+#endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
 struct lb4_service_v2 *__lb4_lookup_service_v2(struct lb4_key_v2 *key)
@@ -898,6 +914,7 @@ static inline struct lb4_backend *lb4_lookup_backend(struct __sk_buff *skb,
 	return backend;
 }
 
+#ifdef ENABLE_LEGACY_SERVICES
 static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 						   struct lb4_key *key,
 						   __u16 slave)
@@ -915,6 +932,7 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 
 	return NULL;
 }
+#endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
 struct lb4_service_v2 *lb4_lookup_slave_v2(struct __sk_buff *skb,
@@ -992,7 +1010,9 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
+#ifdef ENABLE_LEGACY_SERVICES
 	struct lb4_service *svc;
+#endif /* ENABLE_LEGACY_SERVICES */
 	struct lb4_service_v2 *slave_svc;
 	int slave;
 	int ret;
@@ -1028,6 +1048,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
         goto drop_no_service;
 	}
 
+#ifdef ENABLE_LEGACY_SERVICES
 	/* If the flow hasn't been using the corresponding v2 endpoint,
 	 * update the CT entry to start using the v2
 	 * */
@@ -1041,6 +1062,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		state->backend_id = svc->count;
 		ct_update4_backend_id(map, tuple, state);
 	}
+#endif /* ENABLE_LEGACY_SERVICES */
 
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
