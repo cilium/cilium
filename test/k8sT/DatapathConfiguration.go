@@ -109,8 +109,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}
 
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
-			Skip("Encryption test is currently disabled")
-
 			switch helpers.GetCurrentIntegration() {
 			case helpers.CIIntegrationFlannel:
 				Skip(fmt.Sprintf(
