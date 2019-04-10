@@ -1477,7 +1477,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.0"
+  revision = "kubernetes-1.14.1"
 
 [[projects]]
   digest = "1:47ddb5be73e959bd73931c04911cd05e3f45d7f7c978a45eb817e1fb85e21da4"
@@ -1491,7 +1491,7 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.0"
+  revision = "kubernetes-1.14.1"
 
 [[projects]]
   digest = "1:062b06c1ccb71c956f40a8627cc93dba1dc7713a21876572ccd0e314c5362884"
@@ -1542,7 +1542,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.0"
+  revision = "kubernetes-1.14.1"
 
 [[projects]]
   digest = "1:fe60b6d8b8208ecb0e70e97963fef38ce27443c6934ec00a37f80a3f9372f42b"
@@ -1552,7 +1552,7 @@
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.0"
+  revision = "kubernetes-1.14.1"
 
 [[projects]]
   digest = "1:8342528e1275c10c0db434bd9e4853bacd901835366a1734fe112c731a2deda3"
@@ -1663,7 +1663,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "173e5d72ee987b4e748b8609ed2959d385ac6370"
+  revision = "0435e1d065b132cd4915ab080c12c8f762c9df68"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
@@ -1690,7 +1690,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.14.0"
+  revision = "kubernetes-1.14.1"
 
 [[projects]]
   digest = "1:da31d8be5af84b69ef83b212d833d8e10930cd9e8a876780a20099ea306c4c13"
@@ -1738,7 +1738,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.14.0"
+  revision = "v1.14.1"
 
 [[projects]]
   branch = "master"
