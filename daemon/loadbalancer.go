@@ -462,8 +462,21 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 
 func openServiceMaps() error {
 	if option.Config.EnableIPv6 {
-		if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
-			return err
+		if option.Config.EnableLegacyServices {
+			if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
+				return err
+			}
+		} else {
+			// Remove leftovers from previous installations
+			if err := lbmap.Service6Map.UnpinIfExists(); err != nil {
+				return err
+			}
+			if err := lbmap.RRSeq6Map.UnpinIfExists(); err != nil {
+				return err
+			}
 		}
 		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
 			return err
@@ -472,9 +485,6 @@ func openServiceMaps() error {
 			return err
 		}
 		if _, err := lbmap.RevNat6Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq6MapV2.OpenOrCreate(); err != nil {
@@ -486,8 +496,21 @@ func openServiceMaps() error {
 	}
 
 	if option.Config.EnableIPv4 {
-		if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
-			return err
+		if option.Config.EnableLegacyServices {
+			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+			if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
+				return err
+			}
+		} else {
+			// Remove leftovers from previous installations
+			if err := lbmap.Service4Map.UnpinIfExists(); err != nil {
+				return err
+			}
+			if err := lbmap.RRSeq4Map.UnpinIfExists(); err != nil {
+				return err
+			}
 		}
 		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
 			return err
@@ -496,9 +519,6 @@ func openServiceMaps() error {
 			return err
 		}
 		if _, err := lbmap.RevNat4Map.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
 			return err
 		}
 		if _, err := lbmap.RRSeq4MapV2.OpenOrCreate(); err != nil {
