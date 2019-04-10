@@ -538,7 +538,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		k     = key.GetKey()
 	)
 
-	kvstore.Trace("Allocating key", nil, logrus.Fields{fieldKey: key})
+	log.WithField(fieldKey, key).Info("Allocating key")
 
 	select {
 	case <-a.initialListDone:
@@ -569,14 +569,18 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			return value, isNew, nil
 		}
 
+		scopedLog := log.WithFields(logrus.Fields{
+			fieldKey:          key,
+			logfields.Attempt: attempt,
+		})
+
 		select {
 		case <-ctx.Done():
-			log.WithError(ctx.Err()).WithField(fieldKey, key).Warning("Ongoing identity allocation has been cancelled")
-			return 0, false, fmt.Errorf("identity allocation cancelled: %s", ctx.Err())
+			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
+			return 0, false, fmt.Errorf("key allocation cancelled: %s", ctx.Err())
 		default:
+			scopedLog.WithError(err).Warning("Key allocation attempt failed")
 		}
-
-		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
 
 		if waitErr := boff.Wait(ctx); waitErr != nil {
 			return 0, false, waitErr
@@ -645,6 +649,8 @@ func (a *Allocator) GetByID(id idpool.ID) (AllocatorKey, error) {
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
 func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool, err error) {
+	log.WithField(fieldKey, key).Info("Releasing key")
+
 	select {
 	case <-a.initialListDone:
 	case <-ctx.Done():
