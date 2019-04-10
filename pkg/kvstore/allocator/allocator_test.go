@@ -249,7 +249,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 }
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
-	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
+	testAllocator(c, idpool.ID(32), randomTestName(), "a") // enable use of local cache
 }
 
 func (s *AllocatorSuite) TestKeyToID(c *C) {
