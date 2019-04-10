@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/common"
@@ -370,9 +371,23 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		}(ep, epRegenerated)
 	}
 
+	var endpointCleanupCompleted sync.WaitGroup
 	for _, ep := range state.toClean {
-		go d.deleteEndpointQuiet(ep, true)
+		endpointCleanupCompleted.Add(1)
+		go func(ep *endpoint.Endpoint) {
+			// The IP was not allocated yet so does not need to be free.
+			// The identity may be allocated in the kvstore but we can't
+			// release it easily as it will require to block on kvstore
+			// connectivity which we can't do at this point. Let the lease
+			// expire to release the identity.
+			d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+				NoIdentityRelease: true,
+				NoIPRelease:       true,
+			})
+			endpointCleanupCompleted.Done()
+		}(ep)
 	}
+	endpointCleanupCompleted.Wait()
 
 	go func() {
 		regenerated, total := 0, 0
