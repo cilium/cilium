@@ -286,7 +286,9 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (secctx > WORLD_ID && info && info->key) {
-		set_encrypt_key(skb, info->key);
+		__u8 key = get_min_encrypt_key(info->key);
+
+		set_encrypt_key(skb, key);
 		set_identity(skb, secctx);
 	}
 #endif
@@ -491,7 +493,9 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 #ifdef ENABLE_IPSEC
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (secctx > WORLD_ID && info && info->key) {
-		set_encrypt_key(skb, info->key);
+		__u8 key = get_min_encrypt_key(info->key);
+
+		set_encrypt_key(skb, key);
 		set_identity(skb, secctx);
 	}
 #endif
