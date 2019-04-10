@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -401,7 +401,6 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 	p.rules = append(p.rules, newList...)
 	p.BumpRevision()
 	metrics.PolicyCount.Add(float64(len(newList)))
-	metrics.PolicyRevision.Inc()
 
 	return newList, p.GetRevision()
 }
@@ -488,7 +487,6 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (ruleSlice, 
 		p.BumpRevision()
 		p.rules = new
 		metrics.PolicyCount.Sub(float64(deleted))
-		metrics.PolicyRevision.Inc()
 	}
 
 	return deletedRules, p.GetRevision(), deleted
