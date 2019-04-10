@@ -76,14 +76,17 @@ func ipSecNewPolicy() *netlink.XfrmPolicy {
 	return &policy
 }
 
-func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP) {
+func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, dstIP net.IP, spi bool) {
 	tmpl := netlink.XfrmPolicyTmpl{
 		Proto: netlink.XFRM_PROTO_ESP,
 		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Spi:   int(keys.Spi),
 		Reqid: keys.ReqID,
 		Dst:   dstIP,
 		Src:   srcIP,
+	}
+
+	if spi {
+		tmpl.Spi = int(keys.Spi)
 	}
 
 	policy.Tmpls = append(policy.Tmpls, tmpl)
@@ -131,7 +134,7 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
-	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
+	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, false)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -152,7 +155,7 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP)
+	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, true)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -162,21 +165,6 @@ func ipsecDeleteXfrmSpi(spi uint8) {
 		"spi": spi,
 	})
 
-	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
-	if err != nil {
-		scopedLog.WithError(err).Warning("deleting previous SPI, xfrm policy list error")
-		return
-	}
-
-	for _, p := range xfrmPolicyList {
-		if p.Tmpls[0].Spi != int(spi) &&
-			((p.Mark != nil && (p.Mark.Value&linux_defaults.RouteMarkMask) == linux_defaults.RouteMarkDecrypt) ||
-				(p.Mark != nil && (p.Mark.Value&linux_defaults.RouteMarkMask) == linux_defaults.RouteMarkEncrypt)) {
-			if err := netlink.XfrmPolicyDel(&p); err != nil {
-				scopedLog.WithError(err).Warning("deleting old xfrm policy failed")
-			}
-		}
-	}
 	xfrmStateList, err := netlink.XfrmStateList(0)
 	if err != nil {
 		scopedLog.WithError(err).Warning("deleting previous SPI, xfrm state list error")
