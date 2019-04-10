@@ -169,7 +169,9 @@ func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int
 func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
 	// The IP has been provided by the caller and must be released
 	// by the caller
-	d.deleteEndpointQuiet(ep, true)
+	d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+		NoIPRelease: true,
+	})
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
 	return nil, PutEndpointIDFailedCode, err
 }
@@ -547,7 +549,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errs := d.deleteEndpointQuiet(ep, true)
+	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{})
 	for _, err := range errs {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
@@ -561,7 +563,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 //
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
-func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []error {
+func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
 
 	// Only used for CRI-O since it does not support events.
 	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
@@ -612,7 +614,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 		}
 	}
 
-	if releaseIP {
+	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
 			if err := d.ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
 				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
@@ -628,7 +630,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, releaseIP bool) []er
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
-	errs = append(errs, ep.LeaveLocked(d, proxyWaitGroup)...)
+	errs = append(errs, ep.LeaveLocked(d, proxyWaitGroup, conf)...)
 	ep.Unlock()
 
 	err := ep.WaitForProxyCompletions(proxyWaitGroup)
