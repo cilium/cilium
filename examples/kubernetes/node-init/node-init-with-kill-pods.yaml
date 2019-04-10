@@ -89,6 +89,21 @@ spec:
                   ip link del cbr0
                 fi
 
+                # We still need to delete Cilium in case it started before
+                # we have changed kubelet configuration. This prevents Cilium
+                # from pre-allocating all IP addresses managed by cbr0.
+                echo "Restarting possible cilium instances"
+                if grep -q 'docker' /etc/crictl.yaml; then
+                  # Works for COS, ubuntu
+                  docker rm -f $(docker ps -q --filter=label=k8s-app=cilium) || true
+                else
+                  # COS-beta (with containerd)
+                  # currently cilium doesn't work with cos-beta so once it does
+                  # we need to figure out a why to delete cilium pods
+                  echo "Not implemented for cos-beta, please restart cilium pods"
+                  echo "manually!"
+                fi
+
                 echo "Link information:"
                 ip link
 
