@@ -128,7 +128,7 @@ generate_commit_list_for_pr () {
   local entry_sub
   local upstream
 
-  remote=`git remote -v | grep "github.com.cilium/cilium" | head -n1 | cut -f1`
+  remote=`git remote -v | grep "github.com.cilium/cilium.git" | head -n1 | cut -f1`
 
   url="https://api.github.com/repos/cilium/cilium/pulls/$pr/commits"
   pr_json="$($GHCURL $url)"
