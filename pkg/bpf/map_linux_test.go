@@ -323,6 +323,11 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	err = noSuchMap.DumpIfExists(dump3)
 	c.Assert(err, IsNil)
 	c.Assert(len(dump3), Equals, 0)
+
+	dump2 = map[string][]string{}
+	err = noSuchMap.DumpWithCallbackIfExists(customCb)
+	c.Assert(err, IsNil)
+	c.Assert(len(dump2), Equals, 0)
 }
 
 func (s *BPFPrivilegedTestSuite) TestGetModel(c *C) {

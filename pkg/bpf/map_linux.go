@@ -518,6 +518,21 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	return nil
 }
 
+// DumpWithCallbackIfExists is similar to DumpWithCallback, but returns earlier
+// if the given map does not exist.
+func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
+	found, err := m.exist()
+	if err != nil {
+		return err
+	}
+
+	if found {
+		return m.DumpWithCallback(cb)
+	}
+
+	return nil
+}
+
 // DumpReliablyWithCallback is similar to DumpWithCallback, but performs
 // additional tracking of the current and recently seen keys, so that if an
 // element is removed from the underlying kernel map during the dump, the dump
@@ -620,12 +635,12 @@ func (m *Map) Dump(hash map[string][]string) error {
 // DumpIfExists dumps the contents of the map into hash via Dump() if the map
 // file exists
 func (m *Map) DumpIfExists(hash map[string][]string) error {
-	path, err := m.Path()
+	found, err := m.exist()
 	if err != nil {
 		return err
 	}
 
-	if _, err := os.Stat(path); err == nil {
+	if found {
 		return m.Dump(hash)
 	}
 
@@ -959,4 +974,17 @@ func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
 		desired.MaxEntries,
 		desired.Flags,
 	)
+}
+
+func (m *Map) exist() (bool, error) {
+	path, err := m.Path()
+	if err != nil {
+		return false, err
+	}
+
+	if _, err := os.Stat(path); err == nil {
+		return true, nil
+	}
+
+	return false, nil
 }
