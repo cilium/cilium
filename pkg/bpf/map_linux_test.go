@@ -372,3 +372,25 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 	c.Assert(upgrade, Equals, true)
 	DisableMapPreAllocation()
 }
+
+func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
+	unpinMap := NewMap("cilium_test_unpin",
+		MapTypeHash,
+		int(unsafe.Sizeof(TestKey{})),
+		int(unsafe.Sizeof(TestValue{})),
+		maxEntries,
+		BPF_F_NO_PREALLOC,
+		0,
+		DumpParserFunc).WithCache()
+	_, err := unpinMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	c.Assert(unpinMap.exist(), Equals, true)
+
+	err = unpinMap.Unpin()
+	c.Assert(err, IsNil)
+	c.Assert(unpinMap.exist(), Equals, false)
+
+	err = unpinMap.UnpinIfExists()
+	c.Assert(err, IsNil)
+	c.Assert(unpinMap.exist(), Equals, false)
+}
