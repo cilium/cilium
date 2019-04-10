@@ -10,6 +10,8 @@ spec:
       labels:
         app: cilium-node-init
     spec:
+      tolerations:
+      - operator: Exists
       hostPID: true
       containers:
         - name: node-init
@@ -81,5 +83,5 @@ spec:
 
               echo "Routing table:"
               ip route
-              
+
               echo "Node initialization complete"
