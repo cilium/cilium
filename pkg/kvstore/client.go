@@ -16,13 +16,11 @@ package kvstore
 
 import (
 	"fmt"
-	"sync"
 )
 
 var (
 	// defaultClient is the default client initialized by initClient
 	defaultClient BackendOperations
-	once          sync.Once
 	// defaultClientSet is a channel that is closed whenever the defaultClient
 	// is set.
 	defaultClientSet = make(chan struct{})
@@ -56,9 +54,7 @@ func initClient(module backendModule, opts *ExtraOptions) error {
 
 // Client returns the global kvstore client or nil if the client is not configured yet
 func Client() BackendOperations {
-	once.Do(func() {
-		<-defaultClientSet
-	})
+	<-defaultClientSet
 	return defaultClient
 }
 
