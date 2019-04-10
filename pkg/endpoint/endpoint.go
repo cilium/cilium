@@ -1276,9 +1276,20 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	return rev
 }
 
+// DeleteConfig is the endpoint deletion configuration
+type DeleteConfig struct {
+	NoIPRelease       bool
+	NoIdentityRelease bool
+}
+
 // LeaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND BuildMutex locked.
-func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup) []error {
+//
+// Note: LeaveLocked() is called indirectly from endpoint restore logic for
+// endpoints which failed to be restored. Any cleanup routine of LeaveLocked()
+// which depends on kvstore connectivity must be protected by a flag in
+// DeleteConfig and the restore logic must opt-out of it.
+func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
@@ -1299,7 +1310,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		}
 	}
 
-	if e.SecurityIdentity != nil {
+	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		_, err := cache.Release(context.Background(), e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))

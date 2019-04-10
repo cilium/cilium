@@ -539,7 +539,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 	// Delete the endpoint.
 	e.UnconditionalLock()
-	e.LeaveLocked(ds.d, nil)
+	e.LeaveLocked(ds.d, nil, endpoint.DeleteConfig{})
 	e.Unlock()
 
 	// Check that the policy has been removed from the xDS cache.
