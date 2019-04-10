@@ -254,6 +254,8 @@ func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
 			errV2, errLegacy)
 	}
 
+	lbmap.DeleteServiceCache(svc)
+
 	return nil
 }
 

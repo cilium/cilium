@@ -76,8 +76,6 @@ func DeleteService(key ServiceKey) error {
 		return err
 	}
 
-	cache.delete(key)
-
 	return nil
 }
 
@@ -944,4 +942,17 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	}
 
 	return nil
+}
+
+// DeleteServiceCache deletes the service cache.
+func DeleteServiceCache(svc loadbalancer.L3n4AddrID) {
+	var svcKey ServiceKey
+
+	if !svc.IsIPv6() {
+		svcKey = NewService4Key(svc.IP, svc.Port, 0)
+	} else {
+		svcKey = NewService6Key(svc.IP, svc.Port, 0)
+	}
+
+	cache.delete(svcKey)
 }
