@@ -138,16 +138,18 @@ encap_and_redirect(struct __sk_buff *skb, struct endpoint_key *k,
 
 #ifdef ENABLE_IPSEC
 	if (tunnel->key) {
+		__u8 key = get_min_encrypt_key(tunnel->key);
+
 		if (from_host)
 			return enacap_and_redirect_nomark_ipsec(skb,
 								tunnel->ip4,
-								tunnel->key,
+								key,
 							        seclabel,
 								monitor);
 		else
 			return encap_and_redirect_ipsec(skb,
 							tunnel->ip4,
-							tunnel->key,
+							key,
 							seclabel,
 							monitor);
 	}

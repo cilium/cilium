@@ -358,6 +358,19 @@ static inline void __inline__ set_identity(struct __sk_buff *skb, __u32 identity
 	skb->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
+/* We cap key index at 4 bits because mark value is used to map skb to key */
+#define MAX_KEY_INDEX 15
+
+/* encrypt_key is the index into the encrypt map */
+struct encrypt_key {
+	__u32 ctx;
+} __attribute__((packed));
+
+/* encrypt_config is the current encryption context on the node */
+struct encrypt_config {
+	__u8 encrypt_key;
+} __attribute__((packed));
+
 /**
  * or_encrypt_key - mask and shift key into encryption format
  */

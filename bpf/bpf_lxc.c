@@ -150,7 +150,7 @@ skip_service_lookup:
 		if (info != NULL && info->sec_label) {
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
-			encrypt_key = info->key;
+			encrypt_key = get_min_encrypt_key(info->key);
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -340,11 +340,13 @@ pass_to_stack:
 			  forwarding_reason, monitor);
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
+#ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (*dstID > WORLD_ID && encrypt_key) {
 		set_encrypt_key(skb, encrypt_key);
 		set_identity(skb, SECLABEL);
 	}
+#endif
 #endif
 	return TC_ACT_OK;
 }
@@ -475,7 +477,7 @@ skip_service_lookup:
 		if (info != NULL && info->sec_label) {
 			*dstID = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
-			encrypt_key = info->key;
+			encrypt_key = get_min_encrypt_key(info->key);
 		} else {
 			*dstID = WORLD_ID;
 		}
@@ -666,11 +668,13 @@ pass_to_stack:
 
 	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
 			  forwarding_reason, monitor);
+#ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (*dstID > WORLD_ID && encrypt_key) {
 		set_encrypt_key(skb, encrypt_key);
 		set_identity(skb, SECLABEL);
 	}
+#endif
 #endif
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
