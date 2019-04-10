@@ -13,6 +13,7 @@ spec:
       tolerations:
       - operator: Exists
       hostPID: true
+      hostNetwork: true
       containers:
         - name: node-init
           image: gcr.io/google-containers/startup-script:v1
