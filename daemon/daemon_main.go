@@ -430,6 +430,9 @@ func init() {
 	flags.Bool(option.DisableK8sServices, false, "Disable east-west K8s load balancing by cilium")
 	option.BindEnv(option.DisableK8sServices)
 
+	flags.Bool(option.EnableLegacyServices, true, "Enable legacy (prior-v1.5) services")
+	option.BindEnv(option.EnableLegacyServices)
+
 	flags.StringP(option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	option.BindEnv(option.Docker)
 
