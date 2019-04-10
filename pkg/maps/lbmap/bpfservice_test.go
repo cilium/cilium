@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
@@ -40,6 +41,10 @@ func createBackend(c *C, ip string, port, revnat uint16) ServiceValue {
 	v := NewService4Value(0, i, port, revnat, 0)
 	c.Assert(v, Not(IsNil))
 	return v
+}
+
+func (b *LBMapTestSuite) SetUpSuite(c *C) {
+	option.Config.EnableLegacyServices = true
 }
 
 func (b *LBMapTestSuite) TestScaleService(c *C) {
