@@ -12,10 +12,12 @@ Upgrade Guide
 
 .. _upgrade_general:
 
-This upgrade guide is intended for Cilium 1.0 or later running on Kubernetes.
+This upgrade guide is intended for Cilium 1.3 or later running on Kubernetes.
 It is assuming that Cilium has been deployed using standard procedures as
 described in the :ref:`k8s_concepts_deployment`. If you have installed Cilium
-using the guide :ref:`ds_deploy`, then this is automatically the case.
+using the guide :ref:`ds_deploy`, then this is automatically the case. If you 
+are looking for instructions for upgrading from a version of Cilium prior to 
+1.3, then please consult the documentation from that release.
 
 .. _pre_flight:
 
@@ -246,7 +248,7 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.2.x``             | ``1.3.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``>=1.2.5``           | ``1.4.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
+| ``>=1.2.5``           | ``1.5.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -406,8 +408,8 @@ Deprecated ConfigMap Options
   1.0-style policies that treated traffic that is masqueraded from the outside
   world as though it arrived from the local host. As of Cilium 1.4, the option
   is disabled by default if not specified in the ConfigMap, and the option is
-  scheduled to be removed in Cilium 1.5 or later. For more information, see
-  :ref:`host_vs_world`.
+  scheduled to be removed in Cilium 1.5 or later.
+
 
 .. _1.3_upgrade_notes:
 
@@ -419,7 +421,8 @@ Upgrading from 1.2.x to 1.3.y
 
 #. If you are running Cilium 1.0.x or 1.1.x, please upgrade to 1.2.x first. It
    is also possible to upgrade from 1.0 or 1.1 directly to 1.3 by combining the
-   upgrade instructions for each minor release. See :ref:`1.2_upgrade_notes`.
+   upgrade instructions for each minor release. See the documentation for said
+   releases for further information.
 
 #. Upgrade to Cilium ``1.2.4`` or later using the guide :ref:`upgrade_micro`.
 
@@ -443,237 +446,6 @@ New ConfigMap Options
      cleans the BPF state while preserving all other state. Endpoints will
      still be restored and IP allocations will prevail but all datapath state
      is cleaned when Cilium starts up. Not required for normal operation.
-
-.. _1.2_upgrade_notes:
-
-1.2 Upgrade Notes
------------------
-
-.. _1.2_new_options:
-
-New ConfigMap Options
-~~~~~~~~~~~~~~~~~~~~~
-
-   * ``cluster-name``: Name of the cluster. Only relevant when building a mesh
-     of clusters.
-
-   * ``cluster-id``: Unique ID of the cluster. Must be unique across all
-     connected clusters and in the range of 1 and 255. Only relevant when
-     building a mesh of clusters.
-
-   * ``monitor-aggregation-level``: If you want cilium monitor to aggregate
-     tracing for packets, set this level to "low", "medium", or "maximum". The
-     higher the level, the less packets that will be seen in monitor output.
-
-Upgrade Impact
-~~~~~~~~~~~~~~
-
-.. note::
-
-  Due to a format change in datapath structures to improve scale, the
-  connection tracking table will be cleared when the new version starts up for
-  the first time. This will cause a temporary disruption. All existing
-  connections are temporarily but should successfully re-establish without
-  requiring clients to reconnect.
-
-Upgrading to 1.2.x from 1.1.y
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#. If you are running Cilium 1.0.x. Please consider upgrading to 1.1.x first.
-   At the very least, be aware that all :ref:`1.1_upgrade_notes` will apply as
-   well.
-
-#. Upgrade to Cilium ``1.1.4`` or later using the guide :ref:`upgrade_micro`.
-
-#. Consider the new `ConfigMap` options described in section :ref:`1.2_new_options`.
-
-#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
-
-.. _1.1_upgrade_notes:
-
-1.1 Upgrade Notes
------------------
-
-.. _1.1_new_options:
-
-New ConfigMap Options
-~~~~~~~~~~~~~~~~~~~~~
-
-* ``legacy-host-allows-world``: In Cilium 1.0, all traffic from the host,
-  including from local processes and traffic that is masqueraded from the
-  outside world to the host IP, would be classified as from the ``host`` entity
-  (``reserved:host`` label).  Furthermore, to allow Kubernetes agents to
-  perform health checks over IP into the endpoints, the host is allowed by
-  default. This means that all traffic from the outside world is also allowed
-  by default, regardless of security policy. This behavior is continued to
-  maintain backwards compatible but it can be disabled (recommended) by setting
-  ``legacy-host-allows-world`` to ``false``. See :ref:`host_vs_world` for more
-  details.
-
-* ``sidecar-istio-proxy-image:`` Regular expression matching compatible Istio
-  sidecar istio-proxy container image names.
-
-
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
-
-* ``sidecar-http-proxy``
-
-Upgrading to Cilium 1.1.x from Cilium 1.0.y
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#. Consider the new `ConfigMap` options described in section :ref:`1.1_new_options`.
-
-#. Follow the guide in :ref:`err_low_mtu` to update the MTU of existing
-   endpoints to the new improved model. This step can also be performed after
-   the upgrade but performing it before the upgrade will guarantee that no
-   packet loss occurs during the upgrade phase.
-
-#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
-
-
-Downgrading to Cilium 1.1.x from Cilium 1.2.y
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When downgrading from Cilium 1.2, the target version **must** be Cilium 1.1.4
-or later.
-
-#. Check whether you have any DNS policy rules installed:
-
-   .. code-block:: shell-session
-
-     $ kubectl get cnp --all-namespaces -o yaml | grep "fqdn"
-
-   If any DNS rules exist, these must be removed prior to downgrade as these
-   rules are not supported by Cilium 1.1.
-
-.. _err_low_mtu:
-
-MTU handling behavior change in Cilium 1.1
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Cilium 1.0 by default configured the MTU of all Cilium-related devices and
-endpoint devices to 1450 bytes, to guarantee that packets sent from an endpoint
-would remain below the MTU of a tunnel. This had the side-effect that when a
-Cilium-managed pod made a request to an outside (world) IP, if the response
-came back in 1500B chunks, then it would be fragmented when transmitted to the
-``cilium_host`` device. These fragments then pass through the Cilium policy
-logic. Latter IP fragments would not contain L4 ports, so if any L4 or L4+L7
-policy was applied to the destination endpoint, then the fragments would be
-dropped. This could cause disruption to network traffic.
-
-Affected versions
-^^^^^^^^^^^^^^^^^
-
-* Cilium 1.0 or earlier.
-
-Cilium 1.1 and later are not affected.
-
-Mitigation
-^^^^^^^^^^
-
-There is no known mitigation for users running Cilium 1.0 at this time.
-
-Solution
-^^^^^^^^
-
-Cilium 1.1 fixes the above issue by increasing the MTU of the Cilium-related
-devices and endpoint devices to 1500B (or larger based on container runtime
-settings), then configuring a route within the endpoint at a lower MTU to
-ensure that transmitted packets will fit within tunnel encapsulation. This
-addresses the above issue for all new pods.
-
-The MTU for endpoints deployed on Cilium 1.0 must be updated to remediate this
-issue. Users are recommended to follow the below upgrade instructions prior to
-upgrading to Cilium 1.1 to prepare the endpoints for the new MTU behavior.
-
-Upgrade Steps
-^^^^^^^^^^^^^
-
-The `mtu-update`_ tool is provided as a Kubernetes `DaemonSet` to assist the
-live migration of applications from the Cilium 1.0 MTU handling behavior to the
-Cilium 1.1 or later MTU handling behavior. To prevent any packet loss during
-upgrade, these steps should be followed before upgrading to Cilium 1.1;
-however, they are also safe to run after upgrade.
-
-To deploy the `mtu-update`_ DaemonSet:
-
-.. code-block:: shell-session
-
-  $ kubectl create -f https://raw.githubusercontent.com/cilium/mtu-update/v1.1/mtu-update.yaml
-
-This will deploy the `mtu-update`_ daemon on each node in your cluster, where it
-will proceed to search for Cilium-managed pods and update the MTU inside these
-pods to match the Cilium 1.1 behavior.
-
-To determine whether this was successful:
-
-.. code-block:: shell-session
-
-  $ kubectl get ds mtu-update -n kube-system
-  NAME         DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-  mtu-update   1         1         1         1            1           <none>          18s
-
-When the ``DESIRED`` count matches the ``READY`` count, the MTU has been
-successfully updated for running pods. It is now safe to remove the
-`mtu-update`_ daemonset:
-
-.. code-block:: shell-session
-
-  $ kubectl delete -f https://raw.githubusercontent.com/cilium/mtu-update/v1.1/mtu-update.yaml
-
-For more information, visit the `mtu-update`_ website.
-
-.. _mtu-update: https://github.com/cilium/mtu-update
-
-
-1.0 Upgrade Notes
------------------
-
-Upgrading to Cilium 1.0.x from older versions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Versions of Cilium older than 1.0.0 are unsupported for upgrade. The
-:ref:`upgrade_minor` may work, however it may be more reliable to start again
-from the :ref:`gs_install`
-
-Downgrading to Cilium 1.0.x from Cilium 1.1.y
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#. Check whether you have any CIDR policy rules not compatible with 1.0.x:
-
-   .. code-block:: shell-session
-
-     $ kubectl get cnp --all-namespaces -o yaml
-
-   * **Default prefix:** If any CIDR rules match on the CIDR prefix ``/0``,
-     these must be removed prior to downgrade as these rules are not supported
-     by Cilium 1.0. (`PR 4458 <https://github.com/cilium/cilium/pull/4458>`_)
-
-   * **CIDR-dependent L4 policies:** If any CIDR rules also specify a
-     ``toPorts`` section, these must be removed prior to downgrade as these
-     rules are not supported by Cilium 1.0. (`PR 3835 <https://github.com/cilium/cilium/pull/3835>`_)
-
-   * **IPv6 CIDR matching:** Technically supported since 1.0.2, officially supported
-     since 1.1.0. (`PR 4004 <https://github.com/cilium/cilium/pull/4004>`_)
-
-   Any rules that are not compatible with 1.0.x must be removed before
-   downgrade.
-
-#. Add or update the option ``clean-cilium-bpf-state`` to the `ConfigMap` and
-   set to ``true``. This will cause BPF maps to be removed during the
-   downgrade, which avoids bugs such as `Issue 5070
-   <https://github.com/cilium/cilium/issues/5070>`_. As a side effect, any
-   loadbalancing decisions for active connections will be disrupted during
-   downgrade. For more information on changing `ConfigMap` options, see
-   :ref:`upgrade_configmap`.
-
-#. Follow the instructions in the section :ref:`upgrade_minor` to perform the
-   downgrade to the latest micro release of the 1.0 series.
-
-#. Set the ``clean-cilium-bpf-state`` `ConfigMap` option back to ``false``.
-
-.. _upgrade_advanced:
 
 Advanced
 ========
@@ -699,6 +471,7 @@ available during the upgrade:
   outage while the Cilium pod is restarting. Events are queued up and read
   after the upgrade. If the number of events exceeds the event buffer size,
   events will be lost.
+
 
 .. _upgrade_configmap:
 
@@ -931,93 +704,6 @@ Solution
 Upgrade the host Linux version to 4.11 or later. This step is beyond the scope
 of the Cilium guide.
 
-
-.. _host_vs_world:
-
-Traffic from world to endpoints is classified as from host
-----------------------------------------------------------
-
-In Cilium 1.0, all traffic from the host, including from local processes and
-traffic that is masqueraded from the outside world to the host IP, would be
-classified as from the ``host`` entity (``reserved:host`` label).
-Furthermore, to allow Kubernetes agents to perform health checks over IP into
-the endpoints, the host is allowed by default. This means that all traffic from
-the outside world is also allowed by default, regardless of security policy.
-
-This behaviour was disabled in Cilium 1.1 or later.
-
-Affected versions
-~~~~~~~~~~~~~~~~~
-
-* Cilium 1.0 or earlier deployed using the DaemonSet and ConfigMap YAMLs
-  provided with that release.
-
-Affected environments will see no output for one or more of the below commands:
-
-.. code-block:: shell-session
-
-  $ kubectl get ds cilium -n kube-system -o yaml | grep -B 3 -A 2 -i legacy-host-allows-world
-  $ kubectl get cm cilium-config -n kube-system -o yaml | grep -i legacy-host-allows-world
-
-Unaffected environments will see the following output (note the configMapKeyRef key in the Cilium DaemonSet and the ``legacy-host-allows-world: "false"`` setting of the ConfigMap):
-
-.. code-block:: shell-session
-
-  $ kubectl get ds cilium -n kube-system -o yaml | grep -B 3 -A 2 -i legacy-host-allows-world
-            - name: CILIUM_LEGACY_HOST_ALLOWS_WORLD
-              valueFrom:
-                configMapKeyRef:
-                  name: cilium-config
-                  optional: true
-                  key: legacy-host-allows-world
-  $ kubectl get cm cilium-config -n kube-system -o yaml | grep -i legacy-host-allows-world
-    legacy-host-allows-world: "false"
-
-Mitigation
-~~~~~~~~~~
-
-Users who are not reliant upon IP-based health checks for their kubernetes pods
-may mitigate this issue on earlier versions of Cilium by adding the argument
-``--allow-localhost=policy`` to the Cilium DaemonSet for the Cilium container.
-This prevents the automatic insertion of L3 allow policy in kubernetes
-environments. Note however that with this option, if the Cilium Network Policy
-allows traffic from the host, then it will still allow access from the outside
-world.
-
-.. code-block:: shell-session
-
-  $ kubectl edit ds cilium -n kube-system
-  (Edit the "args" section to add the option "--allow-localhost=policy")
-  $ kubectl rollout status daemonset/cilium -n kube-system
-  (Wait for kubernetes to redeploy Cilium with the new options)
-
-Solution
-~~~~~~~~
-
-Cilium 1.1 and later only classify traffic from a process on the local host as
-from the ``host`` entity; other traffic that is masqueraded to the host IP is
-now classified as from the ``world`` entity (``reserved:world`` label).
-Fresh deployments using the Cilium 1.1 YAMLs are not affected.
-
-Affected users are recommended to upgrade using the steps below.
-
-Upgrade steps
-~~~~~~~~~~~~~
-
-#. Redeploy the Cilium DaemonSet with the YAMLs provided with the Cilium 1.1 or
-   later release. The instructions for this are found at the top of the
-   :ref:`admin_upgrade`.
-
-#. Add the config option ``legacy-host-allows-world: "false"`` to the Cilium
-   ConfigMap under the "data" paragraph.
-
-     .. code-block:: shell-session
-
-       $ kubectl edit configmap cilium-config -n kube-system
-       (Add a new line with the config option above in the "data" paragraph)
-
-#. (Optional) Update the Cilium Network Policies to allow specific traffic from
-   the outside world. For more information, see :ref:`network_policy`.
 
 .. _dns_upgrade_poller:
 
