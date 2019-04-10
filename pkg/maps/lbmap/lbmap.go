@@ -628,11 +628,14 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		var backendValue BackendValue
-
 		svcKey := key.(ServiceKeyV2)
 		svcValue := value.(ServiceValueV2)
-		isMasterService := svcKey.GetSlave() == 0
+
+		// Skip master service
+		if svcKey.GetSlave() == 0 {
+			return
+		}
+
 		backendID := svcValue.GetBackendID()
 
 		scopedLog := log.WithFields(logrus.Fields{
@@ -640,13 +643,10 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 			logfields.BPFMapValue: svcValue,
 		})
 
-		if !isMasterService {
-			var found bool
-			backendValue, found = backendValueMap[backendID]
-			if !found {
-				errors = append(errors, fmt.Errorf("backend %d not found", backendID))
-				return
-			}
+		backendValue, found := backendValueMap[backendID]
+		if !found {
+			errors = append(errors, fmt.Errorf("backend %d not found", backendID))
+			return
 		}
 
 		scopedLog.Debug("parsing service mapping")
@@ -659,10 +659,8 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 			idCache[fe.String()] = loadbalancer.ServiceID(k)
 		}
 
-		if !isMasterService {
-			svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetSlave())
-			newSVCList = append(newSVCList, svc)
-		}
+		svc := newSVCMap.AddFEnBE(fe, be, svcKey.GetSlave())
+		newSVCList = append(newSVCList, svc)
 	}
 
 	mutex.RLock()
