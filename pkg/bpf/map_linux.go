@@ -213,6 +213,20 @@ func (m *Map) Unpin() error {
 	return os.RemoveAll(path)
 }
 
+// UnpinIfExists tries to unpin (remove) the map only if it exists.
+func (m *Map) UnpinIfExists() error {
+	found, err := m.exist()
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		return nil
+	}
+
+	return m.Unpin()
+}
+
 // DeepEquals compares the current map against another map to see that the
 // attributes of the two maps are the same.
 func (m *Map) DeepEquals(other *Map) bool {
