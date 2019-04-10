@@ -277,6 +277,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		ExpectDockerContainersMatchCiliumEndpoints(vm)
 		monitorStop()
 	})
 

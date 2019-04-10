@@ -58,6 +58,7 @@ var _ = Describe("RuntimeChaos", func() {
 
 	JustAfterEach(func() {
 		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		ExpectDockerContainersMatchCiliumEndpoints(vm)
 	})
 
 	AfterFailed(func() {

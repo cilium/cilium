@@ -52,3 +52,8 @@ func ExpectCiliumReady(vm *helpers.SSHMeta) {
 	res = vm.SetPolicyEnforcement(helpers.PolicyEnforcementDefault)
 	ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Cannot set policy enforcement default")
 }
+
+func ExpectDockerContainersMatchCiliumEndpoints(vm *helpers.SSHMeta) {
+	ExpectWithOffset(1, vm.ValidateEndpointsAreCorrect(helpers.CiliumDockerNetwork)).To(BeNil(),
+		"Docker containers mistmach with Cilium Endpoints")
+}
