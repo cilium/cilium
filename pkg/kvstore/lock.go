@@ -53,7 +53,7 @@ type pathLocks struct {
 	lockPaths map[string]uuid.UUID
 }
 
-func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID) {
+func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID, err error) {
 	id = uuidfactor.NewUUID()
 	started := time.Now()
 
@@ -83,7 +83,7 @@ func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID) {
 		select {
 		case <-time.After(time.Duration(10) * time.Millisecond):
 		case <-ctx.Done():
-			log.WithError(ctx.Err()).WithField("path", path).Warning("Operation to wait for local lock has been cancelled")
+			err = fmt.Errorf("lock was cancelled: %s", ctx.Err())
 			return
 		}
 	}
@@ -110,7 +110,10 @@ type Lock struct {
 //
 // It is required to call Unlock() on the returned Lock to unlock
 func LockPath(ctx context.Context, path string) (l *Lock, err error) {
-	id := kvstoreLocks.lock(ctx, path)
+	id, err := kvstoreLocks.lock(ctx, path)
+	if err != nil {
+		return nil, err
+	}
 
 	lock, err := Client().LockPath(ctx, path)
 	if err != nil {
