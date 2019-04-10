@@ -18,6 +18,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -83,6 +84,11 @@ type LBSVC struct {
 	BES    []LBBackEnd
 }
 
+type backendPlacement struct {
+	pos int
+	id  BackendID
+}
+
 func (s *LBSVC) GetModel() *models.Service {
 	if s == nil {
 		return nil
@@ -95,8 +101,14 @@ func (s *LBSVC) GetModel() *models.Service {
 		BackendAddresses: make([]*models.BackendAddress, len(s.BES)),
 	}
 
+	placements := make([]backendPlacement, len(s.BES))
 	for i, be := range s.BES {
-		spec.BackendAddresses[i] = be.GetBackendModel()
+		placements[i] = backendPlacement{pos: i, id: be.ID}
+	}
+	sort.Slice(placements,
+		func(i, j int) bool { return placements[i].id < placements[j].id })
+	for i, placement := range placements {
+		spec.BackendAddresses[i] = s.BES[placement.pos].GetBackendModel()
 	}
 
 	return &models.Service{
