@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -630,6 +631,34 @@ func (s *SSHMeta) ReportFailed(commands ...string) {
 	s.DumpCiliumCommandOutput()
 	s.GatherLogs()
 	s.GatherDockerLogs()
+}
+
+// ValidateEndpointsAreCorrect is a function that validates that all Docker
+// container that are in the given docker network are correct as cilium
+// endpoints.
+func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
+	endpointsFilter := `{range[*]}{.status.external-identifiers.container-id}{"="}{.id}{"\n"}{end}`
+	jqFilter := `.[].Containers|keys |.[]`
+
+	res := s.Exec(fmt.Sprintf("docker network inspect %s | jq -r '%s'", dockerNetwork, jqFilter))
+	if !res.WasSuccessful() {
+		return errors.New("Cannot get Docker containers in the given network")
+	}
+
+	epRes := s.ExecCilium(fmt.Sprintf("endpoint list -o jsonpath='%s'", endpointsFilter))
+	if !epRes.WasSuccessful() {
+		return errors.New("Cannot get cilium endpoint list")
+	}
+
+	endpoints := epRes.KVOutput()
+	for _, containerID := range res.ByLines() {
+		_, exists := endpoints[containerID]
+		if !exists {
+
+			return fmt.Errorf("ContainerID %s is not present in the endpoint list", containerID)
+		}
+	}
+	return nil
 }
 
 // ValidateNoErrorsInLogs checks in cilium logs since the given duration (By
