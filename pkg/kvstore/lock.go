@@ -20,15 +20,15 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	uuidfactor "github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/pborman/uuid"
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	kvstoreLocks = pathLocks{lockPaths: map[string]int{}}
-)
+	kvstoreLocks = pathLocks{lockPaths: map[string]uuid.UUID{}}
 
-const (
 	// staleLockTimeout is the timeout after which waiting for a believed
 	// other local lock user for the same key is given up on and etcd is
 	// asked directly. It is still highly unlikely that concurrent access
@@ -50,25 +50,25 @@ func getLockPath(path string) string {
 
 type pathLocks struct {
 	mutex     lock.RWMutex
-	lockPaths map[string]int
+	lockPaths map[string]uuid.UUID
 }
 
-func (pl *pathLocks) lock(ctx context.Context, path string) {
+func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID) {
+	id = uuidfactor.NewUUID()
 	started := time.Now()
 
 	for {
 		pl.mutex.Lock()
 
-		refcnt := pl.lockPaths[path]
-		if refcnt == 0 {
-			pl.lockPaths[path] = 1
+		if _, ok := pl.lockPaths[path]; !ok {
+			pl.lockPaths[path] = id
 			pl.mutex.Unlock()
 			return
 		}
 
 		if time.Since(started) > staleLockTimeout {
 			log.WithField("path", path).Warning("Timeout while waiting for lock, forcefully unlocking...")
-			pl.lockPaths[path] = 0
+			delete(pl.lockPaths, path)
 			pl.mutex.Unlock()
 
 			// The lock was forcefully released, restart a new
@@ -89,15 +89,18 @@ func (pl *pathLocks) lock(ctx context.Context, path string) {
 	}
 }
 
-func (pl *pathLocks) unlock(path string) {
+func (pl *pathLocks) unlock(path string, id uuid.UUID) {
 	pl.mutex.Lock()
-	pl.lockPaths[path] = 0
+	if owner, ok := pl.lockPaths[path]; ok && uuid.Equal(owner, id) {
+		delete(pl.lockPaths, path)
+	}
 	pl.mutex.Unlock()
 }
 
 // Lock is a lock return by LockPath
 type Lock struct {
 	path   string
+	id     uuid.UUID
 	kvLock kvLocker
 }
 
@@ -107,18 +110,18 @@ type Lock struct {
 //
 // It is required to call Unlock() on the returned Lock to unlock
 func LockPath(ctx context.Context, path string) (l *Lock, err error) {
-	kvstoreLocks.lock(ctx, path)
+	id := kvstoreLocks.lock(ctx, path)
 
 	lock, err := Client().LockPath(ctx, path)
 	if err != nil {
-		kvstoreLocks.unlock(path)
+		kvstoreLocks.unlock(path, id)
 		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
 		err = fmt.Errorf("Error while locking path %s: %s", path, err)
 		return nil, err
 	}
 
 	Trace("Successful lock", err, logrus.Fields{fieldKey: path})
-	return &Lock{kvLock: lock, path: path}, err
+	return &Lock{kvLock: lock, path: path, id: id}, err
 }
 
 // Unlock unlocks a lock
@@ -131,7 +134,7 @@ func (l *Lock) Unlock() error {
 	err := l.kvLock.Unlock()
 
 	// unlock local lock even if kvstore cannot be unlocked
-	kvstoreLocks.unlock(l.path)
+	kvstoreLocks.unlock(l.path, l.id)
 	Trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
 
 	return err
