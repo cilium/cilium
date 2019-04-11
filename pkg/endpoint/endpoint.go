@@ -1065,6 +1065,7 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 	}
 
 	ep.UpdateLogger(nil)
+	ep.SecurityIdentity.Sanitize()
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
 
