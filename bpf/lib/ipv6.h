@@ -99,26 +99,17 @@ static inline int __inline__ ipv6_hdrlen(struct __sk_buff *skb, int l3_off, __u8
 
 static inline void ipv6_addr_copy(union v6addr *dst, union v6addr *src)
 {
-	dst->p1 = src->p1;
-	dst->p2 = src->p2;
-	dst->p3 = src->p3;
-	dst->p4 = src->p4;
+	dst->d1 = src->d1;
+	dst->d2 = src->d2;
 }
 
-static inline int ipv6_addrcmp(union v6addr *a, union v6addr *b)
+static inline __u64 ipv6_addrcmp(union v6addr *a, union v6addr *b)
 {
-	int tmp;
+	__u64 tmp;
 
-	tmp = a->p1 - b->p1;
-	if (!tmp) {
-		tmp = a->p2 - b->p2;
-		if (!tmp) {
-			tmp = a->p3 - b->p3;
-			if (!tmp)
-				tmp = a->p4 - b->p4;
-		}
-	}
-
+	tmp = a->d1 - b->d1;
+	if (!tmp)
+		tmp = a->d2 - b->d2;
 	return tmp;
 }
 
