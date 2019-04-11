@@ -397,7 +397,8 @@ func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs cniArgsS
 	if err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		return fmt.Errorf("unable to create endpoint: %s", err)
+		err = fmt.Errorf("unable to create endpoint: %s", err)
+		return
 	}
 
 	logger.WithFields(logrus.Fields{
@@ -406,45 +407,58 @@ func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs cniArgsS
 }
 
 func cmdAdd(args *skel.CmdArgs) (err error) {
+	var (
+		ipConfig *cniTypesVer.IPConfig
+		routes   []*cniTypes.Route
+		ipam     *models.IPAMResponse
+		n        *netConf
+		cniVer   string
+		c        *client.Client
+		netNs    ns.NetNS
+	)
+
 	logger := log.WithField("eventUUID", uuid.NewUUID())
 	logger.WithField("args", args).Debug("Processing CNI ADD request")
 
-	n, cniVer, err := loadNetConf(args.StdinData)
+	n, cniVer, err = loadNetConf(args.StdinData)
 	if err != nil {
-		return err
+		return
 	}
 
 	cniArgs := cniArgsSpec{}
-	if err := cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
-		return fmt.Errorf("unable to extract CNI arguments: %s", err)
+	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+		err = fmt.Errorf("unable to extract CNI arguments: %s", err)
+		return
 	}
 
-	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
+	c, err = client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
-		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
+		err = fmt.Errorf("unable to connect to Cilium daemon: %s", err)
+		return
 	}
 
 	if len(n.NetConf.RawPrevResult) != 0 {
 		switch n.Name {
 		case "cbr0":
-			err := setUPWithFlannel(logger, args, cniArgs, n, cniVer, c)
+			err = setUPWithFlannel(logger, args, cniArgs, n, cniVer, c)
 			if err != nil {
-				return err
+				return
 			}
 			return cniTypes.PrintResult(&cniTypesVer.Result{}, cniVer)
 		default:
 		}
 	}
 
-	netNs, err := ns.GetNS(args.Netns)
+	netNs, err = ns.GetNS(args.Netns)
 	if err != nil {
-		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
+		err = fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
 	}
 	defer netNs.Close()
 
-	if err := netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
-		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
+	if err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
+		err = fmt.Errorf("failed removing interface %q from namespace %q: %s",
 			args.IfName, args.Netns, err)
+		return
 	}
 
 	addLabels := models.Labels{}
@@ -459,7 +473,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if configResult == nil || configResult.Status == nil {
-		return fmt.Errorf("did not receive configuration from cilium-agent")
+		err = fmt.Errorf("did not receive configuration from cilium-agent")
+		return
 	}
 
 	conf := *configResult.Status
@@ -475,7 +490,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	switch conf.DatapathMode {
 	case option.DatapathModeVeth:
-		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
+		var (
+			veth      *netlink.Veth
+			peer      *netlink.Link
+			tmpIfName string
+		)
+		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
 		if err != nil {
 			return err
 		}
@@ -488,45 +508,49 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		}()
 
 		if err = netlink.LinkSetNsFd(*peer, int(netNs.Fd())); err != nil {
-			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
+			err = fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
+			return
 		}
 
 		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
-			return err
+			return
 		}
 	case option.DatapathModeIpvlan:
 		ipvlanConf := *conf.IpvlanConfiguration
 		index := int(ipvlanConf.MasterDeviceIndex)
 
-		mapFD, err := connector.CreateAndSetupIpvlanSlave(
+		var mapFD int
+		mapFD, err = connector.CreateAndSetupIpvlanSlave(
 			ep.ContainerID, args.IfName, netNs,
 			int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep,
 		)
 		if err != nil {
-			return err
+			return
 		}
 		defer unix.Close(mapFD)
 	}
 
-	ipam, err := c.IPAMAllocate("")
+	ipam, err = c.IPAMAllocate("")
 	if err != nil {
-		return err
+		return
 	}
 
 	if ipam.Address == nil {
-		return fmt.Errorf("Invalid IPAM response, missing addressing")
+		err = fmt.Errorf("Invalid IPAM response, missing addressing")
+		return
 	}
 
 	// release addresses on failure
 	defer func() {
 		if err != nil {
-			releaseIPs(c, ep.Addressing)
+			releaseIP(c, ipam.Address.IPV4)
+			releaseIP(c, ipam.Address.IPV6)
 		}
 	}()
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-		return fmt.Errorf("%s", err)
+		return
 	}
 
 	state := CmdState{
@@ -538,15 +562,16 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	res := &cniTypesVer.Result{}
 
 	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
-		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
+		err = fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
+		return
 	}
 
 	if ipv6IsEnabled(ipam) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
 
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
+		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
-			return err
+			return
 		}
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
@@ -555,9 +580,9 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if ipv4IsEnabled(ipam) {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
 
-		ipConfig, routes, err := prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
+		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
 		if err != nil {
-			return err
+			return
 		}
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
@@ -573,7 +598,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
-		return err
+		return
 	}
 
 	res.Interfaces = append(res.Interfaces, &cniTypesVer.Interface{
@@ -587,7 +612,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err = c.EndpointCreate(ep); err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		return fmt.Errorf("Unable to create endpoint: %s", err)
+		err = fmt.Errorf("Unable to create endpoint: %s", err)
+		return
 	}
 
 	logger.WithFields(logrus.Fields{
