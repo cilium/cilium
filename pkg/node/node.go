@@ -308,11 +308,16 @@ func (n *Node) PublicAttrEquals(o *Node) bool {
 	return false
 }
 
-// GetKeyName returns the kvstore key to be used for the node
-func (n *Node) GetKeyName() string {
+// GetKeyNodeName constructs the API name for the given cluster and node name.
+func GetKeyNodeName(cluster, node string) string {
 	// WARNING - STABLE API: Changing the structure of the key may break
 	// backwards compatibility
-	return path.Join(n.Cluster, n.Name)
+	return path.Join(cluster, node)
+}
+
+// GetKeyName returns the kvstore key to be used for the node
+func (n *Node) GetKeyName() string {
+	return GetKeyNodeName(n.Cluster, n.Name)
 }
 
 // DeepKeyCopy creates a deep copy of the LocalKey
