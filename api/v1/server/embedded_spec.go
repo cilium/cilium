@@ -615,6 +615,28 @@ func init() {
         }
       }
     },
+    "/identity/endpoints": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieve identities which are being used by local endpoints",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/IdentityEndpoints"
+              }
+            }
+          },
+          "404": {
+            "description": "Set of identities which are being used by local endpoints could not be found."
+          }
+        }
+      }
+    },
     "/identity/{id}": {
       "get": {
         "tags": [
@@ -2002,6 +2024,20 @@ func init() {
         "labelsSHA256": {
           "description": "SHA256 of labels",
           "type": "string"
+        }
+      }
+    },
+    "IdentityEndpoints": {
+      "description": "Security identities owned by endpoints on the local node",
+      "type": "object",
+      "properties": {
+        "identity": {
+          "description": "Security identity",
+          "$ref": "#/definitions/Identity"
+        },
+        "refCount": {
+          "description": "number of endpoints consuming this identity locally (should always be \u003e 0)",
+          "type": "integer"
         }
       }
     },
@@ -3397,6 +3433,28 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "InvalidStorageFormat"
+          }
+        }
+      }
+    },
+    "/identity/endpoints": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieve identities which are being used by local endpoints",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/IdentityEndpoints"
+              }
+            }
+          },
+          "404": {
+            "description": "Set of identities which are being used by local endpoints could not be found."
           }
         }
       }
@@ -4849,6 +4907,20 @@ func init() {
         "labelsSHA256": {
           "description": "SHA256 of labels",
           "type": "string"
+        }
+      }
+    },
+    "IdentityEndpoints": {
+      "description": "Security identities owned by endpoints on the local node",
+      "type": "object",
+      "properties": {
+        "identity": {
+          "description": "Security identity",
+          "$ref": "#/definitions/Identity"
+        },
+        "refCount": {
+          "description": "number of endpoints consuming this identity locally (should always be \u003e 0)",
+          "type": "integer"
         }
       }
     },
