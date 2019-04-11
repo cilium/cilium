@@ -51,6 +51,57 @@ type endpointRestoreState struct {
 	toClean  []*endpoint.Endpoint
 }
 
+// validateEndpoint attempts to determine that the endpoint is valid, ie it
+// still exists in k8s, its datapath devices are present, and Cilium is
+// responsible for its workload, etc.
+//
+// Returns true to indicate that the endpoint is valid to restore, and an
+// optional error.
+func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error) {
+	// On each restart, the health endpoint is supposed to be recreated.
+	// Hence we need to clean health endpoint state unconditionally.
+	if ep.HasLabels(labels.LabelHealth) {
+		// Ignore health endpoint and don't report
+		// it as not restored. But we need to clean up the old
+		// state files, so do this now.
+		healthStateDir := ep.StateDirectoryPath()
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.EndpointID: ep.ID,
+			logfields.Path:       healthStateDir,
+		})
+		scopedLog.Debug("Removing old health endpoint state directory")
+		if err := os.RemoveAll(healthStateDir); err != nil {
+			scopedLog.Warning("Cannot clean up old health state directory")
+		}
+		return false, nil
+	}
+
+	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
+		_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
+		if err != nil && k8serrors.IsNotFound(err) {
+			return false, fmt.Errorf("kubernetes pod not found")
+		}
+	}
+
+	if ep.HasIpvlanDataPath() {
+		// FIXME: We cannot check whether ipvlan slave netdev exists,
+		// because it requires entering container netns which is not
+		// always accessible (e.g. in k8s case "/proc" has to be bind
+		// mounted). Instead, we check whether the tail call map exists.
+		if _, err := os.Stat(ep.BPFIpvlanMapPath()); err != nil {
+			return false, fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
+		}
+	} else if _, err := netlink.LinkByName(ep.IfName); err != nil {
+		return false, fmt.Errorf("interface %s could not be found", ep.IfName)
+	}
+
+	if option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
+		return false, fmt.Errorf("no workload could be associated with endpoint")
+	}
+
+	return true, nil
+}
+
 // restoreOldEndpoints reads the list of existing endpoints previously managed
 // Cilium when it was last run and associated it with container workloads. This
 // function performs the first step in restoring the endpoint structure,
@@ -105,57 +156,15 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodNameLocked())
 		}
 
-		skipRestore := false
-
-		// On each restart, the health endpoint is supposed to be recreated.
-		// Hence we need to clean health endpoint state unconditionally.
-		if ep.HasLabels(labels.LabelHealth) {
-			// Ignore health endpoint and don't report
-			// it as not restored. But we need to clean up the old
-			// state files, so do this now.
-			healthStateDir := ep.StateDirectoryPath()
-			scopedLog.WithFields(logrus.Fields{
-				logfields.Path: healthStateDir,
-			}).Debug("Removing old health endpoint state directory")
-			if err := os.RemoveAll(healthStateDir); err != nil {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.Path: healthStateDir,
-				}).Warning("Cannot clean up old health state directory")
-			}
-			continue
-		} else {
-			if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
-				_, err := k8s.Client().CoreV1().Pods(ep.K8sNamespace).Get(ep.K8sPodName, meta_v1.GetOptions{})
-				if err != nil && k8serrors.IsNotFound(err) {
-					skipRestore = true
-				}
-			}
-
-			if ep.HasIpvlanDataPath() {
-				// FIXME: We cannot check whether ipvlan slave netdev exists,
-				// because it requires entering container netns which is not
-				// always accessible (e.g. in k8s case "/proc" has to be bind
-				// mounted). Instead, we check whether the tail call map exists.
-				if _, err := os.Stat(ep.BPFIpvlanMapPath()); err != nil {
-					scopedLog.Warningf(
-						"Ipvlan tail call map %s could not be found for endpoint being restored, ignoring",
-						ep.BPFIpvlanMapPath())
-					skipRestore = true
-				}
-			} else if _, err := netlink.LinkByName(ep.IfName); err != nil {
-				scopedLog.Warningf("Interface %s could not be found for endpoint being restored, ignoring", ep.IfName)
-				skipRestore = true
-			}
-
-			if !skipRestore && option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
-				scopedLog.Warning("No workload could be associated with endpoint being restored, ignoring")
-				skipRestore = true
-			}
-		}
-
-		if clean && skipRestore {
+		restore, err := d.validateEndpoint(ep)
+		if err != nil {
+			scopedLog.WithError(err).Warningf("Unable to restore endpoint, ignoring")
 			failed++
-			state.toClean = append(state.toClean, ep)
+		}
+		if !restore {
+			if clean {
+				state.toClean = append(state.toClean, ep)
+			}
 			continue
 		}
 
