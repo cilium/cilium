@@ -265,7 +265,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN, true);
+		ret = encap_and_redirect_netdev(skb, &key, secctx, TRACE_PAYLOAD_LEN);
 		if (ret == IPSEC_ENDPOINT)
 			return TC_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -470,7 +470,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(skb, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect(skb, &key, secctx, TRACE_PAYLOAD_LEN, true);
+		ret = encap_and_redirect_netdev(skb, &key, secctx, TRACE_PAYLOAD_LEN);
 		if (ret == IPSEC_ENDPOINT)
 			return TC_ACT_OK;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
