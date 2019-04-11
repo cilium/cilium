@@ -330,22 +330,23 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 				}
 			}
 		}
-
 		if v4AllocRangeFmt != "" {
 			fmt.Fprintf(w, "IPv4 address pool:\t%d%s%s\n", len(sr.IPAM.IPV4), v4CIDR, v4AllocRangeFmt)
-			if allAddresses {
-				for _, ipv4 := range sr.IPAM.IPV4 {
-					fmt.Fprintf(w, "  %s\n", ipv4)
-				}
-			}
 		}
 
 		if v6AllocRangeFmt != "" {
 			fmt.Fprintf(w, "IPv6 address pool:\t%d%s%s\n", len(sr.IPAM.IPV6), v6CIDR, v6AllocRangeFmt)
-			if allAddresses {
-				for _, ipv6 := range sr.IPAM.IPV6 {
-					fmt.Fprintf(w, "  %s\n", ipv6)
-				}
+		}
+
+		if allAddresses {
+			fmt.Fprintf(w, "Allocated addresses:\n")
+			out := []string{}
+			for ip, owner := range sr.IPAM.Allocations {
+				out = append(out, fmt.Sprintf("  %s (%s)", ip, owner))
+			}
+			sort.Strings(out)
+			for _, line := range out {
+				fmt.Fprintln(w, line)
 			}
 		}
 	}

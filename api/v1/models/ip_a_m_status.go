@@ -8,6 +8,7 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
 )
 
@@ -15,6 +16,9 @@ import (
 // swagger:model IPAMStatus
 // +k8s:deepcopy-gen=true
 type IPAMStatus struct {
+
+	// allocations
+	Allocations AllocationMap `json:"allocations,omitempty"`
 
 	// ipv4
 	IPV4 []string `json:"ipv4"`
@@ -25,6 +29,31 @@ type IPAMStatus struct {
 
 // Validate validates this IP a m status
 func (m *IPAMStatus) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateAllocations(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *IPAMStatus) validateAllocations(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Allocations) { // not required
+		return nil
+	}
+
+	if err := m.Allocations.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("allocations")
+		}
+		return err
+	}
+
 	return nil
 }
 

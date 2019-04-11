@@ -297,7 +297,7 @@ func (c *criClient) IgnoreRunningWorkloads() {
 		if cIP == nil {
 			continue
 		}
-		if err := allocator.AllocateIP(cIP.IP()); err != nil {
+		if err := allocator.AllocateIP(cIP.IP(), "ignored workload"); err != nil {
 			continue
 		}
 		//TODO Release this address when the ignored container leaves

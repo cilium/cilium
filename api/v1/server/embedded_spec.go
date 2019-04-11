@@ -665,6 +665,9 @@ func init() {
         "parameters": [
           {
             "$ref": "#/parameters/ipam-family"
+          },
+          {
+            "$ref": "#/parameters/ipam-owner"
           }
         ],
         "responses": {
@@ -693,6 +696,9 @@ func init() {
         "parameters": [
           {
             "$ref": "#/parameters/ipam-ip"
+          },
+          {
+            "$ref": "#/parameters/ipam-owner"
           }
         ],
         "responses": {
@@ -1133,6 +1139,13 @@ func init() {
           "description": "IPv6 address",
           "type": "string"
         }
+      }
+    },
+    "AllocationMap": {
+      "description": "Map of allocated IPs\n",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
       }
     },
     "BPFMap": {
@@ -1957,6 +1970,9 @@ func init() {
     "IPAMStatus": {
       "description": "Status of IP address management",
       "properties": {
+        "allocations": {
+          "$ref": "#/definitions/AllocationMap"
+        },
         "ipv4": {
           "type": "array",
           "items": {
@@ -2619,6 +2635,11 @@ func init() {
       "name": "ip",
       "in": "path",
       "required": true
+    },
+    "ipam-owner": {
+      "type": "string",
+      "name": "owner",
+      "in": "query"
     },
     "labels": {
       "description": "List of labels\n",
@@ -3440,6 +3461,11 @@ func init() {
             "type": "string",
             "name": "family",
             "in": "query"
+          },
+          {
+            "type": "string",
+            "name": "owner",
+            "in": "query"
           }
         ],
         "responses": {
@@ -3472,6 +3498,11 @@ func init() {
             "name": "ip",
             "in": "path",
             "required": true
+          },
+          {
+            "type": "string",
+            "name": "owner",
+            "in": "query"
           }
         ],
         "responses": {
@@ -3955,6 +3986,13 @@ func init() {
           "description": "IPv6 address",
           "type": "string"
         }
+      }
+    },
+    "AllocationMap": {
+      "description": "Map of allocated IPs\n",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
       }
     },
     "BPFMap": {
@@ -4779,6 +4817,9 @@ func init() {
     "IPAMStatus": {
       "description": "Status of IP address management",
       "properties": {
+        "allocations": {
+          "$ref": "#/definitions/AllocationMap"
+        },
         "ipv4": {
           "type": "array",
           "items": {
@@ -5441,6 +5482,11 @@ func init() {
       "name": "ip",
       "in": "path",
       "required": true
+    },
+    "ipam-owner": {
+      "type": "string",
+      "name": "owner",
+      "in": "query"
     },
     "labels": {
       "description": "List of labels\n",
