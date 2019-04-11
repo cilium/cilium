@@ -281,7 +281,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				return
 			}
 
-			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
+			ep.SetStateLocked(endpoint.StateRestoring, "Synchronizing endpoint labels with KVStore")
 
 			if ep.SecurityIdentity != nil {
 				if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
