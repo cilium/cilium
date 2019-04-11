@@ -16,7 +16,6 @@ import (
 
 // ClusterStatus Status of cluster
 // swagger:model ClusterStatus
-// +k8s:deepcopy-gen=true
 type ClusterStatus struct {
 
 	// Status of local cilium-health daemon

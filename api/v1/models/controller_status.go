@@ -15,7 +15,6 @@ import (
 
 // ControllerStatus Status of a controller
 // swagger:model ControllerStatus
-// +k8s:deepcopy-gen=true
 type ControllerStatus struct {
 
 	// configuration
@@ -201,7 +200,6 @@ func (m *ControllerStatusConfiguration) UnmarshalBinary(b []byte) error {
 
 // ControllerStatusStatus Current status of controller
 // swagger:model ControllerStatusStatus
-// +k8s:deepcopy-gen=true
 type ControllerStatusStatus struct {
 
 	// Number of consecutive errors since last success
