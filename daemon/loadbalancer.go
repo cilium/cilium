@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -310,6 +311,52 @@ func (d *Daemon) svcDeleteBPFLegacy(svc loadbalancer.L3n4AddrID) error {
 
 	log.WithField(logfields.ServiceID, svc.ID).Debug("done deleting service slaves, now deleting master service")
 	if err := lbmap.DeleteService(svcKey); err != nil {
+		return fmt.Errorf("deleting service failed for %s: %s", svcKey, err)
+	}
+
+	return nil
+}
+
+func svcDeleteBPFV2(svc loadbalancer.L3n4AddrID) error {
+	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps v2")
+	var svcKey lbmap.ServiceKeyV2
+	if !svc.IsIPv6() {
+		svcKey = lbmap.NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	} else {
+		svcKey = lbmap.NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	}
+
+	svcKey.SetSlave(0)
+
+	// Get count of backends from master.
+	val, err := svcKey.Map().Lookup(svcKey.ToNetwork())
+	if err != nil {
+		return fmt.Errorf("key %s is not in lbmap v2", svcKey.ToNetwork())
+	}
+
+	vval := val.(lbmap.ServiceValue)
+	numBackends := uint16(vval.GetCount())
+
+	// ServiceKeys are unique by their slave number, which corresponds to the number of backends. Delete each of these.
+	for i := numBackends; i > 0; i-- {
+		var slaveKey lbmap.ServiceKeyV2
+		if !svc.IsIPv6() {
+			slaveKey = lbmap.NewService4KeyV2(svc.IP, svc.Port, u8proto.All, i)
+		} else {
+			slaveKey = lbmap.NewService6KeyV2(svc.IP, svc.Port, u8proto.All, i)
+		}
+		log.WithFields(logrus.Fields{
+			"idx.backend": i,
+			"key":         slaveKey,
+		}).Debug("deleting backend # for slave ServiceKey v2")
+		if err := lbmap.DeleteServiceV2Raw(slaveKey); err != nil {
+			return fmt.Errorf("deleting service v2 failed for %s: %s", slaveKey, err)
+
+		}
+	}
+
+	log.WithField(logfields.ServiceID, svc.ID).Debug("done deleting service slaves, now deleting master service")
+	if err := lbmap.DeleteServiceV2Raw(svcKey); err != nil {
 		return fmt.Errorf("deleting service failed for %s: %s", svcKey, err)
 	}
 
@@ -915,6 +962,20 @@ func restoreServices() {
 				failed++
 				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
 					Warning("Unable to restore service v2")
+			}
+		}
+	}
+
+	// Delete v2 services which do not have the corresponding legacy ones. Can
+	// happen during upgrading after downgrading.
+	if option.Config.EnableLegacyServices {
+		for feHash, svc := range svcMapV2 {
+			if _, found := svcMap[feHash]; !found {
+				fmt.Println("!!!!! removing", svc)
+				if err := svcDeleteBPFV2(svc.FE); err != nil {
+					fmt.Println("!!!!!!!", err)
+				}
+				// TODO(brb) delete and release backends IDs (getBackendWithRefCountZero)
 			}
 		}
 	}

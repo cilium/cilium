@@ -79,6 +79,18 @@ func DeleteService(key ServiceKey) error {
 	return nil
 }
 
+func DeleteServiceV2Raw(key ServiceKeyV2) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	err := deleteServiceLockedV2(key)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func deleteServiceLocked(key ServiceKey) error {
 	err := key.Map().Delete(key.ToNetwork())
 	if err != nil {
