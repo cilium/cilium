@@ -15,6 +15,7 @@ cilium identity list [LABELS] [flags]
 ### Options
 
 ```
+      --endpoints       list identities of locally managed endpoints
   -h, --help            help for list
   -o, --output string   json| jsonpath='{}'
 ```
