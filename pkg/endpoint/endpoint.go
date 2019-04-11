@@ -2185,7 +2185,7 @@ func (e *Endpoint) PinDatapathMap() error {
 	return err
 }
 
-func (e *Endpoint) syncEndpointHeaderFile(owner Owner) {
+func (e *Endpoint) syncEndpointHeaderFile(owner Owner, reasons []string) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
@@ -2195,7 +2195,11 @@ func (e *Endpoint) syncEndpointHeaderFile(owner Owner) {
 	}
 	defer e.Unlock()
 
-	e.writeHeaderfile(e.StateDirectoryPath(), owner)
+	if err := e.writeHeaderfile(e.StateDirectoryPath(), owner); err != nil {
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.Reason: reasons,
+		}).WithError(err).Warning("could not sync header file")
+	}
 }
 
 // SyncEndpointHeaderFile it bumps the current DNS History information for the
@@ -2212,7 +2216,7 @@ func (e *Endpoint) SyncEndpointHeaderFile(owner Owner) error {
 			Name:              "sync_endpoint_header_file",
 			PrometheusMetrics: false,
 			MinInterval:       5 * time.Second,
-			TriggerFunc:       func(reasons []string) { e.syncEndpointHeaderFile(owner) },
+			TriggerFunc:       func(reasons []string) { e.syncEndpointHeaderFile(owner, reasons) },
 		})
 		if err != nil {
 			return fmt.Errorf(
