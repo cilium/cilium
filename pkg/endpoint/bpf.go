@@ -130,6 +130,9 @@ func (e *Endpoint) writeInformationalComments(w io.Writer, owner Owner) error {
 
 func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
+	e.getLogger().WithFields(logrus.Fields{
+		logfields.Path: headerPath,
+	}).Debug("writing header file")
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
