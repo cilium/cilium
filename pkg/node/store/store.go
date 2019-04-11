@@ -77,7 +77,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 	}
 }
 
-func (o *NodeObserver) OnDelete(k store.Key) {
+func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*node.Node); ok {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = node.FromKVStore
