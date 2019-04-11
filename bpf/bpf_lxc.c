@@ -133,7 +133,6 @@ skip_service_lookup:
 	ret = ct_lookup6(get_ct_map6(tuple), tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0) {
-		relax_verifier();
 		return ret;
 	}
 
