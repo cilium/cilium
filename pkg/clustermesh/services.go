@@ -145,7 +145,7 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 }
 
 // OnDelete is called when a service in a remote cluster is deleted
-func (r *remoteServiceObserver) OnDelete(key store.Key) {
+func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 	if svc, ok := key.(*service.ClusterService); ok {
 		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 		scopedLog.Debugf("Update event of remote service %#v", svc)

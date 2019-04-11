@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ func (o *observer) OnUpdate(k Key) {
 	}
 	counterLock.Unlock()
 }
-func (o *observer) OnDelete(k Key) {
+func (o *observer) OnDelete(k NamedKey) {
 	counterLock.Lock()
 	counter[k.(*TestType).Name].deleted++
 	counterLock.Unlock()
