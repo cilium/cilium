@@ -53,6 +53,7 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 	ipam := &IPAM{
 		nodeAddressing: nodeAddressing,
 		config:         c,
+		owner:          map[string]string{},
 	}
 
 	if c.EnableIPv6 {
@@ -119,7 +120,7 @@ func (ipam *IPAM) reserveLocalRoutes() {
 			}).Info("Marking local route as no-alloc in node allocation prefix")
 
 			for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
-				ipam.IPv4Allocator.Allocate(ip)
+				ipam.AllocateIP(ip, r.Dst.String())
 			}
 		}
 	}
