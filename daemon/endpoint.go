@@ -161,6 +161,19 @@ func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error)
 	return identityLabels, infoLabels, nil
 }
 
+func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
+	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	return nil, PutEndpointIDInvalidCode, err
+}
+
+func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
+	// The IP has been provided by the caller and must be released
+	// by the caller
+	d.deleteEndpointQuiet(ep, true)
+	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
+	return nil, PutEndpointIDFailedCode, err
+}
+
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified. Returns the following errors types:
 //  * errEndpointInvalidParams - If the parameters are not valid
