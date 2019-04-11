@@ -363,6 +363,7 @@ paths:
       - ipam
       parameters:
       - "$ref": "#/parameters/ipam-family"
+      - "$ref": "#/parameters/ipam-owner"
       responses:
         '201':
           description: Success
@@ -380,6 +381,7 @@ paths:
       - ipam
       parameters:
       - "$ref": "#/parameters/ipam-ip"
+      - "$ref": "#/parameters/ipam-owner"
       responses:
         '200':
           description: Success
@@ -831,6 +833,10 @@ parameters:
     enum:
     - ipv4
     - ipv6
+  ipam-owner:
+    name: owner
+    in: query
+    type: string
   map-name:
     name: name
     description: Name of map
@@ -1386,9 +1392,17 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  AllocationMap:
+    description: |
+      Map of allocated IPs
+    type: object
+    additionalProperties:
+      type: string
   IPAMStatus:
     description: Status of IP address management
     properties:
+      allocations:
+        "$ref": "#/definitions/AllocationMap"
       ipv4:
         type: array
         items:
