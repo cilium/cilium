@@ -1391,6 +1391,15 @@ func (e *Endpoint) GetK8sPodName() string {
 	return k8sPodName
 }
 
+// HumanStringLocked returns the endpoint's most human readable identifier as string
+func (e *Endpoint) HumanStringLocked() string {
+	if pod := e.GetK8sNamespaceAndPodNameLocked(); pod != "" {
+		return pod
+	}
+
+	return e.StringID()
+}
+
 // GetK8sNamespaceAndPodNameLocked returns the namespace and pod name.  This
 // function requires e.Mutex to be held.
 func (e *Endpoint) GetK8sNamespaceAndPodNameLocked() string {
