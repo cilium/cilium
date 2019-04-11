@@ -622,36 +622,49 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 }
 
 func cmdDel(args *skel.CmdArgs) error {
+	// Note about when to return errors: kubelet will retry the deletion
+	// for a long time. Therefore, only return an error for errors which
+	// are guaranteed to be recoverable.
 	log.WithField("args", args).Debug("Processing CNI DEL request")
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
+		// this error can be recovered from
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
 	}
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
-	if ep, err := c.EndpointGet(id); err != nil {
-		// Ignore endpoints not found
-		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Agent is not aware of endpoint")
-		return nil
-	} else if ep == nil {
-		log.WithError(err).WithField(logfields.EndpointID, id).Debug("Agent is not aware of endpoint")
-		return nil
-	} else {
-		for _, address := range ep.Status.Networking.Addressing {
-			releaseIPs(c, address)
-		}
-	}
-
 	if err := c.EndpointDelete(id); err != nil {
-		log.WithError(err).Warn("Deletion of endpoint failed")
+		// EndpointDelete returns an error in the following scenarios:
+		// DeleteEndpointIDInvalid: Invalid delete parameters, no need to retry
+		// DeleteEndpointIDNotFound: No need to retry
+		// DeleteEndpointIDErrors: Errors encountered while deleting,
+		//                         the endpoint is always deleted though, no
+		//                         need to retry
+		// ClientError: Various reasons, type will be ClientError and
+		//              Recoverable() will return true if error can be
+		//              retried
+		log.WithError(err).Warning("Errors encountered while deleting endpoint")
+		if clientError, ok := err.(client.ClientError); ok {
+			if clientError.Recoverable() {
+				return err
+			}
+		}
 	}
 
 	netNs, err := ns.GetNS(args.Netns)
 	if err != nil {
-		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
+		log.WithError(err).Warningf("Unable to enter namespace %q, will not delete interface", args.Netns)
+		// We are not returning an error as this is very unlikely to be recoverable
+		return nil
 	}
 	defer netNs.Close()
 
-	return netns.RemoveIfFromNetNSIfExists(netNs, args.IfName)
+	err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName)
+	if err != nil {
+		log.WithError(err).Warningf("Unable to delete interface %s in namespace %q, will not delete interface", args.IfName, args.Netns)
+		// We are not returning an error as this is very unlikely to be recoverable
+	}
+
+	return nil
 }
