@@ -96,6 +96,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyGetIdentityHandler: policy.GetIdentityHandlerFunc(func(params policy.GetIdentityParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetIdentity has not yet been implemented")
 		}),
+		PolicyGetIdentityEndpointsHandler: policy.GetIdentityEndpointsHandlerFunc(func(params policy.GetIdentityEndpointsParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetIdentityEndpoints has not yet been implemented")
+		}),
 		PolicyGetIdentityIDHandler: policy.GetIdentityIDHandlerFunc(func(params policy.GetIdentityIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetIdentityID has not yet been implemented")
 		}),
@@ -218,6 +221,8 @@ type CiliumAPI struct {
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIdentityHandler sets the operation handler for the get identity operation
 	PolicyGetIdentityHandler policy.GetIdentityHandler
+	// PolicyGetIdentityEndpointsHandler sets the operation handler for the get identity endpoints operation
+	PolicyGetIdentityEndpointsHandler policy.GetIdentityEndpointsHandler
 	// PolicyGetIdentityIDHandler sets the operation handler for the get identity ID operation
 	PolicyGetIdentityIDHandler policy.GetIdentityIDHandler
 	// DaemonGetMapHandler sets the operation handler for the get map operation
@@ -385,6 +390,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyGetIdentityHandler == nil {
 		unregistered = append(unregistered, "policy.GetIdentityHandler")
+	}
+
+	if o.PolicyGetIdentityEndpointsHandler == nil {
+		unregistered = append(unregistered, "policy.GetIdentityEndpointsHandler")
 	}
 
 	if o.PolicyGetIdentityIDHandler == nil {
@@ -645,6 +654,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/identity"] = policy.NewGetIdentity(o.context, o.PolicyGetIdentityHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/identity/endpoints"] = policy.NewGetIdentityEndpoints(o.context, o.PolicyGetIdentityEndpointsHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

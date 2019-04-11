@@ -181,6 +181,34 @@ func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) 
 }
 
 /*
+GetIdentityEndpoints retrieves identities which are being used by local endpoints
+*/
+func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetIdentityEndpointsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetIdentityEndpointsParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetIdentityEndpoints",
+		Method:             "GET",
+		PathPattern:        "/identity/endpoints",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetIdentityEndpointsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetIdentityEndpointsOK), nil
+
+}
+
+/*
 GetIdentityID retrieves identity
 */
 func (a *Client) GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, error) {
