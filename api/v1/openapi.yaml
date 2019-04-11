@@ -356,6 +356,20 @@ paths:
           x-go-name: InvalidStorageFormat
           schema:
             "$ref": "#/definitions/Error"
+  "/identity/endpoints":
+    get:
+      summary: Retrieve identities which are being used by local endpoints
+      tags:
+      - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/IdentityEndpoints"
+        '404':
+          description: Set of identities which are being used by local endpoints could not be found.
   "/ipam":
     post:
       summary: Allocate an IP address
@@ -1239,6 +1253,16 @@ definitions:
       labelsSHA256:
         description: SHA256 of labels
         type: string
+  IdentityEndpoints:
+    description: Security identities owned by endpoints on the local node
+    type: object
+    properties:
+      identity:
+        description: Security identity
+        "$ref": "#/definitions/Identity"
+      refCount:
+        description: number of endpoints consuming this identity locally (should always be > 0)
+        type: integer
   EndpointNetworking:
     description: Unique identifiers for this endpoint from outside cilium
     type: object
