@@ -81,12 +81,17 @@ func NewIdentityFromModel(base *models.Identity) *Identity {
 		lbl := labels.ParseLabel(v)
 		id.Labels[lbl.Key] = lbl
 	}
+	id.Sanitize()
 
+	return id
+}
+
+// Sanitize takes a partially initialized Identity (for example, deserialized
+// from json) and reconstitutes the full object from what has been restored.
+func (id *Identity) Sanitize() {
 	if id.Labels != nil {
 		id.LabelArray = id.Labels.LabelArray()
 	}
-
-	return id
 }
 
 // GetLabelsSHA256 returns the SHA256 of the labels associated with the
