@@ -147,7 +147,11 @@ func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int
 }
 
 func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	d.deleteEndpoint(ep)
+	d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+		// The IP has been provided by the caller and must be released
+		// by the caller
+		NoIPRelease: true,
+	})
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
 	return nil, PutEndpointIDFailedCode, err
 }
