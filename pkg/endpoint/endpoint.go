@@ -1218,6 +1218,11 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 		ep.Status = NewEndpointStatus()
 	}
 
+	if ep.SecurityIdentity == nil {
+		ep.SetIdentity(identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit))
+	} else {
+		ep.SecurityIdentity.Sanitize()
+	}
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
