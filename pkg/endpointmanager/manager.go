@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -363,6 +363,58 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 	}
 
 	return &wg
+}
+
+func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
+	if err := ep.LockAlive(); err != nil {
+		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		var regen bool
+		state := ep.GetStateLocked()
+		switch state {
+		case endpoint.StateRestoring, endpoint.StateWaitingToRegenerate:
+			ep.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
+			regen = false
+		default:
+			regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		}
+		ep.Unlock()
+		if regen {
+			// Regenerate logs status according to the build success/failure
+			<-ep.Regenerate(owner, regenMetadata)
+		}
+	}
+	wg.Done()
+}
+
+func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata) {
+	if err := ep.LockAlive(); err != nil {
+		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
+		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		ep.Unlock()
+		if regen {
+			// Regenerate logs status according to the build success/failure
+			ep.Regenerate(owner, regenMetadata)
+		}
+	}
+}
+
+// RegenerateEndpointSetSignalWhenEnqueued regenerates the endpoints represented
+// by endpointIDs. It signals to the provided WaitGroup when all of the endpoints
+// in said set have had regenerations queued up.
+func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
+	wg.Add(len(endpointIDs))
+
+	for endpointID := range endpointIDs {
+		ep := endpoints[endpointID]
+		go func() {
+			regenerateEndpointNonBlocking(owner, ep, regenMetadata)
+			wg.Done()
+		}()
+	}
 }
 
 // HasGlobalCT returns true if the endpoints have a global CT, false otherwise.
