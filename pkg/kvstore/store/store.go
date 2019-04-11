@@ -137,21 +137,27 @@ type SharedStore struct {
 // Observer receives events when objects in the store mutate
 type Observer interface {
 	// OnDelete is called when the key has been deleted from the shared store
-	OnDelete(k Key)
+	OnDelete(k NamedKey)
 
 	// OnUpdate is called whenever a change has occurred in the data
 	// structure represented by the key
 	OnUpdate(k Key)
 }
 
-// Key is the interface that a data structure must implement in order to be
-// stored and shared as a key in a SharedStore.
-type Key interface {
+// NamedKey is an interface that a data structure must implement in order to
+// be deleted from a SharedStore.
+type NamedKey interface {
 	// GetKeyName must return the name of the key. The name of the key must
 	// be unique within the store and stable for a particular key. The name
 	// of the key must be identical across agent restarts as the keys
 	// remain in the kvstore.
 	GetKeyName() string
+}
+
+// Key is the interface that a data structure must implement in order to be
+// stored and shared as a key in a SharedStore.
+type Key interface {
+	NamedKey
 
 	// Marshal is called to retrieve the byte slice representation of the
 	// data represented by the key to store it in the kvstore. The function
@@ -212,7 +218,7 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 	return s, nil
 }
 
-func (s *SharedStore) onDelete(k Key) {
+func (s *SharedStore) onDelete(k NamedKey) {
 	if s.conf.Observer != nil {
 		s.conf.Observer.OnDelete(k)
 	}
@@ -249,7 +255,7 @@ func (s *SharedStore) Close() {
 }
 
 // keyPath returns the absolute kvstore path of a key
-func (s *SharedStore) keyPath(key Key) string {
+func (s *SharedStore) keyPath(key NamedKey) string {
 	// WARNING - STABLE API: The composition of the absolute key path
 	// cannot be changed without breaking up and downgrades.
 	return path.Join(s.conf.Prefix, key.GetKeyName())
@@ -337,7 +343,7 @@ func (s *SharedStore) UpdateKeySync(key LocalKey) error {
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
-func (s *SharedStore) DeleteLocalKey(key LocalKey) {
+func (s *SharedStore) DeleteLocalKey(key NamedKey) {
 	name := key.GetKeyName()
 
 	s.mutex.Lock()
