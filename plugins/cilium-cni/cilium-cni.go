@@ -531,7 +531,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		defer unix.Close(mapFD)
 	}
 
-	ipam, err = c.IPAMAllocate("")
+	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
+	ipam, err = c.IPAMAllocate("", podName)
 	if err != nil {
 		return
 	}

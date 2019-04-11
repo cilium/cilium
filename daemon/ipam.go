@@ -43,7 +43,9 @@ func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
 		Address:        &models.AddressPair{},
 	}
 
-	ipv4, ipv6, err := h.daemon.ipam.AllocateNext(strings.ToLower(swag.StringValue(params.Family)))
+	family := strings.ToLower(swag.StringValue(params.Family))
+	owner := swag.StringValue(params.Owner)
+	ipv4, ipv6, err := h.daemon.ipam.AllocateNext(family, owner)
 	if err != nil {
 		return api.Error(ipamapi.PostIPAMFailureCode, err)
 	}
@@ -72,7 +74,8 @@ func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIPAMIPHandler {
 
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipamapi.PostIPAMIPParams) middleware.Responder {
-	if err := h.daemon.ipam.AllocateIPString(params.IP); err != nil {
+	owner := swag.StringValue(params.Owner)
+	if err := h.daemon.ipam.AllocateIPString(params.IP, owner); err != nil {
 		return api.Error(ipamapi.PostIPAMIPFailureCode, err)
 	}
 
@@ -102,13 +105,27 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	allocv4, allocv6 := d.ipam.Dump()
 	status := &models.IPAMStatus{}
 
+	v4 := []string{}
+	for ip := range allocv4 {
+		v4 = append(v4, ip)
+	}
+
+	v6 := []string{}
+	for ip, owner := range allocv6 {
+		v6 = append(v6, ip)
+		// merge allocv6 into allocv4
+		allocv4[ip] = owner
+	}
+
 	if option.Config.EnableIPv4 {
-		status.IPV4 = allocv4
+		status.IPV4 = v4
 	}
 
 	if option.Config.EnableIPv6 {
-		status.IPV6 = allocv6
+		status.IPV6 = v4
 	}
+
+	status.Allocations = allocv4
 
 	return status
 }

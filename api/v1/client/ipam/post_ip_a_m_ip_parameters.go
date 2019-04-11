@@ -66,6 +66,8 @@ type PostIPAMIPParams struct {
 
 	*/
 	IP string
+	/*Owner*/
+	Owner *string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -116,6 +118,17 @@ func (o *PostIPAMIPParams) SetIP(ip string) {
 	o.IP = ip
 }
 
+// WithOwner adds the owner to the post IP a m IP params
+func (o *PostIPAMIPParams) WithOwner(owner *string) *PostIPAMIPParams {
+	o.SetOwner(owner)
+	return o
+}
+
+// SetOwner adds the owner to the post IP a m IP params
+func (o *PostIPAMIPParams) SetOwner(owner *string) {
+	o.Owner = owner
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *PostIPAMIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -127,6 +140,22 @@ func (o *PostIPAMIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 	// path param ip
 	if err := r.SetPathParam("ip", o.IP); err != nil {
 		return err
+	}
+
+	if o.Owner != nil {
+
+		// query param owner
+		var qrOwner string
+		if o.Owner != nil {
+			qrOwner = *o.Owner
+		}
+		qOwner := qrOwner
+		if qOwner != "" {
+			if err := r.SetQueryParam("owner", qOwner); err != nil {
+				return err
+			}
+		}
+
 	}
 
 	if len(res) > 0 {
