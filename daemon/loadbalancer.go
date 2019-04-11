@@ -707,11 +707,6 @@ func (d *Daemon) SyncLBMap() error {
 // elsewhere it needed. Returns an error if any issues occur dumping BPF maps
 // or deleting entries from BPF maps.
 func (d *Daemon) syncLBMapsWithK8s() error {
-	var (
-		newSVCList      []*loadbalancer.LBSVC
-		lbmapDumpErrors []error
-	)
-
 	k8sDeletedServices := map[string]loadbalancer.L3n4AddrID{}
 	alreadyChecked := map[string]struct{}{}
 
@@ -725,11 +720,9 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
 	log.Debugf("dumping BPF service maps to userspace")
-	if option.Config.EnableLegacyServices {
-		_, newSVCList, lbmapDumpErrors = lbmap.DumpServiceMapsToUserspace()
-	} else {
-		_, newSVCList, lbmapDumpErrors = lbmap.DumpServiceMapsToUserspaceV2()
-	}
+	// At this point the creation of the v2 svc from the corresponding legacy
+	// one has already happened, so it's safe to rely on the v2 when dumping
+	_, newSVCList, lbmapDumpErrors := lbmap.DumpServiceMapsToUserspaceV2()
 
 	if len(lbmapDumpErrors) > 0 {
 		errorStrings := ""

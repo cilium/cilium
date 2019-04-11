@@ -657,7 +657,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 			return
 		}
 
-		scopedLog.Debug("parsing service mapping")
+		scopedLog.Debug("parsing service mapping v2")
 		fe, be := serviceKeynValuenBackendValue2FEnBE(svcKey, svcValue, backendID, backendValue)
 
 		// Build a cache to map frontend IP to service ID. The master
