@@ -285,7 +285,6 @@ skip_service_lookup:
 		key.ip6.p1 = daddr->p1;
 		key.ip6.p2 = daddr->p2;
 		key.ip6.p3 = daddr->p3;
-		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
 		/* Three cases exist here either (a) the encap and redirect could
