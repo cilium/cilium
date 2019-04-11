@@ -310,6 +310,20 @@ func (s *SharedStore) lookupLocalKey(name string) LocalKey {
 	return nil
 }
 
+// SharedKeysMap returns a copy of the SharedKeysMap, the returned map can
+// be safely modified but the values of the map represent the actual data
+// stored in the internal SharedStore SharedKeys map.
+func (s *SharedStore) SharedKeysMap() map[string]Key {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	sharedKeysCopy := make(map[string]Key, len(s.sharedKeys))
+
+	for k, v := range s.sharedKeys {
+		sharedKeysCopy[k] = v
+	}
+	return sharedKeysCopy
+}
+
 // UpdateLocalKey adds a key to be synchronized with the kvstore
 func (s *SharedStore) UpdateLocalKey(key LocalKey) {
 	s.mutex.Lock()
