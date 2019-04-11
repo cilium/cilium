@@ -238,9 +238,6 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
 
-	// Give the endpoint a security identity
-	ep.UpdateLabels(context.Background(), owner, labels.LabelHealth, nil, true)
-
 	// Wait until the cilium-health endpoint is running before setting up routes
 	deadline := time.Now().Add(1 * time.Minute)
 	for {
@@ -267,21 +264,11 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 	if err := ep.LockAlive(); err != nil {
 		return nil, err
 	}
-	if !ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "initial build of health endpoint") {
-		endpointmanager.Remove(ep, owner)
-		ep.Unlock()
-		return nil, fmt.Errorf("unable to transition health endpoint to WaitingToRegenerate state")
-	}
 	ep.PinDatapathMap()
 	ep.Unlock()
 
-	buildSuccessful := <-ep.Regenerate(owner, &endpoint.ExternalRegenerationMetadata{
-		Reason: "health daemon bootstrap",
-	})
-	if !buildSuccessful {
-		endpointmanager.Remove(ep, owner)
-		return nil, fmt.Errorf("unable to build health endpoint")
-	}
+	// Give the endpoint a security identity
+	ep.UpdateLabels(context.Background(), owner, labels.LabelHealth, nil, true)
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
