@@ -14,6 +14,7 @@ import (
 // PostIPAMURL generates an URL for the post IP a m operation
 type PostIPAMURL struct {
 	Family *string
+	Owner  *string
 
 	_basePath string
 	// avoid unkeyed usage
@@ -55,6 +56,14 @@ func (o *PostIPAMURL) Build() (*url.URL, error) {
 	}
 	if family != "" {
 		qs.Set("family", family)
+	}
+
+	var owner string
+	if o.Owner != nil {
+		owner = *o.Owner
+	}
+	if owner != "" {
+		qs.Set("owner", owner)
 	}
 
 	_result.RawQuery = qs.Encode()

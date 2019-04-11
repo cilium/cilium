@@ -29,6 +29,9 @@ type IPAM struct {
 	IPv6Allocator *ipallocator.Range
 	IPv4Allocator *ipallocator.Range
 
+	// owner maps an IP to the owner
+	owner map[string]string
+
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
 }

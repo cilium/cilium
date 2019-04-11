@@ -882,7 +882,7 @@ func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (ro
 	allocRange := family.AllocationCIDR()
 	nodeIP := family.PrimaryExternal()
 	if allocRange.Contains(nodeIP) {
-		err = d.ipam.AllocateIP(nodeIP)
+		err = d.ipam.AllocateIP(nodeIP, "node")
 		if err != nil {
 			err = fmt.Errorf("Unable to allocate external IPv4 node IP %s from allocation range %s: %s",
 				nodeIP, allocRange, err)
@@ -908,7 +908,7 @@ func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (ro
 		routerIP = ip.GetNextIP(family.AllocationCIDR().IP)
 	}
 
-	err = d.ipam.AllocateIP(routerIP)
+	err = d.ipam.AllocateIP(routerIP, "router")
 	if err != nil {
 		err = fmt.Errorf("Unable to allocate IPv4 router IP %s from allocation range %s: %s",
 			routerIP, allocRange, err)
@@ -1167,7 +1167,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4, err := d.ipam.AllocateNextFamily(ipam.IPv4)
+		loopbackIPv4, err := d.ipam.AllocateNextFamily(ipam.IPv4, "loopback")
 		if err != nil {
 			return nil, restoredEndpoints, fmt.Errorf("Unable to reserve IPv4 loopback address: %s", err)
 		}
@@ -1179,7 +1179,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		if option.Config.EnableIPv4 {
-			health4, err := d.ipam.AllocateNextFamily(ipam.IPv4)
+			health4, err := d.ipam.AllocateNextFamily(ipam.IPv4, "health")
 			if err != nil {
 				return nil, restoredEndpoints, fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
@@ -1189,7 +1189,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		}
 
 		if option.Config.EnableIPv6 {
-			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6)
+			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6, "health")
 			if err != nil {
 				if d.nodeDiscovery.LocalNode.IPv4HealthIP != nil {
 					d.ipam.ReleaseIP(d.nodeDiscovery.LocalNode.IPv4HealthIP)
