@@ -99,6 +99,10 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		return false, fmt.Errorf("no workload could be associated with endpoint")
 	}
 
+	if err := d.allocateIPsLocked(ep); err != nil {
+		return false, fmt.Errorf("Failed to re-allocate IP of endpoint: %s", err)
+	}
+
 	return true, nil
 }
 
@@ -171,13 +175,6 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		ep.UnconditionalLock()
 		scopedLog.Debug("Restoring endpoint")
 		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
-
-		if err := d.allocateIPsLocked(ep); err != nil {
-			ep.Unlock()
-			scopedLog.WithError(err).Error("Failed to re-allocate IP of endpoint. Not restoring endpoint.")
-			state.toClean = append(state.toClean, ep)
-			continue
-		}
 
 		if !option.Config.KeepConfig {
 			ep.SetDefaultOpts(option.Config.Opts)
