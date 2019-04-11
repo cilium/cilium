@@ -99,7 +99,8 @@ func TestTest(t *testing.T) {
 	junitReporter := ginkgoext.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", helpers.GetScopeWithVersion()))
 	RunSpecsWithDefaultAndCustomReporters(
-		t, helpers.GetScopeWithVersion(), []ginkgo.Reporter{junitReporter})
+		t, fmt.Sprintf("Suite-%s", helpers.GetScopeWithVersion()),
+		[]ginkgo.Reporter{junitReporter})
 }
 
 func goReportVagrantStatus() chan bool {
