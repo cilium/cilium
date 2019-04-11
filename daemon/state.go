@@ -221,118 +221,134 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 	// they have finished to rebuild after being restored.
 	epRegenerated := make(chan bool, len(state.restored))
 
-	// Insert all endpoints into the endpoint list first before starting
-	// the regeneration. This is required to ensure that if an individual
-	// regeneration causes an identity change of an endpoint, the new
-	// identity will trigger a policy recalculation of all endpoints to
-	// account for the new identity during the grace period. For this
-	// purpose, all endpoints being restored must already be in the
-	// endpoint list.
+	// Track a list of endpoints whose identities change, so that those
+	// endpoints' regenerations can be deferred a while to allow a grace
+	// period between the allocation of the new identity for that endpoint
+	// (and propagation across the cluster) and the local regeneration.
+	// This assists in allowing connectivity to remain stable for such
+	// endpoints during identity change upon restore.
+	deferredRegenerations := make(map[*endpoint.Endpoint]struct{})
+
+	// Allocate all identities synchronously first before exposing
+	// endpoints or regenerating them. This is required to ensure that if
+	// an individual regeneration causes an identity change of an endpoint,
+	// the new identity will trigger a policy recalculation of all
+	// endpoints to account for the new identity during the grace period.
+	// For this purpose, all new identities must already be allocated.
 	for i := len(state.restored) - 1; i >= 0; i-- {
 		ep := state.restored[i]
+
 		// If the endpoint has local conntrack option enabled, then
 		// check whether the CT map needs upgrading (and do so).
 		if ep.Options.IsEnabled(option.ConntrackLocal) {
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
 
+		// Filter the restored labels with the new daemon's filter
+		l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
+
+		identity, _, err := cache.AllocateIdentity(context.Background(), l)
+		if err != nil {
+			ep.Logger("daemon").WithError(err).Warn("Unable to restore endpoint")
+			epRegenerated <- false
+			continue
+		}
+
+		ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
+
+		if ep.SecurityIdentity != nil {
+			if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
+				// The comment below where we look up this map
+				// describes what's happening here in further
+				// detail.
+				log.WithFields(logrus.Fields{
+					logfields.EndpointID:              ep.ID,
+					logfields.IdentityLabels + ".old": oldSecID,
+					logfields.IdentityLabels + ".new": identity.ID,
+				}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
+				deferredRegenerations[ep] = struct{}{}
+			}
+		}
+		// The identity of a freshly restored endpoint is incomplete due to some
+		// parts of the identity not being marshaled to JSON. Hence we must set
+		// the identity even if has not changed.
+		ep.SetIdentity(identity)
+		state.restored = append(state.restored[:i], state.restored[i+1:]...)
+	}
+
+	for i := len(state.restored) - 1; i >= 0; i-- {
+		ep := state.restored[i]
+
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
-
 		if err := endpointmanager.Insert(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
 			state.restored = append(state.restored[:i], state.restored[i+1:]...)
+			epRegenerated <- false
 		}
 	}
 
 	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RLockAlive(); err != nil {
-				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
+			scopedLog := ep.Logger("daemon")
+			if err := ep.LockAlive(); err != nil {
+				scopedLog.Warn("Endpoint to restore has been deleted")
 				return
-			}
-			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-			// Filter the restored labels with the new daemon's filter
-			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
-			ep.RUnlock()
-
-			identity, _, err := cache.AllocateIdentity(context.Background(), l)
-			if err != nil {
-				scopedLog.WithError(err).Warn("Unable to restore endpoint")
-				epRegenerated <- false
 			}
 
 			// Wait for initial identities and ipcache from the
 			// kvstore before doing any policy calculation for
 			// endpoints that don't have a fixed identity or are
 			// not well known.
+			identity := ep.SecurityIdentity
 			if !identity.IsFixed() && !identity.IsWellKnown() {
 				cache.WaitForInitialIdentities(context.Background())
 				ipcache.WaitForInitialSync()
 			}
 
-			if err := ep.LockAlive(); err != nil {
-				scopedLog.Warn("Endpoint to restore has been deleted")
-				return
+			if _, wait := deferredRegenerations[ep]; wait {
+				// The identity of the endpoint being restored
+				// has changed. This can be caused by two main
+				// reasons:
+				//
+				// 1) Cilium has been upgraded,
+				// downgraded or the configuration has
+				// changed and the new version or
+				// configuration causes different
+				// labels to be considered security
+				// relevant for this endpoint.
+				//
+				// Immediately using the identity may
+				// cause connectivity problems if this
+				// is the first endpoint in the cluster
+				// to use the new identity. All other
+				// nodes will not have had a chance to
+				// adjust the security policies for
+				// their endpoints. Hence, apply a
+				// grace period to allow for the
+				// update. It is not required to check
+				// any local endpoints for potential
+				// outdated security rules, the
+				// notification of the new security
+				// identity will have been received and
+				// will trigger the necessary
+				// recalculation of all local
+				// endpoints.
+				//
+				// 2) The identity is outdated as the
+				// state in the kvstore has changed.
+				// This reason would justify an
+				// immediate use of the new identity
+				// but given the current identity is
+				// already in place, it is also correct
+				// to continue using it for the
+				// duration of a grace period.
+				time.Sleep(defaults.IdentityChangeGracePeriod)
 			}
-
-			ep.LogStatusOKLocked(endpoint.Other, "Synchronizing endpoint labels with KVStore")
-
-			if ep.SecurityIdentity != nil {
-				if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
-					log.WithFields(logrus.Fields{
-						logfields.EndpointID:              ep.ID,
-						logfields.IdentityLabels + ".old": oldSecID,
-						logfields.IdentityLabels + ".new": identity.ID,
-					}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
-
-					// The identity of the endpoint being
-					// restored has changed. This can be
-					// caused by two main reasons:
-					//
-					// 1) Cilium has been upgraded,
-					// downgraded or the configuration has
-					// changed and the new version or
-					// configuration causes different
-					// labels to be considered security
-					// relevant for this endpoint.
-					//
-					// Immediately using the identity may
-					// cause connectivity problems if this
-					// is the first endpoint in the cluster
-					// to use the new identity. All other
-					// nodes will not have had a chance to
-					// adjust the security policies for
-					// their endpoints. Hence, apply a
-					// grace period to allow for the
-					// update. It is not required to check
-					// any local endpoints for potential
-					// outdated security rules, the
-					// notification of the new security
-					// identity will have been received and
-					// will trigger the necessary
-					// recalculation of all local
-					// endpoints.
-					//
-					// 2) The identity is outdated as the
-					// state in the kvstore has changed.
-					// This reason would justify an
-					// immediate use of the new identity
-					// but given the current identity is
-					// already in place, it is also correct
-					// to continue using it for the
-					// duration of a grace period.
-					time.Sleep(defaults.IdentityChangeGracePeriod)
-				}
-			}
-			// The identity of a freshly restored endpoint is incomplete due to some
-			// parts of the identity not being marshaled to JSON. Hence we must set
-			// the identity even if has not changed.
-			ep.SetIdentity(identity)
 
 			// We don't need to hold the policy repository mutex here because
 			// the content of the rules themselves are not being changed.
