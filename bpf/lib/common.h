@@ -74,8 +74,12 @@ union v6addr {
                 __u32 p3;
                 __u32 p4;
         };
+	struct {
+		__u64 d1;
+		__u64 d2;
+	};
         __u8 addr[16];
-};
+} __attribute__((packed));
 
 static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 {
