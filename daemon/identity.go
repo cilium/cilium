@@ -19,6 +19,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -65,4 +66,18 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	}
 
 	return NewGetIdentityIDOK().WithPayload(identity.GetModel())
+}
+
+type getIdentityEndpoints struct{}
+
+func newGetIdentityEndpointsIDHandler(d *Daemon) GetIdentityEndpointsHandler {
+	return &getIdentityEndpoints{}
+}
+
+func (h *getIdentityEndpoints) Handle(params GetIdentityEndpointsParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/endpoints request")
+
+	identities := identitymanager.GetIdentityModels()
+
+	return NewGetIdentityEndpointsOK().WithPayload(identities)
 }
