@@ -750,17 +750,17 @@ func initConfig() {
 		os.Exit(0)
 	}
 
-	if option.Config.ConfigFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(option.Config.ConfigFile)
-	}
-
-	viper.SetEnvPrefix("cilium")
-	viper.SetConfigName("ciliumd") // name of config file (without extension)
+	option.Config.ConfigFile = viper.GetString(option.ConfigFile) // enable ability to specify config file via flag
 	option.Config.ConfigDir = viper.GetString(option.ConfigDir)
+	viper.SetEnvPrefix("cilium")
+
 	if option.Config.ConfigDir != "" {
-		m, err := option.ReadDirConfig(option.Config.ConfigDir)
-		if err != nil {
-			log.Warnf("Unable to read configuration directory: %s", err)
+		if _, err := os.Stat(option.Config.ConfigDir); os.IsNotExist(err) {
+			log.Fatalf("Non-existent configuration directory %s", option.Config.ConfigDir)
+		}
+
+		if m, err := option.ReadDirConfig(option.Config.ConfigDir); err != nil {
+			log.Fatalf("Unable to read configuration directory %s: %s", option.Config.ConfigDir, err)
 		} else {
 			// replace deprecated fields with new fields
 			option.ReplaceDeprecatedFields(m)
@@ -771,9 +771,19 @@ func initConfig() {
 		}
 	}
 
+	if option.Config.ConfigFile != "" {
+		viper.SetConfigFile(option.Config.ConfigFile)
+	} else {
+		viper.SetConfigName("ciliumd") // name of config file (without extension)
+	}
+
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		log.Infof("Using config file: %s", viper.ConfigFileUsed())
+	} else if option.Config.ConfigFile != "" {
+		log.Fatalf("Error reading config file %s: %s", option.Config.ConfigFile, err)
+	} else {
+		log.Warnf("Error reading default config: %s", err)
 	}
 }
 
