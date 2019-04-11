@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -417,7 +417,15 @@ func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, reg
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
 	} else {
-		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		var regen bool
+		state := ep.GetStateLocked()
+		switch state {
+		case endpoint.StateRestoring, endpoint.StateWaitingToRegenerate:
+			ep.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
+			regen = false
+		default:
+			regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+		}
 		ep.Unlock()
 		if regen {
 			// Regenerate logs status according to the build success/failure
