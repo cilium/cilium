@@ -469,7 +469,16 @@ func (r Request) finalURLTemplate() url.URL {
 	groupIndex := 0
 	index := 0
 	if r.URL() != nil && r.baseURL != nil && strings.Contains(r.URL().Path, r.baseURL.Path) {
-		groupIndex += len(strings.Split(r.baseURL.Path, "/"))
+		// only add baseURL path length if it is different than `/`
+		// as strings.Split("/", "/") returns length of 2
+		if r.baseURL.Path != "/" {
+			// We need to perform a `path.Join` as path.Join appends `/` to a
+			// path that does not contain `/` and removes duplicate `/` if they
+			// exist.
+			groupIndex += len(strings.Split(path.Join("/", r.baseURL.Path), "/"))
+		} else {
+			groupIndex += 1
+		}
 	}
 	if groupIndex >= len(segments) {
 		return *url
@@ -477,14 +486,20 @@ func (r Request) finalURLTemplate() url.URL {
 
 	const CoreGroupPrefix = "api"
 	const NamedGroupPrefix = "apis"
+	const Version = "version"
 	isCoreGroup := segments[groupIndex] == CoreGroupPrefix
 	isNamedGroup := segments[groupIndex] == NamedGroupPrefix
+	isVersion := segments[groupIndex] == Version
 	if isCoreGroup {
 		// checking the case of core group with /api/v1/... format
 		index = groupIndex + 2
 	} else if isNamedGroup {
 		// checking the case of named group with /apis/apps/v1/... format
 		index = groupIndex + 3
+	} else if isVersion {
+		url.Path = "/version"
+		url.RawQuery = ""
+		return *url
 	} else {
 		// this should not happen that the only two possibilities are /api... and /apis..., just want to put an
 		// outlet here in case more API groups are added in future if ever possible:
@@ -517,7 +532,7 @@ func (r Request) finalURLTemplate() url.URL {
 			segments[index+3] = "{name}"
 		}
 	}
-	url.Path = path.Join(segments...)
+	url.Path = strings.Join(segments, "/")
 	return *url
 }
 
