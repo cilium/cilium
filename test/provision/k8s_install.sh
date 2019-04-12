@@ -238,6 +238,13 @@ sudo systemctl enable $MOUNT_SYSTEMD
 sudo systemctl restart $MOUNT_SYSTEMD
 sudo rm -rfv /var/lib/kubelet
 
+# install cluster-diagnosis tool
+echo "Getting latest released cluster-diagnosis tool"
+cluster_diagnosis_version=$(curl -s https://api.github.com/repos/cilium/cluster-diagnosis/releases/latest | jq '.name' | sed -e 's/\"//g')
+echo  "Downloading cluster-diagnosis $cluster_diagnosis_version..."
+wget https://github.com/cilium/cluster-diagnosis/releases/download/$cluster_diagnosis_version/cluster-diagnosis.zip -P /tmp
+echo  "Done downloading cluster-diagnosis tool $cluster_diagnosis_version"
+
 # Allow iptables forwarding so kube-dns can function.
 sudo iptables --policy FORWARD ACCEPT
 

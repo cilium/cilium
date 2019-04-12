@@ -1509,14 +1509,7 @@ func (kub *Kubectl) ClusterDiagnosis() {
 			"cannot create test results path '%s'", testPath)
 		return
 	}
-	res := kub.Exec("wget https://github.com/cilium/cluster-diagnosis/releases/download/v0.17/cluster-diagnosis.zip")
-	if !res.WasSuccessful() {
-		kub.logger.WithError(res.err).Errorf(
-			"cannot download cluster-diagnosis ZIP")
-		return
-	}
-	fmt.Printf("%s\n", res.GetStdOut())
-	res = kub.Exec(fmt.Sprintf("python cluster-diagnosis.zip sysdump --output %s/cluster-diagnosis", filepath.Join(BasePath, testPath)))
+	res := kub.Exec(fmt.Sprintf("python /tmp/cluster-diagnosis.zip sysdump --output %s/cluster-diagnosis", filepath.Join(BasePath, testPath)))
 	if !res.WasSuccessful() {
 		kub.logger.WithError(res.err).Errorf(
 			"cluster-diagnosis failed")
