@@ -84,20 +84,26 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 	return nil
 }
 
-func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
+func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *SpanStat) error {
 	debug := option.Config.BPFCompilationDebug
-	if err := compileDatapath(ctx, ep, dirs, debug); err != nil {
+	stats.bpfCompilation.Start()
+	err := compileDatapath(ctx, dirs, debug, ep.Logger(Subsystem))
+	stats.bpfCompilation.End(err == nil)
+	if err != nil {
 		return err
 	}
 
-	return reloadDatapath(ctx, ep, dirs)
+	stats.bpfLoadProg.Start()
+	err = reloadDatapath(ctx, ep, dirs)
+	stats.bpfLoadProg.End(err == nil)
+	return err
 }
 
 // CompileAndLoad compiles the BPF datapath programs for the specified endpoint
 // and loads it onto the interface associated with the endpoint.
 //
 // Expects the caller to have created the directory at the path ep.StateDir().
-func CompileAndLoad(ctx context.Context, ep endpoint) error {
+func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 	if ep == nil {
 		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
 	}
@@ -108,7 +114,7 @@ func CompileAndLoad(ctx context.Context, ep endpoint) error {
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
-	return compileAndLoad(ctx, ep, &dirs)
+	return compileAndLoad(ctx, ep, &dirs, stats)
 }
 
 // CompileOrLoad loads the BPF datapath programs for the specified endpoint.
