@@ -1478,8 +1478,9 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	go func() {
 		defer wg.Done()
+		kub.ClusterDiagnosis()
 		kub.DumpCiliumCommandOutput(namespace)
-		kub.GatherLogs()
+		//kub.GatherLogs()
 	}()
 
 	kub.CiliumCheckReport()
@@ -1499,6 +1500,30 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	}
 
 	wg.Wait()
+}
+
+func (kub *Kubectl) ClusterDiagnosis() {
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		kub.logger.WithError(err).Errorf(
+			"cannot create test results path '%s'", testPath)
+		return
+	}
+	res := kub.Exec("wget https://github.com/cilium/cluster-diagnosis/releases/download/v0.17/cluster-diagnosis.zip")
+	if !res.WasSuccessful() {
+		kub.logger.WithError(res.err).Errorf(
+			"cannot download cluster-diagnosis ZIP")
+		return
+	}
+	fmt.Printf("%s\n", res.GetStdOut())
+	res = kub.Exec(fmt.Sprintf("python cluster-diagnosis.zip sysdump --output %s/cluster-diagnosis", filepath.Join(BasePath, testPath)))
+	if !res.WasSuccessful() {
+		kub.logger.WithError(res.err).Errorf(
+			"cluster-diagnosis failed")
+		return
+	}
+	fmt.Printf("%s\n", res.GetStdOut())
+
 }
 
 // EtcdOperatorReport dump etcd pods data into the report directory to be able
