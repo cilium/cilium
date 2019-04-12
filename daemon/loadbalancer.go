@@ -841,7 +841,8 @@ func restoreServices() {
 	}
 	lbmap.AddBackendIDsToCache(restoredBackendIDs)
 
-	failed, restored, skipped := 0, 0, 0
+	failed, restored, skipped, removed := 0, 0, 0, 0
+	svcIDs := make(map[loadbalancer.ID]struct{})
 
 	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range errors {
@@ -866,6 +867,8 @@ func restoreServices() {
 			skipped++
 			continue
 		}
+
+		svcIDs[svc.FE.ID] = struct{}{}
 
 		// The service ID can only be restored when global service IDs
 		// are disabled. Global service IDs require kvstore access but
@@ -919,9 +922,35 @@ func restoreServices() {
 		}
 	}
 
+	// Delete v2 services which do not have the legacy equivalents. Can
+	// happen after cilium-agent has been downgraded to < v1.5, some svc gets
+	// removed, and then the agent upgraded again to >= v1.5 (observed on the CI).
+	if option.Config.EnableLegacyServices {
+		for feHash, svc := range svcMapV2 {
+			if _, found := svcMap[feHash]; !found {
+				// Remove revNAT if there is no restored service using it
+				delRevNAT := true
+				if _, found := svcIDs[svc.FE.ID]; found {
+					delRevNAT = false
+				}
+
+				log.WithFields(logrus.Fields{
+					logfields.ServiceID: svc.FE.ID,
+					"delRevNAT":         delRevNAT,
+				}).Debug("Deleting orphan service from BPF maps v2")
+
+				if err := lbmap.DeleteOrphanServiceV2AndRevNAT(svc.FE, delRevNAT); err != nil {
+					log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+						Warning("Unable to remove orphan service v2")
+				}
+			}
+		}
+	}
+
 	log.WithFields(logrus.Fields{
 		"restored": restored,
 		"failed":   failed,
 		"skipped":  skipped,
+		"removed":  removed,
 	}).Info("Restore service IDs from BPF maps")
 }
