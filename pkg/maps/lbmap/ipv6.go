@@ -432,7 +432,7 @@ func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6Value) GetPort() uint16    { return b.Port }
 
 func (b *Backend6Value) BackendAddrID() BackendAddrID {
-	return BackendAddrID(fmt.Sprintf("%s:%d", b.Address, b.Port))
+	return BackendAddrID(fmt.Sprintf("[%s]:%d", b.Address, b.Port))
 }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
