@@ -20,11 +20,11 @@ import (
 	"net"
 )
 
-func firstGlobalV4Addr(intf string) (net.IP, error) {
+func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	return net.IP{}, nil
 }
 
-func findIPv6NodeAddr() net.IP {
+func findIPv6NodeAddr(preferredIP net.IP) net.IP {
 	return net.IP{}
 }
 

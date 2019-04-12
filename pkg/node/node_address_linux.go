@@ -17,23 +17,31 @@
 package node
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/vishvananda/netlink"
 )
 
-func firstGlobalV4Addr(intf string) (net.IP, error) {
+// firstGlobalV4Addr returns the first IPv4 global IP of an interface, where
+// the IPs are sorted in ascending order. when intf is defined only IPs
+// belonging to that interface are considered. If preferredIP is present in the
+// IP list it is returned irrespective of the sort order. Passing intf and
+// preferredIP will only return preferredIP if it is in the IPs that belong to
+// intf. In all cases, if intf is not found all interfaces are considered.
+func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	var link netlink.Link
 	var err error
 
 	if intf != "" && intf != "undefined" {
 		link, err = netlink.LinkByName(intf)
 		if err != nil {
-			return firstGlobalV4Addr("")
+			return firstGlobalV4Addr("", preferredIP)
 		}
 	}
 
@@ -42,42 +50,94 @@ func firstGlobalV4Addr(intf string) (net.IP, error) {
 		return nil, err
 	}
 
+	ips := []net.IP{}
+
 	for _, a := range addr {
 		if a.Scope == unix.RT_SCOPE_UNIVERSE {
 			if len(a.IP) >= 4 {
-				return a.IP, nil
+				ips = append(ips, a.IP)
+				// If the IP is the same as the  preferredIP, that means that maybe
+				// is restored from node_config.h, so if it is present we
+				// continue using this one.
+				if a.IP.Equal(preferredIP) {
+					return a.IP, nil
+				}
 			}
 		}
 	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("No address found")
+	}
 
-	return nil, fmt.Errorf("No address found")
+	// Just make sure that we always return the same one and no a random one.
+	// More info in the issue GH-76	37
+	sort.Slice(ips, func(i, j int) bool {
+		return bytes.Compare(ips[i], ips[j]) < 0
+	})
+
+	return ips[0], nil
 }
 
-func findIPv6NodeAddr() net.IP {
+// findIPv6NodeAddr returns the first IPv6 global IP of an interface, where the
+// IPs are sorted in ascending order. when intf is defined only IPs belonging
+// to that interface are considered. If preferredIP is present in the IP list
+// it is returned irrespective of the sort order. Passing intf and preferredIP
+// will only return preferredIP if it is in the IPs that belong to intf. In all
+// cases, if intf is not found all interfaces are considered.
+func findIPv6NodeAddr(preferredIP net.IP) net.IP {
 	addr, err := netlink.AddrList(nil, netlink.FAMILY_V6)
 	if err != nil {
 		return nil
 	}
 
+	ips := []net.IP{}
 	// prefer global scope address
 	for _, a := range addr {
 		if a.Scope == unix.RT_SCOPE_UNIVERSE {
 			if len(a.IP) >= 16 {
-				return a.IP
+				ips = append(ips, a.IP)
+
+				// If the IP is the same as the  preferredIP, that means that maybe
+				// is restored from node_config.h, so if it is present we
+				// continue using this one.
+				if a.IP.Equal(preferredIP) {
+					return a.IP
+				}
 			}
 		}
+	}
+
+	if len(ips) > 0 {
+		// Just make sure that we always return the same one and no a random one.
+		// More info in the issue GH-76	37
+		sort.Slice(ips, func(i, j int) bool {
+			return bytes.Compare(ips[i], ips[j]) < 0
+		})
+		return ips[0]
 	}
 
 	// fall back to anything wider than link (site, custom, ...)
 	for _, a := range addr {
 		if a.Scope < unix.RT_SCOPE_LINK {
 			if len(a.IP) >= 16 {
-				return a.IP
+				ips = append(ips, a.IP)
+				// If the IP is the same as the  preferredIP, that means that maybe
+				// is restored from node_config.h, so if it is present we
+				// continue using this one.
+				if a.IP.Equal(preferredIP) {
+					return a.IP
+				}
 			}
 		}
 	}
+	if len(ips) == 0 {
+		return nil
+	}
+	sort.Slice(ips, func(i, j int) bool {
+		return bytes.Compare(ips[i], ips[j]) < 0
+	})
 
-	return nil
+	return ips[0]
 }
 
 // getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
