@@ -334,7 +334,7 @@ func svcDeleteBPFV2(svc loadbalancer.L3n4AddrID) error {
 		return fmt.Errorf("key %s is not in lbmap v2", svcKey.ToNetwork())
 	}
 
-	vval := val.(lbmap.ServiceValue)
+	vval := val.(lbmap.ServiceValueV2)
 	numBackends := uint16(vval.GetCount())
 
 	// ServiceKeys are unique by their slave number, which corresponds to the number of backends. Delete each of these.
