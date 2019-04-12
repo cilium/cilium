@@ -16,12 +16,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
@@ -29,7 +34,10 @@ import (
 	"github.com/cilium/cilium/pkg/serializer"
 
 	"k8s.io/api/core/v1"
+	core_v1 "k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
@@ -144,7 +152,144 @@ func runNodeWatcher() error {
 					return nil
 				},
 			})
+
+		parallelRequests := 4
+		removeNodeFromCNP := make(chan func(), 50)
+		for i := 0; i < parallelRequests; i++ {
+			go func() {
+				for f := range removeNodeFromCNP {
+					f()
+				}
+			}()
+		}
+		controller.NewManager().UpdateController("cnp-node-gc",
+			controller.ControllerParams{
+				RunInterval: kvNodeGCInterval,
+				DoFunc: func(ctx context.Context) error {
+					lastRun := time.Now().Add(-kvNodeGCInterval)
+					k8sCapabilities := k8sversion.Capabilities()
+					continueID := ""
+					wg := sync.WaitGroup{}
+					defer wg.Wait()
+					kvStoreNodes := ciliumNodeStore.SharedKeysMap()
+					for {
+						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(meta_v1.ListOptions{
+							Limit:    10,
+							Continue: continueID,
+						})
+						if err != nil {
+							return err
+						}
+
+						for _, cnp := range cnpList.Items {
+							needsUpdate := false
+							nodesToDelete := map[string]cilium_v2.Timestamp{}
+							for n, status := range cnp.Status.Nodes {
+								kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, n)
+								if _, exists := kvStoreNodes[kvStoreNodeName]; !exists {
+									// To avoid concurrency issues where a is
+									// created and adds its CNP Status before the operator
+									// node watcher receives an event that the node
+									// was created, we will only delete the node
+									// from the CNP Status if the last time it was
+									// update was before the lastRun.
+									if status.LastUpdated.Before(lastRun) {
+										nodesToDelete[n] = status.LastUpdated
+										delete(cnp.Status.Nodes, n)
+										needsUpdate = true
+									}
+								}
+							}
+							if needsUpdate {
+								wg.Add(1)
+								removeNodeFromCNP <- func() {
+									updateCNP(ciliumK8sClient.CiliumV2(), &cnp, nodesToDelete, k8sCapabilities)
+									wg.Done()
+								}
+							}
+						}
+
+						continueID = cnpList.Continue
+						if continueID == "" {
+							break
+						}
+					}
+
+					return nil
+				},
+			})
 	}()
 
 	return nil
+}
+
+func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPolicy, nodesToDelete map[string]cilium_v2.Timestamp, capabilities k8sversion.ServerCapabilities) {
+	if len(nodesToDelete) == 0 {
+		return
+	}
+
+	ns := utils.ExtractNamespace(&cnp.ObjectMeta)
+
+	switch {
+	case capabilities.Patch:
+		var removeStatusNode, remainingStatusNode []k8s.JSONPatch
+		for nodeToDelete, timeStamp := range nodesToDelete {
+			removeStatusNode = append(removeStatusNode,
+				// It is really unlikely to happen but if a node reappears
+				// with the same name and updates the CNP Status we will perform
+				// a test to verify if the lastUpdated timestamp is the same to
+				// to avoid accidentally deleting that node.
+				// If any of the nodes fails this test *all* of the JSON patch
+				// will not be executed.
+				k8s.JSONPatch{
+					OP:    "test",
+					Path:  "/status/nodes/" + nodeToDelete + "/lastUpdated",
+					Value: timeStamp,
+				},
+				k8s.JSONPatch{
+					OP:   "remove",
+					Path: "/status/nodes/" + nodeToDelete,
+				},
+			)
+		}
+		for {
+			if len(removeStatusNode) > k8s.MaxJSONPatchOperations {
+				remainingStatusNode = removeStatusNode[k8s.MaxJSONPatchOperations:]
+				removeStatusNode = removeStatusNode[:k8s.MaxJSONPatchOperations]
+			}
+
+			removeStatusNodeJSON, err := json.Marshal(removeStatusNode)
+			if err != nil {
+				break
+			}
+
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+			if err != nil {
+				// We can leave the errors as debug as the GC happens on a best effort
+				log.WithError(err).Debug("Unable to PATCH")
+			}
+
+			removeStatusNode = remainingStatusNode
+
+			if len(remainingStatusNode) == 0 {
+				return
+			}
+		}
+	case capabilities.UpdateStatus:
+		// This should be treat is as best effort, we don't care if the
+		// UpdateStatus fails.
+		_, err := ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+		if err != nil {
+			// We can leave the errors as debug as the GC happens on a best effort
+			log.WithError(err).Debug("Unable to UpdateStatus with garbage collected nodes")
+		}
+	default:
+		// This should be treat is as best effort, we don't care if the
+		// Update fails.
+		_, err := ciliumClient.CiliumNetworkPolicies(ns).Update(cnp)
+		if err != nil {
+			// We can leave the errors as debug as the GC happens on a best effort
+			log.WithError(err).Debug("Unable to Update CNP with garbage collected nodes")
+		}
+	}
 }
