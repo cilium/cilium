@@ -46,9 +46,24 @@ struct nat_entry {
 #define NAT_CONTINUE_XLATE 	0
 #define NAT_PUNT_TO_STACK	1
 
-static __always_inline __be16 __snat_get_port_range(__u16 start, __u16 end)
+#ifdef HAVE_LRU_MAP_TYPE
+#define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
+#else
+#define NAT_MAP_TYPE BPF_MAP_TYPE_HASH
+#endif
+
+static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
+						      __u16 val)
 {
-	return (get_prandom_u32() % (end - start) + start);
+	return (val % (end - start)) + start;
+}
+
+#define GOLDEN_RATIO_32 0x61C88647
+
+static __always_inline __be16 __snat_hash(__u16 val)
+{
+	/* High bits are more random, so use them. */
+	return ((__u32)val * GOLDEN_RATIO_32) >> 16;
 }
 
 static __always_inline void *__snat_lookup(void *map, void *tuple)
@@ -91,7 +106,7 @@ struct ipv4_nat_entry {
 
 #if defined ENABLE_IPV4 && defined ENABLE_MASQUERADE
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
-	.type		= BPF_MAP_TYPE_HASH,
+	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv4_ct_tuple),
 	.size_value	= sizeof(struct ipv4_nat_entry),
 	.pinning	= PIN_GLOBAL_NS,
@@ -176,6 +191,7 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 	struct ipv4_nat_entry rstate;
 	struct ipv4_ct_tuple rtuple;
 	int ret, retries;
+	__be16 port;
 
 	__builtin_memset(&rstate, 0, sizeof(rstate));
 	__builtin_memset(ostate, 0, sizeof(*ostate));
@@ -204,10 +220,14 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 			if (!ret)
 				return 0;
 		}
-
-		rtuple.dport = ostate->to_sport = bpf_htons(
-			__snat_get_port_range(SNAT_MAPPING_MIN_PORT,
-					      SNAT_MAPPING_MAX_PORT));
+		if (NAT_MAP_TYPE == BPF_MAP_TYPE_LRU_HASH &&
+		    retries < SNAT_DETERMINISTIC_RETRIES)
+			port = __snat_hash(rtuple.dport);
+		else
+			port = get_prandom_u32();
+		port = __snat_clamp_port_range(SNAT_MAPPING_MIN_PORT,
+					       SNAT_MAPPING_MAX_PORT, port);
+		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
 	return DROP_NAT_NO_MAPPING;
@@ -267,7 +287,9 @@ static __always_inline int snat_v4_handle_mapping(struct __sk_buff *skb,
 	else if (*state)
 		return NAT_CONTINUE_XLATE;
 	else if (dir == NAT_DIR_INGRESS)
-		return NAT_PUNT_TO_STACK;
+		return tuple->nexthdr != IPPROTO_ICMP &&
+		       bpf_ntohs(tuple->dport) < SNAT_MAPPING_MIN_PORT ?
+		       NAT_PUNT_TO_STACK : DROP_NAT_NO_MAPPING;
 	else
 		return snat_v4_new_mapping(skb, tuple, (*state = tmp));
 }
@@ -467,7 +489,7 @@ struct ipv6_nat_entry {
 
 #if defined ENABLE_IPV6 && defined ENABLE_MASQUERADE
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
-	.type		= BPF_MAP_TYPE_HASH,
+	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv6_ct_tuple),
 	.size_value	= sizeof(struct ipv6_nat_entry),
 	.pinning	= PIN_GLOBAL_NS,
@@ -553,6 +575,7 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 	struct ipv6_nat_entry rstate;
 	struct ipv6_ct_tuple rtuple;
 	int ret, retries;
+	__be16 port;
 
 	__builtin_memset(&rstate, 0, sizeof(rstate));
 	__builtin_memset(ostate, 0, sizeof(*ostate));
@@ -581,10 +604,14 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 			if (!ret)
 				return 0;
 		}
-
-		rtuple.dport = ostate->to_sport = bpf_htons(
-			__snat_get_port_range(SNAT_MAPPING_MIN_PORT,
-					      SNAT_MAPPING_MAX_PORT));
+		if (NAT_MAP_TYPE == BPF_MAP_TYPE_LRU_HASH &&
+		    retries < SNAT_DETERMINISTIC_RETRIES)
+			port = __snat_hash(rtuple.dport);
+		else
+			port = get_prandom_u32();
+		port = __snat_clamp_port_range(SNAT_MAPPING_MIN_PORT,
+					       SNAT_MAPPING_MAX_PORT, port);
+		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
 	return DROP_NAT_NO_MAPPING;
@@ -646,7 +673,9 @@ static __always_inline int snat_v6_handle_mapping(struct __sk_buff *skb,
 	else if (*state)
 		return NAT_CONTINUE_XLATE;
 	else if (dir == NAT_DIR_INGRESS)
-		return NAT_PUNT_TO_STACK;
+		return tuple->nexthdr != IPPROTO_ICMPV6 &&
+		       bpf_ntohs(tuple->dport) < SNAT_MAPPING_MIN_PORT ?
+		       NAT_PUNT_TO_STACK : DROP_NAT_NO_MAPPING;
 	else
 		return snat_v6_new_mapping(skb, tuple, (*state = tmp));
 }

@@ -43,6 +43,10 @@ const (
 	// CollisionRetriesDefault defines maximum retries for resolving port collisions.
 	CollisionRetriesDefault = 16
 
+	// DeterministicRetriesDefault defines maximum deterministic retries for
+	// resolving port collisions.
+	DeterministicRetriesDefault = 6
+
 	// MaxEntries defines maximum NAT entries.
 	MaxEntries = 524288
 
@@ -109,7 +113,7 @@ func NewMap(name string, v4 bool) *Map {
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
-			bpf.BPF_MAP_TYPE_HASH,
+			bpf.MapTypeLRUHash,
 			sizeKey,
 			sizeVal,
 			MaxEntries,
