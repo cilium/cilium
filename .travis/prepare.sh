@@ -17,3 +17,4 @@ export PATH="$NEWPATH:$PATH"
 go get -u github.com/jteeuwen/go-bindata/...
 go get golang.org/x/tools/cmd/cover
 go get github.com/mattn/goveralls
+curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
