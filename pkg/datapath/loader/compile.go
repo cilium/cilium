@@ -256,23 +256,20 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 // * Preprocessed C
 // * Assembly
 // * Object compiled with debug symbols
-func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debug bool) error {
+func compileDatapath(ctx context.Context, dirs *directoryInfo, debug bool, logger *logrus.Entry) error {
 	// TODO: Consider logging kernel/clang versions here too
-	epLog := ep.Logger(Subsystem)
+	scopedLog := logger.WithField(logfields.Debug, debug)
 
 	// Write out assembly and preprocessing files for debugging purposes
 	if debug {
 		for _, p := range debugProgs {
 			if err := compile(ctx, p, dirs, debug); err != nil {
-				scopedLog := epLog.WithFields(logrus.Fields{
-					logfields.Params: logfields.Repr(p),
-					logfields.Debug:  debug,
-				})
 				// Only log an error here if the context was not canceled or not
 				// timed out; this log message should only represent failures
 				// with respect to compiling the program.
 				if ctx.Err() == nil {
-					scopedLog.WithError(err).Debug("JoinEP: Failed to compile")
+					scopedLog.WithField(logfields.Params, logfields.Repr(p)).
+						WithError(err).Debug("JoinEP: Failed to compile")
 				}
 				return err
 			}
@@ -281,15 +278,12 @@ func compileDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo, debu
 
 	// Compile the new program
 	if err := compile(ctx, datapathProg, dirs, debug); err != nil {
-		scopedLog := epLog.WithFields(logrus.Fields{
-			logfields.Params: logfields.Repr(datapathProg),
-			logfields.Debug:  false,
-		})
 		// Only log an error here if the context was not canceled or not timed
 		// out; this log message should only represent failures with respect to
 		// compiling the program.
 		if ctx.Err() == nil {
-			scopedLog.WithError(err).Warn("JoinEP: Failed to compile")
+			scopedLog.WithField(logfields.Params, logfields.Repr(datapathProg)).
+				WithError(err).Warn("JoinEP: Failed to compile")
 		}
 		return err
 	}
@@ -322,5 +316,5 @@ func compileTemplate(ctx context.Context, out string) error {
 		Output:  out,
 		State:   out,
 	}
-	return compile(ctx, datapathProg, &dirs, option.Config.BPFCompilationDebug)
+	return compileDatapath(ctx, &dirs, option.Config.BPFCompilationDebug, log)
 }

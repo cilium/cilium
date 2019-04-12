@@ -162,8 +162,9 @@ func getDirs(tmpDir string) *directoryInfo {
 func (s *LoaderTestSuite) TestCompileAndLoad(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
+	stats := &SpanStat{}
 
-	err := compileAndLoad(ctx, &ep, dirInfo)
+	err := compileAndLoad(ctx, &ep, dirInfo, stats)
 	c.Assert(err, IsNil)
 }
 
@@ -172,7 +173,7 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	err := compileDatapath(ctx, &ep, dirInfo, true)
+	err := compileDatapath(ctx, dirInfo, true, log)
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
@@ -202,8 +203,9 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 
 	timeout := time.Now().Add(contextTimeout)
 	var err error
+	stats := &SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = compileAndLoad(ctx, &ep, dirInfo)
+		err = compileAndLoad(ctx, &ep, dirInfo, stats)
 	}
 	c.Assert(err, NotNil)
 }
@@ -216,7 +218,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		debug := false // Otherwise we compile lots more.
-		if err := compileDatapath(ctx, &ep, dirInfo, debug); err != nil {
+		if err := compileDatapath(ctx, dirInfo, debug, log); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -224,12 +226,13 @@ func BenchmarkCompileOnly(b *testing.B) {
 
 // BenchmarkCompileAndLoad benchmarks the entire compilation + loading process.
 func BenchmarkCompileAndLoad(b *testing.B) {
+	stats := &SpanStat{}
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := compileAndLoad(ctx, &ep, dirInfo); err != nil {
+		if err := compileAndLoad(ctx, &ep, dirInfo, stats); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -241,7 +244,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	if err := compileDatapath(ctx, &ep, dirInfo, false); err != nil {
+	if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
 		b.Fatal(err)
 	}
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)

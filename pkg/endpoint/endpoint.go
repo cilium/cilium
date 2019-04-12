@@ -1169,7 +1169,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	// If configuration options are provided, we only regenerate if necessary.
 	// Otherwise always regenerate.
 	if cfg.Options == nil {
-		regenCtx.RegenerationLevel = RegenerateWithDatapathRewrite
+		regenCtx.RegenerationLevel = RegenerateWithDatapathRebuild
 		regenCtx.Reason = "endpoint was manually regenerated via API"
 	} else if e.updateAndOverrideEndpointOptions(om) || e.Status.CurrentStatus() != OK {
 		regenCtx.RegenerationLevel = RegenerateWithDatapathRewrite
