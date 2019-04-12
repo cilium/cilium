@@ -278,7 +278,7 @@ func (c *criClient) IgnoreRunningWorkloads() {
 
 	resp, err := c.RuntimeServiceClient.ListPodSandbox(context.Background(), req)
 	if err != nil {
-		log.WithError(err).Errorf("unable to get list of pods running")
+		log.WithError(err).Error("unable to get list of pods running")
 		return
 	}
 	for _, pod := range resp.GetItems() {

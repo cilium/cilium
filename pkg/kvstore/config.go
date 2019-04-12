@@ -17,6 +17,8 @@ package kvstore
 import (
 	"fmt"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -33,7 +35,7 @@ func setOpts(opts map[string]string, supportedOpts backendOptions) error {
 		opt, ok := supportedOpts[key]
 		if !ok {
 			errors++
-			log.Errorf("unknown kvstore configuration key %q", key)
+			log.WithField(logfields.Key, key).Error("unknown kvstore configuration key")
 			continue
 		}
 

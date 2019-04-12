@@ -267,7 +267,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 		case deleteEntry:
 			err := purgeCtEntry6(m, currentKey, natMap)
 			if err != nil {
-				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
+				log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
 			} else {
 				stats.deleted++
 			}
@@ -316,7 +316,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 		case deleteEntry:
 			err := purgeCtEntry4(m, currentKey, natMap)
 			if err != nil {
-				log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
+				log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
 			} else {
 				stats.deleted++
 			}
