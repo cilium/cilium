@@ -421,6 +421,7 @@ recreate:
 		return fd, isNewMap, nil
 	}
 
+	log.Infof("XXXXXX OpenOrCreateMap opening map %s", path)
 	fd, err = ObjGet(path)
 	if err == nil {
 		redo = objCheck(

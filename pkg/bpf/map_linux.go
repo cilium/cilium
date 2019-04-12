@@ -272,6 +272,7 @@ func OpenMap(name string) (*Map, error) {
 		name = MapPath(name)
 	}
 
+	log.Infof("XXXXXX OpenMap opening map %s", name)
 	fd, err := ObjGet(name)
 	if err != nil {
 		return nil, err
@@ -428,6 +429,7 @@ func (m *Map) Open() error {
 		return err
 	}
 
+	log.Infof("XXXXXX Open opening map %s", m.path)
 	fd, err := ObjGet(m.path)
 	if err != nil {
 		return err

@@ -926,6 +926,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
+	log.Infof("XXXXXX Overriding CT map config globalTCP %d globalAny %d", option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
 	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)

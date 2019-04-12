@@ -161,12 +161,6 @@ case $K8S_VERSION in
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
         ;;
-    "1.10")
-        KUBERNETES_CNI_VERSION="0.6.0"
-        K8S_FULL_VERSION="1.10.13"
-        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
-        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,SystemVerification"
-        ;;
     "1.11")
         KUBERNETES_CNI_VERSION="0.7.5"
         K8S_FULL_VERSION="1.11.9"
@@ -202,7 +196,7 @@ esac
 
 #Install kubernetes
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14")
+    "1.8"|"1.9"|"1.11"|"1.12"|"1.13"|"1.14")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
