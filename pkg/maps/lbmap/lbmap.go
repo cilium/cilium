@@ -1035,3 +1035,29 @@ func DeleteOrphanServiceV2AndRevNAT(svc loadbalancer.L3n4AddrID, delRevNAT bool)
 
 	return nil
 }
+
+func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	var key BackendKey
+	errors := make([]error, 0)
+	toRemove := cache.removeBackendsWithRefCountZero()
+
+	for addrID, id := range toRemove {
+		log.WithField(logfields.BackendID, id).Debug("Removing orphan backend")
+		if addrID.IsIPv6() {
+			key = NewBackend6Key(id)
+		} else {
+			key = NewBackend4Key(id)
+		}
+		if err := deleteBackendLocked(key); err != nil {
+			errors = append(errors,
+				fmt.Errorf("Unable to remove backend from the BPF map %d: %s",
+					id, err))
+		}
+		releaseBackendID(id)
+	}
+
+	return errors
+}
