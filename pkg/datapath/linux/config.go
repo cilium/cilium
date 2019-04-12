@@ -151,6 +151,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		fmt.Fprintf(fw, "#define SNAT_MAPPING_MIN_PORT %d\n", nat.MinPortSnatDefault)
 		fmt.Fprintf(fw, "#define SNAT_MAPPING_MAX_PORT %d\n", nat.MaxPortSnatDefault)
 		fmt.Fprintf(fw, "#define SNAT_COLLISION_RETRIES %d\n", nat.CollisionRetriesDefault)
+		fmt.Fprintf(fw, "#define SNAT_DETERMINISTIC_RETRIES %d\n", nat.DeterministicRetriesDefault)
 		// SNAT_DIRECTION is defined by init.sh
 		if option.Config.EnableIPv4 {
 			ipv4Addr := node.GetExternalIPv4()
