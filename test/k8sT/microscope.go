@@ -39,6 +39,8 @@ var _ = Describe("K8sMicroscope", func() {
 	})
 
 	AfterAll(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+			"cilium endpoint list")
 		ExpectAllPodsTerminated(kubectl)
 	})
 
