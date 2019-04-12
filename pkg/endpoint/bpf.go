@@ -487,7 +487,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf, time.Second)
 
 		// Compile and install BPF programs for this endpoint
-		if datapathRegenCtxt.regenerationLevel == RegenerateWithDatapathRebuild {
+		if datapathRegenCtxt.regenerationLevel == RegenerateWithDatapathRewrite {
 			err = loader.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
@@ -709,18 +709,18 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		datapathRegenCtxt.bpfHeaderfilesHash = ""
-		datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRebuild
+		datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRewrite
 	} else {
 		changed := (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
 		if changed {
-			datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRebuild
+			datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRewrite
 		}
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 
 	// Cache endpoint information so that we can release the endpoint lock.
-	if datapathRegenCtxt.regenerationLevel >= RegenerateWithDatapathRebuild {
+	if datapathRegenCtxt.regenerationLevel >= RegenerateWithDatapathRewrite {
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)
 	} else {
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
