@@ -17,6 +17,7 @@ package lbmap
 import (
 	"fmt"
 	"net"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -30,6 +31,12 @@ import (
 // BackendAddrID is the type of a service endpoint's unique identifier which
 // consists of "IP:PORT"
 type BackendAddrID string
+
+// IsIPv6 detects in a dirty way whether the given backend addr ID belongs to
+// the ipv6 backend.
+func (b BackendAddrID) IsIPv6() bool {
+	return strings.HasPrefix(string(b), "[")
+}
 
 // ServiceKey is the interface describing protocol independent key for services map.
 type ServiceKey interface {
