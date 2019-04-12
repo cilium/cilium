@@ -431,3 +431,21 @@ func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]loadbalancer.Backen
 
 	return backendsToRemove, count, nil
 }
+
+// removeBackendsWithRefCountZero removes backends from the cache which are not
+// used by any service.
+func (l *lbmapCache) removeBackendsWithRefCountZero() map[BackendAddrID]loadbalancer.BackendID {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	removed := make(map[BackendAddrID]loadbalancer.BackendID)
+
+	for addrID, id := range l.backendIDByAddrID {
+		if l.backendRefCount[addrID] == 0 {
+			delete(l.backendIDByAddrID, addrID)
+			removed[addrID] = id
+		}
+	}
+
+	return removed
+}
