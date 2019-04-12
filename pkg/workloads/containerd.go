@@ -159,7 +159,7 @@ func (c *containerDClient) EnableEventListener() (eventsCh chan<- *EventMessage,
 		for {
 			eventsCh, errCh := c.Client.Subscribe(context.Background(), `topic~="/containers/create"`, `topic~="/containers/delete"`)
 			err := c.listenForContainerDEvents(ws, eventsCh, errCh)
-			log.WithError(err).Errorf("failed to listen events")
+			log.WithError(err).Error("failed to listen events")
 		}
 	}(ws)
 	return nil, nil

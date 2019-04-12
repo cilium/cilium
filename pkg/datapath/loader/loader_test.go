@@ -114,7 +114,7 @@ func runTests(m *testing.M) (int, error) {
 	}
 	defer func() {
 		if err := cleanup(); err != nil {
-			log.Errorf(err.Error())
+			log.Error(err.Error())
 		}
 	}()
 

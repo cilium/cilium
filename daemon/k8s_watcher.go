@@ -1406,7 +1406,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
 	})
 
-	scopedLog.Infof("updating node status due to annotations-only change to CiliumNetworkPolicy")
+	scopedLog.Info("updating node status due to annotations-only change to CiliumNetworkPolicy")
 
 	ctrlName := cnp.GetControllerName()
 
