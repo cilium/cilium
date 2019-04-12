@@ -962,3 +962,76 @@ func DeleteServiceCache(svc loadbalancer.L3n4AddrID) {
 
 	cache.delete(svcKey)
 }
+
+// DeleteOrphanServiceV2AndRevNAT removes the given service v2 without consulting
+// or updating the service cache. Also, it removes the related revNAT entry if
+// delRevNAT is set.
+//
+// This function is used only when restoring services during the launch of
+// cilium-agent, and it is used to remove v2 services which have no corresponding
+// legacy ones (thus, no cache entries exist).
+//
+// The function is a copy-paste of the daemon.svcDeleteBPFLegacy, and it will
+// go away once we stop supporting the legacy svc.
+func DeleteOrphanServiceV2AndRevNAT(svc loadbalancer.L3n4AddrID, delRevNAT bool) error {
+	var svcKey ServiceKeyV2
+	if !svc.IsIPv6() {
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	} else {
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+	}
+
+	svcKey.SetSlave(0)
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Get count of backends from master.
+	val, err := svcKey.Map().Lookup(svcKey.ToNetwork())
+	if err != nil {
+		return fmt.Errorf("key %s is not in lbmap v2", svcKey.ToNetwork())
+	}
+
+	vval := val.(ServiceValueV2)
+	numBackends := uint16(vval.GetCount())
+
+	// ServiceKeys are unique by their slave number, which corresponds to the number of backends. Delete each of these.
+	for i := numBackends; i > 0; i-- {
+		var slaveKey ServiceKeyV2
+		if !svc.IsIPv6() {
+			slaveKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, i)
+		} else {
+			slaveKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, i)
+		}
+		log.WithFields(logrus.Fields{
+			"idx.backend": i,
+			"key":         slaveKey,
+		}).Debug("deleting backend # for slave ServiceKey v2")
+		if err := deleteServiceLockedV2(slaveKey); err != nil {
+			return fmt.Errorf("deleting service v2 failed for %s: %s", slaveKey, err)
+		}
+	}
+
+	log.WithField(logfields.ServiceID, svc.ID).Debug("done deleting service slaves, now deleting master service")
+	if err := deleteServiceLockedV2(svcKey); err != nil {
+		return fmt.Errorf("deleting service failed for %s: %s", svcKey, err)
+	}
+
+	if delRevNAT {
+		var revNATK RevNatKey
+		if svc.IsIPv6() {
+			revNATK = NewRevNat6Key(uint16(svc.ID))
+		} else {
+			revNATK = NewRevNat4Key(uint16(svc.ID))
+		}
+
+		// The revNAT entry might not exist, so just log the error instead of
+		// returning it.
+		if err := deleteRevNatLocked(revNATK); err != nil {
+			log.WithField(logfields.ServiceID, svc.ID).WithError(err).
+				Warning("Failed to delete reverse NAT entry")
+		}
+	}
+
+	return nil
+}
