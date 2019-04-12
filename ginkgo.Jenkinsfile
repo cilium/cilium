@@ -37,33 +37,31 @@ pipeline {
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Precheck') {
-            options {
-                timeout(time: 20, unit: 'MINUTES')
-            }
+        /* stage('Precheck') { */
+        /*     options { */
+        /*         timeout(time: 20, unit: 'MINUTES') */
+        /*     } */
 
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/"
-            }
-            steps {
-               sh "cd ${TESTDIR}; make jenkins-precheck"
-            }
-            post {
-               always {
-                   sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
-               }
-            }
-        }
+        /*     environment { */
+        /*         TESTDIR="${WORKSPACE}/${PROJ_PATH}/" */
+        /*     } */
+        /*     steps { */
+        /*        sh "cd ${TESTDIR}; make jenkins-precheck" */
+        /*     } */
+        /*     post { */
+        /*        always { */
+        /*            sh "cd ${TESTDIR}; make clean-jenkins-precheck || true" */
+        /*        } */
+        /*     } */
+        /* } */
         stage('Boot VMs'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
-            environment {
-                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-            }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant up --no-provision'
+                sh 'ls .'
+                sh 'find .'
+                sh 'cd test/; vagrant up runtime --no-provision'
             }
         }
         stage('BDD-Test-PR') {
@@ -80,18 +78,25 @@ pipeline {
 
             steps {
                 script {
+
                     parallel(
                         "Runtime":{
-                            sh 'cd ${TESTDIR}; vagrant provision runtime'
-                            sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'pwd'
+                            sh 'ls'
+                            sh 'env'
+                            sh 'vagrant provision runtime'
+                            sh 'ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.10":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'pwd'
+                            sh 'ls'
+                            sh 'env'
+                            sh 'K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
+                            sh 'K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.14":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant provision k8s1-1.14; K8S_VERSION=1.14 vagrant provision k8s2-1.14'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'K8S_VERSION=1.14 vagrant provision k8s1-1.14; K8S_VERSION=1.14 vagrant provision k8s2-1.14'
+                            sh 'K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
