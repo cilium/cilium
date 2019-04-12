@@ -359,7 +359,7 @@ func (d *dockerClient) getEndpointByIP(cont *dTypes.ContainerJSON) *endpoint.End
 		if contNetwork.GlobalIPv6Address != "" {
 			id := endpointid.NewID(endpointid.IPv6Prefix, contNetwork.GlobalIPv6Address)
 			if ep, err := endpointmanager.Lookup(id); err != nil {
-				log.WithError(err).Warningf("Unable to lookup endpoint by IP prefix %s", id)
+				log.WithError(err).WithField(logfields.V6Prefix, id).Warning("Unable to lookup endpoint by IP prefix")
 			} else if ep != nil {
 				return ep
 			}
@@ -368,7 +368,7 @@ func (d *dockerClient) getEndpointByIP(cont *dTypes.ContainerJSON) *endpoint.End
 		if contNetwork.IPAddress != "" {
 			id := endpointid.NewID(endpointid.IPv4Prefix, contNetwork.IPAddress)
 			if ep, err := endpointmanager.Lookup(id); err != nil {
-				log.WithError(err).Warningf("Unable to lookup endpoint by IP prefix %s", id)
+				log.WithError(err).WithField(logfields.V4Prefix, id).Warning("Unable to lookup endpoint by IP prefix")
 			} else if ep != nil {
 				return ep
 			}

@@ -164,7 +164,7 @@ func doFlush4(m *Map) gcStats {
 		currentKey := key.(*tuple.TupleKey4Global)
 		err := m.Delete(currentKey)
 		if err != nil {
-			log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
+			log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
 		} else {
 			stats.deleted++
 		}
@@ -179,7 +179,7 @@ func doFlush6(m *Map) gcStats {
 		currentKey := key.(*tuple.TupleKey6Global)
 		err := m.Delete(currentKey)
 		if err != nil {
-			log.WithError(err).Errorf("Unable to delete CT entry %s", currentKey.String())
+			log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
 		} else {
 			stats.deleted++
 		}
