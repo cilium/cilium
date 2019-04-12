@@ -233,8 +233,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				podName := e.GetK8sPodName()
 				namespace := e.GetK8sNamespace()
 				if err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{}); err != nil {
-					scopedLog.WithError(err).Error("Unable to delete CEP")
-					return err
+					if !k8serrors.IsNotFound(err) {
+						scopedLog.WithError(err).Warning("Unable to delete CEP")
+					}
 				}
 				return nil
 			},
