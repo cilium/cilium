@@ -118,6 +118,14 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// it. Deleting first allows for upgrade scenarios where the format has
 				// changed but our k8s CEP code cannot read in the upstream value.
 				if needInit {
+					state := e.GetState()
+					// Don't bother to create if the
+					// endpoint is already disconnecting
+					if state == endpoint.StateDisconnecting ||
+						state == endpoint.StateDisconnected {
+						return nil
+					}
+
 					scopedLog.Debug("Deleting CEP during an initialization")
 					err := ciliumClient.CiliumEndpoints(namespace).Delete(podName, &meta_v1.DeleteOptions{})
 					// It's only an error if it exists but something else happened
