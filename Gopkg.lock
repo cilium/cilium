@@ -1534,11 +1534,7 @@
   revision = "kubernetes-1.14.0"
 
 [[projects]]
-<<<<<<< HEAD
-  digest = "1:e00a2f6e9516b21e01cf2878e2926fee4cf8ec1be1b4b36f201d7c31ccc1ce4d"
-=======
   digest = "1:8342528e1275c10c0db434bd9e4853bacd901835366a1734fe112c731a2deda3"
->>>>>>> vendor: update dependencies to k8s 1.14.0-rc.1
   name = "k8s.io/client-go"
   packages = [
     "discovery",
