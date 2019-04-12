@@ -105,11 +105,7 @@ func calculateInterval(mapType bpf.MapType) time.Duration {
 		return val
 	}
 
-	bpfNAT := !option.Config.InstallIptRules && option.Config.Masquerade
-
-	//  Fall-back to short interval when BPF NAT is enabled for now as the
-	//  NAT entry expiration relies on a frequent cleanup
-	if mapType == bpf.MapTypeLRUHash && !bpfNAT {
+	if mapType == bpf.MapTypeLRUHash {
 		return defaults.ConntrackGCIntervalLRU
 	}
 
