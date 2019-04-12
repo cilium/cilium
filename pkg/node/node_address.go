@@ -66,7 +66,7 @@ func SetIPv4ClusterCidrMaskSize(size int) {
 // scope will be regarded as the system's node address.
 func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv4 {
-		ip, err := firstGlobalV4Addr(device)
+		ip, err := firstGlobalV4Addr(device, GetInternalIPv4())
 		if err != nil {
 			return
 		}
@@ -101,7 +101,7 @@ func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv6 {
 		if ipv6Address == nil {
 			// Find a IPv6 node address first
-			ipv6Address = findIPv6NodeAddr()
+			ipv6Address = findIPv6NodeAddr(GetIPv6Router())
 			if ipv6Address == nil {
 				ipv6Address = makeIPv6HostIP()
 			}
