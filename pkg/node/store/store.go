@@ -101,6 +101,10 @@ type NodeRegistrar struct {
 
 // NodeManager is the interface that the manager of nodes has to implement
 type NodeManager interface {
+	// NodeSoftUpdated is called when the store detects a change in the
+	// node that does not require datapath updates.
+	NodeSoftUpdated(n node.Node)
+
 	// NodeUpdated is called when the store detects a change in node
 	// information
 	NodeUpdated(n node.Node)

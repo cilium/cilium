@@ -252,14 +252,23 @@ func overwriteAllowed(oldSource, newSource node.Source) bool {
 	}
 }
 
+// NodeSoftUpdated is called after the information of a node has be upated but
+// unlike a NodeUpdated does not require the datapath to be updated.
+func (m *Manager) NodeSoftUpdated(n node.Node) {
+	log.Debugf("Received soft node update event from %s: %#v", n.Source, n)
+	m.nodeUpdated(n, false)
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occured, NodeUpdate() of the datapath
 // interface is invoked.
 func (m *Manager) NodeUpdated(n node.Node) {
-
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
+	m.nodeUpdated(n, true)
+}
 
+func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 	nodeIdentity := n.Identity()
 
 	m.mutex.Lock()
@@ -276,7 +285,9 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		m.mutex.Unlock()
 		oldNode := entry.node
 		entry.node = n
-		m.datapath.NodeUpdate(oldNode, entry.node)
+		if dpUpdate {
+			m.datapath.NodeUpdate(oldNode, entry.node)
+		}
 		entry.mutex.Unlock()
 	} else {
 		m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
@@ -286,7 +297,9 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		entry.mutex.Lock()
 		m.nodes[nodeIdentity] = entry
 		m.mutex.Unlock()
-		m.datapath.NodeAdd(entry.node)
+		if dpUpdate {
+			m.datapath.NodeAdd(entry.node)
+		}
 		entry.mutex.Unlock()
 	}
 }
