@@ -190,7 +190,7 @@ const (
 	BackendIDs = "backendIDs"
 
 	// BackendID is the ID of the backend
-	BackendID = "backendIDs"
+	BackendID = "backendID"
 
 	// BackendName is the name of the backend
 	BackendName = "backendName"
