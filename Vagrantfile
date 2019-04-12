@@ -124,7 +124,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--audio", "none"]
 
         config.vm.box = "cilium/ubuntu-dev"
-        config.vm.box_version = "143"
+        config.vm.box_version = "144"
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
