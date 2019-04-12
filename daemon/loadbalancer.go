@@ -947,6 +947,13 @@ func restoreServices() {
 		}
 	}
 
+	// Remove backend entries which are not used by any service.
+	if errs := lbmap.DeleteOrphanBackends(service.DeleteBackendID); errs != nil && len(errs) > 0 {
+		for _, err := range errs {
+			log.WithError(err).Warning("Unable to remove orphan backend")
+		}
+	}
+
 	log.WithFields(logrus.Fields{
 		"restored": restored,
 		"failed":   failed,
