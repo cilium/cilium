@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// This tests the Istio 1.0.0 integration, following the configuration
+// This tests the Istio 1.1.2 integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
 // Changes to the Getting Started Guide may require re-generating or copying
@@ -42,9 +42,14 @@ var _ = Describe("K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
+		// istioCRDYAMLPath is the file generated from istio-init during a
+		// step in Documentation/gettingstarted/istio.rst to setup
+		// Istio 1.1.2. In the GSG the file is directly piped to kubectl.
+		istioCRDYAMLPath = helpers.ManifestGet("istio-crds.yaml")
+
 		// istioYAMLPath is the istio-cilium.yaml file generated following the
 		// instructions in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.0.0. mTLS is enabled.
+		// Istio 1.1.2. mTLS is enabled.
 		istioYAMLPath = helpers.ManifestGet("istio-cilium.yaml")
 
 		// istioServiceNames is the subset of Istio services in the Istio
@@ -52,16 +57,14 @@ var _ = Describe("K8sIstioTest", func() {
 		istioServiceNames = []string{
 			// All the services created by Istio are listed here, but only
 			// those that we care about are uncommented.
+			// "istio-citadel",
 			// "istio-galley",
 			// "istio-egressgateway",
-			// "istio-ingressgateway",
+			"istio-ingressgateway",
+			"istio-pilot",
 			// "istio-policy",
 			// "istio-telemetry",
-			"istio-statsd-prom-bridge",
-			"istio-pilot",
 			// "prometheus",
-			// "istio-citadel",
-			// "istio-sidecar-injector",
 		}
 
 		// wgetCommand is the command used in this test because the Istio apps
@@ -90,13 +93,22 @@ var _ = Describe("K8sIstioTest", func() {
 		res.ExpectSuccess("unable to create namespace %q", istioSystemNamespace)
 
 		By("Creating the Istio resources")
+
+		res = kubectl.Apply(istioCRDYAMLPath)
+		res.ExpectSuccess("unable to create Istio CRDs")
+
+		By("Waiting for Istio CRDs to be ready")
+		err := kubectl.WaitForCRDCount("istio.io|certmanager.k8s.io", 53, helpers.HelperTimeout)
+		Expect(err).To(BeNil(),
+			"Istio CRDs are not ready after timeout")
+
 		res = kubectl.Apply(istioYAMLPath)
 		res.ExpectSuccess("unable to create Istio resources")
 
 		// Ignore one-time jobs and Prometheus. All other pods in the
 		// namespaces have an "istio" label.
 		By("Waiting for Istio pods to be ready")
-		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
+		err = kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
 		Expect(err).To(BeNil(),
 			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
 
@@ -117,6 +129,9 @@ var _ = Describe("K8sIstioTest", func() {
 	AfterAll(func() {
 		By("Deleting the Istio resources")
 		_ = kubectl.Delete(istioYAMLPath)
+
+		By("Deleting the Istio CRDs")
+		_ = kubectl.Delete(istioCRDYAMLPath)
 
 		By("Deleting the istio-system namespace")
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)

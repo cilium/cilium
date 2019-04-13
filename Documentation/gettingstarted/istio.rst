@@ -125,12 +125,10 @@ Check the progress of the deployment (every service should have an
     $ kubectl get deployments -n istio-system
     NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     istio-citadel              1         1         1            1           1m
-    istio-egressgateway        1         1         1            1           1m
     istio-galley               1         1         1            1           1m
     istio-ingressgateway       1         1         1            1           1m
     istio-pilot                1         1         1            1           1m
     istio-policy               1         1         1            1           1m
-    istio-statsd-prom-bridge   1         1         1            1           1m
     istio-telemetry            1         1         1            1           1m
     prometheus                 1         1         1            1           1m
 
@@ -171,6 +169,10 @@ First create a policy to explicitly allow the sidecar proxies to access
 the Istio services while the pods are initializing:
 
 .. parsed-literal::
+
+.. note::
+
+   Check it this is still needed.
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/istio-sidecar-init-policy.yaml
     ciliumnetworkpolicy "istio-sidecar" created

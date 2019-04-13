@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -212,6 +213,25 @@ func (kub *Kubectl) GetCNP(namespace string, cnp string) *cnpv2.CiliumNetworkPol
 		return nil
 	}
 	return &result
+}
+
+func (kub *Kubectl) WaitForCRDCount(filter string, count int, timeout time.Duration) error {
+	// Set regexp flag m for multi-line matching, then add the
+	// matches for beginning and end of a line, so that we count
+	// at most one match per line (like "grep <filter> | wc -l")
+	regex := regexp.MustCompile("(?m:^.*(?:" + filter + ").*$)")
+	body := func() bool {
+		res := kub.Exec(fmt.Sprintf("%s get crds", KubectlCmd))
+		if !res.WasSuccessful() {
+			log.Error(res.GetErr("kubectl get crds failed"))
+			return false
+		}
+		return len(regex.FindAllString(res.GetStdOut(), -1)) == count
+	}
+	return WithTimeout(
+		body,
+		fmt.Sprintf("timed out waiting for %d CRDs matching filter \"%s\" to be ready", count, filter),
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // GetPods gets all of the pods in the given namespace that match the provided
