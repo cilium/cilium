@@ -42,6 +42,9 @@ const (
 	httpPrivate  = "http_private"
 	http6Private = "http6_private"
 
+	httpPathRewrite  = "http_path_rewrite"
+	http6PathRewrite = "http6_path_rewrite"
+
 	// Policy files
 	policyJSON                      = "policy.json"
 	invalidJSON                     = "invalid.json"
@@ -297,7 +300,9 @@ var _ = Describe("RuntimePolicies", func() {
 	pingRequests := []string{ping, ping6}
 	httpRequestsPublic := []string{http, http6}
 	httpRequestsPrivate := []string{httpPrivate, http6Private}
+	httpRequestsPathRewrite := []string{httpPathRewrite, http6PathRewrite}
 	httpRequests := append(httpRequestsPublic, httpRequestsPrivate...)
+	httpRequests = append(httpRequests, httpRequestsPathRewrite...)
 	allRequests := append(pingRequests, httpRequests...)
 	connectivityTest := func(tests []string, client, server string, expectsSuccess bool) {
 		var assertFn func() types.GomegaMatcher
@@ -325,9 +330,9 @@ var _ = Describe("RuntimePolicies", func() {
 			case ping6:
 				command = helpers.Ping6(srvIP[helpers.IPv6])
 				dst = srvIP[helpers.IPv6]
-			case http, httpPrivate:
+			case http, httpPrivate, httpPathRewrite:
 				dst = srvIP[helpers.IPv4]
-			case http6, http6Private:
+			case http6, http6Private, http6PathRewrite:
 				dst = fmt.Sprintf("[%s]", srvIP[helpers.IPv6])
 			}
 			switch test {
@@ -347,6 +352,12 @@ var _ = Describe("RuntimePolicies", func() {
 			case http6Private:
 				commandName = "curl private IPv6 URL on"
 				command = helpers.CurlFail("http://%s:80/private", dst)
+			case httpPathRewrite:
+				commandName = "curl path rewrite IPv4 URL on"
+				command = helpers.CurlFail("http://%s:80/public/../private", dst)
+			case http6PathRewrite:
+				commandName = "curl path rewrite IPv6 URL on"
+				command = helpers.CurlFail("http://%s:80/public/../private", dst)
 			}
 			if expectsSuccess {
 				resultName = "succeed"
@@ -504,9 +515,15 @@ var _ = Describe("RuntimePolicies", func() {
 		connectivityTest(httpRequestsPublic, helpers.App1, helpers.Httpd1, true)
 		connectivityTest(httpRequestsPrivate, helpers.App1, helpers.Httpd1, false)
 
+		// app1 can't exploit path rewrite
+		connectivityTest(httpRequestsPathRewrite, helpers.App1, helpers.Httpd1, false)
+
 		// Host can connect to /public, but not to /private.
 		connectivityTest(httpRequestsPublic, helpers.Host, helpers.Httpd1, true)
 		connectivityTest(httpRequestsPrivate, helpers.Host, helpers.Httpd1, false)
+
+		// Host can't exploit path rewrite
+		connectivityTest(httpRequestsPathRewrite, helpers.Host, helpers.Httpd1, false)
 
 		// app cannot connect to httpd1 because httpd1 only allows ingress from app1.
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd1, false)
@@ -516,6 +533,9 @@ var _ = Describe("RuntimePolicies", func() {
 		// app2 can connect to public, but no to private
 		connectivityTest(httpRequestsPublic, helpers.App2, helpers.Httpd2, true)
 		connectivityTest(httpRequestsPrivate, helpers.App2, helpers.Httpd2, false)
+
+		// app2 can't exploit path rewrite
+		connectivityTest(httpRequestsPathRewrite, helpers.App2, helpers.Httpd2, false)
 
 		// TODO (1488) - uncomment when l3-dependent-l7 is merged for egress.
 		//connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd3, true)
