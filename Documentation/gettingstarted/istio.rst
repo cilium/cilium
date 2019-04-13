@@ -15,6 +15,12 @@ environment running on your machine.
 
 .. include:: gsg_requirements.rst
 
+.. note::
+
+   If running on minikube, you may need to up the memory available to
+   the minikube VM from the defaults. 8GB should be enough
+   (``--memory=8192``).
+
 Step 2: Install Istio
 =====================
 
@@ -202,7 +208,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n default
+    $ kubectl get deployments
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1         1         1            1           6m
     productpage-v1   1         1         1            1           6m
@@ -270,7 +276,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n default
+    $ kubectl get deployments
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1         1         1            1           6m
     productpage-v1   1         1         1            1           6m
@@ -298,7 +304,7 @@ running ``curl`` from within the pod:
 
 ::
 
-    $ export POD_REVIEWS_V1=`kubectl get pods -n default -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_REVIEWS_V1=`kubectl get pods -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
     curl: (22) The requested URL returned error: 503 Service Unavailable
     command terminated with exit code 22
@@ -427,7 +433,7 @@ Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
 
 ::
 
-    $ kubectl get pods -n default -l app=kafka
+    $ kubectl get pods -l app=kafka
     NAME         READY     STATUS    RESTARTS   AGE
     kafka-v1-0   1/1       Running   0          21m
 
@@ -482,7 +488,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n default
+    $ kubectl get deployments
     NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     authaudit-logger-v1   1         1         1            1           20s
     details-v1            1         1         1            1           22m
@@ -514,11 +520,13 @@ This demonstrated that requests to the
 ``HTTP 403 Forbidden`` HTTP responses.
 
 Every login and logout on the product page will result in a line in
-this service's log:
+this service's log. Note that you need to log in/out using the ``sign
+in``/``sign out`` element on the bookinfo web page. When you do, you
+can observe these kind of audit logs:
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl logs ${POD_LOGGER_V1} -c authaudit-logger
     ...
     {"timestamp": "2017-12-04T09:34:24.341668", "remote_addr": "10.15.28.238", "event": "login", "user": "richard"}
@@ -540,11 +548,19 @@ configured on the Kafka broker enforces that:
 
 Check that Cilium prevents the ``authaudit-logger`` service from
 writing into the ``authaudit`` topic (enter a message followed by
-ENTER, e.g. ``test message``):
+ENTER, e.g. ``test message``)
+
+.. note::
+
+   Note that the error message may take a short time to appear.
+
+.. note::
+
+   You can terminate the command with ``<CTRL>-d``.
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-producer.sh --broker-list=kafka:9092 --topic=authaudit
     test message
     [2017-12-07 02:13:47,020] ERROR Error when sending message to topic authaudit with key: null, value: 12 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
@@ -566,7 +582,7 @@ fetching messages from this topic:
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh --bootstrap-server=kafka:9092 --topic=credit-card-payments
     [2017-12-07 03:08:54,513] WARN Not authorized to read from topic credit-card-payments. (org.apache.kafka.clients.consumer.internals.Fetcher)
     [2017-12-07 03:08:54,517] ERROR Error processing message, terminating consumer process:  (kafka.tools.ConsoleConsumer$)
@@ -576,6 +592,10 @@ fetching messages from this topic:
 This demonstrated that Cilium sent a response with an authorization
 error for any ``Fetch`` request from this service for any topic other
 than ``authaudit``.
+
+.. note::
+
+   At present, the above command may also result in an error message.
 
 Step 6: Clean Up
 ================
