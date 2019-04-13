@@ -12,7 +12,7 @@
                 {"port": "80", "protocol": "tcp"}],
             "rules": {
                 "HTTP": [
-                    {"method": "GET", "path": "/public"}]
+                    {"method": "GET", "path": "/public.*"}]
             }
         }]
     }]
@@ -36,7 +36,7 @@
                   {"port": "80",   "protocol": "tcp"}],
             "rules": {
                 "HTTP": [
-                    {"method": "GET", "path": "/public"}]
+                    {"method": "GET", "path": "/public.*"}]
 	    }
         }]
     }]
@@ -53,7 +53,7 @@
                 {"port": "80",   "protocol": "tcp"}],
             "rules": {
                 "HTTP": [
-                    {"method": "GET", "path": "/public"}]
+                    {"method": "GET", "path": "/public.*"}]
             }
         }]
     }]
