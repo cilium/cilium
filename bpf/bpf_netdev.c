@@ -648,15 +648,26 @@ int from_netdev(struct __sk_buff *skb)
 __section("masq")
 int do_masq(struct __sk_buff *skb)
 {
-	return snat_process(skb, BPF_PKT_DIR);
+	int ret;
+
+	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
+	ret = snat_process(skb, BPF_PKT_DIR);
+	if (!ret)
+		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
+	return ret;
 }
 
 __section("masq-pre")
 int do_masq_pre(struct __sk_buff *skb)
 {
-	int ret = snat_process(skb, BPF_PKT_DIR);
-	if (!ret)
+	int ret;
+
+	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
+	ret = snat_process(skb, BPF_PKT_DIR);
+	if (!ret) {
+		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
 		ret = do_netdev(skb);
+	}
 	return ret;
 }
 
@@ -664,8 +675,13 @@ __section("masq-post")
 int do_masq_post(struct __sk_buff *skb)
 {
 	int ret = do_netdev(skb);
-	if (!ret)
+	if (!ret) {
+		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
 		ret = snat_process(skb, BPF_PKT_DIR);
+		if (!ret)
+			cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST,
+					   skb->ifindex);
+	}
 	return ret;
 }
 
