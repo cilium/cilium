@@ -35,6 +35,8 @@ const (
 	DbgCaptureAfterV64
 	DbgCaptureProxyPre
 	DbgCaptureProxyPost
+	DbgCaptureSnatPre
+	DbgCaptureSnatPost
 )
 
 // must be in sync with <bpf/lib/dbg.h>
@@ -446,6 +448,10 @@ func (n *DebugCapture) subTypeString() string {
 		return fmt.Sprintf("Packet to proxy port %d (Pre)", byteorder.NetworkToHost(uint16(n.Arg1)))
 	case DbgCaptureProxyPost:
 		return fmt.Sprintf("Packet to proxy port %d (Post)", byteorder.NetworkToHost(uint16(n.Arg1)))
+	case DbgCaptureSnatPre:
+		return fmt.Sprintf("Packet going into snat engine on ifindex %d", n.Arg1)
+	case DbgCaptureSnatPost:
+		return fmt.Sprintf("Packet coming from snat engine on ifindex %d", n.Arg1)
 	default:
 		return fmt.Sprintf("Unknown message type=%d arg1=%d", n.SubType, n.Arg1)
 	}
