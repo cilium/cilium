@@ -20,12 +20,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.0.2
-<https://github.com/istio/istio/releases/tag/1.0.2>`_:
+Download `Istio version 1.1.2
+<https://github.com/istio/istio/releases/tag/1.1.2>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.0.2
+   $ export ISTIO_VERSION=1.1.2
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -46,9 +46,8 @@ Cilium network policy filters into each Istio sidecar proxy:
 ::
 
     $ awk -f cilium-pilot.awk \
-          < istio-cilium-helm/charts/pilot/templates/deployment.yaml \
-          > istio-cilium-helm/charts/pilot/templates/deployment.yaml.new && \
-          mv istio-cilium-helm/charts/pilot/templates/deployment.yaml.new istio-cilium-helm/charts/pilot/templates/deployment.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/charts/pilot/templates/deployment.yaml \
+          > istio-cilium-helm/charts/pilot/templates/deployment.yaml
 
 Configure the Istio's sidecar injection to setup the transparent proxy mode
 (TPROXY) as required by Cilium's proxy filters:
@@ -56,13 +55,13 @@ Configure the Istio's sidecar injection to setup the transparent proxy mode
 ::
 
     $ sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-          < istio-cilium-helm/templates/configmap.yaml \
-          > istio-cilium-helm/templates/configmap.yaml.new && \
-          mv istio-cilium-helm/templates/configmap.yaml.new istio-cilium-helm/templates/configmap.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/templates/configmap.yaml \
+          > istio-cilium-helm/templates/configmap.yaml
 
-Modify the Istio sidecar injection template to uses Cilium's proxy Docker
-images and mount Cilium's API Unix domain sockets into each sidecar to allow
-Cilium's Envoy filters to query the Cilium agent for policy configuration:
+Modify the Istio sidecar injection template to add an init container
+that waits until DNS works and to mount Cilium's API Unix domain
+sockets into each sidecar to allow Cilium's Envoy filters to query the
+Cilium agent for policy configuration:
 
 .. parsed-literal::
 
@@ -71,9 +70,8 @@ Cilium's Envoy filters to query the Cilium agent for policy configuration:
 ::
 
     $ awk -f cilium-kube-inject.awk \
-          < istio-cilium-helm/templates/sidecar-injector-configmap.yaml \
-          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new && \
-          mv istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new istio-cilium-helm/templates/sidecar-injector-configmap.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/templates/sidecar-injector-configmap.yaml \
+          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml
 
 Create an Istio deployment spec, which configures the Cilium-specific variant
 of Pilot, and disables unused services:
@@ -81,11 +79,11 @@ of Pilot, and disables unused services:
 ::
 
     $ helm template istio-cilium-helm --name istio --namespace istio-system \
-          --set pilot.image=docker.io/cilium/istio_pilot:1.0.2 \
+          --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
           --set sidecarInjectorWebhook.enabled=false \
           --set global.controlPlaneSecurityEnabled=true \
           --set global.mtls.enabled=true \
-          --set global.proxy.image=proxy_debug \
+          --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
           --set ingress.enabled=false \
           --set egressgateway.enabled=false \
           > istio-cilium.yaml
@@ -99,6 +97,18 @@ Deploy Istio onto Kubernetes:
 ::
 
     $ kubectl create namespace istio-system
+    $ helm template ${ISTIO_HOME}/install/kubernetes/helm/istio-init --name istio-init --namespace istio-system | kubectl apply -f -
+
+Verify that 53 Istio CRDs have been created:
+
+::
+
+    $ kubectl get crds | grep 'istio.io\|certmanager.k8s.io' | wc -l
+
+When the above returns '53', you can deploy Istio:
+
+::
+
     $ kubectl create -f istio-cilium.yaml
 
 Check the progress of the deployment (every service should have an
