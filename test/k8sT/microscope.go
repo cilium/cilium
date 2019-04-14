@@ -15,6 +15,8 @@
 package k8sTest
 
 import (
+	"time"
+
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -53,8 +55,8 @@ var _ = Describe("K8sMicroscope", func() {
 			return res.WasSuccessful()
 		}, "running microscope processes not found",
 			&helpers.TimeoutConfig{
-				Ticker:  5,
-				Timeout: 120,
+				Ticker:  5 * time.Second,
+				Timeout: 120 * time.Second,
 			})
 
 		Expect(err).To(BeNil())
@@ -67,8 +69,8 @@ var _ = Describe("K8sMicroscope", func() {
 			return !res.WasSuccessful()
 		}, "found running microscope processes; no microscope processes should be running",
 			&helpers.TimeoutConfig{
-				Ticker:  5,
-				Timeout: 120,
+				Ticker:  5 * time.Second,
+				Timeout: 120 * time.Second,
 			})
 		Expect(err).To(BeNil())
 	})

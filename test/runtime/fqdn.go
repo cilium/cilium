@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -322,7 +323,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			return vm.PolicyWait(preImportPolicyRevision + 2).WasSuccessful()
 		}
 		err = helpers.WithTimeout(dnsWaitBody, "DNSPoller did not update IPs",
-			&helpers.TimeoutConfig{Ticker: 1, Timeout: timeout})
+			&helpers.TimeoutConfig{Ticker: 1 * time.Second, Timeout: timeout})
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to update IPs")
 		ExpectWithOffset(1, vm.WaitEndpointsReady()).Should(BeTrue(),
 			"Endpoints are not ready after ToFQDNs DNS poll triggered a regenerate")
