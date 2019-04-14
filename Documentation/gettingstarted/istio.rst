@@ -17,9 +17,10 @@ environment running on your machine.
 
 .. note::
 
-   If running on minikube, you may need to up the memory available to
-   the minikube VM from the defaults. 8GB should be enough
-   (``--memory=8192``).
+   If running on minikube, you may need to up the memory and CPUs
+   available to the minikube VM from the defaults and/or the
+   instructions provided here for the other GSGs. 6GB and 3 CPUs
+   should be enough for Istio (``--memory=6144 --cpus=3``).
 
 Step 2: Install Istio
 =====================
@@ -89,7 +90,7 @@ of Pilot, and disables unused services:
           --set sidecarInjectorWebhook.enabled=false \
           --set global.controlPlaneSecurityEnabled=true \
           --set global.mtls.enabled=true \
-          --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
+          --set global.proxy.image=docker.io/cilium/istio_proxy:1.1.3 \
           --set ingress.enabled=false \
           --set egressgateway.enabled=false \
           > istio-cilium.yaml
@@ -164,18 +165,6 @@ into Kubernetes using separate YAML files which define:
 .. image:: images/istio-bookinfo-v1.png
    :scale: 75 %
    :align: center
-
-First create a policy to explicitly allow the sidecar proxies to access
-the Istio services while the pods are initializing:
-
-.. parsed-literal::
-
-.. note::
-
-   Check it this is still needed.
-
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/istio-sidecar-init-policy.yaml
-    ciliumnetworkpolicy "istio-sidecar" created
 
 Create an Istio ingress gateway for the productpage service:
 

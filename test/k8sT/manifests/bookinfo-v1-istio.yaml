@@ -111,7 +111,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"details","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.2
+        image: docker.io/cilium/istio_proxy:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -299,7 +299,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"reviews","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.2
+        image: docker.io/cilium/istio_proxy:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -487,7 +487,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"productpage","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.2
+        image: docker.io/cilium/istio_proxy:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:

@@ -860,7 +860,7 @@ data:
       [[ end -]]
       containers:
       - name: istio-proxy
-        image: [[ annotation .ObjectMeta `sidecar.istio.io/proxyImage`  "docker.io/cilium/istio_proxy:1.1.2"  ]]
+        image: [[ annotation .ObjectMeta `sidecar.istio.io/proxyImage`  "docker.io/cilium/istio_proxy:1.1.3"  ]]
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -2113,7 +2113,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/cilium/istio_proxy:1.1.2"
+          image: "docker.io/cilium/istio_proxy:1.1.3"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
@@ -2370,7 +2370,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/cilium/istio_proxy:1.1.2"
+        image: "docker.io/cilium/istio_proxy:1.1.3"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2552,7 +2552,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/cilium/istio_proxy:1.1.2"
+        image: "docker.io/cilium/istio_proxy:1.1.3"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2693,7 +2693,7 @@ spec:
             mountPath: /etc/certs
             readOnly: true
         - name: istio-proxy
-          image: "docker.io/cilium/istio_proxy:1.1.2"
+          image: "docker.io/cilium/istio_proxy:1.1.3"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 15003

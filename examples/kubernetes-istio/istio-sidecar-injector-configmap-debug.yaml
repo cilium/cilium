@@ -43,7 +43,7 @@ data:
       containers:
       - name: istio-proxy
         # cilium/istio_proxy_debug:1.1.2 image currently not available
-        image: docker.io/cilium/istio_proxy:1.1.2
+        image: docker.io/cilium/istio_proxy:1.1.3
         args:
         - proxy
         - sidecar
