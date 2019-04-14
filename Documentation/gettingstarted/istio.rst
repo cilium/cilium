@@ -15,17 +15,28 @@ environment running on your machine.
 
 .. include:: gsg_requirements.rst
 
+.. note::
+
+   If running on minikube, you may need to up the memory and CPUs
+   available to the minikube VM from the defaults and/or the
+   instructions provided here for the other GSGs. 6GB and 3 CPUs
+   should be enough for Istio (``--memory=6144 --cpus=3``).
+
 Step 2: Install Istio
 =====================
 
+.. note::
+
+   Make sure that Cilium is running in your cluster before proceeding.
+
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.0.2
-<https://github.com/istio/istio/releases/tag/1.0.2>`_:
+Download `Istio version 1.1.2
+<https://github.com/istio/istio/releases/tag/1.1.2>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.0.2
+   $ export ISTIO_VERSION=1.1.2
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -46,9 +57,8 @@ Cilium network policy filters into each Istio sidecar proxy:
 ::
 
     $ awk -f cilium-pilot.awk \
-          < istio-cilium-helm/charts/pilot/templates/deployment.yaml \
-          > istio-cilium-helm/charts/pilot/templates/deployment.yaml.new && \
-          mv istio-cilium-helm/charts/pilot/templates/deployment.yaml.new istio-cilium-helm/charts/pilot/templates/deployment.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/charts/pilot/templates/deployment.yaml \
+          > istio-cilium-helm/charts/pilot/templates/deployment.yaml
 
 Configure the Istio's sidecar injection to setup the transparent proxy mode
 (TPROXY) as required by Cilium's proxy filters:
@@ -56,13 +66,13 @@ Configure the Istio's sidecar injection to setup the transparent proxy mode
 ::
 
     $ sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-          < istio-cilium-helm/templates/configmap.yaml \
-          > istio-cilium-helm/templates/configmap.yaml.new && \
-          mv istio-cilium-helm/templates/configmap.yaml.new istio-cilium-helm/templates/configmap.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/templates/configmap.yaml \
+          > istio-cilium-helm/templates/configmap.yaml
 
-Modify the Istio sidecar injection template to uses Cilium's proxy Docker
-images and mount Cilium's API Unix domain sockets into each sidecar to allow
-Cilium's Envoy filters to query the Cilium agent for policy configuration:
+Modify the Istio sidecar injection template to add an init container
+that waits until DNS works and to mount Cilium's API Unix domain
+sockets into each sidecar to allow Cilium's Envoy filters to query the
+Cilium agent for policy configuration:
 
 .. parsed-literal::
 
@@ -71,9 +81,8 @@ Cilium's Envoy filters to query the Cilium agent for policy configuration:
 ::
 
     $ awk -f cilium-kube-inject.awk \
-          < istio-cilium-helm/templates/sidecar-injector-configmap.yaml \
-          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new && \
-          mv istio-cilium-helm/templates/sidecar-injector-configmap.yaml.new istio-cilium-helm/templates/sidecar-injector-configmap.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/templates/sidecar-injector-configmap.yaml \
+          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml
 
 Create an Istio deployment spec, which configures the Cilium-specific variant
 of Pilot, and disables unused services:
@@ -81,11 +90,11 @@ of Pilot, and disables unused services:
 ::
 
     $ helm template istio-cilium-helm --name istio --namespace istio-system \
-          --set pilot.image=docker.io/cilium/istio_pilot:1.0.2 \
+          --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
           --set sidecarInjectorWebhook.enabled=false \
           --set global.controlPlaneSecurityEnabled=true \
           --set global.mtls.enabled=true \
-          --set global.proxy.image=proxy_debug \
+          --set global.proxy.image=docker.io/cilium/istio_proxy:1.1.3 \
           --set ingress.enabled=false \
           --set egressgateway.enabled=false \
           > istio-cilium.yaml
@@ -99,6 +108,18 @@ Deploy Istio onto Kubernetes:
 ::
 
     $ kubectl create namespace istio-system
+    $ helm template ${ISTIO_HOME}/install/kubernetes/helm/istio-init --name istio-init --namespace istio-system | kubectl apply -f -
+
+Verify that 53 Istio CRDs have been created:
+
+::
+
+    $ watch "kubectl get crds | grep 'istio.io\|certmanager.k8s.io' | wc -l"
+
+When the above returns '53', you can stop it with ``CTRL-c`` and deploy Istio:
+
+::
+
     $ kubectl create -f istio-cilium.yaml
 
 Check the progress of the deployment (every service should have an
@@ -106,15 +127,13 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n istio-system
+    $ watch "kubectl get deployments -n istio-system"
     NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     istio-citadel              1         1         1            1           1m
-    istio-egressgateway        1         1         1            1           1m
     istio-galley               1         1         1            1           1m
     istio-ingressgateway       1         1         1            1           1m
     istio-pilot                1         1         1            1           1m
     istio-policy               1         1         1            1           1m
-    istio-statsd-prom-bridge   1         1         1            1           1m
     istio-telemetry            1         1         1            1           1m
     prometheus                 1         1         1            1           1m
 
@@ -151,14 +170,6 @@ into Kubernetes using separate YAML files which define:
    :scale: 75 %
    :align: center
 
-First create a policy to explicitly allow the sidecar proxies to access
-the Istio services while the pods are initializing:
-
-.. parsed-literal::
-
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/istio-sidecar-init-policy.yaml
-    ciliumnetworkpolicy "istio-sidecar" created
-
 Create an Istio ingress gateway for the productpage service:
 
 .. parsed-literal::
@@ -192,7 +203,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n default
+    $ watch "kubectl get deployments"
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1         1         1            1           6m
     productpage-v1   1         1         1            1           6m
@@ -260,7 +271,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n default
+    $ kubectl get deployments
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1         1         1            1           6m
     productpage-v1   1         1         1            1           6m
@@ -288,7 +299,7 @@ running ``curl`` from within the pod:
 
 ::
 
-    $ export POD_REVIEWS_V1=`kubectl get pods -n default -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_REVIEWS_V1=`kubectl get pods -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
     curl: (22) The requested URL returned error: 503 Service Unavailable
     command terminated with exit code 22
@@ -417,7 +428,7 @@ Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
 
 ::
 
-    $ kubectl get pods -n default -l app=kafka
+    $ kubectl get pods -l app=kafka
     NAME         READY     STATUS    RESTARTS   AGE
     kafka-v1-0   1/1       Running   0          21m
 
@@ -472,7 +483,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments -n default
+    $ kubectl get deployments
     NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     authaudit-logger-v1   1         1         1            1           20s
     details-v1            1         1         1            1           22m
@@ -504,11 +515,13 @@ This demonstrated that requests to the
 ``HTTP 403 Forbidden`` HTTP responses.
 
 Every login and logout on the product page will result in a line in
-this service's log:
+this service's log. Note that you need to log in/out using the ``sign
+in``/``sign out`` element on the bookinfo web page. When you do, you
+can observe these kind of audit logs:
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl logs ${POD_LOGGER_V1} -c authaudit-logger
     ...
     {"timestamp": "2017-12-04T09:34:24.341668", "remote_addr": "10.15.28.238", "event": "login", "user": "richard"}
@@ -530,11 +543,19 @@ configured on the Kafka broker enforces that:
 
 Check that Cilium prevents the ``authaudit-logger`` service from
 writing into the ``authaudit`` topic (enter a message followed by
-ENTER, e.g. ``test message``):
+ENTER, e.g. ``test message``)
+
+.. note::
+
+   Note that the error message may take a short time to appear.
+
+.. note::
+
+   You can terminate the command with ``<CTRL>-d``.
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-producer.sh --broker-list=kafka:9092 --topic=authaudit
     test message
     [2017-12-07 02:13:47,020] ERROR Error when sending message to topic authaudit with key: null, value: 12 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
@@ -556,7 +577,7 @@ fetching messages from this topic:
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -n default -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh --bootstrap-server=kafka:9092 --topic=credit-card-payments
     [2017-12-07 03:08:54,513] WARN Not authorized to read from topic credit-card-payments. (org.apache.kafka.clients.consumer.internals.Fetcher)
     [2017-12-07 03:08:54,517] ERROR Error processing message, terminating consumer process:  (kafka.tools.ConsoleConsumer$)
@@ -566,6 +587,10 @@ fetching messages from this topic:
 This demonstrated that Cilium sent a response with an authorization
 error for any ``Fetch`` request from this service for any topic other
 than ``authaudit``.
+
+.. note::
+
+   At present, the above command may also result in an error message.
 
 Step 6: Clean Up
 ================
