@@ -1,14 +1,3 @@
-# Replace the Istio sidecar proxy image with the Cilium-specific image.
-
-/{{ .Values.global.hub }}\/{{ .Values.global.proxy.image }}/ {
-	indent = $0 ; gsub(/[^ ].*/, "", indent)
-	print indent "{{ if eq .Values.global.proxy.image \"proxy_debug\" -}}"
-	print indent "docker.io/cilium/istio_proxy_debug:{{ .Values.global.tag }}"
-	print indent "{{ else -}}"
-	print indent "docker.io/cilium/istio_proxy:{{ .Values.global.tag }}"
-	$0 = indent "{{ end -}}"
-}
-
 { print }
 
 # Add an init container to delay the start of the application containers,

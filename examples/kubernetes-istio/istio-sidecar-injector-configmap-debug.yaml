@@ -9,7 +9,7 @@ data:
     template: |-
       initContainers:
       - name: istio-init
-        image: docker.io/cilium/istio_proxy_init:0.7.0
+        image: docker.io/cilium/istio_proxy_init:1.1.2
         args:
         - "-p"
         - {{ .MeshConfig.ProxyListenPort }}
@@ -42,7 +42,8 @@ data:
           privileged: true
       containers:
       - name: istio-proxy
-        image: docker.io/cilium/istio_proxy_debugv2:0.7.0
+        # cilium/istio_proxy_debug:1.1.2 image currently not available
+        image: docker.io/cilium/istio_proxy:1.1.3
         args:
         - proxy
         - sidecar
