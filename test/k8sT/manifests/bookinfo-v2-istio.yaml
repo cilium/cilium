@@ -39,7 +39,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5ea51d2f5c6a2ce7fc28571be15e7c29477bd9fbe55fba6ab8705e37066052b2","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: ratings
@@ -56,30 +56,34 @@ spec:
       - args:
         - proxy
         - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
         - /etc/istio/proxy
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - ratings
+        - ratings.$(POD_NAMESPACE)
         - --drainDuration
         - 45s
         - --parentShutdownDuration
         - 1m0s
         - --discoveryAddress
-        - istio-pilot.istio-system:15005
-        - --discoveryRefreshDelay
-        - 1s
+        - istio-pilot.istio-system:15011
         - --zipkinAddress
         - zipkin.istio-system:9411
         - --connectTimeout
         - 10s
-        - --statsdUdpAddress
-        - istio-statsd-prom-bridge.istio-system:9125
         - --proxyAdminPort
         - "15000"
+        - --concurrency
+        - "2"
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
+        - --statusPort
+        - "15020"
+        - --applicationPorts
+        - "9080"
         env:
         - name: POD_NAME
           valueFrom:
@@ -97,19 +101,40 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"ratings","version":"v1","zgroup":"bookinfo"}
+        image: docker.io/cilium/istio_proxy:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
@@ -124,7 +149,9 @@ spec:
       - command:
         - sh
         - -c
-        - "until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done"
+        - 'max=120; i=0; until nslookup kube-dns.kube-system.svc.cluster.local; do
+          i=$((i + 1)); if [ $i -eq $max ]; then echo timed-out; exit 1; else sleep
+          1; fi done '
         image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
         name: sleep
@@ -141,18 +168,24 @@ spec:
         - -x
         - ""
         - -b
-        - 9080,
+        - "9080"
         - -d
-        - ""
-        image: docker.io/istio/proxy_init:1.0.0
+        - "15020"
+        image: docker.io/istio/proxy_init:1.1.2
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
+      terminationGracePeriodSeconds: 0
       volumes:
       - hostPath:
           path: /var/run/cilium
@@ -177,7 +210,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"7c483d21f2b4d2a2216a5946f7721f8938f54b2b92ac0deb5691f75d6a6eb71a","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"5ea51d2f5c6a2ce7fc28571be15e7c29477bd9fbe55fba6ab8705e37066052b2","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: reviews
@@ -194,30 +227,34 @@ spec:
       - args:
         - proxy
         - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
         - /etc/istio/proxy
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - reviews
+        - reviews.$(POD_NAMESPACE)
         - --drainDuration
         - 45s
         - --parentShutdownDuration
         - 1m0s
         - --discoveryAddress
-        - istio-pilot.istio-system:15005
-        - --discoveryRefreshDelay
-        - 1s
+        - istio-pilot.istio-system:15011
         - --zipkinAddress
         - zipkin.istio-system:9411
         - --connectTimeout
         - 10s
-        - --statsdUdpAddress
-        - istio-statsd-prom-bridge.istio-system:9125
         - --proxyAdminPort
         - "15000"
+        - --concurrency
+        - "2"
         - --controlPlaneAuthPolicy
         - MUTUAL_TLS
+        - --statusPort
+        - "15020"
+        - --applicationPorts
+        - "9080"
         env:
         - name: POD_NAME
           valueFrom:
@@ -235,19 +272,40 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
-        image: docker.io/cilium/istio_proxy_debug:1.0.0
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"reviews","version":"v2","zgroup":"bookinfo"}
+        image: docker.io/cilium/istio_proxy:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
+          limits:
+            cpu: "2"
+            memory: 128Mi
           requests:
-            cpu: 10m
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: false
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
@@ -262,7 +320,9 @@ spec:
       - command:
         - sh
         - -c
-        - "until nslookup kube-dns.kube-system.svc.cluster.local; do sleep 1; done"
+        - 'max=120; i=0; until nslookup kube-dns.kube-system.svc.cluster.local; do
+          i=$((i + 1)); if [ $i -eq $max ]; then echo timed-out; exit 1; else sleep
+          1; fi done '
         image: busybox:1.28.4
         imagePullPolicy: IfNotPresent
         name: sleep
@@ -279,18 +339,24 @@ spec:
         - -x
         - ""
         - -b
-        - 9080,
+        - "9080"
         - -d
-        - ""
-        image: docker.io/istio/proxy_init:1.0.0
+        - "15020"
+        image: docker.io/istio/proxy_init:1.1.2
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
+      terminationGracePeriodSeconds: 0
       volumes:
       - hostPath:
           path: /var/run/cilium
