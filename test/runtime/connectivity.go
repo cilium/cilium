@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -59,7 +60,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 					return false
 				}
 				return true
-			}, "Endpoints are not ready", &helpers.TimeoutConfig{Timeout: 150})
+			}, "Endpoints are not ready", &helpers.TimeoutConfig{Timeout: 150 * time.Second})
 			Expect(err).Should(BeNil())
 		}, 150)
 
@@ -101,7 +102,7 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 
 		It("Test connectivity between containers with policy imported", func() {
 			policyID, err := vm.PolicyImportAndWait(
-				fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150)
+				fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150*time.Second)
 			Expect(err).Should(BeNil())
 			logger.Debug("New policy created with id '%d'", policyID)
 
