@@ -549,15 +549,10 @@ static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, _
 }
 #endif
 
-static __always_inline int do_netdev(struct __sk_buff *skb)
+static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 {
 	__u32 identity = 0;
-	__u16 proto;
 	int ret;
-
-	if (!validate_ethertype(skb, &proto))
-		/* Pass unknown traffic to the stack */
-		return TC_ACT_OK;
 
 #ifdef ENABLE_IPSEC
 	if (1) {
@@ -642,13 +637,24 @@ static __always_inline int do_netdev(struct __sk_buff *skb)
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
-	return do_netdev(skb);
+	__u16 proto;
+
+	if (!validate_ethertype(skb, &proto))
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
+
+	return do_netdev(skb, proto);
 }
 
 __section("masq")
 int do_masq(struct __sk_buff *skb)
 {
+	__u16 proto;
 	int ret;
+
+	if (!validate_ethertype(skb, &proto))
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
 	ret = snat_process(skb, BPF_PKT_DIR);
@@ -660,13 +666,18 @@ int do_masq(struct __sk_buff *skb)
 __section("masq-pre")
 int do_masq_pre(struct __sk_buff *skb)
 {
+	__u16 proto;
 	int ret;
+
+	if (!validate_ethertype(skb, &proto))
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
 
 	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
 	ret = snat_process(skb, BPF_PKT_DIR);
 	if (!ret) {
 		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
-		ret = do_netdev(skb);
+		ret = do_netdev(skb, proto);
 	}
 	return ret;
 }
@@ -674,7 +685,14 @@ int do_masq_pre(struct __sk_buff *skb)
 __section("masq-post")
 int do_masq_post(struct __sk_buff *skb)
 {
-	int ret = do_netdev(skb);
+	__u16 proto;
+	int ret;
+
+	if (!validate_ethertype(skb, &proto))
+		/* Pass unknown traffic to the stack */
+		return TC_ACT_OK;
+
+	ret = do_netdev(skb, proto);
 	if (!ret) {
 		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
 		ret = snat_process(skb, BPF_PKT_DIR);
