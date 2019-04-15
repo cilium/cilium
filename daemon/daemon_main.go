@@ -796,11 +796,13 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		log.Infof("Using config file: %s", viper.ConfigFileUsed())
+		log.WithField(logfields.Path, viper.ConfigFileUsed()).
+			Info("Using config from file")
 	} else if option.Config.ConfigFile != "" {
-		log.Fatalf("Error reading config file %s: %s", option.Config.ConfigFile, err)
+		log.WithField(logfields.Path, option.Config.ConfigFile).
+			Fatal("Error reading config file")
 	} else {
-		log.Warnf("Error reading default config: %s", err)
+		log.WithField(logfields.Reason, err).Info("Skipped reading configuration file")
 	}
 }
 
