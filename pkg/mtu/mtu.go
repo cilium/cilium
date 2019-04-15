@@ -38,6 +38,26 @@ const (
 	//                        ---
 	//    Total extra bytes:  50B
 	TunnelOverhead = 50
+
+	// EncryptionIPsecOverhead is an approximation for bytes used for
+	// encryption. Depending on key size and encryption type the actual
+	// size may vary here we do calculations for 128B keys and Auth. The
+	// overhead is accounted for as:
+	//    Outer IP header:    20B
+	//    SPI:		   4B
+	//    Sequece Numbers:	   4B
+	//    Next Header:         1B
+	//    ICV:		  16B
+	//    Padding:            16B
+	//    128bit Auth:        16B
+	//			  ---
+	//    Total extra bytes:  77B
+	EncryptionIPsecOverhead = 77
+
+	// EncryptionDefaultAuthKeyLength is 16 representing 128B key recommended
+	// size for GCM(AES*) in RFC4106. Users may input other lengths via
+	// key secrets.
+	EncryptionDefaultAuthKeyLength = 16
 )
 
 // Configuration is an MTU configuration as returned by NewConfiguration
@@ -57,14 +77,22 @@ type Configuration struct {
 	// Similar to StandardMTU, this is a singleton for the process.
 	tunnelMTU int
 
-	encapEnabled bool
+	// encryptMTU is the MTU used for configuratin a encryption route
+	// without tunneling. If tunneling is enabled the tunnelMTU is used
+	// which will include additional encryption overhead if needed.
+	encryptMTU int
+
+	encapEnabled   bool
+	encryptEnabled bool
 }
 
 // NewConfiguration returns a new MTU configuration. The MTU can be manually
 // specified, otherwise it will be automatically detected. if encapEnabled is
 // true, the MTU is adjusted to account for encapsulation overhead for all
 // routes involved in node to node communication.
-func NewConfiguration(encapEnabled bool, mtu int) Configuration {
+func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, mtu int) Configuration {
+	encryptOverhead := 0
+
 	if mtu == 0 {
 		var err error
 
@@ -75,10 +103,18 @@ func NewConfiguration(encapEnabled bool, mtu int) Configuration {
 		}
 	}
 
+	if encryptEnabled {
+		// Add the difference between the default and the actual key sizes here
+		// to account for users specifing non-default auth key lengths.
+		encryptOverhead = EncryptionIPsecOverhead + (authKeySize - EncryptionDefaultAuthKeyLength)
+	}
+
 	conf := Configuration{
-		standardMTU:  mtu,
-		tunnelMTU:    mtu - TunnelOverhead,
-		encapEnabled: encapEnabled,
+		standardMTU:    mtu,
+		tunnelMTU:      mtu - (TunnelOverhead + encryptOverhead),
+		encryptMTU:     mtu - encryptOverhead,
+		encapEnabled:   encapEnabled,
+		encryptEnabled: encryptEnabled,
 	}
 
 	if conf.tunnelMTU < 0 {
@@ -89,13 +125,24 @@ func NewConfiguration(encapEnabled bool, mtu int) Configuration {
 }
 
 // GetRouteMTU returns the MTU to be used on the network. When running in
-// tunneling mode, this will have tunnel overhead accounted for.
+// tunneling mode and/or with encryption enabled, this will have tunnel and
+// encryption overhead accounted for.
 func (c *Configuration) GetRouteMTU() int {
-	if !c.encapEnabled {
+	if !c.encapEnabled && !c.encryptEnabled {
 		return c.GetDeviceMTU()
 	}
 
+	if c.encryptEnabled && !c.encapEnabled {
+		if c.encryptMTU == 0 {
+			return EthernetMTU - EncryptionIPsecOverhead
+		}
+		return c.encryptMTU
+	}
+
 	if c.tunnelMTU == 0 {
+		if c.encryptEnabled {
+			return EthernetMTU - (TunnelOverhead + EncryptionIPsecOverhead)
+		}
 		return EthernetMTU - TunnelOverhead
 	}
 
