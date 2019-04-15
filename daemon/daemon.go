@@ -920,6 +920,8 @@ func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (ro
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+	var authKeySize int
+
 	bootstrapStats.daemonInit.Start()
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
@@ -928,10 +930,11 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 
-	mtuConfig := mtu.NewConfiguration(option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
-
 	if option.Config.EnableIPSec {
-		spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+		var spi uint8
+		var err error
+
+		authKeySize, spi, err = ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -942,6 +945,8 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		}
 		node.SetIPsecKeyIdentity(spi)
 	}
+
+	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
 	if err != nil {
