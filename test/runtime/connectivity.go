@@ -133,7 +133,7 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 
 			It("Test connectivity between containers with policy imported", func() {
 				policyID, err := vm.PolicyImportAndWait(
-					fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150 * time.Second)
+					fmt.Sprintf("%s/test.policy", vm.ManifestsPath()), 150*time.Second)
 				Expect(err).Should(BeNil())
 				logger.Debugf("New policy created with id '%d'", policyID)
 
