@@ -305,6 +305,11 @@ func checkMinRequirements() {
 }
 
 func init() {
+	if path.Base(os.Args[0]) != components.CiliumAgentName {
+		log.Debug("Skipping preparation of cilium-agent environment")
+		return
+	}
+
 	cobra.OnInitialize(initConfig)
 
 	// Reset the help function to also exit, as we block elsewhere in interrupts
