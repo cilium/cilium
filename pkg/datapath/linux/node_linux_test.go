@@ -69,7 +69,7 @@ const (
 
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
 	s.nodeAddressing = addressing
-	s.mtuConfig = mtu.NewConfiguration(false, 1500)
+	s.mtuConfig = mtu.NewConfiguration(0, false, false, 1500)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
 
