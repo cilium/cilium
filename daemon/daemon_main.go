@@ -304,7 +304,21 @@ func checkMinRequirements() {
 	bpf.ReadFeatureProbes(featuresFilePath)
 }
 
+func skipInit(basePath string) bool {
+	switch basePath {
+	case components.CiliumAgentName, components.CiliumDaemonTestName:
+		return false
+	default:
+		return true
+	}
+}
+
 func init() {
+	if skipInit(path.Base(os.Args[0])) {
+		log.Debug("Skipping preparation of cilium-agent environment")
+		return
+	}
+
 	cobra.OnInitialize(initConfig)
 
 	// Reset the help function to also exit, as we block elsewhere in interrupts
