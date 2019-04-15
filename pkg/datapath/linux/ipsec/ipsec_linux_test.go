@@ -42,13 +42,13 @@ var (
 )
 
 func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
-	_, err := LoadIPSecKeysFile(path)
+	_, _, err := LoadIPSecKeysFile(path)
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	keys := bytes.NewReader(invalidKeysDat)
-	_, err := loadIPSecKeys(keys)
+	_, _, err := loadIPSecKeys(keys)
 	c.Assert(err, NotNil)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -62,10 +62,10 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 
 func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
 	keys := bytes.NewReader(keysDat)
-	_, err := loadIPSecKeys(keys)
+	_, _, err := loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
 	keys = bytes.NewReader(keysAeadDat)
-	_, err = loadIPSecKeys(keys)
+	_, _, err = loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
 }
 
@@ -75,9 +75,9 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	c.Assert(err, IsNil)
-	cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	c.Assert(err, IsNil)
 	key := &ipSecKey{
 		Spi:   1,
@@ -94,7 +94,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 
 	ipsecDeleteXfrmSpi(0)
 
-	aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
+	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	c.Assert(err, IsNil)
 	key = &ipSecKey{
 		Spi:   1,
@@ -121,9 +121,9 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	c.Assert(err, IsNil)
-	cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
 	c.Assert(err, IsNil)
 	key := &ipSecKey{
 		Spi:   1,
@@ -141,7 +141,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 
 	ipsecDeleteXfrmSpi(0)
 
-	aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
+	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
 	c.Assert(err, IsNil)
 	key = &ipSecKey{
 		Spi:   1,
