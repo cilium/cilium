@@ -271,27 +271,30 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 	return spi, nil
 }
 
-func decodeIPSecKey(keyRaw string) ([]byte, error) {
+func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	// As we have released the v1.4.0 docs telling the users to write the
 	// k8s secret with the prefix "0x" we have to remove it if it is present,
 	// so we can decode the secret.
 	keyTrimmed := strings.TrimPrefix(keyRaw, "0x")
-	return hex.DecodeString(keyTrimmed)
+	key, err := hex.DecodeString(keyTrimmed)
+	return len(keyTrimmed), key, err
 }
 
 // LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
-func LoadIPSecKeysFile(path string) (uint8, error) {
+// Returns the authentication overhead in bytes, the key ID, and an error.
+func LoadIPSecKeysFile(path string) (int, uint8, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	defer file.Close()
 	return loadIPSecKeys(file)
 }
 
-func loadIPSecKeys(r io.Reader) (uint8, error) {
+func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
+	var keyLen int
 	scopedLog := log.WithFields(logrus.Fields{
 		"spi": spi,
 	})
@@ -302,6 +305,7 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		var oldSpi uint8
+		var authkey []byte
 		offset := 0
 
 		ipSecKey := &ipSecKey{
@@ -312,7 +316,7 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 		//    auth-algo auth-key enc-algo enc-key
 		s := strings.Split(scanner.Text(), " ")
 		if len(s) < 2 {
-			return 0, fmt.Errorf("missing IPSec keys or invalid format")
+			return 0, 0, fmt.Errorf("missing IPSec keys or invalid format")
 		}
 
 		spiI, err := strconv.Atoi(s[0])
@@ -323,30 +327,41 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 			offset = -1
 		}
 		if spiI > linux_defaults.IPsecMaxKeyVersion {
-			return 0, fmt.Errorf("encryption Key space exhausted, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
+			return 0, 0, fmt.Errorf("encryption Key space exhausted, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
 		}
 		if spiI == 0 {
-			return 0, fmt.Errorf("zero is not a valid key to disable encryption use `--enable-ipsec=false`, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
+			return 0, 0, fmt.Errorf("zero is not a valid key to disable encryption use `--enable-ipsec=false`, id must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion, s[0])
 		}
 		spi = uint8(spiI)
 
-		authkey, err := decodeIPSecKey(s[2+offset])
+		keyLen, authkey, err = decodeIPSecKey(s[2+offset])
 		if err != nil {
-			return 0, fmt.Errorf("unable to decode authkey string %q", s[1+offset])
+			return 0, 0, fmt.Errorf("unable to decode authkey string %q", s[1+offset])
 		}
 		authname := s[1+offset]
 
 		if strings.HasPrefix(authname, "rfc") {
+			icvLen, err := strconv.Atoi(s[3+offset])
+			if err != nil {
+				return 0, 0, fmt.Errorf("ICVLen is invalid or missing")
+			}
+
+			if icvLen != 96 && icvLen != 128 && icvLen != 256 {
+				return 0, 0, fmt.Errorf("Unknown ICVLen accepts 96, 128, 256")
+			}
+
 			ipSecKey.Aead = &netlink.XfrmStateAlgo{
 				Name:   authname,
 				Key:    authkey,
-				ICVLen: 128,
+				ICVLen: icvLen,
 			}
+			keyLen = icvLen / 8
 		} else {
-			enckey, err := decodeIPSecKey(s[4+offset])
+			_, enckey, err := decodeIPSecKey(s[4+offset])
 			if err != nil {
-				return 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
+				return 0, 0, fmt.Errorf("unable to decode enckey string %q", s[3+offset])
 			}
+
 			encname := s[3+offset]
 
 			ipSecKey.Auth = &netlink.XfrmStateAlgo{
@@ -387,7 +402,7 @@ func loadIPSecKeys(r io.Reader) (uint8, error) {
 		}
 	}
 	encrypt.MapUpdateContext(0, spi)
-	return spi, nil
+	return keyLen, spi, nil
 }
 
 // EnableIPv6Forwarding sets proc file to enable IPv6 forwarding
