@@ -115,7 +115,7 @@ type TimeoutConfig struct {
 // the timeout in config is reached. Returns an error if the timeout is
 // exceeded for body to execute successfully.
 func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
-	if config.Timeout < 10 * time.Second {
+	if config.Timeout < 10*time.Second {
 		return fmt.Errorf("Timeout too short (must be at least 10 seconds): %v", config.Timeout)
 	}
 	if config.Ticker == 0 {
