@@ -22,6 +22,7 @@ SUMMARY_LOG=${2:-}
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
 source $TOOL_LIB_PATH/gitlib.sh
+source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 
 # Validate command-line
 common::argc_validate 2
@@ -116,7 +117,6 @@ generate_commit_list_for_pr () {
   local pr_json
   local merge_sha
   local commits
-  local remote
   local branch
   local tmp_file
   local patchid
@@ -128,15 +128,13 @@ generate_commit_list_for_pr () {
   local entry_sub
   local upstream
 
-  remote=`git remote -v | grep "git@github.com:cilium/cilium.git\|https://github.com/cilium/cilium" | head -n1 | cut -f1`
-
   url="https://api.github.com/repos/cilium/cilium/pulls/$pr/commits"
   pr_json="$($GHCURL $url)"
   n_commits="$(echo -n $pr_json | jq -r '. | length')"
 
   tmp_file=`mktemp pr-correlation.XXXXXX`
   branch="check-for-stable-$pr"
-  git fetch -q $remote pull/$pr/head:$branch
+  git fetch -q $REMOTE pull/$pr/head:$branch
   # Use GitHub to determine the number of commits to list, but then query
   # the branch directly to determine the canonical order of the commits.
   for commit in $(git rev-list --reverse -$n_commits $branch); do
@@ -154,7 +152,7 @@ generate_commit_list_for_pr () {
     entry_id=${entry_array[0]}
     entry_sha=${entry_array[1]}
     entry_sub=${entry_array[@]:2}
-    upstream="$(git log --since="1year" --pretty="%H" --no-merges --grep "$entry_sub" $remote/master)"
+    upstream="$(git log --since="1year" --pretty="%H" --no-merges --grep "$entry_sub" $REMOTE/master)"
     upstream="$(git show $upstream | git patch-id)"
     upstream=($upstream)
     if [ "$entry_id" == "${upstream[0]}" ]; then
@@ -172,6 +170,7 @@ generate_commit_list_for_pr () {
 ###############################################################################
 # Initialize and save up to 10 (rotated logs)
 MYLOG=/tmp/$PROG.log
+REMOTE="$(get_remote)"
 # Check token
 gitlib::github_api_token
 
