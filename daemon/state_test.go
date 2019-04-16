@@ -215,7 +215,7 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(err, IsNil)
 	epsNames, err := ds.generateEPs(tmpDir, epsWanted, epsMap)
 	c.Assert(err, IsNil)
-	eps := readEPsFromDirNames(tmpDir, epsNames)
+	eps := e.ReadEPsFromDirNames(tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	e.OrderEndpointAsc(epsWanted)

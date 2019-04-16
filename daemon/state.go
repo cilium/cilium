@@ -20,12 +20,9 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -147,7 +144,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	possibleEPs := readEPsFromDirNames(dir, eptsID)
+	possibleEPs := endpoint.ReadEPsFromDirNames(dir, eptsID)
 
 	if len(possibleEPs) == 0 {
 		log.Info("No old endpoints found.")
@@ -443,68 +440,4 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	}
 
 	return nil
-}
-
-// readEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
-// from a list of directory names that can possible contain an endpoint.
-func readEPsFromDirNames(basePath string, eptsDirNames []string) map[uint16]*endpoint.Endpoint {
-	possibleEPs := map[uint16]*endpoint.Endpoint{}
-	for _, epDirName := range eptsDirNames {
-		epDir := filepath.Join(basePath, epDirName)
-		readDir := func() string {
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.EndpointID: epDirName,
-				logfields.Path:       filepath.Join(epDir, common.CHeaderFileName),
-			})
-			scopedLog.Debug("Reading directory")
-			epFiles, err := ioutil.ReadDir(epDir)
-			if err != nil {
-				scopedLog.WithError(err).Warn("Error while reading directory. Ignoring it...")
-				return ""
-			}
-			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
-			if cHeaderFile == "" {
-				return ""
-			}
-			return cHeaderFile
-		}
-		// There's an odd issue where the first read dir doesn't work.
-		cHeaderFile := readDir()
-		if cHeaderFile == "" {
-			cHeaderFile = readDir()
-		}
-
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.EndpointID: epDirName,
-			logfields.Path:       cHeaderFile,
-		})
-
-		if cHeaderFile == "" {
-			scopedLog.Warning("C header file not found. Ignoring endpoint")
-			continue
-		}
-
-		scopedLog.Debug("Found endpoint C header file")
-
-		strEp, err := common.GetCiliumVersionString(cHeaderFile)
-		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to read the C header file")
-			continue
-		}
-		ep, err := endpoint.ParseEndpoint(strEp)
-		if err != nil {
-			scopedLog.WithError(err).Warn("Unable to parse the C header file")
-			continue
-		}
-		if _, ok := possibleEPs[ep.ID]; ok {
-			// If the endpoint already exists then give priority to the directory
-			// that contains an endpoint that didn't fail to be build.
-			if strings.HasSuffix(ep.DirectoryPath(), epDirName) {
-				possibleEPs[ep.ID] = ep
-			}
-		} else {
-			possibleEPs[ep.ID] = ep
-		}
-	}
-	return possibleEPs
 }
