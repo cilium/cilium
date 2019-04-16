@@ -128,7 +128,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				By("DNS lookup of google.com")
 				res = kubectl.ExecPodCmd(
 					helpers.DefaultNamespace, pod,
-					"host www.google.com")
+					"host -v www.google.com")
 
 				// kube-dns is always whitelisted so this should always work
 				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess || expectClusterSuccess),
