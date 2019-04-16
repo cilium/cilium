@@ -33,6 +33,7 @@ var (
 type IdentityManager struct {
 	mutex      lock.RWMutex
 	identities map[identity.NumericIdentity]*identityMetadata
+	observers  map[Observer]struct{}
 }
 
 type identityMetadata struct {
@@ -44,6 +45,7 @@ type identityMetadata struct {
 func NewIdentityManager() *IdentityManager {
 	return &IdentityManager{
 		identities: make(map[identity.NumericIdentity]*identityMetadata),
+		observers:  make(map[Observer]struct{}),
 	}
 }
 
@@ -122,6 +124,9 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 	idMeta.refCount--
 	if idMeta.refCount == 0 {
 		delete(idm.identities, identity.ID)
+		for o := range idm.observers {
+			o.LocalEndpointIdentityRemoved(identity)
+		}
 	}
 
 }
@@ -143,6 +148,12 @@ func (idm *IdentityManager) GetIdentityModels() []*models.IdentityEndpoints {
 	return identities
 }
 
+func (idm *IdentityManager) subscribe(o Observer) {
+	idm.mutex.Lock()
+	defer idm.mutex.Unlock()
+	idm.observers[o] = struct{}{}
+}
+
 // GetIdentityModels returns the API model of all identities in the
 // GlobalIdentityManager.
 func GetIdentityModels() []*models.IdentityEndpoints {
@@ -157,4 +168,10 @@ type IdentitiesModel []*models.IdentityEndpoints
 // in index `j`
 func (s IdentitiesModel) Less(i, j int) bool {
 	return s[i].Identity.ID < s[j].Identity.ID
+}
+
+// Subscribe adds the specified Observer to the global identity manager, to be
+// notified upon changes to local identity usage.
+func Subscribe(o Observer) {
+	GlobalIdentityManager.subscribe(o)
 }
