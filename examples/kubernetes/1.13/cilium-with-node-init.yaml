@@ -151,6 +151,10 @@ data:
 
   # wait-bpf-mount makes init container wait until bpf filesystem is mounted
   wait-bpf-mount: "true"
+
+  # Enable legacy services (prior v1.5) to prevent from terminating existing
+  # connections with services when upgrading Cilium from < v1.5 to v1.5.
+  enable-legacy-services: "false"
 ---
 apiVersion: apps/v1
 kind: DaemonSet
