@@ -100,10 +100,11 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
 func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd, addRevNAT bool) (bool, error) {
-	log.WithFields(logrus.Fields{
+	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
 		logfields.Object:    logfields.Repr(bes),
-	}).Debug("adding service")
+	})
+	scopedLog.Debug("adding service")
 
 	// Move the slice to the loadbalancer map which has a mutex. If we don't
 	// copy the slice we might risk changing memory that should be locked.
@@ -134,6 +135,19 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	err = d.addSVC2BPFMap(feL3n4Addr, fe, besValues, svcKeyV2, svcValuesV2, backendsV2, addRevNAT)
 	if err != nil {
 		return false, err
+	}
+
+	// Fill the just acquired backend IDs to ensure the consistent ordering
+	// of the backends when listing services. This step will go away once
+	// we start acquiring backend IDs in this module.
+	for i, be := range svc.BES {
+		id, err := service.LookupBackendID(be.L3n4Addr)
+		if err != nil {
+			scopedLog.WithField(logfields.BackendName, be.L3n4Addr).WithError(err).
+				Warning("Unable to lookup backend ID")
+			continue
+		}
+		svc.BES[i].ID = id
 	}
 
 	return d.loadBalancer.AddService(svc), nil
