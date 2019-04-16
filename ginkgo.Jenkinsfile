@@ -62,7 +62,7 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; NETNEXT=true K8S_VERSION=1.10 vagrant up --no-provision'
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant up --no-provision'
             }
         }
@@ -86,8 +86,8 @@ pipeline {
                             sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.10":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'cd ${TESTDIR}; NETNEXT=true K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
+                            sh 'cd ${TESTDIR}; NETNEXT=true K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.14":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant provision k8s1-1.14; K8S_VERSION=1.14 vagrant provision k8s2-1.14'
