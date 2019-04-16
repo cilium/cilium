@@ -16,6 +16,7 @@ cilium bpf lb list [flags]
 
 ```
   -h, --help            help for list
+      --legacy          List legacy service entries
   -o, --output string   json| jsonpath='{}'
       --revnat          List reverse NAT entries
 ```
