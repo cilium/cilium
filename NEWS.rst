@@ -2,6 +2,39 @@
 NEWS
 ******
 
+v1.4.4
+======
+
+::
+    
+    André Martins (1):
+          test: update k8s test versions to v1.14.1
+    
+    Eloy Coto (1):
+          Change suiteName to not match test folders names.
+    
+    Jarno Rajahalme (3):
+          envoy: Update to enable path normalization
+          istio: Update istio proxy to 1.1.3
+          test: Update Istio test to 1.1.2 with proxy 1.1.3.
+    
+    Joe Stringer (2):
+          endpoint: Sanitize ep.SecurityIdentity on restore
+          endpointmanager: Avoid regenerating restoring endpoints
+    
+    Maciej Kwiek (4):
+          Don't use local remote in backporting scripts
+          Fix leftovers in Gopkg.lock
+          vendor: update k8s dependencies to 1.14.1
+          Fix backporting scripts for https users
+    
+    Thomas Graf (5):
+          cni: Always release created resources on failure of CNI ADD
+          endpoint: Delegate IP release on endpoint creation failure
+          cni: Fix CNI delete side-effects
+          agent: Delete endpoints which failed to restore synchronously
+          Doc: Update jinja dependency for documentation building
+    
 v1.4.3
 ======
 
