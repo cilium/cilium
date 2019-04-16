@@ -405,21 +405,6 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 	return newList, p.GetRevision()
 }
 
-// UpdateLocalConsumers updates the cache within each rule in the given repository
-// which specifies whether said rule selects said identity. Returns a wait group
-// which can be used to wait until all rules have had said caches updated.
-func (p *Repository) UpdateLocalConsumers(eps []Endpoint) *sync.WaitGroup {
-	var policySelectionWG sync.WaitGroup
-	for _, ep := range eps {
-		policySelectionWG.Add(1)
-		go func(epp Endpoint) {
-			p.rules.refreshRulesForEndpoint(epp)
-			policySelectionWG.Done()
-		}(ep)
-	}
-	return &policySelectionWG
-}
-
 // RemoveEndpointIDFromRuleCaches removes identifier from the processedConsumers
 // and localRuleConsumers sets in each rule within the repository. Returns a
 // sync.WaitGroup which can be waited on once all rules have been processed in
