@@ -67,15 +67,18 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 
 	if option.Config.EnableIPv6 {
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
+		fw.WriteString(defineIPv6("IPV6_EXTERNAL", hostIP))
 	}
 
 	if option.Config.EnableIPv4 {
 		ipv4GW := node.GetInternalIPv4()
 		loopbackIPv4 := node.GetIPv4Loopback()
 		ipv4Range := node.GetIPv4AllocRange()
+		ipv4External := node.GetExternalIPv4()
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
+		fmt.Fprintf(fw, "#define IPV4_EXTERNAL %#x\n", byteorder.HostSliceToNetwork(ipv4External, reflect.Uint32).(uint32))
 	}
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {

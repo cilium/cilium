@@ -28,116 +28,141 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-// firstGlobalV4Addr returns the first IPv4 global IP of an interface, where
-// the IPs are sorted in ascending order. when intf is defined only IPs
-// belonging to that interface are considered. If preferredIP is present in the
-// IP list it is returned irrespective of the sort order. Passing intf and
-// preferredIP will only return preferredIP if it is in the IPs that belong to
-// intf. In all cases, if intf is not found all interfaces are considered.
-func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
+var privateIPBlocks []*net.IPNet
+
+func init() {
+	// We only care about global scope prefixes here.
+	for _, cidr := range []string{
+		"10.0.0.0/8",     // RFC1918
+		"172.16.0.0/12",  // RFC1918
+		"192.168.0.0/16", // RFC1918
+		"fc00::/7",       // IPv6 ULA
+	} {
+		_, block, _ := net.ParseCIDR(cidr)
+		privateIPBlocks = append(privateIPBlocks, block)
+	}
+}
+
+// isPublicAddr returns whether a given global IP is from
+// a public range.
+func isPublicAddr(ip net.IP) bool {
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return false
+		}
+	}
+	return true
+}
+
+func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error) {
 	var link netlink.Link
 	var err error
+
+	linkScopeMax := unix.RT_SCOPE_UNIVERSE
 
 	if intf != "" && intf != "undefined" {
 		link, err = netlink.LinkByName(intf)
 		if err != nil {
-			return firstGlobalV4Addr("", preferredIP)
+			link = nil
 		}
 	}
 
-	addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
+retryInterface:
+	addr, err := netlink.AddrList(link, family)
 	if err != nil {
 		return nil, err
 	}
 
-	ips := []net.IP{}
+retryScope:
+	ipsPublic := []net.IP{}
+	ipsPrivate := []net.IP{}
+	hasPreferred := false
 
 	for _, a := range addr {
-		if a.Scope == unix.RT_SCOPE_UNIVERSE {
+		if a.Scope <= linkScopeMax {
 			if len(a.IP) >= 4 {
-				ips = append(ips, a.IP)
-				// If the IP is the same as the  preferredIP, that means that maybe
-				// is restored from node_config.h, so if it is present we
-				// continue using this one.
+				if isPublicAddr(a.IP) {
+					ipsPublic = append(ipsPublic, a.IP)
+				} else {
+					ipsPrivate = append(ipsPrivate, a.IP)
+				}
+				// If the IP is the same as the preferredIP, that
+				// means that maybe it is restored from node_config.h,
+				// so if it is present we prefer this one.
 				if a.IP.Equal(preferredIP) {
-					return a.IP, nil
+					hasPreferred = true
 				}
 			}
 		}
 	}
-	if len(ips) == 0 {
-		return nil, fmt.Errorf("No address found")
+
+	if len(ipsPublic) != 0 {
+		if hasPreferred && isPublicAddr(preferredIP) {
+			return preferredIP, nil
+		}
+
+		// Just make sure that we always return the same one and not a
+		// random one. More info in the issue GH-7637.
+		sort.Slice(ipsPublic, func(i, j int) bool {
+			return bytes.Compare(ipsPublic[i], ipsPublic[j]) < 0
+		})
+
+		return ipsPublic[0], nil
 	}
 
-	// Just make sure that we always return the same one and no a random one.
-	// More info in the issue GH-76	37
-	sort.Slice(ips, func(i, j int) bool {
-		return bytes.Compare(ips[i], ips[j]) < 0
-	})
+	if len(ipsPrivate) != 0 {
+		if hasPreferred && !isPublicAddr(preferredIP) {
+			return preferredIP, nil
+		}
 
-	return ips[0], nil
+		sort.Slice(ipsPrivate, func(i, j int) bool {
+			return bytes.Compare(ipsPrivate[i], ipsPrivate[j]) < 0
+		})
+
+		return ipsPrivate[0], nil
+	}
+
+	if family == netlink.FAMILY_V6 {
+		// Fall back with retry for all interfaces.
+		if link != nil {
+			link = nil
+			goto retryInterface
+		}
+
+		// Fall back to anything wider than link (site, custom, ...)
+		if linkScopeMax != unix.RT_SCOPE_SITE {
+			linkScopeMax = unix.RT_SCOPE_SITE
+			goto retryScope
+		}
+	}
+
+	return nil, fmt.Errorf("No address found")
 }
 
-// findIPv6NodeAddr returns the first IPv6 global IP of an interface, where the
-// IPs are sorted in ascending order. when intf is defined only IPs belonging
-// to that interface are considered. If preferredIP is present in the IP list
-// it is returned irrespective of the sort order. Passing intf and preferredIP
-// will only return preferredIP if it is in the IPs that belong to intf. In all
-// cases, if intf is not found all interfaces are considered.
-func findIPv6NodeAddr(preferredIP net.IP) net.IP {
-	addr, err := netlink.AddrList(nil, netlink.FAMILY_V6)
-	if err != nil {
-		return nil
-	}
+// firstGlobalV4Addr returns the first IPv4 global IP of an interface,
+// where the IPs are sorted in ascending order.
+//
+// Public IPs are preferred over private ones. When intf is defined only
+// IPs belonging to that interface are considered.
+//
+// If preferredIP is present in the IP list it is returned irrespective of
+// the sort order. However, if preferredIP is a private IP and there are
+// public IPs, then public one is selected.
+//
+// Passing intf and preferredIP will only return preferredIP if it is in
+// the IPs that belong to intf.
+//
+// In all cases, if intf is not found all interfaces are considered.
+func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
+	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V4)
+}
 
-	ips := []net.IP{}
-	// prefer global scope address
-	for _, a := range addr {
-		if a.Scope == unix.RT_SCOPE_UNIVERSE {
-			if len(a.IP) >= 16 {
-				ips = append(ips, a.IP)
-
-				// If the IP is the same as the  preferredIP, that means that maybe
-				// is restored from node_config.h, so if it is present we
-				// continue using this one.
-				if a.IP.Equal(preferredIP) {
-					return a.IP
-				}
-			}
-		}
-	}
-
-	if len(ips) > 0 {
-		// Just make sure that we always return the same one and no a random one.
-		// More info in the issue GH-76	37
-		sort.Slice(ips, func(i, j int) bool {
-			return bytes.Compare(ips[i], ips[j]) < 0
-		})
-		return ips[0]
-	}
-
-	// fall back to anything wider than link (site, custom, ...)
-	for _, a := range addr {
-		if a.Scope < unix.RT_SCOPE_LINK {
-			if len(a.IP) >= 16 {
-				ips = append(ips, a.IP)
-				// If the IP is the same as the  preferredIP, that means that maybe
-				// is restored from node_config.h, so if it is present we
-				// continue using this one.
-				if a.IP.Equal(preferredIP) {
-					return a.IP
-				}
-			}
-		}
-	}
-	if len(ips) == 0 {
-		return nil
-	}
-	sort.Slice(ips, func(i, j int) bool {
-		return bytes.Compare(ips[i], ips[j]) < 0
-	})
-
-	return ips[0]
+// firstGlobalV6Addr returns first IPv6 global IP of an interface, see
+// firstGlobalV4Addr for more details. If a device specific global address
+// couldn't be found, we retry to find a global scope address on all
+// interfaces. If that doesn't help, we try to reduce scope.
+func firstGlobalV6Addr(intf string, preferredIP net.IP) (net.IP, error) {
+	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V6)
 }
 
 // getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns

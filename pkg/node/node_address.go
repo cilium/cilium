@@ -101,7 +101,7 @@ func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv6 {
 		if ipv6Address == nil {
 			// Find a IPv6 node address first
-			ipv6Address = findIPv6NodeAddr(GetIPv6Router())
+			ipv6Address, _ = firstGlobalV6Addr(device, GetIPv6Router())
 			if ipv6Address == nil {
 				ipv6Address = makeIPv6HostIP()
 			}

@@ -47,6 +47,7 @@ var (
 		"HOST_IP",            // Global
 		"ROUTER_IP",          // Global
 		"SNAT_IPV6_EXTERNAL", // Global
+		"IPV6_EXTERNAL",      // Global
 		"cilium_ct",          // All CT maps, including local
 		"cilium_snat",        // All SNAT maps
 		"cilium_events",      // Global

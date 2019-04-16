@@ -24,8 +24,8 @@ func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	return net.IP{}, nil
 }
 
-func findIPv6NodeAddr(preferredIP net.IP) net.IP {
-	return net.IP{}
+func firstGlobalV6Addr(intf string, preferredIP net.IP) (net.IP, error) {
+	return net.IP{}, nil
 }
 
 // getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
