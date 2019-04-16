@@ -113,6 +113,13 @@ func DeleteBackendID(id loadbalancer.BackendID) {
 	backendIDAlloc.deleteLocalID(uint32(id))
 }
 
+// LookupBackendID looks up already allocated backend ID for the given backend
+// addr. If such cannot be found, returns an error.
+func LookupBackendID(l3n4Addr loadbalancer.L3n4Addr) (loadbalancer.BackendID, error) {
+	id, err := backendIDAlloc.lookupLocalID(l3n4Addr)
+	return loadbalancer.BackendID(id), err
+}
+
 func restoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id loadbalancer.BackendID) (loadbalancer.BackendID, error) {
 	l3n4AddrID, err := backendIDAlloc.acquireLocalID(l3n4Addr, uint32(id))
 	if err != nil {

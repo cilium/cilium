@@ -131,6 +131,17 @@ func (alloc *IDAllocator) deleteLocalID(id uint32) error {
 	return nil
 }
 
+func (alloc *IDAllocator) lookupLocalID(svc loadbalancer.L3n4Addr) (uint32, error) {
+	alloc.RLock()
+	defer alloc.RUnlock()
+
+	if svcID, ok := alloc.entities[svc.StringID()]; ok {
+		return svcID, nil
+	}
+
+	return 0, fmt.Errorf("ID not found")
+}
+
 func (alloc *IDAllocator) setLocalIDSpace(next, max uint32) error {
 	alloc.Lock()
 	alloc.nextID = next
