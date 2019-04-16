@@ -152,6 +152,26 @@ func (ds *ServiceTestSuite) TestGetMaxServiceID(c *C) {
 	c.Assert(id, Equals, (MaxSetOfServiceID - 1))
 }
 
+func (ds *ServiceTestSuite) TestBackendID(c *C) {
+	firstBackendID := loadbalancer.BackendID(FirstFreeBackendID)
+
+	id1, err := AcquireBackendID(l3n4Addr1)
+	c.Assert(err, Equals, nil)
+	c.Assert(id1, Equals, firstBackendID)
+
+	id1, err = AcquireBackendID(l3n4Addr1)
+	c.Assert(err, Equals, nil)
+	c.Assert(id1, Equals, firstBackendID)
+
+	id2, err := AcquireBackendID(l3n4Addr2)
+	c.Assert(err, Equals, nil)
+	c.Assert(id2, Equals, firstBackendID+1)
+
+	existingID1, err := LookupBackendID(l3n4Addr1)
+	c.Assert(err, Equals, nil)
+	c.Assert(existingID1, Equals, id1)
+}
+
 func (ds *ServiceTestSuite) BenchmarkAllocation(c *C) {
 	addr := loadbalancer.L3n4Addr{
 		IP:     net.IPv6loopback,
