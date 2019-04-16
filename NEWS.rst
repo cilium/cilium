@@ -2,6 +2,23 @@
 NEWS
 ******
 
+v1.3.6
+======
+
+::
+
+    Jarno Rajahalme (3):
+          envoy: Update to enable path normalization
+          istio: Update istio proxy to 1.1.3
+          test: Update Istio test to 1.1.2 with proxy 1.1.3.
+    
+    Maciej Kwiek (2):
+          Don't use local remote in backporting scripts
+          Fix backporting scripts for https users
+    
+    Thomas Graf (1):
+          Doc: Update jinja dependency for documentation building
+    
 v1.3.5
 ======
 
