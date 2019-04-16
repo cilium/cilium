@@ -742,3 +742,29 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 
 	return returnIPs
 }
+
+var privateIPBlocks []*net.IPNet
+
+func init() {
+	// We only care about global scope prefixes here.
+	for _, cidr := range []string{
+		"10.0.0.0/8",     // RFC1918
+		"172.16.0.0/12",  // RFC1918
+		"192.168.0.0/16", // RFC1918
+		"fc00::/7",       // IPv6 ULA
+	} {
+		_, block, _ := net.ParseCIDR(cidr)
+		privateIPBlocks = append(privateIPBlocks, block)
+	}
+}
+
+// IsPublicAddr returns whether a given global IP is from
+// a public range.
+func IsPublicAddr(ip net.IP) bool {
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return false
+		}
+	}
+	return true
+}
