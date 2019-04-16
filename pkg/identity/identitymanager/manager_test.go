@@ -19,6 +19,7 @@ package identitymanager
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	. "gopkg.in/check.v1"
@@ -78,4 +79,58 @@ func (s *IdentityManagerTestSuite) TestIdentityManagerLifecycle(c *C) {
 	c.Assert(exists, Equals, false)
 	_, exists = idm.identities[barIdentity.ID]
 	c.Assert(exists, Equals, true)
+}
+
+type identityManagerObserver struct {
+	removed []identity.NumericIdentity
+}
+
+func newIdentityManagerObserver() *identityManagerObserver {
+	return &identityManagerObserver{
+		removed: make([]identity.NumericIdentity, 0),
+	}
+}
+
+func (i *identityManagerObserver) LocalEndpointIdentityRemoved(identity *identity.Identity) {
+	i.removed = append(i.removed, identity.ID)
+}
+
+func (s *IdentityManagerTestSuite) TestIdentityManagerObservers(c *C) {
+	idm := NewIdentityManager()
+	c.Assert(idm.identities, NotNil)
+	observer := newIdentityManagerObserver()
+	idm.subscribe(observer)
+
+	// Basic remove
+	idm.Add(fooIdentity)
+	idm.Remove(fooIdentity)
+	expectedObserver := &identityManagerObserver{
+		[]identity.NumericIdentity{fooIdentity.ID},
+	}
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+
+	idm = NewIdentityManager()
+	c.Assert(idm.identities, NotNil)
+	observer = newIdentityManagerObserver()
+	idm.subscribe(observer)
+
+	// Refcount remove
+	idm.Add(fooIdentity)    // foo = 1
+	idm.Add(fooIdentity)    // foo = 2
+	idm.Add(barIdentity)    // bar = 1
+	idm.Remove(fooIdentity) // foo = 1
+	expectedObserver = &identityManagerObserver{
+		[]identity.NumericIdentity{},
+	}
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+	idm.Remove(fooIdentity) // foo = 0
+	expectedObserver = &identityManagerObserver{
+		[]identity.NumericIdentity{fooIdentity.ID},
+	}
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+	idm.Remove(barIdentity) // bar = 0
+	expectedObserver = &identityManagerObserver{
+		[]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID},
+	}
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
 }
