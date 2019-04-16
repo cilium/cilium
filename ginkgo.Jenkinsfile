@@ -87,11 +87,11 @@ pipeline {
                         },
                         "K8s-1.10":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus="K8sMicroscope" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.14":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant provision k8s1-1.14; K8S_VERSION=1.14 vagrant provision k8s2-1.14'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus="K8sMicroscope" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
