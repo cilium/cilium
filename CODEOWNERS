@@ -37,12 +37,15 @@ contrib/packaging/docker/ @aanm @ianvernon
 contrib/vagrant @cilium/vagrant
 daemon/ @cilium/agent
 daemon/bpf.sha @cilium/bpf
-daemon/endpoint.go @cilium/endpoint
-daemon/k8s_watcher.go @cilium/kubernetes
+daemon/endpoint.* @cilium/endpoint
+daemon/health.* @cilium/health
+daemon/k8s_watcher.* @cilium/kubernetes
 daemon/loadbalancer.* @cilium/loadbalancer
-daemon/policy.go @cilium/policy
+daemon/metrics.* @cilium/metrics
+daemon/policy.* @cilium/policy
 daemon/prefilter.go @cilium/bpf
 daemon/services.* @cilium/loadbalancer
+daemon/state.go @cilium/endpoint
 Documentation/ @cilium/docs
 Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing.rst @cilium/contributing
