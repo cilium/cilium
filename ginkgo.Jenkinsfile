@@ -62,8 +62,7 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; ruby const.rb'
             }
         }
         stage('BDD-Test-PR') {
@@ -86,8 +85,8 @@ pipeline {
                                 sh 'pwd'
                                 sh 'ls'
                                 sh 'env'
-                                sh 'cd ${TESTDIR}; vagrant provision runtime'
-                                sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                                sh 'vagrant provision runtime'
+                                sh 'ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                             }
                         },
                         "K8s-1.10":{
@@ -95,14 +94,14 @@ pipeline {
                                 sh 'pwd'
                                 sh 'ls'
                                 sh 'env'
-                                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
-                                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                                sh 'K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
+                                sh 'K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                             }
                         },
                         "K8s-1.14":{
                             ws("K8s-1.14"){
-                                sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant provision k8s1-1.14; K8S_VERSION=1.14 vagrant provision k8s2-1.14'
-                                sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                                sh 'K8S_VERSION=1.14 vagrant provision k8s1-1.14; K8S_VERSION=1.14 vagrant provision k8s2-1.14'
+                                sh 'K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                             }
                         },
                         failFast: "${FAILFAST}".toBoolean()
