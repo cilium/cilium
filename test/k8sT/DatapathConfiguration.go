@@ -123,6 +123,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			cleanService()
 		}, 600)
 
+		It("Check connectivity with sockops and VXLAN encapsulation", func() {
+			// Note if run on kernel without sockops feature is ignored
+			deployCilium("cilium-ds-patch-vxlan-sockops.yaml")
+			validateBPFTunnelMap()
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		}, 600)
+
 		It("Check connectivity with VXLAN encapsulation", func() {
 			SkipIfFlannel()
 
