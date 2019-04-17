@@ -403,7 +403,6 @@ func SkmsgEnable() error {
 // the file associated with the program.
 func SkmsgDisable() {
 	bpftoolUnload(eIPC)
-	log.Info("Sockmsg Disabled.")
 }
 
 // First user of sockops root is sockops load programs so we ensure the sockops
@@ -461,5 +460,4 @@ func SockmapDisable() {
 	bpftoolDetach(eSockops)
 	bpftoolUnload(eSockops)
 	bpftoolUnload(mapName)
-	log.Info("Sockmap disabled.")
 }
