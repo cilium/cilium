@@ -663,12 +663,13 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(name string, id identity.NumericIdentity, policy *policy.L4Policy,
+func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap,
 	deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
-		Name:   name,
-		Policy: uint64(id),
+		Name:             name,
+		Policy:           uint64(id),
+		ConntrackMapName: conntrackName,
 	}
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
@@ -701,7 +702,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), policy, ingressPolicyEnforced, egressPolicyEnforced,
+		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackName(), policy, ingressPolicyEnforced, egressPolicyEnforced,
 			labelsMap, deniedIngressIdentities, deniedEgressIdentities)
 		err := networkPolicy.Validate()
 		if err != nil {
