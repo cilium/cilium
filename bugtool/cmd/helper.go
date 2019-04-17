@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ func createArchive(dbgDir string) (string, error) {
 
 	var baseDir string
 	if info, err := os.Stat(dbgDir); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Debug directory does not exist %s", err)
+		fmt.Fprintf(os.Stderr, "Debug directory does not exist %s\n", err)
 		return "", err
 	} else if err == nil && info.IsDir() {
 		baseDir = filepath.Base(dbgDir)
@@ -51,7 +51,7 @@ func createArchive(dbgDir string) (string, error) {
 
 		file, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open %s %s", path, err)
+			fmt.Fprintf(os.Stderr, "Failed to open %s: %s\n", path, err)
 		}
 		defer file.Close()
 
@@ -59,12 +59,12 @@ func createArchive(dbgDir string) (string, error) {
 		// when the file is write to tar file
 		fpInfo, err := file.Stat()
 		if err != nil {
-			return fmt.Errorf("File information cannot get retrieved: %s", err)
+			return fmt.Errorf("File information cannot get retrieved: %s\n", err)
 		}
 
 		header, err := tar.FileInfoHeader(fpInfo, fpInfo.Name())
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to compress %s %s", fpInfo.Name(), err)
+			fmt.Fprintf(os.Stderr, "Failed to compress %s: %s\n", fpInfo.Name(), err)
 			return err
 		}
 
@@ -73,7 +73,7 @@ func createArchive(dbgDir string) (string, error) {
 		}
 
 		if err := writer.WriteHeader(header); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to write header %s", err)
+			fmt.Fprintf(os.Stderr, "Failed to write header: %s\n", err)
 			return err
 		}
 
