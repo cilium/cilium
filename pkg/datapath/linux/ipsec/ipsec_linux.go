@@ -144,7 +144,7 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
+func ipSecReplacePolicyOut(src, dst *net.IPNet) error {
 	var spiWide uint32
 
 	key := getIPSecKeys(dst.IP)
@@ -298,7 +298,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 				}
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, dir); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %s", err)
 				}
