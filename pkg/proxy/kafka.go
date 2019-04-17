@@ -46,7 +46,6 @@ type kafkaRedirect struct {
 	redirect             *Redirect
 	endpointInfoRegistry logger.EndpointInfoRegistry
 	conf                 kafkaConfiguration
-	rules                policy.L7DataMap
 	socket               *proxySocket
 }
 
