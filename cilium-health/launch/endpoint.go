@@ -61,6 +61,10 @@ var (
 
 	// PidfilePath
 	PidfilePath = "health-endpoint.pid"
+
+	// LaunchTime is the expected time within which the health endpoint
+	// should be able to be successfully run and its BPF program attached.
+	LaunchTime = 30 * time.Second
 )
 
 func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing, mtuConfig mtu.Configuration) error {
@@ -159,7 +163,7 @@ func CleanupEndpoint() {
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configuration) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configuration) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
@@ -268,7 +272,9 @@ func LaunchAsEndpoint(owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configur
 	ep.Unlock()
 
 	// Give the endpoint a security identity
-	ep.UpdateLabels(context.Background(), owner, labels.LabelHealth, nil, true)
+	ctx, cancel := context.WithTimeout(baseCtx, LaunchTime)
+	defer cancel()
+	ep.UpdateLabels(ctx, owner, labels.LabelHealth, nil, true)
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
