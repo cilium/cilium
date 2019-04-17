@@ -119,7 +119,7 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 	By("Installing Cilium-Operator")
-	err = vm.CiliumOperatorInstall("head")
+	operatorIsInstalled, err := vm.CiliumOperatorInstall("head")
 	Expect(err).To(BeNil(), "Cannot install Cilium Operator")
 
 	switch helpers.GetCurrentIntegration() {
@@ -132,7 +132,9 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	ExpectETCDOperatorReady(vm)
 	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
 	ExpectCiliumReady(vm)
-	ExpectCiliumOperatorReady(vm)
+	if operatorIsInstalled {
+		ExpectCiliumOperatorReady(vm)
+	}
 	ExpectKubeDNSReady(vm)
 }
 

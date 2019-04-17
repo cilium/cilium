@@ -161,11 +161,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectCiliumReady(kubectl)
 
 		By("Installing Cilium-Operator")
-		err = kubectl.CiliumOperatorInstall(oldVersion)
+		operatorIsInstalled, err := kubectl.CiliumOperatorInstall(oldVersion)
 		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
 
 		ExpectETCDOperatorReady(kubectl)
-		ExpectCiliumOperatorReady(kubectl)
+		if operatorIsInstalled {
+			ExpectCiliumOperatorReady(kubectl)
+		}
 
 		By("Installing Microscope")
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
@@ -216,7 +218,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		res := kubectl.Apply(demoPath)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
 
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
 		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
 		ExpectKubeDNSReady(kubectl)
@@ -265,7 +267,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
 		By("Installing Cilium-Operator")
-		err = kubectl.CiliumOperatorInstall("head")
+		operatorIsInstalled, err = kubectl.CiliumOperatorInstall("head")
 		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
 
 		err = helpers.WithTimeout(
@@ -281,7 +283,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		validatedImage(newVersion)
 		ExpectCiliumReady(kubectl)
 
-		ExpectCiliumOperatorReady(kubectl)
+		if operatorIsInstalled {
+			ExpectCiliumOperatorReady(kubectl)
+		}
 
 		validateEndpointsConnection()
 
@@ -295,7 +299,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
 
 		By("Installing Cilium-Operator")
-		err = kubectl.CiliumOperatorInstall(oldVersion)
+		operatorIsInstalled, err = kubectl.CiliumOperatorInstall(oldVersion)
 		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
 
 		err = helpers.WithTimeout(
@@ -309,7 +313,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(oldVersion)
-		ExpectCiliumOperatorReady(kubectl)
+		if operatorIsInstalled {
+			ExpectCiliumOperatorReady(kubectl)
+		}
 
 		validateEndpointsConnection()
 
