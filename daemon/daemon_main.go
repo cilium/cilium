@@ -521,6 +521,9 @@ func init() {
 	flags.String(option.IPv6ServiceRange, AutoCIDR, "Kubernetes IPv6 services CIDR if not inside cluster prefix")
 	option.BindEnv(option.IPv6ServiceRange)
 
+	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
+	option.BindEnv(option.K8sEventHandover)
+
 	flags.String(option.K8sAPIServer, "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	option.BindEnv(option.K8sAPIServer)
 
