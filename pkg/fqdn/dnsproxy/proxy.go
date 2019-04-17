@@ -15,6 +15,7 @@
 package dnsproxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -23,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/lock"
@@ -182,17 +184,18 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 		if err == nil {
 			break
 		}
-		log.WithError(err).Warn("Attempt to bind DNS Proxy failed")
+		log.WithError(err).Warnf("Attempt to bind DNS Proxy failed, retrying in %v", ProxyBindRetryInterval)
+		time.Sleep(ProxyBindRetryInterval)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	p.UDPServer = &dns.Server{PacketConn: UDPConn, Addr: p.BindAddr, Net: "udp", Handler: p}
-	p.TCPServer = &dns.Server{Listener: TCPListener, Addr: p.BindAddr, Net: "tcp", Handler: p}
 	p.BindAddr = UDPConn.LocalAddr().String()
 	p.BindPort = uint16(UDPConn.LocalAddr().(*net.UDPAddr).Port)
-	log.WithField("address", UDPConn.LocalAddr().String()).Debug("DNS Proxy bound to address")
+	p.UDPServer = &dns.Server{PacketConn: UDPConn, Addr: p.BindAddr, Net: "udp", Handler: p}
+	p.TCPServer = &dns.Server{Listener: TCPListener, Addr: p.BindAddr, Net: "tcp", Handler: p}
+	log.WithField("address", p.BindAddr).Debug("DNS Proxy bound to address")
 
 	for _, s := range []*dns.Server{p.UDPServer, p.TCPServer} {
 		go func(server *dns.Server) {
@@ -472,39 +475,34 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 // Note: This mimics what the dns package does EXCEPT for setting reuseport.
 // This is ok for now but it would simplify proxy management in the future to
 // have it set.
-func bindToAddr(address string, port uint16) (UDPConn *net.UDPConn, TCPListener *net.TCPListener, err error) {
+func bindToAddr(address string, port uint16) (*net.UDPConn, *net.TCPListener, error) {
+	var err error
+	var listener net.Listener
+	var conn net.PacketConn
 	defer func() {
-		if err == nil {
-			return
-		}
-		if TCPListener != nil {
-			TCPListener.Close()
-			TCPListener = nil
-		}
-		if UDPConn != nil {
-			UDPConn.Close()
-			UDPConn = nil
+		if err != nil {
+			if listener != nil {
+				listener.Close()
+			}
+			if conn != nil {
+				conn.Close()
+			}
 		}
 	}()
 
 	bindAddr := net.JoinHostPort(address, strconv.Itoa(int(port)))
 
-	TCPAddr, err := net.ResolveTCPAddr("tcp", bindAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-	TCPListener, err = net.ListenTCP("tcp", TCPAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-	UDPAddr, err := net.ResolveUDPAddr("udp", TCPListener.Addr().String())
-	if err != nil {
-		return nil, nil, err
-	}
-	UDPConn, err = net.ListenUDP("udp", UDPAddr)
+	listener, err = listenConfig(linux_defaults.MagicMarkEgress).Listen(context.Background(),
+		"tcp", bindAddr)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return UDPConn, TCPListener, nil
+	conn, err = listenConfig(linux_defaults.MagicMarkEgress).ListenPacket(context.Background(),
+		"udp", listener.Addr().String())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return conn.(*net.UDPConn), listener.(*net.TCPListener), nil
 }
