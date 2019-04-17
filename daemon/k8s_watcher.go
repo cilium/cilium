@@ -827,8 +827,13 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			})
 			go podController.Run(isConnected)
 
+			if !option.Config.K8sEventHandover {
+				return
+			}
+
 			// Replace pod controller by only receiving events from our own
 			// node once we are connected to the kvstore.
+
 			<-kvstore.Client().Connected()
 			close(isConnected)
 
@@ -927,6 +932,11 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			go nodeController.Run(isConnected)
 			// TODO: do we really need to wait until etcd watcher signalizes
 			// "listDone" or connected to it is sufficient?
+
+			if !option.Config.K8sEventHandover {
+				return
+			}
+
 			<-kvstore.Client().Connected()
 			close(isConnected)
 

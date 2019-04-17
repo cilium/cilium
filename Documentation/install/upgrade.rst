@@ -282,6 +282,9 @@ New ConfigMap Options
   All options available in the cilium-agent can now be specified in the Cilium
   ConfigMap without requiring to set an environment variable in the DaemonSet.
 
+  * ``enable-k8s-event-handover``: enables use of the kvstore to optimize
+    Kubernetes event handling by listening for k8s events in the operator and
+    mirroring it into the kvstore for reduced overhead in large clusters.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
