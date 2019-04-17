@@ -189,4 +189,10 @@ const (
 	// ConntrackGCIntervalNonLRU is the default connection tracking
 	// interval when using non-LRU maps
 	ConntrackGCIntervalNonLRU = 15 * time.Minute
+
+	// K8sEventHandover enables use of the kvstore to optimize Kubernetes
+	// event handling by listening for k8s events in the operator and
+	// mirroring it into the kvstore for reduced overhead in large
+	// clusters.
+	K8sEventHandover = false
 )
