@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -32,5 +33,8 @@ func main() {
 		cmd.Execute()
 	case "cilium-node-monitor":
 		monitor.Execute()
+	default:
+		panic(fmt.Sprintf("Invalid executable name: %s. Only \"cilium-agent\", "+
+			"\"cilium\" or \"cilium-node-monitor\" is supported.", base))
 	}
 }
