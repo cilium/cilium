@@ -185,6 +185,43 @@ func ipsecDeleteXfrmSpi(spi uint8) {
 	}
 }
 
+func ipsecDeleteXfrmState(ip net.IP) {
+	scopedLog := log.WithFields(logrus.Fields{
+		"remote-ip": ip,
+	})
+
+	xfrmStateList, err := netlink.XfrmStateList(0)
+	if err != nil {
+		scopedLog.WithError(err).Warning("deleting xfrm state, xfrm state list error")
+		return
+	}
+	for _, s := range xfrmStateList {
+		if ip.Equal(s.Dst) {
+			if err := netlink.XfrmStateDel(&s); err != nil {
+				scopedLog.WithError(err).Warning("deleting xfrm state failed")
+			}
+		}
+	}
+}
+
+func ipsecDeleteXfrmPolicy(ip net.IP) {
+	scopedLog := log.WithFields(logrus.Fields{
+		"remote-ip": ip,
+	})
+
+	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	if err != nil {
+		scopedLog.WithError(err).Warning("deleting policy state, xfrm policy list error")
+	}
+	for _, p := range xfrmPolicyList {
+		if ip.Equal(p.Dst.IP) {
+			if err := netlink.XfrmPolicyDel(&p); err != nil {
+				scopedLog.WithError(err).Warning("deleting xfrm policy failed")
+			}
+		}
+	}
+}
+
 /* UpsertIPsecEndpoint updates the IPSec context for a new endpoint inserted in
  * the ipcache. Currently we support a global crypt/auth keyset that will encrypt
  * all traffic between endpoints. An IPSec context consists of two pieces a policy
@@ -269,6 +306,12 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 		}
 	}
 	return spi, nil
+}
+
+// DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
+func DeleteIPsecEndpoint(remote *net.IPNet) {
+	ipsecDeleteXfrmState(remote.IP)
+	ipsecDeleteXfrmPolicy(remote.IP)
 }
 
 func decodeIPSecKey(keyRaw string) (int, []byte, error) {
