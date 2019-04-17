@@ -51,9 +51,9 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, _, err := loadIPSecKeys(keys)
 	c.Assert(err, NotNil)
 
-	_, local, err := net.ParseCIDR("1.1.3.4/16")
+	_, local, err := net.ParseCIDR("1.1.3.1/16")
 	c.Assert(err, IsNil)
-	_, remote, err := net.ParseCIDR("1.2.3.4/16")
+	_, remote, err := net.ParseCIDR("1.2.3.2/16")
 	c.Assert(err, IsNil)
 
 	_, err = UpsertIPsecEndpoint(local, remote, IPSecDirBoth)
@@ -67,6 +67,61 @@ func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
 	keys = bytes.NewReader(keysAeadDat)
 	_, _, err = loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
+}
+
+func (p *IPSecSuitePrivileged) TestDeleteXfrm(c *C) {
+	_, local, err := net.ParseCIDR("1.2.3.1/24")
+	c.Assert(err, IsNil)
+	_, remote, err := net.ParseCIDR("1.2.3.2/24")
+	c.Assert(err, IsNil)
+
+	// Build a key so we can add a state entry
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	c.Assert(err, IsNil)
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	c.Assert(err, IsNil)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	// Test adding state and policy and removing it
+	ipSecKeysGlobal[""] = key
+
+	xfrmStateList, err := netlink.XfrmStateList(0)
+	c.Assert(err, IsNil)
+	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	c.Assert(err, IsNil)
+
+	stateLen := len(xfrmStateList)
+	policyLen := len(xfrmPolicyList)
+
+	_, err = ipSecReplaceState(local.IP, remote.IP)
+	c.Assert(err, IsNil)
+
+	err = ipSecReplacePolicyOut(local, remote)
+	c.Assert(err, IsNil)
+
+	xfrmStateList, err = netlink.XfrmStateList(0)
+	c.Assert(err, IsNil)
+	xfrmPolicyList, err = netlink.XfrmPolicyList(0)
+	c.Assert(err, IsNil)
+
+	c.Assert(stateLen+1, Equals, len(xfrmStateList))
+	c.Assert(policyLen+1, Equals, len(xfrmPolicyList))
+
+	DeleteIPsecEndpoint(remote)
+
+	xfrmStateList, err = netlink.XfrmStateList(0)
+	c.Assert(err, IsNil)
+	xfrmPolicyList, err = netlink.XfrmPolicyList(0)
+	c.Assert(err, IsNil)
+
+	c.Assert(stateLen, Equals, len(xfrmStateList))
+	c.Assert(policyLen, Equals, len(xfrmPolicyList))
+	ipSecKeysGlobal[""] = nil
 }
 
 func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
