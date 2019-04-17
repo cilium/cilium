@@ -775,11 +775,13 @@ func (n *linuxNodeHandler) deleteIPsecRoute(oldNode *node.Node) {
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {
 		old4Net := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old4Net)
+		ipsec.DeleteIPsecEndpoint(old4Net)
 	}
 
 	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
 		old6Net := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old6Net)
+		ipsec.DeleteIPsecEndpoint(old6Net)
 	}
 }
 
