@@ -31,25 +31,16 @@ func Test(t *testing.T) {
 
 type IdentityManagerTestSuite struct{}
 
-var _ = Suite(&IdentityManagerTestSuite{})
+var (
+	_ = Suite(&IdentityManagerTestSuite{})
+
+	idFooSelectLabels = labels.NewLabelsFromModel([]string{"id=foo"})
+	idBarSelectLabels = labels.NewLabelsFromModel([]string{"id=bar"})
+	fooIdentity       = identity.NewIdentity(identity.NumericIdentity(12345), idFooSelectLabels)
+	barIdentity       = identity.NewIdentity(identity.NumericIdentity(54321), idBarSelectLabels)
+)
 
 func (s *IdentityManagerTestSuite) TestIdentityManagerLifecycle(c *C) {
-
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
-
-	idBarSelectLabelArray := labels.ParseSelectLabelArray("id=bar")
-	idBarSelectLabels := labels.Labels{}
-	for _, lbl := range idBarSelectLabelArray {
-		idBarSelectLabels[lbl.Key] = lbl
-	}
-
-	fooIdentity := identity.NewIdentity(identity.NumericIdentity(12345), idFooSelectLabels)
-	barIdentity := identity.NewIdentity(identity.NumericIdentity(54321), idBarSelectLabels)
-
 	idm := NewIdentityManager()
 	c.Assert(idm.identities, Not(IsNil))
 
