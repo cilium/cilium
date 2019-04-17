@@ -120,3 +120,37 @@ For CRI-O as container runtime:
     .. parsed-literal::
 
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
+
+For containerd as container runtime:
+-------------------------------
+
+.. tabs::
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-containerd.yaml
+
+  .. group-tab:: K8s 1.13
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-containerd.yaml
+
+  .. group-tab:: K8s 1.12
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-containerd.yaml
+
+  .. group-tab:: K8s 1.11
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-containerd.yaml
+
+  .. group-tab:: K8s 1.10
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-containerd.yaml
