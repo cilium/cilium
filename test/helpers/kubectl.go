@@ -925,11 +925,10 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	return nil
 }
 
-// CiliumOperatorInstall install Cilium operator based on the version that it's
-// needed.
-func (kub *Kubectl) CiliumOperatorInstall(versionTag string) error {
+// CiliumOperatorInstall installs Cilium operator if it is supported/required
+// by versionTag.
+func (kub *Kubectl) CiliumOperatorInstall(versionTag string) (installed bool, err error) {
 	var (
-		err                        error
 		ciliumOperatorSampleFile   string
 		ciliumOperatorPatchFile    string
 		ciliumOperatorSaSampleFile string
@@ -948,19 +947,19 @@ func (kub *Kubectl) CiliumOperatorInstall(versionTag string) error {
 	if versionTag != "head" {
 		cst, err = go_version.NewVersion(versionTag)
 		if err != nil {
-			return fmt.Errorf("Not a valid version: %s", err)
+			return false, fmt.Errorf("Not a valid version: %s", err)
 		}
 	}
 
 	switch {
 	case CiliumV1_0.Check(cst):
-		return nil
+		return false, nil
 	case CiliumV1_1.Check(cst):
-		return nil
+		return false, nil
 	case CiliumV1_2.Check(cst):
-		return nil
+		return false, nil
 	case CiliumV1_3.Check(cst):
-		return nil
+		return false, nil
 	case CiliumV1_4.Check(cst):
 		ciliumOperatorSampleFile = getFileFromOlderVersion(ciliumOperatorYamlName)
 		ciliumOperatorPatchFile = ""
@@ -973,9 +972,9 @@ func (kub *Kubectl) CiliumOperatorInstall(versionTag string) error {
 
 	_ = kub.Apply(ciliumOperatorSaSampleFile)
 	if ciliumOperatorPatchFile != "" {
-		return kub.DeployPatch(ciliumOperatorSampleFile, ciliumOperatorPatchFile)
+		return true, kub.DeployPatch(ciliumOperatorSampleFile, ciliumOperatorPatchFile)
 	}
-	return kub.Apply(ciliumOperatorSampleFile).GetErr("Cannot install cilium operator")
+	return true, kub.Apply(ciliumOperatorSampleFile).GetErr("Cannot install cilium operator")
 }
 
 // CiliumInstall installs all Cilium descriptors into kubernetes.
