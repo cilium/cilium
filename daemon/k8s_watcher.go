@@ -846,6 +846,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			// Create a new pod controller when we are disconnected with the
 			// kvstore
 			<-kvstore.Client().Disconnected()
+			close(isConnected)
 			log.Info("Disconnected from KVStore, watching for pod events all nodes")
 		}
 	}()
@@ -946,6 +947,7 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 			// Create a new node controller when we are disconnected with the
 			// kvstore
 			<-kvstore.Client().Disconnected()
+			close(isConnected)
 
 			log.Info("Disconnected from KVStore, restarting k8s node watcher")
 		}
