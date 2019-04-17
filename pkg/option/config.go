@@ -436,6 +436,9 @@ const (
 	// SelectiveRegeneration specifies whether only the endpoints which policy
 	// changes select should be regenerated upon policy changes.
 	SelectiveRegeneration = "enable-selective-regeneration"
+
+	// K8sEventHandover is the name of the K8sEventHandover option
+	K8sEventHandover = "enable-k8s-event-handover"
 )
 
 // FQDNS variables
@@ -857,6 +860,12 @@ type DaemonConfig struct {
 	// ConntrackGCInterval is the connection tracking garbage collection
 	// interval
 	ConntrackGCInterval time.Duration
+
+	// K8sEventHandover enables use of the kvstore to optimize Kubernetes
+	// event handling by listening for k8s events in the operator and
+	// mirroring it into the kvstore for reduced overhead in large
+	// clusters.
+	K8sEventHandover bool
 }
 
 var (
@@ -1125,6 +1134,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
+	c.K8sEventHandover = viper.GetBool(K8sEventHandover)
 	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
