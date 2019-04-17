@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -66,10 +65,6 @@ func CheckStructAlignments(path string) error {
 		"metrics_value":        {reflect.TypeOf(metricsmap.Value{})},
 		"policy_key":           {reflect.TypeOf(policymap.PolicyKey{})},
 		"policy_entry":         {reflect.TypeOf(policymap.PolicyEntry{})},
-		"proxy4_tbl_key":       {reflect.TypeOf(proxymap.Proxy4Key{})},
-		"proxy4_tbl_value":     {reflect.TypeOf(proxymap.Proxy4Value{})},
-		"proxy6_tbl_key":       {reflect.TypeOf(proxymap.Proxy6Key{})},
-		"proxy6_tbl_value":     {reflect.TypeOf(proxymap.Proxy6Value{})},
 		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
 		"ep_config":            {reflect.TypeOf(configmap.EndpointConfig{})},
 		// TODO: alignchecker does not support nested structs yet.

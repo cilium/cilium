@@ -463,7 +463,7 @@ func LocalMaps(e CtEndpoint, ipv4, ipv6 bool) []*Map {
 
 // GlobalMaps returns a slice of CT maps that are used globally by all
 // endpoints that are not otherwise configured to use their own local maps.
-// If ipv6 or ipv6 are false, the maps for that protocol will not be returned.
+// If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
 //
 // The returned maps are not yet opened.
 func GlobalMaps(ipv4, ipv6 bool) []*Map {

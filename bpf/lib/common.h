@@ -127,42 +127,6 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 		dst.p4 = a4;			\
 	})
 
-/* Macros for building proxy port/nexthdr maps */
-#define EVAL0(...) __VA_ARGS__
-#define EVAL1(...) EVAL0 (EVAL0 (EVAL0 (__VA_ARGS__)))
-#define EVAL2(...) EVAL1 (EVAL1 (EVAL1 (__VA_ARGS__)))
-#define EVAL(...)  EVAL2 (EVAL2 (EVAL2 (__VA_ARGS__)))
-
-#define BPF_L4_MAP_OUT
-#define BPF_L4_MAP_END(...)
-#define BPF_L4_MAP_GET_END() 0, BPF_L4_MAP_END
-#define BPF_L4_MAP_NEXT0(dst, port, hdr, index, map, next, ...) next BPF_L4_MAP_OUT
-#define BPF_L4_MAP_NEXT1(dst, port, hdr, index, map, next) BPF_L4_MAP_NEXT0(dst, port, hdr, index, map, next, 0)
-#define BPF_L4_MAP_NEXT(dst, port, hdr, index, map, next) BPF_L4_MAP_NEXT1 (dst, port, hdr, index, BPF_L4_MAP_GET_END map, next)
-
-#define F(dst, port, hdr, index, map0, map1, map2)				\
-	({									\
-		dst = (dst > -1 ? dst : ((map0 && map0 == port) ?		\
-			((map2 && map2 == hdr) ? map1 : DROP_POLICY_L4) :	\
-			DROP_POLICY_L4));					\
-	});
-
-#define BPF_L4_MAP0(dst, port, hdr, index, map0, map1, map2, next, ...) \
-	F(dst, port, hdr, index, map0, map1, map2) BPF_L4_MAP_NEXT(dst, port, hdr, index, next, BPF_L4_MAP1)(dst, port, hdr, next, __VA_ARGS__)
-#define BPF_L4_MAP1(dst, port, hdr, index, map0, map1, map2, next, ...) \
-	F(dst, port, hdr, index, map0, map1, map2) BPF_L4_MAP_NEXT(dst, port, hdr, index, next, BPF_L4_MAP0)(dst, port, hdr, next, __VA_ARGS__)
-
-#define BPF_L4_MAP(dst, port, hdr, ...)				\
-	({							\
-		EVAL (BPF_L4_MAP1(dst, port, hdr, __VA_ARGS__))	\
-	})
-
-/* Examples to illustrate how to use BPF_L4_MAP and BPF_V6_16
- *
- * BPF_L4_MAP(my_map, 0, 80, 8080, 0, 1, 80, 8080, 0, (), 0)
- * BPF_V6_16(my_dst, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
- */
-
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
@@ -275,7 +239,7 @@ enum {
 #define DROP_CT_INVALID_HDR	-135
 #define DROP_CT_MISSING_ACK	-136
 #define DROP_CT_UNKNOWN_PROTO	-137
-#define DROP_CT_CANT_CREATE	-138 /* unused */
+#define DROP_CT_CANT_CREATE_	-138 /* unused */
 #define DROP_UNKNOWN_L3		-139
 #define DROP_MISSED_TAIL_CALL	-140
 #define DROP_WRITE_ERROR	-141
@@ -285,8 +249,8 @@ enum {
 #define DROP_UNKNOWN_ICMP6_CODE	-145
 #define DROP_UNKNOWN_ICMP6_TYPE	-146
 #define DROP_NO_TUNNEL_KEY	-147
-#define DROP_NO_TUNNEL_OPT	-148 /* unused */
-#define DROP_INVALID_GENEVE	-149 /* unused */
+#define DROP_NO_TUNNEL_OPT_	-148 /* unused */
+#define DROP_INVALID_GENEVE_	-149 /* unused */
 #define DROP_UNKNOWN_TARGET	-150
 #define DROP_NON_LOCAL		-151
 #define DROP_NO_LXC		-152
@@ -298,7 +262,7 @@ enum {
 #define DROP_NO_SERVICE		-158
 #define DROP_POLICY_L4		-159
 #define DROP_NO_TUNNEL_ENDPOINT -160
-#define DROP_PROXYMAP_CREATE_FAILED	-161
+#define DROP_PROXYMAP_CREATE_FAILED_	-161 /* unused */
 #define DROP_POLICY_CIDR		-162
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
@@ -337,6 +301,7 @@ enum {
 #define MARK_MAGIC_HOST			0x0C00
 #define MARK_MAGIC_DECRYPT		0x0D00
 #define MARK_MAGIC_ENCRYPT		0x0E00
+#define MARK_MAGIC_TO_PROXY		0x0200
 
 #define MARK_MAGIC_KEY_ID		0xF000
 #define MARK_MAGIC_KEY_MASK		0xFF00
@@ -428,9 +393,12 @@ enum {
 };
 
 struct ipv6_ct_tuple {
+	/* Address fields are reversed, i.e.,
+	 * these field names are correct for reply direction traffic. */
 	union v6addr	daddr;
 	union v6addr	saddr;
-	/* The order of dport+sport must not be changed */
+	/* The order of dport+sport must not be changed!
+	 * These field names are correct for original direction traffic. */
 	__be16		dport;
 	__be16		sport;
 	__u8		nexthdr;
@@ -438,9 +406,12 @@ struct ipv6_ct_tuple {
 } __attribute__((packed));
 
 struct ipv4_ct_tuple {
+	/* Address fields are reversed, i.e.,
+	 * these field names are correct for reply direction traffic. */
 	__be32		daddr;
 	__be32		saddr;
-	/* The order of dport+sport must not be changed */
+	/* The order of dport+sport must not be changed!
+	 * These field names are correct for original direction traffic. */
 	__be16		dport;
 	__be16		sport;
 	__u8		nexthdr;
@@ -467,7 +438,7 @@ struct ct_entry {
 	__u8  tx_flags_seen;
 	__u8  rx_flags_seen;
 
-	__u32 src_sec_id;
+	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
 
 	/* last_*x_report is a timestamp of the last time a monitor
 	 * notification was sent for the transmit/receive direction. */
@@ -583,53 +554,6 @@ struct ct_state {
 	__u16 slave;		/* Slave slot number in a legacy service */
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
-
-/* Lifetime of a proxy redirection entry. All proxies should be using TCP
- * keepalive to force some traffic over the connection periodically to keep
- * these entries alive. Cross-reference with ProxyKeepAlivePeriod. */
-#define PROXY_DEFAULT_LIFETIME 720
-
-/* The proxy key is written from the perspective of the source of the
- * connection, so the "destination" port reperesents the local host port which
- * the proxy is listening on, while the "source" address/port represents the
- * non-proxy side of the connection. This applies for both ingress and egress
- * proxies.
- *
- * The value provides the original destination's address/port which was
- * replaced in the initiating connection's packet when the packet was
- * redirected to the proxy.
- */
-struct proxy4_tbl_key {
-	__be32 saddr;
-	__be16 dport; /* dport must be in front of sport, loaded with 4 bytes read */
-	__be16 sport;
-	__u8 nexthdr;
-	__u8 pad;
-} __attribute__((packed));
-
-struct proxy4_tbl_value {
-	__be32 orig_daddr;
-	__be16 orig_dport;
-	__u16 pad;
-	__u32 identity;
-	__u32 lifetime;
-} __attribute__((packed));
-
-struct proxy6_tbl_key {
-	union v6addr saddr;
-	__be16 dport;
-	__be16 sport;
-	__u8 nexthdr;
-	__u8 pad;
-} __attribute__((packed));
-
-struct proxy6_tbl_value {
-	union v6addr orig_daddr;
-	__be16 orig_dport;
-	__u16 pad;
-	__u32 identity;
-	__u32 lifetime;
-} __attribute__((packed));
 
 /* ep_config corresponds to the EndpointConfig object in pkg/maps/configmap. */
 struct ep_config {

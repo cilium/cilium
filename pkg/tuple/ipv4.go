@@ -26,6 +26,8 @@ import (
 )
 
 // TupleKey4 represents the key for IPv4 entries in the local BPF conntrack map.
+// Address field names are correct for return traffic, i.e., they are reversed
+// compared to the original direction traffic.
 type TupleKey4 struct {
 	DestAddr   types.IPv4      `align:"daddr"`
 	SourceAddr types.IPv4      `align:"saddr"`

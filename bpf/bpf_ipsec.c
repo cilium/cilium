@@ -15,6 +15,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+#include <linux/if_packet.h>
+
 #include <node_config.h>
 #include <netdev_config.h>
 #include <bpf/api.h>
@@ -30,6 +32,13 @@ int from_netdev(struct __sk_buff *skb)
 	if ((skb->cb[0] & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		skb->mark = skb->cb[0];
 		set_identity(skb, skb->cb[1]);
+	} else {
+		// Upper 16 bits may carry proxy port number, clear it out
+		__u32 magic = skb->cb[0] & 0xFFFF;
+		if (magic == MARK_MAGIC_TO_PROXY) {
+			skb->mark = skb->cb[0];
+			skb_change_type(skb, PACKET_HOST);
+		}
 	}
 	return TC_ACT_OK;
 }

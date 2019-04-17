@@ -77,8 +77,6 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define SOCK_OPS_MAP test_sock_ops_map
 #define IPCACHE_MAP test_cilium_ipcache
 #define ENCRYPT_MAP test_cilium_encrypt_state
-#define PROXY4_MAP test_cilium_proxy4
-#define PROXY6_MAP test_cilium_proxy6
 #define TUNNEL_MAP test_cilium_tunnel_map
 #define EP_POLICY_MAP test_cilium_ep_to_policy
 #define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat
@@ -102,7 +100,6 @@ DEFINE_IPV6(SNAT_IPV6_EXTERNAL, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0
 #define LB_REDIRECT 1
 #define LB_DST_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x58 } }
 #define CILIUM_LB_MAP_MAX_ENTRIES	65536
-#define PROXY_MAP_SIZE 524288
 #define POLICY_MAP_SIZE 16384
 #define IPCACHE_MAP_SIZE 512000
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
