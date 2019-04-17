@@ -36,7 +36,7 @@ cd kubernetes
 make ginkgo
 make WHAT='test/e2e/e2e.test'
 
-export KUBERNETES_PROVIDER=vagrant
+export KUBERNETES_PROVIDER=local
 export KUBECTL_PATH=/usr/bin/kubectl
 export KUBE_MASTER=192.168.36.11
 export KUBE_MASTER_IP=192.168.36.11
