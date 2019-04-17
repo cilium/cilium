@@ -620,30 +620,24 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 	}
 }
 
-func (n *linuxNodeHandler) replaceHostRules() error {
+func (n *linuxNodeHandler) replaceHostRules() {
 	if n.nodeConfig.EnableIPv4 {
 		if err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
 			log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
-			return err
 		}
 		if err := route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
 			log.WithError(err).Error("Replace IPv4 route encrypt rule failed")
-			return err
 		}
 	}
 
 	if n.nodeConfig.EnableIPv6 {
 		if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
 			log.WithError(err).Error("Replace IPv6 route decrypt rule failed")
-			return err
 		}
 		if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
 			log.WithError(err).Error("Replace IPv6 route ecrypt rule failed")
-			return err
 		}
 	}
-
-	return nil
 }
 
 func (n *linuxNodeHandler) removeEncryptRules() error {
