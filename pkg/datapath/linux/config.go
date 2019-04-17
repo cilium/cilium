@@ -61,9 +61,14 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		" * Node-IPv6: %s\n"+
 		" * Router-IPv6: %s\n"+
 		" * Host-IPv4: %s\n"+
+		" *\n"+
+		" * External-IPv4: %s\n"+
+		" * External-IPv6: %s\n"+
 		" */\n\n",
 		hostIP.String(), routerIP.String(),
-		node.GetInternalIPv4().String())
+		node.GetInternalIPv4().String(),
+		node.GetExternalIPv4().String(),
+		node.GetIPv6().String())
 
 	if option.Config.EnableIPv6 {
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
