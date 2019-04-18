@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/version"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -54,7 +55,8 @@ func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
 	}
 
-	config := &rest.Config{Host: endpoint}
+	userAgent := fmt.Sprintf("Cilium %s", version.Version)
+	config := &rest.Config{Host: endpoint, UserAgent: userAgent}
 	err := rest.SetKubernetesDefaults(config)
 
 	return config, err
