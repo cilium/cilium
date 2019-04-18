@@ -54,7 +54,7 @@ func replaceQdisc(ifName string) error {
 }
 
 // replaceDatapath the qdisc and BPF program for a endpoint
-func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec string) error {
+func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string) error {
 	err := replaceQdisc(ifName)
 	if err != nil {
 		return fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
@@ -80,7 +80,7 @@ func replaceDatapath(ctx context.Context, ifName string, objPath string, progSec
 	}()
 
 	// FIXME: replace exec with native call
-	args := []string{"filter", "replace", "dev", ifName, "ingress",
+	args := []string{"filter", "replace", "dev", ifName, progDirection,
 		"prio", "1", "handle", "1", "bpf", "da", "obj", objPath,
 		"sec", progSec,
 	}
