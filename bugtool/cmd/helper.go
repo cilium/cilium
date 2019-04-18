@@ -24,6 +24,64 @@ import (
 	"strings"
 )
 
+type tarWriter interface {
+	io.Writer
+	WriteHeader(hdr *tar.Header) error
+}
+
+type walker struct {
+	baseDir, dbgDir string
+	output          tarWriter
+}
+
+func newWalker(baseDir, dbgDir string, output tarWriter) *walker {
+	return &walker{
+		baseDir: baseDir,
+		dbgDir:  dbgDir,
+		output:  output,
+	}
+}
+
+func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open %s: %s\n", path, err)
+	}
+	defer file.Close()
+
+	// Just get the latest fileInfo to make sure that the size is correctly
+	// when the file is write to tar file
+	fpInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("File information cannot get retrieved: %s\n", err)
+	}
+
+	header, err := tar.FileInfoHeader(fpInfo, fpInfo.Name())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to compress %s: %s\n", fpInfo.Name(), err)
+		return err
+	}
+
+	if w.baseDir != "" {
+		header.Name = filepath.Join(w.baseDir, strings.TrimPrefix(path, w.dbgDir))
+	}
+
+	if err := w.output.WriteHeader(header); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write header: %s\n", err)
+		return err
+	}
+
+	if info.IsDir() {
+		return err
+	}
+	_, err = io.Copy(w.output, file)
+	return err
+}
+
 func createArchive(dbgDir string) (string, error) {
 	// Based on http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
 	archivePath := fmt.Sprintf("%s.tar", dbgDir)
@@ -44,45 +102,8 @@ func createArchive(dbgDir string) (string, error) {
 		baseDir = filepath.Base(dbgDir)
 	}
 
-	return archivePath, filepath.Walk(dbgDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open %s: %s\n", path, err)
-		}
-		defer file.Close()
-
-		// Just get the latest fileInfo to make sure that the size is correctly
-		// when the file is write to tar file
-		fpInfo, err := file.Stat()
-		if err != nil {
-			return fmt.Errorf("File information cannot get retrieved: %s\n", err)
-		}
-
-		header, err := tar.FileInfoHeader(fpInfo, fpInfo.Name())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to compress %s: %s\n", fpInfo.Name(), err)
-			return err
-		}
-
-		if baseDir != "" {
-			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, dbgDir))
-		}
-
-		if err := writer.WriteHeader(header); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to write header: %s\n", err)
-			return err
-		}
-
-		if info.IsDir() {
-			return err
-		}
-		_, err = io.Copy(writer, file)
-		return err
-	})
+	walker := newWalker(baseDir, dbgDir, writer)
+	return archivePath, filepath.Walk(dbgDir, walker.walkPath)
 }
 
 func createGzip(dbgDir string) (string, error) {
