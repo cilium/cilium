@@ -59,6 +59,7 @@ var (
 		"cilium_snat",          // All SNAT maps
 		"cilium_tunnel",        // Global
 		"from-container",       // Prog name
+		"to-container",         // Prog name
 	}
 )
 
