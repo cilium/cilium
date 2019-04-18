@@ -36,8 +36,10 @@ function annotate_section_names {
 	    -e "s/\(section '2\/8'\)/\1 (tail_call NAT64)/" \
 	    -e "s/\(section '2\/9'\)/\1 (tail_call NAT46)/" \
 	    -e "s/\(section '2\/10'\)/\1 (tail_call IPV6_FROM_LXC)/" \
-	    -e "s/\(section '2\/11'\)/\1 (tail_call IPV4_TO_LXC)/" \
-	    -e "s/\(section '2\/12'\)/\1 (tail_call IPV6_TO_LXC)/"
+	    -e "s/\(section '2\/11'\)/\1 (tail_call IPV4_TO_LXC_POLICY_ONLY)/" \
+	    -e "s/\(section '2\/12'\)/\1 (tail_call IPV6_TO_LXC_POLICY_ONLY)/" \
+	    -e "s/\(section '2\/13'\)/\1 (tail_call IPV4_TO_ENDPOINT)/" \
+	    -e "s/\(section '2\/14'\)/\1 (tail_call IPV6_TO_ENDPOINT)/"
 }
 
 if ! grep -q "CILIUM_CALL_SIZE.*13" "$BPFDIR/lib/common.h" ; then

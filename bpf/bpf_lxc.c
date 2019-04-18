@@ -800,7 +800,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	return TC_ACT_OK;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_LXC)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 int tail_ipv6_policy(struct __sk_buff *skb)
 {
 	int ret, ifindex = skb->cb[CB_IFINDEX];
@@ -822,11 +822,73 @@ int tail_ipv6_policy(struct __sk_buff *skb)
 	skb->cb[0] = skb->mark; // essential for proxy ingress, see bpf_ipsec.c
 	return ret;
 }
+
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_ENDPOINT)
+int tail_ipv6_to_endpoint(struct __sk_buff *skb)
+{
+	__u32 src_identity = skb->cb[CB_SRC_LABEL];
+	struct ep_config *cfg = lookup_ep_config();
+	int ret, forwarding_reason;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto out;
+	}
+
+	if (cfg == NULL) {
+		ret = DROP_NO_CONFIG;
+		goto out;
+	}
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(src_identity)) {
+		union v6addr *src = (union v6addr *) &ip6->saddr;
+		struct remote_endpoint_info *info;
+
+		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if "src_identity"
+				 * (passed into this function) reports the src
+				 * as the host. So we can ignore the ipcache
+				 * if it reports the source as HOST_ID.
+				 */
+				if (sec_label != HOST_ID)
+					src_identity = sec_label;
+			}
+		}
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   ((__u32 *) src)[3], src_identity);
+	}
+
+	cilium_dbg(skb, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
+
+#if defined LOCAL_DELIVERY_METRICS
+	update_metrics(skb->len, METRIC_INGRESS, REASON_FORWARDED);
+#endif
+
+	skb->cb[CB_SRC_LABEL] = 0;
+	ret = ipv6_policy(skb, 0, src_identity, &forwarding_reason, cfg);
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, src_identity, SECLABEL, LXC_ID,
+					ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	return ret;
+}
+
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
 static inline int __inline__
-ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg)
+ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding_reason, struct ep_config *cfg, __u16 *proxy_port)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -919,10 +981,11 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 		return DROP_INVALID;
 
 	if (redirect_to_proxy(verdict, *forwarding_reason)) {
+		*proxy_port = verdict;
 		// Trace the packet before its forwarded to proxy
 		send_trace_notify(skb, TRACE_TO_PROXY, src_label, SECLABEL,
 				  0, ifindex, *forwarding_reason, monitor);
-		return skb_redirect_to_proxy(skb, verdict);
+		return TC_ACT_OK;
 	} else { // Not redirected to host / proxy.
 		send_trace_notify(skb, TRACE_TO_LXC, src_label, SECLABEL,
 				  LXC_ID, ifindex, *forwarding_reason, monitor);
@@ -935,24 +998,94 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 	return TC_ACT_OK;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 int tail_ipv4_policy(struct __sk_buff *skb)
 {
 	struct ep_config *cfg = lookup_ep_config();
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	int forwarding_reason = 0;
+	__u16 proxy_port = 0;
 
 	skb->cb[CB_SRC_LABEL] = 0;
 	if (cfg)
-		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason, cfg);
+		ret = ipv4_policy(skb, ifindex, src_label, &forwarding_reason, cfg, &proxy_port);
 	else
 		ret = DROP_NO_CONFIG;
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ret, TC_ACT_SHOT, METRIC_INGRESS);
 
+	if (proxy_port != 0) {
+		ret = skb_redirect_to_proxy(skb, proxy_port);
+	}
+
 	skb->cb[0] = skb->mark; // essential for proxy ingress, see bpf_ipsec.c
+	return ret;
+}
+
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_ENDPOINT)
+int tail_ipv4_to_endpoint(struct __sk_buff *skb)
+{
+	__u32 src_identity = skb->cb[CB_SRC_LABEL];
+	struct ep_config *cfg = lookup_ep_config();
+	int ret, forwarding_reason;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 proxy_port = 0;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto out;
+	}
+
+	if (cfg == NULL) {
+		ret = DROP_NO_CONFIG;
+		goto out;
+	}
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(src_identity)) {
+		struct remote_endpoint_info *info;
+
+		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if "src_identity"
+				 * (passed into this function) reports the src
+				 * as the host. So we can ignore the ipcache
+				 * if it reports the source as HOST_ID.
+				 */
+				if (sec_label != HOST_ID)
+					src_identity = sec_label;
+			}
+		}
+		cilium_dbg(skb, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->saddr, src_identity);
+	}
+
+	cilium_dbg(skb, DBG_LOCAL_DELIVERY, LXC_ID, SECLABEL);
+
+#if defined LOCAL_DELIVERY_METRICS
+	update_metrics(skb->len, METRIC_INGRESS, REASON_FORWARDED);
+#endif
+
+	skb->cb[CB_SRC_LABEL] = 0;
+	ret = ipv4_policy(skb, 0, src_identity, &forwarding_reason, cfg, &proxy_port);
+
+	if (proxy_port != 0) {
+		ret = skb_redirect_to_proxy_hairpin(skb, proxy_port);
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, src_identity, SECLABEL, LXC_ID,
+					ret, TC_ACT_SHOT, METRIC_INGRESS);
+
 	return ret;
 }
 #endif /* ENABLE_IPV4 */
@@ -979,13 +1112,13 @@ __section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID) int handle_policy(struct __sk
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-				   CILIUM_CALL_IPV6_TO_LXC, tail_ipv6_policy);
+				   CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY, tail_ipv6_policy);
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-				   CILIUM_CALL_IPV4_TO_LXC, tail_ipv4_policy);
+				   CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY, tail_ipv4_policy);
 		break;
 #endif /* ENABLE_IPV4 */
 	default:
@@ -1043,8 +1176,56 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46) int tail_ipv4_to_ipv6(struct
 	cilium_dbg_capture(skb, DBG_CAPTURE_AFTER_V46, skb->ingress_ifindex);
 
 	invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-			   CILIUM_CALL_IPV6_TO_LXC, tail_ipv6_policy);
+			   CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY, tail_ipv6_policy);
 	return ret;
 }
 #endif
 BPF_LICENSE("GPL");
+
+__section("to-container")
+int handle_to_container(struct __sk_buff *skb)
+{
+	int ret, trace = TRACE_FROM_STACK;
+	__u32 identity = 0;
+	__u16 proto;
+
+	if (!validate_ethertype(skb, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	bpf_clear_cb(skb);
+
+	if (inherit_identity_from_host(skb, &identity))
+		trace = TRACE_FROM_PROXY;
+
+	send_trace_notify(skb, trace, identity, 0, 0,
+			  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
+
+	skb->cb[CB_SRC_LABEL] = identity;
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint);
+		break;
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint);
+		break;
+#endif /* ENABLE_IPV4 */
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, identity, SECLABEL, LXC_ID,
+					ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	return ret;
+}

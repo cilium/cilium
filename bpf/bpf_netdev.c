@@ -386,35 +386,6 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 
 #endif /* ENABLE_IPV4 */
 
-#ifdef FROM_HOST
-static inline bool __inline__ handle_identity_from_host(struct __sk_buff *skb, __u32 *identity)
-{
-	__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
-	bool from_proxy = false;
-
-	/* Packets from the ingress proxy must skip the proxy when the
-	 * destination endpoint evaluates the policy. As the packet
-	 * would loop otherwise. */
-	if (magic == MARK_MAGIC_PROXY_INGRESS) {
-		*identity = get_identity(skb);
-		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
-		from_proxy = true;
-	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
-		*identity = get_identity(skb);
-		from_proxy = true;
-	} else if (magic == MARK_MAGIC_HOST) {
-		*identity = HOST_ID;
-	} else {
-		*identity = WORLD_ID;
-	}
-
-	/* Reset packet mark to avoid hitting routing rules again */
-	skb->mark = 0;
-
-	return from_proxy;
-}
-#endif
-
 static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 {
 	__u32 identity = 0;
@@ -454,7 +425,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 		int trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
-		from_proxy = handle_identity_from_host(skb, &identity);
+		from_proxy = inherit_identity_from_host(skb, &identity);
 		if (from_proxy)
 			trace = TRACE_FROM_PROXY;
 		send_trace_notify(skb, trace, identity, 0, 0,
