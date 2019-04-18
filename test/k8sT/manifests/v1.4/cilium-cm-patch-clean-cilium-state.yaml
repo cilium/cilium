@@ -23,3 +23,5 @@ data:
 
   enable-ipv4: "true"
   enable-ipv6: "true"
+
+  preallocate-bpf-maps: "true"

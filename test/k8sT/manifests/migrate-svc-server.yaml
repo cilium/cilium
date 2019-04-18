@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: migrate-svc
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: migrate-svc-server
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: migrate-svc-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: migrate-svc-server
+  template:
+    metadata:
+      labels:
+        app: migrate-svc-server
+        zgroup: migrate-svc
+    spec:
+      containers:
+      - name: server
+        image: docker.io/cilium/migrate-svc-test:v0.0.1
+        imagePullPolicy: IfNotPresent
+        command: [ "/server", "8000" ]
