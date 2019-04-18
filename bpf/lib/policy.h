@@ -22,6 +22,34 @@
 #include "eps.h"
 #include "maps.h"
 
+static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, __u32 *identity)
+{
+	__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
+	bool from_proxy = false;
+
+	/* Packets from the ingress proxy must skip the proxy when the
+	 * destination endpoint evaluates the policy. As the packet
+	 * would loop otherwise. */
+	if (magic == MARK_MAGIC_PROXY_INGRESS) {
+		*identity = get_identity(skb);
+		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+		from_proxy = true;
+	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
+		*identity = get_identity(skb);
+		from_proxy = true;
+	} else if (magic == MARK_MAGIC_HOST) {
+		*identity = HOST_ID;
+	} else {
+		*identity = WORLD_ID;
+	}
+
+	/* Reset packet mark to avoid hitting routing rules again */
+	skb->mark = 0;
+
+	return from_proxy;
+}
+
+
 /**
  * identity_is_reserved is used to determine whether an identity is one of the
  * reserved identities that are not handed out to endpoints.

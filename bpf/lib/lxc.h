@@ -75,6 +75,33 @@ skb_redirect_to_proxy(struct __sk_buff *skb, __be16 proxy_port)
 }
 
 /**
+ * skb_redirect_to_proxy_hairpin redirects to the proxy by hairpining the
+ * packet out the incoming interface
+ */
+static inline int __inline__
+skb_redirect_to_proxy_hairpin(struct __sk_buff *skb, __be16 proxy_port)
+{
+	union macaddr host_mac = HOST_IFINDEX_MAC;
+	union macaddr router_mac = NODE_MAC;
+	void *data_end = (void *) (long) skb->data_end;
+	void *data = (void *) (long) skb->data;
+	struct iphdr *ip4;
+	int ret;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	ret = ipv4_l3(skb, ETH_HLEN, (__u8 *) &router_mac, (__u8 *) &host_mac, ip4);
+	if (IS_ERR(ret))
+		return ret;
+
+	skb->cb[0] = MARK_MAGIC_TO_PROXY | proxy_port << 16;
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, proxy_port);
+
+	return redirect(HOST_IFINDEX, 0);
+}
+
+/**
  * tc_index_is_from_proxy - returns true if packet originates from ingress proxy
  */
 static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)

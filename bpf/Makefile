@@ -4,7 +4,7 @@ include ../Makefile.defs
 
 SUBDIRS = sockops
 
-BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o
+BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.c
 BPF = bpf_lxc.o bpf_lb.o bpf_sock.o $(BPF_SIMPLE)
 SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
 
