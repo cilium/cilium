@@ -2,6 +2,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -14,11 +15,11 @@ var _ = Describe("K8sUpdates", func() {
 	// This test runs 8 steps as following:
 	// 1 - delete all pods. Clean cilium, this can be, and should be achieved by
 	// `clean-cilium-state: "true"` option that we have in configmap
-	// 2 - install cilium `cilium:v1.1.4`
+	// 2 - install cilium `cilium:v1.4`
 	// 3 - make endpoints talk with each other with policy
 	// 4 - upgrade cilium to `k8s1:5000/cilium/cilium-dev:latest`
 	// 5 - make endpoints talk with each other with policy
-	// 6 - downgrade cilium to `cilium:v1.1.4`
+	// 6 - downgrade cilium to `cilium:v1.4`
 	// 7 - make endpoints talk with each other with policy
 	// 8 - delete all pods. Clean cilium, this can be, and should be achieved by
 	// `clean-cilium-state: "true"` option that we have in configmap.
@@ -96,10 +97,14 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 	demoPath := helpers.ManifestGet("demo.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
+	migrateSVCClient := helpers.ManifestGet("migrate-svc-client.yaml")
+	migrateSVCServer := helpers.ManifestGet("migrate-svc-server.yaml")
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
 	app1Service := "app1-service"
 
 	cleanupCallback := func() {
+		kubectl.Delete(migrateSVCClient)
+		kubectl.Delete(migrateSVCServer)
 		kubectl.Delete(l7Policy)
 		kubectl.Delete(demoPath)
 
@@ -214,7 +219,39 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Expect a 403 from app1-service")
 		}
 
+		// checkNoInteruptsInMigratedSVCFlows checks whether there are no
+		// interruptions in established connections to the migrate-svc service
+		// after Cilium has been upgraded / downgraded. This is needed to check
+		// that migration legacy <-> v2 services does not cause any interruptions.
+		//
+		// The check is based on restart count of the Pods. We can do it so, because
+		// any interrupt in the flow makes a client to panic which makes the Pod
+		// to restart.
+		lastCount := -1
+		checkNoInteruptsInMigratedSVCFlows := func() {
+			By("No interrupts in migrated svc flows")
+
+			filter := `{.items[*].status.containerStatuses[0].restartCount}`
+			restartCount, err := kubectl.GetPods(helpers.DefaultNamespace,
+				"-l zgroup=migrate-svc").Filter(filter)
+			ExpectWithOffset(1, err).To(BeNil(), "Failed to query \"migrate-svc-server\" Pod")
+
+			currentCount := 0
+			for _, c := range strings.Split(restartCount.String(), " ") {
+				count, err := strconv.Atoi(c)
+				ExpectWithOffset(1, err).To(BeNil(), "Failed to convert count value")
+				currentCount += count
+			}
+			// The check is invoked for the first time
+			if lastCount == -1 {
+				lastCount = currentCount
+			}
+			Expect(lastCount).Should(BeIdenticalTo(currentCount),
+				"migrate-svc restart count values do not match")
+		}
+
 		By("Creating some endpoints and L7 policy")
+
 		res := kubectl.Apply(demoPath)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
 
@@ -227,9 +264,20 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
-		validateEndpointsConnection()
+		By("Creating service and clients for migration")
 
-		By("Updating cilium to master image")
+		res = kubectl.Apply(migrateSVCServer)
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-server")
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-server", timeout)
+		Expect(err).Should(BeNil(), "migrate-svc-server pods are not ready after timeout")
+
+		res = kubectl.Apply(migrateSVCClient)
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-client")
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-client", timeout)
+		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
+
+		validateEndpointsConnection()
+		checkNoInteruptsInMigratedSVCFlows()
 
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
@@ -288,6 +336,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		validateEndpointsConnection()
+		checkNoInteruptsInMigratedSVCFlows()
 
 		By("Downgrading cilium to %s image", oldVersion)
 
@@ -318,7 +367,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		validateEndpointsConnection()
-
+		checkNoInteruptsInMigratedSVCFlows()
 	}
 	return testfunc, cleanupCallback
 }

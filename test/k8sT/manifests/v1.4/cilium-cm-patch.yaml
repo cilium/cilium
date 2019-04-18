@@ -24,3 +24,4 @@ data:
   enable-ipv4: "true"
   enable-ipv6: "true"
   preallocate-bpf-maps: "true"
+  enable-legacy-services: "true"
