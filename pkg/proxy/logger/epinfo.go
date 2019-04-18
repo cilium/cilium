@@ -33,6 +33,7 @@ type EndpointInfoSource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
+	ConntrackName() string
 }
 
 // getEndpointInfo returns a consistent snapshot of the given source.
