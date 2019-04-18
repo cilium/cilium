@@ -380,15 +380,3 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 
 	return false
 }
-
-func (rules ruleSlice) refreshRulesCache(ep Endpoint) {
-	if ep == nil {
-		return
-	}
-
-	securityIdentity := ep.GetSecurityIdentity()
-	for _, r := range rules {
-		// matches updates the caches within the rules
-		r.matches(securityIdentity)
-	}
-}
