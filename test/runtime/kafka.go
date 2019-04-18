@@ -108,6 +108,10 @@ var _ = Describe("RuntimeKafka", func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
+		status := vm.ExecCilium(fmt.Sprintf("config %s=true",
+			helpers.OptionConntrackLocal))
+		status.ExpectSuccess()
+
 		containers("create")
 		epsReady := vm.WaitEndpointsReady()
 		Expect(epsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -131,6 +135,10 @@ var _ = Describe("RuntimeKafka", func() {
 
 	AfterAll(func() {
 		containers("delete")
+
+		status := vm.ExecCilium(fmt.Sprintf("config %s=false",
+			helpers.OptionConntrackLocal))
+		status.ExpectSuccess()
 	})
 
 	JustBeforeEach(func() {
