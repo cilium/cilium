@@ -295,7 +295,8 @@ required = [
 
 [[constraint]]
   name = "github.com/miekg/dns"
-  revision = "v1.1.4"
+  revision = "8e25ec9a0ff346aefcb56b84e72decb6d5406d9e"
+  source = "github.com/cilium/dns"
 
   # main-usage = "pkg/fqdn"
   # on-revision = ""
