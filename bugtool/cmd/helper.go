@@ -32,38 +32,54 @@ type tarWriter interface {
 type walker struct {
 	baseDir, dbgDir string
 	output          tarWriter
+	log             io.Writer
 }
 
-func newWalker(baseDir, dbgDir string, output tarWriter) *walker {
+func newWalker(baseDir, dbgDir string, output tarWriter, logger io.Writer) *walker {
 	return &walker{
 		baseDir: baseDir,
 		dbgDir:  dbgDir,
 		output:  output,
+		log:     logger,
 	}
 }
 
 func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	if err != nil {
-		return err
+		fmt.Fprintf(w.log, "Error while walking path %s: %s", path, err)
+		return nil
+	}
+	if info == nil {
+		fmt.Fprintf(w.log, "No file info available")
+		return nil
 	}
 
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open %s: %s\n", path, err)
+		fmt.Fprintf(w.log, "Failed to open %s: %s\n", path, err)
+		// TODO: Write an empty file here, just to hint that this file
+		// existed by there was some problem attempting to add it.
+		return nil
 	}
 	defer file.Close()
+
+	if info.IsDir() {
+		fmt.Fprintf(w.log, "Skipping directory %s\n", info.Name())
+		return nil
+	}
 
 	// Just get the latest fileInfo to make sure that the size is correctly
 	// when the file is write to tar file
 	fpInfo, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("File information cannot get retrieved: %s\n", err)
+		fmt.Fprintf(w.log, "Failed to retrieve file information: %s\n", err)
+		return nil
 	}
 
 	header, err := tar.FileInfoHeader(fpInfo, fpInfo.Name())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to compress %s: %s\n", fpInfo.Name(), err)
-		return err
+		fmt.Fprintf(w.log, "Failed to prepare file info %s: %s\n", fpInfo.Name(), err)
+		return nil
 	}
 
 	if w.baseDir != "" {
@@ -71,13 +87,10 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	}
 
 	if err := w.output.WriteHeader(header); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to write header: %s\n", err)
-		return err
+		fmt.Fprintf(w.log, "Failed to write header: %s\n", err)
+		return nil
 	}
 
-	if info.IsDir() {
-		return err
-	}
 	_, err = io.Copy(w.output, file)
 	return err
 }
@@ -102,7 +115,7 @@ func createArchive(dbgDir string) (string, error) {
 		baseDir = filepath.Base(dbgDir)
 	}
 
-	walker := newWalker(baseDir, dbgDir, writer)
+	walker := newWalker(baseDir, dbgDir, writer, os.Stderr)
 	return archivePath, filepath.Walk(dbgDir, walker.walkPath)
 }
 
