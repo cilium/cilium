@@ -426,7 +426,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
-		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", err))
+		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))
 	}
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
