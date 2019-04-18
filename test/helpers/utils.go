@@ -377,7 +377,7 @@ func getK8sSupportedConstraints(ciliumVersion string) (go_version.Constraints, e
 	case CiliumV1_3.Check(cst):
 		return versioncheck.MustCompile(">= 1.8, <1.13"), nil
 	case CiliumV1_4.Check(cst):
-		return versioncheck.MustCompile(">= 1.8, <1.14"), nil
+		return versioncheck.MustCompile(">= 1.8, <1.15"), nil
 	case CiliumV1_5.Check(cst):
 		return versioncheck.MustCompile(">= 1.8, <1.15"), nil
 	default:
