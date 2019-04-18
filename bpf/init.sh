@@ -537,6 +537,8 @@ if [ "$IPSEC" == "true" ]; then
 	fi
 fi
 
+bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP
+
 if [ -n "$XDP_DEV" ]; then
 	CIDR_MAP="cilium_cidr_v*"
 	COPTS=""
