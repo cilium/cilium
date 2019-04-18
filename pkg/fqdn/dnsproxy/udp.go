@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !privileged_tests
-
 package dnsproxy
 
 import (
-	. "gopkg.in/check.v1"
+	"net"
+	"syscall"
 )
 
-type DNSProxyHelperTestSuite struct{}
+func listenConfig(mark int) *net.ListenConfig {
+	return &net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var opErr error
+			err := c.Control(func(fd uintptr) {
+				if mark != 0 {
+					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+				}
+				if opErr == nil {
+					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+				}
+			})
+			if err != nil {
+				return err
+			}
 
-var _ = Suite(&DNSProxyHelperTestSuite{})
+			return opErr
+		}}
+}

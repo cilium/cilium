@@ -203,6 +203,14 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			d.dnsRuleGen.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
 		}
 	}
+
+	// Do not start the proxy in dry mode. The proxy would not get any traffic in the
+	// dry mode anyway, and some of the socket operations require privileges not availabe
+	// in all unit tests.
+	if option.Config.DryMode {
+		return nil
+	}
+
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
