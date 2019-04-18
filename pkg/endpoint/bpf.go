@@ -1039,3 +1039,9 @@ func (e *Endpoint) syncPolicyMapController() {
 func (e *Endpoint) RequireARPPassthrough() bool {
 	return false
 }
+
+// RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
+// "to-container" to be attached at egress on the host facing veth pair
+func (e *Endpoint) RequireEgressProg() bool {
+	return false
+}
