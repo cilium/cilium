@@ -72,8 +72,11 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	// when the file is write to tar file
 	fpInfo, err := file.Stat()
 	if err != nil {
-		fmt.Fprintf(w.log, "Failed to retrieve file information: %s\n", err)
-		return nil
+		fpInfo, err = os.Lstat(file.Name())
+		if err != nil {
+			fmt.Fprintf(w.log, "Failed to retrieve file information: %s\n", err)
+			return nil
+		}
 	}
 
 	header, err := tar.FileInfoHeader(fpInfo, fpInfo.Name())
