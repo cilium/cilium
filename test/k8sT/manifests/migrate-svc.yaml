@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: migrate-svc
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: migrate-svc-server
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migrate-svc-server
+  labels:
+    app: migrate-svc-server
+    zgroup: migrate-svc
+spec:
+  containers:
+  - name: server
+    image: docker.io/brb0/cilium-migrate-svc-test:latest
+    imagePullPolicy: IfNotPresent
+    command: [ "/server", "8000" ]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migrate-svc-client
+  labels:
+    app: migrate-svc-client
+    zgroup: migrate-svc
+spec:
+  containers:
+  - name: server
+    image: docker.io/brb0/cilium-migrate-svc-test:latest
+    imagePullPolicy: IfNotPresent
+    command: [ "/client", "migrate-svc.default.svc.cluster.local.:8000" ]
