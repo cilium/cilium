@@ -364,7 +364,12 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 		return true
 	}
 	id := ep.GetID16()
+
+	// If the endpoint isn't initialized yet, we can't update anything here.
 	securityIdentity := ep.GetSecurityIdentity()
+	if securityIdentity == nil {
+		return true
+	}
 
 	for _, r := range rules {
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {
