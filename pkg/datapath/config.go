@@ -58,4 +58,9 @@ type EndpointConfiguration interface {
 	// RequireARPPassthrough returns true if the datapath must implement
 	// ARP passthrough for this endpoint
 	RequireARPPassthrough() bool
+
+	// RequireEgressProg returns true if the endpoint requires an egress
+	// program attached to the InterfaceName() invoking the section
+	// "to-container"
+	RequireEgressProg() bool
 }

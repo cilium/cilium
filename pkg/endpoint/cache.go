@@ -53,6 +53,7 @@ type epInfoCache struct {
 	ipv6                                   addressing.CiliumIPv6
 	conntrackLocal                         bool
 	requireARPPassthrough                  bool
+	requireEgressProg                      bool
 	cidr4PrefixLengths, cidr6PrefixLengths []int
 	options                                *option.IntOptions
 
@@ -84,6 +85,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		ipv6:                  e.IPv6Address(),
 		conntrackLocal:        e.ConntrackLocalLocked(),
 		requireARPPassthrough: e.RequireARPPassthrough(),
+		requireEgressProg:     e.RequireEgressProg(),
 		cidr4PrefixLengths:    cidr4,
 		cidr6PrefixLengths:    cidr6,
 		options:               e.Options.DeepCopy(),
@@ -179,4 +181,10 @@ func (ep *epInfoCache) GetOptions() *option.IntOptions {
 // passthrough for this endpoint
 func (ep *epInfoCache) RequireARPPassthrough() bool {
 	return ep.requireARPPassthrough
+}
+
+// RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
+// "to-container" to be attached at egress on the host facing veth pair
+func (ep *epInfoCache) RequireEgressProg() bool {
+	return ep.requireEgressProg
 }
