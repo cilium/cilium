@@ -52,6 +52,7 @@ func NewTestEndpoint() TestEndpoint {
 func (e *TestEndpoint) HasIpvlanDataPath() bool                 { return false }
 func (e *TestEndpoint) ConntrackLocalLocked() bool              { return false }
 func (e *TestEndpoint) RequireARPPassthrough() bool             { return false }
+func (e *TestEndpoint) RequireEgressProg() bool                 { return false }
 func (e *TestEndpoint) GetCIDRPrefixLengths() ([]int, []int)    { return nil, nil }
 func (e *TestEndpoint) GetID() uint64                           { return e.Id }
 func (e *TestEndpoint) StringID() string                        { return "42" }
