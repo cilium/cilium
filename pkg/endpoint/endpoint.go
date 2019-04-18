@@ -807,9 +807,18 @@ func (e *Endpoint) GetLabels() []string {
 	return e.SecurityIdentity.Labels.GetModel()
 }
 
-// GetSecurityIdentity returns the security identity of the endpoint. It assumes
-// the endpoint's mutex.
+// GetSecurityIdentity returns the security identity of the endpoint. The
+// endpoint's mutex must NOT be held.
 func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+
+	return e.GetSecurityIdentityLocked()
+}
+
+// GetSecurityIdentityLocked returns the security identity of the endpoint. It assumes
+// the endpoint's mutex is held.
+func (e *Endpoint) GetSecurityIdentityLocked() *identityPkg.Identity {
 	return e.SecurityIdentity
 }
 
