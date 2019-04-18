@@ -97,12 +97,14 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 	demoPath := helpers.ManifestGet("demo.yaml")
 	l7Policy := helpers.ManifestGet("l7-policy.yaml")
-	migrateSVC := helpers.ManifestGet("migrate-svc.yaml")
+	migrateSVCClient := helpers.ManifestGet("migrate-svc-client.yaml")
+	migrateSVCServer := helpers.ManifestGet("migrate-svc-server.yaml")
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
 	app1Service := "app1-service"
 
 	cleanupCallback := func() {
-		kubectl.Delete(migrateSVC)
+		kubectl.Delete(migrateSVCClient)
+		kubectl.Delete(migrateSVCServer)
 		kubectl.Delete(l7Policy)
 		kubectl.Delete(demoPath)
 
@@ -219,11 +221,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		// TODO(brb) document why we check restart count
 		checkNoInteruptsInMigratedSVCFlows := func() {
-			filter := `{.status.containerStatuses[0].restartCount}`
+			filter := `{.items[*].status.containerStatuses[0].restartCount}`
 			restartCount, err := kubectl.GetPods(
-				helpers.DefaultNamespace, "migrate-svc-server").Filter(filter)
+				helpers.DefaultNamespace, "-l zgroup=migrate-svc").Filter(filter)
 			ExpectWithOffset(1, err).To(BeNil(), "Failed to query \"migrate-svc-server\" Pod")
-			Expect(restartCount.String()).To(Equal("0"))
+			counters := strings.ReplaceAll(restartCount.String(), "\n", " ")
+			Expect(counters).To(Equal("0 0 0 0 0 0 0 0"))
 		}
 
 		By("Creating some endpoints and L7 policy")
@@ -242,13 +245,17 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		validateEndpointsConnection()
 
-		By("Creating service for migration")
+		By("Creating service and clients for migration")
 
-		res = kubectl.Apply(migrateSVC)
-		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc")
+		res = kubectl.Apply(migrateSVCServer)
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-server")
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-server", timeout)
+		Expect(err).Should(BeNil(), "migrate-svc-server pods are not ready after timeout")
 
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=migrate-svc", timeout)
-		Expect(err).Should(BeNil(), "migrate-svc pods are not ready after timeout")
+		res = kubectl.Apply(migrateSVCClient)
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-client")
+		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-client", timeout)
+		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
 
 		By("Updating cilium to master image")
 		checkNoInteruptsInMigratedSVCFlows()
