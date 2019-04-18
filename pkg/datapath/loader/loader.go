@@ -37,6 +37,8 @@ var (
 
 const (
 	symbolFromEndpoint = "from-container"
+
+	dirIngress = "ingress"
 )
 
 // endpoint provides access to endpoint information that is necessary to
@@ -66,7 +68,7 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 			return err
 		}
 	} else {
-		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint); err != nil {
+		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
