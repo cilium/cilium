@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -58,14 +57,6 @@ var (
 		identity: identity.NumericIdentity(256),
 	}
 )
-
-type DummyRuleCacheOwner struct{}
-
-func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
-	return &sync.WaitGroup{}
-}
-
-var ruleCacheOwner *DummyRuleCacheOwner
 
 // newTestBrokerConf returns BrokerConf with default configuration adjusted for
 // tests
@@ -220,7 +211,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	ep.IPv4 = ipv4
 	ep.UpdateLogger(nil)
 	endpointmanager.Insert(ep)
-	defer endpointmanager.Remove(ep, ruleCacheOwner)
+	defer endpointmanager.Remove(ep)
 
 	_, dstPortStr, err := net.SplitHostPort(server.Address())
 	c.Assert(err, IsNil)
