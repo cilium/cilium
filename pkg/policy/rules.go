@@ -366,6 +366,11 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 	id := ep.GetID16()
 	securityIdentity := ep.GetSecurityIdentity()
 
+	// The endpoint isn't initialized yet, and we can't update anything here.
+	if securityIdentity == nil {
+		return true
+	}
+
 	for _, r := range rules {
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {
 			epIDSet.Mutex.Lock()

@@ -492,6 +492,10 @@ func (r *rule) meetsRequirementsIngress(ctx *SearchContext, state *traceState) a
 }
 
 func (r *rule) matches(securityIdentity *identity.Identity) bool {
+	if securityIdentity == nil {
+		return false
+	}
+
 	r.metadata.Mutex.Lock()
 	defer r.metadata.Mutex.Unlock()
 	var ruleMatches bool
