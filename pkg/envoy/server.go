@@ -305,7 +305,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointPolicyName string, port uint16, isIngress bool, wg *completion.WaitGroup) {
+func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, wg *completion.WaitGroup) {
 	log.Debugf("Envoy: %s AddListener %s", kind, name)
 
 	s.mutex.Lock()
@@ -327,14 +327,14 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointP
 	listenerConf := proto.Clone(s.listenerProto).(*envoy_api_v2.Listener)
 	if kind == policy.ParserTypeHTTP {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.httpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
-		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
+		// listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["http_filters"].GetListValue().Values[0].GetStructValue().Fields["config"].GetStructValue().Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
 		routes := listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["route_config"].GetStructValue().Fields["virtual_hosts"].GetListValue().Values[0].GetStructValue().Fields["routes"].GetListValue().Values
 		routes[0].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 		routes[1].GetStructValue().Fields["route"].GetStructValue().Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 	} else {
 		listenerConf.FilterChains = append(listenerConf.FilterChains, proto.Clone(s.tcpFilterChainProto).(*envoy_api_v2_listener.FilterChain))
-		listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
-		listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["l7_proto"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: kind.String()}}
+		// listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["policy_name"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: endpointPolicyName}}
+		// listenerConf.FilterChains[0].Filters[0].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["l7_proto"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: kind.String()}}
 		listenerConf.FilterChains[0].Filters[1].ConfigType.(*envoy_api_v2_listener.Filter_Config).Config.Fields["cluster"] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: clusterName}}
 	}
 
