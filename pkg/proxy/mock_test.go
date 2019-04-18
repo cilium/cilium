@@ -45,6 +45,7 @@ func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
 func (m *proxyUpdaterMock) HasSidecarProxy() bool { return m.hasSidecarProxy }
+func (m *proxyUpdaterMock) ConntrackName() string { return "global" }
 
 func (m *proxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
 func (m *proxyUpdaterMock) UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool,
