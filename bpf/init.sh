@@ -533,6 +533,7 @@ if [ "$MODE" == "ipvlan" ]; then
 	COPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi
 bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP "no_qdisc_reset"
 
 # bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
 bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
