@@ -41,7 +41,7 @@ func prepareNameMatch(name string) string {
 }
 
 // lookupTargetDNSServer finds the intended DNS target server for a specific
-// request (passed in via ServeDNS) in proxymap. The IP:port combination is
+// request (passed in via ServeDNS). The IP:port combination is
 // returned.
 func lookupTargetDNSServer(w dns.ResponseWriter) (server string, err error) {
 	return w.LocalAddr().String(), nil

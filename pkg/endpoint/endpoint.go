@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
@@ -1348,7 +1349,9 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		e.dnsHistoryTrigger.Shutdown()
 	}
 
-	if !e.ConntrackLocalLocked() && !option.Config.DryMode {
+	if e.ConntrackLocalLocked() {
+		ctmap.CloseLocalMaps(e.ConntrackName())
+	} else if !option.Config.DryMode {
 		e.scrubIPsInConntrackTableLocked()
 	}
 

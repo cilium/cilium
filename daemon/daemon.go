@@ -196,12 +196,12 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, 
 		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
 
-	r, err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
+	port, err, finalizeFunc, revertFunc := d.l7Proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
 	if err != nil {
 		return 0, err, nil, nil
 	}
 
-	return r.ProxyPort, nil, finalizeFunc, revertFunc
+	return port, nil, finalizeFunc, revertFunc
 }
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
@@ -555,16 +555,18 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	if option.Config.EnableIPv4 {
-		iptablesManager := iptables.IptablesManager{}
-		iptablesManager.Init()
-		// Always remove masquerade rule and then re-add it if required
-		iptablesManager.RemoveRules()
-		if option.Config.InstallIptRules {
-			if err := iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
-				return err
-			}
+	iptablesManager := iptables.IptablesManager{}
+	iptablesManager.Init()
+	// Always remove masquerade rule and then re-add it if required
+	iptablesManager.RemoveRules()
+	if option.Config.InstallIptRules {
+		if err := iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
+			return err
 		}
+	}
+	// Reinstall proxy rules for any running proxies
+	if d.l7Proxy != nil {
+		d.l7Proxy.ReinstallRules()
 	}
 
 	log.Info("Setting sysctl net.core.bpf_jit_enable=1")
@@ -1290,7 +1292,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-		option.Config.AccessLog, &d, option.Config.AgentLabels)
+		option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath)
 	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.fqdn.Start()

@@ -1816,6 +1816,7 @@
     "github.com/golang/protobuf/ptypes/any",
     "github.com/golang/protobuf/ptypes/duration",
     "github.com/golang/protobuf/ptypes/struct",
+    "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/google/gopacket",
     "github.com/google/gopacket/layers",
     "github.com/google/gops/agent",
