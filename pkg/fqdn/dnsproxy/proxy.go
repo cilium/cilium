@@ -193,7 +193,9 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 
 	p.BindAddr = UDPConn.LocalAddr().String()
 	p.BindPort = uint16(UDPConn.LocalAddr().(*net.UDPAddr).Port)
-	p.UDPServer = &dns.Server{PacketConn: UDPConn, Addr: p.BindAddr, Net: "udp", Handler: p}
+	p.UDPServer = &dns.Server{PacketConn: UDPConn, Addr: p.BindAddr, Net: "udp", Handler: p,
+		SessionUDPFactory: ciliumSessionUDPFactory,
+	}
 	p.TCPServer = &dns.Server{Listener: TCPListener, Addr: p.BindAddr, Net: "tcp", Handler: p}
 	log.WithField("address", p.BindAddr).Debug("DNS Proxy bound to address")
 
