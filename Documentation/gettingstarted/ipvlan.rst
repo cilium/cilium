@@ -106,7 +106,8 @@ supports its own BPF-based masquerading which does not rely in any way on
 iptables masquerading. If the ``--install-iptables-rules`` parameter is set
 to ``"false"`` and ``--masquerade`` set to ``"true"``, then Cilium will
 use the more efficient BPF-based masquerading where ipvlan can remain in
-L3 mode as well (instead of L3S).
+L3 mode as well (instead of L3S). A Linux kernel v4.16 or higher would be
+required for BPF-based masquerading.
 
 Example ConfigMap extract for ipvlan in pure L3 mode:
 
