@@ -16,6 +16,7 @@ package linux
 
 import (
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -54,4 +55,12 @@ func (l *linuxDatapath) Node() datapath.NodeHandler {
 // node
 func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
+}
+
+func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+	return iptables.InstallProxyRules(proxyPort, ingress, name)
+}
+
+func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
+	return iptables.RemoveProxyRules(proxyPort, ingress, name)
 }

@@ -63,3 +63,11 @@ func (f *fakeDatapath) WriteTemplateConfig(io.Writer, datapath.EndpointConfigura
 func (f *fakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfiguration) error {
 	return nil
 }
+
+func (f *fakeDatapath) InstallProxyRules(uint16, bool, string) error {
+	return nil
+}
+
+func (f *fakeDatapath) RemoveProxyRules(uint16, bool, string) error {
+	return nil
+}

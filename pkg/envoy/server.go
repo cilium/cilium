@@ -45,6 +45,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/struct"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 var (
@@ -61,16 +62,26 @@ var (
 const (
 	egressClusterName  = "egress-cluster"
 	ingressClusterName = "ingress-cluster"
+	EnvoyTimeout       = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
+
+type Listener struct {
+	// must hold the XDSServer.mutex when accessing 'count'
+	count uint
+
+	// mutex is needed when accessing the fields below.
+	// XDSServer.mutex is not needed, but if taken it must be taken before 'mutex'
+	mutex   lock.RWMutex
+	acked   bool
+	nacked  bool
+	waiters []*completion.Completion
+}
 
 // XDSServer provides a high-lever interface to manage resources published
 // using the xDS gRPC API.
 type XDSServer struct {
 	// socketPath is the path to the gRPC UNIX domain socket.
 	socketPath string
-
-	// mutex protects accesses to the configuration resources.
-	mutex lock.RWMutex
 
 	// listenerProto is a generic Envoy Listener protobuf. Immutable.
 	listenerProto *envoy_api_v2.Listener
@@ -81,13 +92,18 @@ type XDSServer struct {
 	// tcpFilterChainProto is a generic Envoy TCP proxy filter chain protobuf. Immutable.
 	tcpFilterChainProto *envoy_api_v2_listener.FilterChain
 
+	// mutex protects accesses to the configuration resources below.
+	mutex lock.RWMutex
+
 	// listenerMutator publishes listener updates to Envoy proxies.
+	// Manages it's own locking
 	listenerMutator xds.AckingResourceMutator
 
 	// listeners is the set of names of listeners that have been added by
 	// calling AddListener.
 	// mutex must be held when accessing this.
-	listeners map[string]struct{}
+	// Value holds the number of redirects using the listener named by the key.
+	listeners map[string]*Listener
 
 	// networkPolicyCache publishes network policy configuration updates to
 	// Envoy proxies.
@@ -166,6 +182,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 				},
 			},
 		},
+		Transparent: &wrappers.BoolValue{Value: true},
 		// FilterChains: []*envoy_api_v2_listener.FilterChain
 		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",
@@ -296,7 +313,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 		httpFilterChainProto:   httpFilterChainProto,
 		tcpFilterChainProto:    tcpFilterChainProto,
 		listenerMutator:        ldsMutator,
-		listeners:              make(map[string]struct{}),
+		listeners:              make(map[string]*Listener),
 		networkPolicyCache:     npdsCache,
 		NetworkPolicyMutator:   npdsMutator,
 		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
@@ -309,14 +326,30 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	log.Debugf("Envoy: %s AddListener %s", kind, name)
 
 	s.mutex.Lock()
-
-	// Bail out if this listener already exists
-	if _, ok := s.listeners[name]; ok {
-		log.Fatalf("Envoy: Attempt to add existing listener: %s", name)
+	listener := s.listeners[name]
+	if listener == nil {
+		listener = &Listener{}
+		s.listeners[name] = listener
 	}
-	s.listeners[name] = struct{}{}
-
-	s.mutex.Unlock()
+	listener.count++
+	listener.mutex.Lock() // needed for other than 'count'
+	if listener.count > 1 && !listener.nacked {
+		log.Debugf("Envoy: Reusing listener: %s", name)
+		if !listener.acked {
+			// Listener not acked yet, add a completion to the waiter's list
+			log.Debugf("Envoy: Waiting for a non-acknowledged reused listener: %s", name)
+			listener.waiters = append(listener.waiters, wg.AddCompletion())
+		}
+		listener.mutex.Unlock()
+		s.mutex.Unlock()
+		return
+	}
+	// Try again after a NACK, potentially with a different port number, etc.
+	if listener.nacked {
+		listener.acked = false
+		listener.nacked = false
+	}
+	listener.mutex.Unlock() // Listener locked again in callbacks below
 
 	clusterName := egressClusterName
 	if isIngress {
@@ -344,28 +377,57 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg.AddCompletion())
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"},
+		wg.AddCompletionWithCallback(func(err error) {
+			// listener might have already been removed, so we can't look again
+			// but we still need to complete all the completions in case
+			// someone is still waiting!
+			listener.mutex.Lock()
+			if err == nil {
+				// Allow future users to not need to wait
+				listener.acked = true
+			} else {
+				// Prevent further reuse of a failed listener
+				listener.nacked = true
+			}
+			// Pass the completion result to all the additional waiters.
+			for _, waiter := range listener.waiters {
+				waiter.Complete(err)
+			}
+			listener.waiters = nil
+			listener.mutex.Unlock()
+		}))
+	s.mutex.Unlock()
 }
 
 // RemoveListener removes an existing Envoy Listener.
 func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
-	s.mutex.Lock()
 	log.Debugf("Envoy: removeListener %s", name)
-	if _, ok := s.listeners[name]; !ok {
+
+	var listenerRevertFunc func(*completion.Completion)
+
+	s.mutex.Lock()
+	listener, ok := s.listeners[name]
+	if ok && listener != nil {
+		listener.count--
+		if listener.count == 0 {
+			delete(s.listeners, name)
+			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+		}
+	} else {
 		// Bail out if this listener does not exist
 		log.Fatalf("Envoy: Attempt to remove non-existent listener: %s", name)
 	}
-	delete(s.listeners, name)
 	s.mutex.Unlock()
-
-	listenerRevertFunc := s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
 
 	return func(completion *completion.Completion) {
 		s.mutex.Lock()
-		s.listeners[name] = struct{}{}
+		if listenerRevertFunc != nil {
+			listenerRevertFunc(completion)
+		}
+		listener.count++
+		s.listeners[name] = listener
 		s.mutex.Unlock()
-
-		listenerRevertFunc(completion)
 	}
 }
 

@@ -18,9 +18,15 @@ package proxy
 
 import (
 	"fmt"
+	"net"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
@@ -53,6 +59,14 @@ var (
 	}
 )
 
+type DummyRuleCacheOwner struct{}
+
+func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
+	return &sync.WaitGroup{}
+}
+
+var ruleCacheOwner *DummyRuleCacheOwner
+
 // newTestBrokerConf returns BrokerConf with default configuration adjusted for
 // tests
 func newTestBrokerConf(clientID string) kafka.BrokerConf {
@@ -79,19 +93,19 @@ func (loggerMap) Warn(msg string, args ...interface{})  { log.WithFields(fields(
 func (loggerMap) Error(msg string, args ...interface{}) { log.WithFields(fields(args...)).Error(msg) }
 
 var (
-	proxyAddress, proxyPort = "127.0.0.1", 15000
+	proxyAddress = "127.0.0.1"
 )
 
 type metadataTester struct {
 	host               string
-	port               int
+	port               uint16
 	topics             map[string]bool
 	allowCreate        bool
 	numGeneralFetches  int
 	numSpecificFetches int
 }
 
-func newMetadataHandler(srv *Server, allowCreate bool) *metadataTester {
+func newMetadataHandler(srv *Server, allowCreate bool, proxyPort uint16) *metadataTester {
 	tester := &metadataTester{
 		host:        proxyAddress,
 		port:        proxyPort,
@@ -181,7 +195,16 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 		"address": server.Address(),
 	}).Debug("Started kafka server")
 
-	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, uint16(proxyPort))
+	pp := getProxyPort(policy.ParserTypeKafka, true)
+	c.Assert(pp.configured, Equals, false)
+	var err error
+	pp.proxyPort, err = allocatePort(pp.proxyPort, 10000, 20000)
+	c.Assert(err, IsNil)
+	c.Assert(pp.proxyPort, Not(Equals), 0)
+	pp.reservePort()
+	c.Assert(pp.configured, Equals, true)
+
+	proxyAddress := fmt.Sprintf("%s:%d", proxyAddress, uint16(pp.proxyPort))
 
 	kafkaRule1 := api.PortRuleKafka{APIKey: "metadata", APIVersion: "0"}
 	c.Assert(kafkaRule1.Sanitize(), IsNil)
@@ -189,9 +212,21 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	kafkaRule2 := api.PortRuleKafka{APIKey: "produce", APIVersion: "0", Topic: "allowedTopic"}
 	c.Assert(kafkaRule2.Sanitize(), IsNil)
 
-	r := newRedirect(localEndpointMock, "foo")
-	r.ProxyPort = uint16(proxyPort)
-	r.ingress = true
+	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
+	// the EP ID by the IP.
+	ep := endpoint.NewEndpointWithState(uint16(localEndpointMock.GetID()), endpoint.StateReady)
+	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
+	c.Assert(err, IsNil)
+	ep.IPv4 = ipv4
+	ep.UpdateLogger(nil)
+	endpointmanager.Insert(ep)
+	defer endpointmanager.Remove(ep, ruleCacheOwner)
+
+	_, dstPortStr, err := net.SplitHostPort(server.Address())
+	c.Assert(err, IsNil)
+	portInt, err := strconv.Atoi(dstPortStr)
+	c.Assert(err, IsNil)
+	r := newRedirect(localEndpointMock, pp, uint16(portInt))
 
 	r.rules = policy.L7DataMap{
 		api.WildcardEndpointSelector: api.L7Rules{
@@ -200,11 +235,11 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	}
 
 	redir, err := createKafkaRedirect(r, kafkaConfiguration{
-		lookupNewDest: func(remoteAddr string, dport uint16) (uint32, string, error) {
-			return uint32(200), server.Address(), nil
+		lookupSrcID: func(mapname, remoteAddr, localAddr string, ingress bool) (uint32, error) {
+			return uint32(1000), nil
 		},
-		// Disable use of SO_MARK
-		noMarker: true,
+		// Disable use of SO_MARK, IP_TRANSPARENT for tests
+		testMode: true,
 	}, DefaultEndpointInfoRegistry)
 	c.Assert(err, IsNil)
 	defer redir.Close(nil)
@@ -213,7 +248,7 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 		"address": proxyAddress,
 	}).Debug("Started kafka proxy")
 
-	server.Handle(MetadataRequest, newMetadataHandler(server, false).Handler())
+	server.Handle(MetadataRequest, newMetadataHandler(server, false, r.listener.proxyPort).Handler())
 
 	broker, err := kafka.Dial([]string{proxyAddress}, newTestBrokerConf("tester"))
 	if err != nil {
@@ -260,7 +295,8 @@ func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, Equals, proto.ErrTopicAuthorizationFailed)
 
 	log.Debug("Testing done, closing listen socket")
-	redir.Close(nil)
+	finalize, _ := redir.Close(nil)
+	finalize()
 
 	// In order to see in the logs that the connections get closed after the
 	// 1-minute timeout, uncomment this line:

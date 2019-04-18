@@ -26,6 +26,8 @@ import (
 )
 
 // TupleKey6 represents the key for IPv6 entries in the local BPF conntrack map.
+// Address field names are correct for return traffic, i.e., they are reversed
+// compared to the original direction traffic.
 type TupleKey6 struct {
 	DestAddr   types.IPv6      `align:"daddr"`
 	SourceAddr types.IPv6      `align:"saddr"`

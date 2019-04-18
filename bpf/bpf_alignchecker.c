@@ -59,10 +59,6 @@ int main() {
     DECLARE_STRUCT(endpoint_info, iter);
     DECLARE_STRUCT(metrics_key, iter);
     DECLARE_STRUCT(metrics_value, iter);
-    DECLARE_STRUCT(proxy4_tbl_key, iter)
-    DECLARE_STRUCT(proxy4_tbl_value, iter);
-    DECLARE_STRUCT(proxy6_tbl_key, iter);
-    DECLARE_STRUCT(proxy6_tbl_value, iter);
     DECLARE_STRUCT(sock_key, iter);
     DECLARE_STRUCT(ep_config, iter);
     DECLARE_STRUCT(policy_key, iter);

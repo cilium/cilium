@@ -22,7 +22,7 @@ import (
 )
 
 // EndpointInfoSource returns information about an endpoint being proxied.
-// The read lock must be held when calling any Get method.
+// The read lock must be held when calling any method.
 type EndpointInfoSource interface {
 	UnconditionalRLock()
 	RUnlock()

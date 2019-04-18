@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/common"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 
 	"github.com/spf13/cobra"
 )
@@ -26,11 +25,11 @@ import (
 // bpfProxyFlushCmd represents the bpf_proxy_flush command
 var bpfProxyFlushCmd = &cobra.Command{
 	Use:    "flush",
-	Short:  "Flush all proxy entries",
+	Short:  "Flush all proxy entries (deprecated)",
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf proxy flush")
-		entries := proxymap.Flush()
+		entries := 0
 		fmt.Printf("Flushed %d entries\n", entries)
 	},
 }
