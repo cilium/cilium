@@ -17,6 +17,7 @@ package endpointmanager
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -187,6 +188,19 @@ func LookupIPv4(ipv4 string) *endpoint.Endpoint {
 func LookupIPv6(ipv6 string) *endpoint.Endpoint {
 	mutex.RLock()
 	ep := lookupIPv6(ipv6)
+	mutex.RUnlock()
+	return ep
+}
+
+// LookupIP looks up endpoint by IP address
+func LookupIP(ip net.IP) (ep *endpoint.Endpoint) {
+	addr := ip.String()
+	mutex.RLock()
+	if ip.To4() != nil {
+		ep = lookupIPv4(addr)
+	} else {
+		ep = lookupIPv6(addr)
+	}
 	mutex.RUnlock()
 	return ep
 }
