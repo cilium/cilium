@@ -349,6 +349,8 @@ Menlo
 Mesos
 Metadata
 metadata
+microk
+MicroK
 microservice
 Microservices
 microservices
