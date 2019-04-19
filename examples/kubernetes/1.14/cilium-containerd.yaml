@@ -365,7 +365,6 @@ spec:
         # To be able to load kernel modules
       - hostPath:
           path: /lib/modules
-          type: Directory
         name: lib-modules
         # To be able to load ip[6]tables kernel modules
       - hostPath:
