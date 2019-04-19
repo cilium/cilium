@@ -117,6 +117,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 				return
 			}
 
+			if !helpers.RunsOnNetNext() {
+				Skip("Skipping test because it is not running with the net-next kernel")
+				return
+			}
+
 			deployCilium("cilium-ds-patch-vxlan-ipsec.yaml")
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
