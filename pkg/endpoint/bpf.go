@@ -1033,3 +1033,9 @@ func (e *Endpoint) syncPolicyMapController() {
 		},
 	)
 }
+
+// RequireARPPassthrough returns true if the datapath must implement ARP
+// passthrough for this endpoint
+func (e *Endpoint) RequireARPPassthrough() bool {
+	return false
+}
