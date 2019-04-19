@@ -39,7 +39,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"5ea51d2f5c6a2ce7fc28571be15e7c29477bd9fbe55fba6ab8705e37066052b2","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"ea70aaa61673cbb572dd129901db299c33d39225b176fdc9090574e60ebb1b27","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: details
@@ -172,7 +172,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.2
+        image: docker.io/istio/proxy_init:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -186,6 +186,8 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       terminationGracePeriodSeconds: 0
       volumes:
       - hostPath:
@@ -227,7 +229,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"5ea51d2f5c6a2ce7fc28571be15e7c29477bd9fbe55fba6ab8705e37066052b2","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"ea70aaa61673cbb572dd129901db299c33d39225b176fdc9090574e60ebb1b27","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: reviews
@@ -360,7 +362,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.2
+        image: docker.io/istio/proxy_init:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -374,6 +376,8 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       terminationGracePeriodSeconds: 0
       volumes:
       - hostPath:
@@ -415,7 +419,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"5ea51d2f5c6a2ce7fc28571be15e7c29477bd9fbe55fba6ab8705e37066052b2","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"ea70aaa61673cbb572dd129901db299c33d39225b176fdc9090574e60ebb1b27","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: productpage
@@ -548,7 +552,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.2
+        image: docker.io/istio/proxy_init:1.1.3
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -562,6 +566,8 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+          runAsNonRoot: false
+          runAsUser: 0
       terminationGracePeriodSeconds: 0
       volumes:
       - hostPath:
