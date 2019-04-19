@@ -24,6 +24,7 @@ Installation
    :glob:
 
    minikube
+   microk8s
    k8s-install-self-managed
    k8s-install-managed
    k8s-installers
