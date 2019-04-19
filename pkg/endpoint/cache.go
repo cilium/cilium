@@ -52,6 +52,7 @@ type epInfoCache struct {
 	ipv4                                   addressing.CiliumIPv4
 	ipv6                                   addressing.CiliumIPv6
 	conntrackLocal                         bool
+	requireARPPassthrough                  bool
 	cidr4PrefixLengths, cidr6PrefixLengths []int
 	options                                *option.IntOptions
 
@@ -77,14 +78,15 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		ifName: e.IfName,
 		ipvlan: e.HasIpvlanDataPath(),
 
-		identity:           e.GetIdentity(),
-		mac:                e.GetNodeMAC(),
-		ipv4:               e.IPv4Address(),
-		ipv6:               e.IPv6Address(),
-		conntrackLocal:     e.ConntrackLocalLocked(),
-		cidr4PrefixLengths: cidr4,
-		cidr6PrefixLengths: cidr6,
-		options:            e.Options.DeepCopy(),
+		identity:              e.GetIdentity(),
+		mac:                   e.GetNodeMAC(),
+		ipv4:                  e.IPv4Address(),
+		ipv6:                  e.IPv6Address(),
+		conntrackLocal:        e.ConntrackLocalLocked(),
+		requireARPPassthrough: e.RequireARPPassthrough(),
+		cidr4PrefixLengths:    cidr4,
+		cidr6PrefixLengths:    cidr6,
+		options:               e.Options.DeepCopy(),
 
 		endpoint: e,
 	}
@@ -171,4 +173,10 @@ func (ep *epInfoCache) GetCIDRPrefixLengths() ([]int, []int) {
 
 func (ep *epInfoCache) GetOptions() *option.IntOptions {
 	return ep.options
+}
+
+// RequireARPPassthrough returns true if the datapath must implement ARP
+// passthrough for this endpoint
+func (ep *epInfoCache) RequireARPPassthrough() bool {
+	return ep.requireARPPassthrough
 }

@@ -233,7 +233,12 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 
 func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.EndpointConfiguration) error {
 	if !e.HasIpvlanDataPath() {
-		fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+		if e.RequireARPPassthrough() {
+			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
+		} else {
+			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
+		}
+
 		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
 		if option.Config.IsFlannelMasterDeviceSet() {
 			fmt.Fprint(fw, "#define HOST_REDIRECT_TO_INGRESS 1\n")
