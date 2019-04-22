@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
