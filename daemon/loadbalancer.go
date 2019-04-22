@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
@@ -847,6 +848,8 @@ func restoreBackendIDs() (map[lbmap.BackendAddrID]loadbalancer.BackendID, error)
 }
 
 func restoreServices() {
+	before := time.Now()
+
 	// Restore Backend IDs first, otherwise they can get taken by subsequent
 	// calls to UpdateService
 	restoredBackendIDs, err := restoreBackendIDs()
@@ -969,9 +972,10 @@ func restoreServices() {
 	}
 
 	log.WithFields(logrus.Fields{
-		"restored": restored,
-		"failed":   failed,
-		"skipped":  skipped,
-		"removed":  removed,
+		logfields.Duration: time.Now().Sub(before),
+		"restored":         restored,
+		"failed":           failed,
+		"skipped":          skipped,
+		"removed":          removed,
 	}).Info("Restore service IDs from BPF maps")
 }
