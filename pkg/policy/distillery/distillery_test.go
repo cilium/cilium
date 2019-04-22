@@ -77,33 +77,36 @@ func (repo *testPolicyRepo) ResolvePolicyLocked(*identityPkg.Identity) (*policy.
 
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	cache := newPolicyCache()
-
 	identity := ep1.GetSecurityIdentity()
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
-	_, err := cache.remove(ep1)
-	c.Assert(err, NotNil)
 
-	// Upsert ep1 once, ep2 twice.
-	policy1, _ := cache.upsert(identity, ep1)
-	policy2, _ := cache.upsert(identity, ep2)
+	// Nonsense delete of entry that isn't yet inserted
+	deleted := cache.delete(identity)
+	c.Assert(deleted, Equals, false)
+
+	// Insert identity twice. Should be the same policy.
+	policy1, _ := cache.insert(identity)
+	policy2, _ := cache.insert(identity)
 	c.Assert(policy1, Equals, policy2)
 
-	// Despite three upsert calls, there should only be one reference from
-	// each endpoint; removing both should clear the cache.
-	cacheCleared, err := cache.remove(ep1)
-	c.Assert(err, IsNil)
-	c.Assert(cacheCleared, Equals, false)
-	cacheCleared, err = cache.remove(ep1)
-	c.Assert(err, IsNil)
-	c.Assert(cacheCleared, Equals, false)
-	cacheCleared, err = cache.remove(ep2)
-	c.Assert(err, IsNil)
+	// Despite two insert calls, there is no reference tracking; any delete
+	// will clear the cache.
+	cacheCleared := cache.delete(identity)
 	c.Assert(cacheCleared, Equals, true)
-	_, err = cache.remove(ep2)
-	c.Assert(err, NotNil)
+	cacheCleared = cache.delete(identity)
+	c.Assert(cacheCleared, Equals, false)
 
-	// TODO: If we implement deferred SelectorPolicy expiry, then
-	// re-inserting ep1 would reuse the same policy.
+	// Insert two distinct identities, then delete one. Other should still
+	// be there.
+	ep3 := newTestEP().WithIdentity(1234)
+	identity3 := ep3.GetSecurityIdentity()
+	c.Assert(identity3, Not(Equals), identity)
+	policy1, _ = cache.insert(identity)
+	policy3, _ := cache.insert(identity3)
+	c.Assert(policy1, Not(Equals), policy3)
+	_ = cache.delete(identity)
+	policy3, _ = cache.lookupOrCreate(identity3, false)
+	c.Assert(policy3, NotNil)
 }
 
 func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
@@ -112,51 +115,45 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 
 	identity1 := ep1.GetSecurityIdentity()
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity1)
-
-	// Upsert ep1, ep2
-	policy1, computed := cache.upsert(identity1, ep1)
+	policy1, computed := cache.insert(identity1)
 	c.Assert(computed, Equals, false)
-	policy2, computed := cache.upsert(identity1, ep2)
-	c.Assert(computed, Equals, false)
-	c.Assert(policy1, Equals, policy2)
 
 	// Calculate the policy and observe that it's cached
-	updated, err := cache.updateSelectorPolicy(repo, ep1)
+	updated, err := cache.updateSelectorPolicy(repo, identity1)
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, true)
-	updated, err = cache.updateSelectorPolicy(repo, ep1)
+	updated, err = cache.updateSelectorPolicy(repo, identity1)
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, false)
-	updated, err = cache.updateSelectorPolicy(repo, ep2)
-	c.Assert(err, IsNil)
-	c.Assert(updated, Equals, false)
-	policy2, computed = cache.upsert(identity1, ep2)
+	policy2, computed := cache.insert(identity1)
 	c.Assert(computed, Equals, true)
 	idp1 := policy1.(*cachedSelectorPolicy).getPolicy()
 	idp2 := policy2.(*cachedSelectorPolicy).getPolicy()
 	c.Assert(idp1, Equals, idp2)
 
-	// Remove ep1 and observe that ep2 still has access to the policy
-	cacheCleared, err := cache.remove(ep1)
-	c.Assert(err, IsNil)
-	c.Assert(cacheCleared, Equals, false)
-	updated, err = cache.updateSelectorPolicy(repo, ep2)
-	c.Assert(err, IsNil)
-	c.Assert(updated, Equals, false)
+	// Remove the identity and observe that it is no longer available
+	cacheCleared := cache.delete(identity1)
+	c.Assert(cacheCleared, Equals, true)
+	updated, err = cache.updateSelectorPolicy(repo, identity1)
+	c.Assert(err, NotNil)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := newTestEP().WithIdentity(1234)
-	_, err = cache.updateSelectorPolicy(repo, ep3)
+	_, err = cache.updateSelectorPolicy(repo, ep3.GetSecurityIdentity())
 	c.Assert(err, NotNil)
 	c.Assert(updated, Equals, false)
 
 	// Insert endpoint with different identity and observe that the cache
 	// is different from ep1, ep2
+	policy1, computed = cache.insert(identity1)
+	c.Assert(computed, Equals, false)
+	idp1 = policy1.(*cachedSelectorPolicy).getPolicy()
+	c.Assert(idp1, NotNil)
 	identity3 := ep3.GetSecurityIdentity()
-	policy3, computed := cache.upsert(identity3, ep3)
+	policy3, computed := cache.insert(identity3)
 	c.Assert(policy3, Not(Equals), policy1)
 	c.Assert(computed, Equals, false)
-	updated, err = cache.updateSelectorPolicy(repo, ep3)
+	updated, err = cache.updateSelectorPolicy(repo, identity3)
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, true)
 	idp3 := policy3.(*cachedSelectorPolicy).getPolicy()
@@ -165,6 +162,6 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	// If there's an error during policy resolution, update should fail
 	repo.err = fmt.Errorf("not implemented!")
 	repo.revision++
-	_, err = cache.updateSelectorPolicy(repo, ep3)
+	_, err = cache.updateSelectorPolicy(repo, identity3)
 	c.Assert(err, NotNil)
 }

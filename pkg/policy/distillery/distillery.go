@@ -19,13 +19,19 @@ import (
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
 var (
-	globalPolicyCache = newPolicyCache()
+	globalPolicyCache *policyCache
 )
+
+func init() {
+	globalPolicyCache = newPolicyCache()
+	identitymanager.Subscribe(globalPolicyCache)
+}
 
 // SelectorPolicy represents a cached SelectorPolicy, previously resolved from
 // the policy repository and ready to be distilled against a set of identities
@@ -49,45 +55,43 @@ func newPolicyCache() *policyCache {
 	}
 }
 
-// upsert adds the specified Identity to the policy cache, with a reference
+// lookupOrCreate adds the specified Identity to the policy cache, with a reference
 // from the specified Endpoint, then returns the threadsafe copy of the policy
 // and whether policy has been computed for this identity.
-func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) (SelectorPolicy, bool) {
+func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity, create bool) (SelectorPolicy, bool) {
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity.ID]
-	if !ok {
+	if create && !ok {
 		cip = newCachedSelectorPolicy(identity)
 		cache.policies[identity.ID] = cip
 	}
-	cip.users[ep] = struct{}{}
 
-	policy := cip.getPolicy()
-	return cip, policy.Revision > 0
+	computed := false
+	if cip != nil {
+		computed = cip.getPolicy().Revision > 0
+	}
+	return cip, computed
 }
 
-// remove forgets about any cached SelectorPolicy that this endpoint uses.
+// insert adds the specified Identity to the policy cache, with a reference
+// from the specified Endpoint, then returns the threadsafe copy of the policy
+// and whether policy has been computed for this identity.
+func (cache *policyCache) insert(identity *identityPkg.Identity) (SelectorPolicy, bool) {
+	return cache.lookupOrCreate(identity, true)
+}
+
+// delete forgets about any cached SelectorPolicy that this endpoint uses.
 //
 // Returns true if the SelectorPolicy was removed from the cache.
-func (cache *policyCache) remove(ep Endpoint) (bool, error) {
-	identity := ep.GetSecurityIdentity().ID
-
+func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	cache.Lock()
 	defer cache.Unlock()
-	cip, ok := cache.policies[identity]
-	if !ok {
-		return false, fmt.Errorf("no cached SelectorPolicy for identity %d", identity)
+	_, ok := cache.policies[identity.ID]
+	if ok {
+		delete(cache.policies, identity.ID)
 	}
-
-	changed := false
-	delete(cip.users, ep)
-	if len(cip.users) == 0 {
-		// TODO: Add deferred removal window in case the SelectorPolicy
-		//       may be re-used some time soon?
-		delete(cache.policies, identity)
-		changed = true
-	}
-	return changed, nil
+	return ok
 }
 
 // updateSelectorPolicy resolves the policy for the security identity of the
@@ -97,8 +101,7 @@ func (cache *policyCache) remove(ep Endpoint) (bool, error) {
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoint) (bool, error) {
-	identity := ep.GetSecurityIdentity()
+func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, identity *identityPkg.Identity) (bool, error) {
 	revision := repo.GetRevision()
 
 	cache.Lock()
@@ -143,19 +146,23 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 	return changed, nil
 }
 
-// Upsert notifies the global policy cache that the specified endpoint requires
-// a reference to an identity policy, and returns the cached identity policy
-// for that identity.
-func Upsert(ep Endpoint) SelectorPolicy {
-	identity := ep.GetSecurityIdentity()
-	cip, _ := globalPolicyCache.upsert(identity, ep)
-	return cip
+// LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
+// specified Identity, without calculating any policy for it.
+func (cache *policyCache) LocalEndpointIdentityAdded(identity *identityPkg.Identity) {
+	globalPolicyCache.insert(identity)
 }
 
-// Remove a cached SelectorPolicy reference for the specified endpoint.
-func Remove(ep Endpoint) error {
-	_, err := globalPolicyCache.remove(ep)
-	return err
+// LocalEndpointIdentityRemoved deletes the cached SelectorPolicy for the
+// specified Identity.
+func (cache *policyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Identity) {
+	globalPolicyCache.delete(identity)
+}
+
+// Lookup attempts to locate the SelectorPolicy corresponding to the specified
+// identity. If policy is not cached for the identity, it returns nil.
+func Lookup(identity *identityPkg.Identity) SelectorPolicy {
+	cip, _ := globalPolicyCache.lookupOrCreate(identity, false)
+	return cip
 }
 
 // PolicyRepository is an interface which generates an SelectorPolicy for a
@@ -165,18 +172,12 @@ type PolicyRepository interface {
 	GetRevision() uint64
 }
 
-// Endpoint represents a user of an SelectorPolicy. It is used for managing
-// the lifetime of the cached policy.
-type Endpoint interface {
-	policy.PolicyOwner
-}
-
 // UpdatePolicy resolves the policy for the security identity of the specified
 // endpoint and caches it for future use.
 //
 // The caller must provide threadsafety for iteration over the provided policy
 // repository.
-func UpdatePolicy(repo PolicyRepository, ep Endpoint) error {
-	_, err := globalPolicyCache.updateSelectorPolicy(repo, ep)
+func UpdatePolicy(repo PolicyRepository, identity *identityPkg.Identity) error {
+	_, err := globalPolicyCache.updateSelectorPolicy(repo, identity)
 	return err
 }

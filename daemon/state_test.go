@@ -33,6 +33,7 @@ import (
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/mac"
@@ -151,6 +152,11 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		fullDirName := filepath.Join(baseDir, ep.DirectoryPath())
 		os.MkdirAll(fullDirName, 777)
 		ep.UnconditionalLock()
+
+		// The identities must be tracked in identitymanager to
+		// regenerate the policy for them.
+		identitymanager.Add(ep.SecurityIdentity)
+		defer identitymanager.Remove(ep.SecurityIdentity)
 
 		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 		ep.Unlock()

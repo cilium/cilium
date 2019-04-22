@@ -1335,12 +1335,6 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		}
 	}
 
-	if e.selectorPolicy != nil {
-		if err := distillery.Remove(e); err != nil {
-			errors = append(errors, fmt.Errorf("unable to release SelectorPolicy reference: %s", err))
-		}
-	}
-
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		identitymanager.Remove(e.SecurityIdentity)
 		_, err := cache.Release(context.Background(), e.SecurityIdentity)
