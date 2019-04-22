@@ -18,6 +18,7 @@ package ipsec
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -204,6 +205,21 @@ func ipsecDeleteXfrmState(ip net.IP) {
 	}
 }
 
+// XfrmStateExists returns true if xfrm state related to 'ip' otherwise returns false. An
+// error is reported if agent/kernel netlink error occurs.
+func XfrmStateExists(ip net.IP) (bool, error) {
+	xfrmStateList, err := netlink.XfrmStateList(0)
+	if err != nil {
+		return false, err
+	}
+	for _, s := range xfrmStateList {
+		if ip.Equal(s.Dst) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func ipsecDeleteXfrmPolicy(ip net.IP) {
 	scopedLog := log.WithFields(logrus.Fields{
 		"remote-ip": ip,
@@ -220,6 +236,21 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
 			}
 		}
 	}
+}
+
+// XfrmPolicyExists returns true if xfrm policy related to 'ip' otherwise returns false. An
+// error is reported if agent/kernel netlink error occurs.
+func XfrmPolicyExists(ip net.IP) (bool, error) {
+	xfrmPolicyList, err := netlink.XfrmPolicyList(0)
+	if err != nil {
+		return false, err
+	}
+	for _, p := range xfrmPolicyList {
+		if ip.Equal(p.Dst.IP) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 /* UpsertIPsecEndpoint updates the IPSec context for a new endpoint inserted in
@@ -335,6 +366,13 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 	return loadIPSecKeys(file)
 }
 
+// LoadIPSecKeys imports IPSec auth and crypt keys from a byte[]. The format
+// is a key per line as follows, ([id] auth-algo auth-key enc-algo enc-key)
+// Returns the authentication overhead in bytes, the key ID, and an error.
+func LoadIPSecKeys(keys []byte) (int, uint8, error) {
+	k := bytes.NewReader(keys)
+	return loadIPSecKeys(k)
+}
 func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
