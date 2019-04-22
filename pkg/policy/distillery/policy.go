@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -28,7 +29,8 @@ import (
 //
 // 'policy' and 'revesion' are only consistent if queried while holding a lock.
 type cachedSelectorPolicy struct {
-	users map[Endpoint]struct{}
+	users    map[Endpoint]struct{}
+	identity *identityPkg.Identity
 
 	// policy is managed via getPolicy() / setPolicyLocked() to ensure that
 	// writes are performed atomically and reads can be entirely lockless
@@ -37,9 +39,10 @@ type cachedSelectorPolicy struct {
 	revision uint64
 }
 
-func newCachedSelectorPolicy() *cachedSelectorPolicy {
+func newCachedSelectorPolicy(identity *identityPkg.Identity) *cachedSelectorPolicy {
 	cip := &cachedSelectorPolicy{
-		users: make(map[Endpoint]struct{}),
+		users:    make(map[Endpoint]struct{}),
+		identity: identity,
 	}
 	cip.setPolicyLocked(policy.NewSelectorPolicy(), 0)
 	return cip

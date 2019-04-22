@@ -39,13 +39,13 @@ type SelectorPolicy interface {
 // policyCache represents a cache of resolved policies for identities.
 type policyCache struct {
 	lock.Mutex
-	policies map[*identityPkg.Identity]*cachedSelectorPolicy
+	policies map[identityPkg.NumericIdentity]*cachedSelectorPolicy
 }
 
 // newPolicyCache creates a new cache of SelectorPolicy.
 func newPolicyCache() *policyCache {
 	return &policyCache{
-		policies: make(map[*identityPkg.Identity]*cachedSelectorPolicy),
+		policies: make(map[identityPkg.NumericIdentity]*cachedSelectorPolicy),
 	}
 }
 
@@ -55,10 +55,10 @@ func newPolicyCache() *policyCache {
 func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) (SelectorPolicy, bool) {
 	cache.Lock()
 	defer cache.Unlock()
-	cip, ok := cache.policies[identity]
+	cip, ok := cache.policies[identity.ID]
 	if !ok {
-		cip = newCachedSelectorPolicy()
-		cache.policies[identity] = cip
+		cip = newCachedSelectorPolicy(identity)
+		cache.policies[identity.ID] = cip
 	}
 	cip.users[ep] = struct{}{}
 
@@ -69,13 +69,13 @@ func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) (S
 //
 // Returns true if the SelectorPolicy was removed from the cache.
 func (cache *policyCache) remove(ep Endpoint) (bool, error) {
-	identity := ep.GetSecurityIdentity()
+	identity := ep.GetSecurityIdentity().ID
 
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity]
 	if !ok {
-		return false, fmt.Errorf("no cached SelectorPolicy for identity %d", identity.ID)
+		return false, fmt.Errorf("no cached SelectorPolicy for identity %d", identity)
 	}
 
 	changed := false
@@ -103,7 +103,7 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 	// Don't resolve policy if it was already done for this Identity.
 	var currentRevision uint64
 	cache.Lock()
-	cip, ok := cache.policies[identity]
+	cip, ok := cache.policies[identity.ID]
 	if ok {
 		currentRevision = cip.revision
 	}
