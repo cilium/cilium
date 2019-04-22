@@ -19,8 +19,8 @@ environment running on your machine.
 
    If running on minikube, you may need to up the memory and CPUs
    available to the minikube VM from the defaults and/or the
-   instructions provided here for the other GSGs. 6GB and 3 CPUs
-   should be enough for Istio (``--memory=6144 --cpus=3``).
+   instructions provided here for the other GSGs. 5 GB and 4 CPUs
+   should be enough for this GSG (``--memory=5120 --cpus=4``).
 
 Step 2: Install Istio
 =====================
@@ -31,12 +31,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.1.2
+Download `Istio version 1.1.3
 <https://github.com/istio/istio/releases/tag/1.1.2>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.1.2
+   $ export ISTIO_VERSION=1.1.3
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -94,7 +94,7 @@ of Pilot, and disables unused services:
           --set sidecarInjectorWebhook.enabled=false \
           --set global.controlPlaneSecurityEnabled=true \
           --set global.mtls.enabled=true \
-          --set global.proxy.image=docker.io/cilium/istio_proxy:1.1.3 \
+          --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
           --set ingress.enabled=false \
           --set egressgateway.enabled=false \
           > istio-cilium.yaml
@@ -145,7 +145,12 @@ Step 3: Deploy the Bookinfo Application V1
 
 Now that we have Cilium and Istio deployed, we can deploy version
 ``v1`` of the services of the `Istio Bookinfo sample application
-<https://istio.io/docs/guides/bookinfo.html>`_.
+<https://istio.io/docs/examples/bookinfo.html>`_.
+
+While the upstream `Istio Bookinfo Application example for Kubernetes
+<https://istio.io/docs/examples/bookinfo/#if-you-are-running-on-kubernetes>`_
+deploys multiple versions of the Bookinfo application at the same time,
+here we first deploy only the version 1.
 
 The BookInfo application is broken into four separate microservices:
 
@@ -170,17 +175,7 @@ into Kubernetes using separate YAML files which define:
    :scale: 75 %
    :align: center
 
-Create an Istio ingress gateway for the productpage service:
-
-.. parsed-literal::
-
-    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-ingress.yaml | \\
-          istioctl create -f -
-    Created config gateway/default/productpage at revision ...
-    Created config virtual-service/default/productpage at revision ...
-
-To package the Istio sidecar proxy and generate final YAML
-specifications, run:
+To deploy the application with manual sidecar injection, run:
 
 .. parsed-literal::
 
@@ -205,16 +200,33 @@ Check the progress of the deployment (every service should have an
 
     $ watch "kubectl get deployments"
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    details-v1       1         1         1            1           6m
-    productpage-v1   1         1         1            1           6m
-    reviews-v1       1         1         1            1           6m
+    details-v1       1         1         1            1           2m
+    productpage-v1   1         1         1            1           2m
+    reviews-v1       1         1         1            1           2m
+
+Once all the pods are available, verify that the application works by
+making a query from reviews pod to the productpage:
+
+::
+
+    $ kubectl exec -it $(kubectl get pod -l app=reviews -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- curl productpage:9080/productpage | grep "<title>.*</title>"
+        <title>Simple Bookstore App</title>
+
+Create an Istio ingress gateway for the productpage service:
+
+::
+
+    $ kubectl apply -f ${ISTIO_HOME}/samples/bookinfo/networking/bookinfo-gateway.yaml
+    gateway "bookinfo-gateway" created
+    virtualservice "bookinfo" created
 
 To obtain the URL to the frontend productpage service, run:
 
 ::
 
-    $ export PRODUCTPAGE=`minikube service istio-ingressgateway -n istio-system --url | head -n 1`
-    $ echo "Open URL: ${PRODUCTPAGE}/productpage"
+    $ export GATEWAY_URL=http://$(minikube ip):$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].nodePort}')
+    $ export PRODUCTPAGE_URL=${GATEWAY_URL}/productpage
+    $ echo "Open URL: ${PRODUCTPAGE_URL}"
 
 Open that URL in your web browser and check that the application has
 been successfully deployed.  It may take several seconds before all
@@ -248,9 +260,9 @@ Apply this route rule:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1.yaml | \\
-          istioctl create -f -
-    Created config virtual-service/default/reviews at revision ...
-    Created config destination-rule/default/reviews at revision ...
+          kubectl apply -f -
+    virtualservice "reviews" created
+    destinationrule "reviews" created
 
 Deploy the ``ratings v1`` and ``reviews v2`` services:
 
@@ -271,7 +283,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments
+    $ watch "kubectl get deployments"
     NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     details-v1       1         1         1            1           6m
     productpage-v1   1         1         1            1           6m
@@ -297,6 +309,10 @@ Check that ``reviews v1`` may not be able to access the ``ratings``
 service, even if it were compromised or suffered from a bug, by
 running ``curl`` from within the pod:
 
+.. note::
+
+   It may take a minute for the error to appear.
+
 ::
 
     $ export POD_REVIEWS_V1=`kubectl get pods -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
@@ -318,8 +334,8 @@ Apply this route rule:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1-v2.yaml | \\
-          istioctl replace -f -
-    Updated config virtual-service/default/reviews to revision ...
+          kubectl apply -f -
+    virtualservice "reviews" configured
 
 Check in your web browser that stars are appearing in the Book Reviews
 roughly 50% of the time.  This may require refreshing the page for a
@@ -344,8 +360,8 @@ Apply this route rule:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v2.yaml | \\
-          istioctl replace -f -
-    Updated config virtual-service/default/reviews to revision ...
+          kubectl apply -f -
+    virtualservice "reviews" configured
 
 Refresh the product page in your web browser several times to verify
 that stars are now appearing in the Book Reviews on every page
@@ -381,8 +397,7 @@ returns valid JSON data:
 
 ::
 
-    $ export PRODUCTPAGE=`minikube service istio-ingressgateway -n istio-system --url | head -n 1`
-    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${PRODUCTPAGE}${APIPATH}" ; echo ; done
+    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${GATEWAY_URL}${APIPATH}" ; echo ; done
 
     [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
 
@@ -407,8 +422,8 @@ deploy a Kafka broker:
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1-destrule.yaml | \\
-          istioctl create -f -
-    Created config destination-rule/default/kafka-disable-mtls at revision ...
+          kubectl create -f -
+    destinationrule "kafka-disable-mtls" created
 
 .. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
@@ -421,14 +436,13 @@ deploy a Kafka broker:
     service "kafka" created
     ciliumnetworkpolicy "kafka-authaudit" created
     statefulset "kafka-v1" created
-    ciliumnetworkpolicy "kafka-from-init" created
 
 Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
 ``READY`` count of ``1/1``:
 
 ::
 
-    $ kubectl get pods -l app=kafka
+    $ watch "kubectl get pods -l app=kafka"
     NAME         READY     STATUS    RESTARTS   AGE
     kafka-v1-0   1/1       Running   0          21m
 
@@ -452,6 +466,8 @@ CiliumNetworkPolicy and delete ``productpage v1``:
           kubectl create --validate=false -f -
     ciliumnetworkpolicy "productpage-v2" created
     deployment "productpage-v2" created
+
+.. parsed-literal::
 
     $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v1.yaml
     ciliumnetworkpolicy "productpage-v1" deleted
@@ -483,7 +499,7 @@ Check the progress of the deployment (every service should have an
 
 ::
 
-    $ kubectl get deployments
+    $ watch "kubectl get deployments"
     NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
     authaudit-logger-v1   1         1         1            1           20s
     details-v1            1         1         1            1           22m
@@ -497,8 +513,7 @@ now denies at Layer-7 any access to the reviews and ratings REST API:
 
 ::
 
-    $ export PRODUCTPAGE=`minikube service istio-ingressgateway -n istio-system --url | head -n 1`
-    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${PRODUCTPAGE}${APIPATH}" ; echo ; done
+    $ for APIPATH in /api/v1/products /api/v1/products/0 /api/v1/products/0/reviews /api/v1/products/0/ratings; do echo ; curl -s -S "${GATEWAY_URL}${APIPATH}" ; echo ; done
 
     [{"descriptionHtml": "<a href=\"https://en.wikipedia.org/wiki/The_Comedy_of_Errors\">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.", "id": 0, "title": "The Comedy of Errors"}]
 
@@ -522,6 +537,9 @@ can observe these kind of audit logs:
 ::
 
     $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
+
+::
+
     $ kubectl logs ${POD_LOGGER_V1} -c authaudit-logger
     ...
     {"timestamp": "2017-12-04T09:34:24.341668", "remote_addr": "10.15.28.238", "event": "login", "user": "richard"}
@@ -551,11 +569,10 @@ ENTER, e.g. ``test message``)
 
 .. note::
 
-   You can terminate the command with ``<CTRL>-d``.
+   You can terminate the command with a single ``<CTRL>-d``.
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-producer.sh --broker-list=kafka:9092 --topic=authaudit
     test message
     [2017-12-07 02:13:47,020] ERROR Error when sending message to topic authaudit with key: null, value: 12 bytes with error: (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
@@ -577,7 +594,6 @@ fetching messages from this topic:
 
 ::
 
-    $ export POD_LOGGER_V1=`kubectl get pods -l app=authaudit-logger,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_LOGGER_V1} -c authaudit-logger -ti -- /opt/kafka_2.11-0.10.1.0/bin/kafka-console-consumer.sh --bootstrap-server=kafka:9092 --topic=credit-card-payments
     [2017-12-07 03:08:54,513] WARN Not authorized to read from topic credit-card-payments. (org.apache.kafka.clients.consumer.internals.Fetcher)
     [2017-12-07 03:08:54,517] ERROR Error processing message, terminating consumer process:  (kafka.tools.ConsoleConsumer$)
