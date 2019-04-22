@@ -27,14 +27,12 @@ import (
 // 'policy' field). It is always nested directly in the owning policyCache,
 // and is protected against concurrent writes via the policyCache mutex.
 type cachedSelectorPolicy struct {
-	users    map[Endpoint]struct{}
 	identity *identityPkg.Identity
 	policy   unsafe.Pointer
 }
 
 func newCachedSelectorPolicy(identity *identityPkg.Identity) *cachedSelectorPolicy {
 	cip := &cachedSelectorPolicy{
-		users:    make(map[Endpoint]struct{}),
 		identity: identity,
 	}
 	cip.setPolicy(policy.NewSelectorPolicy(0))

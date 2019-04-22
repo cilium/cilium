@@ -162,11 +162,21 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 
 	stats.policyCalculation.Start()
 	if e.selectorPolicy == nil {
-		e.selectorPolicy = distillery.Upsert(e)
+		// Upon initial insertion or restore, there's currently no good
+		// trigger point to ensure that the security Identity is
+		// assigned after the endpoint is added to the endpointmanager
+		// (and hence also the identitymanager). In that case, detect
+		// that the selectorPolicy is not set and find it.
+		e.selectorPolicy = distillery.Lookup(e.SecurityIdentity)
+		if e.selectorPolicy == nil {
+			err := fmt.Errorf("no cached selectorPolicy found")
+			e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
+			return err
+		}
 	}
 	// TODO: GH-7515: This should be triggered closer to policy change
 	// handlers, but for now let's just update it here.
-	if err := distillery.UpdatePolicy(repo, e); err != nil {
+	if err := distillery.UpdatePolicy(repo, e.SecurityIdentity); err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
