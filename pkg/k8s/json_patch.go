@@ -14,7 +14,7 @@
 
 package k8s
 
-const(
+const (
 	// maximum number of operations a single json patch may contain.
 	// See https://github.com/kubernetes/kubernetes/pull/74000
 	MaxJSONPatchOperations = 10000
