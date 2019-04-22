@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -61,6 +62,12 @@ type linuxPrivilegedIPv4AndIPv6TestSuite struct {
 }
 
 var _ = check.Suite(&linuxPrivilegedIPv4AndIPv6TestSuite{})
+
+type linuxPrivilegedEncryptionTestSuite struct {
+	linuxPrivilegedBaseTestSuite
+}
+
+var _ = check.Suite(&linuxPrivilegedEncryptionTestSuite{})
 
 const (
 	dummyHostDeviceName     = "dummy_host"
@@ -109,6 +116,11 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) SetUpTest(c *check.C) {
 }
 
 func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
+	addressing := fake.NewNodeAddressing()
+	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, true)
+}
+
+func (s *linuxPrivilegedEncryptionTestSuite) SetUpTest(c *check.C) {
 	addressing := fake.NewNodeAddressing()
 	s.linuxPrivilegedBaseTestSuite.SetUpTest(c, addressing, true, true)
 }
@@ -1181,4 +1193,136 @@ func (s *linuxPrivilegedBaseTestSuite) BenchmarkNodeValidateImplementationDirect
 		EnableIPv6:              s.enableIPv6,
 		EnableAutoDirectRouting: true,
 	})
+}
+
+func (s *linuxPrivilegedEncryptionTestSuite) TestNodeUpdateEncrypt(c *check.C) {
+	aeadKey := []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
+	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
+	ip4Alloc2 := cidr.MustParseCIDR("6.6.6.0/24")
+	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
+	ip6Alloc2 := cidr.MustParseCIDR("2001:bbbb::/96")
+
+	externalNodeIP1 := net.ParseIP("4.4.4.4")
+	externalNodeIP2 := net.ParseIP("8.8.8.8")
+
+	ciliumIP1 := net.ParseIP("1.1.1.1")
+	ciliumIP2 := net.ParseIP("1.1.2.1")
+
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing).(*linuxNodeHandler)
+	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
+	nodeConfig := datapath.LocalNodeConfiguration{
+		EnableIPv4:  s.enableIPv4,
+		EnableIPv6:  s.enableIPv6,
+		EnableIPSec: true,
+	}
+
+	// Setup encryption keys
+	ipsec.LoadIPSecKeys(aeadKey)
+
+	// Enable encryption and verify routes, rules and datapath are configured
+	err := linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
+	c.Assert(err, check.IsNil)
+
+	nodev1 := node.Node{
+		Name: "node1",
+		IPAddresses: []node.Address{
+			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
+			{IP: ciliumIP1, Type: nodeaddressing.NodeCiliumInternalIP},
+		},
+	}
+
+	if s.enableIPv4 {
+		nodev1.IPv4AllocCIDR = ip4Alloc1
+	}
+	if s.enableIPv6 {
+		nodev1.IPv6AllocCIDR = ip6Alloc1
+	}
+
+	err = linuxNodeHandler.NodeAdd(nodev1)
+	c.Assert(err, check.IsNil)
+
+	// nodev2: ip4Alloc1, ip6alloc1 => externalNodeIP2
+	nodev2 := node.Node{
+		Name: "node1",
+		IPAddresses: []node.Address{
+			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
+			{IP: ciliumIP2, Type: nodeaddressing.NodeCiliumInternalIP},
+		},
+	}
+
+	if s.enableIPv4 {
+		nodev2.IPv4AllocCIDR = ip4Alloc2
+	}
+	if s.enableIPv6 {
+		nodev2.IPv6AllocCIDR = ip6Alloc2
+	}
+
+	err = linuxNodeHandler.NodeUpdate(nodev1, nodev2)
+	c.Assert(err, check.IsNil)
+
+	if s.enableIPv4 {
+		encryptRule, err := route.LookupEncryptIPv4Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(encryptRule, check.Equals, true)
+
+		decryptRule, err := route.LookupDecryptIPv4Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(decryptRule, check.Equals, true)
+
+		policyExists, err := ipsec.XfrmPolicyExists(ciliumIP2)
+		c.Assert(err, check.IsNil)
+		c.Assert(policyExists, check.Equals, true)
+
+		stateExists, err := ipsec.XfrmStateExists(ciliumIP2)
+		c.Assert(err, check.IsNil)
+		c.Assert(stateExists, check.Equals, true)
+	}
+
+	if s.enableIPv6 {
+		encryptRule, err := route.LookupEncryptIPv6Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(encryptRule, check.Equals, true)
+
+		decryptRule, err := route.LookupDecryptIPv6Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(decryptRule, check.Equals, true)
+	}
+
+	// Delete node and verify encryption state and routes are removed
+	err = linuxNodeHandler.NodeDelete(nodev2)
+	c.Assert(err, check.IsNil)
+
+	// Disable encryption and verify cleanup completes
+	nodeConfig.EnableIPSec = false
+	err = linuxNodeHandler.NodeConfigurationChanged(nodeConfig)
+	c.Assert(err, check.IsNil)
+
+	if s.enableIPv4 {
+		encryptRule, err := route.LookupEncryptIPv4Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(encryptRule, check.Equals, false)
+
+		decryptRule, err := route.LookupDecryptIPv4Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(decryptRule, check.Equals, false)
+
+		policyExists, err := ipsec.XfrmPolicyExists(ciliumIP2)
+		c.Assert(err, check.IsNil)
+		c.Assert(policyExists, check.Equals, false)
+
+		stateExists, err := ipsec.XfrmStateExists(ciliumIP2)
+		c.Assert(err, check.IsNil)
+		c.Assert(stateExists, check.Equals, false)
+	}
+
+	if s.enableIPv6 {
+		encryptRule, err := route.LookupEncryptIPv6Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(encryptRule, check.Equals, false)
+
+		decryptRule, err := route.LookupDecryptIPv6Rule()
+		c.Assert(err, check.IsNil)
+		c.Assert(decryptRule, check.Equals, false)
+	}
 }
