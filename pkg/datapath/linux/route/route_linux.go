@@ -315,6 +315,30 @@ func Delete(route Route) error {
 	return nil
 }
 
+// LookupEncryptIPv4Rule returns true if IPv4 encrypt rule exists false otherwise. An error is reported
+// if kernel/agent netlink message reports an error.
+func LookupEncryptIPv4Rule() (bool, error) {
+	return lookupRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec, netlink.FAMILY_V4)
+}
+
+// LookupEncryptIPv6Rule returns true if IPv6 encrypt rule exists false otherwise. An error is reported
+// if kernel/agent netlink message reports an error.
+func LookupEncryptIPv6Rule() (bool, error) {
+	return lookupRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec, netlink.FAMILY_V6)
+}
+
+// LookupDecryptIPv4Rule returns true if IPv4 decrypt rule exists false otherwise. An error is reported
+// if kernel/agent netlink message reports an error.
+func LookupDecryptIPv4Rule() (bool, error) {
+	return lookupRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec, netlink.FAMILY_V4)
+}
+
+// LookupDecryptIPv6Rule returns true if IPv6 decrypt rule exists false otherwise. An error is reported
+// if kernel/agent netlink message reports an error.
+func LookupDecryptIPv6Rule() (bool, error) {
+	return lookupRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec, netlink.FAMILY_V6)
+}
+
 func lookupRule(fwmark, table, family int) (bool, error) {
 	rules, err := netlink.RuleList(family)
 	if err != nil {
