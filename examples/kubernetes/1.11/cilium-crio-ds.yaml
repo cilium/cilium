@@ -142,10 +142,6 @@ spec:
         - mountPath: /lib/modules
           name: lib-modules
           readOnly: true
-          # Needed by ip[6]tables when loading kernel modules
-        - mountPath: /sbin/modprobe
-          name: sbin-modprobe
-          readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: false
@@ -208,11 +204,6 @@ spec:
       - hostPath:
           path: /lib/modules
         name: lib-modules
-        # To be able to load ip[6]tables kernel modules
-      - hostPath:
-          path: /sbin/modprobe
-          type: File
-        name: sbin-modprobe
         # To read the etcd config stored in config maps
       - configMap:
           defaultMode: 420
