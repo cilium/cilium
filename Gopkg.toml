@@ -46,7 +46,7 @@ required = [
 
 [[constraint]]
   name = "github.com/c9s/goprocinfo"
-  revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
+  revision = "0b2ad9ac246b05c4f5750721d0c4d230888cac5e"
 
   # main-usage = "pkg/health"
   # on-revision = "no stable releases released"

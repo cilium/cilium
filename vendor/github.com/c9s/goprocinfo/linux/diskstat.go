@@ -84,7 +84,7 @@ func (ds *DiskStat) GetWriteBytes() int64 {
 	return int64(ds.WriteSectors) * 512
 }
 
-// GetReadTicks returns the duration waited for write requests.
+// GetWriteTicks returns the duration waited for write requests.
 func (ds *DiskStat) GetWriteTicks() time.Duration {
 	return time.Duration(ds.WriteTicks) * time.Millisecond
 }
