@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-set -e
+set -exv
 
 echo "listing contents of current dir"
 ls
