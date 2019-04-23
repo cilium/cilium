@@ -16,6 +16,7 @@ package labels
 
 import (
 	"sort"
+	"strings"
 )
 
 // LabelArray is an array of labels forming a set
@@ -58,6 +59,19 @@ func ParseLabelArrayFromArray(base []string) LabelArray {
 	return array.Sort()
 }
 
+// NewLabelArrayFromSortedList returns labels based on the output of SortedList()
+// Trailing ';' will result in an empty key that must be filtered out.
+func NewLabelArrayFromSortedList(list string) LabelArray {
+	base := strings.Split(list, ";")
+	array := make(LabelArray, 0, len(base))
+	for _, v := range base {
+		if lbl := ParseLabel(v); lbl.Key != "" {
+			array = append(array, lbl)
+		}
+	}
+	return array
+}
+
 // ParseSelectLabelArrayFromArray converts an array of strings as select labels and returns a LabelArray
 func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 	array := make(LabelArray, len(base))
@@ -65,6 +79,15 @@ func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 		array[i] = ParseSelectLabel(base[i])
 	}
 	return array.Sort()
+}
+
+// Labels returns the LabelArray as Labels
+func (ls LabelArray) Labels() Labels {
+	lbls := Labels{}
+	for _, l := range ls {
+		lbls[l.Key] = l
+	}
+	return lbls
 }
 
 // Contains returns true if all ls contains all the labels in needed. If
