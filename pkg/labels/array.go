@@ -14,43 +14,57 @@
 
 package labels
 
+import (
+	"sort"
+)
+
 // LabelArray is an array of labels forming a set
 type LabelArray []Label
 
+// Sort is an internal utility to return all LabelArrays in sorted
+// order, when the source material may be unsorted.  'ls' is sorted
+// in-place, but also returns the sorted array for convenience.
+func (ls LabelArray) Sort() LabelArray {
+	sort.Slice(ls, func(i, j int) bool {
+		return ls[i].Key < ls[j].Key
+	})
+	return ls
+}
+
 // ParseLabelArray parses a list of labels and returns a LabelArray
 func ParseLabelArray(labels ...string) LabelArray {
-	array := make([]Label, len(labels))
+	array := make(LabelArray, len(labels))
 	for i := range labels {
 		array[i] = ParseLabel(labels[i])
 	}
-	return array
+	return array.Sort()
 }
 
 // ParseSelectLabelArray parses a list of select labels and returns a LabelArray
 func ParseSelectLabelArray(labels ...string) LabelArray {
-	array := make([]Label, len(labels))
+	array := make(LabelArray, len(labels))
 	for i := range labels {
 		array[i] = ParseSelectLabel(labels[i])
 	}
-	return array
+	return array.Sort()
 }
 
 // ParseLabelArrayFromArray converts an array of strings as labels and returns a LabelArray
 func ParseLabelArrayFromArray(base []string) LabelArray {
-	array := make([]Label, len(base))
+	array := make(LabelArray, len(base))
 	for i := range base {
 		array[i] = ParseLabel(base[i])
 	}
-	return array
+	return array.Sort()
 }
 
 // ParseSelectLabelArrayFromArray converts an array of strings as select labels and returns a LabelArray
 func ParseSelectLabelArrayFromArray(base []string) LabelArray {
-	array := make([]Label, len(base))
+	array := make(LabelArray, len(base))
 	for i := range base {
 		array[i] = ParseSelectLabel(base[i])
 	}
-	return array
+	return array.Sort()
 }
 
 // Contains returns true if all ls contains all the labels in needed. If
