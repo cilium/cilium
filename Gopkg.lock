@@ -1074,7 +1074,7 @@
   revision = "5718d12e20a0705da242a29ded0482dabae84363"
 
 [[projects]]
-  digest = "1:90d784f0ffa6b7f6e6707e059f8e9f99329b926f37ab1f7cedaa9e44ec86f94a"
+  digest = "1:fec6a3ac72fdb92a1442374b08fcc7728628322ca00c400566b506fd19e9396f"
   name = "github.com/shirou/gopsutil"
   packages = [
     "cpu",
@@ -1086,7 +1086,7 @@
     "process",
   ]
   pruneopts = "NUT"
-  revision = "v2.19.01"
+  revision = "v2.19.03"
 
 [[projects]]
   branch = "master"

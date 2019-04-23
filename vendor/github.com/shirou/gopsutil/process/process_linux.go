@@ -186,7 +186,7 @@ func (p *Process) ParentWithContext(ctx context.Context) (*Process, error) {
 // Return value could be one of these.
 // R: Running S: Sleep T: Stop I: Idle
 // Z: Zombie W: Wait L: Lock
-// The charactor is same within all supported platforms.
+// The character is same within all supported platforms.
 func (p *Process) Status() (string, error) {
 	return p.StatusWithContext(context.Background())
 }
@@ -543,6 +543,15 @@ func (p *Process) Connections() ([]net.ConnectionStat, error) {
 
 func (p *Process) ConnectionsWithContext(ctx context.Context) ([]net.ConnectionStat, error) {
 	return net.ConnectionsPid("all", p.Pid)
+}
+
+// Connections returns a slice of net.ConnectionStat used by the process at most `max`
+func (p *Process) ConnectionsMax(max int) ([]net.ConnectionStat, error) {
+	return p.ConnectionsMaxWithContext(context.Background(), max)
+}
+
+func (p *Process) ConnectionsMaxWithContext(ctx context.Context, max int) ([]net.ConnectionStat, error) {
+	return net.ConnectionsPidMax("all", p.Pid, max)
 }
 
 // NetIOCounters returns NetIOCounters of the process.

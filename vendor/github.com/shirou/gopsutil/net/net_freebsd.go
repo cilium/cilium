@@ -45,7 +45,7 @@ func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, 
 			continue
 		}
 		base := 1
-		// sometimes Address is ommitted
+		// sometimes Address is omitted
 		if len(values) < 13 {
 			base = 0
 		}

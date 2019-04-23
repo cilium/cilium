@@ -74,6 +74,7 @@ func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 
 	sysProductUUID := common.HostSys("class/dmi/id/product_uuid")
 	machineID := common.HostEtc("machine-id")
+	procSysKernelRandomBootID := common.HostProc("sys/kernel/random/boot_id")
 	switch {
 	// In order to read this file, needs to be supported by kernel/arch and run as root
 	// so having fallback is important
@@ -95,9 +96,9 @@ func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 		fallthrough
 	// Not stable between reboot, but better than nothing
 	default:
-		values, err := common.DoSysctrl("kernel.random.boot_id")
-		if err == nil && len(values) == 1 && values[0] != "" {
-			ret.HostID = strings.ToLower(values[0])
+		lines, err := common.ReadLines(procSysKernelRandomBootID)
+		if err == nil && len(lines) > 0 && lines[0] != "" {
+			ret.HostID = strings.ToLower(lines[0])
 		}
 	}
 
@@ -656,7 +657,7 @@ func SensorsTemperaturesWithContext(ctx context.Context) ([]TemperatureStat, err
 			label = fmt.Sprintf("%s_", strings.Join(strings.Split(strings.TrimSpace(strings.ToLower(string(c))), " "), ""))
 		}
 
-		// Get the name of the tempearture you are reading
+		// Get the name of the temperature you are reading
 		name, err := ioutil.ReadFile(filepath.Join(filepath.Dir(file), "name"))
 		if err != nil {
 			return temperatures, err

@@ -42,7 +42,7 @@ func parseNetstatLine(line string) (stat *IOCountersStat, linkID *uint, err erro
 
 	base := 1
 	numberColumns := len(columns)
-	// sometimes Address is ommitted
+	// sometimes Address is omitted
 	if numberColumns < 12 {
 		base = 0
 	}
