@@ -1,6 +1,10 @@
 #!/usr/bin/env sh
 
 set -e
+
+echo "listing contents of current dir"
+ls
+echo "done listing contents of current dir"
 diff="$(find . ! \( -path './contrib' -prune \) \
         ! \( -path './vendor' -prune \) \
         ! \( -path './.git' -prune \) \
