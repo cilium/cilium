@@ -259,7 +259,7 @@ func (ifi *InterfaceIdent) Len(_ int) int {
 		}
 		return 4 + (l+3)&^3
 	case typeInterfaceByIndex:
-		return 4 + 8
+		return 4 + 4
 	case typeInterfaceByAddress:
 		return 4 + 4 + (len(ifi.Addr)+3)&^3
 	default:
@@ -284,7 +284,7 @@ func (ifi *InterfaceIdent) marshal(proto int, b []byte) error {
 	case typeInterfaceByName:
 		copy(b[4:], ifi.Name)
 	case typeInterfaceByIndex:
-		binary.BigEndian.PutUint64(b[4:4+8], uint64(ifi.Index))
+		binary.BigEndian.PutUint32(b[4:4+4], uint32(ifi.Index))
 	case typeInterfaceByAddress:
 		binary.BigEndian.PutUint16(b[4:4+2], uint16(ifi.AFI))
 		b[4+2] = byte(len(ifi.Addr))
@@ -302,10 +302,10 @@ func parseInterfaceIdent(b []byte) (Extension, error) {
 	case typeInterfaceByName:
 		ifi.Name = strings.Trim(string(b[4:]), string(0))
 	case typeInterfaceByIndex:
-		if len(b[4:]) < 8 {
+		if len(b[4:]) < 4 {
 			return nil, errInvalidExtension
 		}
-		ifi.Index = int(binary.BigEndian.Uint64(b[4 : 4+8]))
+		ifi.Index = int(binary.BigEndian.Uint32(b[4 : 4+4]))
 	case typeInterfaceByAddress:
 		if len(b[4:]) < 4 {
 			return nil, errInvalidExtension

@@ -1201,7 +1201,7 @@
   revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
 
 [[projects]]
-  digest = "1:e10b2fc351acc7685b214f37d683594eef61a74f8f8d178168a37298aaf136da"
+  digest = "1:a5d33bf3527801ed885c0a070d8590edec6f682ed67e9724e266f81ed343b6dd"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -1226,7 +1226,7 @@
     "trace",
   ]
   pruneopts = "NUT"
-  revision = "a4630153038d3cb8c57f83d95200aea356145cf5"
+  revision = "65e2d4e15006aab9813ff8769e768bbf4bb667a0"
 
 [[projects]]
   branch = "master"

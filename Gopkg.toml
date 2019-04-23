@@ -434,10 +434,10 @@ required = [
 
 [[override]]
   name = "golang.org/x/net"
-  revision = "a4630153038d3cb8c57f83d95200aea356145cf5"
+  revision = "65e2d4e15006aab9813ff8769e768bbf4bb667a0"
 
   # main-usage = "pkg/kvstore/etcd, pkg/workloads, pkg/envoy and api/v1"
-  # on-revision = "last revision of branch 1.11"
+  # on-revision = "last revision of branch 1.12"
 
 [[constraint]]
   name = "golang.org/x/sync"
