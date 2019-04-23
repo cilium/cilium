@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 
-set -exv
+set -exvo pipefail
+
+
 
 echo "listing contents of current dir"
 ls
