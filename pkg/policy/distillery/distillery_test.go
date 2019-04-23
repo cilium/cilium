@@ -72,7 +72,7 @@ func (repo *testPolicyRepo) GetRevision() uint64 {
 }
 
 func (repo *testPolicyRepo) ResolvePolicyLocked(*identityPkg.Identity) (*policy.SelectorPolicy, error) {
-	return policy.NewSelectorPolicy(), repo.err
+	return policy.NewSelectorPolicy(repo.revision), repo.err
 }
 
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {

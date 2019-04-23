@@ -31,12 +31,7 @@ import (
 type cachedSelectorPolicy struct {
 	users    map[Endpoint]struct{}
 	identity *identityPkg.Identity
-
-	// policy is managed via getPolicy() / setPolicyLocked() to ensure that
-	// writes are performed atomically and reads can be entirely lockless
-	// via Consume() (assuming platform support in the atomics library).
 	policy   unsafe.Pointer
-	revision uint64
 }
 
 func newCachedSelectorPolicy(identity *identityPkg.Identity) *cachedSelectorPolicy {
@@ -44,22 +39,22 @@ func newCachedSelectorPolicy(identity *identityPkg.Identity) *cachedSelectorPoli
 		users:    make(map[Endpoint]struct{}),
 		identity: identity,
 	}
-	cip.setPolicyLocked(policy.NewSelectorPolicy(), 0)
+	cip.setPolicy(policy.NewSelectorPolicy(0))
 	return cip
 }
 
-// getPolicy returns a reference to the SelectorPolicy that is cached.
+// getPolicy returns a reference to the SelectorPolicy that is cached, and
+// the revision for that policy.
 //
 // Users should treat the result as immutable state that MUST NOT be modified.
 func (cip *cachedSelectorPolicy) getPolicy() *policy.SelectorPolicy {
 	return (*policy.SelectorPolicy)(atomic.LoadPointer(&cip.policy))
 }
 
-// setPolicyLocked updates the reference to the SelectorPolicy that is cached.
-func (cip *cachedSelectorPolicy) setPolicyLocked(policy *policy.SelectorPolicy, revision uint64) {
+// setPolicy updates the reference to the SelectorPolicy that is cached.
+func (cip *cachedSelectorPolicy) setPolicy(policy *policy.SelectorPolicy) {
 	// A lock must be held to ensure consistency between these fields.
 	atomic.StorePointer(&cip.policy, unsafe.Pointer(policy))
-	cip.revision = revision
 }
 
 // Consume returns the EndpointPolicy that defines connectivity policy to

@@ -62,7 +62,8 @@ func (cache *policyCache) upsert(identity *identityPkg.Identity, ep Endpoint) (S
 	}
 	cip.users[ep] = struct{}{}
 
-	return cip, cip.revision > 0
+	policy := cip.getPolicy()
+	return cip, policy.Revision > 0
 }
 
 // remove forgets about any cached SelectorPolicy that this endpoint uses.
@@ -100,17 +101,16 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 	identity := ep.GetSecurityIdentity()
 	revision := repo.GetRevision()
 
-	// Don't resolve policy if it was already done for this Identity.
-	var currentRevision uint64
 	cache.Lock()
 	cip, ok := cache.policies[identity.ID]
-	if ok {
-		currentRevision = cip.revision
-	}
 	cache.Unlock()
 	if !ok {
 		return false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
-	} else if revision == currentRevision {
+	}
+
+	// Don't resolve policy if it was already done for this Identity.
+	currentRevision := cip.getPolicy().Revision
+	if revision <= currentRevision {
 		return false, nil
 	}
 
@@ -128,7 +128,7 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 	// regeneration, it's possible for two endpoints with the *same*
 	// identity to race to the revision check above, both find that the
 	// policy is out-of-date, and resolve the policy then race down to
-	// here. Don't update the policy if we're late to the party.
+	// here. Set the pointer to the latest revision in both cases.
 	//
 	// Note that because repo.Mutex is held, the two racing threads will be
 	// guaranteed to compute policy for the same revision of the policy.
@@ -136,11 +136,9 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, ep Endpoin
 	// for the same identity to block on a channel/lock, but this is
 	// skipped for now as there are upcoming changes to the cache update
 	// logic which would render such mechanisms obsolete.
-	cache.Lock()
-	defer cache.Unlock()
-	changed := revision > cip.revision
+	changed := revision > currentRevision
 	if changed {
-		cip.setPolicyLocked(identityPolicy, revision)
+		cip.setPolicy(identityPolicy)
 	}
 	return changed, nil
 }
