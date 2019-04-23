@@ -45,17 +45,28 @@ var (
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
 func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+	userAgent := fmt.Sprintf("Cilium %s", version.Version)
+
 	// If the endpoint and the kubeCfgPath are empty then we can try getting
 	// the rest.Config from the InClusterConfig
 	if endpoint == "" && kubeCfgPath == "" {
-		return rest.InClusterConfig()
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+		config.UserAgent = userAgent
+		return config, nil
 	}
 
 	if kubeCfgPath != "" {
-		return clientcmd.BuildConfigFromFlags("", kubeCfgPath)
+		config, err := clientcmd.BuildConfigFromFlags("", kubeCfgPath)
+		if err != nil {
+			return nil, err
+		}
+		config.UserAgent = userAgent
+		return config, nil
 	}
 
-	userAgent := fmt.Sprintf("Cilium %s", version.Version)
 	config := &rest.Config{Host: endpoint, UserAgent: userAgent}
 	err := rest.SetKubernetesDefaults(config)
 
