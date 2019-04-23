@@ -54,7 +54,7 @@ func GetIdentityCache() IdentityCache {
 		IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(globalIdentity); ok {
-					cache[identity.NumericIdentity(id)] = gi.LabelArray()
+					cache[identity.NumericIdentity(id)] = gi.LabelArray
 				} else {
 					log.Warningf("Ignoring unknown identity type '%s': %+v",
 						reflect.TypeOf(val), val)
@@ -82,7 +82,7 @@ func GetIdentities() IdentitiesModel {
 
 	IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if gi, ok := val.(globalIdentity); ok {
-			identity := identity.NewIdentity(identity.NumericIdentity(id), gi.Labels)
+			identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
 			identities = append(identities, identity.GetModel())
 		}
 
@@ -148,7 +148,8 @@ func LookupIdentity(lbls labels.Labels) *identity.Identity {
 		return nil
 	}
 
-	id, err := IdentityAllocator.Get(context.TODO(), globalIdentity{lbls})
+	lblArray := lbls.LabelArray()
+	id, err := IdentityAllocator.Get(context.TODO(), globalIdentity{lblArray})
 	if err != nil {
 		return nil
 	}
@@ -157,7 +158,7 @@ func LookupIdentity(lbls labels.Labels) *identity.Identity {
 		return nil
 	}
 
-	return identity.NewIdentity(identity.NumericIdentity(id), lbls)
+	return identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), lblArray)
 }
 
 // LookupReservedIdentityByLabels looks up a reserved identity by its labels and
@@ -223,7 +224,7 @@ func LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
 	}
 
 	if gi, ok := allocatorKey.(globalIdentity); ok {
-		return identity.NewIdentity(id, gi.Labels)
+		return identity.NewIdentityFromLabelArray(id, gi.LabelArray)
 	}
 
 	return nil
