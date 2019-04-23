@@ -46,7 +46,7 @@ func GetIPFamily(ip net.IP) int {
 
 var nativeEndian binary.ByteOrder
 
-// Get native endianness for the system
+// NativeEndian gets native endianness for the system
 func NativeEndian() binary.ByteOrder {
 	if nativeEndian == nil {
 		var x uint32 = 0x01020304

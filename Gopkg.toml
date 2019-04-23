@@ -420,7 +420,7 @@ required = [
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "b9cafe4a8544a27110dad06be07d48bbe5f292dd"
+  revision = "f504738125a57f35f87fc30fb69b8df75237ccde"
 
   # main-usage = "all over the code"
   # on-revision = "last available commit and there is not stable releases"

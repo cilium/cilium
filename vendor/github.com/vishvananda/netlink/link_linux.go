@@ -501,7 +501,7 @@ func LinkSetVfSpoofchk(link Link, vf int, check bool) error {
 	return pkgHandle.LinkSetVfSpoofchk(link, vf, check)
 }
 
-// LinkSetVfSpookfchk enables/disables spoof check on a vf for the link.
+// LinkSetVfSpoofchk enables/disables spoof check on a vf for the link.
 // Equivalent to: `ip link set $link vf $vf spoofchk $check`
 func (h *Handle) LinkSetVfSpoofchk(link Link, vf int, check bool) error {
 	var setting uint32
@@ -1118,6 +1118,16 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		req.AddData(rxqueues)
 	}
 
+	if base.GSOMaxSegs > 0 {
+		gsoAttr := nl.NewRtAttr(unix.IFLA_GSO_MAX_SEGS, nl.Uint32Attr(base.GSOMaxSegs))
+		req.AddData(gsoAttr)
+	}
+
+	if base.GSOMaxSize > 0 {
+		gsoAttr := nl.NewRtAttr(unix.IFLA_GSO_MAX_SIZE, nl.Uint32Attr(base.GSOMaxSize))
+		req.AddData(gsoAttr)
+	}
+
 	if base.Namespace != nil {
 		var attr *nl.RtAttr
 		switch ns := base.Namespace.(type) {
@@ -1537,6 +1547,10 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.OperState = LinkOperState(uint8(attr.Value[0]))
 		case unix.IFLA_LINK_NETNSID:
 			base.NetNsID = int(native.Uint32(attr.Value[0:4]))
+		case unix.IFLA_GSO_MAX_SIZE:
+			base.GSOMaxSize = native.Uint32(attr.Value[0:4])
+		case unix.IFLA_GSO_MAX_SEGS:
+			base.GSOMaxSegs = native.Uint32(attr.Value[0:4])
 		case unix.IFLA_VFINFO_LIST:
 			data, err := nl.ParseRouteAttr(attr.Value)
 			if err != nil {
