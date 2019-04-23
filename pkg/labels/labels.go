@@ -424,6 +424,23 @@ func (l Labels) SHA256Sum() string {
 	return fmt.Sprintf("%x", sha512.Sum512_256(l.SortedList()))
 }
 
+// FormatForKVStore returns the label as a formatted string, ending in
+// a semicolon
+//
+// DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS
+// PART OF THE KEY IN THE KEY-VALUE STORE.
+//
+// Non-pointer receiver allows this to be called on a value in a map.
+func (l Label) FormatForKVStore() string {
+	// We don't care if the values already have a '=' since this method is
+	// only used to calculate a SHA256Sum
+	//
+	// We absolutely care that the final character is a semi-colon.
+	// Identity allocation in the kvstore depends on this (see
+	// kvstore.prefixMatchesKey())
+	return fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
+}
+
 // SortedList returns the labels as a sorted list, separated by semicolon
 //
 // DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
@@ -437,13 +454,7 @@ func (l Labels) SortedList() []byte {
 
 	result := ""
 	for _, k := range keys {
-		// We don't care if the values already have a '=' since this method is
-		// only used to calculate a SHA256Sum
-		//
-		// We absolutely care that the final character is a semi-colon.
-		// Identity allocation in the kvstore depends on this (see
-		// kvstore.prefixMatchesKey())
-		result += fmt.Sprintf(`%s:%s=%s;`, l[k].Source, k, l[k].Value)
+		result += l[k].FormatForKVStore()
 	}
 
 	return []byte(result)
