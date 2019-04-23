@@ -53,11 +53,12 @@ var (
 
 // GetPolicyLabels returns a LabelArray for the given namespace and name.
 func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.LabelArray {
+	// Keep labels sorted by the key.
 	return labels.LabelArray{
-		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
-		labels.NewLabel(k8sConst.PolicyLabelUID, string(uid), labels.LabelSourceK8s),
-		labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PolicyLabelDerivedFrom, derivedFrom, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelNamespace, ns, labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PolicyLabelUID, string(uid), labels.LabelSourceK8s),
 	}
 }
 
@@ -241,5 +242,5 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 // these labels were derived from a CiliumNetworkPolicy.
 func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.LabelArray) labels.LabelArray {
 	policyLbls := GetPolicyLabels(namespace, name, uid, ResourceTypeCiliumNetworkPolicy)
-	return append(policyLbls, ruleLbs...)
+	return append(policyLbls, ruleLbs...).Sort()
 }

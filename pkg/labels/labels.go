@@ -385,14 +385,14 @@ func NewLabelsFromSortedList(list string) Labels {
 }
 
 // NewSelectLabelArrayFromModel parses a slice of strings and converts them
-// into an array of selecting labels.
+// into an array of selecting labels, sorted by the key.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	lbls := make(LabelArray, 0, len(base))
 	for i := range base {
 		lbls = append(lbls, ParseSelectLabel(base[i]))
 	}
 
-	return lbls
+	return lbls.Sort()
 }
 
 // GetModel returns model with all the values of the labels.
@@ -449,22 +449,19 @@ func (l Labels) SortedList() []byte {
 	return []byte(result)
 }
 
-// ToSlice returns a slice of label with the values of the given Labels' map.
+// ToSlice returns a slice of label with the values of the given
+// Labels' map, sorted by the key.
 func (l Labels) ToSlice() []Label {
-	labels := []Label{}
-	for _, v := range l {
-		labels = append(labels, v)
-	}
-	return labels
+	return l.LabelArray()
 }
 
-// LabelArray returns the labels as label array
+// LabelArray returns the labels as label array, sorted by the key.
 func (l Labels) LabelArray() LabelArray {
-	labels := []Label{}
+	labels := make(LabelArray, 0, len(l))
 	for _, v := range l {
 		labels = append(labels, v)
 	}
-	return labels
+	return labels.Sort()
 }
 
 // FindReserved locates all labels with reserved source in the labels and
