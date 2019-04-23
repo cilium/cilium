@@ -88,8 +88,6 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 		return ret;
 
 	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
-	skb->cb[CB_SRC_LABEL] = seclabel;
-	skb->cb[CB_IFINDEX] = ep->ifindex;
 
 #if defined LOCAL_DELIVERY_METRICS
 	/*
@@ -99,8 +97,16 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	 */
 	update_metrics(skb->len, direction, REASON_FORWARDED);
 #endif
+
+#ifdef USE_BPF_PROG_FOR_INGRESS_POLICY
+	skb->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
+	return redirect_peer(ep->ifindex, 0);
+#else
+	skb->cb[CB_SRC_LABEL] = seclabel;
+	skb->cb[CB_IFINDEX] = ep->ifindex;
 	tail_call(skb, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
+#endif
 }
 #endif /* ENABLE_IPV6 */
 
@@ -120,8 +126,6 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 		return ret;
 
 	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
-	skb->cb[CB_SRC_LABEL] = seclabel;
-	skb->cb[CB_IFINDEX] = ep->ifindex;
 
 #if defined LOCAL_DELIVERY_METRICS
 	/*
@@ -131,8 +135,16 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	 */
 	update_metrics(skb->len, direction, REASON_FORWARDED);
 #endif
+
+#ifdef USE_BPF_PROG_FOR_INGRESS_POLICY
+	skb->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
+	return redirect_peer(ep->ifindex, 0);
+#else
+	skb->cb[CB_SRC_LABEL] = seclabel;
+	skb->cb[CB_IFINDEX] = ep->ifindex;
 	tail_call(skb, &POLICY_CALL_MAP, ep->lxc_id);
 	return DROP_MISSED_TAIL_CALL;
+#endif
 }
 
 static inline __u8 __inline__ get_encrypt_key(__u32 ctx)
