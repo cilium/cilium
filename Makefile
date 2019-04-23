@@ -339,7 +339,6 @@ microk8s: check-microk8s
 	@echo "    kubectl -n kube-system delete pod -l k8s-app=cilium"
 
 precheck: ineffassign logging-subsys-field
-	ls
 	@$(ECHO_CHECK) contrib/scripts/check-fmt.sh
 	$(QUIET) contrib/scripts/check-fmt.sh
 	@$(ECHO_CHECK) contrib/scripts/check-log-newlines.sh
