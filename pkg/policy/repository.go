@@ -652,6 +652,7 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &SelectorPolicy{
+		Revision:             p.GetRevision(),
 		L4Policy:             NewL4Policy(),
 		CIDRPolicy:           NewCIDRPolicy(),
 		matchingRules:        matchingRules,

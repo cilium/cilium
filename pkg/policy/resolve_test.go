@@ -206,6 +206,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 
 	expectedEndpointPolicy := EndpointPolicy{
 		SelectorPolicy: &SelectorPolicy{
+			Revision: repo.GetRevision(),
 			L4Policy: &L4Policy{
 				Ingress: L4PolicyMap{
 					"80/TCP": {
@@ -295,6 +296,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 
 	expectedEndpointPolicy := EndpointPolicy{
 		SelectorPolicy: &SelectorPolicy{
+			Revision: repo.GetRevision(),
 			L4Policy: &L4Policy{
 				Ingress: L4PolicyMap{
 					"80/TCP": {
