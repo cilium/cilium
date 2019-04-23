@@ -1991,18 +1991,18 @@ func (ds *PolicyTestSuite) TestremoveIdentityFromRuleCaches(c *C) {
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
 	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{selectedIdentity: true})
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true})
 
 	wg := testRepo.removeIdentityFromRuleCaches(selectedIdentity)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{})
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{})
 
 	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{notSelectedIdentity: false})
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false})
 
 	wg = testRepo.removeIdentityFromRuleCaches(notSelectedIdentity)
 	wg.Wait()
 
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[*identity.Identity]bool{})
+	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{})
 }
