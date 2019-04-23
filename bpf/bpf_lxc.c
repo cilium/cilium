@@ -1203,6 +1203,8 @@ static inline bool __inline__ inherit_identity(struct __sk_buff *skb, __u32 *ide
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
 		*identity = get_identity(skb);
 		from_proxy = true;
+	} else if (magic == MARK_MAGIC_IDENTITY) {
+		*identity = get_identity(skb);
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
 	} else {
