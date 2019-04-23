@@ -145,6 +145,16 @@ func (id *Identity) IsWellKnown() bool {
 	return WellKnown.lookupByNumericIdentity(id.ID) != nil
 }
 
+// NewIdentityFromLabelArray creates a new identity
+func NewIdentityFromLabelArray(id NumericIdentity, lblArray labels.LabelArray) *Identity {
+	var lbls labels.Labels
+
+	if lblArray != nil {
+		lbls = lblArray.Labels()
+	}
+	return &Identity{ID: id, Labels: lbls, LabelArray: lblArray}
+}
+
 // NewIdentity creates a new identity
 func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 	var lblArray labels.LabelArray
