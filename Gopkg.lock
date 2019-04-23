@@ -211,11 +211,11 @@
   revision = "3d5202aec260678c48179c56f40e6f38a095738c"
 
 [[projects]]
-  digest = "1:07ac073876dbf7df80789ba4c2959a969200b34875a34fc13848f76d60b51551"
+  digest = "1:fda6b4a39771e0c9bdc114f8a5528d3ab5c4eb635a2cfa54ff08ac0fcc8db3a7"
   name = "github.com/containerd/typeurl"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "461401dc8f19d80baa4b70178935e4501286c00b"
+  revision = "2a93cfde8c20b23de8eb84a5adbc234ddf7a9e8d"
 
 [[projects]]
   digest = "1:217f54a01004e15731471f4b3d420c16b99ade200d9872d7c1f0d2684df60f14"

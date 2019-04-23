@@ -81,7 +81,7 @@ required = [
 
 [[constraint]]
   name = "github.com/containerd/typeurl"
-  revision = "461401dc8f19d80baa4b70178935e4501286c00b"
+  revision = "2a93cfde8c20b23de8eb84a5adbc234ddf7a9e8d"
 
   # main-usage = "pkg/workloads/containerd"
   # on-revision = "no stable releases released"
