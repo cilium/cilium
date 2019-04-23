@@ -77,7 +77,6 @@ func (o *DeleteEndpointIDErrors) WriteResponse(rw http.ResponseWriter, producer 
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // DeleteEndpointIDInvalidCode is the HTTP code returned for type DeleteEndpointIDInvalid
@@ -122,7 +121,6 @@ func (o *DeleteEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // DeleteEndpointIDNotFoundCode is the HTTP code returned for type DeleteEndpointIDNotFound

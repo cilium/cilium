@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"sort"
 
 	"github.com/go-openapi/jsonpointer"
 	"github.com/go-openapi/swag"
@@ -30,17 +31,21 @@ func init() {
 }
 
 // OperationProps describes an operation
+//
+// NOTES:
+// - schemes, when present must be from [http, https, ws, wss]: see validate
+// - Security is handled as a special case: see MarshalJSON function
 type OperationProps struct {
 	Description  string                 `json:"description,omitempty"`
 	Consumes     []string               `json:"consumes,omitempty"`
 	Produces     []string               `json:"produces,omitempty"`
-	Schemes      []string               `json:"schemes,omitempty"` // the scheme, when present must be from [http, https, ws, wss]
+	Schemes      []string               `json:"schemes,omitempty"`
 	Tags         []string               `json:"tags,omitempty"`
 	Summary      string                 `json:"summary,omitempty"`
 	ExternalDocs *ExternalDocumentation `json:"externalDocs,omitempty"`
 	ID           string                 `json:"operationId,omitempty"`
 	Deprecated   bool                   `json:"deprecated,omitempty"`
-	Security     []map[string][]string  `json:"security,omitempty"` //Special case, see MarshalJSON function
+	Security     []map[string][]string  `json:"security,omitempty"`
 	Parameters   []Parameter            `json:"parameters,omitempty"`
 	Responses    *Responses             `json:"responses,omitempty"`
 }
@@ -84,10 +89,16 @@ func (o *Operation) SuccessResponse() (*Response, int, bool) {
 		return nil, 0, false
 	}
 
-	for k, v := range o.Responses.StatusCodeResponses {
-		if k/100 == 2 {
-			return &v, k, true
+	responseCodes := make([]int, 0, len(o.Responses.StatusCodeResponses))
+	for k := range o.Responses.StatusCodeResponses {
+		if k >= 200 && k < 300 {
+			responseCodes = append(responseCodes, k)
 		}
+	}
+	if len(responseCodes) > 0 {
+		sort.Ints(responseCodes)
+		v := o.Responses.StatusCodeResponses[responseCodes[0]]
+		return &v, responseCodes[0], true
 	}
 
 	return o.Responses.Default, 0, false
@@ -107,10 +118,7 @@ func (o *Operation) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &o.OperationProps); err != nil {
 		return err
 	}
-	if err := json.Unmarshal(data, &o.VendorExtensible); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(data, &o.VendorExtensible)
 }
 
 // MarshalJSON converts this items object to JSON
@@ -224,7 +232,7 @@ func (o *Operation) AddParam(param *Parameter) *Operation {
 // RemoveParam removes a parameter from the operation
 func (o *Operation) RemoveParam(name, in string) *Operation {
 	for i, p := range o.Parameters {
-		if p.Name == name && p.In == name {
+		if p.Name == name && p.In == in {
 			o.Parameters = append(o.Parameters[:i], o.Parameters[i+1:]...)
 			return o
 		}

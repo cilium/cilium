@@ -1439,6 +1439,10 @@ func (m *StatusResponseControllersItems0Status) UnmarshalBinary(b []byte) error 
 // swagger:model StatusResponseIPAM
 type StatusResponseIPAM struct {
 
+	// Map of allocated IPs
+	//
+	Allocations map[string]string `json:"allocations,omitempty"`
+
 	// ipv4
 	IPV4 []string `json:"ipv4"`
 

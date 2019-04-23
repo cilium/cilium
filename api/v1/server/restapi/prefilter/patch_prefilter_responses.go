@@ -97,7 +97,6 @@ func (o *PatchPrefilterInvalidCIDR) WriteResponse(rw http.ResponseWriter, produc
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // PatchPrefilterFailureCode is the HTTP code returned for type PatchPrefilterFailure
@@ -140,5 +139,4 @@ func (o *PatchPrefilterFailure) WriteResponse(rw http.ResponseWriter, producer r
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

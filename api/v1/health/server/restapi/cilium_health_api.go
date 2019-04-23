@@ -67,13 +67,13 @@ type CiliumHealthAPI struct {
 	Middleware      func(middleware.Builder) http.Handler
 
 	// BasicAuthenticator generates a runtime.Authenticator from the supplied basic auth function.
-	// It has a default implemention in the security package, however you can replace it for your particular usage.
+	// It has a default implementation in the security package, however you can replace it for your particular usage.
 	BasicAuthenticator func(security.UserPassAuthentication) runtime.Authenticator
 	// APIKeyAuthenticator generates a runtime.Authenticator from the supplied token auth function.
-	// It has a default implemention in the security package, however you can replace it for your particular usage.
+	// It has a default implementation in the security package, however you can replace it for your particular usage.
 	APIKeyAuthenticator func(string, string, security.TokenAuthentication) runtime.Authenticator
 	// BearerAuthenticator generates a runtime.Authenticator from the supplied bearer token auth function.
-	// It has a default implemention in the security package, however you can replace it for your particular usage.
+	// It has a default implementation in the security package, however you can replace it for your particular usage.
 	BearerAuthenticator func(string, security.ScopedTokenAuthentication) runtime.Authenticator
 
 	// JSONConsumer registers a consumer for a "application/json" mime type

@@ -49,7 +49,7 @@ func (o *GetFqdnCacheIDURL) Build() (*url.URL, error) {
 	if id != "" {
 		_path = strings.Replace(_path, "{id}", id, -1)
 	} else {
-		return nil, errors.New("ID is required on GetFqdnCacheIDURL")
+		return nil, errors.New("id is required on GetFqdnCacheIDURL")
 	}
 
 	_basePath := o._basePath

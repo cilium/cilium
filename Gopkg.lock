@@ -412,21 +412,21 @@
     "internal",
   ]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
   digest = "1:2c25c65f6928a43066d02607fbedd6a1b21322db5f8d1ab92ac77ac3bcc72776"
   name = "github.com/go-openapi/errors"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
   digest = "1:260f7ebefc63024c8dfe2c9f1a2935a89fa4213637a1f522f592f80c001cc441"
   name = "github.com/go-openapi/jsonpointer"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
   digest = "1:98abd61947ff5c7c6fcfec5473d02a4821ed3a2dd99a4fbfdb7925b0dd745546"
@@ -441,10 +441,10 @@
   name = "github.com/go-openapi/loads"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:0dd5c870695a594f3799a6501148db7f47e1fbaf297a4edab4dcc2b554e4ed16"
+  digest = "1:61b6581bcefb37cc5e624c8fdecf6d5a45857285c34fe48bc849d439468c4e80"
   name = "github.com/go-openapi/runtime"
   packages = [
     ".",
@@ -458,35 +458,35 @@
     "security",
   ]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:4da4ea0a664ba528965683d350f602d0f11464e6bb2e17aad0914723bc25d163"
+  digest = "1:8f80caf2fa31f78a035f33981c9685013033073b53f344f579e60fa69f0c6670"
   name = "github.com/go-openapi/spec"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:094eabd168a2b3781dbd83a09db576ab2a7ffd23094f9a34b3f6049f47d2f67b"
+  digest = "1:60aff2b170a49776659202b25183974d06afea5641bf92c2c8525bbe67ffde6a"
   name = "github.com/go-openapi/strfmt"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "bc2668dc64edd7a448bdb3a6a997a85f7f868bbc"
+  revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:dc0f590770e5a6c70ea086232324f7b7dc4857c60eca63ab8ff78e0a5cfcdbf3"
+  digest = "1:076ebf43e6e70f18ef9d079a685ede59a0f4dc9247256c209cf57407f959cef9"
   name = "github.com/go-openapi/swag"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
-  digest = "1:7d7626b94bc5e04d1c23eaa97816181f4ff6218540a6d43379070d6ece9ca467"
+  digest = "1:d2f9c34eee6ddafe36cc96f0ce0499c0df78380aa54fd8053df1397621db786b"
   name = "github.com/go-openapi/validate"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
 [[projects]]
   digest = "1:60e4d28196ed68e967bc01901d7ff6a9b67285d0544a79e589d2525750b6b399"

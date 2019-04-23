@@ -101,7 +101,6 @@ func (o *PutServiceIDInvalidFrontend) WriteResponse(rw http.ResponseWriter, prod
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // PutServiceIDInvalidBackendCode is the HTTP code returned for type PutServiceIDInvalidBackend
@@ -144,7 +143,6 @@ func (o *PutServiceIDInvalidBackend) WriteResponse(rw http.ResponseWriter, produ
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // PutServiceIDFailureCode is the HTTP code returned for type PutServiceIDFailure
@@ -187,5 +185,4 @@ func (o *PutServiceIDFailure) WriteResponse(rw http.ResponseWriter, producer run
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

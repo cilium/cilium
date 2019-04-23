@@ -62,6 +62,6 @@ func (m *indexOfInitialisms) sorted() (result []string) {
 		result = append(result, k)
 		return true
 	})
-	sort.Sort(sort.Reverse(byLength(result)))
+	sort.Sort(sort.Reverse(byInitialism(result)))
 	return
 }

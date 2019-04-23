@@ -203,17 +203,16 @@ func (d *Duration) SetBSON(raw bson.Raw) error {
 }
 
 // DeepCopyInto copies the receiver and writes its value into out.
-func (in *Duration) DeepCopyInto(out *Duration) {
-	*out = *in
-	return
+func (d *Duration) DeepCopyInto(out *Duration) {
+	*out = *d
 }
 
 // DeepCopy copies the receiver into a new Duration.
-func (in *Duration) DeepCopy() *Duration {
-	if in == nil {
+func (d *Duration) DeepCopy() *Duration {
+	if d == nil {
 		return nil
 	}
 	out := new(Duration)
-	in.DeepCopyInto(out)
+	d.DeepCopyInto(out)
 	return out
 }
