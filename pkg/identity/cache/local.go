@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
@@ -104,6 +105,8 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels) (*identity.Ident
 	if l.events != nil {
 		l.events <- allocator.AllocatorEvent{
 			Typ: kvstore.EventTypeCreate,
+			ID:  idpool.ID(id.ID),
+			Key: globalIdentity{id.LabelArray},
 		}
 	}
 
@@ -134,6 +137,7 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 			if l.events != nil {
 				l.events <- allocator.AllocatorEvent{
 					Typ: kvstore.EventTypeDelete,
+					ID:  idpool.ID(id.ID),
 				}
 			}
 
