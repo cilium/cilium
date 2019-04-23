@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -195,4 +196,8 @@ func parseProcessorInfo(cmdOutput string) ([]InfoStat, error) {
 		}
 	}
 	return result, nil
+}
+
+func CountsWithContext(ctx context.Context, logical bool) (int, error) {
+	return runtime.NumCPU(), nil
 }

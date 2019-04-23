@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -165,4 +166,8 @@ func parseDmesgBoot(fileName string) (InfoStat, int, error) {
 	}
 
 	return c, cpuNum, nil
+}
+
+func CountsWithContext(ctx context.Context, logical bool) (int, error) {
+	return runtime.NumCPU(), nil
 }
