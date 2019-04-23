@@ -358,10 +358,10 @@ required = [
 
 [[override]]
   name = "github.com/russross/blackfriday"
-  revision = "v2.0.1"
+  revision = "v1.5.2"
 
   # main-usage = "cilium/cmd/debuginfo"
-  # on-revision = ""
+  # on-revision = "same revision specified by github.com/cpuguy83/go-md2man"
 
 [[constraint]]
   name = "github.com/sasha-s/go-deadlock"
@@ -400,7 +400,7 @@ required = [
 
 [[override]]
   name = "github.com/cpuguy83/go-md2man"
-  revision = "691ee98543af2f262f35fbb54bdd42f00b9b9cc5"
+  revision = "v1.0.10"
 
   # main-usage = "github.com/spf13/cobra"
 

@@ -17,14 +17,11 @@ package blackfriday
 
 import (
 	"bytes"
-	"io"
 )
 
-// SPRenderer is a struct containing state of a Smartypants renderer.
-type SPRenderer struct {
+type smartypantsData struct {
 	inSingleQuote bool
 	inDoubleQuote bool
-	callbacks     [256]smartCallback
 }
 
 func wordBoundary(c byte) bool {
@@ -121,7 +118,7 @@ func smartQuoteHelper(out *bytes.Buffer, previousChar byte, nextChar byte, quote
 	return true
 }
 
-func (r *SPRenderer) smartSingleQuote(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartSingleQuote(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if len(text) >= 2 {
 		t1 := tolower(text[1])
 
@@ -130,7 +127,7 @@ func (r *SPRenderer) smartSingleQuote(out *bytes.Buffer, previousChar byte, text
 			if len(text) >= 3 {
 				nextChar = text[2]
 			}
-			if smartQuoteHelper(out, previousChar, nextChar, 'd', &r.inDoubleQuote, false) {
+			if smartQuoteHelper(out, previousChar, nextChar, 'd', &smrt.inDoubleQuote, false) {
 				return 1
 			}
 		}
@@ -155,7 +152,7 @@ func (r *SPRenderer) smartSingleQuote(out *bytes.Buffer, previousChar byte, text
 	if len(text) > 1 {
 		nextChar = text[1]
 	}
-	if smartQuoteHelper(out, previousChar, nextChar, 's', &r.inSingleQuote, false) {
+	if smartQuoteHelper(out, previousChar, nextChar, 's', &smrt.inSingleQuote, false) {
 		return 0
 	}
 
@@ -163,7 +160,7 @@ func (r *SPRenderer) smartSingleQuote(out *bytes.Buffer, previousChar byte, text
 	return 0
 }
 
-func (r *SPRenderer) smartParens(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartParens(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if len(text) >= 3 {
 		t1 := tolower(text[1])
 		t2 := tolower(text[2])
@@ -188,7 +185,7 @@ func (r *SPRenderer) smartParens(out *bytes.Buffer, previousChar byte, text []by
 	return 0
 }
 
-func (r *SPRenderer) smartDash(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartDash(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if len(text) >= 2 {
 		if text[1] == '-' {
 			out.WriteString("&mdash;")
@@ -205,7 +202,7 @@ func (r *SPRenderer) smartDash(out *bytes.Buffer, previousChar byte, text []byte
 	return 0
 }
 
-func (r *SPRenderer) smartDashLatex(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartDashLatex(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if len(text) >= 3 && text[1] == '-' && text[2] == '-' {
 		out.WriteString("&mdash;")
 		return 2
@@ -219,13 +216,13 @@ func (r *SPRenderer) smartDashLatex(out *bytes.Buffer, previousChar byte, text [
 	return 0
 }
 
-func (r *SPRenderer) smartAmpVariant(out *bytes.Buffer, previousChar byte, text []byte, quote byte, addNBSP bool) int {
+func smartAmpVariant(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte, quote byte, addNBSP bool) int {
 	if bytes.HasPrefix(text, []byte("&quot;")) {
 		nextChar := byte(0)
 		if len(text) >= 7 {
 			nextChar = text[6]
 		}
-		if smartQuoteHelper(out, previousChar, nextChar, quote, &r.inDoubleQuote, addNBSP) {
+		if smartQuoteHelper(out, previousChar, nextChar, quote, &smrt.inDoubleQuote, addNBSP) {
 			return 5
 		}
 	}
@@ -238,18 +235,18 @@ func (r *SPRenderer) smartAmpVariant(out *bytes.Buffer, previousChar byte, text 
 	return 0
 }
 
-func (r *SPRenderer) smartAmp(angledQuotes, addNBSP bool) func(*bytes.Buffer, byte, []byte) int {
+func smartAmp(angledQuotes, addNBSP bool) func(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	var quote byte = 'd'
 	if angledQuotes {
 		quote = 'a'
 	}
 
-	return func(out *bytes.Buffer, previousChar byte, text []byte) int {
-		return r.smartAmpVariant(out, previousChar, text, quote, addNBSP)
+	return func(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
+		return smartAmpVariant(out, smrt, previousChar, text, quote, addNBSP)
 	}
 }
 
-func (r *SPRenderer) smartPeriod(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartPeriod(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if len(text) >= 3 && text[1] == '.' && text[2] == '.' {
 		out.WriteString("&hellip;")
 		return 2
@@ -264,13 +261,13 @@ func (r *SPRenderer) smartPeriod(out *bytes.Buffer, previousChar byte, text []by
 	return 0
 }
 
-func (r *SPRenderer) smartBacktick(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartBacktick(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if len(text) >= 2 && text[1] == '`' {
 		nextChar := byte(0)
 		if len(text) >= 3 {
 			nextChar = text[2]
 		}
-		if smartQuoteHelper(out, previousChar, nextChar, 'd', &r.inDoubleQuote, false) {
+		if smartQuoteHelper(out, previousChar, nextChar, 'd', &smrt.inDoubleQuote, false) {
 			return 1
 		}
 	}
@@ -279,7 +276,7 @@ func (r *SPRenderer) smartBacktick(out *bytes.Buffer, previousChar byte, text []
 	return 0
 }
 
-func (r *SPRenderer) smartNumberGeneric(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartNumberGeneric(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if wordBoundary(previousChar) && previousChar != '/' && len(text) >= 3 {
 		// is it of the form digits/digits(word boundary)?, i.e., \d+/\d+\b
 		// note: check for regular slash (/) or fraction slash (⁄, 0x2044, or 0xe2 81 84 in utf-8)
@@ -321,7 +318,7 @@ func (r *SPRenderer) smartNumberGeneric(out *bytes.Buffer, previousChar byte, te
 	return 0
 }
 
-func (r *SPRenderer) smartNumber(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartNumber(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	if wordBoundary(previousChar) && previousChar != '/' && len(text) >= 3 {
 		if text[0] == '1' && text[1] == '/' && text[2] == '2' {
 			if len(text) < 4 || wordBoundary(text[3]) && text[3] != '/' {
@@ -349,27 +346,27 @@ func (r *SPRenderer) smartNumber(out *bytes.Buffer, previousChar byte, text []by
 	return 0
 }
 
-func (r *SPRenderer) smartDoubleQuoteVariant(out *bytes.Buffer, previousChar byte, text []byte, quote byte) int {
+func smartDoubleQuoteVariant(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte, quote byte) int {
 	nextChar := byte(0)
 	if len(text) > 1 {
 		nextChar = text[1]
 	}
-	if !smartQuoteHelper(out, previousChar, nextChar, quote, &r.inDoubleQuote, false) {
+	if !smartQuoteHelper(out, previousChar, nextChar, quote, &smrt.inDoubleQuote, false) {
 		out.WriteString("&quot;")
 	}
 
 	return 0
 }
 
-func (r *SPRenderer) smartDoubleQuote(out *bytes.Buffer, previousChar byte, text []byte) int {
-	return r.smartDoubleQuoteVariant(out, previousChar, text, 'd')
+func smartDoubleQuote(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
+	return smartDoubleQuoteVariant(out, smrt, previousChar, text, 'd')
 }
 
-func (r *SPRenderer) smartAngledDoubleQuote(out *bytes.Buffer, previousChar byte, text []byte) int {
-	return r.smartDoubleQuoteVariant(out, previousChar, text, 'a')
+func smartAngledDoubleQuote(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
+	return smartDoubleQuoteVariant(out, smrt, previousChar, text, 'a')
 }
 
-func (r *SPRenderer) smartLeftAngle(out *bytes.Buffer, previousChar byte, text []byte) int {
+func smartLeftAngle(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int {
 	i := 0
 
 	for i < len(text) && text[i] != '>' {
@@ -380,78 +377,54 @@ func (r *SPRenderer) smartLeftAngle(out *bytes.Buffer, previousChar byte, text [
 	return i
 }
 
-type smartCallback func(out *bytes.Buffer, previousChar byte, text []byte) int
+type smartCallback func(out *bytes.Buffer, smrt *smartypantsData, previousChar byte, text []byte) int
 
-// NewSmartypantsRenderer constructs a Smartypants renderer object.
-func NewSmartypantsRenderer(flags HTMLFlags) *SPRenderer {
-	var (
-		r SPRenderer
+type smartypantsRenderer [256]smartCallback
 
-		smartAmpAngled      = r.smartAmp(true, false)
-		smartAmpAngledNBSP  = r.smartAmp(true, true)
-		smartAmpRegular     = r.smartAmp(false, false)
-		smartAmpRegularNBSP = r.smartAmp(false, true)
+var (
+	smartAmpAngled      = smartAmp(true, false)
+	smartAmpAngledNBSP  = smartAmp(true, true)
+	smartAmpRegular     = smartAmp(false, false)
+	smartAmpRegularNBSP = smartAmp(false, true)
+)
 
-		addNBSP = flags&SmartypantsQuotesNBSP != 0
-	)
-
-	if flags&SmartypantsAngledQuotes == 0 {
-		r.callbacks['"'] = r.smartDoubleQuote
+func smartypants(flags int) *smartypantsRenderer {
+	r := new(smartypantsRenderer)
+	addNBSP := flags&HTML_SMARTYPANTS_QUOTES_NBSP != 0
+	if flags&HTML_SMARTYPANTS_ANGLED_QUOTES == 0 {
+		r['"'] = smartDoubleQuote
 		if !addNBSP {
-			r.callbacks['&'] = smartAmpRegular
+			r['&'] = smartAmpRegular
 		} else {
-			r.callbacks['&'] = smartAmpRegularNBSP
+			r['&'] = smartAmpRegularNBSP
 		}
 	} else {
-		r.callbacks['"'] = r.smartAngledDoubleQuote
+		r['"'] = smartAngledDoubleQuote
 		if !addNBSP {
-			r.callbacks['&'] = smartAmpAngled
+			r['&'] = smartAmpAngled
 		} else {
-			r.callbacks['&'] = smartAmpAngledNBSP
+			r['&'] = smartAmpAngledNBSP
 		}
 	}
-	r.callbacks['\''] = r.smartSingleQuote
-	r.callbacks['('] = r.smartParens
-	if flags&SmartypantsDashes != 0 {
-		if flags&SmartypantsLatexDashes == 0 {
-			r.callbacks['-'] = r.smartDash
+	r['\''] = smartSingleQuote
+	r['('] = smartParens
+	if flags&HTML_SMARTYPANTS_DASHES != 0 {
+		if flags&HTML_SMARTYPANTS_LATEX_DASHES == 0 {
+			r['-'] = smartDash
 		} else {
-			r.callbacks['-'] = r.smartDashLatex
+			r['-'] = smartDashLatex
 		}
 	}
-	r.callbacks['.'] = r.smartPeriod
-	if flags&SmartypantsFractions == 0 {
-		r.callbacks['1'] = r.smartNumber
-		r.callbacks['3'] = r.smartNumber
+	r['.'] = smartPeriod
+	if flags&HTML_SMARTYPANTS_FRACTIONS == 0 {
+		r['1'] = smartNumber
+		r['3'] = smartNumber
 	} else {
 		for ch := '1'; ch <= '9'; ch++ {
-			r.callbacks[ch] = r.smartNumberGeneric
+			r[ch] = smartNumberGeneric
 		}
 	}
-	r.callbacks['<'] = r.smartLeftAngle
-	r.callbacks['`'] = r.smartBacktick
-	return &r
-}
-
-// Process is the entry point of the Smartypants renderer.
-func (r *SPRenderer) Process(w io.Writer, text []byte) {
-	mark := 0
-	for i := 0; i < len(text); i++ {
-		if action := r.callbacks[text[i]]; action != nil {
-			if i > mark {
-				w.Write(text[mark:i])
-			}
-			previousChar := byte(0)
-			if i > 0 {
-				previousChar = text[i-1]
-			}
-			var tmp bytes.Buffer
-			i += action(&tmp, previousChar, text[i:])
-			w.Write(tmp.Bytes())
-			mark = i + 1
-		}
-	}
-	if mark < len(text) {
-		w.Write(text[mark:])
-	}
+	r['<'] = smartLeftAngle
+	r['`'] = smartBacktick
+	return r
 }

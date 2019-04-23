@@ -255,11 +255,11 @@
   revision = "v3.3.12"
 
 [[projects]]
-  digest = "1:f40ce74ceee561aaad86f75a22519a454575844c85872212e1640dce2b70df95"
+  digest = "1:7cb4fdca4c251b3ef8027c90ea35f70c7b661a593b9eeae34753c65499098bb1"
   name = "github.com/cpuguy83/go-md2man"
   packages = ["md2man"]
   pruneopts = "NUT"
-  revision = "691ee98543af2f262f35fbb54bdd42f00b9b9cc5"
+  revision = "v1.0.10"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -1053,11 +1053,11 @@
   revision = "418d78d0b9a7b7de3a6bbc8a23def624cc977bb2"
 
 [[projects]]
-  digest = "1:926cba3a3c1cddfcfad996917e5d72fb4726536dbdc7264fa936e8c99890e558"
+  digest = "1:d9afa09f6a45f68ec50047f8187c9d273b1fbf507858a104064bb6d9eb2e2795"
   name = "github.com/russross/blackfriday"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v2.0.1"
+  revision = "v1.5.2"
 
 [[projects]]
   digest = "1:54687206d0c840a45982b8fb507260451fb0dc5d218037b44443020460b16594"
@@ -1095,14 +1095,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "bb4de0191aa41b5507caa14b0650cdbddcd9280b"
-
-[[projects]]
-  digest = "1:debf1a119378d059b68925f1796851b6855bfc2f55419a50d634ecce3eabd8e8"
-  name = "github.com/shurcooL/sanitized_anchor_name"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "7bfe4c7ecddb3666a94b053b422cdd8f5aaa3615"
-  version = "v1.0.0"
 
 [[projects]]
   digest = "1:1f3786b148919a961ff9903067e97962fbb4e82270c3cc07e495f14cf68ed802"
