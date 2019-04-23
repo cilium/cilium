@@ -427,7 +427,7 @@ required = [
 
 [[override]]
   name = "golang.org/x/crypto"
-  revision = "56440b844dfe139a8ac053f4ecac0b20b79058f4"
+  revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
 
   # main-usage = "only in integration tests"
   # on-revision = ""

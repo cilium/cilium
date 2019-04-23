@@ -1184,7 +1184,7 @@
   revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
 
 [[projects]]
-  digest = "1:528c3b867218fc6ce15b9fa7b1e6d90c3a4245cb2683ca33426d598a6fe9690b"
+  digest = "1:1e63ada43d2806f05965163d1b7d0de9366d60a9077eb1b0c3618156b445e713"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
@@ -1198,7 +1198,7 @@
     "ssh/terminal",
   ]
   pruneopts = "NUT"
-  revision = "56440b844dfe139a8ac053f4ecac0b20b79058f4"
+  revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
 
 [[projects]]
   digest = "1:e10b2fc351acc7685b214f37d683594eef61a74f8f8d178168a37298aaf136da"
