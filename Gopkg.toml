@@ -553,6 +553,11 @@ required = [
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
+[[constraint]]
+  name = "github.com/jsimonetti/rtnetlink"
+  revision = "c9e1f06ad4154898f13e81b783daf517328c1077"
+
+
 [prune]
   non-go = true
   go-tests = true

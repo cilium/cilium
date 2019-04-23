@@ -17,29 +17,50 @@ package link
 import (
 	"fmt"
 
-	"github.com/vishvananda/netlink"
+	"github.com/jsimonetti/rtnetlink"
 )
 
 // DeleteByName deletes the interface with the name ifName.
 func DeleteByName(ifName string) error {
-	iface, err := netlink.LinkByName(ifName)
+	conn, err := rtnetlink.Dial(nil)
 	if err != nil {
-		return fmt.Errorf("failed to lookup %q: %v", ifName, err)
+		return fmt.Errorf("failed to open rtnetlink socket: %v", err)
+	}
+	defer conn.Close()
+
+	links, err := conn.Link.List()
+	if err != nil {
+		return fmt.Errorf("failed to lookup links: %v", err)
 	}
 
-	if err = netlink.LinkDel(iface); err != nil {
-		return fmt.Errorf("failed to delete %q: %v", ifName, err)
+	for _, link := range links {
+		if link.Attributes.Name == ifName {
+			return conn.Link.Delete(link.Index)
+		}
 	}
 
-	return nil
+	return fmt.Errorf("failed to find link %s", ifName)
 }
 
 // Rename renames a network link
 func Rename(curName, newName string) error {
-	link, err := netlink.LinkByName(curName)
+	conn, err := rtnetlink.Dial(nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open rtnetlink socket: %v", err)
+	}
+	defer conn.Close()
+
+	links, err := conn.Link.List()
+	if err != nil {
+		return fmt.Errorf("failed to lookup links: %v", err)
 	}
 
-	return netlink.LinkSetName(link, newName)
+	for _, link := range links {
+		if link.Attributes.Name == curName {
+			link.Attributes.Name = newName
+			return conn.Link.Set(&link)
+		}
+	}
+
+	return fmt.Errorf("failed to lookup %s", curName)
 }
