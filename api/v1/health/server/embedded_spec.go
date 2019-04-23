@@ -750,6 +750,13 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "properties": {
+            "allocations": {
+              "description": "Map of allocated IPs\n",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
             "ipv4": {
               "type": "array",
               "items": {

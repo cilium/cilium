@@ -127,17 +127,16 @@ func (id *ObjectId) SetBSON(raw bson.Raw) error {
 }
 
 // DeepCopyInto copies the receiver and writes its value into out.
-func (in *ObjectId) DeepCopyInto(out *ObjectId) {
-	*out = *in
-	return
+func (id *ObjectId) DeepCopyInto(out *ObjectId) {
+	*out = *id
 }
 
 // DeepCopy copies the receiver into a new ObjectId.
-func (in *ObjectId) DeepCopy() *ObjectId {
-	if in == nil {
+func (id *ObjectId) DeepCopy() *ObjectId {
+	if id == nil {
 		return nil
 	}
 	out := new(ObjectId)
-	in.DeepCopyInto(out)
+	id.DeepCopyInto(out)
 	return out
 }

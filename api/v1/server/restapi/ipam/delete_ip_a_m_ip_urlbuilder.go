@@ -46,7 +46,7 @@ func (o *DeleteIPAMIPURL) Build() (*url.URL, error) {
 	if ip != "" {
 		_path = strings.Replace(_path, "{ip}", ip, -1)
 	} else {
-		return nil, errors.New("IP is required on DeleteIPAMIPURL")
+		return nil, errors.New("ip is required on DeleteIPAMIPURL")
 	}
 
 	_basePath := o._basePath

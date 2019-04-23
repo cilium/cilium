@@ -13,7 +13,7 @@ GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)
 BPF_FILES ?= $(shell git ls-files ../bpf/ | grep -v .gitignore | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
-SWAGGER_VERSION = v0.18.0
+SWAGGER_VERSION = v0.19.0
 SWAGGER = $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG ?= ./...

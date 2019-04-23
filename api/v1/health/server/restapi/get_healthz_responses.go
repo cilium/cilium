@@ -97,5 +97,4 @@ func (o *GetHealthzFailed) WriteResponse(rw http.ResponseWriter, producer runtim
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

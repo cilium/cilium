@@ -195,17 +195,16 @@ func (t *DateTime) SetBSON(raw bson.Raw) error {
 }
 
 // DeepCopyInto copies the receiver and writes its value into out.
-func (in *DateTime) DeepCopyInto(out *DateTime) {
-	*out = *in
-	return
+func (t *DateTime) DeepCopyInto(out *DateTime) {
+	*out = *t
 }
 
 // DeepCopy copies the receiver into a new DateTime.
-func (in *DateTime) DeepCopy() *DateTime {
-	if in == nil {
+func (t *DateTime) DeepCopy() *DateTime {
+	if t == nil {
 		return nil
 	}
 	out := new(DateTime)
-	in.DeepCopyInto(out)
+	t.DeepCopyInto(out)
 	return out
 }

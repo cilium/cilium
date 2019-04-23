@@ -165,72 +165,70 @@ required = [
 
 [[constraint]]
   name = "github.com/go-openapi/errors"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/loads"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "swagger spec"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/runtime"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/spec"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
-# TODO(mrostecki): Switch to releases when they will include:
-# https://github.com/go-openapi/strfmt/commit/bc2668dc64edd7a448bdb3a6a997a85f7f868bbc
 [[constraint]]
   name = "github.com/go-openapi/strfmt"
-  revision = "bc2668dc64edd7a448bdb3a6a997a85f7f868bbc"
+  revision = "v0.19.0"
 
   # main-usage = "swagger and pkg/controllers"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/swag"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/validate"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/analysis"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/errors"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/jsonpointer"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""

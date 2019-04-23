@@ -97,7 +97,6 @@ func (o *PutPolicyInvalidPolicy) WriteResponse(rw http.ResponseWriter, producer 
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // PutPolicyInvalidPathCode is the HTTP code returned for type PutPolicyInvalidPath
@@ -140,7 +139,6 @@ func (o *PutPolicyInvalidPath) WriteResponse(rw http.ResponseWriter, producer ru
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // PutPolicyFailureCode is the HTTP code returned for type PutPolicyFailure
@@ -183,5 +181,4 @@ func (o *PutPolicyFailure) WriteResponse(rw http.ResponseWriter, producer runtim
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

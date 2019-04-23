@@ -51,13 +51,13 @@ func (o *GetEndpointIDLogOK) WriteResponse(rw http.ResponseWriter, producer runt
 	rw.WriteHeader(200)
 	payload := o.Payload
 	if payload == nil {
-		payload = make(models.EndpointStatusLog, 0, 50)
+		// return empty array
+		payload = models.EndpointStatusLog{}
 	}
 
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // GetEndpointIDLogInvalidCode is the HTTP code returned for type GetEndpointIDLogInvalid

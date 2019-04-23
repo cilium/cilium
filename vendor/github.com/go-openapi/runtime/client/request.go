@@ -213,9 +213,6 @@ func (r *request) buildHTTP(mediaType, basePath string, producers map[string]run
 				return nil, err
 			}
 
-			if _, err := r.buf.Write(b.Bytes()); err != nil {
-				return nil, err
-			}
 			return ioutil.NopCloser(&b), nil
 		}
 
@@ -284,6 +281,11 @@ func (r *request) SetHeaderParam(name string, values ...string) error {
 	}
 	r.header[http.CanonicalHeaderKey(name)] = values
 	return nil
+}
+
+// GetHeaderParams returns the all headers currently set for the request
+func (r *request) GetHeaderParams() http.Header {
+	return r.header
 }
 
 // SetQueryParam adds a query param to the request

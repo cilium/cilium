@@ -97,7 +97,6 @@ func (o *DeletePolicyInvalid) WriteResponse(rw http.ResponseWriter, producer run
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // DeletePolicyNotFoundCode is the HTTP code returned for type DeletePolicyNotFound
@@ -164,5 +163,4 @@ func (o *DeletePolicyFailure) WriteResponse(rw http.ResponseWriter, producer run
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
