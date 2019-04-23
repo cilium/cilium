@@ -286,7 +286,7 @@ required = [
 
 [[constraint]]
   name = "github.com/mattn/go-shellwords"
-  revision = "3c0603ff9671145648171317c30371d805656003"
+  revision = "v1.0.5"
 
   # main-usage = "pkg/datapath/iptables"
   # on-revision = ""
