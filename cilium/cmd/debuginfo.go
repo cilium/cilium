@@ -435,7 +435,7 @@ func printTicks(w io.Writer) {
 }
 
 func writeHTML(data []byte, path string) {
-	output := blackfriday.Run(data)
+	output := blackfriday.MarkdownCommon(data)
 	if err := ioutil.WriteFile(path, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error while writing HTML file %s", err)
 		return
