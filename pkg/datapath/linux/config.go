@@ -232,6 +232,10 @@ func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConf
 }
 
 func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.EndpointConfiguration) error {
+	if e.RequireEgressProg() {
+		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
+	}
+
 	if !e.HasIpvlanDataPath() {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
