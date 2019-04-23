@@ -300,10 +300,6 @@ spec:
         - mountPath: /lib/modules
           name: lib-modules
           readOnly: true
-          # Needed by ip[6]tables when loading kernel modules
-        - mountPath: /sbin/modprobe
-          name: sbin-modprobe
-          readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: false
