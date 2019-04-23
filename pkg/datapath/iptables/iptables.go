@@ -278,10 +278,10 @@ func (m *IptablesManager) RemoveRules() {
 		for _, t := range tables6 {
 			removeCiliumRules(t, "ip6tables")
 		}
+	}
 
-		for _, c := range ciliumChains {
-			c.remove()
-		}
+	for _, c := range ciliumChains {
+		c.remove()
 	}
 }
 
