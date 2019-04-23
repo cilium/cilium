@@ -242,7 +242,7 @@ required = [
 
 [[constraint]]
   name = "github.com/hashicorp/consul"
-  revision = "v1.4.2"
+  revision = "v1.4.4"
 
   # main-usage = "pkg/kvstore"
   # on-revision = ""
