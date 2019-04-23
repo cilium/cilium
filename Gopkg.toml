@@ -441,7 +441,7 @@ required = [
 
 [[constraint]]
   name = "golang.org/x/sync"
-  revision = "37e7f081c4d4c64e13b10787722085407fe5d15f"
+  revision = "112230192c580c3556b8cee6403af37a4fc5f28c"
 
   # main-usage = "daemon"
   # on-revision = "last available commit and there is not stable releases"
