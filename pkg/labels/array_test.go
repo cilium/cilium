@@ -46,8 +46,12 @@ func (s *LabelsSuite) TestMatches(c *C) {
 func (s *LabelsSuite) TestParse(c *C) {
 	c.Assert(ParseLabelArray(), checker.DeepEquals, LabelArray{})
 	c.Assert(ParseLabelArray("magic"), checker.DeepEquals, LabelArray{ParseLabel("magic")})
-	c.Assert(ParseLabelArray("a", "b", "c"), checker.DeepEquals,
+	// LabelArray is sorted
+	c.Assert(ParseLabelArray("a", "c", "b"), checker.DeepEquals,
 		LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c")})
+	// NewLabelArrayFromSortedList
+	c.Assert(NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"), checker.DeepEquals,
+		LabelArray{ParseLabel("a"), ParseLabel("b"), ParseLabel("c=d")})
 }
 
 func (s *LabelsSuite) TestHas(c *C) {
