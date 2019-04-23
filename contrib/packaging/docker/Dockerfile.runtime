@@ -9,7 +9,7 @@ apt-get upgrade -y && \
 #
 apt-get install -y --no-install-recommends \
     gpg gpg-agent libelf-dev libmnl-dev libc6-dev-i386 iptables libgcc-5-dev \
-    bash-completion binutils binutils-dev ca-certificates clang-7 llvm-7 && \
+    bash-completion binutils binutils-dev ca-certificates clang-7 llvm-7 kmod && \
 apt-get purge --auto-remove && \
 apt-get clean && \
 #
