@@ -1105,14 +1105,14 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:77eff47560c90ec02e12be30e81f74f46eeb2b06bd58904df4d58ff5a8dfdd9d"
+  digest = "1:1f3786b148919a961ff9903067e97962fbb4e82270c3cc07e495f14cf68ed802"
   name = "github.com/sirupsen/logrus"
   packages = [
     ".",
     "hooks/syslog",
   ]
   pruneopts = "NUT"
-  revision = "v1.4.0"
+  revision = "v1.4.1"
 
 [[projects]]
   digest = "1:330e9062b308ac597e28485699c02223bd052437a6eed32a173c9227dcb9d95a"
