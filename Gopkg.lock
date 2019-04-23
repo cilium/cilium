@@ -584,11 +584,11 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:f9c7b395f10bd6d881b1f2d71715906b4481a04e46870cdd2647d50caa3358c2"
+  digest = "1:f03d1f27dee54a6f51200778991db9b7a91e9d9cc42395ba813fc9efc490a9a2"
   name = "github.com/gorilla/mux"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "v1.7.0"
+  revision = "v1.7.1"
 
 [[projects]]
   digest = "1:eeda5c1da08e3b6e6dac8869c1cab16848bd7f80ccd08fad84fe7ae33df2345c"
