@@ -103,26 +103,92 @@ type identityWatcher struct {
 	stopChan chan bool
 }
 
+func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) bool {
+	id := identity.NumericIdentity(event.ID)
+	// Only create events have the key
+	if event.Typ == kvstore.EventTypeCreate {
+		if gi, ok := event.Key.(globalIdentity); ok {
+			// Un-delete the added ID if previously
+			// 'deleted' so that collected events can be
+			// processed in any order.
+			if _, exists := deleted[id]; exists {
+				delete(deleted, id)
+			}
+			added[id] = gi.LabelArray
+			return true
+		}
+		log.Warningf("collectEvent: Ignoring unknown identity type '%s': %+v",
+			reflect.TypeOf(event.Key), event.Key)
+		return false
+	}
+	// Reverse an add when subsequently deleted
+	if _, exists := added[id]; exists {
+		delete(added, id)
+	}
+	// record the id deleted even if an add was reversed, as the
+	// id may also have previously existed, in which case the
+	// result is not no-op!
+	deleted[id] = labels.LabelArray{}
+
+	return true
+}
+
 // watch starts the identity watcher
 func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.AllocatorEventChan) {
 	w.stopChan = make(chan bool)
 
 	go func() {
 		for {
-			select {
-			case event := <-events:
+			added := IdentityCache{}
+			deleted := IdentityCache{}
 
-				switch event.Typ {
-				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-					owner.TriggerPolicyUpdates(true, "one or more identities created or deleted")
-
-				case kvstore.EventTypeModify:
-					// Ignore modify events
+		First:
+			for {
+				// Wait for one identity add or delete or stop
+				select {
+				case event, ok := <-events:
+					if !ok {
+						// 'events' was closed
+						return
+					}
+					// Collect first added and deleted labels
+					switch event.Typ {
+					case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+						if collectEvent(event, added, deleted) {
+							// First event collected
+							break First
+						}
+					default:
+						// Ignore modify events
+					}
+				case <-w.stopChan:
+					return
 				}
-
-			case <-w.stopChan:
-				return
 			}
+
+		More:
+			for {
+				// see if there is more, but do not wait nor stop
+				select {
+				case event, ok := <-events:
+					if !ok {
+						// 'events' was closed
+						break More
+					}
+					// Collect more added and deleted labels
+					switch event.Typ {
+					case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+						collectEvent(event, added, deleted)
+					default:
+						// Ignore modify events
+					}
+				default:
+					// No more events available without blocking
+					break More
+				}
+			}
+			// Issue collected updates
+			owner.UpdateIdentities(added, deleted)
 		}
 	}()
 }

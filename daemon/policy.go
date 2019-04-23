@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -66,6 +67,13 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	}
 
 	d.policyTrigger.TriggerWithReason(reason)
+}
+
+// UpdateIdentities informs the policy package of all identity changes
+// and also triggers policy updates.
+func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
+	policy.UpdateIdentities(added, deleted)
+	d.TriggerPolicyUpdates(true, "one or more identities created or deleted")
 }
 
 type getPolicyResolve struct {
