@@ -54,7 +54,7 @@ pipeline {
                }
             }
         }
-        stage('Boot VMs'){
+        /*stage('Boot VMs'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -107,12 +107,12 @@ pipeline {
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
                 }
             }
-        }
+        }*/
     }
     post {
         always {
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
-            sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.14 vagrant destroy -f || true'
+            //sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
+            //sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.14 vagrant destroy -f || true'
             cleanWs()
         }
     }
