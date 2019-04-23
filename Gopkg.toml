@@ -60,14 +60,14 @@ required = [
 
 [[constraint]]
   name = "github.com/containerd/containerd"
-  revision = "v1.2.4"
+  revision = "v1.2.6"
 
   # main-usage = "pkg/workloads"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/containerd/cri"
-  revision = "da0c016c830b2ea97fd1d737c49a568a816bf964"
+  revision = "eb926cd79d3bac188dcc4ed7694fc9298f8831be"
 
   # main-usage = "pkg/workloads"
   # on-revision = "it is the same revision used by containerd and we only use this repo directly to access a constant"

@@ -128,7 +128,7 @@
   revision = "f65bc191a9b99d7bdc6288821d5ee1fe2517f4db"
 
 [[projects]]
-  digest = "1:623d36e1d9d7aa38d5c0b92ed0a19279b3847a6c287ffa3e328f9535a3bef17b"
+  digest = "1:e60eba203be0ebc6e9deeb000459ca686e28029cc564e3cf9432faa908c287a7"
   name = "github.com/containerd/containerd"
   packages = [
     ".",
@@ -181,7 +181,7 @@
     "sys",
   ]
   pruneopts = "NUT"
-  revision = "v1.2.4"
+  revision = "v1.2.6"
 
 [[projects]]
   branch = "master"
@@ -200,7 +200,7 @@
   name = "github.com/containerd/cri"
   packages = ["pkg/store"]
   pruneopts = "NUT"
-  revision = "da0c016c830b2ea97fd1d737c49a568a816bf964"
+  revision = "eb926cd79d3bac188dcc4ed7694fc9298f8831be"
 
 [[projects]]
   branch = "master"
