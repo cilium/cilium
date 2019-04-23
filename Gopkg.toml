@@ -386,7 +386,7 @@ required = [
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
-  revision = "v1.4.0"
+  revision = "v1.4.1"
 
   # main-usage = "all over the code"
   # on-revision = ""
