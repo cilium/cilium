@@ -99,11 +99,11 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  digest = "1:080689a7cb710dc8f694005f8e5b3aab861d01e885eaf53fae54431c4635bfe6"
+  digest = "1:8e1d01023ad6893c3b4fccf50346b871f91579f330e7f27880d4a585bfafcdcf"
   name = "github.com/c9s/goprocinfo"
   packages = ["linux"]
   pruneopts = "NUT"
-  revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
+  revision = "0b2ad9ac246b05c4f5750721d0c4d230888cac5e"
 
 [[projects]]
   digest = "1:d3f9490dcc8ac33c59f0884b05f367db5524f096aaf565e7e6b57bce5bc2e221"
