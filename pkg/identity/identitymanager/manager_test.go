@@ -82,36 +82,71 @@ func (s *IdentityManagerTestSuite) TestIdentityManagerLifecycle(c *C) {
 }
 
 type identityManagerObserver struct {
+	added   []identity.NumericIdentity
 	removed []identity.NumericIdentity
 }
 
-func newIdentityManagerObserver() *identityManagerObserver {
+func newIdentityManagerObserver(trackAdd, trackRemove []identity.NumericIdentity) *identityManagerObserver {
 	return &identityManagerObserver{
-		removed: make([]identity.NumericIdentity, 0),
+		added:   trackAdd,
+		removed: trackRemove,
+	}
+}
+
+func (i *identityManagerObserver) LocalEndpointIdentityAdded(identity *identity.Identity) {
+	if i.added != nil {
+		i.added = append(i.added, identity.ID)
 	}
 }
 
 func (i *identityManagerObserver) LocalEndpointIdentityRemoved(identity *identity.Identity) {
-	i.removed = append(i.removed, identity.ID)
+	if i.removed != nil {
+		i.removed = append(i.removed, identity.ID)
+	}
 }
 
-func (s *IdentityManagerTestSuite) TestIdentityManagerObservers(c *C) {
+func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityAdded(c *C) {
+	idm := NewIdentityManager()
+	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, nil)
+	idm.subscribe(observer)
+
+	// First add triggers an "IdentityAdded" event.
+	idm.Add(fooIdentity)
+	expectedObserver := newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID}, nil)
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+
+	// Second does not.
+	idm.Add(fooIdentity)
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+
+	// Unrelated add should also trigger.
+	idm.Add(barIdentity)
+	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID}, nil)
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+
+	// Removing both then re-adding should trigger the event again.
+	idm.Remove(fooIdentity)
+	idm.Remove(fooIdentity)
+	idm.Add(fooIdentity)
+	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID, fooIdentity.ID}, nil)
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+}
+
+func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityRemoved(c *C) {
 	idm := NewIdentityManager()
 	c.Assert(idm.identities, NotNil)
-	observer := newIdentityManagerObserver()
+	observer := newIdentityManagerObserver(nil, []identity.NumericIdentity{})
 	idm.subscribe(observer)
 
 	// Basic remove
 	idm.Add(fooIdentity)
 	idm.Remove(fooIdentity)
-	expectedObserver := &identityManagerObserver{
-		[]identity.NumericIdentity{fooIdentity.ID},
-	}
+	expectedObserver := newIdentityManagerObserver(nil, []identity.NumericIdentity{fooIdentity.ID})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 
 	idm = NewIdentityManager()
 	c.Assert(idm.identities, NotNil)
-	observer = newIdentityManagerObserver()
+	observer = newIdentityManagerObserver(nil, []identity.NumericIdentity{})
 	idm.subscribe(observer)
 
 	// Refcount remove
@@ -119,18 +154,12 @@ func (s *IdentityManagerTestSuite) TestIdentityManagerObservers(c *C) {
 	idm.Add(fooIdentity)    // foo = 2
 	idm.Add(barIdentity)    // bar = 1
 	idm.Remove(fooIdentity) // foo = 1
-	expectedObserver = &identityManagerObserver{
-		[]identity.NumericIdentity{},
-	}
+	expectedObserver = newIdentityManagerObserver(nil, []identity.NumericIdentity{})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 	idm.Remove(fooIdentity) // foo = 0
-	expectedObserver = &identityManagerObserver{
-		[]identity.NumericIdentity{fooIdentity.ID},
-	}
+	expectedObserver = newIdentityManagerObserver(nil, []identity.NumericIdentity{fooIdentity.ID})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 	idm.Remove(barIdentity) // bar = 0
-	expectedObserver = &identityManagerObserver{
-		[]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID},
-	}
+	expectedObserver = newIdentityManagerObserver(nil, []identity.NumericIdentity{fooIdentity.ID, barIdentity.ID})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 }

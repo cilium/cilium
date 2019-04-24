@@ -421,6 +421,11 @@ func (p *Repository) removeIdentityFromRuleCaches(identity *identity.Identity) *
 	return &wg
 }
 
+// LocalEndpointIdentityAdded handles local identity add events.
+func (p *Repository) LocalEndpointIdentityAdded(*identity.Identity) {
+	// no-op for now.
+}
+
 // LocalEndpointIdentityRemoved handles local identity removal events to
 // remove references from rules in the repository to the specified identity.
 func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
