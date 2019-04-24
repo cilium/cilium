@@ -26,6 +26,9 @@ type EndpointChangeRequest struct {
 	// Name assigned to container
 	ContainerName string `json:"container-name,omitempty"`
 
+	// datapath configuration
+	DatapathConfiguration *EndpointDatapathConfiguration `json:"datapath-configuration,omitempty"`
+
 	// ID of datapath tail call map
 	DatapathMapID int64 `json:"datapath-map-id,omitempty"`
 
@@ -82,6 +85,10 @@ func (m *EndpointChangeRequest) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateDatapathConfiguration(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateLabels(formats); err != nil {
 		res = append(res, err)
 	}
@@ -106,6 +113,24 @@ func (m *EndpointChangeRequest) validateAddressing(formats strfmt.Registry) erro
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointChangeRequest) validateDatapathConfiguration(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.DatapathConfiguration) { // not required
+		return nil
+	}
+
+	if m.DatapathConfiguration != nil {
+		if err := m.DatapathConfiguration.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("datapath-configuration")
 			}
 			return err
 		}
