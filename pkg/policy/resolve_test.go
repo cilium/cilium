@@ -62,6 +62,14 @@ func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
 	return
 }
 
+func (d *dummyEndpoint) RLockAlive() error {
+	return nil
+}
+
+func (d *dummyEndpoint) RUnlock() {
+	return
+}
+
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	var wg sync.WaitGroup
 	SetPolicyEnabled(option.DefaultEnforcement)
