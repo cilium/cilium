@@ -117,6 +117,9 @@ static int BPF_FUNC(map_delete_elem, void *map, const void *key);
 /* Time access */
 static uint64_t BPF_FUNC(ktime_get_ns);
 
+/* Sockets */
+static uint64_t BPF_FUNC(get_socket_cookie, void *ctx);
+
 /* Debugging */
 
 __attribute__((__format__(__printf__, 1, 3)))
