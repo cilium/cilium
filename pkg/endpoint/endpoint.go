@@ -816,7 +816,7 @@ func (e *Endpoint) GetLabels() []string {
 }
 
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
-// the endpoint's mutex.
+// the endpoint's mutex is held.
 func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
 	return e.SecurityIdentity
 }
