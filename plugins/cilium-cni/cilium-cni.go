@@ -15,7 +15,7 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -38,6 +38,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
+	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
+	"github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -67,42 +69,6 @@ type CmdState struct {
 	IP4routes []route.Route
 	Client    *client.Client
 	HostAddr  *models.NodeAddressing
-}
-
-type netConf struct {
-	cniTypes.NetConf
-	MTU  int  `json:"mtu"`
-	Args Args `json:"args"`
-}
-
-type cniArgsSpec struct {
-	cniTypes.CommonArgs
-	IP                         net.IP
-	K8S_POD_NAME               cniTypes.UnmarshallableString
-	K8S_POD_NAMESPACE          cniTypes.UnmarshallableString
-	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString
-}
-
-// Args contains arbitrary information a scheduler
-// can pass to the cni plugin
-type Args struct {
-	Mesos Mesos `json:"org.apache.mesos,omitempty"`
-}
-
-// Mesos contains network-specific information from the scheduler to the cni plugin
-type Mesos struct {
-	NetworkInfo NetworkInfo `json:"network_info"`
-}
-
-// NetworkInfo supports passing only labels from mesos
-type NetworkInfo struct {
-	Name   string `json:"name"`
-	Labels struct {
-		Labels []struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
-		} `json:"labels,omitempty"`
-	} `json:"labels,omitempty"`
 }
 
 func main() {
@@ -135,14 +101,6 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 	}
 
 	return true
-}
-
-func loadNetConf(bytes []byte) (*netConf, string, error) {
-	n := &netConf{}
-	if err := json.Unmarshal(bytes, n); err != nil {
-		return nil, "", fmt.Errorf("failed to load netconf: %s", err)
-	}
-	return n, n.CNIVersion, nil
 }
 
 func releaseIP(client *client.Client, ip string) {
@@ -300,7 +258,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
-func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs cniArgsSpec, n *netConf, cniVer string, c *client.Client) (err error) {
+func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs types.ArgsSpec, n *types.NetConf, cniVer string, c *client.Client) (err error) {
 	err = cniVersion.ParsePrevResult(&n.NetConf)
 	if err != nil {
 		return fmt.Errorf("unable to understand network config: %s", err)
@@ -411,7 +369,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		ipConfig *cniTypesVer.IPConfig
 		routes   []*cniTypes.Route
 		ipam     *models.IPAMResponse
-		n        *netConf
+		n        *types.NetConf
 		cniVer   string
 		c        *client.Client
 		netNs    ns.NetNS
@@ -420,12 +378,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	logger := log.WithField("eventUUID", uuid.NewUUID())
 	logger.WithField("args", args).Debug("Processing CNI ADD request")
 
-	n, cniVer, err = loadNetConf(args.StdinData)
+	n, cniVer, err = types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return
 	}
 
-	cniArgs := cniArgsSpec{}
+	cniArgs := types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
 		err = fmt.Errorf("unable to extract CNI arguments: %s", err)
 		return
@@ -438,6 +396,28 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if len(n.NetConf.RawPrevResult) != 0 {
+		if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
+			var (
+				res *cniTypesVer.Result
+				ctx = chainingapi.PluginContext{
+					Logger:     logger,
+					Args:       args,
+					CniArgs:    cniArgs,
+					NetConf:    n,
+					CniVersion: cniVer,
+					Client:     c,
+				}
+			)
+
+			res, err = chainAction.Add(context.TODO(), ctx)
+			if err != nil {
+				return
+			}
+			return cniTypes.PrintResult(res, cniVer)
+		} else {
+			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
+		}
+
 		switch n.Name {
 		case "cbr0":
 			err = setUPWithFlannel(logger, args, cniArgs, n, cniVer, c)
