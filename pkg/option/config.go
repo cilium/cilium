@@ -306,6 +306,9 @@ const (
 	// IpvlanMasterDevice is the name of the IpvlanMasterDevice option
 	IpvlanMasterDevice = "ipvlan-master-device"
 
+	// EnableHostReachableServices is the name of the EnableHostReachableServices option
+	EnableHostReachableServices = "enable-host-reachable-services"
+
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
 
@@ -739,6 +742,7 @@ type DaemonConfig struct {
 	DisableConntrack              bool
 	DisableK8sServices            bool
 	EnableLegacyServices          bool
+	EnableHostReachableServices   bool
 	DockerEndpoint                string
 	EnablePolicy                  string
 	EnableTracing                 bool
@@ -1107,6 +1111,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EnableLegacyServices = viper.GetBool(EnableLegacyServices)
+	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)

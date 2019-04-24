@@ -5,7 +5,7 @@ include ../Makefile.defs
 SUBDIRS = sockops
 
 BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o
-BPF = bpf_lxc.o bpf_lb.o $(BPF_SIMPLE)
+BPF = bpf_lxc.o bpf_lb.o bpf_sock.o $(BPF_SIMPLE)
 SCRIPTS = init.sh join_ep.sh run_probes.sh spawn_netns.sh
 
 TARGET=cilium-map-migrate
@@ -50,6 +50,19 @@ bpf_lb.ll: bpf_lb.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_lb.o: bpf_lb.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_sock.ll: bpf_sock.c $(LIB)
+	$(QUIET) set -e; \
+	$(foreach OPTS,$(LB_OPTIONS), \
+		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_sock.o: bpf_sock.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 

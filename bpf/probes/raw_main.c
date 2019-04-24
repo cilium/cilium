@@ -43,6 +43,7 @@ struct bpf_map_fixup {
 struct bpf_test {
 	const char *emits;
 	enum bpf_prog_type type;
+	enum bpf_attach_type attach_type;
 	struct bpf_insn insns[BPF_MAXINSNS];
 	struct bpf_map_fixup fixup_map[BPF_MAX_FIXUPS];
 	const char *warn;
@@ -79,9 +80,9 @@ static int bpf(int cmd, union bpf_attr *attr, unsigned int size)
 #endif
 }
 
-int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
-		  size_t num_insns, const char *license, char *log,
-		  size_t size_log)
+int bpf_prog_load(enum bpf_prog_type type, enum bpf_attach_type attach_type,
+		  const struct bpf_insn *insns, size_t num_insns,
+		  const char *license, char *log, size_t size_log)
 {
 	union bpf_attr attr;
 
@@ -90,6 +91,7 @@ int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
 	attr.insns = bpf_ptr_to_u64(insns);
 	attr.insn_cnt = num_insns;
 	attr.license = bpf_ptr_to_u64(license);
+	attr.expected_attach_type = attach_type;
 
 	if (size_log > 0) {
 		attr.log_buf = bpf_ptr_to_u64(log);
@@ -230,7 +232,7 @@ static void bpf_report(const struct bpf_test *test, int success,
 		       "debug output" : "failed due to load error");
 
 		memset(bpf_vlog, 0, sizeof(bpf_vlog));
-		fd = bpf_prog_load(test->type, test->insns,
+		fd = bpf_prog_load(test->type, test->attach_type, test->insns,
 				   bpf_test_length(test->insns), "GPL",
 				   bpf_vlog, sizeof(bpf_vlog));
 		printf("%s\n%s", strerror(errno), bpf_vlog);
@@ -279,7 +281,7 @@ static void bpf_run_test(struct bpf_test *test, int debug_mode)
 		map++;
 	}
 
-	fd = bpf_prog_load(test->type, test->insns,
+	fd = bpf_prog_load(test->type, test->attach_type, test->insns,
 			   bpf_test_length(test->insns), "GPL", NULL, 0);
 	bpf_report(test, fd > 0, debug_mode);
 	if (fd > 0)

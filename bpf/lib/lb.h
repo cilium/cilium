@@ -501,13 +501,17 @@ struct lb6_service_v2 *lb6_lookup_service_v2(struct __sk_buff *skb,
 	return svc;
 }
 
+static inline struct lb6_backend *__lb6_lookup_backend(__u16 backend_id)
+{
+	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
+}
+
 static inline struct lb6_backend *lb6_lookup_backend(struct __sk_buff *skb,
 						     __u16 backend_id)
 {
 	struct lb6_backend *backend;
 
-	backend = map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
-
+	backend = __lb6_lookup_backend(backend_id);
 	if (!backend) {
 		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_BACKEND_FAIL, backend_id, 0);
 	}
@@ -536,6 +540,12 @@ static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 #endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
+struct lb6_service_v2 *__lb6_lookup_slave_v2(struct lb6_key_v2 *key)
+{
+	return map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+}
+
+static inline
 struct lb6_service_v2 *lb6_lookup_slave_v2(struct __sk_buff *skb,
 					   struct lb6_key_v2 *key, __u16 slave)
 {
@@ -543,7 +553,7 @@ struct lb6_service_v2 *lb6_lookup_slave_v2(struct __sk_buff *skb,
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB6_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+	svc = __lb6_lookup_slave_v2(key);
 	if (svc != NULL) {
 		return svc;
 	}
@@ -900,13 +910,17 @@ struct lb4_service_v2 *lb4_lookup_service_v2(struct __sk_buff *skb,
 	return svc;
 }
 
+static inline struct lb4_backend *__lb4_lookup_backend(__u16 backend_id)
+{
+	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
+}
+
 static inline struct lb4_backend *lb4_lookup_backend(struct __sk_buff *skb,
 						     __u16 backend_id)
 {
 	struct lb4_backend *backend;
 
-	backend = map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
-
+	backend = __lb4_lookup_backend(backend_id);
 	if (!backend) {
 		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_BACKEND_FAIL, backend_id, 0);
 	}
@@ -935,6 +949,12 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 #endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
+struct lb4_service_v2 *__lb4_lookup_slave_v2(struct lb4_key_v2 *key)
+{
+	return map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+}
+
+static inline
 struct lb4_service_v2 *lb4_lookup_slave_v2(struct __sk_buff *skb,
 					   struct lb4_key_v2 *key, __u16 slave)
 {
@@ -942,7 +962,7 @@ struct lb4_service_v2 *lb4_lookup_slave_v2(struct __sk_buff *skb,
 
 	key->slave = slave;
 	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+	svc = __lb4_lookup_slave_v2(key);
 	if (svc != NULL) {
 		return svc;
 	}

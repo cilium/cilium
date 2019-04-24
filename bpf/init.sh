@@ -27,6 +27,9 @@ MTU=$9
 IPSEC=${10}
 MASQ=${11}
 ENCRYPT_DEV=${12}
+HOSTLB=${13}
+CGROUP_ROOT=${14}
+BPFFS_ROOT=${15}
 
 ID_HOST=1
 ID_WORLD=2
@@ -301,6 +304,41 @@ function bpf_load()
 	return $RETCODE
 }
 
+function bpf_load_cgroups()
+{
+	OPTS=$1
+	IN=$2
+	OUT=$3
+	PROG_TYPE=$4
+	WHERE=$5
+	SEC=$6
+	CALLS_MAP=$7
+	CGRP=$8
+	BPFMNT=$9
+
+	OPTS="${OPTS} ${OPTS_DIR} -DCALLS_MAP=${CALLS_MAP}"
+	bpf_compile $IN $OUT obj "$OPTS"
+
+	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
+	rm -f $TMP_FILE
+
+	cilium-map-migrate -s $OUT
+	set +e
+	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec $SEC
+	RETCODE=$?
+	set -e
+	cilium-map-migrate -e $OUT -r $RETCODE
+
+	if [ "$RETCODE" -eq "0" ]; then
+		set +e
+		bpftool cgroup attach $CGRP $WHERE pinned $TMP_FILE
+		RETCODE=$?
+		set -e
+		rm -f $TMP_FILE
+	fi
+	return $RETCODE
+}
+
 function encap_fail()
 {
 	(>&2 echo "ERROR: Setup of encapsulation device $ENCAP_DEV has failed. Is another program using a $MODE device?")
@@ -469,6 +507,23 @@ else
 		echo "Removed BPF program from device $DEV"
 		tc qdisc del dev $DEV clsact 2> /dev/null || true
 		rm $FILE
+	fi
+fi
+
+if [ "$HOSTLB" = "true" ]; then
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+	fi
+
+	CALLS_MAP="cilium_calls_lb"
+	COPTS="-DLB_L3 -DLB_L4"
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+	fi
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 	fi
 fi
 
