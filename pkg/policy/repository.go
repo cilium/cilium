@@ -461,7 +461,16 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision *EndpointS
 	}
 
 	endpointsToBumpRevision.ForEach(policySelectionWG, func(epp Endpoint) {
-		if endpointSelected := r.updateEndpointsCaches(epp, endpointsToRegenerate); endpointSelected {
+		endpointSelected, err := r.updateEndpointsCaches(epp, endpointsToRegenerate)
+
+		// If we could not evaluate the rules against the current endpoint, or
+		// the endpoint is not selected by the rules, remove it from the set
+		// of endpoints to bump the revision. If the error is non-nil, the
+		// endpoint is no longer in either set (endpointsToBumpRevision or
+		// endpointsToRegenerate, as we could not determine what to do for the
+		// endpoint). This is usually the case when the endpoint is no longer
+		// alive (i.e., it has been marked to be deleted).
+		if endpointSelected || err != nil {
 			endpointsToBumpRevision.Delete(epp)
 		}
 	})
