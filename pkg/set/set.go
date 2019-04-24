@@ -14,27 +14,27 @@
 
 package set
 
-// SliceSubsetOf checks whether the first slice is a subset of the second slice. If
-// not, it also returns slice of elements which are the difference of both
-// input slices.
-func SliceSubsetOf(sub, main []string) (bool, []string) {
+// MapSubsetOfSlice checks whether the map keys are a subset of the given slice.
+// If not, it also returns slice of elements which are the difference between
+// map keys and the slice.
+func MapSubsetOfSlice(sub map[string]string, main []string) (bool, []string) {
 	var diff []string
 	occurences := make(map[string]int, len(main))
 	result := true
 	for _, element := range main {
 		occurences[element]++
 	}
-	for _, element := range sub {
-		if count, ok := occurences[element]; !ok {
+	for key := range sub {
+		if count, ok := occurences[key]; !ok {
 			// Element was not found in the main slice.
 			result = false
-			diff = append(diff, element)
+			diff = append(diff, key)
 		} else if count < 1 {
-			// The element is in both slices, but the sub slice
+			// The key is in both slices, but the sub slice
 			// has more duplicates.
 			result = false
 		} else {
-			occurences[element]--
+			occurences[key]--
 		}
 	}
 	return result, diff

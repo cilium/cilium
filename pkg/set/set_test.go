@@ -35,56 +35,44 @@ var _ = Suite(&SetTestSuite{})
 
 func (s *SetTestSuite) TestSliceSubsetOf(c *C) {
 	testCases := []struct {
-		sub          []string
+		sub          map[string]string
 		main         []string
 		isSubset     bool
 		expectedDiff []string
 	}{
 		{
-			sub:          []string{"foo", "bar"},
+			sub:          map[string]string{"foo": "", "bar": ""},
 			main:         []string{"foo", "bar", "baz"},
 			isSubset:     true,
 			expectedDiff: nil,
 		},
 		{
-			sub:          []string{"foo", "bar"},
+			sub:          map[string]string{"foo": "", "bar": ""},
 			main:         []string{"foo", "bar"},
 			isSubset:     true,
 			expectedDiff: nil,
 		},
 		{
-			sub:          []string{"foo", "bar"},
+			sub:          map[string]string{"foo": "", "bar": ""},
 			main:         []string{"foo", "baz"},
 			isSubset:     false,
 			expectedDiff: []string{"bar"},
 		},
 		{
-			sub:          []string{"baz"},
+			sub:          map[string]string{"baz": ""},
 			main:         []string{"foo", "bar"},
 			isSubset:     false,
 			expectedDiff: []string{"baz"},
 		},
 		{
-			sub:          []string{"foo", "bar", "fizz"},
+			sub:          map[string]string{"foo": "", "bar": "", "fizz": ""},
 			main:         []string{"fizz", "buzz"},
 			isSubset:     false,
 			expectedDiff: []string{"foo", "bar"},
 		},
-		{
-			sub:          []string{"foo", "foo", "bar"},
-			main:         []string{"foo", "bar"},
-			isSubset:     false,
-			expectedDiff: nil,
-		},
-		{
-			sub:          []string{"foo", "foo", "foo", "bar", "bar"},
-			main:         []string{"foo", "foo", "bar"},
-			isSubset:     false,
-			expectedDiff: nil,
-		},
 	}
 	for _, tc := range testCases {
-		isSubset, diff := SliceSubsetOf(tc.sub, tc.main)
+		isSubset, diff := MapSubsetOfSlice(tc.sub, tc.main)
 		c.Assert(isSubset, Equals, tc.isSubset)
 		c.Assert(diff, checker.DeepEquals, tc.expectedDiff)
 	}
