@@ -19,7 +19,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/kernelversion"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -63,4 +68,32 @@ func listModules() ([]string, error) {
 	}
 	defer fModules.Close()
 	return parseModulesFile(fModules)
+}
+
+// fullModulePath returns the full kernel module path based on the given
+// suffix.
+func fullModulePath(suffix string) (string, error) {
+	kerVer, err := kernelversion.GetRawKernelVersion()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join("/lib", "modules", kerVer, suffix), nil
+}
+
+// loadModule loads the kernel module.
+func loadModule(modulePath string) error {
+	fModulePath, err := fullModulePath(modulePath)
+	if err != nil {
+		return err
+	}
+	fd, err := unix.Open(fModulePath, unix.O_RDONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("could not open module file %s: %s",
+			modulePath, err)
+	}
+	if err := unix.FinitModule(fd, "", 0); err != nil {
+		return fmt.Errorf("could not load module %s: %s",
+			modulePath, err)
+	}
+	return nil
 }

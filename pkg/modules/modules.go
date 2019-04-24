@@ -15,10 +15,6 @@
 package modules
 
 import (
-	"fmt"
-
-	"github.com/cilium/cilium/pkg/command/exec"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/set"
 )
 
@@ -38,25 +34,16 @@ func (m *ModulesManager) Init() error {
 	return nil
 }
 
-// findModules checks whether the given kernel modules are loaded and also
-// returns a slice with names of modules which are not loaded.
-func (m *ModulesManager) findModules(expectedNames ...string) (bool, []string) {
-	return set.SliceSubsetOf(expectedNames, m.modulesList)
-}
-
 // FindOrLoadModules checks whether the given kernel modules are loaded and
 // tries to load those which are not.
-func (m *ModulesManager) FindOrLoadModules(expectedNames ...string) error {
-	found, diff := m.findModules(expectedNames...)
+func (m *ModulesManager) FindOrLoadModules(expectedModules map[string]string) error {
+	found, diff := set.MapSubsetOfSlice(expectedModules, m.modulesList)
 	if found {
 		return nil
 	}
 	for _, unloadedModule := range diff {
-		if _, err := exec.WithTimeout(
-			defaults.ExecTimeout, moduleLoader(), unloadedModule).CombinedOutput(
-			nil, false); err != nil {
-			return fmt.Errorf("could not load module %s: %s",
-				unloadedModule, err)
+		if err := loadModule(expectedModules[unloadedModule]); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -33,15 +33,17 @@ var _ = Suite(&ModulesPrivilegedTestSuite{})
 
 func (s *ModulesPrivilegedTestSuite) TestFindOrLoadModules(c *C) {
 	testCases := []struct {
-		modulesToFind []string
+		modulesToFind map[string]string
 		expectedErr   bool
 	}{
 		{
-			modulesToFind: []string{"bridge"},
-			expectedErr:   false,
+			modulesToFind: map[string]string{
+				"bridge": "kernel/net/bridge/bridge.ko",
+			},
+			expectedErr: false,
 		},
 		{
-			modulesToFind: []string{"foo", "bar"},
+			modulesToFind: map[string]string{"foo": "", "bar": ""},
 			expectedErr:   true,
 		},
 	}
@@ -51,7 +53,7 @@ func (s *ModulesPrivilegedTestSuite) TestFindOrLoadModules(c *C) {
 	c.Assert(err, IsNil)
 
 	for _, tc := range testCases {
-		err = manager.FindOrLoadModules(tc.modulesToFind...)
+		err = manager.FindOrLoadModules(tc.modulesToFind)
 		if tc.expectedErr {
 			c.Assert(err, NotNil)
 		} else {
