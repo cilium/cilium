@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -39,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
+	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/flannel"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/containernetworking/cni/pkg/skel"
@@ -258,112 +258,6 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}, rt, nil
 }
 
-func setUPWithFlannel(logger *logrus.Entry, args *skel.CmdArgs, cniArgs types.ArgsSpec, n *types.NetConf, cniVer string, c *client.Client) (err error) {
-	err = cniVersion.ParsePrevResult(&n.NetConf)
-	if err != nil {
-		return fmt.Errorf("unable to understand network config: %s", err)
-	}
-	r, err := cniTypesVer.GetResult(n.PrevResult)
-	if err != nil {
-		return fmt.Errorf("unable to get previous network result: %s", err)
-	}
-	// We only care about the veth interface that is on the host side
-	// and cni0. Interfaces should be similar as:
-	//       "interfaces":[
-	//         {
-	//            "name":"cni0",
-	//            "mac":"0a:58:0a:f4:00:01"
-	//         },
-	//         {
-	//            "name":"veth15707e9b",
-	//            "mac":"4e:6d:93:35:6b:45"
-	//         },
-	//         {
-	//            "name":"eth0",
-	//            "mac":"0a:58:0a:f4:00:06",
-	//            "sandbox":"/proc/15259/ns/net"
-	//         }
-	//       ]
-
-	defer func() {
-		if err != nil {
-			logger.WithError(err).
-				WithFields(logrus.Fields{"cni-pre-result": n.PrevResult.String()}).
-				Errorf("Unable to create endpoint")
-		}
-	}()
-	var (
-		hostMac, vethHostName, vethLXCMac, vethIP string
-		vethHostIdx, vethSliceIdx                 int
-	)
-	for i, iDev := range r.Interfaces {
-		// We only care about the veth interface mac address on the container side.
-		if iDev.Sandbox != "" {
-			vethLXCMac = iDev.Mac
-			vethSliceIdx = i
-			continue
-		}
-
-		l, err := netlink.LinkByName(iDev.Name)
-		if err != nil {
-			continue
-		}
-		switch l.Type() {
-		case "veth":
-			vethHostName = iDev.Name
-			vethHostIdx = l.Attrs().Index
-		case "bridge":
-			// likely to be cni0
-			hostMac = iDev.Mac
-		}
-	}
-	for _, ipCfg := range r.IPs {
-		if ipCfg.Interface != nil && *ipCfg.Interface == vethSliceIdx {
-			vethIP = ipCfg.Address.IP.String()
-			break
-		}
-	}
-	switch {
-	case hostMac == "":
-		return errors.New("unable to determine MAC address of bridge interface (cni0)")
-	case vethHostName == "":
-		return errors.New("unable to determine name of veth pair on the host side")
-	case vethLXCMac == "":
-		return errors.New("unable to determine MAC address of veth pair on the container side")
-	case vethIP == "":
-		return errors.New("unable to determine IP address of the container")
-	case vethHostIdx == 0:
-		return errors.New("unable to determine index interface of veth pair on the host side")
-	}
-
-	ep := &models.EndpointChangeRequest{
-		Addressing: &models.AddressPair{
-			IPV4: vethIP,
-		},
-		ContainerID:       args.ContainerID,
-		State:             models.EndpointStateWaitingForIdentity,
-		HostMac:           hostMac,
-		InterfaceIndex:    int64(vethHostIdx),
-		Mac:               vethLXCMac,
-		InterfaceName:     vethHostName,
-		K8sPodName:        string(cniArgs.K8S_POD_NAME),
-		K8sNamespace:      string(cniArgs.K8S_POD_NAMESPACE),
-		SyncBuildEndpoint: true,
-	}
-
-	err = c.EndpointCreate(ep)
-	if err != nil {
-		logger.WithError(err).WithFields(logrus.Fields{
-			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		err = fmt.Errorf("unable to create endpoint: %s", err)
-		return
-	}
-
-	logger.WithFields(logrus.Fields{
-		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
-	return nil
-}
-
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	var (
 		ipConfig *cniTypesVer.IPConfig
@@ -416,16 +310,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			return cniTypes.PrintResult(res, cniVer)
 		} else {
 			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
-		}
-
-		switch n.Name {
-		case "cbr0":
-			err = setUPWithFlannel(logger, args, cniArgs, n, cniVer, c)
-			if err != nil {
-				return
-			}
-			return cniTypes.PrintResult(&cniTypesVer.Result{}, cniVer)
-		default:
 		}
 	}
 
