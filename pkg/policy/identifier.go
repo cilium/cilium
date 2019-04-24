@@ -41,6 +41,8 @@ func NewIDSet() *IDSet {
 // * a means of incrementing its policy revision
 type Endpoint interface {
 	GetID16() uint16
+	RLockAlive() error
+	RUnlock()
 	GetSecurityIdentity() *identity.Identity
 	PolicyRevisionBumpEvent(rev uint64)
 }

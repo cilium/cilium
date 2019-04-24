@@ -41,6 +41,14 @@ func (d *DummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
 	return
 }
 
+func (d *DummyEndpoint) RLockAlive() error {
+	return nil
+}
+
+func (d *DummyEndpoint) RUnlock() {
+	return
+}
+
 func (ds *PolicyTestSuite) TestNewEndpointSet(c *C) {
 	epSet := NewEndpointSet(20)
 	c.Assert(epSet.Len(), Equals, 0)
