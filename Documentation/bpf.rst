@@ -790,7 +790,7 @@ The following applies to Ubuntu 17.04 or later:
 ::
 
     $ sudo apt-get install -y make gcc libssl-dev bc libelf-dev libcap-dev \
-      clang gcc-multilib llvm libncurses5-dev git pkg-config libmnl bison flex \
+      clang gcc-multilib llvm libncurses5-dev git pkg-config libmnl-dev bison flex \
       graphviz
 
 openSUSE Tumbleweed
