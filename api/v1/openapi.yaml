@@ -946,6 +946,31 @@ definitions:
         description: |
           Whether to build an endpoint synchronously
         type: boolean
+      datapath-configuration:
+        "$ref": "#/definitions/EndpointDatapathConfiguration"
+  EndpointDatapathConfiguration:
+    description: Datapath configuration to be used for the endpoint
+    type: object
+    properties:
+      require-arp-passthrough:
+        description: Enable ARP passthrough mode
+        type: boolean
+      require-egress-prog:
+        description: >
+          Endpoint requires a host-facing egress program to be attached to
+          implement ingress policy and reverse NAT.
+        type: boolean
+      external-ipam:
+        description: >
+          Indicates that IPAM is done external to Cilium. This will prevent the
+          IP from being released and re-allocation of the IP address is skipped
+          on restore.
+        type: boolean
+      disable-routing:
+        description: >
+          By disabling routing, all routing decisions are delegated to the
+          Linux routing layer.
+        type: boolean
   EndpointStatus:
     description: The current state and configuration of the endpoint, its policy & datapath, and subcomponents
     type: object

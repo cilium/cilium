@@ -1037,17 +1037,17 @@ func (e *Endpoint) syncPolicyMapController() {
 // RequireARPPassthrough returns true if the datapath must implement ARP
 // passthrough for this endpoint
 func (e *Endpoint) RequireARPPassthrough() bool {
-	return false
+	return e.DatapathConfiguration.RequireArpPassthrough
 }
 
 // RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
 // "to-container" to be attached at egress on the host facing veth pair
 func (e *Endpoint) RequireEgressProg() bool {
-	return false
+	return e.DatapathConfiguration.RequireEgressProg
 }
 
 // RoutingDisabled returns true if the endpoint requires for routing in BPF to
 // be disabled and delegated to Linux routing
 func (e *Endpoint) RoutingDisabled() bool {
-	return false
+	return e.DatapathConfiguration.DisableRouting
 }

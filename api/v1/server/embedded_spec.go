@@ -1590,6 +1590,9 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
+        "datapath-configuration": {
+          "$ref": "#/definitions/EndpointDatapathConfiguration"
+        },
         "datapath-map-id": {
           "description": "ID of datapath tail call map",
           "type": "integer"
@@ -1681,6 +1684,28 @@ func init() {
         "realized": {
           "description": "currently applied changeable configuration",
           "$ref": "#/definitions/EndpointConfigurationSpec"
+        }
+      }
+    },
+    "EndpointDatapathConfiguration": {
+      "description": "Datapath configuration to be used for the endpoint",
+      "type": "object",
+      "properties": {
+        "disable-routing": {
+          "description": "By disabling routing, all routing decisions are delegated to the Linux routing layer.\n",
+          "type": "boolean"
+        },
+        "external-ipam": {
+          "description": "Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.\n",
+          "type": "boolean"
+        },
+        "require-arp-passthrough": {
+          "description": "Enable ARP passthrough mode",
+          "type": "boolean"
+        },
+        "require-egress-prog": {
+          "description": "Endpoint requires a host-facing egress program to be attached to implement ingress policy and reverse NAT.\n",
+          "type": "boolean"
         }
       }
     },
@@ -4473,6 +4498,9 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
+        "datapath-configuration": {
+          "$ref": "#/definitions/EndpointDatapathConfiguration"
+        },
         "datapath-map-id": {
           "description": "ID of datapath tail call map",
           "type": "integer"
@@ -4564,6 +4592,28 @@ func init() {
         "realized": {
           "description": "currently applied changeable configuration",
           "$ref": "#/definitions/EndpointConfigurationSpec"
+        }
+      }
+    },
+    "EndpointDatapathConfiguration": {
+      "description": "Datapath configuration to be used for the endpoint",
+      "type": "object",
+      "properties": {
+        "disable-routing": {
+          "description": "By disabling routing, all routing decisions are delegated to the Linux routing layer.\n",
+          "type": "boolean"
+        },
+        "external-ipam": {
+          "description": "Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.\n",
+          "type": "boolean"
+        },
+        "require-arp-passthrough": {
+          "description": "Enable ARP passthrough mode",
+          "type": "boolean"
+        },
+        "require-egress-prog": {
+          "description": "Endpoint requires a host-facing egress program to be attached to implement ingress policy and reverse NAT.\n",
+          "type": "boolean"
         }
       }
     },
