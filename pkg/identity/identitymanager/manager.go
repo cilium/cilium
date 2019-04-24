@@ -80,6 +80,9 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 			identity: identity,
 			refCount: 1,
 		}
+		for o := range idm.observers {
+			o.LocalEndpointIdentityAdded(identity)
+		}
 	} else {
 		idMeta.refCount++
 	}
