@@ -33,6 +33,7 @@ import (
 	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -113,6 +114,8 @@ const (
 	initArgIPSec
 	initArgMasquerade
 	initArgEncryptInterface
+	initArgHostReachableServices
+	initArgCgroupRoot
 	initArgMax
 )
 
@@ -456,6 +459,7 @@ func (d *Daemon) compileBase() error {
 
 	args[initArgLib] = option.Config.BpfDir
 	args[initArgRundir] = option.Config.StateDir
+	args[initArgCgroupRoot] = cgroups.GetCgroupRoot()
 
 	if option.Config.EnableIPv4 {
 		args[initArgIPv4NodeIP] = node.GetInternalIPv4().String()
@@ -481,6 +485,12 @@ func (d *Daemon) compileBase() error {
 		args[initArgMasquerade] = "true"
 	} else {
 		args[initArgMasquerade] = "false"
+	}
+
+	if option.Config.EnableHostReachableServices {
+		args[initArgHostReachableServices] = "true"
+	} else {
+		args[initArgHostReachableServices] = "false"
 	}
 
 	if option.Config.EncryptInterface != "" {
