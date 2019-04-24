@@ -26,8 +26,6 @@ import (
 // cachedSelectorPolicy is a wrapper around a SelectorPolicy (stored in the
 // 'policy' field). It is always nested directly in the owning policyCache,
 // and is protected against concurrent writes via the policyCache mutex.
-//
-// 'policy' and 'revesion' are only consistent if queried while holding a lock.
 type cachedSelectorPolicy struct {
 	users    map[Endpoint]struct{}
 	identity *identityPkg.Identity
