@@ -299,6 +299,12 @@ type Endpoint struct {
 
 	EventQueue *eventqueue.EventQueue `json:"-"`
 
+	// DatapathConfiguration is the endpoint's datapath configuration as
+	// passed in via the plugin that created the endpoint, e.g. the CNI
+	// plugin which performed the plumbing will enable certain datapath
+	// features according to the mode selected.
+	DatapathConfiguration models.EndpointDatapathConfiguration
+
 	///////////////////////
 	// DEPRECATED FIELDS //
 	///////////////////////
@@ -492,6 +498,10 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 			}
 			ep.IPv4 = ip4
 		}
+	}
+
+	if base.DatapathConfiguration != nil {
+		ep.DatapathConfiguration = *base.DatapathConfiguration
 	}
 
 	ep.SetDefaultOpts(option.Config.Opts)
