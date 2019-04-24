@@ -23,6 +23,7 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/debug"
+	"github.com/cilium/cilium/pkg/kernelversion"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -43,7 +44,7 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 	d := h.daemon
 
 	dr.CiliumVersion = version.Version
-	if kver, err := getKernelVersion(); err != nil {
+	if kver, err := kernelversion.GetKernelVersion(); err != nil {
 		dr.KernelVersion = fmt.Sprintf("Error: %s\n", err)
 	} else {
 		dr.KernelVersion = fmt.Sprintf("%s", kver)

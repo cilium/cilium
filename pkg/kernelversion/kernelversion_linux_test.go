@@ -12,17 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !privileged_tests
+// +build linux,!privileged_tests
 
-package main
+package kernelversion
 
 import (
+	"testing"
+
 	go_version "github.com/hashicorp/go-version"
 
 	. "gopkg.in/check.v1"
 )
 
-func (ds *DaemonSuite) TestParseKernelVersion(c *C) {
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) {
+	TestingT(t)
+}
+
+type KernelVersionSuite struct{}
+
+var _ = Suite(&KernelVersionSuite{})
+
+func (s *KernelVersionSuite) TestParseKernelVersion(c *C) {
 	mustHaveVersion := func(v string) *go_version.Version {
 		ver, err := go_version.NewVersion(v)
 		c.Assert(err, IsNil)

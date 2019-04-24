@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
+	"github.com/cilium/cilium/pkg/kernelversion"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -74,7 +75,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 )
 
@@ -142,36 +142,6 @@ func daemonMain() {
 	os.Exit(0)
 }
 
-func parseKernelVersion(ver string) (*go_version.Version, error) {
-	verStrs := strings.Split(ver, ".")
-	switch {
-	case len(verStrs) < 2:
-		return nil, fmt.Errorf("unable to get kernel version from %q", ver)
-	case len(verStrs) < 3:
-		verStrs = append(verStrs, "0")
-	}
-	// We are assuming the kernel version will be something as:
-	// 4.9.17-040917-generic
-
-	// If verStrs is []string{ "4", "9", "17-040917-generic" }
-	// then we need to retrieve patch number.
-	patch := regexp.MustCompilePOSIX(`^[0-9]+`).FindString(verStrs[2])
-	if patch == "" {
-		verStrs[2] = "0"
-	} else {
-		verStrs[2] = patch
-	}
-	return go_version.NewVersion(strings.Join(verStrs[:3], "."))
-}
-
-func getKernelVersion() (*go_version.Version, error) {
-	var unameBuf unix.Utsname
-	if err := unix.Uname(&unameBuf); err != nil {
-		log.WithError(err).Fatal("kernel version: NOT OK")
-	}
-	return parseKernelVersion(string(unameBuf.Release[:]))
-}
-
 func getClangVersion(filePath string) (*go_version.Version, error) {
 	verOut, err := exec.Command(filePath, "--version").CombinedOutput()
 	if err != nil {
@@ -225,7 +195,7 @@ func checkBPFLogs(logType string, fatal bool) {
 }
 
 func checkMinRequirements() {
-	kernelVersion, err := getKernelVersion()
+	kernelVersion, err := kernelversion.GetKernelVersion()
 	if err != nil {
 		log.WithError(err).Fatal("kernel version: NOT OK")
 	}
