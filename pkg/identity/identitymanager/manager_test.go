@@ -110,6 +110,9 @@ func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityAdded(c *C) {
 	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, nil)
 	idm.subscribe(observer)
 
+	// No-op: nil Identity.
+	idm.Add(nil)
+
 	// First add triggers an "IdentityAdded" event.
 	idm.Add(fooIdentity)
 	expectedObserver := newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID}, nil)
@@ -137,6 +140,12 @@ func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityRemoved(c *C) {
 	c.Assert(idm.identities, NotNil)
 	observer := newIdentityManagerObserver(nil, []identity.NumericIdentity{})
 	idm.subscribe(observer)
+
+	// No-ops:
+	// - nil Identity.
+	// - Identity that isn't managed
+	idm.Remove(nil)
+	idm.Remove(fooIdentity)
 
 	// Basic remove
 	idm.Add(fooIdentity)
