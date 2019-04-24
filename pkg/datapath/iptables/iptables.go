@@ -246,13 +246,20 @@ func (m *IptablesManager) Init() {
 		log.WithError(err).Fatal(
 			"Unable to get information about kernel modules")
 	}
-	if err := modulesManager.FindOrLoadModules(
-		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw",
-		"iptable_filter"); err != nil {
+	if err := modulesManager.FindOrLoadModules(map[string]string{
+		"ip_tables":      "kernel/net/ipv4/netfilter/ip_tables.ko",
+		"iptable_nat":    "kernel/net/ipv4/netfilter/iptables_nat.ko",
+		"iptable_mangle": "kernel/net/ipv4/netfilter/iptable_mangle.ko",
+		"iptable_raw":    "kernel/net/ipv4/netfilter/iptable_raw.ko",
+		"iptable_filter": "kernel/net/ipv4/netfilter/iptable_filter.ko",
+	}); err != nil {
 		log.WithError(err).Fatal("iptables modules could not be initialized")
 	}
-	if err := modulesManager.FindOrLoadModules(
-		"ip6_tables", "ip6table_mangle", "ip6table_raw"); err != nil {
+	if err := modulesManager.FindOrLoadModules(map[string]string{
+		"ip6_tables":      "kernel/net/ipv6/netfilter/ip6_tables.ko",
+		"ip6table_mangle": "kernel/net/ipv6/netfilter/ip6table_mangle.ko",
+		"ip6table_raw":    "kernel/net/ipv6/netfilter/ip6table_raw.ko",
+	}); err != nil {
 		if option.Config.EnableIPv6 {
 			log.WithError(err).Fatal(
 				"IPv6 is enabled and ip6tables modules could not be initialized")
