@@ -297,7 +297,7 @@ type Endpoint struct {
 
 	realizedPolicy *policy.EndpointPolicy
 
-	EventQueue *eventqueue.EventQueue
+	EventQueue *eventqueue.EventQueue `json:"-"`
 
 	///////////////////////
 	// DEPRECATED FIELDS //
