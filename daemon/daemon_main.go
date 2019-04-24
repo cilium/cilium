@@ -444,6 +444,9 @@ func init() {
 	flags.Bool(option.DisableK8sServices, false, "Disable east-west K8s load balancing by cilium")
 	option.BindEnv(option.DisableK8sServices)
 
+	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
+	option.BindEnv(option.EnableHostReachableServices)
+
 	flags.Bool(option.EnableLegacyServices, true, "Enable legacy (prior-v1.5) services")
 	option.BindEnv(option.EnableLegacyServices)
 
