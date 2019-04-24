@@ -37,13 +37,13 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "generic-veth")
 )
 
-type genericVethChainer struct{}
+type GenericVethChainer struct{}
 
-func (f *genericVethChainer) ImplementsAdd() bool {
+func (f *GenericVethChainer) ImplementsAdd() bool {
 	return true
 }
 
-func (f *genericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext) (res *cniTypesVer.Result, err error) {
+func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext) (res *cniTypesVer.Result, err error) {
 	err = cniVersion.ParsePrevResult(&pluginCtx.NetConf.NetConf)
 	if err != nil {
 		err = fmt.Errorf("unable to understand network config: %s", err)
@@ -195,11 +195,11 @@ func (f *genericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	return
 }
 
-func (f *genericVethChainer) ImplementsDelete() bool {
+func (f *GenericVethChainer) ImplementsDelete() bool {
 	return true
 }
 
-func (f *genericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext) (err error) {
+func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext) (err error) {
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, pluginCtx.Args.ContainerID)
 	if err := pluginCtx.Client.EndpointDelete(id); err != nil {
 		// EndpointDelete returns an error in the following scenarios:
@@ -221,5 +221,5 @@ func (f *genericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.P
 }
 
 func init() {
-	chainingapi.Register("generic-veth", &genericVethChainer{})
+	chainingapi.Register("generic-veth", &GenericVethChainer{})
 }
