@@ -471,6 +471,9 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision *EndpointS
 		// endpoint). This is usually the case when the endpoint is no longer
 		// alive (i.e., it has been marked to be deleted).
 		if endpointSelected || err != nil {
+			if err != nil {
+				log.WithError(err).Debug("could not determine whether endpoint was selected by rule")
+			}
 			endpointsToBumpRevision.Delete(epp)
 		}
 	})
