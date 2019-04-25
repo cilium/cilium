@@ -195,6 +195,8 @@ func runOperator(cmd *cobra.Command) {
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
+	log.Info("Initialization complete")
+
 	<-shutdownSignal
 	// graceful exit
 	log.Info("Received termination signal. Shutting down")
