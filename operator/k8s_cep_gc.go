@@ -51,6 +51,8 @@ func enableCiliumEndpointSyncGC() {
 		scopedLog      = log.WithField("controller", controllerName)
 	)
 
+	log.Info("Starting to garbage collect stale CiliumEndpoint custom resources...")
+
 	ciliumClient := ciliumK8sClient.CiliumV2()
 
 	// this dummy manager is needed only to add this controller to the global list

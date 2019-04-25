@@ -48,6 +48,8 @@ var (
 )
 
 func runNodeWatcher() error {
+	log.Info("Starting to synchronize k8s nodes to kvstore...")
+
 	serNodes := serializer.NewFunctionQueue(1024)
 
 	ciliumNodeStore, err := store.JoinSharedStore(store.Configuration{
