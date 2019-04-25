@@ -197,6 +197,7 @@ const (
 	segmentationFault = "segmentation fault"        // from https://github.com/cilium/cilium/issues/3233
 	NACKreceived      = "NACK received for version" // from https://github.com/cilium/cilium/issues/4003
 	RunInitFailed     = "JoinEP: "                  // from https://github.com/cilium/cilium/pull/5052
+	sizeMismatch      = "size mismatch for BPF map" // from https://github.com/cilium/cilium/issues/7851
 )
 
 // Re-definitions of stable constants in the API. The re-definition is on
@@ -238,6 +239,7 @@ var badLogMessages = map[string][]string{
 	segmentationFault: nil,
 	NACKreceived:      nil,
 	RunInitFailed:     {"signal: terminated", "signal: killed"},
+	sizeMismatch:      nil,
 }
 
 var ciliumCLICommands = map[string]string{
