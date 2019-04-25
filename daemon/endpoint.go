@@ -511,7 +511,10 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{})
+	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+		// If the IP is managed by an external IPAM, it does not need to be released
+		NoIPRelease: ep.DatapathConfiguration.ExternalIPAM,
+	})
 	for _, err := range errs {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
