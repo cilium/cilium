@@ -23,13 +23,16 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/kevinburke/ssh_config"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
+
+// CMDGracePeriod is how long to wait to send an unmaskable SIGKILL signal,
+// after sending SIGINT, during a forced termination of a command.
+const CMDGracePeriod = 10 * time.Second
 
 // SSHCommand stores the data associated with executing a command.
 // TODO: this is poorly named in that it's not related to a command only
@@ -137,6 +140,8 @@ func ImportSSHconfig(config []byte) (SSHConfigs, error) {
 
 // copyWait runs an instance of io.Copy() in a goroutine, and returns a channel
 // to receive the error result.
+// Note: io.Copy stops when it sees an EOF error, but does not treat it as an
+// error.
 func copyWait(dst io.Writer, src io.Reader) chan error {
 	c := make(chan error)
 	go func() {
@@ -146,12 +151,12 @@ func copyWait(dst io.Writer, src io.Reader) chan error {
 	return c
 }
 
-// runCommand runs the specified command on the provided SSH session, and
+// startCommand begins the specified command on the provided SSH session, and
 // gathers both of the sterr and stdout output into the writers provided by
 // cmd. Returns whether the command was run and an optional error.
-// Returns nil when the command completes successfully and all stderr,
-// stdout output has been written. Returns an error otherwise.
-func runCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
+// session.Wait must be used to wait for the command to exit and cmd.Stderr and
+// cmd.Stdout to be fully written.
+func startCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 	stderr, err := session.StderrPipe()
 	if err != nil {
 		return false, fmt.Errorf("Unable to setup stderr for session: %v", err)
@@ -164,7 +169,7 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 	}
 	outChan := copyWait(cmd.Stdout, stdout)
 
-	if err = session.Run(cmd.Path); err != nil {
+	if err = session.Start(cmd.Path); err != nil {
 		return false, err
 	}
 
@@ -177,18 +182,82 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 	return true, nil
 }
 
+// waitOnCommandCtx waits on the command in session to complete but interrupts
+// and kills it if the context expires before it exits. When killing the command
+// SIGINT is sent first, followed by a SIGKILL after CMDGracePeriod has
+// elapsed. The session is NOT closed on return.
+// commandExitedGraceFully is returned true when a command exits in response to
+// SIGINT, or before any signals were sent.
+// err is the result of the command (nil is exit-code 0) but may also be
+// non-nil when there are errors with the connection or if an error occurs when
+// terminating the command.
+func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.Duration) (commandExitedGracefully bool, err error) {
+	// Run a goroutine to notify us if the program exits on its own
+	// Note: This is needed because there is no channel to watch for the same
+	// information.
+	commandExitedCh := make(chan error)
+	go func() {
+		commandExitedCh <- session.Wait()
+		close(commandExitedCh) // Note: This assumes we only read this channel once
+	}()
+
+	select {
+	// The command exits before the timeout with 0 or non-0 exit codes
+	case err = <-commandExitedCh:
+		commandExitedGracefully = true
+		switch {
+		case err != nil:
+			log.Errorf("command exited with non-zero exit code: %s", err)
+		default:
+			log.Debug("command exited gracefully with zero exit code")
+		}
+
+	// The timeout has lapsed. Tear down the whole session.
+	case <-ctx.Done():
+		if err = session.Signal(ssh.SIGINT); err != nil {
+			log.Errorf("write ^C error: %s", err)
+		}
+
+		// Allow ^C some time to "work"
+		grace := time.NewTimer(killGrace)
+		defer grace.Stop()
+		select {
+		case <-grace.C:
+			// Force the command to exit
+			if err = session.Signal(ssh.SIGKILL); err != nil {
+				log.Errorf("failed to kill command with SIGKILL: %s", err)
+			}
+
+		case err = <-commandExitedCh:
+			// The command exited in response to the SIGINT. This is good.
+			commandExitedGracefully = true
+			switch {
+			case err != nil:
+				log.Errorf("command exited with non-zero exit code after SIGINT: %s", err)
+			default:
+				log.Debug("command exited gracefully with zero exit code after SIGINT")
+			}
+
+		}
+
+		// TODO: what is this for? closing the connection should deliver a HUP to
+		// the process anyway.
+		if err = session.Signal(ssh.SIGHUP); err != nil && err != io.EOF {
+			log.Errorf("failed to send SIGHUP to command: %s", err)
+		}
+	}
+
+	return commandExitedGracefully, err
+}
+
 // RunCommand runs a SSHCommand using SSHClient client. The returned error is
 // nil if the command runs, has no problems copying stdin, stdout, and stderr,
 // and exits with a zero exit status.
 func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
-	session, err := client.newSession()
-	if err != nil {
-		return err
-	}
-	defer session.Close()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
-	_, err = runCommand(session, cmd)
-	return err
+	return client.RunCommandContext(ctx, cmd)
 }
 
 // RunCommandInBackground runs an SSH command in a similar way to
@@ -204,7 +273,7 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 	if err != nil {
 		return err
 	}
-	defer session.Close()
+	defer session.Close() // TODO: Print error
 
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,     // enable echoing
@@ -213,31 +282,15 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 	}
 	session.RequestPty("xterm-256color", 80, 80, modes)
 
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		log.Errorf("Could not get stdin: %s", err)
+	running, err := startCommand(session, cmd)
+	switch {
+	case err != nil:
+		return err
+	case !running:
+		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
-	go func() {
-		select {
-		case <-ctx.Done():
-			_, err := stdin.Write([]byte{3})
-			if err != nil {
-				log.Errorf("write ^C error: %s", err)
-			}
-			err = session.Wait()
-			if err != nil {
-				log.Errorf("wait error: %s", err)
-			}
-			if err = session.Signal(ssh.SIGHUP); err != nil {
-				log.Errorf("failed to kill command: %s", err)
-			}
-			if err = session.Close(); err != nil {
-				log.Errorf("failed to close session: %s", err)
-			}
-		}
-	}()
-	_, err = runCommand(session, cmd)
+	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod)
 	return err
 }
 
@@ -253,48 +306,18 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	if err != nil {
 		return err
 	}
-	defer session.Close()
+	defer session.Close() // TODO: Print error
 
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		log.Errorf("Could not get stdin %s", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		select {
-		case <-ctx.Done():
-			_, err := stdin.Write([]byte{3})
-			if err != nil {
-				log.Errorf("write ^C error: %s", err)
-			}
-			err = session.Wait()
-			if err != nil {
-				log.Errorf("wait error: %s", err)
-			}
-			if err = session.Signal(ssh.SIGHUP); err != nil {
-				log.Errorf("failed to kill command: %s", err)
-			}
-			if err = session.Close(); err != nil {
-				log.Errorf("failed to close session: %s", err)
-			}
-		}
-		wg.Done()
-	}()
-
-	running, err := runCommand(session, cmd)
-	if !running {
+	running, err := startCommand(session, cmd)
+	switch {
+	case err != nil:
 		return err
+	case !running:
+		return fmt.Errorf("cannot start command: %s", cmd)
 	}
-	select {
-	case <-ctx.Done():
-		// Wait until the ssh session is stopped
-		wg.Wait()
-		return ctx.Err()
-	default:
-		return err
-	}
+
+	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod)
+	return err
 }
 
 func (client *SSHClient) newSession() (*ssh.Session, error) {
