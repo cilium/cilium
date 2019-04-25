@@ -38,6 +38,7 @@ func init() {
 }
 
 func enableCNPWatcher() error {
+	log.Info("Starting to garbage collect stale CiliumNetworkPolicy status field entries...")
 
 	_, ciliumV2Controller := k8s.NewInformer(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
