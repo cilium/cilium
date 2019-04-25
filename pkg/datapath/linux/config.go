@@ -236,6 +236,10 @@ func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.Endpoin
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
 
+	if e.RoutingDisabled() {
+		fmt.Fprintf(fw, "#define DISABLE_ROUTING 1\n")
+	}
+
 	if !e.HasIpvlanDataPath() {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")

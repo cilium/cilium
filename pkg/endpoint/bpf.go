@@ -1045,3 +1045,9 @@ func (e *Endpoint) RequireARPPassthrough() bool {
 func (e *Endpoint) RequireEgressProg() bool {
 	return false
 }
+
+// RoutingDisabled returns true if the endpoint requires for routing in BPF to
+// be disabled and delegated to Linux routing
+func (e *Endpoint) RoutingDisabled() bool {
+	return false
+}

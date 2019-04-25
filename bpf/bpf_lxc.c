@@ -71,7 +71,6 @@ static inline int ipv6_l3_from_lxc(struct __sk_buff *skb,
 	union macaddr router_mac = NODE_MAC;
 	int ret, verdict, l4_off, forwarding_reason, hdrlen;
 	struct csum_offset csum_off = {};
-	struct endpoint_info *ep;
 	struct lb6_service_v2 *svc;
 	struct lb6_key_v2 key = {};
 	struct ct_state ct_state_new = {};
@@ -225,6 +224,9 @@ skip_service_lookup:
 
 	daddr = (union v6addr *)&ip6->daddr;
 
+#ifndef DISABLE_ROUTING
+	struct endpoint_info *ep;
+
 	/* Lookup IPv6 address, this will return a match if:
 	 *  - The destination IP address belongs to a local endpoint managed by
 	 *    cilium
@@ -243,6 +245,7 @@ skip_service_lookup:
 		policy_clear_mark(skb);
 		return ipv6_local_delivery(skb, l3_off, l4_off, SECLABEL, ip6, tuple->nexthdr, ep, METRIC_EGRESS);
 	}
+#endif
 
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef ENCAP_IFINDEX
@@ -282,6 +285,7 @@ skip_service_lookup:
 #endif
 	goto pass_to_stack;
 
+#ifndef DISABLE_ROUTING
 to_host:
 	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
@@ -298,6 +302,7 @@ to_host:
 		cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, HOST_IFINDEX);
 		return redirect(HOST_IFINDEX, 0);
 	}
+#endif
 
 pass_to_stack:
 	cilium_dbg(skb, DBG_TO_STACK, 0, 0);
@@ -378,7 +383,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	struct iphdr *ip4;
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, forwarding_reason;
 	struct csum_offset csum_off = {};
-	struct endpoint_info *ep;
 	struct lb4_service_v2 *svc;
 	struct lb4_key_v2 key = {};
 	struct ct_state ct_state_new = {};
@@ -520,6 +524,9 @@ skip_service_lookup:
 
 	orig_dip = ip4->daddr;
 
+#ifndef DISABLE_ROUTING
+	struct endpoint_info *ep;
+
 	/* Lookup IPv4 address, this will return a match if:
 	 *  - The destination IP address belongs to a local endpoint managed by
 	 *    cilium
@@ -537,6 +544,7 @@ skip_service_lookup:
 		policy_clear_mark(skb);
 		return ipv4_local_delivery(skb, l3_off, l4_off, SECLABEL, ip4, ep, METRIC_EGRESS);
 	}
+#endif
 
 #ifdef ENCAP_IFINDEX
 	{
@@ -563,6 +571,7 @@ skip_service_lookup:
 	goto pass_to_stack;
 #endif
 
+#ifndef DISABLE_ROUTING
 to_host:
 	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
@@ -583,6 +592,7 @@ to_host:
 		return redirect(HOST_IFINDEX, 0);
 #endif
 	}
+#endif
 
 pass_to_stack:
 	cilium_dbg(skb, DBG_TO_STACK, 0, 0);
