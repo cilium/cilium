@@ -311,7 +311,12 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 
 	cmd := fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter)
 
-	err := kub.ExecuteContext(context.TODO(), cmd, stdout, nil)
+	// Since we have no timeout, ensure that the context given to ExecuteContext
+	// eventually cancels in case something is blocked on ctx.Done() (something
+	// is).
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := kub.ExecuteContext(ctx, cmd, stdout, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf(
