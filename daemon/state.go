@@ -96,8 +96,10 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		return false, fmt.Errorf("no workload could be associated with endpoint")
 	}
 
-	if err := d.allocateIPsLocked(ep); err != nil {
-		return false, fmt.Errorf("Failed to re-allocate IP of endpoint: %s", err)
+	if !ep.DatapathConfiguration.ExternalIPAM {
+		if err := d.allocateIPsLocked(ep); err != nil {
+			return false, fmt.Errorf("Failed to re-allocate IP of endpoint: %s", err)
+		}
 	}
 
 	return true, nil
