@@ -144,8 +144,13 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 
 	go func() {
 		log.Info("Adding local node to cluster")
-		if err := n.Registrar.RegisterNode(&n.LocalNode, n.Manager); err != nil {
-			log.WithError(err).Fatal("Unable to initialize local node")
+		for {
+			if err := n.Registrar.RegisterNode(&n.LocalNode, n.Manager); err != nil {
+				log.WithError(err).Error("Unable to initialize local node. Retrying...")
+				time.Sleep(time.Second)
+			} else {
+				break
+			}
 		}
 		close(n.Registered)
 	}()
