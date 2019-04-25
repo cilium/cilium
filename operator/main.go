@@ -146,6 +146,7 @@ func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
+	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
@@ -193,8 +194,6 @@ func runOperator(cmd *cobra.Command) {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
-
-	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
 	<-shutdownSignal
 	// graceful exit
