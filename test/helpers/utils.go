@@ -119,17 +119,32 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 		config.Ticker = 5
 	}
 
+	bodyChan := make(chan bool)
+
+	asyncBody := func(ch chan bool) {
+		success := body()
+		ch <- success
+		if success {
+			close(ch)
+		}
+	}
+
+	go asyncBody(bodyChan)
+
 	done := time.After(time.Duration(config.Timeout) * time.Second)
 	ticker := time.NewTicker(time.Duration(config.Ticker) * time.Second)
 	defer ticker.Stop()
-	if body() {
-		return nil
-	}
 	for {
 		select {
-		case <-ticker.C:
-			if body() {
+		case success := <-bodyChan:
+			if success {
 				return nil
+			}
+			// Provide some form of rate-limiting here before running next
+			// execution in case body() returns at a fast rate.
+			select {
+			case <-ticker.C:
+				go asyncBody(bodyChan)
 			}
 		case <-done:
 			return fmt.Errorf("Timeout reached: %s", msg)
