@@ -494,10 +494,8 @@ func init() {
 
 	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
 	flags.MarkHidden(option.DisableEnvoyVersionCheck)
-	option.BindEnv(option.DisableEnvoyVersionCheck)
 	// Disable version check if Envoy build is disabled
-	// This needs to be set manually for backward compatibility
-	viper.BindEnv(option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
+	option.BindEnvWithLegacyEnvFallback(option.DisableEnvoyVersionCheck, "CILIUM_DISABLE_ENVOY_BUILD")
 
 	flags.Var(option.NewNamedMapOptions(option.FixedIdentityMapping, &option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities")
@@ -606,9 +604,7 @@ func init() {
 
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
-	option.BindEnv(option.MonitorAggregationName)
-	// Leave for backwards compatibility
-	viper.BindEnv(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
+	option.BindEnvWithLegacyEnvFallback(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 
 	flags.Int(option.MonitorQueueSizeName, defaults.MonitorQueueSize,
 		"Size of the event queue when reading monitor events")
@@ -618,9 +614,7 @@ func init() {
 	option.BindEnv(option.MTUName)
 
 	flags.Bool(option.PrependIptablesChainsName, true, "Prepend custom iptables chains instead of appending")
-	// Leave for backwards compatibility
-	viper.BindEnv(option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
-	option.BindEnv(option.PrependIptablesChainsName)
+	option.BindEnvWithLegacyEnvFallback(option.PrependIptablesChainsName, "CILIUM_PREPEND_IPTABLES_CHAIN")
 
 	flags.String(option.IPv6NodeAddr, "auto", "IPv6 address of node")
 	option.BindEnv(option.IPv6NodeAddr)
@@ -691,18 +685,13 @@ func init() {
 	// handle the case where someone uses a new image with an older spec, and the
 	// older spec used the older variable name.
 	flags.String(option.PrometheusServeAddr, "", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
-	viper.BindEnv(option.PrometheusServeAddrDeprecated, "PROMETHEUS_SERVE_ADDR")
-	option.BindEnv(option.PrometheusServeAddr)
+	option.BindEnvWithLegacyEnvFallback(option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
-	// Leave for backwards compatibility
-	viper.BindEnv(option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
-	option.BindEnv(option.CTMapEntriesGlobalTCPName)
+	option.BindEnvWithLegacyEnvFallback(option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
 
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
-	// Leave for backwards compatibility
-	viper.BindEnv(option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
-	option.BindEnv(option.CTMapEntriesGlobalAnyName)
+	option.BindEnvWithLegacyEnvFallback(option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)
