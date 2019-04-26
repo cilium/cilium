@@ -124,17 +124,32 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 		return fmt.Errorf("Timeout config Ticker interval too short (must be at least 1 second): %v", config.Ticker)
 	}
 
+	bodyChan := make(chan bool)
+
+	asyncBody := func(ch chan bool) {
+		success := body()
+		ch <- success
+		if success {
+			close(ch)
+		}
+	}
+
+	go asyncBody(bodyChan)
+
 	done := time.After(config.Timeout)
 	ticker := time.NewTicker(config.Ticker)
 	defer ticker.Stop()
-	if body() {
-		return nil
-	}
 	for {
 		select {
-		case <-ticker.C:
-			if body() {
+		case success := <-bodyChan:
+			if success {
 				return nil
+			}
+			// Provide some form of rate-limiting here before running next
+			// execution in case body() returns at a fast rate.
+			select {
+			case <-ticker.C:
+				go asyncBody(bodyChan)
 			}
 		case <-done:
 			return fmt.Errorf("Timeout reached: %s", msg)
