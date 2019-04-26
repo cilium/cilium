@@ -122,7 +122,7 @@ For CRI-O as container runtime:
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
 
 For containerd as container runtime:
--------------------------------
+------------------------------------
 
 .. tabs::
   .. group-tab:: K8s 1.14

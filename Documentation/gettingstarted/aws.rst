@@ -13,7 +13,14 @@ based on AWS instances metadata. It is a detailed walk-through of getting a
 single-node Cilium environment running on your machine. It is designed to take
 15-30 minutes with some experience running Kubernetes.
 
-.. include:: gsg_requirements.rst
+
+Setup Cilium
+============
+
+This guide will work with any approach to installing Cilium, including minikube,
+as long as the cilium-operator pod in the deployment can reach the AWS API server
+However, since the most common use of this mechanism is for Kubernetes clusters
+running in AWS, we recommend trying it out along with the guide: :ref:`k8s_install_eks` .
 
 Create AWS secrets
 ==================
@@ -43,7 +50,7 @@ These keys need to have certain permissions set:
     }
 
 As soon as you have the access tokens, the following secret needs to be added,
-where it must to be encoded in base64:
+with each empty string replaced by the associated value as a base64-encoded string:
 
 
 .. code-block:: yaml
@@ -60,7 +67,7 @@ where it must to be encoded in base64:
       AWS_SECRET_ACCESS_KEY: ""
       AWS_DEFAULT_REGION: ""
 
-To encode in base64, the following script can be used:
+The base64 command line utility can be used to generate each value, for example:
 
 .. parsed-literal::
 
@@ -73,7 +80,6 @@ API.
 .. parsed-literal::
 
     $ kubectl create -f cilium-secret.yaml
-
 
 To validate that the credentials are correct, the following pod can be created
 for debugging purposes:
@@ -116,16 +122,50 @@ To list all of the available AWS instances, the following command can be used:
 
    $ kubectl  -n kube-system exec -ti testing-aws-pod -- aws ec2 describe-instances
 
-It is important for this demo that ``kube-dns`` is working correctly. To know the
-status of ``kube-dns`` you can run the following command:
+Once the secret has been created and validated, the cilium-operator pod must be
+restarted in order to pick up the credentials in the secret.
+To do this, identify and delete the existing cilium-operator pod, which will be
+recreated automatically:
+
+.. parsed-literal::
+
+    $ kubectl get pods -l name=cilium-operator -n kube-system
+    NAME                              READY   STATUS    RESTARTS   AGE
+    cilium-operator-7c9d69f7c-97vqx   1/1     Running   0          36h
+
+    $ kubectl delete pod cilium-operator-7c9d69f7c-97vqx
+
+
+
+It is important for this demo that ``coredns`` is working correctly. To know the
+status of ``coredns`` you can run the following command:
 ::
 
     $ kubectl get deployment kube-dns -n kube-system
     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    kube-dns   1         1         1            1           13h
+    coredns    2         2         2            2           13h
 
 Where at least one pod should be available.
 
+Configure AWS Security Groups
+=============================
+
+Cilium's AWS Metadata filtering capability enables explicit whitelisting
+of communication between a subset of pods (identified by Kubernetes labels)
+with a set of destination EC2 VMs (identified by membership in an AWS security group).
+
+In this example, the destination EC2 VMs are a member of a single AWS security
+group ('sg-0f2146100a88d03c3') and pods with label class=xwing should
+only be able to make connections outside the cluster to the destination
+VMs in that security group.
+
+To enable this, the VMs acting as Kubernetes worker nodes must be able to
+send traffic to the destination VMs that are being accessed by pods.  One approach
+for achieving this is to put all Kubernetes worker VMs in a single 'k8s-worker'
+security group, and then ensure that any security group that is referenced in a
+Cilium toGroups policy has an allow all ingress rule (all ports) for connections from the
+'k8s-worker' security group.  Cilium filtering will then ensure that the only pods allowed
+by policy can reach the destination VMs.
 
 Create a sample policy
 ======================
@@ -191,10 +231,10 @@ Policy Language:
         toGroups:
         - aws:
             securityGroupsIds:
-            - 'sg-0fef46100a88d03c3'
+            - 'sg-0f2146100a88d03c3'
 
 This policy allows traffic from pod *xwing* to any AWS instance that is in
-the security group with ID ``sg-0fef46100a88d03c3``.
+the security group with ID ``sg-0f2146100a88d03c3``.
 
 Validate that derived policy is in place
 ----------------------------------------
