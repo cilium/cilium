@@ -116,6 +116,20 @@ Kubernetes installers but can be performed manually:
 Adjusting CNI configuration
 ---------------------------
 
+The CNI configuration file is automatically written and maintained by the
+scripts ``cni-install.sh`` and ``cni-uninstall.sh`` which are running as
+``postStart`` and ``preStop`` hooks of the Cilium pod.
+
+If you want to provide your own custom CNI configuration file, set the
+``CILIUM_CUSTOM_CNI_CONF`` environment variable to avoid overwriting the
+configuration file by adding the following to the ``env:`` section of the
+``cilium`` DaemonSet:
+
+.. code:: bash
+
+        - name: CILIUM_CUSTOM_CNI_CONF
+          value: "true"
+
 The CNI installation can be configured with environment variables. These
 environment variables can be specified in the `DaemonSet` file like this:
 

@@ -41,12 +41,14 @@ fi
 
 cp /opt/cni/bin/${BIN_NAME} ${CNI_DIR}/bin/
 
-if [ -f "${CILIUM_CNI_CONF}" ]; then
-	echo "Using existing ${CILIUM_CNI_CONF}..."
-else
-	echo "Installing new ${CILIUM_CNI_CONF}..."
-	if [ -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
-		cat > ${CNI_CONF_NAME} <<EOF
+if [ "${CILIUM_CUSTOM_CNI_CONF}" = "true" ]; then
+	echo "Using custom ${CILIUM_CNI_CONF}..."
+	exit 0
+fi
+
+echo "Installing new ${CILIUM_CNI_CONF}..."
+if [ -z "${CILIUM_FLANNEL_MASTER_DEVICE}" ]; then
+	cat > ${CNI_CONF_NAME} <<EOF
 {
     "name": "cilium",
     "type": "cilium-cni"
@@ -78,10 +80,10 @@ EOF
   ]
 }
 EOF
-	fi
-	if [ ! -d $(dirname $CILIUM_CNI_CONF) ]; then
-		mkdir -p $(dirname $CILIUM_CNI_CONF)
-	fi
-
-	mv ${CNI_CONF_NAME} ${CILIUM_CNI_CONF}
 fi
+
+if [ ! -d $(dirname $CILIUM_CNI_CONF) ]; then
+	mkdir -p $(dirname $CILIUM_CNI_CONF)
+fi
+
+mv ${CNI_CONF_NAME} ${CILIUM_CNI_CONF}
