@@ -38,11 +38,20 @@ const CMDGracePeriod = 10 * time.Second
 // TODO: this is poorly named in that it's not related to a command only
 // ran over SSH - rename this.
 type SSHCommand struct {
+	// Path is the full command and it's CLI parameters
 	// TODO: path is not a clear name - rename to something more clear.
-	Path   string
-	Env    []string
-	Stdin  io.Reader
+	Path string
+	Env  []string
+	// Stdin is the input to the command once it begins. If nil it the command
+	// reads from an empty buffer.
+	Stdin io.Reader
+	// Stdout is where the output of the command is written. There is limited
+	// buffering and if this Writer blocks so may the command. When nil
+	// ioutil.Discard is used.
 	Stdout io.Writer
+	// Stderr is where the error output of the command is written. There is
+	// limited buffering and if this Writer blocks so may the command. When nil
+	// ioutil.Discard is used.
 	Stderr io.Writer
 }
 
@@ -57,8 +66,8 @@ type SSHClient struct {
 }
 
 // GetHostPort returns the host port representation of the ssh client
-func (cli *SSHClient) GetHostPort() string {
-	return net.JoinHostPort(cli.Host, strconv.Itoa(cli.Port))
+func (client *SSHClient) GetHostPort() string {
+	return net.JoinHostPort(client.Host, strconv.Itoa(client.Port))
 }
 
 // SSHConfig contains metadata for an SSH session.
@@ -151,37 +160,6 @@ func copyWait(dst io.Writer, src io.Reader) chan error {
 	return c
 }
 
-// startCommand begins the specified command on the provided SSH session, and
-// gathers both of the sterr and stdout output into the writers provided by
-// cmd. Returns whether the command was run and an optional error.
-// session.Wait must be used to wait for the command to exit and cmd.Stderr and
-// cmd.Stdout to be fully written.
-func startCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		return false, fmt.Errorf("Unable to setup stderr for session: %v", err)
-	}
-	errChan := copyWait(cmd.Stderr, stderr)
-
-	stdout, err := session.StdoutPipe()
-	if err != nil {
-		return false, fmt.Errorf("Unable to setup stdout for session: %v", err)
-	}
-	outChan := copyWait(cmd.Stdout, stdout)
-
-	if err = session.Start(cmd.Path); err != nil {
-		return false, err
-	}
-
-	if err = <-errChan; err != nil {
-		return true, err
-	}
-	if err = <-outChan; err != nil {
-		return true, err
-	}
-	return true, nil
-}
-
 // TODO
 // waitOnCommandCtx waits on the command in session to complete but interrupts
 // and kills it if the context expires before it exits. When killing the command
@@ -270,7 +248,7 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 		panic("nil context provided to RunCommandInBackground()")
 	}
 
-	session, err := client.newSession()
+	session, err := client.newSession(cmd.Stdin, cmd.Stdout, cmd.Stderr)
 	if err != nil {
 		return err
 	}
@@ -283,12 +261,8 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 	}
 	session.RequestPty("xterm-256color", 80, 80, modes)
 
-	running, err := startCommand(session, cmd)
-	switch {
-	case err != nil:
+	if err = session.Start(cmd.Path); err != nil {
 		return err
-	case !running:
-		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
 	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod)
@@ -303,25 +277,21 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		panic("nil context provided to RunCommandContext()")
 	}
 
-	session, err := client.newSession()
+	session, err := client.newSession(cmd.Stdin, cmd.Stdout, cmd.Stderr)
 	if err != nil {
 		return err
 	}
 	defer session.Close() // TODO: Print error
 
-	running, err := startCommand(session, cmd)
-	switch {
-	case err != nil:
+	if err = session.Start(cmd.Path); err != nil {
 		return err
-	case !running:
-		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
 	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod)
 	return err
 }
 
-func (client *SSHClient) newSession() (*ssh.Session, error) {
+func (client *SSHClient) newSession(stdin io.Reader, stdout, stderr io.Writer) (*ssh.Session, error) {
 	var connection *ssh.Client
 	var err error
 
@@ -343,6 +313,10 @@ func (client *SSHClient) newSession() (*ssh.Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %s", err)
 	}
+
+	session.Stdin = stdin
+	session.Stdout = stdout
+	session.Stderr = stderr
 
 	return session, nil
 }

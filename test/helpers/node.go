@@ -131,7 +131,7 @@ func (s *SSHMeta) ExecuteContext(ctx context.Context, cmd string, stdout io.Writ
 	fmt.Fprintln(SSHMetaLogs, cmd)
 	command := &SSHCommand{
 		Path:   cmd,
-		Stdin:  os.Stdin,
+		Stdin:  nil,
 		Stdout: stdout,
 		Stderr: stderr,
 	}
@@ -244,7 +244,7 @@ func (s *SSHMeta) ExecInBackground(ctx context.Context, cmd string, options ...E
 
 	command := &SSHCommand{
 		Path:   cmd,
-		Stdin:  os.Stdin,
+		Stdin:  nil,
 		Stdout: stdout,
 		Stderr: stderr,
 	}
