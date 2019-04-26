@@ -526,12 +526,33 @@ var RegisteredOptions = map[string]struct{}{}
 // variable which s based on the given optName. If the same optName is bind
 // more than 1 time, this function panics.
 func BindEnv(optName string) {
+	registerOpt(optName)
+	viper.BindEnv(optName, getEnvName(optName))
+}
+
+// BindEnvWithLegacyEnvFallback binds the given option name with either the same
+// environment variable as BindEnv, if it's set, or with the given legacyEnvName.
+//
+// The function is used to work around the viper.BindEnv limitation that only
+// one environment variable can be bound for an option, and we need multiple
+// environment variables due to backward compatibility reasons.
+func BindEnvWithLegacyEnvFallback(optName, legacyEnvName string) {
+	registerOpt(optName)
+
+	envName := getEnvName(optName)
+	if os.Getenv(envName) == "" {
+		envName = legacyEnvName
+	}
+
+	viper.BindEnv(optName, envName)
+}
+
+func registerOpt(optName string) {
 	_, ok := RegisteredOptions[optName]
 	if ok || optName == "" {
 		panic(fmt.Errorf("option already registered: %s", optName))
 	}
 	RegisteredOptions[optName] = struct{}{}
-	viper.BindEnv(optName, getEnvName(optName))
 }
 
 // LogRegisteredOptions logs all options that where bind to viper.
