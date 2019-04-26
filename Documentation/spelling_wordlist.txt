@@ -16,6 +16,7 @@ arithmetics
 ascii
 asm
 au
+authenticator
 awk
 aws
 backend
@@ -147,6 +148,7 @@ dwarfris
 eBPF
 ebpf
 ec
+eks
 eksctl
 Elasticsearch
 elasticsearch
@@ -224,6 +226,7 @@ hunderx
 hvm
 Hypercalls
 hypervisors
+iam
 ie
 ImageLocation
 imm
@@ -486,6 +489,7 @@ selftests
 Sep
 setrlimit
 sfc
+sg
 sgr
 sha
 Sharma
@@ -556,6 +560,7 @@ toCIDR
 toCIDRSet
 toFQDNs
 tofqdns
+toGroups
 Toolchain
 toolchain
 tracepoint
