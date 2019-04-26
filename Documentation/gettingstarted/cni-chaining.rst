@@ -16,4 +16,5 @@ CNI chaining allows to use Cilium in combination with other CNI plugins.
    :maxdepth: 1
    :glob:
 
+   cni-chaining-aws-cni
    cni-chaining-portmap
