@@ -267,6 +267,16 @@ Annotations:
 1.5 Upgrade Notes
 -----------------
 
+Upgrading from >=1.4.0 to 1.5.y
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. The TCP conntrack table size ``ct-global-max-entries-tcp`` from
+   the Cilium ConfigMap was not used in v1.4 and instead the default value
+   (``1000000``) was used. To prevent from breaking established connections,
+   ``bpf-ct-global-tcp-max`` must be set to ``1000000``.
+
+#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
+
 New Default Values
 ~~~~~~~~~~~~~~~~~~
 
