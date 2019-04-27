@@ -168,43 +168,14 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 		return nil, err
 	}
 
-	// Handle L3 ingress from each identity in the cache to the endpoint.
-	// Build a cache of requirements that are used for l4 policy resolution.
-	deniedPeers := make(cache.IdentityCache)
-	for id, lbls := range d.identityCache {
-		io.WriteString(d.log, fmt.Sprintf("[distill] Evaluating %s -> %s\n", lbls, epLabels))
-		ingressL3 := &SearchContext{
-			From:  lbls,
-			To:    epLabels,
-			Trace: TRACE_VERBOSE,
-		}
-		ingressL3.Logging = logging.NewLogBackend(d.log, "", 0)
-
-		switch d.Repository.CanReachIngressRLocked(ingressL3) {
-		case api.Allowed:
-			io.WriteString(d.log, "[distill] L3 ingress allow\n")
-			key := Key{uint32(id), 0, 0, dirIngress}
-			result[key] = MapStateEntry{l7RedirectNone_}
-		case api.Undecided:
-			io.WriteString(d.log, "[distill] L3 ingress undecided\n")
-			// If there's no L4 policy, undecided becomes allow.
-			if len(*l4IngressPolicy) == 0 && !endpointSelected {
-				key := Key{uint32(id), 0, 0, dirIngress}
-				result[key] = MapStateEntry{l7RedirectNone_}
-				io.WriteString(d.log, "[distill] Endpoint not selected; allowing\n")
-			}
-			// Otherwise this will be handled in L4 resolution below.
-		case api.Denied:
-			io.WriteString(d.log, "[distill] L3 ingress denied\n")
-			deniedPeers[id] = lbls
-		}
-	}
+	// TODO: Test Requirements
+	deniedIdentities := make(cache.IdentityCache)
 
 	// Handle L4 ingress from each identity in the cache to the endpoint.
 	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
 	for _, l4 := range *l4IngressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l3: %+v), (l4: %d/%s), (l7: %+v)\n", l4.Endpoints, l4.Port, l4.Protocol, l4.L7RulesPerEp))
-		for _, key := range l4.ToKeys(0, d.identityCache, deniedPeers) {
+		for _, key := range l4.ToKeys(0, d.identityCache, deniedIdentities) {
 			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, l4.IsRedirect()))
 			if l4.IsRedirect() {
 				result[key] = MapStateEntry{l7RedirectProxy}
