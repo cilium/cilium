@@ -15,8 +15,8 @@
 package server
 
 import (
-	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -229,7 +229,7 @@ func (p *prober) setNodes(nodes nodeMap) {
 func (p *prober) httpProbe(node string, ip string, port int) *models.ConnectivityStatus {
 	result := &models.ConnectivityStatus{}
 
-	host := fmt.Sprintf("http://%s:%d", ip, port)
+	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(port))
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName: node,
 		logfields.IPAddr:   ip,
@@ -249,7 +249,7 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 			result.Latency = rtt.Nanoseconds()
 		} else {
 			scopedLog.WithError(err).Debug("Greeting snubbed")
-			result.Status = "Connection timed out"
+			result.Status = err.Error()
 		}
 	} else {
 		scopedLog.WithError(err).Info("Failed to express greeting to host")
