@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package policy
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -104,6 +105,17 @@ func (s *SearchContext) String() string {
 
 func (s *SearchContext) CallDepth() string {
 	return strconv.Itoa(s.Depth * 2)
+}
+
+// WithLogger returns a shallow copy of the received SearchContext with the
+// logging set to write to 'log'.
+func (s *SearchContext) WithLogger(log io.Writer) *SearchContext {
+	result := *s
+	result.Logging = logging.NewLogBackend(log, "", 0)
+	if result.Trace == TRACE_DISABLED {
+		result.Trace = TRACE_ENABLED
+	}
+	return &result
 }
 
 // Translator is an interface for altering policy rules
