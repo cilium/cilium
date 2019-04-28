@@ -172,12 +172,6 @@ func (m *metadataTester) Handler() RequestHandler {
 }
 
 func (k *proxyTestSuite) TestKafkaRedirect(c *C) {
-	// this isn't thread safe but there is no function to get it
-	// SetLevel is atomic, however.
-	oldLevel := log.Level
-	defer log.Logger.SetLevel(oldLevel)
-	log.Logger.SetLevel(logrus.DebugLevel)
-
 	server := NewServer()
 	server.Start()
 	defer server.Close()

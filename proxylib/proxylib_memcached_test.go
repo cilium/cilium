@@ -126,7 +126,7 @@ func TestMemcache(t *testing.T) {
 			logServer := test.StartAccessLogServer("access_log.sock", 10)
 			defer logServer.Close()
 
-			mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+			mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, false)
 			if mod == 0 {
 				t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 			} else {

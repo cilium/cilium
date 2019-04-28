@@ -28,10 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 
-	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +61,6 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
 	s.svcCache = k8s.NewServiceCache()
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
 	dir, err := ioutil.TempDir("", "multicluster")
 	s.testDir = dir
