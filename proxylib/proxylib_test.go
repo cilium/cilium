@@ -31,14 +31,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const debug = false
+
 func TestOpenModule(t *testing.T) {
-	mod1 := OpenModule([][2]string{}, true)
+	mod1 := OpenModule([][2]string{}, debug)
 	if mod1 == 0 {
 		t.Error("OpenModule() with empty params failed")
 	} else {
 		defer CloseModule(mod1)
 	}
-	mod2 := OpenModule([][2]string{}, true)
+	mod2 := OpenModule([][2]string{}, debug)
 	if mod2 == 0 {
 		t.Error("OpenModule() with empty params failed")
 	} else {
@@ -48,7 +50,7 @@ func TestOpenModule(t *testing.T) {
 		t.Error("OpenModule() with empty params called again opened a new module")
 	}
 
-	mod3 := OpenModule([][2]string{{"dummy-key", "dummy-value"}, {"key2", "value2"}}, true)
+	mod3 := OpenModule([][2]string{{"dummy-key", "dummy-value"}, {"key2", "value2"}}, debug)
 	if mod3 != 0 {
 		t.Error("OpenModule() with unknown params accepted")
 		defer CloseModule(mod3)
@@ -57,7 +59,7 @@ func TestOpenModule(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod4 := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod4 := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod4 == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -67,7 +69,7 @@ func TestOpenModule(t *testing.T) {
 		t.Error("OpenModule() should have returned a different module")
 	}
 
-	mod5 := OpenModule([][2]string{{"access-log-path", logServer.Path}, {"node-id", "host~127.0.0.1~libcilium~localdomain"}}, true)
+	mod5 := OpenModule([][2]string{{"access-log-path", logServer.Path}, {"node-id", "host~127.0.0.1~libcilium~localdomain"}}, debug)
 	if mod5 == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -79,7 +81,7 @@ func TestOpenModule(t *testing.T) {
 }
 
 func TestOnNewConnection(t *testing.T) {
-	mod := OpenModule([][2]string{}, true)
+	mod := OpenModule([][2]string{}, debug)
 	if mod == 0 {
 		t.Error("OpenModule() with empty params failed")
 	} else {
@@ -154,7 +156,7 @@ func TestOnDataNoPolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -214,7 +216,7 @@ func TestOnDataPanic(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -255,7 +257,7 @@ func TestUnsupportedL7Drops(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -304,7 +306,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -357,7 +359,7 @@ func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -391,7 +393,7 @@ func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -434,7 +436,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -495,7 +497,7 @@ func TestSimplePolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -554,7 +556,7 @@ func TestAllowAllPolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {
@@ -599,7 +601,7 @@ func TestAllowEmptyPolicy(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
 
-	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, true)
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
 	if mod == 0 {
 		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
 	} else {

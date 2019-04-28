@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 
-	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -69,7 +68,6 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	option.Config.Populate()
 	option.Config.ProxyConnectTimeout = 1
 	c.Assert(option.Config.ProxyConnectTimeout, Not(Equals), 0)
-	log.Logger.SetLevel(logrus.DebugLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -142,7 +140,6 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 }
 
 func (s *EnvoySuite) TestEnvoyNACK(c *C) {
-	log.Logger.SetLevel(logrus.DebugLevel)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 

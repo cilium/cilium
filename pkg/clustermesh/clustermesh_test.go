@@ -29,10 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/testutils"
 
-	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -108,8 +106,6 @@ func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	kvstore.SetupDummy("etcd")
 	defer kvstore.Close()
-
-	logging.DefaultLogger.SetLevel(logrus.DebugLevel)
 
 	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
 	defer cache.Close()
