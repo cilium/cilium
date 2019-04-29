@@ -53,6 +53,16 @@ func ExpectCiliumReady(vm *helpers.SSHMeta) {
 	ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Cannot set policy enforcement default")
 }
 
+// ExpectCiliumNotRunning checks that cilium has stopped with a grace period.
+func ExpectCiliumNotRunning(vm *helpers.SSHMeta) {
+	body := func() bool {
+		res := vm.Exec("systemctl is-active cilium")
+		return !res.WasSuccessful()
+	}
+	err := helpers.WithTimeout(body, "Cilium is still running after timeout", &helpers.TimeoutConfig{Timeout: helpers.CiliumStartTimeout})
+	ExpectWithOffset(1, err).To(BeNil(), "Cilium is still running after timeout")
+}
+
 // ExpectDockerContainersMatchCiliumEndpoints asserts that docker containers in
 // Cilium network match with the endpoint list
 func ExpectDockerContainersMatchCiliumEndpoints(vm *helpers.SSHMeta) {

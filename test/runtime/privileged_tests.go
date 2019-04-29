@@ -31,6 +31,7 @@ var _ = Describe("RuntimePrivilegedUnitTests", func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		res := vm.ExecWithSudo("systemctl stop cilium")
 		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
+		ExpectCiliumNotRunning(vm)
 	})
 
 	AfterAll(func() {
