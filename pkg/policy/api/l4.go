@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,6 +37,18 @@ type PortProtocol struct {
 	//
 	// +optional
 	Protocol L4Proto `json:"protocol,omitempty"`
+}
+
+// Covers returns true if the ports and protocol specified in the received
+// PortProtocol are equal to or a superset of the ports and protocol in 'other'.
+func (p PortProtocol) Covers(other PortProtocol) bool {
+	if p.Port != other.Port {
+		return false
+	}
+	if p.Protocol != other.Protocol {
+		return p.Protocol == "" || p.Protocol == ProtoAny
+	}
+	return true
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7
