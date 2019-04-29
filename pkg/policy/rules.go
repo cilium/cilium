@@ -229,7 +229,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving egress port policy for %+v\n", ctx.To)
+	ctx.PolicyTrace("Resolving egress policy for %+v\n", ctx.From)
 
 	var requirements []v1.LabelSelectorRequirement
 

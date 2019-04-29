@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -619,6 +618,18 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 	toEndpoints := rule.GetDestinationEndpointSelectors()
 	found := 0
 
+	if ctx.To != nil && len(rule.ToEndpoints) > 0 {
+		if ctx.TraceEnabled() {
+			traceL3(ctx, toEndpoints, "to")
+		}
+		if !toEndpoints.Matches(ctx.To) {
+			ctx.PolicyTrace("      No label match for %s", ctx.To)
+			return 0, nil
+		}
+	}
+
+	ctx.PolicyTrace("      Found all required labels")
+
 	var (
 		cnt int
 		err error
@@ -641,19 +652,19 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 		if len(toEndpoints) == 0 {
 			toEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 		}
-		ctx.PolicyTrace("    Allows %s port %v to endpoints %v\n", trafficdirection.Egress, r.Ports, toEndpoints)
+		ctx.PolicyTrace("      Allows port %v\n", r.Ports)
 		if r.Rules != nil && r.Rules.L7Proto != "" {
-			ctx.PolicyTrace("      l7proto: \"%s\"\n", r.Rules.L7Proto)
+			ctx.PolicyTrace("        l7proto: \"%s\"\n", r.Rules.L7Proto)
 		}
 		if !r.Rules.IsEmpty() {
 			for _, l7 := range r.Rules.HTTP {
-				ctx.PolicyTrace("        %+v\n", l7)
+				ctx.PolicyTrace("          %+v\n", l7)
 			}
 			for _, l7 := range r.Rules.Kafka {
-				ctx.PolicyTrace("        %+v\n", l7)
+				ctx.PolicyTrace("          %+v\n", l7)
 			}
 			for _, l7 := range r.Rules.L7 {
-				ctx.PolicyTrace("        %+v\n", l7)
+				ctx.PolicyTrace("          %+v\n", l7)
 			}
 		}
 
@@ -736,6 +747,12 @@ func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result
 			// ToEndpoints with requirements; we don't want to modify the rule
 			// in the repository.
 			ruleCopy = *egressRule.DeepCopy()
+			// If the rule only consists of a ToRequires statement,
+			// provide an empty selector so that it will be updated
+			// in the next step.
+			if ctx.TraceEnabled() && len(ruleCopy.ToEndpoints) == 0 {
+				ruleCopy.ToEndpoints = []api.EndpointSelector{api.NewESFromLabels()}
+			}
 			for idx := range ruleCopy.ToEndpoints {
 				// Update each EndpointSelector in ToEndpoints to contain
 				// requirements.
