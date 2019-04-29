@@ -94,34 +94,6 @@ func (state *traceState) trace(rules ruleSlice, ctx *SearchContext) {
 	}
 }
 
-// CanReachIngressRLocked evaluates the policy repository for the provided search
-// context and returns the verdict or api.Undecided if no rule matches for
-// ingress. The policy repository mutex must be held.
-func (p *Repository) CanReachIngressRLocked(ctx *SearchContext) api.Decision {
-	return p.rules.canReachIngressRLocked(ctx)
-}
-
-// AllowsIngressLabelAccess evaluates the policy repository for the provided search
-// context and returns the verdict for ingress policy. If no matching policy
-// allows for the  connection, the request will be denied. The policy repository
-// mutex must be held.
-func (p *Repository) AllowsIngressLabelAccess(ctx *SearchContext) api.Decision {
-	ctx.PolicyTrace("Tracing %s\n", ctx.String())
-	decision := api.Denied
-
-	if len(p.rules) == 0 {
-		ctx.PolicyTrace("  No rules found\n")
-	} else {
-		if p.CanReachIngressRLocked(ctx) == api.Allowed {
-			decision = api.Allowed
-		}
-	}
-
-	ctx.PolicyTrace("Label verdict: %s", decision.String())
-
-	return decision
-}
-
 func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
 	ruleLabels labels.LabelArray, l4Policy L4PolicyMap) {
 	for k, filter := range l4Policy {
@@ -238,48 +210,34 @@ func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
 	return verdict
 }
 
-func (p *Repository) allowsL4Ingress(ctx *SearchContext) api.Decision {
-	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)
-	if err != nil {
-		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
-	}
-	verdict := api.Undecided
-	if err == nil && len(*ingressPolicy) > 0 {
-		verdict = ingressPolicy.IngressCoversContext(ctx)
-	}
-
-	if len(ctx.DPorts) == 0 {
-		ctx.PolicyTrace("L4 ingress verdict: [no port context specified]")
-	} else {
-		ctx.PolicyTrace("L4 ingress verdict: %s", verdict.String())
-	}
-
-	return verdict
-}
-
 // AllowsIngressRLocked evaluates the policy repository for the provided search
 // context and returns the verdict for ingress. If no matching policy allows for
 // the  connection, the request will be denied. The policy repository mutex must
 // be held.
 func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
-	ctx.PolicyTrace("Tracing %s\n", ctx.String())
-	decision := p.CanReachIngressRLocked(ctx)
-	ctx.PolicyTrace("Label verdict: %s", decision.String())
-	if decision == api.Allowed {
-		ctx.PolicyTrace("L4 ingress policies skipped")
-		return decision
+	// Lack of DPorts in the SearchContext means L3-only search
+	if len(ctx.DPorts) == 0 {
+		newCtx := *ctx
+		newCtx.DPorts = []*models.Port{{
+			Port:     0,
+			Protocol: models.PortProtocolANY,
+		}}
+		ctx = &newCtx
 	}
 
-	// We only report the overall decision as L4 inclusive if a port has
-	// been specified
-	if len(ctx.DPorts) != 0 {
-		decision = p.allowsL4Ingress(ctx)
+	ctx.PolicyTrace("Tracing %s", ctx.String())
+	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)
+	if err != nil {
+		log.WithError(err).Warn("Evaluation error while resolving L4 ingress policy")
 	}
 
-	if decision != api.Allowed {
-		decision = api.Denied
+	verdict := api.Denied
+	if err == nil && len(*ingressPolicy) > 0 {
+		verdict = ingressPolicy.IngressCoversContext(ctx)
 	}
-	return decision
+
+	ctx.PolicyTrace("Ingress verdict: %s", verdict.String())
+	return verdict
 }
 
 // AllowsEgressRLocked evaluates the policy repository for the provided search
