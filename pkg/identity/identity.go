@@ -109,6 +109,11 @@ func (id *Identity) StringID() string {
 	return id.ID.StringID()
 }
 
+// StringID returns the identity identifier as string
+func (id *Identity) String() string {
+	return id.ID.StringID()
+}
+
 func (id *Identity) GetModel() *models.Identity {
 	if id == nil {
 		return nil
