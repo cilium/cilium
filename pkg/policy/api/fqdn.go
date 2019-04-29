@@ -54,6 +54,10 @@ type FQDNSelector struct {
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 
+func (s *FQDNSelector) String() string {
+	return fmt.Sprintf("MatchName: %s, MatchPattern %s", s.MatchName, s.MatchPattern)
+}
+
 // sanitize for FQDNSelector is a little wonky. While we do more processing
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
