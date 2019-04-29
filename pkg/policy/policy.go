@@ -35,11 +35,15 @@ const (
 	TRACE_VERBOSE
 )
 
+// TraceEnabled returns true if the SearchContext requests tracing.
+func (s *SearchContext) TraceEnabled() bool {
+	return s.Trace != TRACE_DISABLED
+}
+
 // PolicyTrace logs the given message into the SearchContext logger only if
 // TRACE_ENABLED or TRACE_VERBOSE is enabled in the receiver's SearchContext.
 func (s *SearchContext) PolicyTrace(format string, a ...interface{}) {
-	switch s.Trace {
-	case TRACE_ENABLED, TRACE_VERBOSE:
+	if s.TraceEnabled() {
 		log.Debugf(format, a...)
 		if s.Logging != nil {
 			format = "%-" + s.CallDepth() + "s" + format
