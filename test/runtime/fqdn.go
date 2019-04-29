@@ -998,6 +998,7 @@ INITSYSTEM=SYSTEMD`
 
 		res = vm.ExecWithSudo("systemctl stop cilium")
 		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
+		ExpectCiliumNotRunning(vm)
 
 		By("Testing connectivity from %q to the IP %q without DNS request", helpers.App1, targetIP)
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://%s", targetIP))

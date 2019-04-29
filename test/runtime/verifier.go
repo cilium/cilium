@@ -38,6 +38,7 @@ var _ = Describe("RuntimeVerifier", func() {
 		By("Stopping Cilium")
 		res := vm.ExecWithSudo("systemctl stop cilium")
 		res.ExpectSuccess()
+		ExpectCiliumNotRunning(vm)
 		res = vm.ExecWithSudo("rm -f /sys/fs/bpf/tc/globals/cilium*")
 		res.ExpectSuccess()
 	})

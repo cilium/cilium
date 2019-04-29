@@ -47,6 +47,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	BeforeEach(func() {
 		res := vm.ExecWithSudo("systemctl stop cilium")
 		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
+		ExpectCiliumNotRunning(vm)
 	}, 150)
 
 	AfterEach(func() {
