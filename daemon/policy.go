@@ -252,11 +252,12 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	// CAUTION, there is a small race between this PrepareFQDNRules invocation and
 	// taking the policy lock. As long as policyAdd is fed by a single-threaded
 	// queue this should never be an issue.
-	rules := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
+	// TODO: ian fix me
+	rules, _ := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
 	if len(rules) == 0 && len(sourceRules) > 0 {
 		// All rules being added have ToFQDNs UUIDs that have been removed and
 		// will not be re-inserted to avoid a race.
-		err := errors.New("PrepareFQDNRules delete all sourceRules due invalid UUIDs")
+		err := errors.New("PrepareFQDNRules delete all rules due invalid UUIDs")
 		resChan <- &PolicyAddResult{
 			newRev: 0,
 			err:    api.Error(PutPolicyFailureCode, err),
@@ -294,7 +295,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		}
 	}
 
-	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
+	if _, err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(

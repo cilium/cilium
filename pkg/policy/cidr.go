@@ -68,3 +68,26 @@ func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
 	}
 	return res
 }
+
+// GetCIDRPrefixesFromIPs returns all of the ips as a slice of *net.IPNet.
+func GetCIDRPrefixesFromIPs(ips []net.IP) []*net.IPNet {
+	if len(ips) == 0 {
+		return nil
+	}
+
+	res := make([]*net.IPNet, 0, 32)
+	for _, ip := range ips {
+		bits := net.IPv6len * 8
+		if ip.To4() != nil {
+			ip = ip.To4()
+			bits = net.IPv4len * 8
+		}
+		prefix := &net.IPNet{
+			IP:   ip,
+			Mask: net.CIDRMask(bits, bits),
+		}
+		res = append(res, prefix)
+	}
+
+	return res
+}

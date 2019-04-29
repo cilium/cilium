@@ -34,9 +34,11 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -48,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/miekg/dns"
 )
@@ -73,11 +76,88 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		OverLimit:      option.Config.ToFQDNsMaxIPsPerHost,
 		Cache:          fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
+		AddGeneratedRulesAndUpdateSelectors: func(generatedRules []*policyApi.Rule, selectorWithIPsToUpdate map[string][]net.IP, selectorsWithoutIPs []string) error {
+
+			// Prefix is always a /32. Maybe we can just add a /32 to the
+			// prefixes or /128 for IPV4, IPv6?
+			ipNets := make([]*net.IPNet, 0)
+			selectorIPNetMapping := make(map[string][]*net.IPNet)
+			for selector, netSlice := range selectorWithIPsToUpdate {
+				if prefixes := policy.GetCIDRPrefixesFromIPs(netSlice); prefixes != nil {
+					selectorIPNetMapping[selector] = prefixes
+					ipNets = append(ipNets, prefixes...)
+				}
+			}
+
+			newPrefixLengths, err := d.prefixLengths.Add(ipNets)
+			if err != nil {
+				metrics.PolicyImportErrors.Inc()
+				log.WithError(err).WithField("prefixes", ipNets).Warn(
+					"Failed to reference-count prefix lengths in CIDR policy")
+				return err
+			}
+
+			if newPrefixLengths && !bpfIPCache.BackedByLPM() {
+				// Only recompile if configuration has changed.
+				log.Debug("CIDR policy has changed; recompiling base programs")
+				if err := d.compileBase(); err != nil {
+					_ = d.prefixLengths.Delete(ipNets)
+					err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
+					log.WithError(err2).WithField("prefixes", ipNets).Warn(
+						"Failed to recompile base programs due to prefix length count change")
+					return err
+				}
+			}
+
+			// Used to track identities which are allocated in calls to
+			// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
+			// we have to undo all of our changes and release the identities.
+			// This is best effort, as releasing can fail as well.
+			usedIdentities := make([]*identity.Identity, 0)
+			selectorIdentitySliceMapping := make(map[string][]*identity.Identity)
+
+			// Allocate identities for each IPNet and then map to selector
+			for selector, selectorIPNets := range selectorIPNetMapping {
+				var currentlyAllocatedIdentities []*identity.Identity
+				if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRs(bpfIPCache.IPCache, selectorIPNets); err != nil {
+					_ = d.prefixLengths.Delete(ipNets)
+					secIDCache.ReleaseSlice(context.Background(), usedIdentities)
+					log.WithError(err).WithField("prefixes", ipNets).Warn(
+						"Failed to allocate identities for CIDRs during policy add")
+					return err
+				}
+				usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
+				selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
+			}
+
+			// Update mapping of selector to set of IPs in selector cache.
+			for selector, identitySlice := range selectorIdentitySliceMapping {
+				log.WithFields(logrus.Fields{
+					"fqdnSelectorString": selector,
+					"identitySlice":      identitySlice}).Debug("updating FQDN selector")
+				numIds := make([]identity.NumericIdentity, len(identitySlice))
+				for _, numId := range identitySlice {
+					// Nil check here? Hopefully not necessary...
+					numIds = append(numIds, numId.ID)
+				}
+				policy.UpdateFQDNSelector(selector, numIds)
+			}
+
+			// Selectors which no longer map to IPs (due to TTL expiry, cache being
+			// cleared forcibly via CLI, etc.) still exist in the selector cache
+			// since policy is imported which allows it, but the selector does
+			// not match anything anymore.
+			for k := range selectorsWithoutIPs {
+				log.WithFields(logrus.Fields{
+					"fqdnSelectorString": selectorsWithoutIPs[k],
+				}).Debug("removing all identities from FQDN selector")
+				policy.UpdateFQDNSelector(selectorsWithoutIPs[k], []identity.NumericIdentity{})
+			}
+
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
-			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
+			_, err = d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
 			return err
 		},
 		PollerResponseNotify: func(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
@@ -147,7 +227,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		DoFunc: func(ctx context.Context) error {
 
 			namesToClean := []string{}
+			// cleanup poller cache
 			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC()...)
+
+			// cleanup caches for all existing endpoints as well.
 			endpoints := endpointmanager.GetEndpoints()
 			for _, ep := range endpoints {
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
@@ -373,7 +456,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 					ep.SyncEndpointHeaderFile(d)
 				}
 
-				log.Debug("Updating DNS name in cache from response to to query")
+				log.WithFields(logrus.Fields{
+					"qname": qname,
+					"ips":   responseIPs,
+				}).Debug("Updating DNS name in cache from response to to query")
 				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 					qname: {
 						IPs: responseIPs,
