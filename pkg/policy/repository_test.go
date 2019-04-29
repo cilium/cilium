@@ -1691,7 +1691,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	// L4 from app2 is restricted
-	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2)
+	logBuffer := new(bytes.Buffer)
+	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
 	c.Assert(err, IsNil)
 
 	// Due to the lack of a set structure for L4Filter.FromEndpoints,
@@ -1728,8 +1729,10 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	}
 	expected.Revision = repo.GetRevision()
 
-	c.Assert(len(*l4IngressPolicy), Equals, 1)
-	c.Assert(*l4IngressPolicy, checker.DeepEquals, expected.Ingress)
+	if equal, err := checker.DeepEqual(*l4IngressPolicy, expected.Ingress); !equal {
+		c.Logf("%s", logBuffer.String())
+		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	}
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
