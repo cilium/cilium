@@ -436,7 +436,7 @@ func (ds *PolicyTestSuite) TestContainsAllRLocked(c *C) {
 	c.Assert(repoEmpty.ContainsAllRLocked(a), Equals, false)    // a is NOT in empty
 }
 
-func (ds *PolicyTestSuite) TestCanReachIngress(c *C) {
+func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 	repo := NewPolicyRepository()
 
 	fooToBar := &SearchContext{
@@ -445,8 +445,6 @@ func (ds *PolicyTestSuite) TestCanReachIngress(c *C) {
 	}
 
 	repo.Mutex.RLock()
-	// no rules loaded: CanReach => undecided
-	c.Assert(repo.CanReachIngressRLocked(fooToBar), Equals, api.Undecided)
 	// no rules loaded: Allows() => denied
 	c.Assert(repo.AllowsIngressRLocked(fooToBar), Equals, api.Denied)
 	repo.Mutex.RUnlock()
@@ -1615,13 +1613,9 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	}
 
 	repo.Mutex.RLock()
-	// no rules loaded: CanReach => undecided
-	c.Assert(repo.CanReachIngressRLocked(fromApp2), Equals, api.Undecided)
-	c.Assert(repo.CanReachIngressRLocked(fromApp3), Equals, api.Undecided)
-
 	// no rules loaded: Allows() => denied
-	c.Assert(repo.AllowsIngressLabelAccess(fromApp2), Equals, api.Denied)
-	c.Assert(repo.AllowsIngressLabelAccess(fromApp3), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(fromApp2), Equals, api.Denied)
+	c.Assert(repo.AllowsIngressRLocked(fromApp3), Equals, api.Denied)
 	repo.Mutex.RUnlock()
 
 	selFromApp2 := api.NewESFromLabels(
@@ -1744,10 +1738,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
-	var ports []*models.Port
-	if port != 0 {
-		ports = []*models.Port{{Port: port}}
-	}
+	ports := []*models.Port{{Port: port, Protocol: string(api.ProtoAny)}}
 	return &SearchContext{
 		From:   labels.ParseSelectLabelArray(from),
 		To:     labels.ParseSelectLabelArray(to),
@@ -1790,10 +1781,10 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	repo.Mutex.RLock()
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
-	c.Assert(verdict, Equals, expectedVerdict)
 
-	expectedOut := "Tracing " + ctx.String() + trace
+	expectedOut := "Tracing " + ctx.String() + "\n" + trace
 	c.Assert(buffer.String(), checker.DeepEquals, expectedOut)
+	c.Assert(verdict, Equals, expectedVerdict)
 }
 
 func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
@@ -1806,16 +1797,14 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 
 	// foo=>bar is OK
 	expectedOut := `
+Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:foo] not found
     Allows from labels {"matchLabels":{"any:foo":""}}
       Found all required labels
-+       No L4 restrictions
 1/1 rules selected
 Found allow rule
-Label verdict: allowed
-L4 ingress policies skipped
+Ingress verdict: allowed
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
@@ -1827,20 +1816,15 @@ L4 ingress policies skipped
 	// bar=>foo is Denied
 	ctx = buildSearchCtx("bar", "foo", 0)
 	expectedOut = `
+Resolving ingress policy for [any:foo]
 0/1 rules selected
 Found no allow rule
-Label verdict: undecided
+Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
-	// bar=>foo:80 is Denied, also checks L4 policy
+	// bar=>foo:80 is also Denied by the same logic
 	ctx = buildSearchCtx("bar", "foo", 80)
-	expectedOut += `
-Resolving ingress port policy for [any:foo]
-0/1 rules selected
-Found no allow rule
-L4 ingress verdict: undecided
-`
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
 	// Now, add extra rules to allow specifically baz=>bar on port 80
@@ -1851,58 +1835,37 @@ L4 ingress verdict: undecided
 	// baz=>bar:80 is OK
 	ctx = buildSearchCtx("baz", "bar", 80)
 	expectedOut = `
+Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:baz] not found
     Allows from labels {"matchLabels":{"any:foo":""}}
-      Labels [any:baz] not found
+      No label match for [any:baz]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:baz] not found
     Allows from labels {"matchLabels":{"any:baz":""}}
       Found all required labels
-        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
-2/2 rules selected
-Found no allow rule
-Label verdict: undecided
-
-Resolving ingress port policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Labels [any:baz] not found
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Found all required labels
-    Allows Ingress port [{80 ANY}] from endpoints [{"matchLabels":{"reserved:host":""}} {"matchLabels":{"any:baz":""}}]
+      Allows port [{80 ANY}]
 2/2 rules selected
 Found allow rule
-L4 ingress verdict: allowed
+Ingress verdict: allowed
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
 
 	// bar=>bar:80 is Denied
 	ctx = buildSearchCtx("bar", "bar", 80)
 	expectedOut = `
+Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:bar] not found
     Allows from labels {"matchLabels":{"any:foo":""}}
-      Labels [any:bar] not found
+      No label match for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
     Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:bar] not found
     Allows from labels {"matchLabels":{"any:baz":""}}
-      Labels [any:bar] not found
+      No label match for [any:bar]
 2/2 rules selected
 Found no allow rule
-Label verdict: undecided
-
-Resolving ingress port policy for [any:bar]
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Labels [any:bar] not found
-* Rule {"matchLabels":{"any:bar":""}}: selected
-    Labels [any:bar] not found
-2/2 rules selected
-Found no allow rule
-L4 ingress verdict: undecided
+Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
@@ -1921,46 +1884,48 @@ L4 ingress verdict: undecided
 	// foo=>bar is now denied due to the FromRequires
 	ctx = buildSearchCtx("foo", "bar", 0)
 	expectedOut = `
+Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:foo] not found
-    Allows from labels {"matchLabels":{"any:foo":""}}
-      Found all required labels
-+       No L4 restrictions
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+    Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+      No label match for [any:foo]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:foo] not found
-    Allows from labels {"matchLabels":{"any:baz":""}}
-      Labels [any:foo] not found
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+    Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+      No label match for [any:foo]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Requires from labels {"matchLabels":{"any:baz":""}}
--     Labels [any:foo] not found
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+      No label match for [any:foo]
 3/3 rules selected
-Found unsatisfied FromRequires constraint
-Label verdict: denied
+Found no allow rule
+Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
 	// baz=>bar is only denied because of the L4 policy
 	ctx = buildSearchCtx("baz", "bar", 0)
 	expectedOut = `
+Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:baz] not found
-    Allows from labels {"matchLabels":{"any:foo":""}}
-      Labels [any:baz] not found
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+    Allows from labels {"matchLabels":{"any:foo":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+      No label match for [any:baz]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Allows from labels {"matchLabels":{"reserved:host":""}}
-      Labels [any:baz] not found
-    Allows from labels {"matchLabels":{"any:baz":""}}
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+    Allows from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
+    Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
       Found all required labels
-        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage
+      Allows port [{80 ANY}]
+        No port match found
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Requires from labels {"matchLabels":{"any:baz":""}}
-+     Found all required labels
+    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
+      Found all required labels
 3/3 rules selected
 Found no allow rule
-Label verdict: undecided
+Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
 
