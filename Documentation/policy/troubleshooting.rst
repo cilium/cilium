@@ -44,19 +44,14 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
     level=info msg="Connected to k8s api-server" ipAddr="https://10.96.0.1:443" subsys=k8s
     ----------------------------------------------------------------
     Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [any:class=deathstar, k8s:org=empire, k8s:io.kubernetes.pod.namespace=default] Ports: [80/ANY]
+    
+    Resolving ingress policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
     * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
         Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
           Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
     1/1 rules selected
     Found no allow rule
-    Label verdict: undecided
-
-    Resolving ingress port policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
-    * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
-        Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
-    1/1 rules selected
-    Found no allow rule
-    L4 ingress verdict: undecided
+    Ingress verdict: denied
 
     Final verdict: DENIED
     
@@ -77,19 +72,14 @@ An L3/L4 policy is enforced on the ``deathstar`` service to allow access to all 
     $ kubectl exec -ti cilium-88k78 -n kube-system -- cilium policy trace --src-identity 53208 --dst-identity 22133  --dport 80
     ----------------------------------------------------------------
     Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [any:class=deathstar, k8s:org=empire, k8s:io.kubernetes.pod.namespace=default] Ports: [80/ANY]
+
+    Resolving ingress policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
     * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
         Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
           Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
     1/1 rules selected
     Found no allow rule
-    Label verdict: undecided
-
-    Resolving ingress port policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
-    * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
-        Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
-    1/1 rules selected
-    Found no allow rule
-    L4 ingress verdict: undecided
+    Ingress verdict: denied
 
     Final verdict: DENIED
     
