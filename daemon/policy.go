@@ -294,7 +294,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		}
 	}
 
-	if err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
+	if _, err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
