@@ -191,25 +191,6 @@ func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 	return p.rules.resolveCIDRPolicy(ctx)
 }
 
-func (p *Repository) allowsL4Egress(ctx *SearchContext) api.Decision {
-	egressL4Policy, err := p.ResolveL4EgressPolicy(ctx)
-	if err != nil {
-		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
-	}
-	verdict := api.Undecided
-	if err == nil && len(*egressL4Policy) > 0 {
-		verdict = egressL4Policy.EgressCoversContext(ctx)
-	}
-
-	if len(ctx.DPorts) == 0 {
-		ctx.PolicyTrace("L4 egress verdict: [no port context specified]")
-	} else {
-		ctx.PolicyTrace("L4 egress verdict: %s", verdict.String())
-	}
-
-	return verdict
-}
-
 // AllowsIngressRLocked evaluates the policy repository for the provided search
 // context and returns the verdict for ingress. If no matching policy allows for
 // the  connection, the request will be denied. The policy repository mutex must
@@ -244,52 +225,29 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 // context and returns the verdict. If no matching policy allows for the
 // connection, the request will be denied. The policy repository mutex must be
 // held.
-func (p *Repository) AllowsEgressRLocked(egressCtx *SearchContext) api.Decision {
-	egressCtx.PolicyTrace("Tracing %s\n", egressCtx.String())
-	egressDecision := p.CanReachEgressRLocked(egressCtx)
-	egressCtx.PolicyTrace("Egress label verdict: %s", egressDecision.String())
-
-	if egressDecision == api.Allowed {
-		egressCtx.PolicyTrace("L4 egress policies skipped")
-		return egressDecision
-	}
-	if len(egressCtx.DPorts) != 0 {
-		egressDecision = p.allowsL4Egress(egressCtx)
+func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
+	// Lack of DPorts in the SearchContext means L3-only search
+	if len(ctx.DPorts) == 0 {
+		newCtx := *ctx
+		newCtx.DPorts = []*models.Port{{
+			Port:     0,
+			Protocol: models.PortProtocolANY,
+		}}
+		ctx = &newCtx
 	}
 
-	// If we cannot determine whether allowed at L4, undecided decision becomes
-	// deny decision.
-	if egressDecision != api.Allowed {
-		egressDecision = api.Denied
+	ctx.PolicyTrace("Tracing %s\n", ctx.String())
+	egressPolicy, err := p.ResolveL4EgressPolicy(ctx)
+	if err != nil {
+		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
+	}
+	verdict := api.Denied
+	if err == nil && len(*egressPolicy) > 0 {
+		verdict = egressPolicy.EgressCoversContext(ctx)
 	}
 
-	return egressDecision
-}
-
-// AllowsEgressLabelAccess evaluates the policy repository for the provided search
-// context and returns the verdict for egress. If no matching
-// policy allows for the connection, the request will be denied.
-// The policy repository mutex must be held.
-func (p *Repository) AllowsEgressLabelAccess(egressCtx *SearchContext) api.Decision {
-	egressCtx.PolicyTrace("Tracing %s\n", egressCtx.String())
-	egressDecision := api.Denied
-	if len(p.rules) == 0 {
-		egressCtx.PolicyTrace("  No rules found\n")
-	} else {
-		egressDecision = p.CanReachEgressRLocked(egressCtx)
-	}
-
-	egressCtx.PolicyTrace("Egress label verdict: %s", egressDecision.String())
-
-	return egressDecision
-}
-
-// CanReachEgressRLocked evaluates the policy repository for the provided search
-// context and returns the verdict or api.Undecided if no rule matches for egress
-// policy.
-// The policy repository mutex must be held.
-func (p *Repository) CanReachEgressRLocked(egressCtx *SearchContext) api.Decision {
-	return p.rules.canReachEgressRLocked(egressCtx)
+	ctx.PolicyTrace("Egress verdict: %s", verdict.String())
+	return verdict
 }
 
 // SearchRLocked searches the policy repository for rules which match the
