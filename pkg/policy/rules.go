@@ -186,7 +186,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
-	ctx.PolicyTrace("Resolving ingress port policy for %+v\n", ctx.To)
+	ctx.PolicyTrace("Resolving ingress policy for %+v\n", ctx.To)
 
 	state := traceState{}
 	var requirements []v1.LabelSelectorRequirement

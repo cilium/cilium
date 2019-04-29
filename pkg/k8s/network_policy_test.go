@@ -190,7 +190,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	}
 
 	// ctx.To needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachIngressRLocked(&ctx), Not(Equals), api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{
@@ -203,7 +203,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 		Trace: policy.TRACE_VERBOSE,
 	}
 	// ctx.From also needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachIngressRLocked(&ctx), Not(Equals), api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
@@ -552,7 +552,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 
 	repo := policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachIngressRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 
 	// Empty From rules, all sources should be allowed
 	netPolicy2 := &networkingv1.NetworkPolicy{
@@ -576,7 +576,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEmptyFrom(c *C) {
 	c.Assert(len(rules), Equals, 1)
 	repo = policy.NewPolicyRepository()
 	repo.AddList(rules)
-	c.Assert(repo.CanReachIngressRLocked(&ctx), Equals, api.Allowed)
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyDenyAll(c *C) {

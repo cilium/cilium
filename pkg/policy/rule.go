@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -179,19 +180,67 @@ func mergeIngressPortProto(ctx *SearchContext, endpoints []api.EndpointSelector,
 	return 1, nil
 }
 
+func traceL3(ctx *SearchContext, peerEndpoints api.EndpointSelectorSlice, direction string) {
+	var result bytes.Buffer
+
+	// Requirements will be cloned into every selector, only trace them once.
+	if len(peerEndpoints[0].MatchExpressions) > 0 {
+		sel := peerEndpoints[0]
+		result.WriteString("    Enforcing requirements ")
+		result.WriteString(fmt.Sprintf("%+v", sel.MatchExpressions))
+		result.WriteString("\n")
+	}
+	// EndpointSelector
+	for _, sel := range peerEndpoints {
+		if len(sel.MatchLabels) > 0 {
+			result.WriteString("    Allows ")
+			result.WriteString(direction)
+			result.WriteString(" labels ")
+			result.WriteString(sel.String())
+			result.WriteString("\n")
+		}
+	}
+	ctx.PolicyTrace(result.String())
+}
+
+// portRulesCoverContext determines whether L4 portions of rules cover the
+// specified port models.
+//
+// Returns true if the list of ports is 0, or the rules match the ports.
+func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) bool {
+	if len(ctx.DPorts) == 0 {
+		return true
+	}
+	for _, p := range ports {
+		for _, dp := range ctx.DPorts {
+			tracePort := api.PortProtocol{
+				Port:     fmt.Sprintf("%d", dp.Port),
+				Protocol: api.L4Proto(dp.Protocol),
+			}
+			if p.Covers(tracePort) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 
 	fromEndpoints := rule.GetSourceEndpointSelectors()
 	found := 0
 
 	if ctx.From != nil && len(fromEndpoints) > 0 {
+		if ctx.TraceEnabled() {
+			traceL3(ctx, fromEndpoints, "from")
+		}
 		if !fromEndpoints.Matches(ctx.From) {
-			ctx.PolicyTrace("    Labels %s not found", ctx.From)
+			ctx.PolicyTrace("      No label match for %s", ctx.From)
 			return 0, nil
 		}
 	}
 
-	ctx.PolicyTrace("    Found all required labels")
+	ctx.PolicyTrace("      Found all required labels")
 
 	// Daemon options may induce L3 allows for host/world. In this case, if
 	// we find any L7 rules matching host/world then we need to turn any L7
@@ -225,19 +274,23 @@ func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.La
 		if len(fromEndpoints) == 0 {
 			fromEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 		}
-		ctx.PolicyTrace("    Allows %s port %v from endpoints %v\n", trafficdirection.Ingress, r.Ports, fromEndpoints)
+		ctx.PolicyTrace("      Allows port %v\n", r.Ports)
+		if !rulePortsCoverSearchContext(r.Ports, ctx) {
+			ctx.PolicyTrace("        No port match found\n")
+			continue
+		}
 		if r.Rules != nil && r.Rules.L7Proto != "" {
-			ctx.PolicyTrace("      l7proto: \"%s\"\n", r.Rules.L7Proto)
+			ctx.PolicyTrace("        l7proto: \"%s\"\n", r.Rules.L7Proto)
 		}
 		if !r.Rules.IsEmpty() {
 			for _, l7 := range r.Rules.HTTP {
-				ctx.PolicyTrace("        %+v\n", l7)
+				ctx.PolicyTrace("          %+v\n", l7)
 			}
 			for _, l7 := range r.Rules.Kafka {
-				ctx.PolicyTrace("        %+v\n", l7)
+				ctx.PolicyTrace("          %+v\n", l7)
 			}
 			for _, l7 := range r.Rules.L7 {
-				ctx.PolicyTrace("        %+v\n", l7)
+				ctx.PolicyTrace("          %+v\n", l7)
 			}
 		}
 
@@ -294,7 +347,7 @@ func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, resul
 	found := 0
 
 	if len(r.Ingress) == 0 {
-		ctx.PolicyTrace("    No L4 ingress rules\n")
+		ctx.PolicyTrace("    No ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
 		ruleCopy := ingressRule
@@ -309,6 +362,12 @@ func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, resul
 			// with requirementsSelector. We don't want to modify the rule itself
 			// in the policy repository.
 			ruleCopy = *ingressRule.DeepCopy()
+			// If the rule only consists of a FromRequires statement,
+			// provide an empty selector so that it will be updated
+			// in the next step.
+			if ctx.TraceEnabled() && len(ruleCopy.FromEndpoints) == 0 {
+				ruleCopy.FromEndpoints = []api.EndpointSelector{api.NewESFromLabels()}
+			}
 			// Update each EndpointSelector in FromEndpoints to contain requirements.
 			for idx := range ruleCopy.FromEndpoints {
 				ruleCopy.FromEndpoints[idx].MatchExpressions = append(ruleCopy.FromEndpoints[idx].MatchExpressions, requirements...)
@@ -434,7 +493,10 @@ func (r *rule) canReachFromEndpoints(ctx *SearchContext, state *traceState) api.
 	// assume requirements have already been analyzed.
 	for _, r := range r.Ingress {
 		for _, sel := range r.GetSourceEndpointSelectors() {
-			ctx.PolicyTrace("    Allows from labels %+v", sel)
+			if len(sel.MatchExpressions) > 0 {
+				ctx.PolicyTrace("    Requires %+v", sel.MatchExpressions)
+			}
+			ctx.PolicyTrace("    Allows from labels %+v", sel.MatchLabels)
 			if sel.Matches(ctx.From) {
 				ctx.PolicyTrace("      Found all required labels")
 				if len(r.ToPorts) == 0 {
