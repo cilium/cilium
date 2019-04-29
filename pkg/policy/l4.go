@@ -373,18 +373,21 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 // determine whether the policy allows L4 communication between the corresponding
 // endpoints.
 // Returns api.Denied in the following conditions:
-// * If the `L4PolicyMap` has at least one rule and `ports` is empty.
-// * If a single port is not present in the `L4PolicyMap`.
+// * If a single port is not present in the `L4PolicyMap` and is not allowed
+//   by the distilled L3 policy
 // * If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
-// FromEndpoints constraints that require labels not present in `labels`.
+//   FromEndpoints constraints that require labels not present in `labels`.
 // Otherwise, returns api.Allowed.
 func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
 	if len(l4) == 0 {
 		return api.Allowed
 	}
 
-	if len(ports) == 0 {
-		return api.Denied
+	// Check L3-only filters first.
+	l3flt := fmt.Sprintf("0/%s", models.PortProtocolANY)
+	filter, match := l4[l3flt]
+	if match && filter.matchesLabels(labels) {
+		return api.Allowed
 	}
 
 	for _, l4Ctx := range ports {
