@@ -127,7 +127,7 @@ func generateToCidrFromEndpoint(
 		if err != nil {
 			return err
 		}
-		if err := ipcache.AllocateCIDRs(impl, prefixes); err != nil {
+		if _, err := ipcache.AllocateCIDRs(impl, prefixes); err != nil {
 			return err
 		}
 	}
