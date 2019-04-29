@@ -374,7 +374,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	}
 
 	// ctx.From needs to have all labels from the policy in order to be accepted
-	c.Assert(repo.CanReachEgressRLocked(&ctx), Not(Equals), api.Allowed)
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Not(Equals), api.Allowed)
 
 	ctx = policy.SearchContext{
 		To: labels.LabelArray{
@@ -388,7 +388,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	}
 
 	// ctx.To also needs to have all labels from the policy in order to be accepted.
-	c.Assert(repo.CanReachEgressRLocked(&ctx), Not(Equals), api.Allowed)
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
 func parseAndAddRules(c *C, p *networkingv1.NetworkPolicy) *policy.Repository {
@@ -415,7 +415,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgressAllowAll(c *C) {
 	})
 
 	c.Assert(repo.AllowsEgressRLocked(&ctxAToB), Equals, api.Allowed)
-	c.Assert(repo.CanReachEgressRLocked(&ctxAToC), Equals, api.Allowed)
+	c.Assert(repo.AllowsEgressRLocked(&ctxAToC), Equals, api.Allowed)
 
 	ctxAToC80 := ctxAToC
 	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}

@@ -528,7 +528,7 @@ func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 	}), Equals, api.Denied)
 }
 
-func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
+func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 	repo := NewPolicyRepository()
 
 	fooToBar := &SearchContext{
@@ -537,8 +537,6 @@ func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
 	}
 
 	repo.Mutex.RLock()
-	// no rules loaded: CanReach => undecided
-	c.Assert(repo.CanReachEgressRLocked(fooToBar), Equals, api.Undecided)
 	// no rules loaded: Allows() => denied
 	c.Assert(repo.AllowsEgressRLocked(fooToBar), Equals, api.Denied)
 	repo.Mutex.RUnlock()
@@ -588,7 +586,12 @@ func (ds *PolicyTestSuite) TestCanReachEgress(c *C) {
 	c.Assert(err, IsNil)
 
 	// foo=>bar is OK
-	c.Assert(repo.AllowsEgressRLocked(fooToBar), Equals, api.Allowed)
+	logBuffer := new(bytes.Buffer)
+	result := repo.AllowsEgressRLocked(fooToBar.WithLogger(logBuffer))
+	if equal, err := checker.DeepEqual(result, api.Allowed); !equal {
+		c.Logf("%s", logBuffer.String())
+		c.Errorf("Resolved policy did not match expected: \n%s", err)
+	}
 
 	// foo=>bar2 is OK
 	c.Assert(repo.AllowsEgressRLocked(&SearchContext{
@@ -1034,7 +1037,8 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 
-	policy, err := repo.ResolveL4EgressPolicy(ctx)
+	logBuffer := new(bytes.Buffer)
+	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
 	c.Assert(err, IsNil)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []v1.LabelSelectorRequirement{
@@ -1057,7 +1061,9 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	c.Assert((*policy), checker.DeepEquals, expectedPolicy)
+	if !c.Check((*policy), checker.DeepEquals, expectedPolicy) {
+		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
+	}
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
