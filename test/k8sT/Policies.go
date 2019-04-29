@@ -202,7 +202,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			}
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
+				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80/TCP",
 				appPods[helpers.App2], appPods[helpers.App1]))
 			trace.ExpectSuccess(trace.CombineOutput().String())
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
@@ -298,7 +298,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			}
 
 			trace := kubectl.CiliumExec(ciliumPod, fmt.Sprintf(
-				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80",
+				"cilium policy trace --src-k8s-pod default:%s --dst-k8s-pod default:%s --dport 80/TCP",
 				appPods[helpers.App2], appPods[helpers.App1]))
 			trace.ExpectSuccess(trace.CombineOutput().String())
 			trace.ExpectContains("Final verdict: ALLOWED", "Policy trace output mismatch")
