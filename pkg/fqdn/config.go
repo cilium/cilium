@@ -15,6 +15,7 @@
 package fqdn
 
 import (
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -24,7 +25,7 @@ import (
 // Config is a simple configuration structure to set how pkg/fqdn subcomponents
 // behave.
 // DNSPoller relies on LookupDNSNames to control how DNS lookups are done, and
-// AddGeneratedRules to control how generated policy rules are emitted.
+// AddGeneratedRulesAndUpdateSelectors to control how generated policy rules are emitted.
 type Config struct {
 	// MinTTL is the time used by the poller to cache information.
 	// When set to 0, 2*DNSPollerInterval is used.
@@ -45,9 +46,10 @@ type Config struct {
 	// When set to nil, fqdn.DNSLookupDefaultResolver is used.
 	LookupDNSNames func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error)
 
-	// AddGeneratedRules is a callback  to emit generated rules.
+	// AddGeneratedRulesAndUpdateSelectors is a callback  to emit generated rules,
+	// as well as update the mapping of FQDNSelector to set of IPs.
 	// When set to nil, it is a no-op.
-	AddGeneratedRules func([]*api.Rule) error
+	AddGeneratedRulesAndUpdateSelectors func(generatedRules []*api.Rule, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error
 
 	// PollerResponseNotify is used when the poller recieves DNS data in response
 	// to a successful poll.

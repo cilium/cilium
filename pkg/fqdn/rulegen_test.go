@@ -49,7 +49,7 @@ func (ds *FQDNTestSuite) TestRuleGenCIDRGeneration(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRulesAndUpdateSelectors: func(rules []*api.Rule, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -112,7 +112,7 @@ func (ds *FQDNTestSuite) TestRuleGenDropCIDROnReinsert(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRulesAndUpdateSelectors: func(rules []*api.Rule, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -144,7 +144,7 @@ func (ds *FQDNTestSuite) TestRuleGenMultiIPUpdate(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRulesAndUpdateSelectors: func(rules []*api.Rule, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -215,7 +215,7 @@ func (ds *FQDNTestSuite) TestRuleGenUpdatesOnReplace(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRulesAndUpdateSelectors: func(rules []*api.Rule, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error {
 				return nil
 			},
 		})
@@ -282,8 +282,7 @@ func (ds *FQDNTestSuite) TestPrepareFQDNRules(c *C) {
 
 	var (
 		generatedRules = make([]*api.Rule, 0)
-
-		gen = NewRuleGen(Config{
+		gen            = NewRuleGen(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
@@ -291,7 +290,7 @@ func (ds *FQDNTestSuite) TestPrepareFQDNRules(c *C) {
 				return lookupFail(c, dnsNames)
 			},
 
-			AddGeneratedRules: func(rules []*api.Rule) error {
+			AddGeneratedRulesAndUpdateSelectors: func(rules []*api.Rule, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error {
 				generatedRules = append(generatedRules, rules...)
 				return nil
 			},
@@ -301,18 +300,22 @@ func (ds *FQDNTestSuite) TestPrepareFQDNRules(c *C) {
 	rules := []*api.Rule{rule3.DeepCopy()}
 
 	// Validate that no rules in RuleGen return the rule without issues.
-	c.Assert(gen.PrepareFQDNRules(rules), HasLen, 1)
+	rulez, _ := gen.PrepareFQDNRules(rules)
+	c.Assert(rulez, HasLen, 1)
 
 	// Validate that if rules is in RuleGen returns always 1
 	gen.StartManageDNSName(rules)
-	c.Assert(gen.PrepareFQDNRules(rules), HasLen, 1)
+	rulez, _ = gen.PrepareFQDNRules(rules)
+	c.Assert(rulez, HasLen, 1)
 
 	// Validate that an empty rule returns 0 len
 	emptyRules := []*api.Rule{}
-	c.Assert(gen.PrepareFQDNRules(emptyRules), HasLen, 0)
+	rulez, _ = gen.PrepareFQDNRules(emptyRules)
+	c.Assert(rulez, HasLen, 0)
 
 	// Validate if the gen.AllRules are empty should return 0 rules due to UUID
 	// mismatch
 	gen.allRules = map[string]*api.Rule{}
-	c.Assert(gen.PrepareFQDNRules(rules), HasLen, 0)
+	rulez, _ = gen.PrepareFQDNRules(rules)
+	c.Assert(rulez, HasLen, 0)
 }

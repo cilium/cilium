@@ -18,6 +18,7 @@ package fqdn
 
 import (
 	"context"
+	"net"
 
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
@@ -151,8 +152,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 					return lookupDNSNames(ipLookups, lookups, dnsNames), nil
 				},
 
-				AddGeneratedRules: func(rules []*api.Rule) error {
-					generatedRules = append(generatedRules, rules...)
+				AddGeneratedRulesAndUpdateSelectors: func([]*api.Rule, map[api.FQDNSelector][]net.IP, []api.FQDNSelector) error {
 					return nil
 				},
 			}

@@ -52,7 +52,7 @@ var uuidLabelSearchKey = labels.LabelSourceCiliumGenerated + labels.PathDelimite
 // RuleGen tracks which rules depend on which DNS names. When DNS updates are
 // given to a RuleGen it will emit generated policy rules with DNS IPs inserted
 // as toCIDR rules. These correspond to the toFQDN matchName entries and are
-// emitted via AddGeneratedRules.
+// emitted via AddGeneratedRulesAndUpdateSelectors.
 // DNS information is cached, respecting TTL.
 // Note: When DNS data expires rules are not generated again!
 type RuleGen struct {
@@ -89,8 +89,10 @@ func NewRuleGen(config Config) *RuleGen {
 		config.Cache = NewDNSCache(0)
 	}
 
-	if config.AddGeneratedRules == nil {
-		config.AddGeneratedRules = func(generatedRules []*api.Rule) error { return nil }
+	if config.AddGeneratedRulesAndUpdateSelectors == nil {
+		config.AddGeneratedRulesAndUpdateSelectors = func(generatedRules []*api.Rule, selectorIPMapping map[api.FQDNSelector][]net.IP, namesMissingIPs []api.FQDNSelector) error {
+			return nil
+		}
 	}
 
 	return &RuleGen{
@@ -118,11 +120,13 @@ func (gen *RuleGen) GetDNSCache() *DNSCache {
 // gen.AllRules
 // - A new FQDN rule that does not have UUID(new UUID will be created in this function)
 // NOTE: It edits the rules in-place
-func (gen *RuleGen) PrepareFQDNRules(sourceRules []*api.Rule) []*api.Rule {
+func (gen *RuleGen) PrepareFQDNRules(sourceRules []*api.Rule) ([]*api.Rule, map[api.FQDNSelector][]net.IP) {
 	gen.Lock()
 	defer gen.Unlock()
 
 	result := []*api.Rule{}
+	selectorIPMapping := make(map[api.FQDNSelector][]net.IP)
+	var selectorsMissingIPs []api.FQDNSelector
 perRule:
 	for _, sourceRule := range sourceRules {
 		// This rule has already been seen, and has a UUID label OR it has no
@@ -160,18 +164,24 @@ perRule:
 		// function is called. This avoids accumulating generated toCIDRSet entries.
 		stripToCIDRSet(sourceRule)
 
+		var selectorIPMappingTmp map[api.FQDNSelector][]net.IP
+
 		// Insert any IPs for this rule from the cache. This is critical to do
 		// here, because we only update the rules on a DNS change later.
 		// Note: This will cause a needless regexp compile in this function,
 		// because the sourceRules RegexpMap hasn't seen the regexp yet
-		_, namesMissingIPs := injectToCIDRSetRules(sourceRule, gen.cache, gen.sourceRules)
-		if len(namesMissingIPs) != 0 {
-			log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+		_, selectorsMissingIPs, selectorIPMappingTmp = injectToCIDRSetRules(sourceRule, gen.cache, gen.sourceRules)
+		if len(selectorsMissingIPs) != 0 {
+			log.WithField(logfields.DNSName, selectorsMissingIPs).
 				Debug("No IPs to inject on initial rule insert")
+		}
+
+		for k, v := range selectorIPMappingTmp {
+			selectorIPMapping[k] = v
 		}
 	}
 
-	return result
+	return result, selectorIPMapping
 }
 
 // StartManageDNSName begins managing sourceRules that contain toFQDNs
@@ -256,7 +266,7 @@ func (gen *RuleGen) GetDNSNames() (dnsNames []string) {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name, store which rules must be updated in rulesToUpdate,
-// regenerate them, and emit via AddGeneratedRules.
+// regenerate them, and emit via AddGeneratedRulesAndUpdateSelectors.
 func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) error {
 	// Update IPs in gen
 	uuidsToUpdate, updatedDNSNames := gen.UpdateDNSIPs(lookupTime, updatedDNSIPs)
@@ -274,19 +284,17 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 		log.WithField("uuid", strings.Join(notFoundUUIDs, ",")).
 			Debug("Did not find all rules during update")
 	}
-	generatedRules, namesMissingIPs := gen.GenerateRulesFromSources(rulesToUpdate)
+	generatedRules, namesMissingIPs, selectorIPMapping := gen.GenerateRulesFromSources(rulesToUpdate)
 	if len(namesMissingIPs) != 0 {
-		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	// no new rules to add, do not call AddGeneratedRules below
-	if len(generatedRules) == 0 {
-		return nil
-	}
+	// TODO (ianvernon) if no new rules to add, add additional logic in function
+	// below?
 
 	// emit the new rules
-	return gen.config.AddGeneratedRules(generatedRules)
+	return gen.config.AddGeneratedRulesAndUpdateSelectors(generatedRules, selectorIPMapping, namesMissingIPs)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
@@ -312,19 +320,20 @@ func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
 		log.WithField("uuid", strings.Join(notFoundUUIDs, ",")).
 			Debug("Did not find all rules during update")
 	}
-	generatedRules, namesMissingIPs := gen.GenerateRulesFromSources(rulesToUpdate)
+	generatedRules, namesMissingIPs, selectorIPMapping := gen.GenerateRulesFromSources(rulesToUpdate)
 	if len(namesMissingIPs) != 0 {
-		log.WithField(logfields.DNSName, strings.Join(namesMissingIPs, ",")).
+		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	// no new rules to add, do not call AddGeneratedRules below
+	// no new rules to add, do not call AddGeneratedRulesAndUpdateSelectors below
 	if len(generatedRules) == 0 {
 		return nil
 	}
 
 	// emit the new rules
-	return gen.config.AddGeneratedRules(generatedRules)
+	return gen.config.
+		AddGeneratedRulesAndUpdateSelectors(generatedRules, selectorIPMapping, namesMissingIPs)
 }
 
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
@@ -394,15 +403,15 @@ func (gen *RuleGen) GetRulesByUUID(uuids []string) (sourceRules []*api.Rule, not
 // targets resolved to IPs. The IPs are in generated CIDRSet rules in the
 // ToCIDRSet section. Pre-existing rules in ToCIDRSet are preserved
 // Note: GenerateRulesFromSources will make a copy of each sourceRule
-func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generatedRules []*api.Rule, namesMissingIPs []string) {
+func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generatedRules []*api.Rule, namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
 	gen.Lock()
 	defer gen.Unlock()
 
-	var namesMissingMap = make(map[string]struct{})
+	var namesMissingMap = make(map[api.FQDNSelector]struct{})
 
 	for _, sourceRule := range sourceRules {
 		newRule := sourceRule.DeepCopy()
-		_, namesMissingIPs := injectToCIDRSetRules(newRule, gen.cache, gen.sourceRules)
+		_, namesMissingIPs, selectorIPMapping = injectToCIDRSetRules(newRule, gen.cache, gen.sourceRules)
 		for _, missing := range namesMissingIPs {
 			namesMissingMap[missing] = struct{}{}
 		}
@@ -412,7 +421,8 @@ func (gen *RuleGen) GenerateRulesFromSources(sourceRules []*api.Rule) (generated
 	for missing := range namesMissingMap {
 		namesMissingIPs = append(namesMissingIPs, missing)
 	}
-	return generatedRules, namesMissingIPs
+
+	return generatedRules, namesMissingIPs, selectorIPMapping
 }
 
 // addRule places an api.Rule in the source list for a DNS name.
