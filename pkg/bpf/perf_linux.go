@@ -231,6 +231,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"golang.org/x/sys/unix"
@@ -324,7 +325,10 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 		unsafe.Pointer(&attr),
 	)
 
-	duration := spanstat.Start()
+	var duration *spanstat.SpanStat
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		duration = spanstat.Start()
+	}
 	ret, _, err := unix.Syscall6(
 		unix.SYS_PERF_EVENT_OPEN,
 		uintptr(unsafe.Pointer(&attr)),
@@ -332,7 +336,9 @@ func PerfEventOpen(config *PerfEventConfig, pid int, cpu int, groupFD int, flags
 		uintptr(cpu),
 		uintptr(groupFD),
 		uintptr(flags), 0)
-	metricSyscallDuration.WithLabelValues(metricOpPerfEventOpen, metrics.Errno2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		metricSyscallDuration.WithLabelValues(metricOpPerfEventOpen, metrics.Errno2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
+	}
 
 	if int(ret) > 0 && err == 0 {
 		return &PerfEvent{
@@ -385,9 +391,14 @@ func (e *PerfEvent) freeBuffers() {
 
 func (e *PerfEvent) Enable() error {
 	e.allocateBuffers()
-	duration := spanstat.Start()
+	var duration *spanstat.SpanStat
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		duration = spanstat.Start()
+	}
 	err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_ENABLE, 0)
-	metricSyscallDuration.WithLabelValues(metricOpPerfEventEnable, metrics.Error2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		metricSyscallDuration.WithLabelValues(metricOpPerfEventEnable, metrics.Error2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
+	}
 	if err != nil {
 		e.freeBuffers()
 		return fmt.Errorf("Unable to enable perf event: %v", err)
@@ -406,9 +417,14 @@ func (e *PerfEvent) Disable() error {
 	// Does not fail in perf's kernel-side ioctl handler, but even if
 	// there's not much we can do here ...
 	ret = nil
-	duration := spanstat.Start()
+	var duration *spanstat.SpanStat
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		duration = spanstat.Start()
+	}
 	err := unix.IoctlSetInt(e.Fd, unix.PERF_EVENT_IOC_DISABLE, 0)
-	metricSyscallDuration.WithLabelValues(metricOpPerfEventDisable, metrics.Error2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		metricSyscallDuration.WithLabelValues(metricOpPerfEventDisable, metrics.Error2Outcome(err)).Observe(duration.EndError(err).Total().Seconds())
+	}
 	if err != nil {
 		ret = fmt.Errorf("Unable to disable perf event: %v", err)
 	}

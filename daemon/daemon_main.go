@@ -811,6 +811,9 @@ func initEnv(cmd *cobra.Command) {
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-agent", option.Config.Debug)
 
+	// Init the bpf package after setting up the option config.
+	bpf.Init()
+
 	if option.Config.CMDRefDir != "" {
 		genMarkdown(cmd)
 	}

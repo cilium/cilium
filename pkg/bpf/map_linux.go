@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -708,7 +709,9 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	}
 
 	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
-	metricMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		metricMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+	}
 	return err
 }
 
@@ -757,7 +760,9 @@ func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
 	}
 
 	_, errno = deleteElement(m.fd, key.GetKeyPtr())
-	metricMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		metricMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+	}
 	if errno != 0 {
 		err = fmt.Errorf("Unable to delete element from map %s: %s", m.name, errno.Error())
 	}
@@ -838,7 +843,9 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 	}
 
 	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
-	metricMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		metricMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
+	}
 	return err
 }
 
@@ -926,7 +933,9 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case OK:
 		case Insert:
 			err := UpdateElement(m.fd, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
-			metricMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+			if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+				metricMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+			}
 			if err == nil {
 				e.DesiredAction = OK
 				e.LastError = nil
@@ -939,7 +948,9 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 
 		case Delete:
 			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
-			metricMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
+			if option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+				metricMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
+			}
 			if err == 0 || err == unix.ENOENT {
 				delete(m.cache, k)
 				resolved++

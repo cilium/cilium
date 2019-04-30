@@ -16,13 +16,12 @@ package bpf
 
 import (
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
-	metricSubsystem = "bpf"
-
 	metricLabelOperation = "operation"
 	metricLabelMapName   = "mapName"
 
@@ -46,10 +45,14 @@ var (
 	metricMapOps          *prometheus.CounterVec
 )
 
-func init() {
+func Init() {
+	if !option.Config.IsSubsysMetricEnabled(metrics.SubsystemBPFMask) {
+		return
+	}
+
 	metricSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: metricSubsystem,
+		Subsystem: metrics.SubsystemBPF,
 		Name:      "syscall_duration_seconds",
 		Help:      "Duration of BPF system calls",
 	}, []string{metricLabelOperation, metrics.LabelOutcome})
@@ -60,7 +63,7 @@ func init() {
 
 	metricMapOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: metricSubsystem,
+		Subsystem: metrics.SubsystemBPF,
 		Name:      "map_ops_total",
 		Help:      "Total operations on map, tagged by map name",
 	},
