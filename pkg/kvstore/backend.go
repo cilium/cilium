@@ -34,11 +34,6 @@ type backendOption struct {
 
 type backendOptions map[string]*backendOption
 
-// backendBase is the base type to be embedded by all backends
-type backendBase struct {
-	opts backendOptions
-}
-
 // ExtraOptions represents any options that can not be represented in a textual
 // format and need to be set programmatically.
 type ExtraOptions struct {
