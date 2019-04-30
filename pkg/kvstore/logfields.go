@@ -49,12 +49,6 @@ const (
 	// fieldAttachLease is true if the key must be attached to a lease
 	fieldAttachLease = "attachLease"
 
-	// fieldLease is a lease identifier
-	fieldLease = "lease"
-
-	// fieldTTL is the TTL of a lease
-	fieldTTL = "ttl"
-
 	// fieldEtcdEndpoint is the etcd endpoint we talk to
 	fieldEtcdEndpoint = "etcdEndpoint"
 )

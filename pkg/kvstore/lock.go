@@ -119,7 +119,7 @@ func LockPath(ctx context.Context, path string) (l *Lock, err error) {
 	if err != nil {
 		kvstoreLocks.unlock(path, id)
 		Trace("Failed to lock", err, logrus.Fields{fieldKey: path})
-		err = fmt.Errorf("Error while locking path %s: %s", path, err)
+		err = fmt.Errorf("error while locking path %s: %s", path, err)
 		return nil, err
 	}
 
