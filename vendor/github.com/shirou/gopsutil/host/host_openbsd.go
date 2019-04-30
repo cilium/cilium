@@ -9,8 +9,8 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -66,20 +66,28 @@ func InfoWithContext(ctx context.Context) (*InfoStat, error) {
 	return ret, nil
 }
 
+// cachedBootTime must be accessed via atomic.Load/StoreUint64
+var cachedBootTime uint64
+
 func BootTime() (uint64, error) {
 	return BootTimeWithContext(context.Background())
 }
 
 func BootTimeWithContext(ctx context.Context) (uint64, error) {
-	val, err := common.DoSysctrl("kern.boottime")
+	// https://github.com/AaronO/dashd/blob/222e32ef9f7a1f9bea4a8da2c3627c4cb992f860/probe/probe_darwin.go
+	t := atomic.LoadUint64(&cachedBootTime)
+	if t != 0 {
+		return t, nil
+	}
+	value, err := unix.Sysctl("kern.boottime")
 	if err != nil {
 		return 0, err
 	}
+	bytes := []byte(value[:])
+	var boottime uint64
+	boottime = uint64(bytes[0]) + uint64(bytes[1])*256 + uint64(bytes[2])*256*256 + uint64(bytes[3])*256*256*256
 
-	boottime, err := strconv.ParseUint(val[0], 10, 64)
-	if err != nil {
-		return 0, err
-	}
+	atomic.StoreUint64(&cachedBootTime, boottime)
 
 	return boottime, nil
 }

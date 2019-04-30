@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: migrate-svc-client
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: migrate-svc-client
+  template:
+    metadata:
+      labels:
+        app: migrate-svc-client
+        zgroup: migrate-svc
+    spec:
+      containers:
+      - name: server
+        image: docker.io/cilium/migrate-svc-test:v0.0.1
+        imagePullPolicy: IfNotPresent
+        command: [ "/client", "migrate-svc.default.svc.cluster.local.:8000" ]

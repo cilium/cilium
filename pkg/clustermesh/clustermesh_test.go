@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ func (o *testObserver) OnUpdate(k store.Key) {
 	nodesMutex.Unlock()
 }
 
-func (o *testObserver) OnDelete(k store.Key) {
+func (o *testObserver) OnDelete(k store.NamedKey) {
 	n := k.(*testNode)
 	nodesMutex.Lock()
 	delete(nodes, n.GetKeyName())
@@ -99,8 +99,7 @@ func (o *testObserver) OnDelete(k store.Key) {
 
 type identityAllocatorOwnerMock struct{}
 
-func (i *identityAllocatorOwnerMock) TriggerPolicyUpdates(force bool, reason string) {
-}
+func (i *identityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 func (i *identityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"

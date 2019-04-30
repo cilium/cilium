@@ -43,7 +43,7 @@ var (
 )
 
 // readOpenLocalPorts returns the set of L4 ports currently open locally.
-// procNetFiles should be procNetTCPFiles or procNetUDPFiles.
+// procNetFiles should be procNetTCPFiles or procNetUDPFiles (or both).
 func readOpenLocalPorts(procNetFiles []string) (map[uint16]struct{}, error) {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 

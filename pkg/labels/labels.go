@@ -385,14 +385,14 @@ func NewLabelsFromSortedList(list string) Labels {
 }
 
 // NewSelectLabelArrayFromModel parses a slice of strings and converts them
-// into an array of selecting labels.
+// into an array of selecting labels, sorted by the key.
 func NewSelectLabelArrayFromModel(base []string) LabelArray {
 	lbls := make(LabelArray, 0, len(base))
 	for i := range base {
 		lbls = append(lbls, ParseSelectLabel(base[i]))
 	}
 
-	return lbls
+	return lbls.Sort()
 }
 
 // GetModel returns model with all the values of the labels.
@@ -424,6 +424,23 @@ func (l Labels) SHA256Sum() string {
 	return fmt.Sprintf("%x", sha512.Sum512_256(l.SortedList()))
 }
 
+// FormatForKVStore returns the label as a formatted string, ending in
+// a semicolon
+//
+// DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS
+// PART OF THE KEY IN THE KEY-VALUE STORE.
+//
+// Non-pointer receiver allows this to be called on a value in a map.
+func (l Label) FormatForKVStore() string {
+	// We don't care if the values already have a '=' since this method is
+	// only used to calculate a SHA256Sum
+	//
+	// We absolutely care that the final character is a semi-colon.
+	// Identity allocation in the kvstore depends on this (see
+	// kvstore.prefixMatchesKey())
+	return fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
+}
+
 // SortedList returns the labels as a sorted list, separated by semicolon
 //
 // DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
@@ -437,34 +454,25 @@ func (l Labels) SortedList() []byte {
 
 	result := ""
 	for _, k := range keys {
-		// We don't care if the values already have a '=' since this method is
-		// only used to calculate a SHA256Sum
-		//
-		// We absolutely care that the final character is a semi-colon.
-		// Identity allocation in the kvstore depends on this (see
-		// kvstore.prefixMatchesKey())
-		result += fmt.Sprintf(`%s:%s=%s;`, l[k].Source, k, l[k].Value)
+		result += l[k].FormatForKVStore()
 	}
 
 	return []byte(result)
 }
 
-// ToSlice returns a slice of label with the values of the given Labels' map.
+// ToSlice returns a slice of label with the values of the given
+// Labels' map, sorted by the key.
 func (l Labels) ToSlice() []Label {
-	labels := []Label{}
-	for _, v := range l {
-		labels = append(labels, v)
-	}
-	return labels
+	return l.LabelArray()
 }
 
-// LabelArray returns the labels as label array
+// LabelArray returns the labels as label array, sorted by the key.
 func (l Labels) LabelArray() LabelArray {
-	labels := []Label{}
+	labels := make(LabelArray, 0, len(l))
 	for _, v := range l {
 		labels = append(labels, v)
 	}
-	return labels
+	return labels.Sort()
 }
 
 // FindReserved locates all labels with reserved source in the labels and

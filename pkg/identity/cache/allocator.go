@@ -33,22 +33,26 @@ import (
 
 // globalIdentity is the structure used to store an identity in the kvstore
 type globalIdentity struct {
-	labels.Labels
+	labels.LabelArray
 }
 
-// GetKey() encodes a globalIdentity as string
+// GetKey() encodes a globalIdentity as string to be used as key-value store key.
+// LabelArray is already sorted, so the key will be generated in sorted order.
 func (gi globalIdentity) GetKey() string {
-	return kvstore.Encode(gi.SortedList())
+	str := ""
+	for _, l := range gi.LabelArray {
+		str += l.FormatForKVStore()
+	}
+	return kvstore.Encode([]byte(str))
 }
 
-// PutKey() decides a globalIdentity from its string representation
+// PutKey() decodes a globalIdentity from its string representation
 func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
 	b, err := kvstore.Decode(v)
 	if err != nil {
 		return nil, err
 	}
-
-	return globalIdentity{labels.NewLabelsFromSortedList(string(b))}, nil
+	return globalIdentity{labels.NewLabelArrayFromSortedList(string(b))}, nil
 }
 
 var (
@@ -74,9 +78,8 @@ var (
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
 // must implement
 type IdentityAllocatorOwner interface {
-	// TriggerPolicyUpdates will be called whenever a policy recalculation
-	// must be triggered
-	TriggerPolicyUpdates(force bool, reason string)
+	// UpdateIdentities will be called when identities have changed
+	UpdateIdentities(added, deleted IdentityCache)
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
@@ -199,7 +202,7 @@ func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identi
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	id, isNew, err := IdentityAllocator.Allocate(ctx, globalIdentity{lbls})
+	id, isNew, err := IdentityAllocator.Allocate(ctx, globalIdentity{lbls.LabelArray()})
 	if err != nil {
 		return nil, false, err
 	}
@@ -235,7 +238,7 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 		return false, fmt.Errorf("allocator not initialized")
 	}
 
-	return IdentityAllocator.Release(ctx, globalIdentity{id.Labels})
+	return IdentityAllocator.Release(ctx, globalIdentity{id.LabelArray})
 }
 
 // ReleaseSlice attempts to release a set of identities. It is a helper

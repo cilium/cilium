@@ -239,7 +239,7 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 		min:          idpool.ID(1),
 		max:          idpool.ID(^uint64(0)),
 		localKeys:    newLocalKeys(),
-		stopGC:       make(chan struct{}, 0),
+		stopGC:       make(chan struct{}),
 		suffix:       uuid.NewUUID().String()[:10],
 		lockless:     locklessCapability(),
 		remoteCaches: map[*RemoteCache]struct{}{},
@@ -259,7 +259,7 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	a.mainCache.deleteInvalidPrefixes = true
 
 	if a.suffix == "<nil>" {
-		return nil, errors.New("Allocator suffix is <nil> and unlikely unique")
+		return nil, errors.New("allocator suffix is <nil> and unlikely unique")
 	}
 
 	if a.min < 1 {
@@ -267,7 +267,7 @@ func NewAllocator(basePath string, typ AllocatorKey, opts ...AllocatorOption) (*
 	}
 
 	if a.max <= a.min {
-		return nil, errors.New("Maximum ID must be greater than minimum ID")
+		return nil, errors.New("maximum ID must be greater than minimum ID")
 	}
 
 	a.idPool = idpool.NewIDPool(a.min, a.max)

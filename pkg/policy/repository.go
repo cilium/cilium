@@ -421,6 +421,11 @@ func (p *Repository) removeIdentityFromRuleCaches(identity *identity.Identity) *
 	return &wg
 }
 
+// LocalEndpointIdentityAdded handles local identity add events.
+func (p *Repository) LocalEndpointIdentityAdded(*identity.Identity) {
+	// no-op for now.
+}
+
 // LocalEndpointIdentityRemoved handles local identity removal events to
 // remove references from rules in the repository to the specified identity.
 func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
@@ -456,7 +461,19 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision *EndpointS
 	}
 
 	endpointsToBumpRevision.ForEach(policySelectionWG, func(epp Endpoint) {
-		if endpointSelected := r.updateEndpointsCaches(epp, endpointsToRegenerate); endpointSelected {
+		endpointSelected, err := r.updateEndpointsCaches(epp, endpointsToRegenerate)
+
+		// If we could not evaluate the rules against the current endpoint, or
+		// the endpoint is not selected by the rules, remove it from the set
+		// of endpoints to bump the revision. If the error is non-nil, the
+		// endpoint is no longer in either set (endpointsToBumpRevision or
+		// endpointsToRegenerate, as we could not determine what to do for the
+		// endpoint). This is usually the case when the endpoint is no longer
+		// alive (i.e., it has been marked to be deleted).
+		if endpointSelected || err != nil {
+			if err != nil {
+				log.WithError(err).Debug("could not determine whether endpoint was selected by rule")
+			}
 			endpointsToBumpRevision.Delete(epp)
 		}
 	})
@@ -652,6 +669,7 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &SelectorPolicy{
+		Revision:             p.GetRevision(),
 		L4Policy:             NewL4Policy(),
 		CIDRPolicy:           NewCIDRPolicy(),
 		matchingRules:        matchingRules,

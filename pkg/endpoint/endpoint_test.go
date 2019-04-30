@@ -47,7 +47,7 @@ var _ = Suite(&EndpointSuite{})
 
 type testIdentityAllocator struct{}
 
-func (t *testIdentityAllocator) TriggerPolicyUpdates(bool, string) {}
+func (t *testIdentityAllocator) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
 

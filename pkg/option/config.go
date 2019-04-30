@@ -306,6 +306,9 @@ const (
 	// IpvlanMasterDevice is the name of the IpvlanMasterDevice option
 	IpvlanMasterDevice = "ipvlan-master-device"
 
+	// EnableHostReachableServices is the name of the EnableHostReachableServices option
+	EnableHostReachableServices = "enable-host-reachable-services"
+
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
 
@@ -523,12 +526,33 @@ var RegisteredOptions = map[string]struct{}{}
 // variable which s based on the given optName. If the same optName is bind
 // more than 1 time, this function panics.
 func BindEnv(optName string) {
+	registerOpt(optName)
+	viper.BindEnv(optName, getEnvName(optName))
+}
+
+// BindEnvWithLegacyEnvFallback binds the given option name with either the same
+// environment variable as BindEnv, if it's set, or with the given legacyEnvName.
+//
+// The function is used to work around the viper.BindEnv limitation that only
+// one environment variable can be bound for an option, and we need multiple
+// environment variables due to backward compatibility reasons.
+func BindEnvWithLegacyEnvFallback(optName, legacyEnvName string) {
+	registerOpt(optName)
+
+	envName := getEnvName(optName)
+	if os.Getenv(envName) == "" {
+		envName = legacyEnvName
+	}
+
+	viper.BindEnv(optName, envName)
+}
+
+func registerOpt(optName string) {
 	_, ok := RegisteredOptions[optName]
 	if ok || optName == "" {
 		panic(fmt.Errorf("option already registered: %s", optName))
 	}
 	RegisteredOptions[optName] = struct{}{}
-	viper.BindEnv(optName, getEnvName(optName))
 }
 
 // LogRegisteredOptions logs all options that where bind to viper.
@@ -739,6 +763,7 @@ type DaemonConfig struct {
 	DisableConntrack              bool
 	DisableK8sServices            bool
 	EnableLegacyServices          bool
+	EnableHostReachableServices   bool
 	DockerEndpoint                string
 	EnablePolicy                  string
 	EnableTracing                 bool
@@ -1107,6 +1132,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EnableLegacyServices = viper.GetBool(EnableLegacyServices)
+	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)

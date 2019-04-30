@@ -389,12 +389,32 @@ func convertCPUTimes(s string) (ret float64, err error) {
 	var _tmp string
 	if strings.Contains(s, ":") {
 		_t := strings.Split(s, ":")
-		hour, err := strconv.Atoi(_t[0])
-		if err != nil {
-			return ret, err
+		switch len(_t) {
+		case 3:
+			hour, err := strconv.Atoi(_t[0])
+			if err != nil {
+				return ret, err
+			}
+			t += hour * 60 * 60 * ClockTicks
+
+			mins, err := strconv.Atoi(_t[1])
+			if err != nil {
+				return ret, err
+			}
+			t += mins * 60 * ClockTicks
+			_tmp = _t[2]
+		case 2:
+			mins, err := strconv.Atoi(_t[0])
+			if err != nil {
+				return ret, err
+			}
+			t += mins * 60 * ClockTicks
+			_tmp = _t[1]
+		case 1, 0:
+			_tmp = s
+		default:
+			return ret, fmt.Errorf("wrong cpu time string")
 		}
-		t += hour * 60 * 100
-		_tmp = _t[1]
 	} else {
 		_tmp = s
 	}
@@ -404,7 +424,7 @@ func convertCPUTimes(s string) (ret float64, err error) {
 		return ret, err
 	}
 	h, err := strconv.Atoi(_t[0])
-	t += h * 100
+	t += h * ClockTicks
 	h, err = strconv.Atoi(_t[1])
 	t += h
 	return float64(t) / ClockTicks, nil
@@ -523,6 +543,15 @@ func (p *Process) Connections() ([]net.ConnectionStat, error) {
 
 func (p *Process) ConnectionsWithContext(ctx context.Context) ([]net.ConnectionStat, error) {
 	return net.ConnectionsPid("all", p.Pid)
+}
+
+// Connections returns a slice of net.ConnectionStat used by the process at most `max`
+func (p *Process) ConnectionsMax(max int) ([]net.ConnectionStat, error) {
+	return p.ConnectionsMaxWithContext(context.Background(), max)
+}
+
+func (p *Process) ConnectionsMaxWithContext(ctx context.Context, max int) ([]net.ConnectionStat, error) {
+	return net.ConnectionsPidMax("all", p.Pid, max)
 }
 
 func (p *Process) NetIOCounters(pernic bool) ([]net.IOCountersStat, error) {

@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -203,12 +204,27 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			d.dnsRuleGen.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
 		}
 	}
+
+	// Do not start the proxy in dry mode. The proxy would not get any traffic in the
+	// dry mode anyway, and some of the socket operations require privileges not availabe
+	// in all unit tests.
+	if option.Config.DryMode {
+		return nil
+	}
+
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", uint16(option.Config.ToFQDNsProxyPort),
+	port, listenerName, err := proxy.GetProxyPort(policy.ParserTypeDNS, false)
+	if option.Config.ToFQDNsProxyPort != 0 {
+		port = uint16(option.Config.ToFQDNsProxyPort)
+	}
+	if err != nil {
+		return err
+	}
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
-			e := endpointmanager.LookupIPv4(endpointIP.String())
+			e := endpointmanager.LookupIP(endpointIP)
 			if e == nil {
 				return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 			}
@@ -372,7 +388,12 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			stat.ProcessingTime.End(true)
 			return nil
 		})
-	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+	if err == nil {
+		// Increase the ProxyPort reference count so that it will never get released.
+		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
+
+		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+	}
 	return err // filled by StartDNSProxy
 }
 

@@ -103,6 +103,7 @@ func init() {
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
+	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
@@ -145,6 +146,7 @@ func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
+	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
 	if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
@@ -193,7 +195,7 @@ func runOperator(cmd *cobra.Command) {
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
-	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
+	log.Info("Initialization complete")
 
 	<-shutdownSignal
 	// graceful exit

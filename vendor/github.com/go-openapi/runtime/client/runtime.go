@@ -207,6 +207,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 		runtime.XMLMime:     runtime.XMLConsumer(),
 		runtime.TextMime:    runtime.TextConsumer(),
 		runtime.HTMLMime:    runtime.TextConsumer(),
+		runtime.CSVMime:     runtime.CSVConsumer(),
 		runtime.DefaultMime: runtime.ByteStreamConsumer(),
 	}
 	rt.Producers = map[string]runtime.Producer{
@@ -214,6 +215,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 		runtime.XMLMime:     runtime.XMLProducer(),
 		runtime.TextMime:    runtime.TextProducer(),
 		runtime.HTMLMime:    runtime.TextProducer(),
+		runtime.CSVMime:     runtime.CSVProducer(),
 		runtime.DefaultMime: runtime.ByteStreamProducer(),
 	}
 	rt.Transport = http.DefaultTransport

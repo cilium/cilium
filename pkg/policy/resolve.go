@@ -29,6 +29,10 @@ import (
 // particular Identity across all layers (L3, L4, and L7), with the policy
 // still determined in terms of EndpointSelectors.
 type SelectorPolicy struct {
+	// Revision is the revision of the policy repository used to generate
+	// this SelectorPolicy.
+	Revision uint64
+
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy *L4Policy
 
@@ -98,6 +102,11 @@ func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.Endpoint
 	}
 
 	return identities
+}
+
+// NewSelectorPolicy returns an empty SelectorPolicy stub.
+func NewSelectorPolicy(revision uint64) *SelectorPolicy {
+	return &SelectorPolicy{Revision: revision}
 }
 
 // DistillPolicy filters down the specified SelectorPolicy (which acts upon
@@ -215,7 +224,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy() *EndpointPolicy {
 	return &EndpointPolicy{
-		SelectorPolicy: &SelectorPolicy{},
+		SelectorPolicy: NewSelectorPolicy(0),
 	}
 }
 
@@ -223,8 +232,9 @@ func NewEndpointPolicy() *EndpointPolicy {
 // desired are not modified after this function is called.
 func (p *SelectorPolicy) Realizes(desired *SelectorPolicy) {
 	if p == nil {
-		p = &SelectorPolicy{}
+		p = NewSelectorPolicy(desired.Revision)
 	}
+	p.Revision = desired.Revision
 	p.IngressPolicyEnabled = desired.IngressPolicyEnabled
 	p.EgressPolicyEnabled = desired.EgressPolicyEnabled
 	p.L4Policy = desired.L4Policy

@@ -39,19 +39,19 @@ type ruleMetadata struct {
 
 	// IdentitySelected is a cache that maps from an identity to whether
 	// this rule selects that identity.
-	IdentitySelected map[*identity.Identity]bool
+	IdentitySelected map[identity.NumericIdentity]bool
 }
 
 func newRuleMetadata() *ruleMetadata {
 	return &ruleMetadata{
-		IdentitySelected: make(map[*identity.Identity]bool),
+		IdentitySelected: make(map[identity.NumericIdentity]bool),
 	}
 }
 
 func (m *ruleMetadata) delete(identity *identity.Identity) {
 	m.Mutex.Lock()
 	defer m.Mutex.Unlock()
-	delete(m.IdentitySelected, identity)
+	delete(m.IdentitySelected, identity.ID)
 }
 
 func (r *rule) String() string {
@@ -496,15 +496,15 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 	defer r.metadata.Mutex.Unlock()
 	var ruleMatches bool
 
-	if ruleMatches, cached := r.metadata.IdentitySelected[securityIdentity]; cached {
+	if ruleMatches, cached := r.metadata.IdentitySelected[securityIdentity.ID]; cached {
 		return ruleMatches
 	}
 	// Fall back to costly matching.
 	if ruleMatches = r.EndpointSelector.Matches(securityIdentity.LabelArray); ruleMatches {
 		// Update cache so we don't have to do costly matching again.
-		r.metadata.IdentitySelected[securityIdentity] = true
+		r.metadata.IdentitySelected[securityIdentity.ID] = true
 	} else {
-		r.metadata.IdentitySelected[securityIdentity] = false
+		r.metadata.IdentitySelected[securityIdentity.ID] = false
 	}
 
 	return ruleMatches

@@ -51,13 +51,13 @@ func (o *GetFqdnCacheIDOK) WriteResponse(rw http.ResponseWriter, producer runtim
 	rw.WriteHeader(200)
 	payload := o.Payload
 	if payload == nil {
+		// return empty array
 		payload = make([]*models.DNSLookup, 0, 50)
 	}
 
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // GetFqdnCacheIDBadRequestCode is the HTTP code returned for type GetFqdnCacheIDBadRequest
@@ -100,7 +100,6 @@ func (o *GetFqdnCacheIDBadRequest) WriteResponse(rw http.ResponseWriter, produce
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // GetFqdnCacheIDNotFoundCode is the HTTP code returned for type GetFqdnCacheIDNotFound

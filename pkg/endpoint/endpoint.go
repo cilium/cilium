@@ -45,11 +45,13 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/distillery"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -287,11 +289,15 @@ type Endpoint struct {
 
 	hasBPFProgram chan struct{}
 
+	// selectorPolicy represents a reference to the shared SelectorPolicy
+	// for all endpoints that have the same Identity.
+	selectorPolicy distillery.SelectorPolicy
+
 	desiredPolicy *policy.EndpointPolicy
 
 	realizedPolicy *policy.EndpointPolicy
 
-	EventQueue *eventqueue.EventQueue
+	EventQueue *eventqueue.EventQueue `json:"-"`
 
 	///////////////////////
 	// DEPRECATED FIELDS //
@@ -810,7 +816,7 @@ func (e *Endpoint) GetLabels() []string {
 }
 
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
-// the endpoint's mutex.
+// the endpoint's mutex is held.
 func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
 	return e.SecurityIdentity
 }
@@ -896,6 +902,17 @@ func (e *Endpoint) SetNodeMACLocked(m mac.MAC) {
 
 func (e *Endpoint) HasSidecarProxy() bool {
 	return e.hasSidecarProxy
+}
+
+// ConntrackName returns the name suffix for the endpoint-specific bpf
+// conntrack map, which is a 5-digit endpoint ID, or "global" when the
+// global map should be used.
+// Must be called with the endpoint locked.
+func (e *Endpoint) ConntrackName() string {
+	if e.ConntrackLocalLocked() {
+		return fmt.Sprintf("%05d", int(e.ID))
+	}
+	return "global"
 }
 
 // StringID returns the endpoint's ID in a string.
@@ -1337,7 +1354,9 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		e.dnsHistoryTrigger.Shutdown()
 	}
 
-	if !e.ConntrackLocalLocked() && !option.Config.DryMode {
+	if e.ConntrackLocalLocked() {
+		ctmap.CloseLocalMaps(e.ConntrackName())
+	} else if !option.Config.DryMode {
 		e.scrubIPsInConntrackTableLocked()
 	}
 

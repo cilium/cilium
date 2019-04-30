@@ -39,7 +39,6 @@ type dnsRedirect struct {
 	redirect             *Redirect
 	endpointInfoRegistry logger.EndpointInfoRegistry
 	conf                 dnsConfiguration
-	DNSProxyPort         uint16
 	currentRules         policy.L7DataMap
 }
 
@@ -47,6 +46,7 @@ type dnsConfiguration struct {
 }
 
 // setRules replaces old l7 rules of a redirect with new ones.
+// TODO: Get rid of the duplication between 'currentRules' and 'r.rules'
 func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7DataMap) error {
 	var toRemove, toAdd []string
 
@@ -127,13 +127,7 @@ func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry 
 		redirect:             r,
 		conf:                 conf,
 		endpointInfoRegistry: endpointInfoRegistry,
-
-		// NOTE: We use a fixed port here but a port was given to us in r. It's
-		// unclear who will release it, nor if this global port will be released
-		// when any DNS rule is removed. We rely on that happening elsewhere.
-		DNSProxyPort: DefaultDNSProxy.BindPort,
 	}
-	r.ProxyPort = dr.DNSProxyPort
 
 	log.WithFields(logrus.Fields{
 		"dnsRedirect": dr,

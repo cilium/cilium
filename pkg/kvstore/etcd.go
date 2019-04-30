@@ -323,13 +323,11 @@ func (e *etcdClient) Connected() <-chan struct{} {
 // disconnected after being reconnected. Blocks until the etcd client is first
 // connected with the kvstore.
 func (e *etcdClient) Disconnected() <-chan struct{} {
-	select {
-	case <-e.firstSession:
-		e.RLock()
-		ch := e.session.Done()
-		e.RUnlock()
-		return ch
-	}
+	<-e.firstSession
+	e.RLock()
+	ch := e.session.Done()
+	e.RUnlock()
+	return ch
 }
 
 func (e *etcdClient) renewSession() error {
@@ -344,7 +342,7 @@ func (e *etcdClient) renewSession() error {
 	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(LeaseTTL.Seconds())))
 	if err != nil {
 		e.UnlockIgnoreTime()
-		return fmt.Errorf("Unable to renew etcd session: %s", err)
+		return fmt.Errorf("unable to renew etcd session: %s", err)
 	}
 
 	e.session = newSession
@@ -438,7 +436,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		close(ec.firstSession)
 
 		if err := ec.checkMinVersion(); err != nil {
-			errChan <- fmt.Errorf("Unable to validate etcd version: %s", err)
+			errChan <- fmt.Errorf("unable to validate etcd version: %s", err)
 		}
 	}()
 
@@ -485,7 +483,7 @@ func (e *etcdClient) checkMinVersion() error {
 		}
 
 		if !minRequiredVersion.Check(v) {
-			return fmt.Errorf("Minimal etcd version not met in %q, required: %s, found: %s",
+			return fmt.Errorf("minimal etcd version not met in %q, required: %s, found: %s",
 				ep, minRequiredVersion.String(), v.String())
 		}
 
@@ -713,7 +711,7 @@ func (e *etcdClient) statusChecker() {
 
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {
-			e.latestErrorStatus = fmt.Errorf("Not able to connect to any etcd endpoints")
+			e.latestErrorStatus = fmt.Errorf("not able to connect to any etcd endpoints")
 		} else {
 			e.latestErrorStatus = nil
 		}
@@ -878,7 +876,7 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 		return Hint(err)
 	}
 
-	if txnresp.Succeeded == false {
+	if !txnresp.Succeeded {
 		return fmt.Errorf("create was unsuccessful")
 	}
 

@@ -113,6 +113,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		})
 
 		It("Cilium monitor event types", func() {
+			Skip("Disabled flake: https://github.com/cilium/cilium/issues/7872")
 
 			monitorConfig()
 

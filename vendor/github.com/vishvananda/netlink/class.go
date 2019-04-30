@@ -41,7 +41,7 @@ type GnetStatsQueue struct {
 	Overlimits uint32 // number of enqueues over the limit
 }
 
-// ClassStatistics representaion based on generic networking statisticsfor netlink.
+// ClassStatistics representation based on generic networking statistics for netlink.
 // See Documentation/networking/gen_stats.txt in Linux source code for more details.
 type ClassStatistics struct {
 	Basic   *GnetStatsBasic
@@ -127,7 +127,7 @@ func (class *GenericClass) Attrs() *ClassAttrs {
 	return &class.ClassAttrs
 }
 
-// Type retrun the class type
+// Type return the class type
 func (class *GenericClass) Type() string {
 	return class.ClassType
 }
@@ -178,7 +178,7 @@ func (hfsc *HfscClass) SetUL(m1 uint32, d uint32, m2 uint32) {
 	hfsc.Usc = ServiceCurve{m1: m1 / 8, d: d, m2: m2 / 8}
 }
 
-// SetLS implemtens the LS from the tc CLI
+// SetLS implements the LS from the tc CLI
 func (hfsc *HfscClass) SetLS(m1 uint32, d uint32, m2 uint32) {
 	hfsc.Fsc = ServiceCurve{m1: m1 / 8, d: d, m2: m2 / 8}
 }

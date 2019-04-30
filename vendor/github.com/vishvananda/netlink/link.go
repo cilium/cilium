@@ -41,6 +41,8 @@ type LinkAttrs struct {
 	NetNsID      int
 	NumTxQueues  int
 	NumRxQueues  int
+	GSOMaxSize   uint32
+	GSOMaxSegs   uint32
 	Vfs          []VfInfo // virtual functions available on link
 }
 

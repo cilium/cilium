@@ -82,7 +82,7 @@ func parseNetSocket(f []string, ip NetIPDecoder) (*NetSocket, error) {
 	return socket, nil
 }
 
-// Decode an IPv4 address with port from a given hex string
+// NetIPv4Decoder decodes an IPv4 address with port from a given hex string
 // NOTE: This function match NetIPDecoder type
 func NetIPv4Decoder(s string) (string, error) {
 
@@ -123,7 +123,7 @@ func NetIPv4Decoder(s string) (string, error) {
 	return v, nil
 }
 
-// Decode an IPv6 address with port from a given hex string
+// NetIPv6Decoder decodes an IPv6 address with port from a given hex string
 // NOTE: This function match NetIPDecoder type
 func NetIPv6Decoder(s string) (string, error) {
 

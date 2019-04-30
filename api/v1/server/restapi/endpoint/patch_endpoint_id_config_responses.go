@@ -125,5 +125,4 @@ func (o *PatchEndpointIDConfigFailed) WriteResponse(rw http.ResponseWriter, prod
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

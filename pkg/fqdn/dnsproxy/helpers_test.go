@@ -17,30 +17,9 @@
 package dnsproxy
 
 import (
-	"strconv"
-
 	. "gopkg.in/check.v1"
 )
 
 type DNSProxyHelperTestSuite struct{}
 
 var _ = Suite(&DNSProxyHelperTestSuite{})
-
-// TestParsePortString tests that ParsePortString parses port strings.
-func (s *DNSProxyHelperTestSuite) TestParsePortString(c *C) {
-	for i := 0; i < 65536; i++ {
-		portStr := strconv.Itoa(i)
-		port, err := parsePortString(portStr)
-		c.Assert(err, IsNil, Commentf("ParsePortString marked a valid port(%s) as invalid", portStr))
-		c.Assert(port, Equals, uint16(i), Commentf("ParsePortString parsed a port string(%s) incorrectly", portStr))
-	}
-
-	for _, reject := range []string{
-		"-1",
-		"65536",
-		"1000000",
-	} {
-		_, err := parsePortString(reject)
-		c.Assert(err, NotNil, Commentf("ParsePortString marked an invalid port as valid"))
-	}
-}

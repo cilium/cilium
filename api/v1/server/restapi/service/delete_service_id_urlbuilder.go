@@ -48,7 +48,7 @@ func (o *DeleteServiceIDURL) Build() (*url.URL, error) {
 	if id != "" {
 		_path = strings.Replace(_path, "{id}", id, -1)
 	} else {
-		return nil, errors.New("ID is required on DeleteServiceIDURL")
+		return nil, errors.New("id is required on DeleteServiceIDURL")
 	}
 
 	_basePath := o._basePath

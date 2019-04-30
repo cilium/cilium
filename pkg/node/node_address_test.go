@@ -78,7 +78,6 @@ func (s *NodeSuite) Test_getCiliumHostIPsFromFile(c *C) {
 #define LB_RR_MAX_SEQ 31
 #define CILIUM_LB_MAP_MAX_ENTRIES 65536
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
-#define PROXY_MAP_SIZE 524288
 #define ENDPOINTS_MAP_SIZE 65535
 #define LPM_MAP_SIZE 16384
 #define POLICY_MAP_SIZE 16384

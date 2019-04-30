@@ -260,8 +260,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
 	})
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:   QAIPv4Addr.String(),
-		Policy: uint64(qaBarSecLblsCtx.ID),
+		Name:             QAIPv4Addr.String(),
+		Policy:           uint64(qaBarSecLblsCtx.ID),
+		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,
@@ -305,8 +306,9 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	})
 
 	expectedNetworkPolicy = &cilium.NetworkPolicy{
-		Name:   ProdIPv4Addr.String(),
-		Policy: uint64(prodBarSecLblsCtx.ID),
+		Name:             ProdIPv4Addr.String(),
+		Policy:           uint64(prodBarSecLblsCtx.ID),
+		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,
@@ -390,8 +392,9 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	expectedNetworkPolicy := &cilium.NetworkPolicy{
-		Name:   QAIPv4Addr.String(),
-		Policy: uint64(qaBarSecLblsCtx.ID),
+		Name:             QAIPv4Addr.String(),
+		Policy:           uint64(qaBarSecLblsCtx.ID),
+		ConntrackMapName: "global",
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,

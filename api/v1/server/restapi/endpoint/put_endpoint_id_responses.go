@@ -77,7 +77,6 @@ func (o *PutEndpointIDInvalid) WriteResponse(rw http.ResponseWriter, producer ru
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // PutEndpointIDExistsCode is the HTTP code returned for type PutEndpointIDExists
@@ -144,5 +143,4 @@ func (o *PutEndpointIDFailed) WriteResponse(rw http.ResponseWriter, producer run
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

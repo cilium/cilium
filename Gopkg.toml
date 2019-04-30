@@ -46,28 +46,28 @@ required = [
 
 [[constraint]]
   name = "github.com/c9s/goprocinfo"
-  revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
+  revision = "0b2ad9ac246b05c4f5750721d0c4d230888cac5e"
 
   # main-usage = "pkg/health"
   # on-revision = "no stable releases released"
 
 [[constraint]]
   name = "github.com/cilium/proxy"
-  revision = "19442becad85fe3a9d3eab7856bdb31206f3ae68"
+  revision = "f65bc191a9b99d7bdc6288821d5ee1fe2517f4db"
 
   # main-usage = "pkg/envoy"
   # on-revision = "no stable releases released"
 
 [[constraint]]
   name = "github.com/containerd/containerd"
-  revision = "v1.2.4"
+  revision = "v1.2.6"
 
   # main-usage = "pkg/workloads"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/containerd/cri"
-  revision = "da0c016c830b2ea97fd1d737c49a568a816bf964"
+  revision = "eb926cd79d3bac188dcc4ed7694fc9298f8831be"
 
   # main-usage = "pkg/workloads"
   # on-revision = "it is the same revision used by containerd and we only use this repo directly to access a constant"
@@ -81,7 +81,7 @@ required = [
 
 [[constraint]]
   name = "github.com/containerd/typeurl"
-  revision = "461401dc8f19d80baa4b70178935e4501286c00b"
+  revision = "2a93cfde8c20b23de8eb84a5adbc234ddf7a9e8d"
 
   # main-usage = "pkg/workloads/containerd"
   # on-revision = "no stable releases released"
@@ -165,86 +165,84 @@ required = [
 
 [[constraint]]
   name = "github.com/go-openapi/errors"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/loads"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "swagger spec"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/runtime"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/spec"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
-# TODO(mrostecki): Switch to releases when they will include:
-# https://github.com/go-openapi/strfmt/commit/bc2668dc64edd7a448bdb3a6a997a85f7f868bbc
 [[constraint]]
   name = "github.com/go-openapi/strfmt"
-  revision = "bc2668dc64edd7a448bdb3a6a997a85f7f868bbc"
+  revision = "v0.19.0"
 
   # main-usage = "swagger and pkg/controllers"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/swag"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/go-openapi/validate"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/analysis"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/errors"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[override]]
   name = "github.com/go-openapi/jsonpointer"
-  revision = "v0.18.0"
+  revision = "v0.19.0"
 
   # main-usage = "api/v1"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/gorilla/mux"
-  revision = "v1.7.0"
+  revision = "v1.7.1"
 
   # main-usage = "plugins/cilium-docker"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/hashicorp/consul"
-  revision = "v1.4.2"
+  revision = "v1.4.4"
 
   # main-usage = "pkg/kvstore"
   # on-revision = ""
@@ -288,14 +286,15 @@ required = [
 
 [[constraint]]
   name = "github.com/mattn/go-shellwords"
-  revision = "3c0603ff9671145648171317c30371d805656003"
+  revision = "v1.0.5"
 
   # main-usage = "pkg/datapath/iptables"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/miekg/dns"
-  revision = "v1.1.4"
+  revision = "8e25ec9a0ff346aefcb56b84e72decb6d5406d9e"
+  source = "github.com/cilium/dns"
 
   # main-usage = "pkg/fqdn"
   # on-revision = ""
@@ -359,10 +358,10 @@ required = [
 
 [[override]]
   name = "github.com/russross/blackfriday"
-  revision = "v2.0.1"
+  revision = "v1.5.2"
 
   # main-usage = "cilium/cmd/debuginfo"
-  # on-revision = ""
+  # on-revision = "same revision specified by github.com/cpuguy83/go-md2man"
 
 [[constraint]]
   name = "github.com/sasha-s/go-deadlock"
@@ -380,28 +379,28 @@ required = [
 
 [[constraint]]
   name = "github.com/shirou/gopsutil"
-  revision = "v2.19.01"
+  revision = "v2.19.03"
 
   # main-usage = "pkg/loadinfo"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
-  revision = "v1.4.0"
+  revision = "v1.4.1"
 
   # main-usage = "all over the code"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/spf13/cobra"
-  revision = "7547e83b2d85fd1893c7d76916f67689d761fecb"
+  revision = "67fc4837d267bc9bfd6e47f77783fcc3dffc68de"
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""
 
 [[override]]
   name = "github.com/cpuguy83/go-md2man"
-  revision = "691ee98543af2f262f35fbb54bdd42f00b9b9cc5"
+  revision = "v1.0.10"
 
   # main-usage = "github.com/spf13/cobra"
 
@@ -414,35 +413,35 @@ required = [
 
 [[constraint]]
   name = "github.com/spf13/viper"
-  revision = "v1.3.1"
+  revision = "v1.3.2"
 
   # main-usage = "mainly CLI packages"
   # on-revision = ""
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
-  revision = "b9cafe4a8544a27110dad06be07d48bbe5f292dd"
+  revision = "f504738125a57f35f87fc30fb69b8df75237ccde"
 
   # main-usage = "all over the code"
   # on-revision = "last available commit and there is not stable releases"
 
 [[override]]
   name = "golang.org/x/crypto"
-  revision = "56440b844dfe139a8ac053f4ecac0b20b79058f4"
+  revision = "e84da0312774c21d64ee2317962ef669b27ffb41"
 
   # main-usage = "only in integration tests"
   # on-revision = ""
 
 [[override]]
   name = "golang.org/x/net"
-  revision = "a4630153038d3cb8c57f83d95200aea356145cf5"
+  revision = "65e2d4e15006aab9813ff8769e768bbf4bb667a0"
 
   # main-usage = "pkg/kvstore/etcd, pkg/workloads, pkg/envoy and api/v1"
-  # on-revision = "last revision of branch 1.11"
+  # on-revision = "last revision of branch 1.12"
 
 [[constraint]]
   name = "golang.org/x/sync"
-  revision = "37e7f081c4d4c64e13b10787722085407fe5d15f"
+  revision = "112230192c580c3556b8cee6403af37a4fc5f28c"
 
   # main-usage = "daemon"
   # on-revision = "last available commit and there is not stable releases"
@@ -456,11 +455,14 @@ required = [
 
 [[constraint]]
   name = "golang.org/x/time"
-  revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
+  revision = "9d24e82272b4f38b78bc8cff74fa936d31ccd8ef"
+
+  # main-usage = "pkg/kvstore/etcd"
+  # on-revision = "last revision of branch 1.12"
 
 [[constraint]]
   name = "google.golang.org/genproto"
-  revision = "4b09977fb92221987e99d190c8f88f2c92727a29"
+  revision = "e7d98fc518a78c9f8b5ee77be7b0b317475d89e1"
 
   # main-usage = "proxylib"
   # on-revision = ""

@@ -1639,11 +1639,11 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 
 		c.Assert(lbls, NotNil)
 		c.Assert(len(lbls), Equals, 4, Commentf(
-			"Incorrect number of labels: Expected Name, UID, Namespace and DerivedFrom labels."))
-		assertLabel(lbls[0], k8sConst.PolicyLabelName, tt.name)
-		assertLabel(lbls[1], k8sConst.PolicyLabelUID, tt.uuid)
-		assertLabel(lbls[2], k8sConst.PolicyLabelNamespace, tt.namespace)
-		assertLabel(lbls[3], k8sConst.PolicyLabelDerivedFrom, tt.derivedFrom)
+			"Incorrect number of labels: Expected DerivedFrom, Name, Namespace and UID labels."))
+		assertLabel(lbls[0], "io.cilium.k8s.policy.derived-from", tt.derivedFrom)
+		assertLabel(lbls[1], "io.cilium.k8s.policy.name", tt.name)
+		assertLabel(lbls[2], "io.cilium.k8s.policy.namespace", tt.namespace)
+		assertLabel(lbls[3], "io.cilium.k8s.policy.uid", tt.uuid)
 	}
 }
 

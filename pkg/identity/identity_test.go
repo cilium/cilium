@@ -20,6 +20,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 
@@ -86,4 +87,18 @@ func (s *IdentityTestSuite) TestRequiresGlobalIdentity(c *C) {
 	c.Assert(RequiresGlobalIdentity(cidr.GetCIDRLabels(ipnet)), Equals, false)
 
 	c.Assert(RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})), Equals, true)
+}
+
+func (s *IdentityTestSuite) TestNewIdentityFromLabelArray(c *C) {
+	id := NewIdentityFromLabelArray(NumericIdentity(1001),
+		labels.NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
+
+	lbls := labels.Labels{
+		"a": labels.ParseLabel("a"),
+		"c": labels.ParseLabel("c=d"),
+		"b": labels.ParseLabel("b"),
+	}
+	c.Assert(id.ID, Equals, NumericIdentity(1001))
+	c.Assert(id.Labels, checker.DeepEquals, lbls)
+	c.Assert(id.LabelArray, checker.DeepEquals, lbls.LabelArray())
 }

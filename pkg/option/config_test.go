@@ -223,3 +223,17 @@ func (s *OptionSuite) TestWorkloadsEnabled(c *C) {
 		}
 	}
 }
+
+func (s *OptionSuite) TestBindEnv(c *C) {
+	optName1 := "foo-bar"
+	os.Setenv("LEGACY_FOO_BAR", "legacy")
+	os.Setenv(getEnvName(optName1), "new")
+	BindEnvWithLegacyEnvFallback(optName1, "LEGACY_FOO_BAR")
+	c.Assert(viper.GetString(optName1), Equals, "new")
+
+	optName2 := "bar-foo"
+	BindEnvWithLegacyEnvFallback(optName2, "LEGACY_FOO_BAR")
+	c.Assert(viper.GetString(optName2), Equals, "legacy")
+
+	viper.Reset()
+}

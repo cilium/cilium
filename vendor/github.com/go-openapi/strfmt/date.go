@@ -150,17 +150,16 @@ func (d *Date) SetBSON(raw bson.Raw) error {
 }
 
 // DeepCopyInto copies the receiver and writes its value into out.
-func (in *Date) DeepCopyInto(out *Date) {
-	*out = *in
-	return
+func (d *Date) DeepCopyInto(out *Date) {
+	*out = *d
 }
 
 // DeepCopy copies the receiver into a new Date.
-func (in *Date) DeepCopy() *Date {
-	if in == nil {
+func (d *Date) DeepCopy() *Date {
+	if d == nil {
 		return nil
 	}
 	out := new(Date)
-	in.DeepCopyInto(out)
+	d.DeepCopyInto(out)
 	return out
 }

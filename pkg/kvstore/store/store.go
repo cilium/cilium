@@ -80,7 +80,7 @@ type Configuration struct {
 // configuration. It returns nil when the configuration is valid.
 func (c *Configuration) validate() error {
 	if c.Prefix == "" {
-		return fmt.Errorf("Prefix must be specified")
+		return fmt.Errorf("prefix must be specified")
 	}
 
 	if c.KeyCreator == nil {
@@ -137,21 +137,27 @@ type SharedStore struct {
 // Observer receives events when objects in the store mutate
 type Observer interface {
 	// OnDelete is called when the key has been deleted from the shared store
-	OnDelete(k Key)
+	OnDelete(k NamedKey)
 
 	// OnUpdate is called whenever a change has occurred in the data
 	// structure represented by the key
 	OnUpdate(k Key)
 }
 
-// Key is the interface that a data structure must implement in order to be
-// stored and shared as a key in a SharedStore.
-type Key interface {
+// NamedKey is an interface that a data structure must implement in order to
+// be deleted from a SharedStore.
+type NamedKey interface {
 	// GetKeyName must return the name of the key. The name of the key must
 	// be unique within the store and stable for a particular key. The name
 	// of the key must be identical across agent restarts as the keys
 	// remain in the kvstore.
 	GetKeyName() string
+}
+
+// Key is the interface that a data structure must implement in order to be
+// stored and shared as a key in a SharedStore.
+type Key interface {
+	NamedKey
 
 	// Marshal is called to retrieve the byte slice representation of the
 	// data represented by the key to store it in the kvstore. The function
@@ -212,7 +218,7 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 	return s, nil
 }
 
-func (s *SharedStore) onDelete(k Key) {
+func (s *SharedStore) onDelete(k NamedKey) {
 	if s.conf.Observer != nil {
 		s.conf.Observer.OnDelete(k)
 	}
@@ -249,7 +255,7 @@ func (s *SharedStore) Close() {
 }
 
 // keyPath returns the absolute kvstore path of a key
-func (s *SharedStore) keyPath(key Key) string {
+func (s *SharedStore) keyPath(key NamedKey) string {
 	// WARNING - STABLE API: The composition of the absolute key path
 	// cannot be changed without breaking up and downgrades.
 	return path.Join(s.conf.Prefix, key.GetKeyName())
@@ -304,6 +310,20 @@ func (s *SharedStore) lookupLocalKey(name string) LocalKey {
 	return nil
 }
 
+// SharedKeysMap returns a copy of the SharedKeysMap, the returned map can
+// be safely modified but the values of the map represent the actual data
+// stored in the internal SharedStore SharedKeys map.
+func (s *SharedStore) SharedKeysMap() map[string]Key {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	sharedKeysCopy := make(map[string]Key, len(s.sharedKeys))
+
+	for k, v := range s.sharedKeys {
+		sharedKeysCopy[k] = v
+	}
+	return sharedKeysCopy
+}
+
 // UpdateLocalKey adds a key to be synchronized with the kvstore
 func (s *SharedStore) UpdateLocalKey(key LocalKey) {
 	s.mutex.Lock()
@@ -337,7 +357,7 @@ func (s *SharedStore) UpdateKeySync(key LocalKey) error {
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
-func (s *SharedStore) DeleteLocalKey(key LocalKey) {
+func (s *SharedStore) DeleteLocalKey(key NamedKey) {
 	name := key.GetKeyName()
 
 	s.mutex.Lock()
@@ -428,7 +448,7 @@ func (s *SharedStore) listAndStartWatcher() error {
 	select {
 	case <-listDone:
 	case <-time.After(listTimeoutDefault):
-		return fmt.Errorf("Time out while retrieving initial list of objects from kvstore")
+		return fmt.Errorf("timeout while retrieving initial list of objects from kvstore")
 	}
 
 	return nil
@@ -437,45 +457,38 @@ func (s *SharedStore) listAndStartWatcher() error {
 func (s *SharedStore) watcher(listDone chan bool) {
 	s.kvstoreWatcher = s.backend.ListAndWatch(s.name+"-watcher", s.conf.Prefix, watcherChanSize)
 
-	for {
-		select {
-		case event, ok := <-s.kvstoreWatcher.Events:
-			if !ok {
-				return
+	for event := range s.kvstoreWatcher.Events {
+		if event.Typ == kvstore.EventTypeListDone {
+			s.getLogger().Debug("Initial list of objects received from kvstore")
+			close(listDone)
+			continue
+		}
+
+		logger := s.getLogger().WithFields(logrus.Fields{
+			"key":       event.Key,
+			"eventType": event.Typ,
+		})
+
+		logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
+
+		keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
+		if keyName[0] == '/' {
+			keyName = keyName[1:]
+		}
+
+		switch event.Typ {
+		case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+			if err := s.updateKey(keyName, event.Value); err != nil {
+				logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
 			}
 
-			if event.Typ == kvstore.EventTypeListDone {
-				s.getLogger().Debug("Initial list of objects received from kvstore")
-				close(listDone)
-				continue
-			}
+		case kvstore.EventTypeDelete:
+			if localKey := s.lookupLocalKey(keyName); localKey != nil {
+				logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
 
-			logger := s.getLogger().WithFields(logrus.Fields{
-				"key":       event.Key,
-				"eventType": event.Typ,
-			})
-
-			logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
-
-			keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
-			if keyName[0] == '/' {
-				keyName = keyName[1:]
-			}
-
-			switch event.Typ {
-			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-				if err := s.updateKey(keyName, event.Value); err != nil {
-					logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
-				}
-
-			case kvstore.EventTypeDelete:
-				if localKey := s.lookupLocalKey(keyName); localKey != nil {
-					logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
-
-					s.syncLocalKey(localKey)
-				} else {
-					s.deleteKey(keyName)
-				}
+				s.syncLocalKey(localKey)
+			} else {
+				s.deleteKey(keyName)
 			}
 		}
 	}

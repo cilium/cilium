@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ type TestType struct {
 	Name string
 }
 
-var testType = TestType{}
+var _ = TestType{}
 
 func (t *TestType) GetKeyName() string          { return t.Name }
 func (t *TestType) DeepKeyCopy() LocalKey       { return &TestType{Name: t.Name} }
@@ -121,7 +121,7 @@ func (o *observer) OnUpdate(k Key) {
 	}
 	counterLock.Unlock()
 }
-func (o *observer) OnDelete(k Key) {
+func (o *observer) OnDelete(k NamedKey) {
 	counterLock.Lock()
 	counter[k.(*TestType).Name].deleted++
 	counterLock.Unlock()
@@ -135,7 +135,7 @@ func newTestType() Key {
 func (s *StoreSuite) TestStoreCreation(c *C) {
 	// Missing Prefix must result in error
 	store, err := JoinSharedStore(Configuration{})
-	c.Assert(err, ErrorMatches, "Prefix must be specified")
+	c.Assert(err, ErrorMatches, "prefix must be specified")
 	c.Assert(store, IsNil)
 
 	// Missing KeyCreator must result in error

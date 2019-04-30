@@ -589,6 +589,14 @@ func (p *Process) ConnectionsWithContext(ctx context.Context) ([]net.ConnectionS
 	return nil, common.ErrNotImplementedError
 }
 
+func (p *Process) ConnectionsMax(max int) ([]net.ConnectionStat, error) {
+	return p.ConnectionsMaxWithContext(context.Background(), max)
+}
+
+func (p *Process) ConnectionsMaxWithContext(ctx context.Context, max int) ([]net.ConnectionStat, error) {
+	return []net.ConnectionStat{}, common.ErrNotImplementedError
+}
+
 func (p *Process) NetIOCounters(pernic bool) ([]net.IOCountersStat, error) {
 	return p.NetIOCountersWithContext(context.Background(), pernic)
 }

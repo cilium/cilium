@@ -41,6 +41,11 @@ CILIUM_MINIKUBE= \
   cilium-minikube-ds.yaml \
   cilium-rbac.yaml
 
+CILIUM_MICROK8S= \
+  cilium-cm.yaml \
+  cilium-containerd-ds.yaml \
+  cilium-rbac.yaml
+
 CILIUM_CRIO= \
   cilium-cm.yaml \
   cilium-crio-ds.yaml \
@@ -57,7 +62,7 @@ CILIUM_CONTAINERD= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
-all: transform cilium.yaml cilium-crio.yaml cilium-containerd.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml
+all: transform cilium.yaml cilium-crio.yaml cilium-containerd.yaml cilium-microk8s.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml
 
 %.sed:
 	for k8s_version in $(K8S_VERSIONS); do \
@@ -150,6 +155,21 @@ cilium-containerd.yaml:
             rm -f ./$@ && \
             for f in $(CILIUM_CONTAINERD); do (cat "$${f}") >> $@; done); \
 	done
+
+cilium-microk8s.yaml:
+	export __CILIUM_CONTAINER_RUNTIME__=auto
+	for k8s_version in $(K8S_VERSIONS); do \
+        (cd $$k8s_version && \
+            rm -f ./$@ && \
+            for f in $(CILIUM_MICROK8S); do (cat "$${f}") >> $@; done; \
+            sed -i 's+https://cilium-etcd-client.kube-system.svc:2379+http://127.0.0.1:31079+' cilium-microk8s.yaml; \
+            sed -i 's+ca-file:+# ca-file:+' cilium-microk8s.yaml; \
+            sed -i 's+key-file:+# key-file:+' cilium-microk8s.yaml; \
+            sed -i 's+cert-file:+# cert-file:+' cilium-microk8s.yaml; \
+            sed -i 's+path: /var/run/containerd+path: /var/snap/microk8s/common/run+'  cilium-microk8s.yaml; \
+            sed -i 's+path: /etc/cni/net.d+path: /var/snap/microk8s/current/args/cni-network+'  cilium-microk8s.yaml; \
+        ); \
+        done
 
 cilium-minikube.yaml:
 	export __CILIUM_CONTAINER_RUNTIME__=auto

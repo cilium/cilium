@@ -23,28 +23,20 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	// Path to where cgroup is mounted
-	cgroupRoot = defaults.DefaultCgroupRoot
-
-	// Only mount a single instance
-	cgrpMountOnce sync.Once
-
 	// Default prefix for map objects
 	mapPrefix = defaults.DefaultMapPrefix
 
@@ -64,75 +56,6 @@ const (
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "sockops")
-
-// setCgroupRoot will set the path to mount cgroupv2
-func setCgroupRoot(path string) {
-	cgroupRoot = path
-}
-
-// mountCgroup mounts the Cgroup v2 filesystem into the desired cgroupRoot directory.
-func mountCgroup() error {
-	cgroupRootStat, err := os.Stat(cgroupRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(cgroupRoot, 0755); err != nil {
-				return fmt.Errorf("Unable to create cgroup mount directory: %s", err)
-			}
-		} else {
-			return fmt.Errorf("Failed to stat the mount path %s: %s", cgroupRoot, err)
-		}
-	} else if !cgroupRootStat.IsDir() {
-		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
-	}
-
-	if err := syscall.Mount("none", cgroupRoot, mountinfo.FilesystemTypeCgroup2, 0, ""); err != nil {
-		return fmt.Errorf("failed to mount %s: %s", cgroupRoot, err)
-	}
-
-	return nil
-}
-
-// checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
-// given path.
-func cgrpCheckOrMountLocation(cgroupRoot string) error {
-	setCgroupRoot(cgroupRoot)
-
-	// Check whether the custom location has a mount.
-	mounted, cgroupInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeCgroup2, cgroupRoot)
-	if err != nil {
-		return err
-	}
-
-	// If the custom location has no mount, let's mount there.
-	if !mounted {
-		if err := mountCgroup(); err != nil {
-			return err
-		}
-	}
-
-	if !cgroupInstance {
-		return fmt.Errorf("Mount in the custom directory %s has a different filesystem than cgroup2", cgroupRoot)
-	}
-	return nil
-}
-
-// CheckOrMountCgrpFS this checks if the cilium cgroup2 root mount point is
-// mounted and if not mounts it. If mapRoot is "" it will mount the default
-// location. It is harmless to have multiple cgroupv2 root mounts so unlike
-// BPFFS case we simply mount at the cilium default regardless if the system
-// has another mount created by systemd or otherwise.
-func CheckOrMountCgrpFS(mapRoot string) {
-	cgrpMountOnce.Do(func() {
-		if mapRoot == "" {
-			mapRoot = cgroupRoot
-		}
-		err := cgrpCheckOrMountLocation(mapRoot)
-		// Failed cgroup2 mount is not a fatal error, sockmap will be disabled however
-		if err == nil {
-			log.Infof("Mounted Cgroup2 filesystem %s", mapRoot)
-		}
-	})
-}
 
 // BPF programs and sockmaps working on cgroups
 func bpftoolMapAttach(progID string, mapID string) error {
@@ -154,7 +77,7 @@ func bpftoolMapAttach(progID string, mapID string) error {
 func bpftoolAttach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
-	cgrp := cgroupRoot
+	cgrp := cgroups.GetCgroupRoot()
 
 	args := []string{"cgroup", "attach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{
@@ -172,7 +95,7 @@ func bpftoolAttach(bpfObject string) error {
 func bpftoolDetach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
-	cgrp := cgroupRoot
+	cgrp := cgroups.GetCgroupRoot()
 
 	args := []string{"cgroup", "detach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{

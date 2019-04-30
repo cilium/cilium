@@ -22,6 +22,10 @@ import (
 	"github.com/go-openapi/swag"
 )
 
+const (
+	jsonRef = "$ref"
+)
+
 // SimpleSchema describe swagger simple schemas for parameters and headers
 type SimpleSchema struct {
 	Type             string      `json:"type,omitempty"`
@@ -89,7 +93,7 @@ func (i *Items) Typed(tpe, format string) *Items {
 
 // CollectionOf a fluent builder method for an array item
 func (i *Items) CollectionOf(items *Items, format string) *Items {
-	i.Type = "array"
+	i.Type = jsonArray
 	i.Items = items
 	i.CollectionFormat = format
 	return i
@@ -217,7 +221,7 @@ func (i Items) MarshalJSON() ([]byte, error) {
 
 // JSONLookup look up a value by the json property name
 func (i Items) JSONLookup(token string) (interface{}, error) {
-	if token == "$ref" {
+	if token == jsonRef {
 		return &i.Ref, nil
 	}
 

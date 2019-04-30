@@ -125,7 +125,6 @@ func (o *DeleteIPAMIPFailure) WriteResponse(rw http.ResponseWriter, producer run
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // DeleteIPAMIPDisabledCode is the HTTP code returned for type DeleteIPAMIPDisabled

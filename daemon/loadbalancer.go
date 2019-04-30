@@ -16,13 +16,13 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/maps/proxymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 
@@ -504,9 +504,6 @@ func openServiceMaps() error {
 		if _, err := lbmap.RRSeq6MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
-		if _, err := proxymap.Proxy6Map.OpenOrCreate(); err != nil {
-			return err
-		}
 	}
 
 	if option.Config.EnableIPv4 {
@@ -536,9 +533,6 @@ func openServiceMaps() error {
 			return err
 		}
 		if _, err := lbmap.RRSeq4MapV2.OpenOrCreate(); err != nil {
-			return err
-		}
-		if _, err := proxymap.Proxy4Map.OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -847,6 +841,8 @@ func restoreBackendIDs() (map[lbmap.BackendAddrID]loadbalancer.BackendID, error)
 }
 
 func restoreServices() {
+	before := time.Now()
+
 	// Restore Backend IDs first, otherwise they can get taken by subsequent
 	// calls to UpdateService
 	restoredBackendIDs, err := restoreBackendIDs()
@@ -969,9 +965,10 @@ func restoreServices() {
 	}
 
 	log.WithFields(logrus.Fields{
-		"restored": restored,
-		"failed":   failed,
-		"skipped":  skipped,
-		"removed":  removed,
+		logfields.Duration: time.Now().Sub(before),
+		"restored":         restored,
+		"failed":           failed,
+		"skipped":          skipped,
+		"removed":          removed,
 	}).Info("Restore service IDs from BPF maps")
 }

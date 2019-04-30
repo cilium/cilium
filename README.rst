@@ -279,7 +279,7 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _`Why Cilium?`: http://docs.cilium.io/en/stable/intro/#why-cilium
 .. _`Getting Started`: http://docs.cilium.io/en/stable/gettingstarted/
 .. _`Architecture and Concepts`: http://docs.cilium.io/en/stable/concepts/
-.. _`Installing Cilium`: http://docs.cilium.io/en/stable/install/guides/
+.. _`Installing Cilium`: http://docs.cilium.io/en/stable/gettingstarted/#installation
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
 .. _Contributing: http://docs.cilium.io/en/stable/contributing
 .. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements

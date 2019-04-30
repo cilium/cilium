@@ -48,7 +48,7 @@ func (o *PostIPAMIPURL) Build() (*url.URL, error) {
 	if ip != "" {
 		_path = strings.Replace(_path, "{ip}", ip, -1)
 	} else {
-		return nil, errors.New("IP is required on PostIPAMIPURL")
+		return nil, errors.New("ip is required on PostIPAMIPURL")
 	}
 
 	_basePath := o._basePath

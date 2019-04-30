@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -144,4 +145,8 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 	}
 
 	return append(ret, c), nil
+}
+
+func CountsWithContext(ctx context.Context, logical bool) (int, error) {
+	return runtime.NumCPU(), nil
 }

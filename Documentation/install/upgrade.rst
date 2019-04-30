@@ -267,6 +267,18 @@ Annotations:
 1.5 Upgrade Notes
 -----------------
 
+Upgrading from >=1.4.0 to 1.5.y
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. In v1.4, the TCP conntrack table size ``ct-global-max-entries-tcp``
+   ConfigMap parameter was ineffective due to a bug and thus, the default
+   value (``1000000``) was used instead. To prevent from breaking established
+   TCP connections, ``bpf-ct-global-tcp-max`` must be set to ``1000000`` in
+   the ConfigMap before upgrading. Refer to the section :ref:`upgrade_configmap`
+   on how to upgrade the `ConfigMap`.
+
+#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
+
 New Default Values
 ~~~~~~~~~~~~~~~~~~
 
@@ -285,6 +297,10 @@ New ConfigMap Options
   * ``enable-k8s-event-handover``: enables use of the kvstore to optimize
     Kubernetes event handling by listening for k8s events in the operator and
     mirroring it into the kvstore for reduced overhead in large clusters.
+
+  * ``enable-legacy-services``: enables legacy services (prior v1.5) to
+    prevent from terminating established connections to services when
+    upgrading Cilium from < v1.5 to v1.5.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~

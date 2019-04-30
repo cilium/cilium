@@ -233,12 +233,6 @@ func (s *BaseTests) TestCreateOnly(c *C) {
 	c.Assert(val, checker.DeepEquals, testValue(2))
 }
 
-func drainEvents(w *Watcher) {
-	for len(w.Events) > 0 {
-		<-w.Events
-	}
-}
-
 func expectEvent(c *C, w *Watcher, typ EventType, key string, val []byte) {
 	select {
 	case event := <-w.Events:

@@ -145,7 +145,6 @@ func (o *GetIdentityIDUnreachable) WriteResponse(rw http.ResponseWriter, produce
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }
 
 // GetIdentityIDInvalidStorageFormatCode is the HTTP code returned for type GetIdentityIDInvalidStorageFormat
@@ -188,5 +187,4 @@ func (o *GetIdentityIDInvalidStorageFormat) WriteResponse(rw http.ResponseWriter
 	if err := producer.Produce(rw, payload); err != nil {
 		panic(err) // let the recovery middleware deal with this
 	}
-
 }

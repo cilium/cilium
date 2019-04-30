@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -359,12 +360,20 @@ loop:
 // added to epIDSet. Note that epIDSet can be shared across goroutines!
 // Returns whether the endpoint was selected by one of the rules, or if the
 // endpoint is nil.
-func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
+func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) (bool, error) {
 	if ep == nil {
-		return true
+		return false, fmt.Errorf("cannot update caches in rules because endpoint is nil")
 	}
 	id := ep.GetID16()
+	if err := ep.RLockAlive(); err != nil {
+		return false, fmt.Errorf("cannnot update caches in rules for endpoint %d because it is being deleted: %s", id, err)
+	}
+	defer ep.RUnlock()
 	securityIdentity := ep.GetSecurityIdentity()
+
+	if securityIdentity == nil {
+		return false, fmt.Errorf("cannot update caches in rules for endpoint %d because it has a nil identity", id)
+	}
 
 	for _, r := range rules {
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {
@@ -374,21 +383,9 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) bool {
 
 			// If epIDSet is updated, we can exit since updating it again if
 			// another rule selects the Endpoint is a no-op.
-			return true
+			return true, nil
 		}
 	}
 
-	return false
-}
-
-func (rules ruleSlice) refreshRulesCache(ep Endpoint) {
-	if ep == nil {
-		return
-	}
-
-	securityIdentity := ep.GetSecurityIdentity()
-	for _, r := range rules {
-		// matches updates the caches within the rules
-		r.matches(securityIdentity)
-	}
+	return false, nil
 }

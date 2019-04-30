@@ -22,7 +22,7 @@ import (
 )
 
 // EndpointInfoSource returns information about an endpoint being proxied.
-// The read lock must be held when calling any Get method.
+// The read lock must be held when calling any method.
 type EndpointInfoSource interface {
 	UnconditionalRLock()
 	RUnlock()
@@ -33,6 +33,7 @@ type EndpointInfoSource interface {
 	GetLabels() []string
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
+	ConntrackName() string
 }
 
 // getEndpointInfo returns a consistent snapshot of the given source.

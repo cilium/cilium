@@ -35,6 +35,7 @@ type objectValidator struct {
 	PatternProperties    map[string]spec.Schema
 	Root                 interface{}
 	KnownFormats         strfmt.Registry
+	Options              SchemaValidatorOptions
 }
 
 func (o *objectValidator) SetPath(path string) {
@@ -83,7 +84,9 @@ func (o *objectValidator) checkItemsMustBeTypeArray(res *Result, val map[string]
 
 func (o *objectValidator) precheck(res *Result, val map[string]interface{}) {
 	o.checkArrayMustHaveItems(res, val)
-	o.checkItemsMustBeTypeArray(res, val)
+	if !o.Options.DisableObjectArrayTypeCheck {
+		o.checkItemsMustBeTypeArray(res, val)
+	}
 }
 
 func (o *objectValidator) Validate(data interface{}) *Result {

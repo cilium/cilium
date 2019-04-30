@@ -6,9 +6,15 @@ import (
 
 // Render converts a markdown document into a roff formatted document.
 func Render(doc []byte) []byte {
-	renderer := NewRoffRenderer()
+	renderer := RoffRenderer(0)
+	extensions := 0
+	extensions |= blackfriday.EXTENSION_NO_INTRA_EMPHASIS
+	extensions |= blackfriday.EXTENSION_TABLES
+	extensions |= blackfriday.EXTENSION_FENCED_CODE
+	extensions |= blackfriday.EXTENSION_AUTOLINK
+	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
+	extensions |= blackfriday.EXTENSION_FOOTNOTES
+	extensions |= blackfriday.EXTENSION_TITLEBLOCK
 
-	return blackfriday.Run(doc,
-		[]blackfriday.Option{blackfriday.WithRenderer(renderer),
-			blackfriday.WithExtensions(renderer.GetExtensions())}...)
+	return blackfriday.Markdown(doc, renderer, extensions)
 }

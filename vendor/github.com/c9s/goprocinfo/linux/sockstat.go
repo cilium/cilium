@@ -18,19 +18,35 @@ type SockStat struct {
 	TCPAllocated uint64 `json:"tcp_allocated" field:"TCP.alloc"`
 	TCPMemory    uint64 `json:"tcp_memory" field:"TCP.mem"`
 
+	//TCP6:
+	TCP6InUse    uint64 `json:"tcp6_in_use" field:"TCP6.inuse"`
+
 	// UDP:
 	UDPInUse  uint64 `json:"udp_in_use" field:"UDP.inuse"`
 	UDPMemory uint64 `json:"udp_memory" field:"UDP.mem"`
 
+	// UDP6:
+	UDP6InUse uint64 `json:"udp6_in_use" field:"UDP6.inuse"`
+
 	// UDPLITE:
 	UDPLITEInUse uint64 `json:"udplite_in_use" field:"UDPLITE.inuse"`
+
+	// UDPLITE6:
+	UDPLITE6InUse uint64 `json:"udplite6_in_use" field:"UDPLITE6.inuse"`
 
 	// RAW:
 	RAWInUse uint64 `json:"raw_in_use" field:"RAW.inuse"`
 
+	// RAW6:
+	RAW6InUse uint64 `json:"raw6_in_use" field:"RAW6.inuse"`
+
 	// FRAG:
 	FRAGInUse  uint64 `json:"frag_in_use" field:"FRAG.inuse"`
 	FRAGMemory uint64 `json:"frag_memory" field:"FRAG.memory"`
+
+	// FRAG6:
+	FRAG6InUse  uint64 `json:"frag6_in_use" field:"FRAG6.inuse"`
+	FRAG6Memory uint64 `json:"frag6_memory" field:"FRAG6.memory"`
 }
 
 func ReadSockStat(path string) (*SockStat, error) {

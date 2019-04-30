@@ -27,6 +27,9 @@ MTU=$9
 IPSEC=${10}
 MASQ=${11}
 ENCRYPT_DEV=${12}
+HOSTLB=${13}
+CGROUP_ROOT=${14}
+BPFFS_ROOT=${15}
 
 ID_HOST=1
 ID_WORLD=2
@@ -34,6 +37,7 @@ ID_WORLD=2
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
 PROXY_RT_TABLE=2005
+TO_PROXY_RT_TABLE=2004
 
 set -e
 set -x
@@ -158,20 +162,34 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	# Any packet from a local process uses a separate routing table
-	rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+	# Any packet from an ingress proxy uses a separate routing table that routes
+	# the packet back to the cilium host device.
+	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
+
+	# Any packet to an ingress or egress proxy uses a separate routing table
+	# that routes the packet to the loopback device regardless of the destination
+	# address in the packet. For this to work the skb must have a socket set
+	# (e.g., via TPROXY).
+	to_proxy_rulespec="fwmark 0x200/0xF00 pref 9 lookup $TO_PROXY_RT_TABLE"
 
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		if [ -n "$(ip -4 rule list)" ]; then
-			if [ -z "$(ip -4 rule list $rulespec)" ]; then
-				ip -4 rule add $rulespec
+			if [ -z "$(ip -4 rule list $to_proxy_rulespec)" ]; then
+				ip -4 rule add $to_proxy_rulespec
+			fi
+			if [ -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
+				ip -4 rule add $from_ingress_rulespec
 			fi
 		fi
 
+		# Traffic to the host proxy is local
+		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
+		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
 		ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
 		ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
 	else
-		ip -4 rule del $rulespec 2> /dev/null || true
+		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
+		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
 	fi
 
 	# flannel might not have an IPv6 address
@@ -181,18 +199,25 @@ function setup_proxy_rules()
 		*)
 			if [ "$IP6_HOST" != "<nil>" ]; then
 				if [ -n "$(ip -6 rule list)" ]; then
-					if [ -z "$(ip -6 rule list $rulespec)" ]; then
-						ip -6 rule add $rulespec
+					if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
+						ip -6 rule add $to_proxy_rulespec
+					fi
+					if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
+						ip -6 rule add $from_ingress_rulespec
 					fi
 				fi
 	
 				IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
 				if [ -n "$IP6_LLADDR" ]; then
+					# Traffic to the host proxy is local
+					ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
+					# Traffic from ingress proxy goes to Cilium address space via the cilium host device
 					ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
 					ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
 				fi
 			else
-				ip -6 rule del $rulespec 2> /dev/null || true
+				ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
+				ip -6 rule del $from_ingress_rulespec 2> /dev/null || true
 			fi
 			;;
 	esac
@@ -276,6 +301,41 @@ function bpf_load()
 	RETCODE=$?
 	set -e
 	cilium-map-migrate -e $OUT -r $RETCODE
+	return $RETCODE
+}
+
+function bpf_load_cgroups()
+{
+	OPTS=$1
+	IN=$2
+	OUT=$3
+	PROG_TYPE=$4
+	WHERE=$5
+	SEC=$6
+	CALLS_MAP=$7
+	CGRP=$8
+	BPFMNT=$9
+
+	OPTS="${OPTS} ${OPTS_DIR} -DCALLS_MAP=${CALLS_MAP}"
+	bpf_compile $IN $OUT obj "$OPTS"
+
+	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
+	rm -f $TMP_FILE
+
+	cilium-map-migrate -s $OUT
+	set +e
+	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec $SEC
+	RETCODE=$?
+	set -e
+	cilium-map-migrate -e $OUT -r $RETCODE
+
+	if [ "$RETCODE" -eq "0" ]; then
+		set +e
+		bpftool cgroup attach $CGRP $WHERE pinned $TMP_FILE
+		RETCODE=$?
+		set -e
+		rm -f $TMP_FILE
+	fi
 	return $RETCODE
 }
 
@@ -450,6 +510,23 @@ else
 	fi
 fi
 
+if [ "$HOSTLB" = "true" ]; then
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+	fi
+
+	CALLS_MAP="cilium_calls_lb"
+	COPTS="-DLB_L3 -DLB_L4"
+	if [ "$IP6_HOST" != "<nil>" ]; then
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+	fi
+	if [ "$IP4_HOST" != "<nil>" ]; then
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+	fi
+fi
+
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
 POLICY_MAP="cilium_policy_reserved_${ID_HOST}"
@@ -459,8 +536,9 @@ if [ "$MODE" == "ipvlan" ]; then
 fi
 bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 
+# bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
+bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
 if [ "$IPSEC" == "true" ]; then
-	bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
 	if [ $ENCRYPT_DEV != "" ]; then
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
 	fi
