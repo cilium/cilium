@@ -42,8 +42,6 @@ func getScopeFromKey(key string) string {
 func increaseMetric(key, kind, action string, duration time.Duration, err error) {
 	namespace := getScopeFromKey(key)
 	outcome := metrics.Error2Outcome(err)
-	metrics.KVStoreOperationsTotal.
-		WithLabelValues(namespace, kind, action, outcome).Inc()
 	metrics.KVStoreOperationsDuration.
 		WithLabelValues(namespace, kind, action, outcome).Observe(duration.Seconds())
 }
