@@ -167,10 +167,12 @@ func (s *SSHMeta) SampleContainersActions(mode string, networkName string, creat
 		for k, v := range images {
 			s.ContainerCreate(k, v, networkName, fmt.Sprintf("-l id.%s %s", k, createOptionsString))
 		}
+		s.WaitEndpointsReady()
 	case Delete:
 		for k := range images {
 			s.ContainerRm(k)
 		}
+		s.WaitEndpointsDeleted()
 	}
 }
 
