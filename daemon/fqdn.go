@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -48,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/miekg/dns"
 )
@@ -62,6 +64,58 @@ const (
 	metricErrorAllow   = "allow"
 )
 
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP) (map[policyApi.FQDNSelector][]*identity.Identity, error) {
+	var err error
+
+	// Used to track identities which are allocated in calls to
+	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
+	// we have to undo all of our changes and release the identities.
+	// This is best effort, as releasing can fail as well.
+	usedIdentities := make([]*identity.Identity, 0)
+	selectorIdentitySliceMapping := make(map[policyApi.FQDNSelector][]*identity.Identity)
+
+	// Allocate identities for each IPNet and then map to selector
+	for selector, selectorIPs := range selectorsWithIPsToUpdate {
+		var currentlyAllocatedIdentities []*identity.Identity
+		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+			secIDCache.ReleaseSlice(context.TODO(), usedIdentities)
+			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
+				"failed to allocate identities for IPs")
+			return nil, err
+		}
+		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
+		selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
+	}
+
+	return selectorIdentitySliceMapping, nil
+}
+
+func updateSelectorCache(selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) {
+	// Update mapping of selector to set of IPs in selector cache.
+	for selector, identitySlice := range selectors {
+		log.WithFields(logrus.Fields{
+			"fqdnSelectorString": selector,
+			"identitySlice":      identitySlice}).Debug("updating FQDN selector")
+		numIds := make([]identity.NumericIdentity, len(identitySlice))
+		for _, numId := range identitySlice {
+			// Nil check here? Hopefully not necessary...
+			numIds = append(numIds, numId.ID)
+		}
+		policy.UpdateFQDNSelector(selector, numIds)
+	}
+
+	// Selectors which no longer map to IPs (due to TTL expiry, cache being
+	// cleared forcibly via CLI, etc.) still exist in the selector cache
+	// since policy is imported which allows it, but the selector does
+	// not match anything anymore.
+	for k := range selectorsWithoutIPs {
+		log.WithFields(logrus.Fields{
+			"fqdnSelectorString": selectorsWithoutIPs[k],
+		}).Debug("removing all identities from FQDN selector")
+		policy.UpdateFQDNSelector(selectorsWithoutIPs[k], []identity.NumericIdentity{})
+	}
+}
+
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
 // d.dnsRuleGen, and the DNS proxy.
 // dnsRuleGen and DNSPoller will use the default resolver and, implicitly, the
@@ -73,11 +127,21 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		OverLimit:      option.Config.ToFQDNsMaxIPsPerHost,
 		Cache:          fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRules: func(generatedRules []*policyApi.Rule) error {
+		AddGeneratedRulesAndUpdateSelectors: func(generatedRules []*policyApi.Rule, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) error {
+			// Convert set of selectors with IPs to update to set of selectors
+			// with identities corresponding to said IPs.
+			selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate)
+			if err != nil {
+				return err
+			}
+
+			// Update selector cache for said FQDN selectors.
+			updateSelectorCache(selectorsIdentities, selectorsWithoutIPs)
+
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
 			// the ToFQDN-UUID one).
-			_, err := d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
+			_, err = d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
 			return err
 		},
 		PollerResponseNotify: func(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
@@ -147,7 +211,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		DoFunc: func(ctx context.Context) error {
 
 			namesToClean := []string{}
+			// cleanup poller cache
 			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC()...)
+
+			// cleanup caches for all existing endpoints as well.
 			endpoints := endpointmanager.GetEndpoints()
 			for _, ep := range endpoints {
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
@@ -373,7 +440,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 					ep.SyncEndpointHeaderFile(d)
 				}
 
-				log.Debug("Updating DNS name in cache from response to to query")
+				log.WithFields(logrus.Fields{
+					"qname": qname,
+					"ips":   responseIPs,
+				}).Debug("Updating DNS name in cache from response to to query")
 				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 					qname: {
 						IPs: responseIPs,

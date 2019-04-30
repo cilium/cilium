@@ -252,11 +252,15 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	// CAUTION, there is a small race between this PrepareFQDNRules invocation and
 	// taking the policy lock. As long as policyAdd is fed by a single-threaded
 	// queue this should never be an issue.
-	rules := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
+	// TODO - we do not update the SelectorCache with the mapping of selector to
+	// IPs here. This would allow us to pre-populate the SelectorCache with the
+	// IPs that already have been resolved which correspond to DNS names that
+	// are in the newly added rules.
+	rules, _ := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
 	if len(rules) == 0 && len(sourceRules) > 0 {
 		// All rules being added have ToFQDNs UUIDs that have been removed and
 		// will not be re-inserted to avoid a race.
-		err := errors.New("PrepareFQDNRules delete all sourceRules due invalid UUIDs")
+		err := errors.New("PrepareFQDNRules delete all rules due invalid UUIDs")
 		resChan <- &PolicyAddResult{
 			newRev: 0,
 			err:    api.Error(PutPolicyFailureCode, err),
