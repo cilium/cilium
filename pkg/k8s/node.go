@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 
@@ -183,4 +184,25 @@ func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 func GetNode(c kubernetes.Interface, nodeName string) (*v1.Node, error) {
 	// Try to retrieve node's cidr and addresses from k8s's configuration
 	return c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+}
+
+// SetNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
+// false as Cilium is managing the network connectivity.
+// https://kubernetes.io/docs/concepts/architecture/nodes/#condition
+func SetNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
+	condition := v1.NodeCondition{
+		Type:               v1.NodeNetworkUnavailable,
+		Status:             v1.ConditionFalse,
+		Reason:             "CiliumIsUp",
+		Message:            "Cilium is running on this node",
+		LastTransitionTime: metav1.Now(),
+		LastHeartbeatTime:  metav1.Now(),
+	}
+	raw, err := json.Marshal(&[]v1.NodeCondition{condition})
+	if err != nil {
+		return err
+	}
+	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
+	_, err = c.CoreV1().Nodes().PatchStatus(nodeName, patch)
+	return err
 }
