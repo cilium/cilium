@@ -1855,7 +1855,7 @@ Label verdict: undecided
 	ctx = buildSearchCtx("bar", "foo", 80)
 	expectedOut += `
 Resolving ingress port policy for [any:foo]
-0/1 rules selected
+0/0 rules selected
 Found no allow rule
 L4 ingress verdict: undecided
 `

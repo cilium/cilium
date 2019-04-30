@@ -211,7 +211,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToKeys(direction, *e.prevIdentityCache, e.desiredPolicy.DeniedIngressIdentities)
+			keysFromFilter := l4.ToKeys(direction, *e.prevIdentityCache)
 
 			for _, keyFromFilter := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {

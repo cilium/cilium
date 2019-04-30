@@ -566,6 +566,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		value, isNew, err = a.lockedAllocate(ctx, key)
 		if err == nil {
 			a.mainCache.insert(key, value)
+			log.WithField(fieldKey, key).WithField(fieldID, value).Info("Allocated key")
 			return value, isNew, nil
 		}
 

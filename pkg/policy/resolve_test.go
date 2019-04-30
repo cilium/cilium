@@ -241,17 +241,12 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
 		},
-		PolicyOwner:             DummyOwner{},
-		DeniedIngressIdentities: cache.IdentityCache{},
-		DeniedEgressIdentities:  cache.IdentityCache{},
+		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
 		PolicyMapState: policy.PolicyMapState,
 	}
 
-	// Ignore the matching rules, this is intermediate state during
-	// generation of the EndpointPolicy.
-	policy.matchingRules = nil
 	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
 
@@ -332,16 +327,11 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 			IngressPolicyEnabled: true,
 			EgressPolicyEnabled:  false,
 		},
-		PolicyOwner:             DummyOwner{},
-		DeniedIngressIdentities: cache.IdentityCache{},
-		DeniedEgressIdentities:  cache.IdentityCache{},
+		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
 		PolicyMapState: policy.PolicyMapState,
 	}
 
-	// Ignore the matching rules, this is intermediate state during
-	// generation of the EndpointPolicy.
-	policy.matchingRules = nil
 	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
 }
