@@ -16,6 +16,8 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -25,8 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -42,43 +43,44 @@ type K8sCiliumClient struct {
 	clientset.Interface
 }
 
-func updateNodeAnnotation(c kubernetes.Interface, node *v1.Node, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) (*v1.Node, error) {
-	if node.Annotations == nil {
-		node.Annotations = map[string]string{}
-	}
+func updateNodeAnnotation(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
+	annotations := map[string]string{}
 
 	if v4CIDR != nil {
-		node.Annotations[annotation.V4CIDRName] = v4CIDR.String()
+		annotations[annotation.V4CIDRName] = v4CIDR.String()
 	}
 	if v6CIDR != nil {
-		node.Annotations[annotation.V6CIDRName] = v6CIDR.String()
+		annotations[annotation.V6CIDRName] = v6CIDR.String()
 	}
 
 	if v4HealthIP != nil {
-		node.Annotations[annotation.V4HealthName] = v4HealthIP.String()
+		annotations[annotation.V4HealthName] = v4HealthIP.String()
 	}
 	if v6HealthIP != nil {
-		node.Annotations[annotation.V6HealthName] = v6HealthIP.String()
+		annotations[annotation.V6HealthName] = v6HealthIP.String()
 	}
 
 	if v4CiliumHostIP != nil {
-		node.Annotations[annotation.CiliumHostIP] = v4CiliumHostIP.String()
+		annotations[annotation.CiliumHostIP] = v4CiliumHostIP.String()
 	}
 
 	if v6CiliumHostIP != nil {
-		node.Annotations[annotation.CiliumHostIPv6] = v6CiliumHostIP.String()
+		annotations[annotation.CiliumHostIPv6] = v6CiliumHostIP.String()
 	}
 
-	node, err := c.CoreV1().Nodes().Update(node)
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	raw, err := json.Marshal(annotations)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
 
-	if node == nil {
-		return nil, ErrNilNode
-	}
+	_, err = c.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, patch)
 
-	return node, nil
+	return err
 }
 
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
@@ -99,27 +101,12 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
 			DoFunc: func(_ context.Context) error {
-				node, err := GetNode(k8sCli, nodeName)
-				if errors.IsNotFound(err) {
-					err = ErrNilNode
-				}
-
-				if err == nil && node != nil {
-					_, err = updateNodeAnnotation(k8sCli, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
-				}
-
-				switch {
-				case err == nil:
-					return SetNodeNetworkUnavailableFalse(k8sCli, nodeName)
-				case errors.IsConflict(err):
-					scopedLog.WithFields(logrus.Fields{
-						fieldMaxRetry: maxUpdateRetries,
-					}).WithError(err).Debugf("Unable to update node resource with annotation")
-					return err
-				default:
-					scopedLog.WithFields(logrus.Fields{}).WithError(err).Warn("Unable to update node resource with annotation")
+				err := updateNodeAnnotation(k8sCli, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
+				if err != nil {
+					scopedLog.WithFields(logrus.Fields{}).WithError(err).Warn("Unable to patch node resource with annotation")
 					return err
 				}
+				return SetNodeNetworkUnavailableFalse(k8sCli, nodeName)
 			},
 		})
 
