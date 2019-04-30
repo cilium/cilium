@@ -256,8 +256,8 @@ func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.La
 		err error
 	)
 
-	// L3-only rule without requirements.
-	if len(rule.ToPorts) == 0 && len(rule.FromRequires) == 0 {
+	// L3-only rule (with requirements folded into fromEndpoints).
+	if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
 		cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
@@ -356,7 +356,7 @@ func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, resul
 		// from rules which select the labels in ctx.To. This ensures that
 		// FromRequires is taken into account even if it isn't part of the current
 		// rule over which we are iterating.
-		if len(requirements) > 0 {
+		if len(requirements) > 0 && len(ingressRule.FromEndpoints) > 0 {
 			// Create a deep copy of the rule, as we are going to modify FromEndpoints
 			// with requirementsSelector. We don't want to modify the rule itself
 			// in the policy repository.
@@ -635,8 +635,8 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 		err error
 	)
 
-	// L3-only rule
-	if len(rule.ToPorts) == 0 && len(rule.ToRequires) == 0 {
+	// L3-only rule (with requirements folded into toEndpoints).
+	if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
 		cnt, err = mergeEgressPortProto(ctx, toEndpoints, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
@@ -742,7 +742,7 @@ func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result
 		// from rules which select the labels in ctx.From. This ensures that
 		// ToRequires is taken into account even if it isn't part of the current
 		// rule over which we are iterating.
-		if len(requirements) > 0 {
+		if len(requirements) > 0 && len(egressRule.ToEndpoints) > 0 {
 			// Create a deep copy of the rule, as we are going to modify
 			// ToEndpoints with requirements; we don't want to modify the rule
 			// in the repository.
