@@ -110,7 +110,7 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 
 				switch {
 				case err == nil:
-					return nil
+					return SetNodeNetworkUnavailableFalse(k8sCli, nodeName)
 				case errors.IsConflict(err):
 					scopedLog.WithFields(logrus.Fields{
 						fieldMaxRetry: maxUpdateRetries,
