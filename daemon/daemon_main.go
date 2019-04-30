@@ -602,6 +602,9 @@ func init() {
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(option.MaxCtrlIntervalName)
 
+	flags.StringSlice(option.SubsysMetrics, metrics.DefaultSubsystems(), "Subsystems metrics that Cilium exposes.")
+	option.BindEnv(option.SubsysMetrics)
+
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")

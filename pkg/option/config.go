@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -442,6 +443,10 @@ const (
 
 	// K8sEventHandover is the name of the K8sEventHandover option
 	K8sEventHandover = "enable-k8s-event-handover"
+
+	// SubsysMetrics represents the metrics subsystem that Cilium should expose
+	// to prometheus.
+	SubsysMetrics = "subsys-metrics"
 )
 
 // FQDNS variables
@@ -891,6 +896,9 @@ type DaemonConfig struct {
 	// mirroring it into the kvstore for reduced overhead in large
 	// clusters.
 	K8sEventHandover bool
+
+	// SubsysMetricsMask is the mask of the translation made from SubsysMetrics
+	SubsysMetricsMask uint64
 }
 
 var (
@@ -963,6 +971,11 @@ func (c *DaemonConfig) TracingEnabled() bool {
 // IsFlannelMasterDeviceSet returns if the flannel master device is set.
 func (c *DaemonConfig) IsFlannelMasterDeviceSet() bool {
 	return len(c.FlannelMasterDevice) != 0
+}
+
+// IsSubsysMetricEnabled returns true if the given subsystem metric is enabled.
+func (c *DaemonConfig) IsSubsysMetricEnabled(subsystem uint64) bool {
+	return (c.SubsysMetricsMask & subsystem) != 0
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -1241,6 +1254,12 @@ func (c *DaemonConfig) Populate() {
 		c.ConntrackGCInterval = time.Duration(val) * time.Second
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
+	}
+
+	var err error
+	c.SubsysMetricsMask, err = metrics.SubsystemsMask(viper.GetStringSlice(SubsysMetrics))
+	if err != nil {
+		log.Fatalf("Invalid Subsystem Metric: %s", err)
 	}
 
 	// Hidden options
