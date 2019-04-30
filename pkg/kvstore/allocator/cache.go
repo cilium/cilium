@@ -15,11 +15,9 @@
 package allocator
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -230,19 +228,6 @@ func (c *cache) start(a *Allocator) waitChan {
 	}()
 
 	return listDone
-}
-
-func (c *cache) startAndWait(a *Allocator) error {
-	listDone := c.start(a)
-
-	// Wait for watcher to be started and for list operation to succeed
-	select {
-	case <-listDone:
-	case <-time.After(listTimeout):
-		return fmt.Errorf("Time out while waiting for list operation to complete")
-	}
-
-	return nil
 }
 
 func (c *cache) stop() {
