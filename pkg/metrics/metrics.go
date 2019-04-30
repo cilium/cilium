@@ -530,16 +530,6 @@ var (
 
 	// KVstore events
 
-	// KVStoreOperationsTotal is the  number of interactions with the Key-Value
-	// Store, labeled by subsystem, kind of action and action
-	//
-	// Deprecated: This metric can be removed in 1.6 as
-	// KVStoreOperationsDuration provides the count along with duration
-	KVStoreOperationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "kvstore_operations_total",
-		Help: "Number of interactions with the Key-Value Store, labeled by subsystem, kind of action and action",
-	}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
-
 	// KVStoreOperationsDuration records the duration of kvstore operations
 	KVStoreOperationsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
@@ -628,7 +618,6 @@ func init() {
 
 	MustRegister(IpamEvent)
 
-	MustRegister(KVStoreOperationsTotal)
 	MustRegister(KVStoreOperationsDuration)
 	MustRegister(KVStoreEventsQueueDuration)
 
