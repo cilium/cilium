@@ -53,6 +53,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
   - nodes/status
   verbs:
   - patch
