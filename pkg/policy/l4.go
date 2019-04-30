@@ -384,8 +384,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 	}
 
 	// Check L3-only filters first.
-	l3flt := fmt.Sprintf("0/%s", models.PortProtocolANY)
-	filter, match := l4[l3flt]
+	filter, match := l4[api.PortProtocolAny]
 	if match && filter.matchesLabels(labels) {
 		return api.Allowed
 	}
