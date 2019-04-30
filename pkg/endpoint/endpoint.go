@@ -1733,12 +1733,7 @@ OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
 
-	// Initial state transitions i.e nil --> waiting-for-identity
-	// need to be handled correctly while updating metrics.
-	// Note that if we are transitioning from some state to restoring
-	// state, we cannot decrement the old state counters as they will not
-	// be accounted for in the metrics.
-	if fromState != "" && toState != StateRestoring {
+	if fromState != "" {
 		metrics.EndpointStateCount.
 			WithLabelValues(fromState).Dec()
 	}
@@ -1805,7 +1800,7 @@ OKState:
 	e.state = toState
 	e.logStatusLocked(Other, OK, reason)
 
-	if fromState != "" && toState != StateRestoring {
+	if fromState != "" {
 		metrics.EndpointStateCount.
 			WithLabelValues(fromState).Dec()
 	}
