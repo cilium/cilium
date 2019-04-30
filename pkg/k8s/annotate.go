@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 package k8s
 
 import (
+	"context"
 	"net"
-	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/controller"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -95,40 +96,32 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, v4CIDR, v6CIDR *cidr.CIDR,
 	})
 	scopedLog.Debug("Updating node annotations with node CIDRs")
 
-	go func(c kubernetes.Interface, nodeName string, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) {
-		var node *v1.Node
-		var err error
-
-		for n := 1; n <= maxUpdateRetries; n++ {
-			if node == nil {
-				node, err = GetNode(c, nodeName)
+	controller.NewManager().UpdateController("update-k8s-node-annotations",
+		controller.ControllerParams{
+			DoFunc: func(_ context.Context) error {
+				node, err := GetNode(k8sCli, nodeName)
 				if errors.IsNotFound(err) {
 					err = ErrNilNode
 				}
-			}
 
-			if err == nil && node != nil {
-				node, err = updateNodeAnnotation(c, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
-			}
+				if err == nil && node != nil {
+					_, err = updateNodeAnnotation(k8sCli, node, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
+				}
 
-			switch {
-			case err == nil:
-				return
-			case errors.IsConflict(err):
-				scopedLog.WithFields(logrus.Fields{
-					fieldRetry:    n,
-					fieldMaxRetry: maxUpdateRetries,
-				}).WithError(err).Debugf("Unable to update node resource with annotation")
-			default:
-				scopedLog.WithFields(logrus.Fields{
-					fieldRetry:    n,
-					fieldMaxRetry: maxUpdateRetries,
-				}).WithError(err).Warn("Unable to update node resource with annotation")
-			}
-
-			time.Sleep(time.Duration(n) * time.Second)
-		}
-	}(k8sCli, nodeName, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
+				switch {
+				case err == nil:
+					return nil
+				case errors.IsConflict(err):
+					scopedLog.WithFields(logrus.Fields{
+						fieldMaxRetry: maxUpdateRetries,
+					}).WithError(err).Debugf("Unable to update node resource with annotation")
+					return err
+				default:
+					scopedLog.WithFields(logrus.Fields{}).WithError(err).Warn("Unable to update node resource with annotation")
+					return err
+				}
+			},
+		})
 
 	return nil
 }
