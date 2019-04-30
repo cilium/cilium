@@ -18,7 +18,7 @@ metadata:
   name: coredns
   namespace: kube-system
   labels:
-    addonmanager.kubernetes.io/mode: EnsureExists
+      addonmanager.kubernetes.io/mode: EnsureExists
 data:
   Corefile: |
     .:53 {
@@ -30,7 +30,7 @@ data:
             fallthrough in-addr.arpa ip6.arpa
         }
         prometheus :9153
-        proxy . /etc/resolv.conf
+        forward . /etc/resolv.conf
         cache 30
         loop
         reload
