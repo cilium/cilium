@@ -151,6 +151,12 @@ const (
 
 	// LabelAPIReturnCode is the HTTP code returned for that API path
 	LabelAPIReturnCode = "return_code"
+
+	// LabelOperation is the label for BPF maps operations
+	LabelOperation = "operation"
+
+	// LabelMapName is the label for the BPF map name
+	LabelMapName = "mapName"
 )
 
 var (
@@ -342,6 +348,13 @@ var (
 	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
+
+	// BPFSyscallDuration is the metric for bpf syscalls duration.
+	BPFSyscallDuration = NoOpObserverVec
+
+	// BPFMapOps is the metric to measure the number of operations done to a
+	// bpf map.
+	BPFMapOps = NoOpCounterVec
 )
 
 type Configuration struct {
@@ -389,6 +402,8 @@ type Configuration struct {
 	KVStoreOperationsDurationEnabled        bool
 	KVStoreEventsQueueDurationEnabled       bool
 	FQDNGarbageCollectorCleanedTotalEnabled bool
+	BPFSyscallDurationEnabled               bool
+	BPFMapOps                               bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -910,6 +925,28 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, FQDNGarbageCollectorCleanedTotal)
 			c.FQDNGarbageCollectorCleanedTotalEnabled = true
+
+		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
+			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemBPF,
+				Name:      "syscall_duration_seconds",
+				Help:      "Duration of BPF system calls",
+			}, []string{LabelOperation, LabelOutcome})
+
+			collectors = append(collectors, BPFSyscallDuration)
+			c.BPFSyscallDurationEnabled = true
+
+		case Namespace + "_" + SubsystemBPF + "_map_ops_total":
+			BPFMapOps = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemBPF,
+				Name:      "map_ops_total",
+				Help:      "Total operations on map, tagged by map name",
+			}, []string{LabelMapName, LabelOperation, LabelOutcome})
+
+			collectors = append(collectors, BPFMapOps)
+			c.BPFMapOps = true
 		}
 	}
 
