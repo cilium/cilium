@@ -80,7 +80,7 @@ type Configuration struct {
 // configuration. It returns nil when the configuration is valid.
 func (c *Configuration) validate() error {
 	if c.Prefix == "" {
-		return fmt.Errorf("Prefix must be specified")
+		return fmt.Errorf("prefix must be specified")
 	}
 
 	if c.KeyCreator == nil {
@@ -448,7 +448,7 @@ func (s *SharedStore) listAndStartWatcher() error {
 	select {
 	case <-listDone:
 	case <-time.After(listTimeoutDefault):
-		return fmt.Errorf("Time out while retrieving initial list of objects from kvstore")
+		return fmt.Errorf("timeout while retrieving initial list of objects from kvstore")
 	}
 
 	return nil
@@ -457,45 +457,38 @@ func (s *SharedStore) listAndStartWatcher() error {
 func (s *SharedStore) watcher(listDone chan bool) {
 	s.kvstoreWatcher = s.backend.ListAndWatch(s.name+"-watcher", s.conf.Prefix, watcherChanSize)
 
-	for {
-		select {
-		case event, ok := <-s.kvstoreWatcher.Events:
-			if !ok {
-				return
+	for event := range s.kvstoreWatcher.Events {
+		if event.Typ == kvstore.EventTypeListDone {
+			s.getLogger().Debug("Initial list of objects received from kvstore")
+			close(listDone)
+			continue
+		}
+
+		logger := s.getLogger().WithFields(logrus.Fields{
+			"key":       event.Key,
+			"eventType": event.Typ,
+		})
+
+		logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
+
+		keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
+		if keyName[0] == '/' {
+			keyName = keyName[1:]
+		}
+
+		switch event.Typ {
+		case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+			if err := s.updateKey(keyName, event.Value); err != nil {
+				logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
 			}
 
-			if event.Typ == kvstore.EventTypeListDone {
-				s.getLogger().Debug("Initial list of objects received from kvstore")
-				close(listDone)
-				continue
-			}
+		case kvstore.EventTypeDelete:
+			if localKey := s.lookupLocalKey(keyName); localKey != nil {
+				logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
 
-			logger := s.getLogger().WithFields(logrus.Fields{
-				"key":       event.Key,
-				"eventType": event.Typ,
-			})
-
-			logger.Debugf("Received key update via kvstore [value %s]", string(event.Value))
-
-			keyName := strings.TrimPrefix(event.Key, s.conf.Prefix)
-			if keyName[0] == '/' {
-				keyName = keyName[1:]
-			}
-
-			switch event.Typ {
-			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-				if err := s.updateKey(keyName, event.Value); err != nil {
-					logger.WithError(err).Warningf("Unable to unmarshal store value: %s", string(event.Value))
-				}
-
-			case kvstore.EventTypeDelete:
-				if localKey := s.lookupLocalKey(keyName); localKey != nil {
-					logger.Warning("Received delete event for local key. Re-creating the key in the kvstore")
-
-					s.syncLocalKey(localKey)
-				} else {
-					s.deleteKey(keyName)
-				}
+				s.syncLocalKey(localKey)
+			} else {
+				s.deleteKey(keyName)
 			}
 		}
 	}
