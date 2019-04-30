@@ -105,7 +105,6 @@ func (m MaintenanceMocker) MoveLeader(ctx context.Context, transfereeID uint64) 
 func (s *EtcdSuite) TestHint(c *C) {
 	var err error
 
-	err = nil
 	c.Assert(Hint(err), IsNil)
 
 	err = errors.New("foo bar")
@@ -120,10 +119,8 @@ func (s *EtcdSuite) TestHint(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-	}
+	<-ctx.Done()
+	err = ctx.Err()
 
 	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded")
 }
