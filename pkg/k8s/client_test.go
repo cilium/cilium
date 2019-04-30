@@ -17,6 +17,7 @@
 package k8s
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"time"
@@ -51,22 +52,28 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	// set buffer to 2 to prevent blocking when calling UseNodeCIDR
 	// and we need to wait for the response of the channel.
-	updateChan := make(chan bool, 2)
+	patchChan := make(chan bool, 2)
 	fakeK8sClient := &fake.Clientset{}
 	k8sCli.Interface = fakeK8sClient
-	fakeK8sClient.AddReactor("get", "nodes",
+	fakeK8sClient.AddReactor("patch", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
-			name := action.(testing.GetAction).GetName()
-			c.Assert(name, Equals, "node1")
-			return true, node1.DeepCopy(), nil
-		})
-	fakeK8sClient.AddReactor("update", "nodes",
-		func(action testing.Action) (bool, runtime.Object, error) {
-			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
+			// If subresource is empty it means we are patching status and not
+			// patching annotations
+			if action.GetSubresource() != "" {
+				return true, nil, nil
+			}
+
 			n1copy := node1.DeepCopy()
 			n1copy.Annotations[annotation.V4CIDRName] = "10.2.0.0/16"
-			c.Assert(n, checker.DeepEquals, n1copy)
-			updateChan <- true
+			raw, err := json.Marshal(n1copy.Annotations)
+			if err != nil {
+				c.Assert(err, IsNil)
+			}
+			patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+
+			patchReceived := action.(testing.PatchAction).GetPatch()
+			c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
+			patchChan <- true
 			return true, n1copy, nil
 		})
 
@@ -88,7 +95,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(err, IsNil)
 
 	select {
-	case <-updateChan:
+	case <-patchChan:
 	case <-time.Tick(10 * time.Second):
 		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
@@ -112,15 +119,14 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 
 	fakeK8sClient = &fake.Clientset{}
 	k8sCli.Interface = fakeK8sClient
-	fakeK8sClient.AddReactor("get", "nodes",
+	fakeK8sClient.AddReactor("patch", "nodes",
 		func(action testing.Action) (bool, runtime.Object, error) {
-			name := action.(testing.GetAction).GetName()
-			c.Assert(name, Equals, "node2")
-			return true, node2.DeepCopy(), nil
-		})
-	fakeK8sClient.AddReactor("update", "nodes",
-		func(action testing.Action) (bool, runtime.Object, error) {
-			n := action.(testing.UpdateAction).GetObject().(*v1.Node)
+			// If subresource is empty it means we are patching status and not
+			// patching annotations
+			if action.GetSubresource() != "" {
+				return true, nil, nil
+			}
+			// first call will be a patch for annotations
 			if failAttempts == 0 {
 				failAttempts++
 				return true, nil, fmt.Errorf("failing on purpose")
@@ -128,8 +134,15 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			n2Copy := node2.DeepCopy()
 			n2Copy.Annotations[annotation.V4CIDRName] = "10.254.0.0/16"
 			n2Copy.Annotations[annotation.V6CIDRName] = "aaaa:aaaa:aaaa:aaaa:beef:beef::/96"
-			c.Assert(n, checker.DeepEquals, n2Copy)
-			updateChan <- true
+			raw, err := json.Marshal(n2Copy.Annotations)
+			if err != nil {
+				c.Assert(err, IsNil)
+			}
+			patchWanted := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
+
+			patchReceived := action.(testing.PatchAction).GetPatch()
+			c.Assert(string(patchReceived), checker.DeepEquals, string(patchWanted))
+			patchChan <- true
 			return true, n2Copy, nil
 		})
 
@@ -153,7 +166,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 	c.Assert(err, IsNil)
 
 	select {
-	case <-updateChan:
+	case <-patchChan:
 	case <-time.Tick(10 * time.Second):
 		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
