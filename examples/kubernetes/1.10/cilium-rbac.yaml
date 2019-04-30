@@ -51,6 +51,12 @@ rules:
   - watch
   - update
 - apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - patch
+- apiGroups:
   - extensions
   resources:
   - ingresses
