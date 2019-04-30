@@ -93,6 +93,7 @@ cilium-agent [flags]
       --log-opt map                                Log driver options for cilium (default map[])
       --log-system-load                            Enable periodic logging of system load
       --masquerade                                 Masquerade packets from endpoints leaving the host (default true)
+      --metrics strings                            Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                 Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-queue-size int                     Size of the event queue when reading monitor events (default 32768)
       --mtu int                                    Overwrite auto-detected MTU of underlying network

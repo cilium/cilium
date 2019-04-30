@@ -32,7 +32,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -442,6 +444,10 @@ const (
 
 	// K8sEventHandover is the name of the K8sEventHandover option
 	K8sEventHandover = "enable-k8s-event-handover"
+
+	// Metrics represents the metrics subsystem that Cilium should expose
+	// to prometheus.
+	Metrics = "metrics"
 )
 
 // FQDNS variables
@@ -891,6 +897,9 @@ type DaemonConfig struct {
 	// mirroring it into the kvstore for reduced overhead in large
 	// clusters.
 	K8sEventHandover bool
+
+	// MetricsConfig is the configuration set in metrics
+	MetricsConfig metrics.Configuration
 }
 
 var (
@@ -1242,6 +1251,21 @@ func (c *DaemonConfig) Populate() {
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
+
+	// Metrics Setup
+	defaultMetrics := metrics.DefaultMetrics()
+	for _, metric := range viper.GetStringSlice(Metrics) {
+		switch metric[0] {
+		case '+':
+			defaultMetrics[metric[1:]] = struct{}{}
+		case '-':
+			delete(defaultMetrics, metric[1:])
+		}
+	}
+	var collectors []prometheus.Collector
+	metricsSlice := common.MapStringStructToSlice(defaultMetrics)
+	c.MetricsConfig, collectors = metrics.CreateConfiguration(metricsSlice)
+	prometheus.MustRegister(collectors...)
 
 	// Hidden options
 	c.ConfigFile = viper.GetString(ConfigFile)

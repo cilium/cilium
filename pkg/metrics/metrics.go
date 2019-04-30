@@ -529,11 +529,7 @@ var (
 
 	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
 	// GC job.
-	FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: Namespace,
-		Name:      "fqdn_gc_deletions_total",
-		Help:      "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
-	})
+	FQDNGarbageCollectorCleanedTotal = NoOpCounter
 )
 
 func init() {
