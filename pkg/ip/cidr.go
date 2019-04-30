@@ -32,15 +32,7 @@ func ParseCIDRs(cidrs []string) (valid []*net.IPNet, invalid []string) {
 				invalid = append(invalid, cidr)
 				continue
 			} else {
-				bits := net.IPv6len * 8
-				if ip.To4() != nil {
-					ip = ip.To4()
-					bits = net.IPv4len * 8
-				}
-				prefix = &net.IPNet{
-					IP:   ip,
-					Mask: net.CIDRMask(bits, bits),
-				}
+				prefix = IPToPrefix(ip)
 			}
 		}
 		if prefix != nil {
