@@ -249,7 +249,8 @@ func (m *IptablesManager) Init() {
 	if err := modulesManager.FindOrLoadModules(
 		"ip_tables", "iptable_nat", "iptable_mangle", "iptable_raw",
 		"iptable_filter"); err != nil {
-		log.WithError(err).Fatal("iptables modules could not be initialized")
+		log.WithError(err).Warning(
+			"iptables modules could not be initialized. It probably means that iptables is not available on this system")
 	}
 	if err := modulesManager.FindOrLoadModules(
 		"ip6_tables", "ip6table_mangle", "ip6table_raw"); err != nil {
