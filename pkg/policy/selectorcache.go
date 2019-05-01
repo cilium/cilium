@@ -129,6 +129,8 @@ type identitySelector interface {
 	addUser(CachedSelectionUser) (added bool)
 	removeUser(CachedSelectionUser) (last bool)
 	notifyUsers(added, deleted []identity.NumericIdentity)
+	addOwner()
+	removeOwner() bool
 }
 
 // scIdentity is the information we need about a an identity that rules can select
@@ -192,6 +194,7 @@ type selectorManager struct {
 	selections       unsafe.Pointer // *[]identity.NumericIdentity
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
+	ownerCount       uint
 }
 
 // Equal is used by checker.Equals, and only considers the identity of the selector,
@@ -237,9 +240,17 @@ func (s *selectorManager) String() string {
 	return s.key
 }
 
-//
-// identitySelector implementation (== internal API)
-//
+func (s *selectorManager) addOwner() {
+	s.ownerCount += 1
+}
+
+func (s *selectorManager) removeOwner() bool {
+	s.ownerCount -= 1
+	if s.ownerCount == 0 {
+		return true
+	}
+	return false
+}
 
 // lock must be held
 func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
@@ -677,4 +688,101 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 		sc.updateFQDNSelector(fqdnSels[i], noIdentities)
 	}
 	sc.mutex.Unlock()
+}
+
+func (sc *SelectorCache) AddIdentitySelectorOwner(selector api.EndpointSelector) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	key := selector.String()
+	sel, added := sc.selectors[key]
+
+	if !added {
+		newIDSel := &labelIdentitySelector{
+			selectorManager: selectorManager{
+				key:              key,
+				users:            make(map[CachedSelectionUser]struct{}),
+				cachedSelections: make(map[identity.NumericIdentity]struct{}),
+			},
+			selector: selector,
+		}
+		newIDSel.addOwner()
+		sc.selectors[key] = newIDSel
+		return
+	}
+	sel.addOwner()
+}
+
+func (sc *SelectorCache) AddFQDNSelectorOwner(selector api.FQDNSelector) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	key := selector.String()
+	sel, added := sc.selectors[key]
+
+	if !added {
+		newIDSel := &fqdnSelector{
+			selectorManager: selectorManager{
+				key:              key,
+				users:            make(map[CachedSelectionUser]struct{}),
+				cachedSelections: make(map[identity.NumericIdentity]struct{}),
+			},
+			selector: selector,
+		}
+		newIDSel.addOwner()
+		sc.selectors[key] = newIDSel
+		return
+	}
+	sel.addOwner()
+}
+
+func (sc *SelectorCache) RemoveIdentitySelectorOwner(selector api.EndpointSelector) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	key := selector.String()
+	sel, added := sc.selectors[key]
+
+	// If selector isn't in the cache, this is a no-op.
+	if added {
+		// No references to selector exist in policy repository, remove from
+		// SelectorCache.
+		if sel.removeOwner() {
+			delete(sc.selectors, key)
+		}
+	}
+}
+
+func (sc *SelectorCache) RemoveFQDNSelectorOwner(selector api.FQDNSelector) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	key := selector.String()
+	sel, added := sc.selectors[key]
+
+	// If selector isn't in the cache, this is a no-op.
+	if added {
+		// No references to selector exist in policy repository, remove from
+		// SelectorCache now.
+		if sel.removeOwner() {
+			delete(sc.selectors, key)
+		}
+	}
+}
+
+func AddIdentitySelectorOwner(selector api.EndpointSelector) {
+	selectorCache.AddIdentitySelectorOwner(selector)
+}
+
+func AddFQDNSelectorOwner(selector api.FQDNSelector) {
+	selectorCache.AddFQDNSelectorOwner(selector)
+}
+
+func RemoveIdentitySelectorOwner(selector api.EndpointSelector) {
+	selectorCache.RemoveIdentitySelectorOwner(selector)
+}
+
+func RemoveFQDNSelectorOwner(selector api.FQDNSelector) {
+	selectorCache.RemoveFQDNSelectorOwner(selector)
+
 }
