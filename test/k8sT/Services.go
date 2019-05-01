@@ -102,7 +102,8 @@ var _ = Describe("K8sServicesTest", func() {
 	waitPodsDs := func() {
 		groups := []string{testDS, testDSClient}
 		for _, pod := range groups {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), helpers.HelperTimeout)
+			// Need two pods, one for each node
+			err := kubectl.WaitforNPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), kubectl.GetNumNodes(), helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil())
 		}
 	}
@@ -125,7 +126,8 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("Checks service on same node", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
+			// 2 app1 + 1 app2 + 1 app3
+			err := kubectl.WaitforNPods(helpers.DefaultNamespace, "-l zgroup=testapp", 4, helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
 			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
@@ -245,7 +247,8 @@ var _ = Describe("K8sServicesTest", func() {
 			kubectl.Apply(servicePath).ExpectSuccess("cannot install external service")
 			kubectl.Apply(podPath).ExpectSuccess("cannot install pod path")
 
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			// wait for single pod replica
+			err := kubectl.WaitforNPods(helpers.DefaultNamespace, "", 1, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
