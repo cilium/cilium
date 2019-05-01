@@ -167,6 +167,8 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // is ignored in the search.  If multiple `PortRule` rules are found, all rules
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
+//
+// NOTE: This is only called from unit tests.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision())
 
@@ -175,14 +177,6 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, er
 	}
 
 	return &result.Egress, nil
-}
-
-// ResolveCIDRPolicy resolves the L3 policy for a set of endpoints by searching
-// the policy repository for `CIDR` rules that are attached to a `Rule`
-// where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
-// is ignored in the search.
-func (p *Repository) ResolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
-	return p.rules.resolveCIDRPolicy(ctx)
 }
 
 // AllowsIngressRLocked evaluates the policy repository for the provided search
@@ -219,6 +213,8 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 // context and returns the verdict. If no matching policy allows for the
 // connection, the request will be denied. The policy repository mutex must be
 // held.
+//
+// NOTE: This is only called from unit tests.
 func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	// Lack of DPorts in the SearchContext means L3-only search
 	if len(ctx.DPorts) == 0 {
@@ -256,24 +252,6 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 	}
 
 	return result
-}
-
-// ContainsAllRLocked returns true if repository contains all the labels in
-// needed. If needed contains no labels, ContainsAllRLocked() will always return
-// true.
-func (p *Repository) ContainsAllRLocked(needed labels.LabelArrayList) bool {
-nextLabel:
-	for _, neededLabel := range needed {
-		for _, l := range p.rules {
-			if len(l.Labels) > 0 && neededLabel.Contains(l.Labels) {
-				continue nextLabel
-			}
-		}
-
-		return false
-	}
-
-	return true
 }
 
 // Add inserts a rule into the policy repository
@@ -475,7 +453,7 @@ func (p *Repository) GetRulesMatching(labels labels.LabelArray) (ingressMatch bo
 }
 
 // getMatchingRules returns whether any of the rules in a repository contain a
-// rule with labels matching the labels in the provided LabelArray, as well as
+// rule with labels matching the given security identity, as well as
 // a slice of all rules which match.
 //
 // Must be called with p.Mutex held
@@ -529,6 +507,8 @@ type TranslationResult struct {
 }
 
 // TranslateRules traverses rules and applies provided translator to rules
+//
+// Note: Only used by the k8s watcher.
 func (p *Repository) TranslateRules(translator Translator) (*TranslationResult, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
@@ -563,14 +543,12 @@ func (p *Repository) GetRulesList() *models.Policy {
 	}
 }
 
-// ResolvePolicyLocked returns the EndpointPolicy for the provided set of
-// labels against the set of rules in the repository, and the provided set of
-// identities. If the policy cannot be generated due to conflicts at L4 or L7,
-// returns an error.
+// ResolvePolicyLocked returns the SelectorPolicy for the provided
+// identity from the set of rules in the repository.  If the policy
+// cannot be generated due to conflicts at L4 or L7, returns an error.
 //
 // Must be performed while holding the Repository lock.
 func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*SelectorPolicy, error) {
-
 	// First obtain whether policy applies in both traffic directions, as well
 	// as list of rules which actually select this endpoint. This allows us
 	// to not have to iterate through the entire rule list multiple times and
@@ -638,8 +616,8 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 }
 
 // computePolicyEnforcementAndRules returns whether policy applies at ingress or ingress
-// for the given set of labels, as well as a list of any rules which select
-// the set of labels.
+// for the given security identity, as well as a list of any rules which select
+// the set of labels of the given security identity.
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
