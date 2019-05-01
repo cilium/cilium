@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -246,28 +246,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Info("Policy Add Request")
 	}
 
-	// These must be marked before actually adding them to the repository since
-	// a copy may be made and we won't be able to add the ToFQDN tracking
-	// labels.
-	// CAUTION, there is a small race between this PrepareFQDNRules invocation and
-	// taking the policy lock. As long as policyAdd is fed by a single-threaded
-	// queue this should never be an issue.
-	// TODO - we do not update the SelectorCache with the mapping of selector to
-	// IPs here. This would allow us to pre-populate the SelectorCache with the
-	// IPs that already have been resolved which correspond to DNS names that
-	// are in the newly added rules.
-	rules, _ := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
-	if len(rules) == 0 && len(sourceRules) > 0 {
-		// All rules being added have ToFQDNs UUIDs that have been removed and
-		// will not be re-inserted to avoid a race.
-		err := errors.New("PrepareFQDNRules delete all rules due invalid UUIDs")
-		resChan <- &PolicyAddResult{
-			newRev: 0,
-			err:    api.Error(PutPolicyFailureCode, err),
-		}
-	}
-
-	prefixes := policy.GetCIDRPrefixes(rules)
+	prefixes := policy.GetCIDRPrefixes(sourceRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
 	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
@@ -346,11 +325,10 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	if opts != nil {
 		if opts.Replace {
-			for _, r := range rules {
+			for _, r := range sourceRules {
 				oldRules := d.policy.SearchRLocked(r.Labels)
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
-					d.dnsRuleGen.StopManageDNSName(oldRules)
 					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
 					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 					delEpSels, delFqdnSels := deletedRules.GetAllSelectors()
@@ -363,8 +341,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
-				// TODO Ian remove this ?
-				d.dnsRuleGen.StopManageDNSName(oldRules)
 				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 				deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 				delEpSels, delFqdnSels := deletedRules.GetAllSelectors()
@@ -374,7 +350,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		}
 	}
 
-	addedRules, newRev := d.policy.AddListLocked(rules)
+	addedRules, newRev := d.policy.AddListLocked(sourceRules)
 
 	// The information needed by the caller is available at this point, signal
 	// accordingly.
@@ -396,7 +372,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	// SelectorCache should be updated before FQDN subsystem so that we can be
 	// sure that FQDN updates will get propagated to the SelectorCache!
-	_, _ = d.policy.GetSelectorCache().Update(selCacheUpdate)
+	_, removedFQDNSels := d.policy.GetSelectorCache().Update(selCacheUpdate)
 
 	// Use which FQDNSelectors which were removed from SelectorCache to remove
 	// updates for from the FQDN subsystem.
@@ -408,12 +384,24 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		fqdnSelAddedMap[addedFqdnSel] = struct{}{}
 	}
 
+	fqdnSelUpdate := &fqdn.SelectorUpdate{
+		Added:   fqdnSelAddedMap,
+		Deleted: removedFQDNSels,
+	}
+
+	log.Info("policyAdd: daemon updating rulegen selectors")
+	if err := d.dnsRuleGen.UpdateSelectorManagement(fqdnSelUpdate); err != nil {
+		log.WithError(err).Error("error updating selector management")
+	}
+
+	log.Info("policyAdd: daemon done updating rulegen selectors")
+
 	// The rules are added, we can begin ToFQDN DNS polling for them
 	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
 	// valid. This error should never happen (of course).
-	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
+	/*if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
 		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
-	}
+	}*/
 
 	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
@@ -444,11 +432,11 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
 
-	labels := make([]string, 0, len(rules))
-	for _, r := range rules {
+	labels := make([]string, 0, len(sourceRules))
+	for _, r := range sourceRules {
 		labels = append(labels, r.Labels.GetModel()...)
 	}
-	repr, err := monitorAPI.PolicyUpdateRepr(len(rules), labels, newRev)
+	repr, err := monitorAPI.PolicyUpdateRepr(len(sourceRules), labels, newRev)
 	if err != nil {
 		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to represent policy update as monitor notification")
 	} else {
@@ -620,7 +608,16 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		DeletedFQDNSels: fqdnSels,
 	}
 
-	_, _ = d.policy.GetSelectorCache().Update(selUpdate)
+	_, removedFQDNSels := d.policy.GetSelectorCache().Update(selUpdate)
+
+	fqdnUpdate := &fqdn.SelectorUpdate{
+		Deleted: removedFQDNSels,
+	}
+
+	err := d.dnsRuleGen.UpdateSelectorManagement(fqdnUpdate)
+	if err != nil {
+		log.WithError(err).Warning("error updating selectors in FQDN cache")
+	}
 
 	res <- &PolicyDeleteResult{
 		newRev: rev,
@@ -649,7 +646,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	}
 
 	// Stop polling for ToFQDN DNS names for these rules
-	d.dnsRuleGen.StopManageDNSName(rules)
+	//d.dnsRuleGen.StopManageDNSName(rules)
 
 	if option.Config.SelectiveRegeneration {
 		r := &PolicyReactionEvent{
