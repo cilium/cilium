@@ -237,9 +237,8 @@ func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.La
 			ctx.PolicyTrace("      No label match for %s", ctx.From)
 			return 0, nil
 		}
+		ctx.PolicyTrace("      Found all required labels")
 	}
-
-	ctx.PolicyTrace("      Found all required labels")
 
 	// Daemon options may induce L3 allows for host/world. In this case, if
 	// we find any L7 rules matching host/world then we need to turn any L7
@@ -356,17 +355,11 @@ func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, resul
 		// from rules which select the labels in ctx.To. This ensures that
 		// FromRequires is taken into account even if it isn't part of the current
 		// rule over which we are iterating.
-		if len(requirements) > 0 {
+		if len(requirements) > 0 && len(ingressRule.FromEndpoints) > 0 {
 			// Create a deep copy of the rule, as we are going to modify FromEndpoints
 			// with requirementsSelector. We don't want to modify the rule itself
 			// in the policy repository.
 			ruleCopy = *ingressRule.DeepCopy()
-			// If the rule only consists of a FromRequires statement,
-			// provide an empty selector so that it will be updated
-			// in the next step.
-			if ctx.TraceEnabled() && len(ruleCopy.FromEndpoints) == 0 {
-				ruleCopy.FromEndpoints = []api.EndpointSelector{api.NewESFromLabels()}
-			}
 			// Update each EndpointSelector in FromEndpoints to contain requirements.
 			for idx := range ruleCopy.FromEndpoints {
 				ruleCopy.FromEndpoints[idx].MatchExpressions = append(ruleCopy.FromEndpoints[idx].MatchExpressions, requirements...)
@@ -626,9 +619,8 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 			ctx.PolicyTrace("      No label match for %s", ctx.To)
 			return 0, nil
 		}
+		ctx.PolicyTrace("      Found all required labels")
 	}
-
-	ctx.PolicyTrace("      Found all required labels")
 
 	var (
 		cnt int
@@ -742,17 +734,11 @@ func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result
 		// from rules which select the labels in ctx.From. This ensures that
 		// ToRequires is taken into account even if it isn't part of the current
 		// rule over which we are iterating.
-		if len(requirements) > 0 {
+		if len(requirements) > 0 && len(egressRule.ToEndpoints) > 0 {
 			// Create a deep copy of the rule, as we are going to modify
 			// ToEndpoints with requirements; we don't want to modify the rule
 			// in the repository.
 			ruleCopy = *egressRule.DeepCopy()
-			// If the rule only consists of a ToRequires statement,
-			// provide an empty selector so that it will be updated
-			// in the next step.
-			if ctx.TraceEnabled() && len(ruleCopy.ToEndpoints) == 0 {
-				ruleCopy.ToEndpoints = []api.EndpointSelector{api.NewESFromLabels()}
-			}
 			for idx := range ruleCopy.ToEndpoints {
 				// Update each EndpointSelector in ToEndpoints to contain
 				// requirements.
