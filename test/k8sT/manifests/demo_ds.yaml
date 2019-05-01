@@ -16,6 +16,10 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
       terminationGracePeriodSeconds: 0
       tolerations:
       - effect: NoSchedule
