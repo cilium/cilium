@@ -93,6 +93,15 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 					return true
 				}, "Endpoints are not ready", &helpers.TimeoutConfig{Timeout: 150 * time.Second})
 				Expect(err).Should(BeNil())
+
+				err = helpers.WithTimeout(func() bool {
+					res := vm.ContainerExec(helpers.Server, "netperf -H 127.0.0.1 -l 1")
+					if !res.WasSuccessful() {
+						logger.Info("Waiting for netserver to come up")
+					}
+					return res.WasSuccessful()
+				}, "netserver did not come up in time", &helpers.TimeoutConfig{Timeout: 20 * time.Second})
+				Expect(err).Should(BeNil(), "timeout while waiting for netserver to start inside netperf container")
 			}, 150)
 
 			AfterEach(func() {
