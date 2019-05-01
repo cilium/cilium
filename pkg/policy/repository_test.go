@@ -1902,8 +1902,6 @@ Resolving ingress policy for [any:bar]
     Allows from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
       No label match for [any:foo]
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-      No label match for [any:foo]
 3/3 rules selected
 Found no allow rule
 Ingress verdict: denied
@@ -1927,8 +1925,6 @@ Resolving ingress policy for [any:bar]
       Allows port [{80 ANY}]
         No port match found
 * Rule {"matchLabels":{"any:bar":""}}: selected
-    Enforcing requirements [{Key:any.baz Operator:In Values:[]}]
-      Found all required labels
 3/3 rules selected
 Found no allow rule
 Ingress verdict: denied
