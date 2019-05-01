@@ -428,6 +428,37 @@ func (p *Repository) DeleteByLabelsLocked(labels labels.LabelArray) (ruleSlice, 
 	return deletedRules, p.GetRevision(), deleted
 }
 
+// GetAllSelectors returns all of the EndpointSelectors and FQDNSelectors from
+// the given slice of rules.
+func (r ruleSlice) GetAllSelectors() ([]api.EndpointSelector, []api.FQDNSelector) {
+	epSels := make([]api.EndpointSelector, 0)
+	fqdnSels := make([]api.FQDNSelector, 0)
+	for _, rr := range r {
+		rEpSels, rFqdnSels := rr.GetAllSelectors()
+		epSels = append(epSels, rEpSels...)
+		fqdnSels = append(fqdnSels, rFqdnSels...)
+	}
+	return epSels, fqdnSels
+}
+
+// GetAllSelectors returns all of the EndpointSelectors and FQDNSelectors from
+// the given rule.
+func (r *rule) GetAllSelectors() ([]api.EndpointSelector, []api.FQDNSelector) {
+	epSels := make([]api.EndpointSelector, 0)
+	fqdnSels := make([]api.FQDNSelector, 0)
+	for _, ingressRule := range r.Ingress {
+		epSels = append(epSels, ingressRule.FromEndpoints...)
+		epSels = append(epSels, ingressRule.FromEntities.GetAsEndpointSelectors()...)
+		// CIDRs?
+	}
+	for _, egressRule := range r.Egress {
+		epSels = append(epSels, egressRule.ToEndpoints...)
+		epSels = append(epSels, egressRule.ToEntities.GetAsEndpointSelectors()...)
+		fqdnSels = append(fqdnSels, egressRule.ToFQDNs...)
+	}
+	return epSels, fqdnSels
+}
+
 // DeleteByLabels deletes all rules in the policy repository which contain the
 // specified labels
 func (p *Repository) DeleteByLabels(labels labels.LabelArray) (uint64, int) {
