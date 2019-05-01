@@ -78,12 +78,6 @@ type SearchContext struct {
 	// This is used to avoid using EndpointSelector.Matches() if possible,
 	// since it is costly in terms of performance.
 	rulesSelect bool
-	// skipL4RequirementsAggregation allows for skipping of aggregation of
-	// requirements in L4 policy parsing, as it is expensive. This is used
-	// when the policy is being calculated for an endpoint (vs. a trace),
-	// and the set of denied identities can be consulted for when the PolicyMap
-	// state is computed for an endpoint.
-	skipL4RequirementsAggregation bool
 }
 
 func (s *SearchContext) String() string {
