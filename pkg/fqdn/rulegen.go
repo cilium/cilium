@@ -193,11 +193,19 @@ func (gen *RuleGen) StartManageDNSName(sourceRules []*api.Rule) error {
 	gen.Lock()
 	defer gen.Unlock()
 
+	fqdnSels := make(map[api.FQDNSelector]struct{})
+
 perRule:
 	for _, sourceRule := range sourceRules {
 		// Note: we rely on MarkToFQDNRules to insert this label.
 		if !sourceRule.Labels.Has(uuidLabelSearchKey) {
 			continue perRule
+		}
+		// Accrue FQDNSelectors for later analysis.
+		for _, eRule := range sourceRule.Egress {
+			for _, fqdnSel := range eRule.ToFQDNs {
+				fqdnSels[fqdnSel] = struct{}{}
+			}
 		}
 
 		// Make a copy to avoid breaking the input rules. Strip ToCIDRSet to avoid
