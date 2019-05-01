@@ -1022,6 +1022,9 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 				}},
 			},
 			{
+				ToEndpoints: []api.EndpointSelector{
+					api.WildcardEndpointSelector,
+				},
 				ToRequires: []api.EndpointSelector{selBar2},
 			},
 		},
@@ -1048,8 +1051,26 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			Values:   []string{"bar2"},
 		},
 	})
+	expectedSelector2 := api.NewESFromMatchRequirements(map[string]string{}, []v1.LabelSelectorRequirement{
+		{
+			Key:      "any.id",
+			Operator: v1.LabelSelectorOpIn,
+			Values:   []string{"bar2"},
+		},
+	})
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": L4Filter{
+			Port:          0,
+			Protocol:      "ANY",
+			U8Proto:       0x0,
+			allowsAllAtL3: false,
+			Endpoints: api.EndpointSelectorSlice{
+				expectedSelector2,
+			},
+			L7RulesPerEp:     L7DataMap{},
+			DerivedFromRules: labels.LabelArrayList{nil},
+		},
 		"80/TCP": L4Filter{
 			Port:     80,
 			Protocol: api.ProtoTCP,

@@ -255,8 +255,8 @@ func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.La
 		err error
 	)
 
-	// L3-only rule without requirements.
-	if len(rule.ToPorts) == 0 && len(rule.FromRequires) == 0 {
+	// L3-only rule (with requirements folded into fromEndpoints).
+	if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
 		cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
@@ -627,8 +627,8 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 		err error
 	)
 
-	// L3-only rule
-	if len(rule.ToPorts) == 0 && len(rule.ToRequires) == 0 {
+	// L3-only rule (with requirements folded into toEndpoints).
+	if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
 		cnt, err = mergeEgressPortProto(ctx, toEndpoints, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
