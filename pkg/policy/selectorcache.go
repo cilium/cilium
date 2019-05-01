@@ -690,10 +690,7 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 	sc.mutex.Unlock()
 }
 
-func (sc *SelectorCache) AddIdentitySelectorOwner(selector api.EndpointSelector) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
+func (sc *SelectorCache) addIdentitySelectorOwner(selector api.EndpointSelector) {
 	key := selector.String()
 	sel, added := sc.selectors[key]
 
@@ -713,10 +710,7 @@ func (sc *SelectorCache) AddIdentitySelectorOwner(selector api.EndpointSelector)
 	sel.addOwner()
 }
 
-func (sc *SelectorCache) AddFQDNSelectorOwner(selector api.FQDNSelector) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
+func (sc *SelectorCache) addFQDNSelectorOwner(selector api.FQDNSelector) {
 	key := selector.String()
 	sel, added := sc.selectors[key]
 
@@ -736,10 +730,7 @@ func (sc *SelectorCache) AddFQDNSelectorOwner(selector api.FQDNSelector) {
 	sel.addOwner()
 }
 
-func (sc *SelectorCache) RemoveIdentitySelectorOwner(selector api.EndpointSelector) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
+func (sc *SelectorCache) removeIdentitySelectorOwner(selector api.EndpointSelector) bool {
 	key := selector.String()
 	sel, added := sc.selectors[key]
 
@@ -749,14 +740,13 @@ func (sc *SelectorCache) RemoveIdentitySelectorOwner(selector api.EndpointSelect
 		// SelectorCache.
 		if sel.removeOwner() {
 			delete(sc.selectors, key)
+			return true
 		}
 	}
+	return false
 }
 
-func (sc *SelectorCache) RemoveFQDNSelectorOwner(selector api.FQDNSelector) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
+func (sc *SelectorCache) removeFQDNSelectorOwner(selector api.FQDNSelector) bool {
 	key := selector.String()
 	sel, added := sc.selectors[key]
 
@@ -766,23 +756,58 @@ func (sc *SelectorCache) RemoveFQDNSelectorOwner(selector api.FQDNSelector) {
 		// SelectorCache now.
 		if sel.removeOwner() {
 			delete(sc.selectors, key)
+			return true
 		}
 	}
+	return false
 }
 
-func AddIdentitySelectorOwner(selector api.EndpointSelector) {
-	selectorCache.AddIdentitySelectorOwner(selector)
+// SelectorUpdate contains lists of added and deleted api.EndpointSelectors and
+// api.FQDNSelectors. All lists may contain duplicates!
+type SelectorUpdate struct {
+	// AddedEpSels is the list of api.EndpointSelector that is added by rules.
+	AddedEpSels []api.EndpointSelector
+	// DeletedpSels is the list of api.EndpointSelector that is deleted by
+	// rules.
+	DeletedEpSels []api.EndpointSelector
+	// AddedFQDNSels is the list of api.FQDNSelector that is added by rules.
+	AddedFQDNSels []api.FQDNSelector
+	// DeletedFQDNSels is the list of api.FQDNSelector that is deleted by rules.
+	DeletedFQDNSels []api.FQDNSelector
 }
 
-func AddFQDNSelectorOwner(selector api.FQDNSelector) {
-	selectorCache.AddFQDNSelectorOwner(selector)
-}
+// Update inserts and then removes all of the selectors in update into the
+// SelectorCache. Returns the set of EndpointSelector and FQDNSelector which
+// were deleted (e.g., had a refCount of zero after deletion was performed).
+func (sc *SelectorCache) Update(update *SelectorUpdate) (map[api.EndpointSelector]struct{}, map[api.FQDNSelector]struct{}) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
 
-func RemoveIdentitySelectorOwner(selector api.EndpointSelector) {
-	selectorCache.RemoveIdentitySelectorOwner(selector)
-}
+	deletedEpSels := make(map[api.EndpointSelector]struct{})
+	deletedFQDNSels := make(map[api.FQDNSelector]struct{})
 
-func RemoveFQDNSelectorOwner(selector api.FQDNSelector) {
-	selectorCache.RemoveFQDNSelectorOwner(selector)
+	// Add first, then delete - this way we don't unnecessary clear the cache
+	// if state has already been computed!
 
+	for _, addedEpSel := range update.AddedEpSels {
+		sc.addIdentitySelectorOwner(addedEpSel)
+	}
+
+	for _, deletedEpSel := range update.DeletedEpSels {
+		if sc.removeIdentitySelectorOwner(deletedEpSel) {
+			deletedEpSels[deletedEpSel] = struct{}{}
+		}
+	}
+
+	for _, addedFqdnSel := range update.AddedFQDNSels {
+		sc.addFQDNSelectorOwner(addedFqdnSel)
+	}
+
+	for _, deletedFqdnSel := range update.DeletedFQDNSels {
+		if sc.removeFQDNSelectorOwner(deletedFqdnSel) {
+			deletedFQDNSels[deletedFqdnSel] = struct{}{}
+		}
+	}
+
+	return deletedEpSels, deletedFQDNSels
 }
