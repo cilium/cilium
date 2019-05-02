@@ -20,6 +20,7 @@ import (
 	"os"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/components"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -50,6 +51,10 @@ func Execute() {
 }
 
 func init() {
+	if components.IsCiliumAgent() {
+		return
+	}
+
 	cobra.OnInitialize(initConfig)
 	flags := rootCmd.PersistentFlags()
 	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cilium.yaml)")
