@@ -111,7 +111,9 @@ struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 	.size_value	= sizeof(struct ipv4_nat_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= SNAT_MAPPING_IPV4_SIZE,
+#ifndef HAVE_LRU_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
+#endif
 };
 
 static __always_inline
@@ -494,7 +496,9 @@ struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
 	.size_value	= sizeof(struct ipv6_nat_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= SNAT_MAPPING_IPV6_SIZE,
+#ifndef HAVE_LRU_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
+#endif
 };
 
 static __always_inline
