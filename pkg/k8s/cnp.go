@@ -29,6 +29,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
@@ -261,8 +262,10 @@ retryLoop:
 	}
 
 	if c.UpdateDuration != nil {
-		latency := c.UpdateDuration.End(err == nil).Total()
-		metrics.KubernetesCNPStatusCompletion.WithLabelValues(fmt.Sprintf("%d", numAttempts), outcome).Observe(latency.Seconds())
+		if option.Config.IsSubsysMetricEnabled(metrics.SubsystemK8sMask) {
+			latency := c.UpdateDuration.End(err == nil).Total()
+			metrics.KubernetesCNPStatusCompletion.WithLabelValues(fmt.Sprintf("%d", numAttempts), outcome).Observe(latency.Seconds())
+		}
 	}
 
 	return err

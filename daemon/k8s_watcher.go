@@ -231,11 +231,15 @@ func (m *k8sAPIGroupsUsed) getGroups() []string {
 type k8sMetrics struct{}
 
 func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
-	metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemK8sClientMask) {
+		metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+	}
 }
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
-	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemK8sClientMask) {
+		metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+	}
 	k8smetrics.LastInteraction.Reset()
 }
 
@@ -1431,8 +1435,10 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
-		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
+	}
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemK8sMask) {
+		updateContext.UpdateDuration = spanstat.Start()
 	}
 
 	k8sCM.UpdateController(ctrlName,
@@ -1482,8 +1488,10 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 		CiliumV2Store:               ciliumV2Store,
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
-		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
+	}
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemK8sMask) {
+		updateContext.UpdateDuration = spanstat.Start()
 	}
 
 	ctrlName := cnp.GetControllerName()

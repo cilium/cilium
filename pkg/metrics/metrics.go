@@ -149,6 +149,12 @@ func SubsystemsMask(subsystems []string) (uint64, error) {
 	return mask, nil
 }
 
+// SubsysMetricChecker is an interface to void loop import cycle from the daemon
+// metric package.
+type SubsysMetricChecker interface {
+	IsSubsysMetricEnabled(subsystem uint64) bool
+}
+
 var (
 	registry = prometheus.NewPedanticRegistry()
 
@@ -636,15 +642,28 @@ var (
 	})
 )
 
-func init() {
+func Init(smc SubsysMetricChecker) {
 	MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{Namespace: Namespace}))
 	// TODO: Figure out how to put this into a Namespace
 	//MustRegister(prometheus.NewGoCollector())
-	MustRegister(APIInteractions)
-	MustRegister(KubernetesAPIInteractions)
-	MustRegister(KubernetesAPICalls)
-	MustRegister(KubernetesCNPStatusCompletion)
 
+	// SubsystemAgent
+	if smc.IsSubsysMetricEnabled(SubsystemAgentMask) {
+		MustRegister(APIInteractions)
+	}
+
+	// SubsystemK8sClient
+	if smc.IsSubsysMetricEnabled(SubsystemK8sClientMask) {
+		MustRegister(KubernetesAPIInteractions)
+		MustRegister(KubernetesAPICalls)
+	}
+
+	// SubsystemK8s
+	if smc.IsSubsysMetricEnabled(SubsystemK8sMask) {
+		MustRegister(KubernetesCNPStatusCompletion)
+	}
+
+	// Don't have any subsystem assigned
 	MustRegister(EndpointCountRegenerating)
 	MustRegister(EndpointRegenerationCount)
 	MustRegister(EndpointStateCount)
@@ -676,12 +695,16 @@ func init() {
 
 	MustRegister(newStatusCollector())
 
-	MustRegister(DatapathErrors)
-	MustRegister(ConntrackGCRuns)
-	MustRegister(ConntrackGCKeyFallbacks)
-	MustRegister(ConntrackGCSize)
-	MustRegister(ConntrackGCDuration)
+	// SubsystemDatapath
+	if smc.IsSubsysMetricEnabled(SubsystemDatapathMask) {
+		MustRegister(DatapathErrors)
+		MustRegister(ConntrackGCRuns)
+		MustRegister(ConntrackGCKeyFallbacks)
+		MustRegister(ConntrackGCSize)
+		MustRegister(ConntrackGCDuration)
+	}
 
+	// Don't have any subsystem assigned
 	MustRegister(ServicesCount)
 
 	MustRegister(ErrorsWarnings)
@@ -698,9 +721,13 @@ func init() {
 
 	MustRegister(IpamEvent)
 
-	MustRegister(KVStoreOperationsDuration)
-	MustRegister(KVStoreEventsQueueDuration)
+	// SubsystemKVStore
+	if smc.IsSubsysMetricEnabled(SubsystemKVStoreMask) {
+		MustRegister(KVStoreOperationsDuration)
+		MustRegister(KVStoreEventsQueueDuration)
+	}
 
+	// Don't have any subsystem assigned
 	MustRegister(FQDNGarbageCollectorCleanedTotal)
 }
 
