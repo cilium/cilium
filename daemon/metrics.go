@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -112,12 +112,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 	}
 }
 
-const (
-	metricSubsystem = "agent"
-
-	metricBootstrapOverall = "overall"
-)
-
 var (
 	metricBootstrapTimes *prometheus.HistogramVec
 )
@@ -125,7 +119,7 @@ var (
 func init() {
 	metricBootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: metricSubsystem,
+		Subsystem: metrics.SubsystemAgent,
 		Name:      "bootstrap_seconds",
 		Help:      "Duration of bootstrap sequence",
 	}, []string{metrics.LabelScope, metrics.LabelOutcome})
