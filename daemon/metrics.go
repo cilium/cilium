@@ -119,7 +119,7 @@ var (
 func init() {
 	metricBootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: metrics.Agent,
+		Subsystem: metrics.SubsystemAgent,
 		Name:      "bootstrap_seconds",
 		Help:      "Duration of bootstrap sequence",
 	}, []string{metrics.LabelScope, metrics.LabelOutcome})
