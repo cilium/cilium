@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type gcStats struct {
@@ -94,23 +95,34 @@ func statStartGc(m *Map) gcStats {
 }
 
 func (s *gcStats) finish() {
-	duration := s.Duration()
-	family := s.family.String()
-	switch s.family {
-	case gcFamilyIPv6:
-		metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
-	case gcFamilyIPv4:
-		metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
-	}
-	proto := s.proto.String()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemDatapathMask) {
+		duration := s.Duration()
+		family := s.family.String()
+		switch s.family {
+		case gcFamilyIPv6:
+			metrics.DatapathErrors.With(labelIPv6CTDumpInterrupts).Add(float64(s.Interrupted))
+		case gcFamilyIPv4:
+			metrics.DatapathErrors.With(labelIPv4CTDumpInterrupts).Add(float64(s.Interrupted))
+		}
+		proto := s.proto.String()
 
-	var status string
-	if s.Completed {
-		status = "completed"
-		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsAlive).Set(float64(s.aliveEntries))
-		metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
-	} else {
-		status = "uncompleted"
+		var status string
+		if s.Completed {
+			status = "completed"
+			metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsAlive).Set(float64(s.aliveEntries))
+			metrics.ConntrackGCSize.WithLabelValues(family, proto, metricsDeleted).Set(float64(s.deleted))
+		} else {
+			status = "uncompleted"
+		}
+
+		metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
+		metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
+		metrics.ConntrackGCKeyFallbacks.WithLabelValues(family, proto).Add(float64(s.KeyFallback))
+	}
+
+	if !s.Completed {
+		family := s.family.String()
+		proto := s.proto.String()
 		scopedLog := log.WithField("interrupted", s.Interrupted)
 		if s.dumpError != nil {
 			scopedLog = scopedLog.WithError(s.dumpError)
@@ -118,7 +130,4 @@ func (s *gcStats) finish() {
 		scopedLog.Warningf("Garbage collection on %s %s CT map failed to finish", family, proto)
 	}
 
-	metrics.ConntrackGCRuns.WithLabelValues(family, proto, status).Inc()
-	metrics.ConntrackGCDuration.WithLabelValues(family, proto, status).Observe(duration.Seconds())
-	metrics.ConntrackGCKeyFallbacks.WithLabelValues(family, proto).Add(float64(s.KeyFallback))
 }
