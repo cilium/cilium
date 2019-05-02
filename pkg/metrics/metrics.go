@@ -41,27 +41,35 @@ const (
 
 	//L7DNS is the value used to report DNS label on metrics
 	L7DNS = "dns"
-)
 
-var (
-	registry = prometheus.NewPedanticRegistry()
+	// SubsystemBPF is the subsystem to scope metrics related to the bpf syscalls.
+	SubsystemBPF = "bpf"
+
+	// SubsystemDatapath is the subsystem to scope metrics related to management of
+	// the datapath. It is prepended to metric names and separated with a '_'.
+	SubsystemDatapath = "datapath"
+
+	// SubsystemAgent is the subsystem to scope metrics related to the cilium agent itself.
+	SubsystemAgent = "agent"
+
+	// SubsystemK8s is the subsystem to scope metrics related to Kubernetes
+	SubsystemK8s = "k8s"
+
+	// SubsystemK8sClient is the subsystem to scope metrics related to the kubernetes client.
+	SubsystemK8sClient = "k8s_client"
+
+	// SubsystemKVStore is the subsystem to scope metrics related to the kvstore.
+	SubsystemKVStore = "kvstore"
+
+	// SubsystemNodes is the subsystem to scope metrics related to the node manager.
+	SubsystemNodes = "nodes"
+
+	// SubsystemTriggers is the subsystem to scope metrics related to the trigger package.
+	SubsystemTriggers = "triggers"
 
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
 	Namespace = "cilium"
-
-	// Datapath is the subsystem to scope metrics related to management of
-	// the datapath. It is prepended to metric names and separated with a '_'.
-	Datapath = "datapath"
-
-	// Agent is the subsystem to scope metrics related to the cilium agent itself.
-	Agent = "agent"
-
-	// K8s is the subsystem to scope metrics related to Kubernetes
-	K8s = "k8s"
-
-	// K8sClient is the subsystem to scope metrics related to the kubernetes client.
-	K8sClient = "k8s_client"
 
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
@@ -105,10 +113,10 @@ var (
 	// LabelStatus the label from completed task
 	LabelStatus = "status"
 
-	//LabelPolicyEnforcement is the label used to see the enforcement status
+	// LabelPolicyEnforcement is the label used to see the enforcement status
 	LabelPolicyEnforcement = "enforcement"
 
-	//LabelPolicySource is the label used to see the enforcement status
+	// LabelPolicySource is the label used to see the enforcement status
 	LabelPolicySource = "source"
 
 	// LabelScope is the label used to defined multiples scopes in the same
@@ -143,6 +151,10 @@ var (
 
 	// LabelAPIReturnCode is the HTTP code returned for that API path
 	LabelAPIReturnCode = "return_code"
+)
+
+var (
+	registry = prometheus.NewPedanticRegistry()
 
 	// API interactions
 
@@ -150,7 +162,7 @@ var (
 	// to the cilium-agent
 	APIInteractions prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Subsystem: Agent,
+		Subsystem: SubsystemAgent,
 		Name:      "api_process_time_seconds",
 		Help:      "Duration of processed API calls labeled by path, method and return code.",
 	}, []string{LabelPath, LabelMethod, LabelAPIReturnCode})
@@ -370,7 +382,7 @@ var (
 	// such as BPF maps.
 	DatapathErrors CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
-		Subsystem: Datapath,
+		Subsystem: SubsystemDatapath,
 		Name:      "errors_total",
 		Help:      "Number of errors that occurred in the datapath or datapath management",
 	}, []string{LabelDatapathArea, LabelDatapathName, LabelDatapathFamily})
@@ -379,7 +391,7 @@ var (
 	// process was run.
 	ConntrackGCRuns CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
-		Subsystem: Datapath,
+		Subsystem: SubsystemDatapath,
 		Name:      "conntrack_gc_runs_total",
 		Help: "Number of times that the conntrack garbage collector process was run " +
 			"labeled by completion status",
@@ -388,7 +400,7 @@ var (
 	// ConntrackGCKeyFallbacks number of times that the conntrack key fallback was invalid.
 	ConntrackGCKeyFallbacks CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
-		Subsystem: Datapath,
+		Subsystem: SubsystemDatapath,
 		Name:      "conntrack_gc_key_fallbacks_total",
 		Help:      "Number of times a key fallback was needed when iterating over the BPF map",
 	}, []string{LabelDatapathFamily, LabelProtocol})
@@ -396,7 +408,7 @@ var (
 	// ConntrackGCSize the number of entries in the conntrack table
 	ConntrackGCSize GaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: Namespace,
-		Subsystem: Datapath,
+		Subsystem: SubsystemDatapath,
 		Name:      "conntrack_gc_entries",
 		Help: "The number of alive and deleted conntrack entries at the end " +
 			"of a garbage collector run labeled by datapath family.",
@@ -405,7 +417,7 @@ var (
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
 	ConntrackGCDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Subsystem: Datapath,
+		Subsystem: SubsystemDatapath,
 		Name:      "conntrack_gc_duration_seconds",
 		Help: "Duration in seconds of the garbage collector process " +
 			"labeled by datapath family and completion status",
@@ -474,7 +486,7 @@ var (
 	// to the kube-apiserver
 	KubernetesAPIInteractions prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Subsystem: K8sClient,
+		Subsystem: SubsystemK8sClient,
 		Name:      "api_latency_time_seconds",
 		Help:      "Duration of processed API calls labeled by path and method.",
 	}, []string{LabelPath, LabelMethod})
@@ -483,7 +495,7 @@ var (
 	// kube-apiserver.
 	KubernetesAPICalls CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
-		Subsystem: K8sClient,
+		Subsystem: SubsystemK8sClient,
 		Name:      "api_calls_counter",
 		Help:      "Number of API calls made to kube-apiserver labeled by host, method and return code.",
 	}, []string{"host", LabelMethod, LabelAPIReturnCode})
@@ -492,7 +504,7 @@ var (
 	// complete a CNP status update
 	KubernetesCNPStatusCompletion prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Subsystem: K8s,
+		Subsystem: SubsystemK8s,
 		Name:      "cnp_status_completion_seconds",
 		Help:      "Duration in seconds in how long it took to complete a CNP status update",
 	}, []string{LabelAttempts, LabelOutcome})
@@ -512,7 +524,7 @@ var (
 	// KVStoreOperationsDuration records the duration of kvstore operations
 	KVStoreOperationsDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Subsystem: "kvstore",
+		Subsystem: SubsystemKVStore,
 		Name:      "operations_duration_seconds",
 		Help:      "Duration in seconds of kvstore operations",
 	}, []string{LabelScope, LabelKind, LabelAction, LabelOutcome})
@@ -521,7 +533,7 @@ var (
 	// received event was blocked before it could be queued
 	KVStoreEventsQueueDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
-		Subsystem: "kvstore",
+		Subsystem: SubsystemKVStore,
 		Name:      "events_queue_seconds",
 		Help:      "Duration in seconds of time received event was blocked before it could be queued",
 		Buckets:   []float64{.002, .005, .01, .015, .025, .05, .1, .25, .5, .75, 1},
