@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -99,30 +100,32 @@ func NewManager(name string, datapath datapath.NodeHandler) (*Manager, error) {
 		closeChan: make(chan struct{}),
 	}
 
-	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: metrics.Namespace,
-		Subsystem: "nodes",
-		Name:      name + "_events_received_total",
-		Help:      "Number of node events received",
-	}, []string{"eventType", "source"})
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+		m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemNodes,
+			Name:      name + "_events_received_total",
+			Help:      "Number of node events received",
+		}, []string{"eventType", "source"})
 
-	m.metricNumNodes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: metrics.Namespace,
-		Subsystem: "nodes",
-		Name:      name + "_num",
-		Help:      "Number of nodes managed",
-	})
+		m.metricNumNodes = prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemNodes,
+			Name:      name + "_num",
+			Help:      "Number of nodes managed",
+		})
 
-	m.metricDatapathValidations = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: metrics.Namespace,
-		Subsystem: "nodes",
-		Name:      name + "_datapath_validations_total",
-		Help:      "Number of validation calls to implement the datapath implemention of a node",
-	})
+		m.metricDatapathValidations = prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: metrics.Namespace,
+			Subsystem: metrics.SubsystemNodes,
+			Name:      name + "_datapath_validations_total",
+			Help:      "Number of validation calls to implement the datapath implemention of a node",
+		})
 
-	err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
-	if err != nil {
-		return nil, err
+		err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	go m.backgroundSync()
@@ -137,9 +140,11 @@ func (m *Manager) Close() {
 
 	close(m.closeChan)
 
-	metrics.Unregister(m.metricNumNodes)
-	metrics.Unregister(m.metricEventsReceived)
-	metrics.Unregister(m.metricDatapathValidations)
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+		metrics.Unregister(m.metricNumNodes)
+		metrics.Unregister(m.metricEventsReceived)
+		metrics.Unregister(m.metricDatapathValidations)
+	}
 
 	// delete all nodes to clean up the datapath for each node
 	for _, n := range m.nodes {
@@ -215,8 +220,9 @@ func (m *Manager) backgroundSync() {
 			m.mutex.RUnlock()
 			m.datapath.NodeValidateImplementation(entry.node)
 			entry.mutex.Unlock()
-
-			m.metricDatapathValidations.Inc()
+			if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+				m.metricDatapathValidations.Inc()
+			}
 		}
 
 		select {
@@ -274,7 +280,9 @@ func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
 	if oldNodeExists {
-		m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
+		if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+			m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
+		}
 
 		if !overwriteAllowed(entry.node.Source, n.Source) {
 			m.mutex.Unlock()
@@ -290,8 +298,10 @@ func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 		}
 		entry.mutex.Unlock()
 	} else {
-		m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
-		m.metricNumNodes.Inc()
+		if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+			m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
+			m.metricNumNodes.Inc()
+		}
 
 		entry = &nodeEntry{node: n}
 		entry.mutex.Lock()
@@ -309,7 +319,9 @@ func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 // orgins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *Manager) NodeDeleted(n node.Node) {
-	m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+		m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
+	}
 
 	log.Debugf("Received node delete event from %s", n.Source)
 
@@ -329,7 +341,9 @@ func (m *Manager) NodeDeleted(n node.Node) {
 		return
 	}
 
-	m.metricNumNodes.Dec()
+	if option.Config.IsSubsysMetricEnabled(metrics.SubsystemNodesMask) {
+		m.metricNumNodes.Dec()
+	}
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentity)
