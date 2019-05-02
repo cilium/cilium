@@ -191,7 +191,9 @@ func startCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 // err is the result of the command (nil is exit-code 0) but may also be
 // non-nil when there are errors with the connection or if an error occurs when
 // terminating the command.
-func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.Duration) (commandExitedGracefully bool, err error) {
+func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.Duration, cmd *SSHCommand) (commandExitedGracefully bool, err error) {
+	scopedLog := log.WithField("cmd", cmd.Path)
+
 	// Run a goroutine to notify us if the program exits on its own
 	// Note: This is needed because there is no channel to watch for the same
 	// information.
@@ -207,25 +209,25 @@ func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.
 		commandExitedGracefully = true
 		switch {
 		case err != nil:
-			log.Errorf("command exited with non-zero exit code: %s", err)
+			scopedLog.WithError(err).Error("command exited with non-zero exit code")
 		default:
-			log.Debug("command exited gracefully with zero exit code")
+			scopedLog.Debug("command exited gracefully with zero exit code")
 		}
 
 	// The timeout has lapsed. Tear down the whole session.
 	case <-ctx.Done():
 		if err = session.Signal(ssh.SIGINT); err != nil {
-			log.Errorf("write ^C error: %s", err)
+			scopedLog.WithError(err).Error("failed to send SIGINT to command")
 		}
 
-		// Allow ^C some time to "work"
+		// Allow ^C/SIGINT some time to "work"
 		grace := time.NewTimer(killGrace)
 		defer grace.Stop()
 		select {
 		case <-grace.C:
 			// Force the command to exit
 			if err = session.Signal(ssh.SIGKILL); err != nil {
-				log.Errorf("failed to kill command with SIGKILL: %s", err)
+				scopedLog.Errorf("failed to kill command with SIGKILL: %s", err)
 			}
 
 		case err = <-commandExitedCh:
@@ -233,17 +235,17 @@ func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.
 			commandExitedGracefully = true
 			switch {
 			case err != nil:
-				log.Errorf("command exited with non-zero exit code after SIGINT: %s", err)
+				scopedLog.WithError(err).Error("command exited with non-zero exit code after SIGINT")
 			default:
-				log.Debug("command exited gracefully with zero exit code after SIGINT")
+				scopedLog.Debug("command exited gracefully with zero exit code after SIGINT")
 			}
 
 		}
 
-		// TODO: what is this for? closing the connection should deliver a HUP to
+		// TODO: What is this for? Closing the connection should deliver a HUP to
 		// the process anyway.
 		if err = session.Signal(ssh.SIGHUP); err != nil && err != io.EOF {
-			log.Errorf("failed to send SIGHUP to command: %s", err)
+			scopedLog.WithError(err).Error("failed to send SIGHUP to command")
 		}
 	}
 
@@ -290,7 +292,7 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
-	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod)
+	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod, cmd)
 	return err
 }
 
@@ -316,7 +318,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
-	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod)
+	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod, cmd)
 	return err
 }
 
