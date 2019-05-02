@@ -787,6 +787,7 @@ func initConfig() {
 		viper.SetConfigFile(option.Config.ConfigFile)
 	} else {
 		viper.SetConfigName("ciliumd") // name of config file (without extension)
+		viper.AddConfigPath("$HOME")   // adding home directory as first search path
 	}
 
 	// If a config file is found, read it in.
