@@ -713,6 +713,8 @@ func initConfig() {
 
 	if option.Config.ConfigFile != "" { // enable ability to specify config file via flag
 		viper.SetConfigFile(option.Config.ConfigFile)
+	} else {
+		viper.AddConfigPath("$HOME") // adding home directory as first search path
 	}
 
 	viper.SetEnvPrefix("cilium")
