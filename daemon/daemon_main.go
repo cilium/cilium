@@ -762,6 +762,10 @@ func initConfig() {
 		os.Exit(0)
 	}
 
+	if option.Config.CMDRefDir != "" {
+		return
+	}
+
 	option.Config.ConfigFile = viper.GetString(option.ConfigFile) // enable ability to specify config file via flag
 	option.Config.ConfigDir = viper.GetString(option.ConfigDir)
 	viper.SetEnvPrefix("cilium")
