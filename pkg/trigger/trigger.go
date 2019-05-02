@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -129,10 +130,10 @@ func NewTrigger(p Parameters) (*Trigger, error) {
 		t.lastTrigger = time.Now().Add(-1 * p.MinInterval)
 	}
 
-	if p.PrometheusMetrics {
+	if p.PrometheusMetrics && option.Config.IsSubsysMetricEnabled(metrics.SubsystemTriggersMask) {
 		t.triggerReasons = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: metrics.Namespace,
-			Subsystem: "triggers",
+			Subsystem: metrics.SubsystemTriggers,
 			Name:      p.Name + "_total",
 			Help:      "Total number of trigger invocations labelled by reason",
 		}, []string{metricLabelReason})
@@ -143,7 +144,7 @@ func NewTrigger(p Parameters) (*Trigger, error) {
 
 		t.triggerFolds = prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: metrics.Namespace,
-			Subsystem: "triggers",
+			Subsystem: metrics.SubsystemTriggers,
 			Name:      p.Name + "_folds",
 			Help:      "Current level of trigger folds",
 		})
@@ -155,7 +156,7 @@ func NewTrigger(p Parameters) (*Trigger, error) {
 
 		t.callDurations = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: metrics.Namespace,
-			Subsystem: "triggers",
+			Subsystem: metrics.SubsystemTriggers,
 			Name:      p.Name + "_call_duration_seconds",
 			Help:      "Length of duration trigger used to execute",
 		}, []string{"type"})
@@ -197,7 +198,7 @@ func (t *Trigger) TriggerWithReason(reason string) {
 	t.foldedReasons.add(reason)
 	t.mutex.Unlock()
 
-	if t.params.PrometheusMetrics {
+	if t.params.PrometheusMetrics && option.Config.IsSubsysMetricEnabled(metrics.SubsystemTriggersMask) {
 		t.triggerReasons.WithLabelValues(reason).Inc()
 	}
 
@@ -218,7 +219,7 @@ func (t *Trigger) Trigger() {
 // Shutdown stops the trigger mechanism
 func (t *Trigger) Shutdown() {
 	close(t.closeChan)
-	if t.params.PrometheusMetrics {
+	if t.params.PrometheusMetrics && option.Config.IsSubsysMetricEnabled(metrics.SubsystemTriggersMask) {
 		metrics.Unregister(t.triggerReasons)
 		metrics.Unregister(t.triggerFolds)
 		metrics.Unregister(t.callDurations)
@@ -251,7 +252,7 @@ func (t *Trigger) waiter() {
 			beforeTrigger := time.Now()
 			t.params.TriggerFunc(reasons)
 
-			if t.params.PrometheusMetrics {
+			if t.params.PrometheusMetrics && option.Config.IsSubsysMetricEnabled(metrics.SubsystemTriggersMask) {
 				callDuration := time.Since(beforeTrigger)
 				t.callDurations.WithLabelValues("duration").Observe(callDuration.Seconds())
 				t.callDurations.WithLabelValues("latency").Observe(callLatency.Seconds())
