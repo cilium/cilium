@@ -155,6 +155,13 @@ data:
   # Enable legacy services (prior v1.5) to prevent from terminating existing
   # connections with services when upgrading Cilium from < v1.5 to v1.5.
   enable-legacy-services: "false"
+
+  # Enable chaining with another CNI plugin
+  #
+  # Supported modes:
+  #  - flannel
+  #  - portmap (Enables HostPort support for Cilium)
+  #cni-chaining-mode: none
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -217,6 +224,12 @@ spec:
               optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
+        - name: CILIUM_CNI_CHAINING_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: cni-chaining-mode
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
@@ -293,10 +306,6 @@ spec:
         - mountPath: /lib/modules
           name: lib-modules
           readOnly: true
-          # Needed by ip[6]tables when loading kernel modules
-        - mountPath: /sbin/modprobe
-          name: sbin-modprobe
-          readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: false
@@ -365,13 +374,7 @@ spec:
         # To be able to load kernel modules
       - hostPath:
           path: /lib/modules
-          type: Directory
         name: lib-modules
-        # To be able to load ip[6]tables kernel modules
-      - hostPath:
-          path: /sbin/modprobe
-          type: File
-        name: sbin-modprobe
         # To read the etcd config stored in config maps
       - configMap:
           defaultMode: 420
