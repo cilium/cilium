@@ -17,6 +17,9 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 	done
 	CNI_CONF_NAME=${CNI_CONF_NAME:-04-flannel-cilium-cni.conflist}
 	;;
+"generic-veth")
+	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
+	;;
 "portmap")
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
 	;;
