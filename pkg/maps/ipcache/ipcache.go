@@ -162,18 +162,13 @@ func NewMap(name string) *Map {
 		Map: *bpf.NewMap(
 			name,
 			bpf.BPF_MAP_TYPE_LPM_TRIE,
+			&Key{},
 			int(unsafe.Sizeof(Key{})),
+			&RemoteEndpointInfo{},
 			int(unsafe.Sizeof(RemoteEndpointInfo{})),
 			MaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
-			func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-				k, v := Key{}, RemoteEndpointInfo{}
-
-				if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-					return nil, nil, err
-				}
-				return &k, &v, nil
-			},
+			bpf.ConvertKeyValue,
 		).WithCache(),
 		deleteSupport: true,
 	}

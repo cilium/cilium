@@ -161,6 +161,12 @@ func Lookup(epname string, remoteAddr, localAddr string, proto u8proto.U8proto, 
 		if err != nil {
 			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
 		}
+		if ipv4 {
+			m.MapKey = &CtKey4{}
+		} else {
+			m.MapKey = &CtKey6{}
+		}
+		m.MapValue = &CtEntry{}
 	}
 
 	v, err := m.Lookup(key)

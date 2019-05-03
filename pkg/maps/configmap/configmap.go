@@ -173,19 +173,15 @@ func OpenMapWithName(path string) (*EndpointConfigMap, bool, error) {
 
 	newMap := bpf.NewMap(path,
 		bpf.BPF_MAP_TYPE_ARRAY,
+		&Key{},
 		int(unsafe.Sizeof(uint32(0))),
+		&EndpointConfig{},
 		int(unsafe.Sizeof(EndpointConfig{})),
 		MaxEntries,
 		0,
 		0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Key{}, EndpointConfig{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-			return &k, &v, nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 
 	isNewMap, err := newMap.OpenOrCreate()
 

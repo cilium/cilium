@@ -203,6 +203,8 @@ func SyncMetricsMap(ctx context.Context) error {
 		if err != nil {
 			break
 		}
+		// FIXME @aanm this can't really work as an element has a fixed size and we
+		//  are expecting the full array to be populated for N elements.
 		err = bpf.LookupElement(metricsmap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry[0]))
 		if err != nil {
 			return fmt.Errorf("unable to lookup metrics map: %s", err)
@@ -272,16 +274,12 @@ func init() {
 	Metrics = bpf.NewMap(
 		MapName,
 		bpf.BPF_MAP_TYPE_PERCPU_HASH,
+		&Key{},
 		int(unsafe.Sizeof(Key{})),
+		&Value{},
 		int(unsafe.Sizeof(Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Key{}, Value{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-			return &k, &v, nil
-		})
+		bpf.ConvertKeyValue,
+	)
 }

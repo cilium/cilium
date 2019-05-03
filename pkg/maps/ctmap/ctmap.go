@@ -119,26 +119,26 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
 	mapType := MapTypeIPv4TCPLocal
 	for _, maxEntries := range []int{MapNumEntriesLocal, tcpMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
-			&tuple.TupleKey4{},
-			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
-			ct4DumpParser, natV4)
+			&CtKey4{},
+			int(unsafe.Sizeof(CtKey4{})), maxEntries,
+			bpf.ConvertKeyValue, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_TCP6",
-			&tuple.TupleKey6{},
-			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
-			ct6DumpParser, natV6)
+			&CtKey6{},
+			int(unsafe.Sizeof(CtKey6{})), maxEntries,
+			bpf.ConvertKeyValue, natV6)
 		mapType++
 	}
 	for _, maxEntries := range []int{MapNumEntriesLocal, anyMaxEntries} {
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
-			&tuple.TupleKey4{},
+			&CtKey4{},
 			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
-			ct4DumpParser, natV4)
+			bpf.ConvertKeyValue, natV4)
 		mapType++
 		setupMapInfo(MapType(mapType), "CT_MAP_ANY6",
-			&tuple.TupleKey6{},
-			int(unsafe.Sizeof(tuple.TupleKey6{})), maxEntries,
-			ct6DumpParser, natV6)
+			&CtKey6{},
+			int(unsafe.Sizeof(CtKey6{})), maxEntries,
+			bpf.ConvertKeyValue, natV6)
 		mapType++
 	}
 }
@@ -203,30 +203,14 @@ func (m *Map) DumpEntries() (string, error) {
 	return buffer.String(), err
 }
 
-func ct4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tuple.TupleKey4Global{}, CtEntry{}
-
-	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-		return nil, nil, err
-	}
-	return &k, &v, nil
-}
-
-func ct6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-	k, v := tuple.TupleKey6Global{}, CtEntry{}
-
-	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-		return nil, nil, err
-	}
-	return &k, &v, nil
-}
-
 // NewMap creates a new CT map of the specified type with the specified name.
 func NewMap(mapName string, mapType MapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			bpf.MapTypeLRUHash,
+			mapInfo[mapType].mapKey,
 			mapInfo[mapType].keySize,
+			&CtEntry{},
 			int(unsafe.Sizeof(CtEntry{})),
 			mapInfo[mapType].maxEntries,
 			0, 0,
