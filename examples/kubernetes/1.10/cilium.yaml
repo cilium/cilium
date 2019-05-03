@@ -155,6 +155,13 @@ data:
   # Enable legacy services (prior v1.5) to prevent from terminating existing
   # connections with services when upgrading Cilium from < v1.5 to v1.5.
   enable-legacy-services: "false"
+
+  # Enable chaining with another CNI plugin
+  #
+  # Supported modes:
+  #  - flannel
+  #  - portmap (Enables HostPort support for Cilium)
+  #cni-chaining-mode: none
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -224,6 +231,12 @@ spec:
               optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
+        - name: CILIUM_CNI_CHAINING_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: cni-chaining-mode
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
