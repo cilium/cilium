@@ -52,21 +52,14 @@ var (
 
 	EpPolicyMap = bpf.NewMap(MapName,
 		bpf.MapTypeHashOfMaps,
+		&EndpointKey{},
 		int(unsafe.Sizeof(EndpointKey{})),
+		&EPPolicyValue{},
 		int(unsafe.Sizeof(EPPolicyValue{})),
 		MaxEntries,
 		0,
 		0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k := EndpointKey{}
-			v := EPPolicyValue{}
-
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-
-			return &k, &v, nil
-		},
+		bpf.ConvertKeyValue,
 	).WithCache()
 )
 
