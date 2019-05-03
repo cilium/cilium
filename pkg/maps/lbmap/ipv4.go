@@ -29,14 +29,16 @@ import (
 var (
 	Service4Map = bpf.NewMap("cilium_lb4_services",
 		bpf.MapTypeHash,
+		&Service4Key{},
 		int(unsafe.Sizeof(Service4Key{})),
+		&Service4Value{},
 		int(unsafe.Sizeof(Service4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := Service4Key{}, Service4Value{}
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := mapKey.(*Service4Key), mapValue.(*Service4Value)
 
-			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
 				return nil, nil, err
 			}
 
@@ -44,14 +46,16 @@ var (
 		}).WithCache()
 	Service4MapV2 = bpf.NewMap("cilium_lb4_services_v2",
 		bpf.MapTypeHash,
+		&Service4KeyV2{},
 		int(unsafe.Sizeof(Service4KeyV2{})),
+		&Service4ValueV2{},
 		int(unsafe.Sizeof(Service4ValueV2{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := Service4KeyV2{}, Service4ValueV2{}
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey, svcVal := mapKey.(*Service4KeyV2), mapValue.(*Service4ValueV2)
 
-			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
 				return nil, nil, err
 			}
 
@@ -59,66 +63,71 @@ var (
 		}).WithCache()
 	Backend4Map = bpf.NewMap("cilium_lb4_backends",
 		bpf.MapTypeHash,
+		&Backend4Key{},
 		int(unsafe.Sizeof(Backend4Key{})),
+		&Backend4Value{},
 		int(unsafe.Sizeof(Backend4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			backendKey, backendVal := Backend4Key{}, Backend4Value{}
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			backendVal := mapValue.(*Backend4Value)
 
-			if err := bpf.ConvertKeyValue(key, value, &backendKey, &backendVal); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, mapKey, backendVal); err != nil {
 				return nil, nil, err
 			}
 
-			return &backendKey, backendVal.ToNetwork(), nil
+			return mapKey, backendVal.ToNetwork(), nil
 		}).WithCache()
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
+		&RevNat4Key{},
 		int(unsafe.Sizeof(RevNat4Key{})),
+		&RevNat4Value{},
 		int(unsafe.Sizeof(RevNat4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			var ukey uint16
-			var revNat RevNat4Value
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			revKey, revNat := mapKey.(*RevNat4Key), mapValue.(*RevNat4Value)
 
-			if err := bpf.ConvertKeyValue(key, value, &ukey, &revNat); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, revKey, revNat); err != nil {
 				return nil, nil, err
 			}
-
-			revKey := NewRevNat4Key(ukey)
 
 			return revKey.ToNetwork(), revNat.ToNetwork(), nil
 		}).WithCache()
 	RRSeq4Map = bpf.NewMap("cilium_lb4_rr_seq",
 		bpf.MapTypeHash,
+		&Service4Key{},
 		int(unsafe.Sizeof(Service4Key{})),
+		&RRSeqValue{},
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := Service4Key{}, RRSeqValue{}
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey := mapKey.(*Service4Key)
 
-			if err := bpf.ConvertKeyValue(key, value, &svcKey, &svcVal); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, mapValue); err != nil {
 				return nil, nil, err
 			}
 
-			return svcKey.ToNetwork(), &svcVal, nil
+			return svcKey.ToNetwork(), mapValue, nil
 		}).WithCache()
 	RRSeq4MapV2 = bpf.NewMap("cilium_lb4_rr_seq_v2",
 		bpf.MapTypeHash,
+		&Service4KeyV2{},
 		int(unsafe.Sizeof(Service4KeyV2{})),
+		&RRSeqValue{},
 		int(unsafe.Sizeof(RRSeqValue{})),
 		maxFrontEnds,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, rrSeqVal := Service4KeyV2{}, RRSeqValue{}
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			svcKey := mapKey.(*Service4KeyV2)
 
-			if err := bpf.ConvertKeyValue(key, value, &svcKey, &rrSeqVal); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, mapValue); err != nil {
 				return nil, nil, err
 			}
 
-			return svcKey.ToNetwork(), &rrSeqVal, nil
+			return svcKey.ToNetwork(), mapValue, nil
 		}).WithCache()
 )
 

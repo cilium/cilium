@@ -74,18 +74,21 @@ var (
 	// Proxy4Map represents the BPF map for IPv4 proxy
 	Proxy4Map = bpf.NewMap(Proxy4MapName,
 		bpf.MapTypeHash,
+		&Proxy4Key{},
 		int(unsafe.Sizeof(Proxy4Key{})),
+		&Proxy4Value{},
 		int(unsafe.Sizeof(Proxy4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := Proxy4Key{}, Proxy4Value{}
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			proxyKey, proxyValue := mapKey.(*Proxy4Key), mapValue.(*Proxy4Value)
 
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+			if _, _, err := bpf.ConvertKeyValue(key, value, proxyKey, proxyValue); err != nil {
 				return nil, nil, err
 			}
 
-			return k.ToNetwork(), v.ToNetwork(), nil
+			return proxyKey.ToNetwork(), proxyValue.ToNetwork(), nil
+
 		}).WithNonPersistent()
 )
 
