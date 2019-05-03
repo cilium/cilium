@@ -42,6 +42,11 @@ var udpOOBSize = func() int {
 type sessionUDPFactory struct {
 	// A pool for UDP message buffers.
 	udpPool sync.Pool
+
+	// ipv4Enabled and ipv6Enabled are used when setting up the proxy sockets
+	// later, and determine if we bind to 127.0.0.1 and ::1, respectively.
+	// See sessionUDPFactory.SetSocketOptions
+	ipv4Enabled, ipv6Enabled bool
 }
 
 // sessionUDP implements the dns.SessionUDP, holding the remote address and the associated
@@ -55,37 +60,42 @@ type sessionUDP struct {
 	oob   []byte
 }
 
-var ciliumSessionUDPFactory = &sessionUDPFactory{}
-
 var rawconn4 *net.IPConn // raw socket for sending IPv4
 var rawconn6 *net.IPConn // raw socket for sending IPv6
 
 // Set the socket options needed for tranparent proxying for the listening socket
 // IP(V6)_TRANSPARENT allows socket to receive packets with any destination address/port
 // IP(V6)_RECVORIGDSTADDR tells the kernel to pass the original destination address/port on recvmsg
-// The socket may be receiving both IPv4 and IPv6 data, so set both options, if possible.
-func transparentSetsockopt(fd int) error {
-	err6 := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
-	if err6 == nil {
-		err6 = unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1)
+// The socket may be receiving both IPv4 and IPv6 data, so set both options, if enabled.
+func transparentSetsockopt(fd int, ipv4, ipv6 bool) error {
+	var err4, err6 error
+	if ipv6 {
+		err6 = unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
+		if err6 == nil {
+			err6 = unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1)
+		}
+		if err6 != nil {
+			return err6
+		}
 	}
-	err4 := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1)
-	if err4 == nil {
-		err4 = unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_RECVORIGDSTADDR, 1)
-	}
-	// Only error out if both IPv4 and IPv6 fail
-	if err4 != nil && err6 != nil {
-		return err4
+	if ipv4 {
+		err4 = unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1)
+		if err4 == nil {
+			err4 = unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_RECVORIGDSTADDR, 1)
+		}
+		if err4 != nil {
+			return err4
+		}
 	}
 	return nil
 }
 
-func listenConfig(mark int) *net.ListenConfig {
+func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 	return &net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
 			var opErr error
 			err := c.Control(func(fd uintptr) {
-				opErr = transparentSetsockopt(int(fd))
+				opErr = transparentSetsockopt(int(fd), ipv4, ipv6)
 				if opErr == nil && mark != 0 {
 					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark)
 				}
@@ -101,9 +111,9 @@ func listenConfig(mark int) *net.ListenConfig {
 		}}
 }
 
-func bindUDP(addr string) *net.IPConn {
+func bindUDP(addr string, ipv4, ipv6 bool) *net.IPConn {
 	// Mark outgoing packets as proxy egress return traffic (0x0b00)
-	conn, err := listenConfig(0xb00).ListenPacket(context.Background(), "ip:udp", addr)
+	conn, err := listenConfig(0xb00, ipv4, ipv6).ListenPacket(context.Background(), "ip:udp", addr)
 	if err != nil {
 		log.Errorf("bindUDP failed for address %s: %s", addr, err)
 		return nil
@@ -111,6 +121,9 @@ func bindUDP(addr string) *net.IPConn {
 	return conn.(*net.IPConn)
 }
 
+// NOTE: udpOnce is used in SetSocketOptions below, but assumes we have a
+// global singleton sessionUDPFactory. This is created in StartDNSProxy in
+// order to have option.Config.EnableIPv{4,6} parsed correctly.
 var udpOnce sync.Once
 
 // SetSocketOptions set's up 'conn' to be used with a SessionUDP.
@@ -126,10 +139,14 @@ func (f *sessionUDPFactory) SetSocketOptions(conn *net.UDPConn) error {
 	//   checking that a route exists from the source address before
 	//   the source address is replaced with the (transparently) changed one
 	udpOnce.Do(func() {
-		rawconn4 = bindUDP("127.0.0.1") // raw socket for sending IPv4
-		rawconn6 = bindUDP("::1")       // raw socket for sending IPv6
+		if f.ipv4Enabled {
+			rawconn4 = bindUDP("127.0.0.1", f.ipv4Enabled, false) // raw socket for sending IPv4
+		}
+		if f.ipv6Enabled {
+			rawconn6 = bindUDP("::1", false, f.ipv6Enabled) // raw socket for sending IPv6
+		}
 	})
-	if rawconn4 == nil || rawconn6 == nil {
+	if (f.ipv4Enabled && rawconn4 == nil) || (f.ipv6Enabled && rawconn6 == nil) {
 		return fmt.Errorf("Unable to open raw UDP sockets for DNS Proxy")
 	}
 	return nil
