@@ -565,8 +565,8 @@ func openMap(path string) (*EventMap, error) {
 	}, nil
 }
 
-func (e *EventMap) Update(ev *PerfEvent) error {
-	return UpdateElement(e.fd, unsafe.Pointer(&ev.cpu), unsafe.Pointer(&ev.Fd), 0)
+func (e *EventMap) Update(fd int, ubaPtr, sizeOf uintptr) error {
+	return UpdateElementFromPointers(e.fd, ubaPtr, sizeOf)
 }
 
 func (e *EventMap) Close() {
@@ -637,10 +637,19 @@ func NewPerCpuEvents(config *PerfEventConfig) (*PerCpuEvents, error) {
 		}
 	}
 
+	uba := bpfAttrMapOpElem{
+		mapFd: uint32(e.eventMap.fd),
+		flags: uint64(0),
+	}
+	ubaPtr := uintptr(unsafe.Pointer(&uba))
+	ubaSizeOf := unsafe.Sizeof(uba)
+
 	for _, event := range e.event {
 		// FIXME: Not sure what to do here, the map has already been updated and we can't
 		// fully restore it.
-		if err := e.eventMap.Update(event); err != nil {
+		uba.key = uint64(uintptr(unsafe.Pointer(&event.cpu)))
+		uba.value = uint64(uintptr(unsafe.Pointer(&event.Fd)))
+		if err := e.eventMap.Update(e.eventMap.fd, ubaPtr, ubaSizeOf); err != nil {
 			return nil, err
 		}
 	}
