@@ -171,14 +171,15 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 
 	// Start the DNS listeners on UDP and TCP
 	var (
-		UDPConn     *net.UDPConn
-		TCPListener *net.TCPListener
-		err         error
+		UDPConn                *net.UDPConn
+		TCPListener            *net.TCPListener
+		err                    error
+		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
 	)
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
-		UDPConn, TCPListener, err = bindToAddr(address, port)
+		UDPConn, TCPListener, err = bindToAddr(address, port, EnableIPv4, EnableIPv6)
 		if err == nil {
 			break
 		}
@@ -192,7 +193,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 	p.BindAddr = UDPConn.LocalAddr().String()
 	p.BindPort = uint16(UDPConn.LocalAddr().(*net.UDPAddr).Port)
 	p.UDPServer = &dns.Server{PacketConn: UDPConn, Addr: p.BindAddr, Net: "udp", Handler: p,
-		SessionUDPFactory: ciliumSessionUDPFactory,
+		SessionUDPFactory: &sessionUDPFactory{ipv4Enabled: EnableIPv4, ipv6Enabled: EnableIPv6},
 	}
 	p.TCPServer = &dns.Server{Listener: TCPListener, Addr: p.BindAddr, Net: "tcp", Handler: p}
 	log.WithField("address", p.BindAddr).Debug("DNS Proxy bound to address")
@@ -475,7 +476,7 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 // Note: This mimics what the dns package does EXCEPT for setting reuseport.
 // This is ok for now but it would simplify proxy management in the future to
 // have it set.
-func bindToAddr(address string, port uint16) (*net.UDPConn, *net.TCPListener, error) {
+func bindToAddr(address string, port uint16, ipv4, ipv6 bool) (*net.UDPConn, *net.TCPListener, error) {
 	var err error
 	var listener net.Listener
 	var conn net.PacketConn
@@ -492,13 +493,13 @@ func bindToAddr(address string, port uint16) (*net.UDPConn, *net.TCPListener, er
 
 	bindAddr := net.JoinHostPort(address, strconv.Itoa(int(port)))
 
-	listener, err = listenConfig(linux_defaults.MagicMarkEgress).Listen(context.Background(),
+	listener, err = listenConfig(linux_defaults.MagicMarkEgress, ipv4, ipv6).Listen(context.Background(),
 		"tcp", bindAddr)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	conn, err = listenConfig(linux_defaults.MagicMarkEgress).ListenPacket(context.Background(),
+	conn, err = listenConfig(linux_defaults.MagicMarkEgress, ipv4, ipv6).ListenPacket(context.Background(),
 		"udp", listener.Addr().String())
 	if err != nil {
 		return nil, nil, err
