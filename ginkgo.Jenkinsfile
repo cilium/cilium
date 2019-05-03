@@ -62,7 +62,7 @@ pipeline {
         }
         stage ("Copy code and boot vms"){
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 45, unit: 'MINUTES')
             }
 
             environment {
