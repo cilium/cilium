@@ -47,6 +47,10 @@ type ChainingPlugin interface {
 	// Add is called on CNI ADD. It is given the plugin context from the
 	// previous plugin. It must return a CNI result or an error.
 	Add(ctx context.Context, pluginContext PluginContext) (res *cniTypesVer.Result, err error)
+
+	// ImplementsAdd returns true if the chaining plugin implements its own
+	// add logic
+	ImplementsAdd() bool
 }
 
 // Register is called by chaining plugins to register themselves. After
