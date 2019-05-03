@@ -28,6 +28,7 @@ Installation
    k8s-install-self-managed
    k8s-install-managed
    k8s-installers
+   cni-chaining
 
 Security Tutorials
 ------------------

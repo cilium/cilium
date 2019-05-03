@@ -275,6 +275,13 @@ Changes that may require action
     unless the environment variable ``CILIUM_CUSTOM_CNI_CONF`` is set in which
     case any already existing configuration file is untouched.
 
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``cni-chaining-mode`` has been added to automatically generate CNI chaining
+    configurations with various other plugins. See the section
+    :ref:`cni_chaining` for a list of supported CNI chaining plugins.
+
 .. _1.5_upgrade_notes:
 
 1.5 Upgrade Notes
