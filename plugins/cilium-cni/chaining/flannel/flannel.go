@@ -31,6 +31,10 @@ import (
 
 type flannelChainer struct{}
 
+func (f *flannelChainer) ImplementsAdd() bool {
+	return true
+}
+
 func (f *flannelChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginContext) (res *cniTypesVer.Result, err error) {
 	err = cniVersion.ParsePrevResult(&pluginCtx.NetConf.NetConf)
 	if err != nil {
