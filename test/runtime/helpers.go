@@ -44,6 +44,7 @@ var _ = Describe("RuntimeTestExecTimeout", func() {
 		defer cancel()
 
 		res := vm.ExecContext(ctx, fmt.Sprintf("sleep %d", sleepSeconds))
+		fmt.Printf("FML: %v WTF: %v\n", time.Since(start), time.Since(start) < timeout)
 		Expect(time.Since(start) < timeout).Should(BeTrue(), "Did not interrupt a timed-out exec within timeout")
 		Expect(res.GetExitCode()).Should(Not(Equal(0)), "Did not interrupt a timed-out exec based on exit code")
 		Expect(!res.WasSuccessful(), "Did not interrupt a timed-out exec based on returned error")
@@ -58,6 +59,7 @@ var _ = Describe("RuntimeTestExecTimeout", func() {
 		cancel()
 
 		res := vm.ExecContext(ctx, fmt.Sprintf("sleep %d", sleepSeconds))
+		fmt.Printf("FML: %v WTF: %v\n", time.Since(start), time.Since(start) < timeout)
 		Expect(time.Since(start) < timeout).Should(BeTrue(), "Did not interrupt a cancelled exec")
 		Expect(res.GetExitCode()).Should(Not(Equal(0)), "Did not interrupt a cancelled out exec based on exit code")
 		Expect(!res.WasSuccessful(), "Did not interrupt a cancelled exec based on returned error")
