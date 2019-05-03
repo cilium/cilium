@@ -77,17 +77,13 @@ var (
 	// Encrypt represents the BPF map for sockets
 	encryptMap = bpf.NewMap(MapName,
 		bpf.MapTypeArray,
+		&EncryptKey{},
 		int(unsafe.Sizeof(EncryptKey{})),
+		&EncryptValue{},
 		int(unsafe.Sizeof(EncryptValue{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := &EncryptKey{}, &EncryptValue{}
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
-				return nil, nil, err
-			}
-			return k, v, nil
-		},
+		bpf.ConvertKeyValue,
 	).WithCache()
 )
 
