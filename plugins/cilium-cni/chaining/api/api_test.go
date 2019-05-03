@@ -42,6 +42,14 @@ func (p *pluginTest) ImplementsAdd() bool {
 	return true
 }
 
+func (p *pluginTest) Delete(ctx context.Context, pluginContext PluginContext) (err error) {
+	return nil
+}
+
+func (p *pluginTest) ImplementsDelete() bool {
+	return true
+}
+
 func (a *APISuite) TestRegistration(c *check.C) {
 	err := Register("foo", &pluginTest{})
 	c.Assert(err, check.IsNil)
