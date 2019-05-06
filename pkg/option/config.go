@@ -1260,7 +1260,7 @@ func (c *DaemonConfig) Populate() {
 	var collectors []prometheus.Collector
 	metricsSlice := common.MapStringStructToSlice(defaultMetrics)
 	c.MetricsConfig, collectors = metrics.CreateConfiguration(metricsSlice)
-	prometheus.MustRegister(collectors...)
+	metrics.MustRegister(collectors...)
 
 	// Hidden options
 	c.ConfigFile = viper.GetString(ConfigFile)
