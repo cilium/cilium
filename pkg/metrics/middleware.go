@@ -30,7 +30,7 @@ import (
 type APIEventTSHelper struct {
 	Next      http.Handler
 	TSGauge   prometheus.Gauge
-	Histogram *prometheus.HistogramVec
+	Histogram prometheus.ObserverVec
 }
 
 type responderWrapper struct {
