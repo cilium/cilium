@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -151,6 +152,11 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	cache.Close()
 
 	ds.d.Close()
+
+	_, collectors := metrics.CreateConfiguration(common.MapStringStructToSlice(metrics.DefaultMetrics()))
+	for _, collector := range collectors {
+		metrics.Unregister(collector)
+	}
 }
 
 type DaemonEtcdSuite struct {

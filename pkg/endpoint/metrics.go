@@ -37,7 +37,7 @@ type statistics interface {
 	GetMap() map[string]*spanstat.SpanStat
 }
 
-func sendMetrics(stats statistics, metric *prometheus.HistogramVec) {
+func sendMetrics(stats statistics, metric prometheus.ObserverVec) {
 	for scope, stat := range stats.GetMap() {
 		// Skip scopes that have not been hit (zero duration), so the count in
 		// the histogram accurately reflects the number of times each scope is
