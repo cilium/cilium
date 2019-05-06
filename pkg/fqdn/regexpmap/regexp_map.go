@@ -122,26 +122,26 @@ func (r refCount) Keys() []string {
 type RegexpMap struct {
 
 	// lookupValues is a map that use a lookupValue as a key and has a
-	// RegexpList with the rules that ONLY affect that lookupValue
+	// RegexpList with the regexes that ONLY affect that lookupValue.
 	lookupValues map[string]*RegexpList
 
-	// rules is a map that use a regular expression as a key and the value is
-	// the compiled regexp
-	rules map[string]*regexp.Regexp
+	// stringToRegExp is a map that use a regular expression as a key and the
+	// value is the compiled regexp.
+	stringToRegExp map[string]*regexp.Regexp
 
-	// rulesRelation is a map that use a regular expression as a key and the
+	// regexRefCount is a map that use a regular expression as a key and the
 	// values are all the lookupValues that has used this rule. To be able to
 	// support duplicates we use a refcount type to be able to increment and
 	// decrement the use.
-	rulesRelation map[string]refCount
+	regexRefCount map[string]refCount
 }
 
 // NewRegexpMap returns an initialized RegexpMap
 func NewRegexpMap() *RegexpMap {
 	return &RegexpMap{
-		lookupValues:  make(map[string]*RegexpList),
-		rules:         make(map[string]*regexp.Regexp),
-		rulesRelation: make(map[string]refCount),
+		lookupValues:   make(map[string]*RegexpList),
+		stringToRegExp: make(map[string]*regexp.Regexp),
+		regexRefCount:  make(map[string]refCount),
 	}
 }
 
@@ -149,13 +149,13 @@ func NewRegexpMap() *RegexpMap {
 // the lookup functions. It will return an error and data will be not saved if
 // the regexp does not compile correctly
 func (m *RegexpMap) Add(reStr string, lookupValue string) error {
-	_, exists := m.rules[reStr]
+	_, exists := m.stringToRegExp[reStr]
 	if !exists {
 		rule, err := regexp.Compile(reStr)
 		if err != nil {
 			return err
 		}
-		m.rules[reStr] = rule
+		m.stringToRegExp[reStr] = rule
 	}
 	val, exists := m.lookupValues[lookupValue]
 	if !exists {
@@ -164,10 +164,10 @@ func (m *RegexpMap) Add(reStr string, lookupValue string) error {
 	}
 	val.Add(reStr)
 
-	lookupCount, exists := m.rulesRelation[reStr]
+	lookupCount, exists := m.regexRefCount[reStr]
 	if !exists {
 		lookupCount = refCount{}
-		m.rulesRelation[reStr] = lookupCount
+		m.regexRefCount[reStr] = lookupCount
 	}
 	lookupCount.Increment(lookupValue)
 	return nil
@@ -176,12 +176,12 @@ func (m *RegexpMap) Add(reStr string, lookupValue string) error {
 // LookupValues returns all lookupValues, inserted via Add, where the reStr
 // matches lookupKey
 func (m *RegexpMap) LookupValues(lookupKey string) (lookupValues []string) {
-	for reStr, rule := range m.rules {
+	for reStr, rule := range m.stringToRegExp {
 
 		if !rule.MatchString(lookupKey) {
 			continue
 		}
-		val, exists := m.rulesRelation[reStr]
+		val, exists := m.regexRefCount[reStr]
 		if exists {
 			lookupValues = append(lookupValues, val.Keys()...)
 		}
@@ -199,7 +199,7 @@ func (m *RegexpMap) LookupContainsValue(lookupKey, expectedValue string) (found 
 	}
 
 	for _, item := range val.Get() {
-		rule := m.rules[item]
+		rule := m.stringToRegExp[item]
 		if rule != nil && rule.MatchString(lookupKey) {
 			return true
 		}
@@ -211,7 +211,7 @@ func (m *RegexpMap) LookupContainsValue(lookupKey, expectedValue string) (found 
 // lookupValues remain for reStr the internall regexp is deleted (later Adds
 // will recompile it).
 func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
-	lookupRelation, exists := m.rulesRelation[reStr]
+	lookupRelation, exists := m.regexRefCount[reStr]
 	if !exists {
 		return false
 	}
@@ -220,7 +220,7 @@ func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
 		return false
 	}
 
-	// Making sure that no other rules for the same reStr are in place.
+	// Making sure that no other stringToRegExp for the same reStr are in place.
 	if len(lookupRelation) > 0 {
 		return false
 	}
@@ -230,8 +230,8 @@ func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
 		val.Remove(reStr)
 	}
 
-	delete(m.rules, reStr)
-	delete(m.rulesRelation, reStr)
+	delete(m.stringToRegExp, reStr)
+	delete(m.regexRefCount, reStr)
 	return true
 }
 
@@ -239,7 +239,7 @@ func (m *RegexpMap) Remove(reStr, lookupValue string) (deleted bool) {
 // This is a utility function to avoid recompiling regexps repeatedly, and the
 // RegexpMap keeps the refcount for us.
 func (m *RegexpMap) GetPrecompiledRegexp(reStr string) (re *regexp.Regexp) {
-	return m.rules[reStr]
+	return m.stringToRegExp[reStr]
 }
 
 // keepUniqueStrings deduplicates strings in s. The output is sorted.
