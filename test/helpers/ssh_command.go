@@ -138,7 +138,7 @@ func ImportSSHconfig(config []byte) (SSHConfigs, error) {
 // copyWait runs an instance of io.Copy() in a goroutine, and returns a channel
 // to receive the error result.
 func copyWait(dst io.Writer, src io.Reader) chan error {
-	c := make(chan error)
+	c := make(chan error, 1)
 	go func() {
 		_, err := io.Copy(dst, src)
 		c <- err
