@@ -33,19 +33,6 @@ import (
 )
 
 const (
-	// BuildStateWaiting is the value of LabelBuildState to describe
-	// the number of entries waiting in the build queue
-	BuildStateWaiting = "waiting"
-
-	// BuildStateBlocked is the value of LabelBuildState to describe
-	// the number of entries scheduled for building but blocked due to
-	// build conditions
-	BuildStateBlocked = "blocked"
-
-	// BuildStateRunning is the value of LabelBuildState to describe
-	// the number of builds currently running
-	BuildStateRunning = "running"
-
 	// ErrorTimeout is the value used to notify timeout errors.
 	ErrorTimeout = "timeout"
 
@@ -456,14 +443,6 @@ var (
 		Help:      "Duration in seconds of the controller process labeled by completion status",
 	}, []string{LabelStatus})
 
-	// BuildQueueEntries is the number of queued, waiting and running
-	// builds in the build queue
-	BuildQueueEntries = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: Namespace,
-		Name:      "buildqueue_entries",
-		Help:      "The number of queued, waiting and running builds in the build queue",
-	}, []string{LabelBuildState, LabelBuildQueueName})
-
 	// subprocess, labeled by Subsystem
 	SubprocessStart = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
@@ -609,8 +588,6 @@ func init() {
 
 	MustRegister(ControllerRuns)
 	MustRegister(ControllerRunsDuration)
-
-	MustRegister(BuildQueueEntries)
 
 	MustRegister(SubprocessStart)
 
