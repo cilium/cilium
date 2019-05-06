@@ -148,7 +148,7 @@ var (
 
 	// APIInteractions is the total time taken to process an API call made
 	// to the cilium-agent
-	APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	APIInteractions prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: Agent,
 		Name:      "api_process_time_seconds",
@@ -170,7 +170,7 @@ var (
 
 	// EndpointRegenerationCount is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
-	EndpointRegenerationCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	EndpointRegenerationCount CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regenerations",
 		Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
@@ -178,7 +178,7 @@ var (
 		[]string{"outcome"})
 
 	// EndpointStateCount is the total count of the endpoints in various states.
-	EndpointStateCount = prometheus.NewGaugeVec(
+	EndpointStateCount GaugeVec = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Name:      "endpoint_state",
@@ -189,7 +189,7 @@ var (
 
 	// EndpointRegenerationTimeStats is the total time taken to regenerate
 	// endpoints, labeled by span name and status ("success" or "failure")
-	EndpointRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	EndpointRegenerationTimeStats prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "endpoint_regeneration_time_stats_seconds",
 		Help:      "Endpoint regeneration time stats labeled by the scope",
@@ -213,7 +213,7 @@ var (
 	})
 
 	// PolicyRegenerationTimeStats is the total time taken to generate policies
-	PolicyRegenerationTimeStats = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	PolicyRegenerationTimeStats prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "policy_regeneration_time_stats_seconds",
 		Help:      "Policy regeneration time stats labeled by the scope",
@@ -234,7 +234,7 @@ var (
 	})
 
 	// PolicyEndpointStatus is the number of endpoints with policy labeled by enforcement type
-	PolicyEndpointStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	PolicyEndpointStatus GaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Name:      "policy_endpoint_enforcement_status",
 		Help:      "Number of endpoints labeled by policy enforcement status",
@@ -245,7 +245,7 @@ var (
 	// per Endpoint. This reflects the actual delay percieved by traffic flowing
 	// through the datapath. The longest times will roughly correlate with the
 	// time taken to fully deploy an endpoint.
-	PolicyImplementationDelay = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	PolicyImplementationDelay prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "policy_implementation_delay",
 		Help:      "Time between a policy change and it being fully deployed into the datapath",
@@ -284,7 +284,7 @@ var (
 	// L7 statistics
 
 	// ProxyRedirects is the number of redirects labelled by protocol
-	ProxyRedirects = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	ProxyRedirects GaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Name:      "proxy_redirects",
 		Help:      "Number of redirects installed for endpoints, labeled by protocol",
@@ -320,7 +320,7 @@ var (
 
 	// ProxyUpstreamTime is how long the upstream server took to reply labeled
 	// by error, protocol and span time
-	ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	ProxyUpstreamTime prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "proxy_upstream_reply_seconds",
 		Help:      "Seconds waited to get a reply from a upstream server",
@@ -330,7 +330,7 @@ var (
 
 	// DropCount is the total drop requests,
 	// tagged by drop reason and direction(ingress/egress)
-	DropCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	DropCount CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "drop_count_total",
 		Help:      "Total dropped packets, tagged by drop reason and ingress/egress direction",
@@ -339,7 +339,7 @@ var (
 
 	// DropBytes is the total dropped bytes,
 	// tagged by drop reason and direction(ingress/egress)
-	DropBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
+	DropBytes CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "drop_bytes_total",
 		Help:      "Total dropped bytes, tagged by drop reason and ingress/egress direction",
@@ -348,7 +348,7 @@ var (
 
 	// ForwardCount is the total forwarded packets,
 	// tagged by ingress/egress direction
-	ForwardCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ForwardCount CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "forward_count_total",
 		Help:      "Total forwarded packets, tagged by ingress/egress direction",
@@ -357,7 +357,7 @@ var (
 
 	// ForwardBytes is the total forwarded bytes,
 	// tagged by ingress/egress direction
-	ForwardBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ForwardBytes CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "forward_bytes_total",
 		Help:      "Total forwarded bytes, tagged by ingress/egress direction",
@@ -368,7 +368,7 @@ var (
 
 	// DatapathErrors is the number of errors managing datapath components
 	// such as BPF maps.
-	DatapathErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+	DatapathErrors CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Subsystem: Datapath,
 		Name:      "errors_total",
@@ -377,7 +377,7 @@ var (
 
 	// ConntrackGCRuns is the number of times that the conntrack GC
 	// process was run.
-	ConntrackGCRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ConntrackGCRuns CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Subsystem: Datapath,
 		Name:      "conntrack_gc_runs_total",
@@ -386,7 +386,7 @@ var (
 	}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
 	// ConntrackGCKeyFallbacks number of times that the conntrack key fallback was invalid.
-	ConntrackGCKeyFallbacks = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ConntrackGCKeyFallbacks CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Subsystem: Datapath,
 		Name:      "conntrack_gc_key_fallbacks_total",
@@ -394,7 +394,7 @@ var (
 	}, []string{LabelDatapathFamily, LabelProtocol})
 
 	// ConntrackGCSize the number of entries in the conntrack table
-	ConntrackGCSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	ConntrackGCSize GaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Subsystem: Datapath,
 		Name:      "conntrack_gc_entries",
@@ -403,7 +403,7 @@ var (
 	}, []string{LabelDatapathFamily, LabelProtocol, LabelStatus})
 
 	// ConntrackGCDuration the duration of the conntrack GC process in milliseconds.
-	ConntrackGCDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	ConntrackGCDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: Datapath,
 		Name:      "conntrack_gc_duration_seconds",
@@ -414,7 +414,7 @@ var (
 	// Services
 
 	// ServicesCount number of services
-	ServicesCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ServicesCount CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "services_events_total",
 		Help:      "Number of services events labeled by action type",
@@ -423,28 +423,28 @@ var (
 	// Errors and warnings
 
 	// ErrorsWarnings is the number of errors and warnings in cilium-agent instances
-	ErrorsWarnings = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ErrorsWarnings CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "errors_warnings_total",
 		Help:      "Number of total errors in cilium-agent instances",
 	}, []string{"level", "subsystem"})
 
 	// ControllerRuns is the number of times that a controller process runs.
-	ControllerRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
+	ControllerRuns CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "controllers_runs_total",
 		Help:      "Number of times that a controller process was run labeled by completion status",
 	}, []string{LabelStatus})
 
 	// ControllerRunsDuration the duration of the controller process in seconds
-	ControllerRunsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	ControllerRunsDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Name:      "controllers_runs_duration_seconds",
 		Help:      "Duration in seconds of the controller process labeled by completion status",
 	}, []string{LabelStatus})
 
 	// subprocess, labeled by Subsystem
-	SubprocessStart = prometheus.NewCounterVec(prometheus.CounterOpts{
+	SubprocessStart CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "subprocess_start_total",
 		Help:      "Number of times that Cilium has started a subprocess, labeled by subsystem",
@@ -454,7 +454,7 @@ var (
 
 	// KubernetesEventProcessed is the number of Kubernetes events
 	// processed labeled by scope, action and execution result
-	KubernetesEventProcessed = prometheus.NewCounterVec(prometheus.CounterOpts{
+	KubernetesEventProcessed CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "kubernetes_events_total",
 		Help:      "Number of Kubernetes events processed labeled by scope, action and execution result",
@@ -462,7 +462,7 @@ var (
 
 	// KubernetesEventReceived is the number of Kubernetes events received
 	// labeled by scope, action, valid data and equalness.
-	KubernetesEventReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
+	KubernetesEventReceived CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "kubernetes_events_received_total",
 		Help:      "Number of Kubernetes events processed labeled by scope, action and execution result",
@@ -472,7 +472,7 @@ var (
 
 	// KubernetesAPIInteractions is the total time taken to process an API call made
 	// to the kube-apiserver
-	KubernetesAPIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	KubernetesAPIInteractions prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: K8sClient,
 		Name:      "api_latency_time_seconds",
@@ -481,7 +481,7 @@ var (
 
 	// KubernetesAPICalls is the counter for all API calls made to
 	// kube-apiserver.
-	KubernetesAPICalls = prometheus.NewCounterVec(prometheus.CounterOpts{
+	KubernetesAPICalls CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Subsystem: K8sClient,
 		Name:      "api_calls_counter",
@@ -490,7 +490,7 @@ var (
 
 	// KubernetesCNPStatusCompletion is the number of seconds it takes to
 	// complete a CNP status update
-	KubernetesCNPStatusCompletion = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	KubernetesCNPStatusCompletion prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: K8s,
 		Name:      "cnp_status_completion_seconds",
@@ -501,7 +501,7 @@ var (
 
 	// IpamEvent is the number of IPAM events received labeled by action and
 	// datapath family type
-	IpamEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
+	IpamEvent CounterVec = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: Namespace,
 		Name:      "ipam_events_total",
 		Help:      "Number of IPAM events received labeled by action and datapath family type",
@@ -510,7 +510,7 @@ var (
 	// KVstore events
 
 	// KVStoreOperationsDuration records the duration of kvstore operations
-	KVStoreOperationsDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	KVStoreOperationsDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: "kvstore",
 		Name:      "operations_duration_seconds",
@@ -519,7 +519,7 @@ var (
 
 	// KVStoreEventsQueueDuration records the duration in seconds of time
 	// received event was blocked before it could be queued
-	KVStoreEventsQueueDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	KVStoreEventsQueueDuration prometheus.ObserverVec = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: "kvstore",
 		Name:      "events_queue_seconds",
