@@ -31,7 +31,6 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 		{MatchPattern: "*.cilium.io"},
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
-		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
 	} {
 		err := accept.sanitize()
 		c.Assert(err, IsNil, Commentf("FQDNSelector %+v was rejected but it should be valid", accept))
@@ -40,8 +39,7 @@ func (s *PolicyAPITestSuite) TestFQDNSelectorSanitize(c *C) {
 	for _, reject := range []FQDNSelector{
 		{MatchName: "a{1,2}.cilium.io."},
 		{MatchPattern: "[a-z]*.cilium.io."},
-		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "*cilium.io"},
-		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "[a-z]*.cilium.io."},
+		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
 	} {
 		err := reject.sanitize()
 		c.Assert(err, Not(IsNil), Commentf("FQDNSelector %+v was accepted but it should be invalid", reject))
@@ -59,7 +57,6 @@ func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
 		{MatchPattern: "*.cilium.io"},
 		{MatchPattern: "*cilium.io"},
 		{MatchPattern: "cilium.io"},
-		{MatchName: "cilium.io", MatchPattern: "*cilium.io"},
 	} {
 		err := accept.Sanitize()
 		c.Assert(err, IsNil, Commentf("PortRuleDNS %+v was rejected but it should be valid", accept))
@@ -68,7 +65,6 @@ func (s *PolicyAPITestSuite) TestPortRuleDNSSanitize(c *C) {
 	for _, reject := range []PortRuleDNS{
 		{MatchName: "a{1,2}.cilium.io."},
 		{MatchPattern: "[a-z]*.cilium.io."},
-		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "*cilium.io"},
 		{MatchName: "a{1,2}.cilium.io.", MatchPattern: "[a-z]*.cilium.io."},
 	} {
 		err := reject.Sanitize()
