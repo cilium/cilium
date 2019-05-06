@@ -34,27 +34,15 @@ func Test(t *testing.T) {
 const path = "testdata/bpf_foo.o"
 
 type foo struct {
-	ipv6 [4]uint32 `align:"$union0"`
-	misc uint32    `align:"$union1"`
-	f    uint8     `align:"family"`
-	pad4 uint8     `align:"pad4"`
-	pad5 uint16    `align:"pad5"`
 }
 
 type foo2 struct {
-	foo
 }
 
 type fooInvalidSize struct {
-	ipv6 uint32
 }
 
 type fooInvalidOffset struct {
-	ipv6 [4]uint32 `align:"$union0"`
-	misc uint32    `align:"$union1"`
-	f    uint16    `align:"family"`
-	pad4 uint8     `align:"pad4"`
-	pad5 uint8     `align:"pad5"`
 }
 
 type toCheck map[string][]reflect.Type
