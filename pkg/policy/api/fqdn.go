@@ -62,6 +62,9 @@ func (s *FQDNSelector) String() string {
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
 func (s *FQDNSelector) sanitize() error {
+	if len(s.MatchName) > 0 && len(s.MatchPattern) > 0 {
+		return fmt.Errorf("only one of MatchName or MatchPattern is allowed in an FQDNSelector")
+	}
 	if len(s.MatchName) > 0 && !allowedMatchNameChars.MatchString(s.MatchName) {
 		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
 	}
