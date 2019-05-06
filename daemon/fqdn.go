@@ -107,13 +107,11 @@ func updateSelectorCache(selectors map[policyApi.FQDNSelector][]*identity.Identi
 	// Selectors which no longer map to IPs (due to TTL expiry, cache being
 	// cleared forcibly via CLI, etc.) still exist in the selector cache
 	// since policy is imported which allows it, but the selector does
-	// not match anything anymore.
-	for k := range selectorsWithoutIPs {
-		log.WithFields(logrus.Fields{
-			"fqdnSelectorString": selectorsWithoutIPs[k],
-		}).Debug("removing all identities from FQDN selector")
-		policy.UpdateFQDNSelector(selectorsWithoutIPs[k], []identity.NumericIdentity{})
-	}
+	// not map to any IPs anymore.
+	log.WithFields(logrus.Fields{
+		"fqdnSelectors": selectorsWithoutIPs,
+	}).Debug("removing all identities from FQDN selectors")
+	policy.RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
