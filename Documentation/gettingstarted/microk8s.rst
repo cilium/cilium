@@ -29,13 +29,14 @@ Install microk8s
 
 #. Configure microk8s to use CNI and allow Cilium to register as that CNI:
 
-   ::
+   .. parsed-literal::
 
       echo "--allow-privileged" >> /var/snap/microk8s/current/args/kube-apiserver
       sed -i 's/--network-plugin=kubenet/--network-plugin=cni/g'  /var/snap/microk8s/current/args/kubelet
       sed -i 's/--cni-bin-dir=${SNAP}\/opt/--cni-bin-dir=\/opt/g'  /var/snap/microk8s/current/args/kubelet
       sed -i 's/bin_dir = "${SNAP}\/opt/bin_dir = "\/opt/g'  /var/snap/microk8s/current/args/containerd-template.toml
       rm /var/snap/microk8s/current/args/cni-network/cni.conf
+      curl \ |SCM_WEB|\/plugins/cilium-cni/05-cilium-cni.conf > /var/snap/microk8s/current/args/cni-network/05-cilium.conf
       systemctl restart snap.microk8s.daemon-containerd.service
       systemctl restart snap.microk8s.daemon-apiserver.service
       systemctl restart snap.microk8s.daemon-kubelet.service
