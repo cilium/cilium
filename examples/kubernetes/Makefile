@@ -168,6 +168,7 @@ cilium-microk8s.yaml:
             sed -i 's+cert-file:+# cert-file:+' cilium-microk8s.yaml; \
             sed -i 's+path: /var/run/containerd+path: /var/snap/microk8s/common/run+'  cilium-microk8s.yaml; \
             sed -i 's+path: /etc/cni/net.d+path: /var/snap/microk8s/current/args/cni-network+'  cilium-microk8s.yaml; \
+            sed -i 's+custom-cni-conf: "false"+custom-cni-conf: "true"+' $@; \
         ); \
         done
 
