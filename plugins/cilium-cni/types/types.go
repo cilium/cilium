@@ -20,6 +20,8 @@ import (
 	"net"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/containernetworking/cni/pkg/version"
 )
 
 // NetConf is the Cilium specific CNI network configuration
@@ -31,12 +33,28 @@ type NetConf struct {
 
 // LoadNetConf unmarshals a Cilium network configuration from JSON and returns
 // a NetConf together with the CNI version
-func LoadNetConf(bytes []byte) (*NetConf, string, error) {
+func LoadNetConf(bytes []byte) (*NetConf, error) {
 	n := &NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
-		return nil, "", fmt.Errorf("failed to load netconf: %s", err)
+		return nil, fmt.Errorf("failed to load netconf: %s", err)
 	}
-	return n, n.CNIVersion, nil
+
+	if n.RawPrevResult != nil {
+		resultBytes, err := json.Marshal(n.RawPrevResult)
+		if err != nil {
+			return nil, fmt.Errorf("could not serialize prevResult: %v", err)
+		}
+		res, err := version.NewResult(n.CNIVersion, resultBytes)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse prevResult: %v", err)
+		}
+		n.PrevResult, err = current.NewResultFromResult(res)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert result to current version: %v", err)
+		}
+	}
+
+	return n, nil
 }
 
 // ArgsSpec is the specification of additional arguments of the CNI ADD call

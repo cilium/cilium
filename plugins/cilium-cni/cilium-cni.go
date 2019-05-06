@@ -265,18 +265,21 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		routes   []*cniTypes.Route
 		ipam     *models.IPAMResponse
 		n        *types.NetConf
-		cniVer   string
 		c        *client.Client
 		netNs    ns.NetNS
 	)
 
 	logger := log.WithField("eventUUID", uuid.NewUUID())
-	logger.WithField("args", args).Debug("Processing CNI ADD request")
+	logger.Debugf("Processing CNI ADD request %#v", args)
 
-	n, cniVer, err = types.LoadNetConf(args.StdinData)
+	n, err = types.LoadNetConf(args.StdinData)
 	if err != nil {
 		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return
+	}
+	logger.Debugf("CNI NetConf: %#v", n)
+	if n.PrevResult != nil {
+		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
 	}
 
 	cniArgs := types.ArgsSpec{}
@@ -284,6 +287,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		err = fmt.Errorf("unable to extract CNI arguments: %s", err)
 		return
 	}
+	logger.Debugf("CNI Args: %#v", cniArgs)
 
 	c, err = client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -296,12 +300,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			var (
 				res *cniTypesVer.Result
 				ctx = chainingapi.PluginContext{
-					Logger:     logger,
-					Args:       args,
-					CniArgs:    cniArgs,
-					NetConf:    n,
-					CniVersion: cniVer,
-					Client:     c,
+					Logger:  logger,
+					Args:    args,
+					CniArgs: cniArgs,
+					NetConf: n,
+					Client:  c,
 				}
 			)
 
@@ -310,7 +313,9 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 				if err != nil {
 					return
 				}
-				return cniTypes.PrintResult(res, cniVer)
+				logger.Debugf("Returning result %#v", res)
+				err = cniTypes.PrintResult(res, n.CNIVersion)
+				return
 			}
 		} else {
 			logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
@@ -496,7 +501,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	logger.WithFields(logrus.Fields{
 		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
-	return cniTypes.PrintResult(res, cniVer)
+	return cniTypes.PrintResult(res, n.CNIVersion)
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -505,17 +510,19 @@ func cmdDel(args *skel.CmdArgs) error {
 	// are guaranteed to be recoverable.
 
 	logger := log.WithField("eventUUID", uuid.NewUUID())
-	logger.WithField("args", args).Debug("Processing CNI DEL request")
+	logger.Debugf("Processing CNI DEL request %#v", args)
 
-	n, cniVer, err := types.LoadNetConf(args.StdinData)
+	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return err
 	}
+	logger.Debugf("CNI NetConf: %#v", n)
 
 	cniArgs := types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %s", err)
 	}
+	logger.Debugf("CNI Args: %#v", cniArgs)
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
@@ -526,12 +533,11 @@ func cmdDel(args *skel.CmdArgs) error {
 	if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
 		var (
 			ctx = chainingapi.PluginContext{
-				Logger:     logger,
-				Args:       args,
-				CniArgs:    cniArgs,
-				NetConf:    n,
-				CniVersion: cniVer,
-				Client:     c,
+				Logger:  logger,
+				Args:    args,
+				CniArgs: cniArgs,
+				NetConf: n,
+				Client:  c,
 			}
 		)
 
