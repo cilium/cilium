@@ -73,6 +73,10 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	};
 	struct lb4_service_v2 *slave_svc;
 
+	if (ctx->protocol != IPPROTO_TCP) {
+		return CONNECT_PROCEED;
+	}
+
 	svc = __lb4_lookup_service_v2(&key);
 	if (svc) {
 		key.slave = (sock_pick_rand(ctx) % svc->count) + 1;
@@ -121,6 +125,10 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service_v2 *slave_svc;
+
+	if (ctx->protocol != IPPROTO_TCP) {
+		return CONNECT_PROCEED;
+	}
 
 	ctx_get_v6_address(ctx, &key.address);
 
