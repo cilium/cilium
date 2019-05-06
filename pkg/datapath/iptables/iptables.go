@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -255,7 +255,7 @@ func (m *IptablesManager) Init() {
 	if err := modulesManager.FindOrLoadModules(
 		"ip6_tables", "ip6table_mangle", "ip6table_raw"); err != nil {
 		if option.Config.EnableIPv6 {
-			log.WithError(err).Fatal(
+			log.WithError(err).Warning(
 				"IPv6 is enabled and ip6tables modules could not be initialized")
 		}
 		log.WithError(err).Debug(
