@@ -114,3 +114,13 @@ func MoveNewFilesTo(oldDir, newDir string) error {
 	}
 	return nil
 }
+
+// MapStringStructToSlice returns a slice with all keys of the given
+// map[string]struct{}
+func MapStringStructToSlice(m map[string]struct{}) []string {
+	s := make([]string, 0, len(m))
+	for k := range m {
+		s = append(s, k)
+	}
+	return s
+}
