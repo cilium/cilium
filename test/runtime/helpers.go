@@ -39,28 +39,29 @@ var _ = Describe("RuntimeTestExecTimeout", func() {
 		start := time.Now()
 		timeout := 10 * time.Second
 		sleepSeconds := 20 + (timeout+helpers.CMDGracePeriod)/time.Second
+		deadline := start.Add((timeout + helpers.CMDGracePeriod))
 
 		ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 		defer cancel()
 
 		res := vm.ExecContext(ctx, fmt.Sprintf("sleep %d", sleepSeconds))
-		fmt.Printf("FML: %v WTF: %v\n", time.Since(start), time.Since(start) < timeout)
-		Expect(time.Since(start) < timeout).Should(BeTrue(), "Did not interrupt a timed-out exec within timeout")
+		fmt.Printf("FML: %v WTF: %v\n", time.Since(start), time.Now().Before(deadline))
+		Expect(time.Now().Before(deadline)).Should(BeTrue(), "Did not interrupt a timed-out exec within timeout")
 		Expect(res.GetExitCode()).Should(Not(Equal(0)), "Did not interrupt a timed-out exec based on exit code")
 		Expect(!res.WasSuccessful(), "Did not interrupt a timed-out exec based on returned error")
 	})
 
 	It("Returns from execs on cancel", func() {
 		start := time.Now()
-		timeout := 1 * time.Second
 		sleepSeconds := 20 + helpers.CMDGracePeriod/time.Second
+		deadline := start.Add((helpers.CMDGracePeriod))
 
 		ctx, cancel := context.WithCancel(context.TODO())
 		cancel()
 
 		res := vm.ExecContext(ctx, fmt.Sprintf("sleep %d", sleepSeconds))
-		fmt.Printf("FML: %v WTF: %v\n", time.Since(start), time.Since(start) < timeout)
-		Expect(time.Since(start) < timeout).Should(BeTrue(), "Did not interrupt a cancelled exec")
+		fmt.Printf("FML: %v WTF: %v\n", time.Since(start), time.Now().Before(deadline))
+		Expect(time.Now().Before(deadline)).Should(BeTrue(), "Did not interrupt a cancelled exec")
 		Expect(res.GetExitCode()).Should(Not(Equal(0)), "Did not interrupt a cancelled out exec based on exit code")
 		Expect(!res.WasSuccessful(), "Did not interrupt a cancelled exec based on returned error")
 	})

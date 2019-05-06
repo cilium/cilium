@@ -156,30 +156,38 @@ func copyWait(dst io.Writer, src io.Reader) chan error {
 // cmd. Returns whether the command was run and an optional error.
 // session.Wait must be used to wait for the command to exit and cmd.Stderr and
 // cmd.Stdout to be fully written.
-func startCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
+func startCommand(session *ssh.Session, cmd *SSHCommand) (bool, io.WriteCloser, error) {
 	stderr, err := session.StderrPipe()
 	if err != nil {
-		return false, fmt.Errorf("Unable to setup stderr for session: %v", err)
+		return false, nil, fmt.Errorf("Unable to setup stderr for session: %v", err)
 	}
 	errChan := copyWait(cmd.Stderr, stderr)
 
 	stdout, err := session.StdoutPipe()
 	if err != nil {
-		return false, fmt.Errorf("Unable to setup stdout for session: %v", err)
+		return false, nil, fmt.Errorf("Unable to setup stdout for session: %v", err)
 	}
 	outChan := copyWait(cmd.Stdout, stdout)
 
-	if err = session.Start(cmd.Path); err != nil {
-		return false, err
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return false, nil, fmt.Errorf("Unable to setup stdin for session: %v", err)
 	}
 
-	if err = <-errChan; err != nil {
-		return true, err
+	if err = session.Start(cmd.Path); err != nil {
+		return false, nil, err
 	}
-	if err = <-outChan; err != nil {
-		return true, err
+
+	select {
+	case err = <-errChan:
+		return true, nil, err
+
+	case err = <-outChan:
+		return true, nil, err
+
+	default:
+		return true, stdin, nil
 	}
-	return true, nil
 }
 
 // waitOnCommandCtx waits on the command in session to complete but interrupts
@@ -192,7 +200,7 @@ func startCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 // non-nil when there are errors with the connection or if an error occurs when
 // terminating the command. EOF errors are treated as non-errors when the
 // command exiting is correct behavriour.
-func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.Duration, cmd *SSHCommand) (commandExitedGracefully bool, err error) {
+func waitOnCommandCtx(ctx context.Context, session *ssh.Session, stdin io.WriteCloser, killGrace time.Duration, cmd *SSHCommand) (commandExitedGracefully bool, err error) {
 	scopedLog := log.WithField("cmd", cmd.Path)
 
 	// Run a goroutine to notify us if the program exits on its own
@@ -204,6 +212,7 @@ func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.
 		close(commandExitedCh) // Note: This assumes we only read this channel once
 	}()
 
+	defer session.Close()
 	select {
 	// The command exits before the timeout with 0 or non-0 exit codes
 	case err = <-commandExitedCh:
@@ -217,7 +226,8 @@ func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.
 
 	// The timeout has lapsed. Tear down the whole session.
 	case <-ctx.Done():
-		intErr := session.Signal(ssh.SIGINT)
+		//intErr := session.Signal(ssh.SIGINT)
+		_, intErr := stdin.Write([]byte{3})
 		switch {
 		// Handle the possible race where the command exited as we sent the signal.
 		// This should be similar to the normal exit case above.
@@ -257,12 +267,6 @@ func waitOnCommandCtx(ctx context.Context, session *ssh.Session, killGrace time.
 			}
 		}
 
-		// TODO: What is this for? Closing the connection should deliver a HUP to
-		// the process anyway.
-		if hupErr := session.Signal(ssh.SIGHUP); hupErr != nil && hupErr != io.EOF {
-			err = hupErr
-			scopedLog.WithError(hupErr).Error("failed to send SIGHUP to command")
-		}
 	}
 
 	return commandExitedGracefully, err
@@ -300,7 +304,7 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 	}
 	session.RequestPty("xterm-256color", 80, 80, modes)
 
-	running, err := startCommand(session, cmd)
+	running, stdin, err := startCommand(session, cmd)
 	switch {
 	case err != nil:
 		return err
@@ -308,7 +312,7 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
-	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod, cmd)
+	_, err = waitOnCommandCtx(ctx, session, stdin, CMDGracePeriod, cmd)
 	return err
 }
 
@@ -326,7 +330,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	}
 	defer session.Close() // TODO: Print error
 
-	running, err := startCommand(session, cmd)
+	running, stdin, err := startCommand(session, cmd)
 	switch {
 	case err != nil:
 		return err
@@ -334,7 +338,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		return fmt.Errorf("cannot start command: %s", cmd)
 	}
 
-	_, err = waitOnCommandCtx(ctx, session, CMDGracePeriod, cmd)
+	_, err = waitOnCommandCtx(ctx, session, stdin, CMDGracePeriod, cmd)
 	return err
 }
 
