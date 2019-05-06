@@ -213,10 +213,13 @@ type labelIdentitySelector struct {
 // of the cachedSelections differ from those in the identities slice, all
 // users are notified.
 func (sc *SelectorCache) UpdateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity) {
-
-	fqdnKey := fqdnSelec.String()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
+	sc.updateFQDNSelector(fqdnSelec, identities)
+}
+
+func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identities []identity.NumericIdentity) {
+	fqdnKey := fqdnSelec.String()
 
 	var fqdnSel *fqdnSelector
 
