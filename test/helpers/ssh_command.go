@@ -143,7 +143,7 @@ func ImportSSHconfig(config []byte) (SSHConfigs, error) {
 // Note: io.Copy stops when it sees an EOF error, but does not treat it as an
 // error.
 func copyWait(dst io.Writer, src io.Reader) chan error {
-	c := make(chan error)
+	c := make(chan error, 1)
 	go func() {
 		_, err := io.Copy(dst, src)
 		c <- err
