@@ -322,10 +322,18 @@ func (m *Manager) NodeDeleted(n node.Node) {
 		return
 	}
 
+	// If the source is Kubernetes and the node is the node we are running on
+	// Kubernetes is giving us a hint it is about to delete our node. Close down
+	// the agent gracefully in this case.
 	if n.Source != entry.node.Source {
-		log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
-			n.Name, n.Source, entry.node.Source)
 		m.mutex.Unlock()
+		if n.IsLocal() && n.Source == node.FromKubernetes {
+			log.Debugf("Kubernetes is deleting local node, close manager")
+			m.Close()
+		} else {
+			log.Debugf("Ignoring delete event of node %s from source %s. The node is owned by %s",
+				n.Name, n.Source, entry.node.Source)
+		}
 		return
 	}
 
