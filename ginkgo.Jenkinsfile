@@ -51,7 +51,7 @@ pipeline {
                always {
                    sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
                }
-               failure {
+               unsuccessful {
                    script {
                        if  (!currentBuild.displayName.contains('fail')) {
                            currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
@@ -82,7 +82,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; vagrant up runtime --provision'
                     }
                     post {
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'runtime vm provisioning fail\n' + currentBuild.displayName
@@ -104,7 +104,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up k8s1-1.10 k8s2-1.10 --provision'
                     }
                     post {
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.10 net-next vm provisioning fail\n' + currentBuild.displayName
@@ -125,7 +125,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant up k8s1-1.14 k8s2-1.14 --provision'
                     }
                     post {
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.14 vm provisioning fail\n' + currentBuild.displayName
@@ -163,7 +163,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
                             sh 'cd ${TESTDIR}; vagrant destroy -f || true'
                         }
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'Runtime tests fail\n' + currentBuild.displayName
@@ -190,7 +190,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true'
                         }
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.10-net-next fail\n' + currentBuild.displayName
@@ -216,7 +216,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.14 vagrant destroy -f || true'
                         }
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.14 fail\n' + currentBuild.displayName
