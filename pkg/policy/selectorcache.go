@@ -461,6 +461,19 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 	}
 }
 
+// RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
+// set of FQDNSelectors.
+func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	noIdentities := []identity.NumericIdentity{}
+
+	for i := range fqdnSels {
+		sc.updateFQDNSelector(fqdnSels[i], noIdentities)
+	}
+}
+
 // Export global functions to interface with the global selector cache
 
 // AddIdentitySelector adds the given api.EndpointSelector in to the
@@ -482,6 +495,12 @@ func RemoveIdentitySelector(user CachedSelectionUser, selector CachedSelector) {
 // all users are notified.
 func UpdateFQDNSelector(fqdnSelector api.FQDNSelector, identities []identity.NumericIdentity) {
 	selectorCache.UpdateFQDNSelector(fqdnSelector, identities)
+}
+
+// RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
+// set of FQDNSelectors in the global SelectorCache.
+func RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector) {
+	selectorCache.RemoveIdentitiesFQDNSelectors(fqdnSels)
 }
 
 // AddFQDNSelector adds the given api.EndpointSelector to the selector cache. If
