@@ -106,7 +106,7 @@ func (t *AlignCheckerSuite) TestCheckStructAlignments(c *C) {
 			[]reflect.Type{
 				reflect.TypeOf(foo{}),
 			},
-			"C struct bar not found",
+			"could not find C struct bar",
 		},
 	}
 
