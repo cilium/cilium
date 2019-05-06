@@ -42,8 +42,8 @@ const (
 )
 
 var (
-	metricSyscallDuration *prometheus.HistogramVec
-	metricMapOps          *prometheus.CounterVec
+	metricSyscallDuration prometheus.ObserverVec
+	metricMapOps          metrics.CounterVec
 )
 
 func init() {

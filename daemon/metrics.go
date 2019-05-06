@@ -119,7 +119,7 @@ const (
 )
 
 var (
-	metricBootstrapTimes *prometheus.HistogramVec
+	metricBootstrapTimes prometheus.ObserverVec
 )
 
 func init() {

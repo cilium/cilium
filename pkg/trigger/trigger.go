@@ -89,9 +89,9 @@ type Trigger struct {
 	// closeChan is used to stop the background trigger routine
 	closeChan chan struct{}
 
-	triggerReasons *prometheus.CounterVec
+	triggerReasons metrics.CounterVec
 	triggerFolds   prometheus.Gauge
-	callDurations  *prometheus.HistogramVec
+	callDurations  prometheus.ObserverVec
 
 	// numFolds is the current count of folds that happened into the
 	// currently scheduled trigger
