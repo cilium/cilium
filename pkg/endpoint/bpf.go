@@ -1051,3 +1051,8 @@ func (e *Endpoint) RequireEgressProg() bool {
 func (e *Endpoint) RequireRouting() bool {
 	return e.DatapathConfiguration.RequireRouting != nil && *e.DatapathConfiguration.RequireRouting
 }
+
+// RequireEndpointRoute returns if the endpoint wants a per endpoint route
+func (e *Endpoint) RequireEndpointRoute() bool {
+	return e.DatapathConfiguration.InstallEndpointRoute
+}

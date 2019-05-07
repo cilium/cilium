@@ -1703,6 +1703,10 @@ func init() {
           "description": "Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.\n",
           "type": "boolean"
         },
+        "install-endpoint-route": {
+          "description": "Installs a route in the Linux routing table pointing to the device of the endpoint's interface.\n",
+          "type": "boolean"
+        },
         "require-arp-passthrough": {
           "description": "Enable ARP passthrough mode",
           "type": "boolean"
@@ -4618,6 +4622,10 @@ func init() {
       "properties": {
         "external-ipam": {
           "description": "Indicates that IPAM is done external to Cilium. This will prevent the IP from being released and re-allocation of the IP address is skipped on restore.\n",
+          "type": "boolean"
+        },
+        "install-endpoint-route": {
+          "description": "Installs a route in the Linux routing table pointing to the device of the endpoint's interface.\n",
           "type": "boolean"
         },
         "require-arp-passthrough": {
