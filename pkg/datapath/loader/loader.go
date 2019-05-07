@@ -17,10 +17,12 @@ package loader
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/logging"
@@ -28,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -51,6 +54,25 @@ type endpoint interface {
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
 	MapPath() string
+}
+
+func upsertEndpointRoute(ep endpoint, ip net.IPNet) error {
+	endpointRoute := route.Route{
+		Prefix: ip,
+		Device: ep.InterfaceName(),
+		Scope:  netlink.SCOPE_LINK,
+	}
+
+	_, err := route.Upsert(endpointRoute, nil)
+	return err
+}
+
+func removeEndpointRoute(ep endpoint, ip net.IPNet) error {
+	return route.Delete(route.Route{
+		Prefix: ip,
+		Device: ep.InterfaceName(),
+		Scope:  netlink.SCOPE_LINK,
+	})
 }
 
 func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
@@ -98,6 +120,16 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 				}
 				return err
 			}
+		}
+	}
+
+	if ep.WantsEndpointRoute() {
+		if ip := ep.IPv4Address(); ip.IsSet() {
+			upsertEndpointRoute(ep, *ip.IPNet(32))
+		}
+
+		if ip := ep.IPv6Address(); ip.IsSet() {
+			upsertEndpointRoute(ep, *ip.IPNet(128))
 		}
 	}
 
@@ -209,4 +241,17 @@ func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err erro
 	err = reloadDatapath(ctx, ep, &dirs)
 	stats.bpfLoadProg.End(err == nil)
 	return err
+}
+
+// Unload removes the datapath specific program aspects
+func Unload(ep endpoint) {
+	if ep.WantsEndpointRoute() {
+		if ip := ep.IPv4Address(); ip.IsSet() {
+			removeEndpointRoute(ep, *ip.IPNet(32))
+		}
+
+		if ip := ep.IPv6Address(); ip.IsSet() {
+			removeEndpointRoute(ep, *ip.IPNet(128))
+		}
+	}
 }

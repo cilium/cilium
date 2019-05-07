@@ -55,6 +55,7 @@ type epInfoCache struct {
 	requireARPPassthrough                  bool
 	requireEgressProg                      bool
 	disableRouting                         bool
+	wantsEndpointRoute                     bool
 	cidr4PrefixLengths, cidr6PrefixLengths []int
 	options                                *option.IntOptions
 
@@ -88,6 +89,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		requireARPPassthrough: e.RequireARPPassthrough(),
 		requireEgressProg:     e.RequireEgressProg(),
 		disableRouting:        e.RoutingDisabled(),
+		wantsEndpointRoute:    e.WantsEndpointRoute(),
 		cidr4PrefixLengths:    cidr4,
 		cidr6PrefixLengths:    cidr6,
 		options:               e.Options.DeepCopy(),
@@ -195,4 +197,8 @@ func (ep *epInfoCache) RequireEgressProg() bool {
 // be disabled and delegated to Linux routing
 func (ep *epInfoCache) RoutingDisabled() bool {
 	return ep.disableRouting
+}
+
+func (ep *epInfoCache) WantsEndpointRoute() bool {
+	return ep.wantsEndpointRoute
 }

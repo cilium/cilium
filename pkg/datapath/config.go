@@ -67,4 +67,9 @@ type EndpointConfiguration interface {
 	// RoutingDisabled returns true if the endpoint requires for routing in
 	// BPF to be disabled and delegated to Linux routing
 	RoutingDisabled() bool
+
+	// WantsEndpointRoute returns true if the endpoint wishes to have a per
+	// endpoint route installed in the host's routing table to point to the
+	// endpoint's interface
+	WantsEndpointRoute() bool
 }

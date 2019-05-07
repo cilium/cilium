@@ -23,6 +23,10 @@ type EndpointDatapathConfiguration struct {
 	//
 	ExternalIPAM bool `json:"external-ipam,omitempty"`
 
+	// Installs a route in the Linux routing table pointing to the device of the endpoint's interface.
+	//
+	InstallEndpointRoute bool `json:"install-endpoint-route,omitempty"`
+
 	// Enable ARP passthrough mode
 	RequireArpPassthrough bool `json:"require-arp-passthrough,omitempty"`
 

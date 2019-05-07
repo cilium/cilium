@@ -1051,3 +1051,8 @@ func (e *Endpoint) RequireEgressProg() bool {
 func (e *Endpoint) RoutingDisabled() bool {
 	return e.DatapathConfiguration.DisableRouting
 }
+
+// WantsEndpointRoute returns if the endpoint wants a per endpoint route
+func (e *Endpoint) WantsEndpointRoute() bool {
+	return e.DatapathConfiguration.InstallEndpointRoute
+}

@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -1326,6 +1327,8 @@ type DeleteConfig struct {
 // DeleteConfig and the restore logic must opt-out of it.
 func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
+
+	loader.Unload(e.createEpInfoCache(""))
 
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && e.realizedPolicy != nil && e.realizedPolicy.L4Policy != nil {
