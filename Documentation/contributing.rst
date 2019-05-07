@@ -1948,6 +1948,11 @@ If you intent to release a new minor release, see the
    Please reach out on the ``#development`` channel on Slack for assistance with
    this task.
 
+#. Update the external tools and guides to point to the released Cilium version:
+
+    * `kubeadm <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_
+    * `kops <https://github.com/kubernetes/kops/>`_
+    * `kubespray <https://github.com/kubernetes-sigs/kubespray/>`_
 
 .. _minor_release_process:
 
