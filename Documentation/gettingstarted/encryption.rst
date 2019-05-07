@@ -28,7 +28,7 @@ Generate & import the PSK
 First create a Kubernetes secret for the IPSec keys to be stored.
 This will generate the necessary IPSec keys which will be distributed as a
 Kubernetes secret called ``cilium-ipsec-keys``. In this example we use
-GMC-128-AES, but any of the supported
+GCM-128-AES, but any of the supported
 Linux algorithms may be used. To generate use the following
 
 .. parsed-literal::
