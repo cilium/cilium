@@ -373,6 +373,26 @@ func (c *consulClient) Watch(w *Watcher) {
 	}
 }
 
+func (c *consulClient) waitForInitLock() <-chan struct{} {
+	initLockSucceeded := make(chan struct{})
+
+	go func() {
+		for {
+			locker, err := c.LockPath(context.TODO(), InitLockPath)
+			if err == nil {
+				close(initLockSucceeded)
+				locker.Unlock()
+				log.Info("Distributed lock successful, consul has quorum")
+				return
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	return initLockSucceeded
+}
+
 // Connected closes the returned channel when the etcd client is connected.
 func (c *consulClient) Connected() <-chan struct{} {
 	ch := make(chan struct{})
@@ -385,6 +405,7 @@ func (c *consulClient) Connected() <-chan struct{} {
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
+		<-c.waitForInitLock()
 		close(ch)
 	}()
 	return ch
