@@ -13,18 +13,45 @@ Configuration
 ConfigMap Options
 -----------------
 
-In the `ConfigMap` there are a couple of options that can be changed
-accordingly with your changes.
+In the `ConfigMap` there are several options that can be configured according
+to your preferences:
 
-* ``debug`` - Sets to run Cilium in full debug mode, it can be changed at
-  runtime;
+* ``debug`` - Sets to run Cilium in full debug mode, which enables verbose
+  logging and configures BPF programs to emit more visibility events into the
+  output of ``cilium monitor``.
 
 * ``enable-ipv4`` - Enable IPv4 addressing support
 
 * ``enable-ipv6`` - Enable IPv6 addressing support
 
-* ``clean-cilium-state`` - Removes any Cilium state, e.g. BPF policy maps,
-  before starting the Cilium agent;
+* ``clean-cilium-bpf-state`` - Removes all BPF state from the filesystem on
+  startup. Endpoints will be restored with the same IP addresses, but ongoing
+  connections may be briefly disrupted and loadbalancing decisions will be
+  lost, so active connections via the loadbalancer will break. All BPF state
+  will be reconstructed from their original sources (for example, from
+  kubernetes or the kvstore). This may be used to mitigate serious issues
+  regarding BPF maps. This option should be turned off again after restarting
+  the daemon.
+
+* ``clean-cilium-state`` - Removes **all** Cilium state, including unrecoverable
+  information such as all endpoint state, as well as recoverable state such as
+  BPF state pinned to the filesystem, CNI configuration files, library code,
+  links, routes, and other information. **This operation is irreversible**.
+  Existing endpoints currently managed by Cilium may continue to operate as
+  before, but Cilium will no longer manage them and they may stop working
+  without warning. After using this operation, endpoints must be deleted and
+  reconnected to allow the new instance of Cilium to manage them.
+
+* ``monitor-aggregation`` - This option enables coalescing of tracing events in
+  ``cilium monitor`` to only include periodic updates from active flows, or any
+  packets that involve an L4 connection state change. Valid options are
+  ``none``, ``low``, ``medium``, ``maximum``.
+
+* ``preallocate-bpf-maps`` - Pre-allocation of map entries allows per-packet
+  latency to be reduced, at the expense of up-front memory allocation for the
+  entries in the maps. Set to ``true`` to optimize for latency. If this value
+  is modified, then during the next Cilium startup connectivity may be
+  temporarily disrupted for endpoints with active connections.
 
 Any changes that you perform in the Cilium `ConfigMap` and in
 ``cilium-etcd-secrets`` ``Secret`` will require you to restart any existing
