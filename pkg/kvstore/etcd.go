@@ -289,34 +289,72 @@ func (e *etcdClient) closeSession(leaseID client.LeaseID) {
 	e.RWMutex.RUnlock()
 }
 
+func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
+	initLockSucceeded := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				initLockSucceeded <- false
+				close(initLockSucceeded)
+				return
+			default:
+			}
+
+			locker, err := e.LockPath(ctx, InitLockPath)
+			if err == nil {
+				initLockSucceeded <- true
+				close(initLockSucceeded)
+				locker.Unlock()
+				e.getLogger().Info("Distributed lock successful, etcd has quorum")
+				return
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	return initLockSucceeded
+}
+
+func (e *etcdClient) isConnectedAndHasQuorum() bool {
+	ctxTimeout, cancel := ctx.WithTimeout(ctx.TODO(), statusCheckTimeout)
+	defer cancel()
+
+	select {
+	// Wait for the the initial connection to be established
+	case <-e.firstSession:
+	// Timeout while waiting for initial connection, no success
+	case <-ctxTimeout.Done():
+		return false
+	}
+
+	e.RLock()
+	ch := e.session.Done()
+	e.RUnlock()
+
+	initLockSucceeded := e.waitForInitLock(ctxTimeout)
+	select {
+	// Catch disconnect event, no success
+	case <-ch:
+		return false
+	// wait for initial lock to succeed
+	case success := <-initLockSucceeded:
+		return success
+	}
+}
+
 // Connected closes the returned channel when the etcd client is connected.
 func (e *etcdClient) Connected() <-chan struct{} {
-	select {
-	case <-e.firstSession:
-		out := make(chan struct{})
-		go func() {
-		getSession:
-			e.RLock()
-			ch := e.session.Done()
-			e.RUnlock()
-			select {
-			case <-ch:
-				// this case means we are disconnected as the e.session.Done() was
-				// closed. We will polling until we have a new etcd session and
-				// we are connected to the kvstore.
-				time.Sleep(100 * time.Millisecond)
-				goto getSession
-			default:
-				close(out)
-			}
-		}()
-		return out
-	default:
-		// We assume when the e.firstSession is closed that we have connectivity
-		// with the kvstore as this channel is closed when we have the first
-		// session.
-		return e.firstSession
-	}
+	out := make(chan struct{})
+	go func() {
+		for !e.isConnectedAndHasQuorum() {
+			time.Sleep(100 * time.Millisecond)
+		}
+		close(out)
+	}()
+	return out
 }
 
 // Disconnected closes the returned channel when the etcd client is
@@ -694,6 +732,8 @@ func (e *etcdClient) statusChecker() {
 		newStatus := []string{}
 		ok := 0
 
+		hasQuorum := e.isConnectedAndHasQuorum()
+
 		endpoints := e.client.Endpoints()
 		for _, ep := range endpoints {
 			st, err := e.determineEndpointStatus(ep)
@@ -707,7 +747,7 @@ func (e *etcdClient) statusChecker() {
 		allConnected := len(endpoints) == ok
 
 		e.statusLock.Lock()
-		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected: %s", ok, len(endpoints), strings.Join(newStatus, "; "))
+		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, has-quorum=%t: %s", ok, len(endpoints), hasQuorum, strings.Join(newStatus, "; "))
 
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {
