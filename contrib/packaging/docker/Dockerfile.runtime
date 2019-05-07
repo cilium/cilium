@@ -1,7 +1,7 @@
 #
 # Cilium runtime base image
 #
-FROM ubuntu:18.04 as runtime-base
+FROM docker.io/library/ubuntu:18.04 as runtime-base
 RUN apt-get update && \
 apt-get upgrade -y && \
 #
@@ -78,7 +78,7 @@ apt-get clean
 #
 # Go-based tools we need at runtime
 #
-FROM golang:1.12.1 as runtime-gobuild
+FROM docker.io/library/golang:1.12.5 as runtime-gobuild
 WORKDIR /tmp
 RUN go get -u github.com/cilium/go-bindata/... && \
 go get -u github.com/google/gops && \

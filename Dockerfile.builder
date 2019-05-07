@@ -2,7 +2,7 @@
 # Cilium build-time dependencies.
 # Image created from this file is used to build Cilium.
 #
-FROM ubuntu:18.04
+FROM docker.io/library/ubuntu:18.04
 
 LABEL maintainer="maintainer@cilium.io"
 
@@ -14,7 +14,7 @@ WORKDIR /go/src/github.com/cilium/cilium
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
-ENV GO_VERSION 1.12.1
+ENV GO_VERSION 1.12.5
 
 #
 # Build dependencies
