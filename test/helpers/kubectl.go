@@ -540,47 +540,6 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 	return kub.WaitforNPods(namespace, filter, 0, timeout)
 }
 
-// WaitForPodsRunning waits for all pods of that particular namespace with the
-// given filter to be ready on all nodes.
-func (kub *Kubectl) WaitForPodsRunning(namespace, filter string, minPodsScheduled int, timeout time.Duration) error {
-	body := func() bool {
-
-		podList := &v1.PodList{}
-		err := kub.GetPods("kube-system", "-l k8s-app=cilium").Unmarshal(podList)
-		if err != nil {
-			kub.logger.Infof("Error while getting PodList: %s", err)
-			return false
-		}
-		if len(podList.Items) == 0 {
-			return false
-		}
-		currScheduled := 0
-		for _, pod := range podList.Items {
-			if pod.Status.Phase == v1.PodRunning {
-				currScheduled++
-			}
-		}
-
-		if currScheduled >= minPodsScheduled {
-			return true
-		}
-
-		kub.logger.WithFields(logrus.Fields{
-			"namespace":     namespace,
-			"filter":        filter,
-			"data":          podList,
-			"currScheduled": currScheduled,
-			"minRequired":   minPodsScheduled,
-		}).Info("WaitForPodsRunning: pods are not ready")
-
-		return false
-	}
-	return WithTimeout(
-		body,
-		fmt.Sprintf("timed out waiting for pods of daemon set with filter %q to be scheduled", filter),
-		&TimeoutConfig{Timeout: timeout})
-}
-
 // WaitforNPods waits up until timeout seconds have elapsed for at least
 // minRequired pods in the specified namespace that match the provided JSONPath
 // filter to have their containterStatuses equal to "ready".
