@@ -261,7 +261,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			}
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 			// Filter the restored labels with the new daemon's filter
-			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
+			l, _ := labels.FilterLabels(ep.OpLabels.AllLabels())
 			ep.RUnlock()
 
 			identity, _, err := cache.AllocateIdentity(context.Background(), l)
