@@ -546,7 +546,7 @@ func (kub *Kubectl) WaitForPodsRunning(namespace, filter string, minPodsSchedule
 	body := func() bool {
 
 		podList := &v1.PodList{}
-		err := kub.GetPods("kube-system", "-l k8s-app=cilium").Unmarshal(podList)
+		err := kub.GetPods(namespace, filter).Unmarshal(podList)
 		if err != nil {
 			kub.logger.Infof("Error while getting PodList: %s", err)
 			return false
@@ -554,9 +554,15 @@ func (kub *Kubectl) WaitForPodsRunning(namespace, filter string, minPodsSchedule
 		if len(podList.Items) == 0 {
 			return false
 		}
+
+		// Look through all pods and ensure that all their containers are ready
 		currScheduled := 0
+	perPod:
 		for _, pod := range podList.Items {
-			if pod.Status.Phase == v1.PodRunning {
+			for _, container := range pod.Status.ContainerStatuses {
+				if !container.Ready {
+					continue perPod
+				}
 				currScheduled++
 			}
 		}
