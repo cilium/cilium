@@ -109,9 +109,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 		// If the value is unchanged, don't update the entry, to preserve its
 		// lastModifiedVersion. This allows minimizing the frequency of
 		// responses in GetResources.
-		// Calling proto.Message.String is not very cheap, but we assume that
-		// the reduced churn between the clients and the server is worth it.
-		if !found || oldV.resource.String() != value.String() {
+		if !found || !proto.Equal(oldV.resource, value) {
 			if found {
 				cacheLog.WithField(logfields.XDSResourceName, name).Debug("updating resource in cache")
 
