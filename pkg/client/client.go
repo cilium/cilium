@@ -60,12 +60,12 @@ func configureTransport(tr *http.Transport, proto, addr string) *http.Transport 
 	if proto == "unix" {
 		// No need for compression in local communications.
 		tr.DisableCompression = true
-		tr.Dial = func(_, _ string) (net.Conn, error) {
+		tr.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
 			return net.Dial(proto, addr)
 		}
 	} else {
 		tr.Proxy = http.ProxyFromEnvironment
-		tr.Dial = (&net.Dialer{}).Dial
+		tr.DialContext = (&net.Dialer{}).DialContext
 	}
 
 	return tr
