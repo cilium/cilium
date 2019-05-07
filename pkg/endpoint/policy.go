@@ -567,6 +567,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	}
 
 	e.SecurityIdentity = identity
+	e.replaceIdentityLabels(identity.Labels)
 
 	// Sets endpoint state to ready if was waiting for identity
 	if e.GetStateLocked() == StateWaitingForIdentity {
