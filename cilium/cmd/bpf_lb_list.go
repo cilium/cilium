@@ -91,10 +91,10 @@ func dumpSVC(serviceList map[string][]string) {
 		serviceList[svc] = append(serviceList[svc], entry)
 	}
 
-	if err := lbmap.Service4MapV2.DumpWithCallback(parseSVCEntry); err != nil {
+	if err := lbmap.Service4MapV2.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv4 services table: %s", err)
 	}
-	if err := lbmap.Service6MapV2.DumpWithCallback(parseSVCEntry); err != nil {
+	if err := lbmap.Service6MapV2.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv6 services table: %s", err)
 	}
 }
