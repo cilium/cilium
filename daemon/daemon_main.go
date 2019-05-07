@@ -61,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/probes"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -283,6 +284,12 @@ func checkMinRequirements() {
 		log.Info("linking environment: OK!")
 	}
 
+	// bpftool probes
+	if err := probes.Probes(); err != nil {
+		log.WithError(err).Warning("BPF Verifier: NOT OK. bpftool probes failed.")
+	}
+
+	// cilium internal probes
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
