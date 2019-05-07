@@ -583,64 +583,52 @@ func (kub *Kubectl) WaitForPodsRunning(namespace, filter string, minPodsSchedule
 
 // WaitforNPods waits up until timeout seconds have elapsed for at least
 // minRequired pods in the specified namespace that match the provided JSONPath
-// filter to have their containterStatuses equal to "ready". Returns true if all
-// pods achieve the aforementioned desired state within timeout seconds. Returns
-// false and an error if the command failed or the timeout was exceeded.
-func (kub *Kubectl) WaitforNPods(namespace string, filter string, podsRunning int, timeout time.Duration) error {
+// filter to have their containterStatuses equal to "ready".
+// Returns no error if minRequired pods achieve the aforementioned desired
+// state within timeout seconds. Returns an error if the command failed or the
+// timeout was exceeded.
+// When minRequired is 0 the current count of pods are used. This is unreliable.
+func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired int, timeout time.Duration) error {
 	body := func() bool {
-		var deletePath = "{.items[*].metadata.deletionTimestamp}"
-		var jsonPath = "{.items[*].status.containerStatuses[*].ready}"
-
-		res := kub.GetPods(namespace, filter)
-		if !res.WasSuccessful() {
-			kub.logger.Errorf("could not get pods: %v", res.CombineOutput())
-			return false
-		}
-
-		terminated, err := res.Filter(deletePath)
+		podList := &v1.PodList{}
+		err := kub.GetPods(namespace, filter).Unmarshal(podList)
 		if err != nil {
-			kub.logger.WithError(err).Errorf("cannot decode json output")
+			kub.logger.Infof("Error while getting PodList: %s", err)
 			return false
 		}
 
-		if terminated.String() != "" {
-			kub.logger.Errorf(
-				"There are some pods with filter %s that are marked to be deleted",
-				filter)
+		if minRequired == 0 {
+			minRequired = len(podList.Items)
+		}
+
+		if len(podList.Items) < minRequired {
 			return false
 		}
 
-		data, err := res.Filter(jsonPath)
-		if err != nil {
-			kub.logger.Errorf("could not get pods: %s", err)
-			return false
-		}
-
-		valid := 0
-		minRequired := podsRunning
-
-		result := strings.Split(data.String(), " ")
-		if podsRunning == 0 {
-			minRequired = len(result)
-		}
-		for _, v := range result {
-			if val, _ := govalidator.ToBoolean(v); !val {
-				break
+		// For each pod, count it as running when all conditions are true:
+		//  - It is scheduled via Phase == v1.PodRunning
+		//  - It is not scheduled for deletion when DeletionTimestamp is set
+		//  - All containers in the pod have passed the liveness check via
+		//  containerStatuses.Ready
+		currScheduled := 0
+	perPod:
+		for _, pod := range podList.Items {
+			if pod.Status.Phase != v1.PodRunning || pod.ObjectMeta.DeletionTimestamp != nil {
+				continue perPod
 			}
-			valid++
+
+			for _, container := range pod.Status.ContainerStatuses {
+				if !container.Ready {
+					continue perPod
+				}
+			}
+
+			currScheduled++
 		}
-		if valid >= minRequired {
-			return true
-		}
-		kub.logger.WithFields(logrus.Fields{
-			"namespace":   namespace,
-			"filter":      filter,
-			"data":        data,
-			"valid":       valid,
-			"minRequired": minRequired,
-		}).Info("WaitforPods: pods are not ready")
-		return false
+
+		return currScheduled >= minRequired
 	}
+
 	return WithTimeout(
 		body,
 		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
