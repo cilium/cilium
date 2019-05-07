@@ -37,8 +37,6 @@ func Test(t *testing.T) {
 
 func (cs *ClientTestSuite) TestHint(c *C) {
 	var err error
-
-	err = nil
 	c.Assert(Hint(err), IsNil)
 
 	err = errors.New("foo bar")
@@ -53,10 +51,8 @@ func (cs *ClientTestSuite) TestHint(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-	}
+	<-ctx.Done()
+	err = ctx.Err()
 
 	c.Assert(Hint(err), ErrorMatches, "Cilium API client timeout exceeded")
 }
