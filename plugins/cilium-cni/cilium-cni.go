@@ -353,6 +353,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		Addressing:   &models.AddressPair{},
 		K8sPodName:   string(cniArgs.K8S_POD_NAME),
 		K8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
+		DatapathConfiguration: &models.EndpointDatapathConfiguration{
+			RequireArpPassthrough: true,
+			RequireEgressProg:     true,
+			InstallEndpointRoute:  true,
+		},
 	}
 
 	switch conf.DatapathMode {
