@@ -289,6 +289,35 @@ func (e *etcdClient) closeSession(leaseID client.LeaseID) {
 	e.RWMutex.RUnlock()
 }
 
+func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
+	initLockSucceeded := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				initLockSucceeded <- false
+				close(initLockSucceeded)
+				return
+			default:
+			}
+
+			locker, err := e.LockPath(ctx, InitLockPath)
+			if err == nil {
+				initLockSucceeded <- true
+				close(initLockSucceeded)
+				locker.Unlock()
+				e.getLogger().Info("Distributed lock successful, etcd has quorum")
+				return
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	return initLockSucceeded
+}
+
 // Connected closes the returned channel when the etcd client is connected.
 func (e *etcdClient) Connected() <-chan struct{} {
 	select {
@@ -299,6 +328,7 @@ func (e *etcdClient) Connected() <-chan struct{} {
 			e.RLock()
 			ch := e.session.Done()
 			e.RUnlock()
+			initLockSucceeded := e.waitForInitLock(context.TODO())
 			select {
 			case <-ch:
 				// this case means we are disconnected as the e.session.Done() was
@@ -306,8 +336,10 @@ func (e *etcdClient) Connected() <-chan struct{} {
 				// we are connected to the kvstore.
 				time.Sleep(100 * time.Millisecond)
 				goto getSession
-			default:
-				close(out)
+			case success := <-initLockSucceeded:
+				if success {
+					close(out)
+				}
 			}
 		}()
 		return out
@@ -704,10 +736,14 @@ func (e *etcdClient) statusChecker() {
 			newStatus = append(newStatus, st)
 		}
 
+		ctxTimeout, cancel := ctx.WithTimeout(ctx.Background(), statusCheckTimeout)
+		defer cancel()
+		initLockSucceeded := <-e.waitForInitLock(ctxTimeout)
+
 		allConnected := len(endpoints) == ok
 
 		e.statusLock.Lock()
-		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected: %s", ok, len(endpoints), strings.Join(newStatus, "; "))
+		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, has-quorum=%t: %s", ok, len(endpoints), initLockSucceeded, strings.Join(newStatus, "; "))
 
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {

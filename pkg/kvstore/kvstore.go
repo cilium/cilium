@@ -35,6 +35,9 @@ const (
 
 	// BaseKeyPrefix is the base prefix that should be used for all keys
 	BaseKeyPrefix = "cilium"
+
+	// InitLockPath is the path to the init lock to test quorum
+	InitLockPath = BaseKeyPrefix + "/.initlock"
 )
 
 // Get returns value of key
