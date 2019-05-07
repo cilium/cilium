@@ -361,7 +361,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	if err != nil {
 		return err
 	}
-	if _, err := route.Upsert(nodeRoute, n.nodeConfig.MtuConfig); err != nil {
+	if _, err := route.Upsert(nodeRoute, &n.nodeConfig.MtuConfig); err != nil {
 		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
 		return err
 	}
@@ -693,7 +693,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 		}
 	}
 
-	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip), n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip), &n.nodeConfig.MtuConfig)
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
 	}
@@ -716,7 +716,7 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 		}
 	}
 
-	_, err := route.Upsert(n.createNodeIPSecInRoute(ip), n.nodeConfig.MtuConfig)
+	_, err := route.Upsert(n.createNodeIPSecInRoute(ip), &n.nodeConfig.MtuConfig)
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route IN the host routing table")
 	}

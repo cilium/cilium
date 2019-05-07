@@ -1055,3 +1055,8 @@ func (e *Endpoint) RequireRouting() (required bool) {
 	}
 	return
 }
+
+// RequireEndpointRoute returns if the endpoint wants a per endpoint route
+func (e *Endpoint) RequireEndpointRoute() bool {
+	return e.DatapathConfiguration.InstallEndpointRoute
+}
