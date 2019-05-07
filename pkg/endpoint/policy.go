@@ -589,6 +589,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	// identity for the endpoint.
 	identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	e.SecurityIdentity = identity
+	e.replaceIdentityLabels(identity.Labels)
 
 	// Clear selectorPolicy. It will be determined at next regeneration.
 	e.selectorPolicy = nil
