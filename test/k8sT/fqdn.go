@@ -184,6 +184,7 @@ var _ = Describe("K8sFQDNTest", func() {
 
 		// As mentioned above, these endpoints ready should not be there, the only
 		// reason to have this piece of code here is to reduce a flaky test.
+		By("Waiting for Cilium Endpoints to be ready")
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
 

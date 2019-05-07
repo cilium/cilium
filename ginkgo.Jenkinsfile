@@ -70,49 +70,6 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
             parallel {
-                stage('Boot vms runtime') {
-                    environment {
-                        TESTED_SUITE="runtime"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                    }
-                    steps {
-                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
-                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        sh 'cd ${TESTDIR}; vagrant up runtime --provision'
-                    }
-                    post {
-                        unsuccessful {
-                            script {
-                                if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'runtime vm provisioning fail\n' + currentBuild.displayName
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Boot vms K8s-1.10 net-next') {
-                    environment {
-                        TESTED_SUITE="k8s-1.10"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
-                    }
-                    steps {
-                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
-                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up k8s1-1.10 k8s2-1.10 --provision'
-                    }
-                    post {
-                        unsuccessful {
-                            script {
-                                if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.10 net-next vm provisioning fail\n' + currentBuild.displayName
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('Boot vms K8s-1.14') {
                     environment {
                         TESTED_SUITE="k8s-1.14"
@@ -146,59 +103,6 @@ pipeline {
             }
             failFast true
             parallel {
-                stage('BDD-Test-PR-runtime') {
-                    environment {
-                        TESTED_SUITE="runtime"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                    }
-                    steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                    }
-                    post {
-                        always {
-                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
-                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
-                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
-                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
-                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
-                        }
-                        unsuccessful {
-                            script {
-                                if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'Runtime tests fail\n' + currentBuild.displayName
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('BDD-Test-PR-K8s-1.10-net-next') {
-                    environment {
-                        TESTED_SUITE="k8s-1.10"
-                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
-                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
-                    }
-                    steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
-                    }
-                    post {
-                        always {
-                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
-                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
-                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
-                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy -f || true'
-                        }
-                        unsuccessful {
-                            script {
-                                if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.10-net-next fail\n' + currentBuild.displayName
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('BDD-Test-PR-K8s-1.14') {
                     environment {
                         TESTED_SUITE="k8s-1.14"
@@ -206,7 +110,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8sFQDNTest" --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
