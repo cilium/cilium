@@ -22,7 +22,6 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh")
 
 const (
-	fieldName          = "name"
 	fieldClusterName   = "clusterName"
 	fieldConfig        = "config"
 	fieldKVStoreStatus = "kvstoreStatus"
