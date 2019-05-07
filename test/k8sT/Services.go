@@ -125,6 +125,7 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("Checks service on same node", func() {
+			Skip("Broken test GH-7948")
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
