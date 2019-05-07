@@ -31,6 +31,11 @@ type SelectorCacheTestSuite struct{}
 
 var _ = Suite(&SelectorCacheTestSuite{})
 
+type DummySelectorCacheUser struct{}
+
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+}
+
 type cachedSelectionUser struct {
 	c             *C
 	sc            *SelectorCache
@@ -108,7 +113,7 @@ func (ds *SelectorCacheTestSuite) TearDownTest(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestAddRemoveIdentitySelector(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
@@ -157,7 +162,7 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveIdentitySelector(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -192,7 +197,7 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -252,7 +257,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),

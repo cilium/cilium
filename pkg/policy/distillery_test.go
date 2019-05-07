@@ -129,22 +129,21 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 // allowing simple direct evaluation of L3 and L4 state into "MapState".
 type policyDistillery struct {
 	*Repository
-	identityCache cache.IdentityCache
-	log           io.Writer
+	log io.Writer
 }
 
-func newPolicyDistillery(identities cache.IdentityCache) *policyDistillery {
-	return &policyDistillery{
-		Repository:    NewPolicyRepository(),
-		identityCache: identities,
+func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
+	ret := &policyDistillery{
+		Repository: NewPolicyRepository(),
 	}
+	ret.SelectorCache = selectorCache
+	return ret
 }
 
 func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 	return &policyDistillery{
-		Repository:    d.Repository,
-		identityCache: d.identityCache,
-		log:           w,
+		Repository: d.Repository,
+		log:        w,
 	}
 }
 
@@ -171,8 +170,8 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 	// Handle L4 ingress from each identity in the cache to the endpoint.
 	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
 	for _, l4 := range *l4IngressPolicy {
-		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l3: %+v), (l4: %d/%s), (l7: %+v)\n", l4.Endpoints, l4.Port, l4.Protocol, l4.L7RulesPerEp))
-		for _, key := range l4.ToKeys(0, d.identityCache) {
+		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l3: %+v), (l4: %d/%s), (l7: %+v)\n", l4.CachedSelectors, l4.Port, l4.Protocol, l4.L7RulesPerEp))
+		for _, key := range l4.ToKeys(0) {
 			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, l4.IsRedirect()))
 			if l4.IsRedirect() {
 				result[key] = MapStateEntry{l7RedirectProxy}
@@ -181,6 +180,7 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 			}
 		}
 	}
+	l4IngressPolicy.Delete(d.Repository.SelectorCache)
 
 	// Handle L3-wildcard of L7 destinations
 	// Eg, when you have L4+L7 "allow /public on 80" with L3 "allow all from foo"
@@ -224,6 +224,7 @@ func Test_MergeL3(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.NumericIdentity(identityBar): labelsBar,
 	}
+	selectorCache := NewSelectorCache(identityCache)
 
 	tests := []struct {
 		test   int
@@ -235,7 +236,7 @@ func Test_MergeL3(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		repo := newPolicyDistillery(identityCache)
+		repo := newPolicyDistillery(selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
@@ -262,6 +263,7 @@ func Test_MergeRules(t *testing.T) {
 	identityCache := cache.IdentityCache{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
+	selectorCache := NewSelectorCache(identityCache)
 
 	tests := []struct {
 		test   int
@@ -308,7 +310,7 @@ func Test_MergeRules(t *testing.T) {
 		{31, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy, mapKeyAllowFoo__: mapEntryL7None_}}, // Differs from spreadsheet(!)
 	}
 	for _, tt := range tests {
-		repo := newPolicyDistillery(identityCache)
+		repo := newPolicyDistillery(selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)

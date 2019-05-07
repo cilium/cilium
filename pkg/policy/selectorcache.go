@@ -16,6 +16,7 @@ package policy
 
 import (
 	"sort"
+	"strings"
 	"sync/atomic"
 	"unsafe"
 
@@ -37,9 +38,56 @@ type CachedSelector interface {
 	// be modified, as it is shared among multiple users.
 	GetSelections() []identity.NumericIdentity
 
+	// Selects return 'true' if the CachedSelector selects the given
+	// numeric identity.
+	Selects(nid identity.NumericIdentity) bool
+
+	// IsWildcard returns true if the endpoint selector selects
+	// all endpoints.
+	IsWildcard() bool
+
 	// String returns the string representation of this selector.
 	// Used as a map key.
 	String() string
+
+	// XXXMatches returns true if the CachedSelector matches the
+	// given labels. This is slow and should only be used for
+	// functions for which performance does not matter (such as
+	// policy tracing)
+	XXXMatches(labels labels.LabelArray) bool
+}
+
+// CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
+type CachedSelectorSlice []CachedSelector
+
+func (s CachedSelectorSlice) Len() int      { return len(s) }
+func (s CachedSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
+func (s CachedSelectorSlice) Less(i, j int) bool {
+	return strings.Compare(s[i].String(), s[j].String()) < 0
+}
+
+// SelectsAllEndpoints returns whether the CachedSelectorSlice selects all
+// endpoints, which is true if the wildcard endpoint selector is present in the
+// slice.
+func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
+	for _, selector := range s {
+		if selector.IsWildcard() {
+			return true
+		}
+	}
+	return false
+}
+
+// Insert in a sorted order? Returns true if inserted, false if cs was already in
+func (s *CachedSelectorSlice) Insert(cs CachedSelector) bool {
+	for _, selector := range *s {
+		if selector == cs {
+			return false
+		}
+	}
+	*s = append(*s, cs)
+	return true
 }
 
 // CachedSelectionUser inserts selectors into the cache and gets update
@@ -96,7 +144,7 @@ type Identity struct {
 	namespace string // value of the namespace label, or nil
 }
 
-// IdentityCache is a cache of identity to labels mapping
+// IdentityCache is a cache of Identities keyed by the numeric identity
 type IdentityCache map[identity.NumericIdentity]Identity
 
 func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) Identity {
@@ -107,8 +155,7 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) Identity 
 	}
 }
 
-func getIdentityCache() IdentityCache {
-	ids := cache.GetIdentityCache()
+func getIdentityCache(ids cache.IdentityCache) IdentityCache {
 	idCache := make(map[identity.NumericIdentity]Identity, len(ids))
 	for nid, lbls := range ids {
 		idCache[nid] = newIdentity(nid, lbls)
@@ -124,26 +171,26 @@ type SelectorCache struct {
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
 	// UpdateIdentities() function.
-	idCache IdentityCache
+	idCache         IdentityCache
+	idCacheRevision uint64
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
 }
 
-// newSelectorCache creates a new SelectorCache.
-func newSelectorCache() *SelectorCache {
+// NewSelectorCache creates a new SelectorCache with the given identities.
+func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	return &SelectorCache{
-		idCache:   getIdentityCache(),
+		idCache:   getIdentityCache(ids),
 		selectors: make(map[string]identitySelector),
 	}
 }
 
 var (
-	// selectorCache is the global selector cache. Additional ones
-	// are only created for testing.
-	selectorCache = newSelectorCache()
 	// Empty slice of numeric identities used for all selectors that select nothing
 	emptySelection []identity.NumericIdentity
+	// wildcardSelectorKey is used to compare if a key is for a wildcard
+	wildcardSelectorKey = api.WildcardEndpointSelector.LabelSelector.String()
 )
 
 type labelIdentitySelector struct {
@@ -155,7 +202,13 @@ type labelIdentitySelector struct {
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
 
-func (l *labelIdentitySelector) MatchesNamespace(ns string) bool {
+// Equal is used by checker.Equals, and only considers the identity of the selector,
+// ignoring the internal state!
+func (a *labelIdentitySelector) Equal(b *labelIdentitySelector) bool {
+	return a.key == b.key
+}
+
+func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 	if len(l.namespaces) > 0 {
 		if ns != "" {
 			for i := range l.namespaces {
@@ -171,10 +224,10 @@ func (l *labelIdentitySelector) MatchesNamespace(ns string) bool {
 	return true
 }
 
-func (l *labelIdentitySelector) Matches(identity Identity) bool {
-	return l.MatchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
+func (l *labelIdentitySelector) matches(identity Identity) (ret bool) {
+	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
-			
+
 //
 // CachedSelector implementation (== Public API)
 //
@@ -186,13 +239,35 @@ func (l *labelIdentitySelector) Matches(identity Identity) bool {
 // that case GetSelections() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (l *labelIdentitySelector) GetSelections() []identity.NumericIdentity {
+func (l *labelIdentitySelector) GetSelections() (ret []identity.NumericIdentity) {
 	return *(*[]identity.NumericIdentity)(atomic.LoadPointer(&l.selections))
+}
+
+// Selects return 'true' if the CachedSelector selects the given
+// numeric identity.
+func (l *labelIdentitySelector) Selects(nid identity.NumericIdentity) bool {
+	if l.IsWildcard() {
+		return true
+	}
+	nids := l.GetSelections()
+	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
+	return idx < len(nids) && nids[idx] == nid
+}
+
+// IsWildcard returns true if the endpoint selector selects all
+// endpoints.
+func (l *labelIdentitySelector) IsWildcard() bool {
+	return l.key == wildcardSelectorKey
 }
 
 // String returns the map key for this selector
 func (l *labelIdentitySelector) String() string {
 	return l.key
+}
+
+// XXXMatches returns true if the CachedSelector matches given labels.
+func (l *labelIdentitySelector) XXXMatches(labels labels.LabelArray) bool {
+	return l.selector.Matches(labels)
 }
 
 //
@@ -254,6 +329,16 @@ type fqdnSelector struct {
 	// fqdnSelections map[string]identity.NumericIdentity // identity.String(): "cidr:1.1.1.1" -> identity of 1.1.1.1
 }
 
+// FindCachedIdentitySelector finds the given api.EndpointSelector in the
+// selector cache, returning nil if one can not be found.
+func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
+	key := selector.LabelSelector.String()
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	idSel := sc.selectors[key]
+	return idSel
+}
+
 // AddIdentitySelector adds the given api.EndpointSelector in to the
 // selector cache. If an identical EndpointSelector has already been
 // cached, the corresponding CachedSelector is returned, otherwise one
@@ -291,7 +376,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 
 	// Find all matching identities from the identity cache.
 	for numericID, identity := range sc.idCache {
-		if newIDSel.Matches(identity) {
+		if newIDSel.matches(identity) {
 			newIDSel.cachedSelections[numericID] = struct{}{}
 		}
 	}
@@ -311,14 +396,42 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 
 // RemoveIdentitySelector removes CachedSelector for the user.
 func (sc *SelectorCache) RemoveIdentitySelector(user CachedSelectionUser, selector CachedSelector) {
-	key := selector.String()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
+	key := selector.String()
 	idSel, exists := sc.selectors[key]
 	if exists {
 		if idSel.removeUser(user) {
 			delete(sc.selectors, key)
 		}
+	}
+}
+
+// RemoveIdentitySelector removes CachedSelector for the user.
+func (sc *SelectorCache) RemoveIdentitySelectors(user CachedSelectionUser, selectors CachedSelectorSlice) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	for _, selector := range selectors {
+		key := selector.String()
+		idSel, exists := sc.selectors[key]
+		if exists {
+			if idSel.removeUser(user) {
+				delete(sc.selectors, key)
+			}
+		}
+	}
+}
+
+// ChangeUser changes the CachedSelectionUser that gets updates on the
+// updates on the cached selector.
+func (sc *SelectorCache) ChangeUser(from, to CachedSelectionUser, selector CachedSelector) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	key := selector.String()
+	idSel, exists := sc.selectors[key]
+	if exists {
+		idSel.removeUser(from)
+		idSel.addUser(to)
 	}
 }
 
@@ -330,65 +443,79 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 	// Update idCache so that newly added selectors get
 	// prepopulated with all matching numeric identities.
 	for numericID := range deleted {
-		if _, exists := sc.idCache[numericID]; exists {
+		if old, exists := sc.idCache[numericID]; exists {
+			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: old.lbls}).Debug("UpdateIdentities: Deleting identity")
 			delete(sc.idCache, numericID)
 		} else {
-			log.WithFields(logrus.Fields{logfields.Identity: numericID}).Warning("UpdateIdentities: Deleting a non-existing identity")
+			log.WithFields(logrus.Fields{logfields.Identity: numericID}).Warning("UpdateIdentities: Skipping Delete of a non-existing identity")
+			delete(deleted, numericID)
 		}
 	}
 	for numericID, lbls := range added {
-		if _, exists := sc.idCache[numericID]; exists {
-			log.WithFields(logrus.Fields{logfields.Identity: numericID}).Warning("UpdateIdentities: Adding an existing identity")
+		if old, exists := sc.idCache[numericID]; exists {
+			// Skip if no change
+			if lbls.String() == old.lbls.String() {
+				log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add an existing identical identity")
+				delete(added, numericID)
+				continue
+			}
+			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: old.lbls, logfields.Labels + "(new)": lbls}).Warning("UpdateIdentities: Updating an existing identity")
+		} else {
+			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: lbls}).Debug("UpdateIdentities: Adding a new identity")
 		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
 
-	// Iterate through all locally used identity selectors and
-	// update the cached numeric identities as required.
-	for _, sel := range sc.selectors {
-		var adds, dels []identity.NumericIdentity
-		switch idSel := sel.(type) {
-		case *labelIdentitySelector:
-			for numericID := range deleted {
-				if _, exists := idSel.cachedSelections[numericID]; exists {
-					dels = append(dels, numericID)
-					delete(idSel.cachedSelections, numericID)
-				}
-			}
-			for numericID, _ := range added {
-				if _, exists := idSel.cachedSelections[numericID]; !exists {
-					if idSel.Matches(sc.idCache[numericID]) {
-						adds = append(adds, numericID)
-						idSel.cachedSelections[numericID] = struct{}{}
+	if len(deleted)+len(added) > 0 {
+		sc.idCacheRevision++
+
+		// Iterate through all locally used identity selectors and
+		// update the cached numeric identities as required.
+		for _, sel := range sc.selectors {
+			var adds, dels []identity.NumericIdentity
+			switch idSel := sel.(type) {
+			case *labelIdentitySelector:
+				for numericID := range deleted {
+					if _, exists := idSel.cachedSelections[numericID]; exists {
+						dels = append(dels, numericID)
+						delete(idSel.cachedSelections, numericID)
 					}
 				}
+				for numericID := range added {
+					if _, exists := idSel.cachedSelections[numericID]; !exists {
+						if idSel.matches(sc.idCache[numericID]) {
+							adds = append(adds, numericID)
+							idSel.cachedSelections[numericID] = struct{}{}
+						}
+					}
+				}
+				if len(dels)+len(adds) > 0 {
+					idSel.updateSelections()
+					idSel.notifyUsers(adds, dels)
+				}
+			case *fqdnSelector:
+				// TODO
 			}
-			if len(dels)+len(adds) > 0 {
-				idSel.updateSelections()
-				idSel.notifyUsers(adds, dels)
-			}
-		case *fqdnSelector:
-			// TODO
 		}
 	}
 }
 
-// Export global functions to interface with the global selector cache
-
-// AddIdentitySelector adds the given api.EndpointSelector in to the
-// selector cache. If an identical EndpointSelector has already been
-// cached, the corresponding CachedSelector is returned, otherwise one
-// is created and added to the cache.
-func AddIdentitySelector(user CachedSelectionUser, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
-	return selectorCache.AddIdentitySelector(user, selector)
+// XXXGetIDCacheRevision can be used to figure our if the selections
+// may have changed. Should not be used when identity updates are
+// properly propagated to the policy realization.
+func (sc *SelectorCache) XXXGetIDCacheRevision() uint64 {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	return sc.idCacheRevision
 }
 
-// RemoveIdentitySelector removes CachedSelector for the user.
-func RemoveIdentitySelector(user CachedSelectionUser, selector CachedSelector) {
-	selectorCache.RemoveIdentitySelector(user, selector)
-}
+func (sc *SelectorCache) XXXGetAllIDs() ([]identity.NumericIdentity, uint64) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
 
-// UpdateIdentities propagates identity updates to selectors
-func UpdateIdentities(added, deleted cache.IdentityCache) {
-	selectorCache.UpdateIdentities(added, deleted)
+	ids := make([]identity.NumericIdentity, 0, len(sc.idCache))
+	for nid := range sc.idCache {
+		ids = append(ids, nid)
+	}
+	return ids, sc.idCacheRevision
 }

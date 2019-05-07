@@ -150,6 +150,13 @@ required = [
   # on-revision = ""
 
 [[constraint]]
+  name = "github.com/google/go-cmp"
+  revision = "v0.3.0"
+
+  # main-usage = "pkg/checker"
+  # on-revision = ""
+
+[[constraint]]
   name = "github.com/google/gopacket"
   revision = "v1.1.16"
 

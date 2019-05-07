@@ -23,15 +23,14 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// L7DataMap contains a map of L7 rules per endpoint where key is a hash of EndpointSelector
-type L7DataMap map[api.EndpointSelector]api.L7Rules
+// L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
+type L7DataMap map[CachedSelector]api.L7Rules
 
 func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	if len(l7) == 0 {
@@ -40,20 +39,20 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 
 	/* First, create a sorted slice of the selectors so we can get
 	 * consistent JSON output */
-	selectors := make(api.EndpointSelectorSlice, 0, len(l7))
-	for es := range l7 {
-		selectors = append(selectors, es)
+	selectors := make(CachedSelectorSlice, 0, len(l7))
+	for cs := range l7 {
+		selectors = append(selectors, cs)
 	}
 	sort.Sort(selectors)
 
 	/* Now we can iterate the slice and generate JSON entries. */
 	var err error
 	buffer := bytes.NewBufferString("[")
-	for _, es := range selectors {
+	for _, cs := range selectors {
 		buffer.WriteString("{\"")
-		buffer.WriteString(es.LabelSelectorString())
+		buffer.WriteString(cs.String())
 		buffer.WriteString("\":")
-		b, err := json.Marshal(l7[es])
+		b, err := json.Marshal(l7[cs])
 		if err == nil {
 			buffer.Write(b)
 		} else {
@@ -98,14 +97,15 @@ type L4Filter struct {
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
 	U8Proto u8proto.U8proto `json:"-"`
 	// allowsAllAtL3 indicates whether this filter allows all traffic at L3.
-	// This can be determined by checking whether Endpoints contains
-	// api.WildcardEndpointSelector, but caching this information instead is
+	// This can be determined by checking whether 'Endpoints' contains
+	// 'wildcardCachedSelector', but caching this information instead is
 	// much more performant.
 	allowsAllAtL3 bool
-	// Endpoints limits the labels for allowing traffic (to / from).
+	// CachedSelectors limits the labels for allowing traffic (to / from).
 	// This includes selectors for destinations affected by entity-based
 	// and CIDR-based policy.
-	Endpoints api.EndpointSelectorSlice `json:"-"`
+	// Holds references to the CachedSelectors, which must be released!
+	CachedSelectors CachedSelectorSlice `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
@@ -130,16 +130,17 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 		// No L7 rules.
 		return false
 	case 1:
-		// If L3 is wildcarded, this filter corresponds to L4-only rule(s).
-		_, ok := l4.L7RulesPerEp[api.WildcardEndpointSelector]
-		return !ok
-	default:
-		return true
+		// loop to get access to the first and only key in the map
+		for cs := range l4.L7RulesPerEp {
+			// If L3 is wildcarded, this filter corresponds to L4-only rule(s).
+			return !cs.IsWildcard()
+		}
 	}
+	return true
 }
 
 // ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache) []Key {
+func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 	keysToAdd := []Key{}
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
@@ -163,8 +164,9 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identity
 		} // else we need to calculate all L3-dependent L4 peers below.
 	}
 
-	for _, sel := range l4.Endpoints {
-		identities := getSecurityIdentities(identityCache, &sel)
+	for _, cs := range l4.CachedSelectors {
+		identities := cs.GetSelections()
+		log.Debugf("ToKeys: Allowed remote IDs for selector %v: %v", cs, identities)
 		for _, id := range identities {
 			srcID := id.Uint32()
 			keyToAdd := Key{
@@ -181,36 +183,39 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identity
 	return keysToAdd
 }
 
-// GetRelevantRules returns the relevant rules based on the source and
-// destination addressing/identity information.
-func (l7 L7DataMap) GetRelevantRules(identity *identity.Identity) api.L7Rules {
-	rules := api.L7Rules{}
+// IdentitySelectionUpdated implements CachedSelectionUser interface
+func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+	log.Infof("L4Filter::IdentitySelectionUpdated(selector: %v, selections: %v, added: %v, deleted: %v) call received",
+		selector, selections, added, deleted)
+}
 
-	if identity != nil {
-		for selector, endpointRules := range l7 {
-			if selector.Matches(identity.Labels.LabelArray()) {
-				rules.HTTP = append(rules.HTTP, endpointRules.HTTP...)
-				rules.Kafka = append(rules.Kafka, endpointRules.Kafka...)
-				rules.DNS = append(rules.DNS, endpointRules.DNS...)
-				rules.L7Proto = endpointRules.L7Proto
-				rules.L7 = append(rules.L7, endpointRules.L7...)
-			}
+func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
+	cs, added := selectorCache.AddIdentitySelector(l4, sel)
+	if added {
+		l4.CachedSelectors = append(l4.CachedSelectors, cs)
+	}
+	return cs
+}
+
+func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, selectorCache *SelectorCache) {
+	for _, sel := range selectors {
+		l4.cacheIdentitySelector(sel, selectorCache)
+	}
+}
+
+// GetRelevantRulesForKafka returns the relevant rules based on the remote numeric identity.
+func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api.PortRuleKafka {
+	var rules []api.PortRuleKafka
+
+	for cs, r := range l7 {
+		if cs.IsWildcard() || cs.Selects(nid) {
+			rules = append(rules, r.Kafka...)
 		}
 	}
-
-	// Rules applying to all sources are always appended
-	if r, ok := l7[api.WildcardEndpointSelector]; ok {
-		rules.HTTP = append(rules.HTTP, r.HTTP...)
-		rules.Kafka = append(rules.Kafka, r.Kafka...)
-		rules.DNS = append(rules.DNS, r.DNS...)
-		rules.L7Proto = r.L7Proto // XXX
-		rules.L7 = append(rules.L7, r.L7...)
-	}
-
 	return rules
 }
 
-func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []api.EndpointSelector) {
+func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSelector) {
 	if rules.Len() == 0 {
 		return
 	}
@@ -220,39 +225,45 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []api.Endp
 			l7[epsel] = rules
 		}
 	} else {
-		// If there are no explicit fromEps, have a 'special' wildcard endpoint.
-		l7[api.WildcardEndpointSelector] = rules
+		panic("Must have at least the wildcard selector")
 	}
 }
 
-// CreateL4Filter creates a filter for L4 policy that applies to the specified
+// delete releases the references held in the L4Filter and must be called before
+// the filter is left to be garbage collected!
+func (l4 *L4Filter) delete(selectorCache *SelectorCache) {
+	selectorCache.RemoveIdentitySelectors(l4, l4.CachedSelectors)
+	l4.CachedSelectors = nil
+	l4.L7RulesPerEp = nil
+}
+
+// createL4Filter creates a filter for L4 policy that applies to the specified
 // endpoints and port/protocol, with reference to the original rules that the
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
-func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool) L4Filter {
+func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, selectorCache *SelectorCache) *L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
 	// already validated via L4Proto.Validate()
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
-	filterEndpoints := peerEndpoints
-	allowsAllL3 := false
-	if peerEndpoints.SelectsAllEndpoints() {
-		filterEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
-		allowsAllL3 = true
-	}
-
-	l4 := L4Filter{
+	l4 := &L4Filter{
 		Port:             int(p),
 		Protocol:         protocol,
 		U8Proto:          u8p,
 		L7RulesPerEp:     make(L7DataMap),
-		allowsAllAtL3:    allowsAllL3,
-		Endpoints:        filterEndpoints,
 		DerivedFromRules: labels.LabelArrayList{ruleLabels},
 		Ingress:          ingress,
+	}
+
+	if len(peerEndpoints) == 0 || peerEndpoints.SelectsAllEndpoints() {
+		l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
+		l4.allowsAllAtL3 = true
+	} else {
+		l4.CachedSelectors = make(CachedSelectorSlice, 0, len(peerEndpoints))
+		l4.cacheIdentitySelectors(peerEndpoints, selectorCache)
 	}
 
 	if protocol == api.ProtoTCP && rule.Rules != nil {
@@ -265,50 +276,51 @@ func CreateL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 			l4.L7Parser = (L7ParserType)(rule.Rules.L7Proto)
 		}
 		if !rule.Rules.IsEmpty() {
-			l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, filterEndpoints)
+			l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, l4.CachedSelectors)
 		}
 	}
 
 	// we need this to redirect DNS UDP (or ANY, which is more useful)
 	if !rule.Rules.IsEmpty() && len(rule.Rules.DNS) > 0 {
 		l4.L7Parser = ParserTypeDNS
-		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, filterEndpoints)
+		l4.L7RulesPerEp.addRulesForEndpoints(*rule.Rules, l4.CachedSelectors)
 	}
 
 	return l4
 }
 
-// CreateL4IngressFilter creates a filter for L4 policy that applies to the
+// createL4IngressFilter creates a filter for L4 policy that applies to the
 // specified endpoints and port/protocol for ingress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 //
 // endpointsWithL3Override determines selectors for which L7 rules should be
 // wildcarded (eg, host / world in the relevant daemon modes).
-func CreateL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWithL3Override []api.EndpointSelector, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWithL3Override api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache) *L4Filter {
 
-	filter := CreateL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true)
+	filter := createL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true, selectorCache)
 
 	// If the filter would apply L7 rules for endpointsWithL3Override,
 	// then wildcard those specific endpoints at L7.
 	if !rule.Rules.IsEmpty() {
 		for _, selector := range endpointsWithL3Override {
-			filter.L7RulesPerEp[selector] = api.L7Rules{}
+			cs := filter.cacheIdentitySelector(selector, selectorCache)
+			filter.L7RulesPerEp[cs] = api.L7Rules{}
 		}
 	}
 
 	return filter
 }
 
-// CreateL4EgressFilter creates a filter for L4 policy that applies to the
+// createL4EgressFilter creates a filter for L4 policy that applies to the
 // specified endpoints and port/protocol for egress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-func CreateL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray) L4Filter {
+func createL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache) *L4Filter {
 
-	return CreateL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false)
+	return createL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false, selectorCache)
 }
 
 // IsRedirect returns true if the L4 filter contains a port redirection
@@ -326,7 +338,7 @@ func (l4 *L4Filter) MarshalIndent() string {
 }
 
 // String returns the `L4Filter` in a human-readable string.
-func (l4 L4Filter) String() string {
+func (l4 *L4Filter) String() string {
 	b, err := json.Marshal(l4)
 	if err != nil {
 		return err.Error()
@@ -334,15 +346,16 @@ func (l4 L4Filter) String() string {
 	return string(b)
 }
 
-func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
+// Note: Only used for policy tracing
+func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
 	if l4.AllowsAllAtL3() {
 		return true
 	} else if len(labels) == 0 {
 		return false
 	}
 
-	for _, sel := range l4.Endpoints {
-		if sel.Matches(labels) {
+	for _, sel := range l4.CachedSelectors {
+		if sel.XXXMatches(labels) { // slow, but OK for tracing
 			return true
 		}
 	}
@@ -352,7 +365,14 @@ func (l4 L4Filter) matchesLabels(labels labels.LabelArray) bool {
 
 // L4PolicyMap is a list of L4 filters indexable by protocol/port
 // key format: "port/proto"
-type L4PolicyMap map[string]L4Filter
+type L4PolicyMap map[string]*L4Filter
+
+func (l4 L4PolicyMap) Delete(selectorCache *SelectorCache) {
+	for k, f := range l4 {
+		f.delete(selectorCache)
+		delete(l4, k)
+	}
+}
 
 // HasRedirect returns true if at least one L4 filter contains a port
 // redirection
@@ -376,6 +396,8 @@ func (l4 L4PolicyMap) HasRedirect() bool {
 // * If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
 //   FromEndpoints constraints that require labels not present in `labels`.
 // Otherwise, returns api.Allowed.
+//
+// Note: Only used for policy tracing
 func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.Port) api.Decision {
 	if len(l4) == 0 {
 		return api.Allowed
@@ -431,14 +453,25 @@ func NewL4Policy() *L4Policy {
 	}
 }
 
+// Delete makes the L4Policy ready for garbage collection, removing
+// circular pointer references.
+func (l4 *L4Policy) Delete(selectorCache *SelectorCache) {
+	l4.Ingress.Delete(selectorCache)
+	l4.Egress.Delete(selectorCache)
+}
+
 // IngressCoversContext checks if the receiver's ingress L4Policy contains
 // all `dPorts` and `labels`.
+//
+// Note: Only used for policy tracing
 func (l4 *L4PolicyMap) IngressCoversContext(ctx *SearchContext) api.Decision {
 	return l4.containsAllL3L4(ctx.From, ctx.DPorts)
 }
 
 // EgressCoversContext checks if the receiver's egress L4Policy contains
 // all `dPorts` and `labels`.
+//
+// Note: Only used for policy tracing
 func (l4 *L4PolicyMap) EgressCoversContext(ctx *SearchContext) api.Decision {
 	return l4.containsAllL3L4(ctx.To, ctx.DPorts)
 }

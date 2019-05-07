@@ -187,9 +187,9 @@ type Endpoint struct {
 	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
 	hasSidecarProxy bool
 
-	// prevIdentityCache is the set of all security identities used in the
+	// prevIdentityCacheRevision is the revision of the identity cache used in the
 	// previous policy computation
-	prevIdentityCache *cache.IdentityCache
+	prevIdentityCacheRevision uint64
 
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
@@ -1337,7 +1337,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		identitymanager.Remove(e.SecurityIdentity)
-		_, err := cache.Release(context.Background(), e.SecurityIdentity)
+		_, err := cache.Release(owner, context.Background(), e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1955,7 +1955,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	identity, _, err := cache.AllocateIdentity(ctx, newLabels)
+	identity, _, err := cache.AllocateIdentity(owner, ctx, newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -1971,7 +1971,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := cache.Release(releaseCtx, identity)
+		_, err := cache.Release(owner, releaseCtx, identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -2031,7 +2031,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
-		_, err := cache.Release(releaseCtx, oldIdentity)
+		_, err := cache.Release(owner, releaseCtx, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")

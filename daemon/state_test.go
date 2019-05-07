@@ -32,7 +32,6 @@ import (
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	e "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -140,7 +139,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}
 
 	ds.OnUpdateNetworkPolicy = func(e *e.Endpoint, policy *policy.L4Policy,
-		labelsMap cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+		proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 		return nil, nil
 	}
 

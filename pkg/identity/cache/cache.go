@@ -188,6 +188,7 @@ func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.A
 				}
 			}
 			// Issue collected updates
+			log.Infof("UPDATE IDENTITIES(added: %v, deleted: %v)", added, deleted)
 			owner.UpdateIdentities(added, deleted)
 		}
 	}()

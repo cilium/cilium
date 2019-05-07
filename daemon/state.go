@@ -264,7 +264,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			l, _ := labels.FilterLabels(ep.OpLabels.IdentityLabels())
 			ep.RUnlock()
 
-			identity, _, err := cache.AllocateIdentity(context.Background(), l)
+			identity, _, err := cache.AllocateIdentity(d, context.Background(), l)
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
