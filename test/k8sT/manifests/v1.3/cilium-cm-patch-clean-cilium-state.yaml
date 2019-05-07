@@ -20,3 +20,4 @@ data:
 
   debug: "true"
   clean-cilium-state: "true"
+  ct-global-max-entries-tcp: "1000000"
