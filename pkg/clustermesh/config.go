@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/fsnotify.v1"
+	fsnotify "gopkg.in/fsnotify.v1"
 )
 
 // clusterLifecycle is the interface to implement in order to receive cluster
@@ -52,7 +52,7 @@ func createConfigDirectoryWatcher(path string, lifecycle clusterLifecycle) (*con
 		watcher:   watcher,
 		path:      path,
 		lifecycle: lifecycle,
-		stop:      make(chan struct{}, 0),
+		stop:      make(chan struct{}),
 	}, nil
 }
 
