@@ -305,6 +305,13 @@ New Default Values
  * The connection-tracking garbage collector intervals is now 12 hours when
    using LRU maps (newer kernels) and 15 minutes an all older kernels. The
    interval can be overwritten with the option ``--conntrack-gc-interval``.
+   If connectivity between pods is faulty and ``cilium monitor --type drop``
+   shows ``xx drop (CT: Map insertion failed)`` t is recommended to set
+   ``--conntrack-gc-interval`` to an interval lower than the default.
+   Alternatively, the value for ``bpf-ct-global-any-max`` and
+   ``bpf-ct-global-tcp-max`` should be increased. Setting both of these options
+   will be a trade-off of CPU, for ``conntrack-gc-interval`` and memory consumed
+   for ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max``.
 
 .. _1.5_new_options:
 
