@@ -450,6 +450,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":       {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":              {},
 		Namespace + "_fqdn_gc_deletions_total":                                    {},
+		Namespace + "_" + SubsystemBPF + "_map_ops_total":                         {},
 	}
 }
 
