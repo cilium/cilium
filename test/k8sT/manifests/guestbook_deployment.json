@@ -126,37 +126,50 @@
     }
 }
 {
-    "kind":"ReplicationController",
-    "apiVersion":"v1",
-    "metadata":{
-        "name":"guestbook",
-        "labels":{
-            "k8s-app.guestbook":"web"
-        }
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "name": "frontend"
     },
-    "spec":{
-        "replicas":1,
-        "selector":{
-            "k8s-app.guestbook":"web"
+    "spec": {
+        "selector": {
+            "matchLabels": {
+                "app": "guestbook",
+                "tier": "frontend"
+            }
         },
-        "template":{
-            "metadata":{
-                "labels":{
-                    "k8s-app.guestbook":"web",
-                    "zgroup": "guestbook"
+        "replicas": 1,
+        "template": {
+            "metadata": {
+                "labels": {
+                    "app": "guestbook",
+                    "tier": "frontend"
                 }
             },
-            "spec":{
-                "terminationGracePeriodSeconds": 0,
-                "containers":[{
-                    "name":"guestbook",
-                    "image":"docker.io/kubernetes/guestbook:v2",
-                    "imagePullPolicy": "IfNotPresent",
-                    "ports":[{
-                        "name":"http-server",
-                        "containerPort":3000
-                    }]
-                }],
+            "spec": {
+                "containers": [
+                    {
+                        "name": "php-redis",
+                        "image": "gcr.io/google-samples/gb-frontend:v4",
+                        "resources": {
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "100Mi"
+                            }
+                        },
+                        "env": [
+                            {
+                                "name": "GET_HOSTS_FROM",
+                                "value": "dns"
+                            }
+                        ],
+                        "ports": [
+                            {
+                                "containerPort": 80
+                            }
+                        ]
+                    }
+                ],
                 "nodeSelector": {
                     "kubernetes.io/hostname": "k8s2"
                 }
