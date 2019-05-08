@@ -19,7 +19,6 @@ import (
 	"unsafe"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -58,7 +57,7 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *policy.SelectorPolicy) {
 //
 // This denotes that a particular endpoint is 'consuming' the policy from the
 // selector policy cache.
-func (cip *cachedSelectorPolicy) Consume(owner policy.PolicyOwner, cache cache.IdentityCache) *policy.EndpointPolicy {
+func (cip *cachedSelectorPolicy) Consume(owner policy.PolicyOwner, cache *policy.SelectorCache) *policy.EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.

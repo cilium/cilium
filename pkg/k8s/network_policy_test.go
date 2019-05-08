@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -100,7 +101,14 @@ var (
 			IntVal: 80,
 		},
 	}
+
+	dummySelectorCacheUser = &DummySelectorCacheUser{}
 )
+
+type DummySelectorCacheUser struct{}
+
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+}
 
 func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	netPolicy := &networkingv1.NetworkPolicy{
@@ -160,20 +168,24 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(len(rules), Equals, 1)
 
 	repo := policy.NewPolicyRepository()
+
 	repo.AddList(rules)
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	epSelector := api.NewESFromLabels(fromEndpoints...)
+	cachedEPSelector, _ := repo.SelectorCache.AddIdentitySelector(dummySelectorCacheUser, epSelector)
+	defer func() { repo.SelectorCache.RemoveSelector(dummySelectorCacheUser, cachedEPSelector) }()
+
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(ingressL4Policy, checker.DeepEquals, &policy.L4PolicyMap{
+	c.Assert(ingressL4Policy, checker.Equals, &policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-			Endpoints:    []api.EndpointSelector{epSelector},
-			L7Parser:     policy.ParserTypeNone,
-			L7RulesPerEp: policy.L7DataMap{},
-			Ingress:      true,
+			CachedSelectors: policy.CachedSelectorSlice{cachedEPSelector},
+			L7Parser:        policy.ParserTypeNone,
+			L7RulesPerEp:    policy.L7DataMap{},
+			Ingress:         true,
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
@@ -184,6 +196,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 			},
 		},
 	})
+	ingressL4Policy.Delete(repo.SelectorCache)
 
 	ctx.To = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -348,16 +361,19 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
 
 	epSelector := api.NewESFromLabels(toEndpoints...)
+	cachedEPSelector, _ := repo.SelectorCache.AddIdentitySelector(dummySelectorCacheUser, epSelector)
+	defer func() { repo.SelectorCache.RemoveSelector(dummySelectorCacheUser, cachedEPSelector) }()
+
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
 	c.Assert(egressL4Policy, checker.DeepEquals, &policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-			Endpoints:    []api.EndpointSelector{epSelector},
-			L7Parser:     policy.ParserTypeNone,
-			L7RulesPerEp: policy.L7DataMap{},
-			Ingress:      false,
+			CachedSelectors: policy.CachedSelectorSlice{cachedEPSelector},
+			L7Parser:        policy.ParserTypeNone,
+			L7RulesPerEp:    policy.L7DataMap{},
+			Ingress:         false,
 			DerivedFromRules: []labels.LabelArray{
 				labels.ParseLabelArray(
 					"k8s:"+k8sConst.PolicyLabelName,
@@ -368,6 +384,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 			},
 		},
 	})
+	egressL4Policy.Delete(repo.SelectorCache)
 
 	ctx.From = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -871,6 +888,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	l4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
+	l4Policy.Delete(repo.SelectorCache)
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

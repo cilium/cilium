@@ -41,7 +41,7 @@ type Owner interface {
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.
 	UpdateNetworkPolicy(e *Endpoint, policy *policy.L4Policy,
-		labelsMap cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
+		proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.
@@ -62,4 +62,10 @@ type Owner interface {
 
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
+
+	// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
+	GetNodeSuffix() string
+
+	// UpdateIdentities propagates identity updates to selectors
+	UpdateIdentities(added, deleted cache.IdentityCache)
 }

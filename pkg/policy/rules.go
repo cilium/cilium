@@ -97,15 +97,10 @@ loop:
 	return decision
 }
 
-func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap, requirements []v1.LabelSelectorRequirement) {
+func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) {
 	// Duplicate L3-only rules into wildcard L7 rules.
 	for _, r := range rules {
 		if ingress {
-			if !ctx.rulesSelect {
-				if !r.EndpointSelector.Matches(ctx.To) {
-					continue
-				}
-			}
 			for _, rule := range r.Ingress {
 				// Non-label-based rule. Ignore.
 				if !rule.IsLabelBased() {
@@ -117,8 +112,8 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 
 				// L3-only rule.
 				if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy)
-					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy)
+					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy, selectorCache)
+					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy, selectorCache)
 				} else {
 					// L4-only or L3-dependent L4 rule.
 					//
@@ -133,18 +128,13 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 							for _, p := range toPort.Ports {
 								// Already validated via PortRule.Validate().
 								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), fromEndpoints, ruleLabels, l4Policy)
+								wildcardL3L4Rule(p.Protocol, int(port), fromEndpoints, ruleLabels, l4Policy, selectorCache)
 							}
 						}
 					}
 				}
 			}
 		} else {
-			if !ctx.rulesSelect {
-				if !r.EndpointSelector.Matches(ctx.From) {
-					continue
-				}
-			}
 			for _, rule := range r.Egress {
 				// Non-label-based rule. Ignore.
 				if !rule.IsLabelBased() {
@@ -156,8 +146,8 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 
 				// L3-only rule.
 				if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
-					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy)
-					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy)
+					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy, selectorCache)
+					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy, selectorCache)
 				} else {
 					// L4-only or L3-dependent L4 rule.
 					//
@@ -172,7 +162,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 							for _, p := range toPort.Ports {
 								// Already validated via PortRule.Validate().
 								port, _ := strconv.ParseUint(p.Port, 0, 16)
-								wildcardL3L4Rule(p.Protocol, int(port), toEndpoints, ruleLabels, l4Policy)
+								wildcardL3L4Rule(p.Protocol, int(port), toEndpoints, ruleLabels, l4Policy, selectorCache)
 							}
 						}
 					}
@@ -182,7 +172,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 	}
 }
 
-func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64) (*L4Policy, error) {
+func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
@@ -209,7 +199,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 
 	ctx.rulesSelect = true
 	for _, r := range matchedRules {
-		found, err := r.resolveIngressPolicy(ctx, &state, result, requirements)
+		found, err := r.resolveIngressPolicy(ctx, &state, result, requirements, selectorCache)
 		if err != nil {
 			return nil, err
 		}
@@ -219,14 +209,14 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 		}
 	}
 
-	matchedRules.wildcardL3L4Rules(ctx, true, result.Ingress, requirements)
+	matchedRules.wildcardL3L4Rules(true, result.Ingress, requirements, selectorCache)
 	result.Revision = revision
 
 	state.trace(matchedRules, ctx)
 	return result, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64) (*L4Policy, error) {
+func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (*L4Policy, error) {
 	result := NewL4Policy()
 
 	ctx.PolicyTrace("\n")
@@ -254,7 +244,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	ctx.rulesSelect = true
 	for i, r := range matchedRules {
 		state.ruleID = i
-		found, err := r.resolveEgressPolicy(ctx, &state, result, requirements)
+		found, err := r.resolveEgressPolicy(ctx, &state, result, requirements, selectorCache)
 		if err != nil {
 			return nil, err
 		}
@@ -264,7 +254,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 		}
 	}
 
-	matchedRules.wildcardL3L4Rules(ctx, false, result.Egress, requirements)
+	matchedRules.wildcardL3L4Rules(false, result.Egress, requirements, selectorCache)
 	result.Revision = revision
 
 	state.trace(matchedRules, ctx)

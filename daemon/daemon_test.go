@@ -66,7 +66,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository     func() *policy.Repository
 	OnUpdateProxyRedirect     func(e *e.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
 	OnRemoveProxyRedirect     func(e *e.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, labelsMap cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
+	OnUpdateNetworkPolicy     func(e *e.Endpoint, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e *e.Endpoint)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -230,9 +230,9 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e *e.Endpoint, id string, proxyWaitGr
 }
 
 func (ds *DaemonSuite) UpdateNetworkPolicy(e *e.Endpoint, policy *policy.L4Policy,
-	labelsMap cache.IdentityCache, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if ds.OnUpdateNetworkPolicy != nil {
-		return ds.OnUpdateNetworkPolicy(e, policy, labelsMap, proxyWaitGroup)
+		return ds.OnUpdateNetworkPolicy(e, policy, proxyWaitGroup)
 	}
 	panic("UpdateNetworkPolicy should not have been called")
 }
@@ -296,4 +296,12 @@ func (ds *DaemonSuite) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
 		return ds.OnClearPolicyConsumers(id)
 	}
 	panic("ClearPolicyConsumers should not have been called")
+}
+
+func (ds *DaemonSuite) GetNodeSuffix() string {
+	return ds.d.GetNodeSuffix()
+}
+
+func (ds *DaemonSuite) UpdateIdentities(added, deleted cache.IdentityCache) {
+	ds.d.UpdateIdentities(added, deleted)
 }

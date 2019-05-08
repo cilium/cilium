@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +28,6 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -81,7 +79,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	if e.desiredPolicy != nil {
 		desiredL4Policy = e.desiredPolicy.L4Policy
 	}
-	return owner.UpdateNetworkPolicy(e, desiredL4Policy, *e.prevIdentityCache, proxyWaitGroup)
+	return owner.UpdateNetworkPolicy(e, desiredL4Policy, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
@@ -120,21 +118,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	stats := &policyRegenerationStatistics{}
 	stats.totalTime.Start()
 
-	// Collect label arrays before policy computation, as this can fail.
-	// GH-1128 should allow optimizing this away, but currently we can't
-	// reliably know if the KV-store has changed or not, so we must scan
-	// through it each time.
-	stats.waitingForIdentityCache.Start()
-	identityCache := cache.GetIdentityCache()
-	labelsMap := &identityCache
-	stats.waitingForIdentityCache.End(true)
-
-	// Use the old labelsMap instance if the new one is still the same.
-	// Later we can compare the pointers to figure out if labels have changed or not.
-	if reflect.DeepEqual(e.prevIdentityCache, labelsMap) {
-		labelsMap = e.prevIdentityCache
-	}
-
 	stats.waitingForPolicyRepository.Start()
 	repo := owner.GetPolicyRepository()
 	repo.Mutex.RLock()
@@ -142,10 +125,18 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	defer repo.Mutex.RUnlock()
 	stats.waitingForPolicyRepository.End(true)
 
+	// Collect label arrays before policy computation, as this can fail.
+	// GH-1128 should allow optimizing this away, but currently we can't
+	// reliably know if the KV-store has changed or not, so we must scan
+	// through it each time.
+	stats.waitingForIdentityCache.Start()
+	prevIdentityCacheRevision := repo.SelectorCache.XXXGetIDCacheRevision()
+	stats.waitingForIdentityCache.End(true)
+
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		labelsMap == e.prevIdentityCache {
+		e.prevIdentityCacheRevision == prevIdentityCacheRevision {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
@@ -158,7 +149,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 
 	// Update fields within endpoint based off known identities, and whether
 	// policy needs to be enforced for either ingress or egress.
-	e.prevIdentityCache = labelsMap
+	e.prevIdentityCacheRevision = prevIdentityCacheRevision
 
 	stats.policyCalculation.Start()
 	if e.selectorPolicy == nil {
@@ -180,7 +171,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
-	calculatedPolicy := e.selectorPolicy.Consume(e, *labelsMap)
+	calculatedPolicy := e.selectorPolicy.Consume(e, repo.SelectorCache)
 	stats.policyCalculation.End(true)
 
 	e.desiredPolicy = calculatedPolicy

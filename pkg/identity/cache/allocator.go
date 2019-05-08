@@ -174,7 +174,15 @@ func IdentityAllocationIsLocal(lbls labels.Labels) bool {
 // an identity for the specified set of labels already exist, the identity is
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
-func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identity, bool, error) {
+func AllocateIdentity(owner IdentityAllocatorOwner, ctx context.Context, lbls labels.Labels) (id *identity.Identity, allocated bool, err error) {
+	defer func() {
+		if err == nil && owner != nil && allocated {
+			added := IdentityCache{
+				id.ID: id.LabelArray,
+			}
+			owner.UpdateIdentities(added, nil)
+		}
+	}()
 	log.WithFields(logrus.Fields{
 		logfields.IdentityLabels: lbls.String(),
 	}).Debug("Resolving identity")
@@ -202,32 +210,39 @@ func AllocateIdentity(ctx context.Context, lbls labels.Labels) (*identity.Identi
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	id, isNew, err := IdentityAllocator.Allocate(ctx, globalIdentity{lbls.LabelArray()})
+	idp, isNew, err := IdentityAllocator.Allocate(ctx, globalIdentity{lbls.LabelArray()})
 	if err != nil {
 		return nil, false, err
 	}
 
 	log.WithFields(logrus.Fields{
-		logfields.Identity:       id,
+		logfields.Identity:       idp,
 		logfields.IdentityLabels: lbls.String(),
 		"isNew":                  isNew,
 	}).Debug("Resolved identity")
 
-	return identity.NewIdentity(identity.NumericIdentity(id), lbls), isNew, nil
+	return identity.NewIdentity(identity.NumericIdentity(idp), lbls), isNew, nil
 }
 
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func Release(ctx context.Context, id *identity.Identity) (bool, error) {
+func Release(owner IdentityAllocatorOwner, ctx context.Context, id *identity.Identity) (bool, error) {
+	// Ignore reserved identities.
 	if id.IsReserved() {
 		return false, nil
 	}
 
-	// Ignore reserved identities.
 	if !identity.RequiresGlobalIdentity(id.Labels) && localIdentities != nil {
-		released := localIdentities.release(id)
-		return released, nil
+		lastUse := localIdentities.release(id)
+		// Notify release of locally managed identities on last use
+		if owner != nil && lastUse {
+			deleted := IdentityCache{
+				id.ID: id.LabelArray,
+			}
+			owner.UpdateIdentities(nil, deleted)
+		}
+		return lastUse, nil
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -238,6 +253,11 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 		return false, fmt.Errorf("allocator not initialized")
 	}
 
+	// Rely on the eventual Kv-Store events for delete
+	// notifications of kv-store allocated identities. Even if an
+	// ID is no longer used locally, it may still be used by
+	// remote nodes, so we can't rely on the locally computed
+	// "lastUse".
 	return IdentityAllocator.Release(ctx, globalIdentity{id.LabelArray})
 }
 
@@ -245,13 +265,14 @@ func Release(ctx context.Context, id *identity.Identity) (bool, error) {
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
 // should all be released.
-func ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
+func ReleaseSlice(owner IdentityAllocatorOwner, ctx context.Context, identities []*identity.Identity) error {
 	var err error
 	for _, id := range identities {
 		if id == nil {
 			continue
 		}
-		if _, err2 := Release(ctx, id); err2 != nil {
+		_, err2 := Release(owner, ctx, id)
+		if err2 != nil {
 			log.WithError(err2).WithFields(logrus.Fields{
 				logfields.Identity: id,
 			}).Error("Failed to release identity")
