@@ -195,4 +195,7 @@ const (
 	// mirroring it into the kvstore for reduced overhead in large
 	// clusters.
 	K8sEventHandover = false
+
+	// LoopbackIPv4 is the default address for service loopback
+	LoopbackIPv4 = "169.254.42.1"
 )
