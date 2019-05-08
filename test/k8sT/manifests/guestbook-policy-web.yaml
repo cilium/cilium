@@ -5,12 +5,12 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      k8s-app.guestbook: web
+      app: guestbook
   ingress:
   - fromEndpoints:
     - matchLabels:
         "reserved.world": ""
     toPorts:
     - ports:
-      - port: "3000"
+      - port: "80"
         protocol: TCP
