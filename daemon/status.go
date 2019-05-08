@@ -130,12 +130,15 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 }
 
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
-	sr := h.daemon.getStatus()
+	brief := params.Brief != nil && *params.Brief
+	sr := h.daemon.getStatus(brief)
 
 	return NewGetHealthzOK().WithPayload(&sr)
 }
 
-func (d *Daemon) getStatus() models.StatusResponse {
+// getStatus returns the daemon status. If brief is provided a minimal version
+// of the StatusResponse is provided.
+func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 	staleProbes := d.statusCollector.GetStaleProbes()
 	stale := make(map[string]strfmt.DateTime, len(staleProbes))
 	for probe, startTime := range staleProbes {
@@ -145,9 +148,38 @@ func (d *Daemon) getStatus() models.StatusResponse {
 	d.statusCollectMutex.RLock()
 	defer d.statusCollectMutex.RUnlock()
 
-	// d.statusResponse contains references, so we do a deep copy to be able to
-	// safely use sr after the method has returned
-	sr := *d.statusResponse.DeepCopy()
+	var sr models.StatusResponse
+	if brief {
+		csCopy := new(models.ClusterStatus)
+		if d.statusResponse.Cluster != nil && d.statusResponse.Cluster.CiliumHealth != nil {
+			in, out := &d.statusResponse.Cluster.CiliumHealth, &csCopy.CiliumHealth
+			*out = new(models.Status)
+			**out = **in
+		}
+		var minimalControllers models.ControllerStatuses
+		if d.statusResponse.Controllers != nil {
+			for _, c := range d.statusResponse.Controllers {
+				if c.Status == nil {
+					continue
+				}
+				// With brief, the client should only care if a single controller
+				// is failing and its status so we don't need to continuing
+				// checking for failure messages for the remaining controllers.
+				if c.Status.LastFailureMsg != "" {
+					minimalControllers = append(minimalControllers, c.DeepCopy())
+					break
+				}
+			}
+		}
+		sr = models.StatusResponse{
+			Cluster:     csCopy,
+			Controllers: minimalControllers,
+		}
+	} else {
+		// d.statusResponse contains references, so we do a deep copy to be able to
+		// safely use sr after the method has returned
+		sr = *d.statusResponse.DeepCopy()
+	}
 
 	sr.Stale = stale
 
@@ -157,19 +189,19 @@ func (d *Daemon) getStatus() models.StatusResponse {
 			State: models.StatusStateWarning,
 			Msg:   "Stale status data",
 		}
-	case sr.Kvstore != nil && sr.Kvstore.State != models.StatusStateOk:
+	case d.statusResponse.Kvstore != nil && d.statusResponse.Kvstore.State != models.StatusStateOk:
 		sr.Cilium = &models.Status{
-			State: sr.Kvstore.State,
+			State: d.statusResponse.Kvstore.State,
 			Msg:   "Kvstore service is not ready",
 		}
-	case sr.ContainerRuntime != nil && sr.ContainerRuntime.State != models.StatusStateOk:
+	case d.statusResponse.ContainerRuntime != nil && d.statusResponse.ContainerRuntime.State != models.StatusStateOk:
 		sr.Cilium = &models.Status{
-			State: sr.ContainerRuntime.State,
+			State: d.statusResponse.ContainerRuntime.State,
 			Msg:   "Container runtime is not ready",
 		}
-	case k8s.IsEnabled() && sr.Kubernetes != nil && sr.Kubernetes.State != models.StatusStateOk:
+	case k8s.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
 		sr.Cilium = &models.Status{
-			State: sr.Kubernetes.State,
+			State: d.statusResponse.Kubernetes.State,
 			Msg:   "Kubernetes service is not ready",
 		}
 	default:

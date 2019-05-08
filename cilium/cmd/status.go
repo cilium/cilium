@@ -19,6 +19,7 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
@@ -77,7 +78,9 @@ func statusDaemon() {
 	if allHealth {
 		healthLines = 0
 	}
-	if resp, err := client.Daemon.GetHealthz(nil); err != nil {
+	params := daemon.NewGetHealthzParams()
+	params.SetBrief(&brief)
+	if resp, err := client.Daemon.GetHealthz(params); err != nil {
 		if brief {
 			fmt.Fprintf(os.Stderr, "%s\n", "cilium: daemon unreachable")
 		} else {
