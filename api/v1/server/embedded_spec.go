@@ -563,6 +563,14 @@ func init() {
           "daemon"
         ],
         "summary": "Get health of Cilium daemon",
+        "parameters": [
+          {
+            "type": "boolean",
+            "description": "Brief will return a brief representation of the Cilium status.\n",
+            "name": "brief",
+            "in": "header"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -3380,6 +3388,14 @@ func init() {
           "daemon"
         ],
         "summary": "Get health of Cilium daemon",
+        "parameters": [
+          {
+            "type": "boolean",
+            "description": "Brief will return a brief representation of the Cilium status.\n",
+            "name": "brief",
+            "in": "header"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success",
