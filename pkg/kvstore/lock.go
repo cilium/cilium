@@ -19,9 +19,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/lock"
 	uuidfactor "github.com/cilium/cilium/pkg/uuid"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pborman/uuid"
 	"github.com/sirupsen/logrus"
 )
@@ -65,6 +67,17 @@ func init() {
 			time.Sleep(staleLockTimeout)
 		}
 	}()
+
+	debug.RegisterStatusObject("kvstore-locks", &kvstoreLocks)
+}
+
+// DebugStatus implements debug.StatusObject to provide debug status collection
+// ability
+func (pl *pathLocks) DebugStatus() string {
+	pl.mutex.RLock()
+	str := spew.Sdump(pl.lockPaths)
+	pl.mutex.RUnlock()
+	return str
 }
 
 func (pl *pathLocks) runGC() {
