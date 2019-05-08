@@ -589,6 +589,9 @@ func init() {
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	option.BindEnv(option.LogSystemLoadConfigName)
 
+	flags.String(option.LoopbackIPv4, defaults.LoopbackIPv4, "IPv4 address for service loopback SNAT")
+	option.BindEnv(option.LoopbackIPv4)
+
 	flags.String(option.NAT46Range, defaults.DefaultNAT46Prefix, "IPv6 prefix to map IPv4 addresses to")
 	option.BindEnv(option.NAT46Range)
 

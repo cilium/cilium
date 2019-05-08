@@ -448,6 +448,9 @@ const (
 	// Metrics represents the metrics subsystem that Cilium should expose
 	// to prometheus.
 	Metrics = "metrics"
+
+	// LoopbackIPv4 is the address to use for service loopback SNAT
+	LoopbackIPv4 = "ipv4-service-loopback-address"
 )
 
 // FQDNS variables
@@ -900,6 +903,9 @@ type DaemonConfig struct {
 
 	// MetricsConfig is the configuration set in metrics
 	MetricsConfig metrics.Configuration
+
+	// LoopbackIPv4 is the address to use for service loopback SNAT
+	LoopbackIPv4 string
 }
 
 var (
@@ -921,6 +927,7 @@ var (
 		KVStoreOpt:                make(map[string]string),
 		LogOpt:                    make(map[string]string),
 		SelectiveRegeneration:     defaults.SelectiveRegeneration,
+		LoopbackIPv4:              defaults.LoopbackIPv4,
 	}
 )
 
@@ -1183,6 +1190,7 @@ func (c *DaemonConfig) Populate() {
 	c.LogDriver = viper.GetStringSlice(LogDriver)
 	c.LogSystemLoadConfig = viper.GetBool(LogSystemLoadConfigName)
 	c.Logstash = viper.GetBool(Logstash)
+	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
 	c.Masquerade = viper.GetBool(Masquerade)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
