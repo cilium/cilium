@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	kvstoreLocks = pathLocks{lockPaths: map[string]uuid.UUID{}}
+	kvstoreLocks = pathLocks{lockPaths: map[string]lockOwner{}}
 
 	// staleLockTimeout is the timeout after which waiting for a believed
 	// other local lock user for the same key is given up on and etcd is
@@ -48,36 +48,48 @@ func getLockPath(path string) string {
 	return path + ".lock"
 }
 
+type lockOwner struct {
+	created time.Time
+	id      uuid.UUID
+}
+
 type pathLocks struct {
 	mutex     lock.RWMutex
-	lockPaths map[string]uuid.UUID
+	lockPaths map[string]lockOwner
+}
+
+func init() {
+	go func() {
+		for {
+			kvstoreLocks.runGC()
+			time.Sleep(staleLockTimeout)
+		}
+	}()
+}
+
+func (pl *pathLocks) runGC() {
+	pl.mutex.Lock()
+	for path, owner := range pl.lockPaths {
+		if time.Since(owner.created) > staleLockTimeout {
+			log.WithField("path", path).Error("Forcefully unlocking local kvstore lock")
+			delete(pl.lockPaths, path)
+		}
+	}
+	pl.mutex.Unlock()
 }
 
 func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID, err error) {
-	id = uuidfactor.NewUUID()
-	started := time.Now()
-
 	for {
 		pl.mutex.Lock()
-
 		if _, ok := pl.lockPaths[path]; !ok {
-			pl.lockPaths[path] = id
+			id = uuidfactor.NewUUID()
+			pl.lockPaths[path] = lockOwner{
+				created: time.Now(),
+				id:      id,
+			}
 			pl.mutex.Unlock()
 			return
 		}
-
-		if time.Since(started) > staleLockTimeout {
-			log.WithField("path", path).Warning("Timeout while waiting for lock, forcefully unlocking...")
-			delete(pl.lockPaths, path)
-			pl.mutex.Unlock()
-
-			// The lock was forcefully released, restart a new
-			// timeout period as we will attempt to acquire the
-			// local lock again
-			started = time.Now()
-			continue
-		}
-
 		pl.mutex.Unlock()
 
 		select {
@@ -91,7 +103,7 @@ func (pl *pathLocks) lock(ctx context.Context, path string) (id uuid.UUID, err e
 
 func (pl *pathLocks) unlock(path string, id uuid.UUID) {
 	pl.mutex.Lock()
-	if owner, ok := pl.lockPaths[path]; ok && uuid.Equal(owner, id) {
+	if owner, ok := pl.lockPaths[path]; ok && uuid.Equal(owner.id, id) {
 		delete(pl.lockPaths, path)
 	}
 	pl.mutex.Unlock()

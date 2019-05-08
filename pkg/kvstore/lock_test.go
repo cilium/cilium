@@ -32,14 +32,15 @@ func (s *independentSuite) TestLocalLock(c *C) {
 	defer func() { staleLockTimeout = backup }()
 	staleLockTimeout = 5 * time.Millisecond
 
-	locks := pathLocks{lockPaths: map[string]uuid.UUID{}}
+	locks := pathLocks{lockPaths: map[string]lockOwner{}}
 
 	// Acquie lock1
 	id1, err := locks.lock(context.Background(), path)
 	c.Assert(err, IsNil)
 
 	// Ensure that staleLockTimeout has passed
-	time.Sleep(staleLockTimeout)
+	time.Sleep(staleLockTimeout * 2)
+	locks.runGC()
 
 	// Acquire lock on same path, must unlock local use
 	id2, err := locks.lock(context.Background(), path)
@@ -48,9 +49,9 @@ func (s *independentSuite) TestLocalLock(c *C) {
 	// Unlock lock1, this should be a no-op
 	locks.unlock(path, id1)
 
-	l, ok := locks.lockPaths[path]
+	owner, ok := locks.lockPaths[path]
 	c.Assert(ok, Equals, true)
-	c.Assert(uuid.Equal(l, id2), Equals, true)
+	c.Assert(uuid.Equal(owner.id, id2), Equals, true)
 
 	// Unlock lock2, this should be a no-op
 	locks.unlock(path, id2)
@@ -58,7 +59,7 @@ func (s *independentSuite) TestLocalLock(c *C) {
 
 func (s *independentSuite) TestLocalLockCancel(c *C) {
 	path := "locktest/foo"
-	locks := pathLocks{lockPaths: map[string]uuid.UUID{}}
+	locks := pathLocks{lockPaths: map[string]lockOwner{}}
 	// grab lock to ensure that 2nd lock attempt needs to retry and can be
 	// cancelled
 	id1, err := locks.lock(context.Background(), path)
