@@ -13,6 +13,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/swag"
 
 	strfmt "github.com/go-openapi/strfmt"
 )
@@ -20,7 +21,7 @@ import (
 // NewGetHealthzParams creates a new GetHealthzParams object
 // with the default values initialized.
 func NewGetHealthzParams() *GetHealthzParams {
-
+	var ()
 	return &GetHealthzParams{
 
 		timeout: cr.DefaultTimeout,
@@ -30,7 +31,7 @@ func NewGetHealthzParams() *GetHealthzParams {
 // NewGetHealthzParamsWithTimeout creates a new GetHealthzParams object
 // with the default values initialized, and the ability to set a timeout on a request
 func NewGetHealthzParamsWithTimeout(timeout time.Duration) *GetHealthzParams {
-
+	var ()
 	return &GetHealthzParams{
 
 		timeout: timeout,
@@ -40,7 +41,7 @@ func NewGetHealthzParamsWithTimeout(timeout time.Duration) *GetHealthzParams {
 // NewGetHealthzParamsWithContext creates a new GetHealthzParams object
 // with the default values initialized, and the ability to set a context for a request
 func NewGetHealthzParamsWithContext(ctx context.Context) *GetHealthzParams {
-
+	var ()
 	return &GetHealthzParams{
 
 		Context: ctx,
@@ -50,7 +51,7 @@ func NewGetHealthzParamsWithContext(ctx context.Context) *GetHealthzParams {
 // NewGetHealthzParamsWithHTTPClient creates a new GetHealthzParams object
 // with the default values initialized, and the ability to set a custom HTTPClient for a request
 func NewGetHealthzParamsWithHTTPClient(client *http.Client) *GetHealthzParams {
-
+	var ()
 	return &GetHealthzParams{
 		HTTPClient: client,
 	}
@@ -60,6 +61,14 @@ func NewGetHealthzParamsWithHTTPClient(client *http.Client) *GetHealthzParams {
 for the get healthz operation typically these are written to a http.Request
 */
 type GetHealthzParams struct {
+
+	/*Brief
+	  Brief will return a brief representation of the Cilium status.
+
+
+	*/
+	Brief *bool
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -98,6 +107,17 @@ func (o *GetHealthzParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithBrief adds the brief to the get healthz params
+func (o *GetHealthzParams) WithBrief(brief *bool) *GetHealthzParams {
+	o.SetBrief(brief)
+	return o
+}
+
+// SetBrief adds the brief to the get healthz params
+func (o *GetHealthzParams) SetBrief(brief *bool) {
+	o.Brief = brief
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -105,6 +125,15 @@ func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 		return err
 	}
 	var res []error
+
+	if o.Brief != nil {
+
+		// header param brief
+		if err := r.SetHeaderParam("brief", swag.FormatBool(*o.Brief)); err != nil {
+			return err
+		}
+
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

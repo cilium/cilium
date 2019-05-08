@@ -21,6 +21,13 @@ paths:
         Kubernetes integration.
       tags:
       - daemon
+      parameters:
+      - name: brief
+        description: |
+          Brief will return a brief representation of the Cilium status.
+        in: header
+        required: false
+        type: boolean
       responses:
         '200':
           description: Success
