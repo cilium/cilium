@@ -135,6 +135,9 @@ func (l *Lock) Unlock() error {
 
 	// Unlock kvstore mutex first
 	err := l.kvLock.Unlock()
+	if err != nil {
+		log.WithError(err).WithField("path", l.path).Error("Unable to unlock kvstore lock")
+	}
 
 	// unlock local lock even if kvstore cannot be unlocked
 	kvstoreLocks.unlock(l.path, l.id)
