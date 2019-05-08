@@ -124,10 +124,12 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	fmt.Fprintf(fw, "#define LB6_SERVICES_MAP_V2 cilium_lb6_services_v2\n")
 	fmt.Fprintf(fw, "#define LB6_BACKEND_MAP cilium_lb6_backends\n")
 	fmt.Fprintf(fw, "#define LB6_RR_SEQ_MAP_V2 cilium_lb6_rr_seq_v2\n")
+	fmt.Fprintf(fw, "#define LB6_REVERSE_NAT_SK_MAP cilium_lb6_reverse_sk\n")
 	fmt.Fprintf(fw, "#define LB4_REVERSE_NAT_MAP cilium_lb4_reverse_nat\n")
 	fmt.Fprintf(fw, "#define LB4_SERVICES_MAP_V2 cilium_lb4_services_v2\n")
 	fmt.Fprintf(fw, "#define LB4_RR_SEQ_MAP_V2 cilium_lb4_rr_seq_v2\n")
 	fmt.Fprintf(fw, "#define LB4_BACKEND_MAP cilium_lb4_backends\n")
+	fmt.Fprintf(fw, "#define LB4_REVERSE_NAT_SK_MAP cilium_lb4_reverse_sk\n")
 
 	if option.Config.EnableLegacyServices {
 		fmt.Fprintf(fw, "#define ENABLE_LEGACY_SERVICES 1\n")
