@@ -26,6 +26,7 @@ import (
 const (
 	externalProbeIPv4 = "1.1.1.1"
 	externalProbeIPv6 = "2606:4700:4700::1111"
+	maxCiliumMTU      = 65535
 )
 
 func getRoute(externalProbe string) ([]netlink.Route, error) {
@@ -65,6 +66,9 @@ func autoDetect() (int, error) {
 	}
 
 	if mtu := link.Attrs().MTU; mtu != 0 {
+		if mtu < maxCiliumMTU {
+			mtu = maxCiliumMTU
+		}
 		log.Infof("Detected MTU %d", mtu)
 		return mtu, nil
 	}
