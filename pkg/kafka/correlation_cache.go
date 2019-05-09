@@ -151,7 +151,7 @@ func (cc *CorrelationCache) correlate(id CorrelationID) *correlationEntry {
 	cc.mutex.RLock()
 	defer cc.mutex.RUnlock()
 
-	entry, _ := cc.cache[id]
+	entry := cc.cache[id]
 	return entry
 }
 
