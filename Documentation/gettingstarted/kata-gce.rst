@@ -8,7 +8,7 @@
 Kata with Cilium on Google GCE
 ******************************
 
-Kata Containers is an open source project thhat provides a secure container
+Kata Containers is an open source project that provides a secure container
 runtime with lightweight virtual machines that feel and perform like containers,
 but provide stronger workload isolation using hardware virtualization technology
 as a second layer of defense.
@@ -17,7 +17,7 @@ Kata Containers, providing a higher degree of security at the network layer and
 at the compute layer with Kata.
 This guide provides a walkthrough of installing Kata with Cilium on GCE.
 Kata Containers on Google Compute Engine (GCE) makes use of nested virtualization.
-At the time of this writing, nested virtulization support was not yet available
+At the time of this writing, nested virtualization support was not yet available
 on GKE.
 
 GCE Requirements
@@ -297,11 +297,11 @@ This will install all the required Kata binaries under `/opt/kata` and configure
 CRI implementation with the RuntimeClass handlers for the Kata runtime binaries.
 Kata Containers can leverage Qemu and Firecracker hypervisor for running
 the lightweight VM. `kata-fc` binary runs a Firecracker isolated Kata Container while
-`kata-qemu` runs a qemu isolated Kata Container.
+`kata-qemu` runs a Qemu isolated Kata Container.
 
 2) Create the RuntimeClass resource for Kata-containers
 
-To add a RuntimeClass for qemu isolated Kata-Containers:
+To add a RuntimeClass for Qemu isolated Kata-Containers:
 
 .. tabs::
   .. group-tab:: K8s 1.14
