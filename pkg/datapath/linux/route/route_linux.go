@@ -300,6 +300,7 @@ func Delete(route Route) error {
 	routeSpec := netlink.Route{
 		Dst:       &route.Prefix,
 		LinkIndex: link.Attrs().Index,
+		Table:     route.Table,
 	}
 
 	// Scope can only be specified for IPv4
