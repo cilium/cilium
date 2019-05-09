@@ -78,11 +78,11 @@ func kill(buf []byte, pidfile string) error {
 	pidStr := strings.TrimSpace(string(buf))
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
-		return fmt.Errorf("Failed to parse pid from %q: %s", pidStr, err)
+		return fmt.Errorf("failed to parse pid from %q: %s", pidStr, err)
 	}
 	oldProc, err := os.FindProcess(pid)
 	if err != nil {
-		return fmt.Errorf("Could not find process %d: %s", pid, err)
+		return fmt.Errorf("could not find process %d: %s", pid, err)
 	}
 	// According to the golang/pkg/os documentation:
 	// "On Unix systems, FindProcess always succeeds and returns a Process
@@ -98,7 +98,7 @@ func kill(buf []byte, pidfile string) error {
 		log.WithError(err).Debug("Ignoring process kill failure")
 	}
 	if err := oldProc.Release(); err != nil {
-		return fmt.Errorf("Couldn't release process %d: %s", pid, err)
+		return fmt.Errorf("couldn't release process %d: %s", pid, err)
 	}
 	return nil
 }
