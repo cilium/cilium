@@ -287,11 +287,7 @@ func (q *EventQueue) WaitToBeDrained() {
 	if q == nil {
 		return
 	}
-
-	select {
-	case <-q.close:
-		return
-	}
+	<-q.close
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events

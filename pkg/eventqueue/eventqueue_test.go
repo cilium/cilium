@@ -162,32 +162,24 @@ func (s *EventQueueSuite) TestDrain(c *C) {
 
 	// Ensure that the event is enqueued. Because nh2.Channel hasn't been closed
 	// We know that the event hasn't been handled yet.
-	select {
-	case <-enq:
-		break
-	}
+	<-enq
 
 	// Stop queue in goroutine so we don't block on all events being processed
 	// (because nh2 nor nh3 haven't had their channels closed yet).
 	go q.Stop()
 
 	// Ensure channel has began to drain after stopping.
-	select {
-	case <-q.drain:
-	}
+	<-q.drain
 
 	// Allow nh2 handling to unblock so we can wait for ev3 to be cancelled.
 	close(nh2.Channel)
 
 	// Event was drained, so it should have been cancelled.
-	select {
-	case _, ok := <-rcvChan:
-		c.Assert(ok, Equals, false)
-		c.Assert(ev3.WasCancelled(), Equals, true)
+	_, ok := <-rcvChan
+	c.Assert(ok, Equals, false)
+	c.Assert(ev3.WasCancelled(), Equals, true)
 
-		// Event wasn't processed because it was drained. See Handle() for
-		// NewHangEvent.
-		c.Assert(nh3.processed, Equals, false)
-	}
-
+	// Event wasn't processed because it was drained. See Handle() for
+	// NewHangEvent.
+	c.Assert(nh3.processed, Equals, false)
 }
