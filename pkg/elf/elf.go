@@ -28,10 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	subsystem = "elf"
-)
-
 var (
 	ignoredPrefixes []string
 )
