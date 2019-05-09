@@ -94,9 +94,9 @@ func (m *Manager) UpdateController(name string, params ControllerParams) *Contro
 		ctrl = &Controller{
 			name:       name,
 			uuid:       uuid.NewUUID().String(),
-			stop:       make(chan struct{}, 0),
+			stop:       make(chan struct{}),
 			update:     make(chan struct{}, 1),
-			terminated: make(chan struct{}, 0),
+			terminated: make(chan struct{}),
 		}
 		ctrl.updateParamsLocked(params)
 		ctrl.getLogger().Debug("Starting new controller")
@@ -180,7 +180,7 @@ func (m *Manager) TerminationChannel(name string) chan struct{} {
 		return c.terminated
 	}
 
-	c := make(chan struct{}, 0)
+	c := make(chan struct{})
 	close(c)
 	return c
 }
@@ -248,9 +248,9 @@ func FakeManager(failingControllers int) *Manager {
 		ctrl := &Controller{
 			name:              fmt.Sprintf("controller-%d", i),
 			uuid:              fmt.Sprintf("%d", i),
-			stop:              make(chan struct{}, 0),
+			stop:              make(chan struct{}),
 			update:            make(chan struct{}, 1),
-			terminated:        make(chan struct{}, 0),
+			terminated:        make(chan struct{}),
 			lastError:         fmt.Errorf("controller failed"),
 			failureCount:      1,
 			consecutiveErrors: 1,
