@@ -224,9 +224,7 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 	return false
 }
 
-func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-
-	fromEndpoints := rule.GetSourceEndpointSelectors()
+func mergeIngress(ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, toPorts []api.PortRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	found := 0
 
 	if ctx.From != nil && len(fromEndpoints) > 0 {
@@ -256,7 +254,7 @@ func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.La
 	)
 
 	// L3-only rule (with requirements folded into fromEndpoints).
-	if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
+	if len(toPorts) == 0 && len(fromEndpoints) > 0 {
 		cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
@@ -265,7 +263,7 @@ func mergeIngress(ctx *SearchContext, rule api.IngressRule, ruleLabels labels.La
 
 	found += cnt
 
-	for _, r := range rule.ToPorts {
+	for _, r := range toPorts {
 		// For L4 Policy, an empty slice of EndpointSelector indicates that the
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
@@ -348,26 +346,8 @@ func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, resul
 		ctx.PolicyTrace("    No ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
-		ruleCopy := ingressRule
-
-		// For each FromEndpoints in each ingress rule, add requirements, which
-		// is a flattened list of all EndpointSelectors from all FromRequires
-		// from rules which select the labels in ctx.To. This ensures that
-		// FromRequires is taken into account even if it isn't part of the current
-		// rule over which we are iterating.
-		if len(requirements) > 0 && len(ingressRule.FromEndpoints) > 0 {
-			// Create a deep copy of the rule, as we are going to modify FromEndpoints
-			// with requirementsSelector. We don't want to modify the rule itself
-			// in the policy repository.
-			ruleCopy = *ingressRule.DeepCopy()
-			// Update each EndpointSelector in FromEndpoints to contain requirements.
-			for idx := range ruleCopy.FromEndpoints {
-				ruleCopy.FromEndpoints[idx].MatchExpressions = append(ruleCopy.FromEndpoints[idx].MatchExpressions, requirements...)
-				ruleCopy.FromEndpoints[idx].SyncRequirementsWithLabelSelector()
-			}
-			ruleCopy.SetAggregatedSelectors()
-		}
-		cnt, err := mergeIngress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Ingress)
+		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements)
+		cnt, err := mergeIngress(ctx, fromEndpoints, ingressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Ingress)
 		if err != nil {
 			return nil, err
 		}
@@ -606,12 +586,10 @@ func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) ap
 	return api.Undecided
 }
 
-func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
-
-	toEndpoints := rule.GetDestinationEndpointSelectors()
+func mergeEgress(ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, toPorts []api.PortRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	found := 0
 
-	if ctx.To != nil && len(rule.ToEndpoints) > 0 {
+	if ctx.To != nil && len(toEndpoints) > 0 {
 		if ctx.TraceEnabled() {
 			traceL3(ctx, toEndpoints, "to")
 		}
@@ -628,7 +606,7 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 	)
 
 	// L3-only rule (with requirements folded into toEndpoints).
-	if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
+	if len(toPorts) == 0 && len(toEndpoints) > 0 {
 		cnt, err = mergeEgressPortProto(ctx, toEndpoints, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
@@ -637,7 +615,7 @@ func mergeEgress(ctx *SearchContext, rule api.EgressRule, ruleLabels labels.Labe
 
 	found += cnt
 
-	for _, r := range rule.ToPorts {
+	for _, r := range toPorts {
 		// For L4 Policy, an empty slice of EndpointSelector indicates that the
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
@@ -728,26 +706,8 @@ func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result
 		ctx.PolicyTrace("    No L4 rules\n")
 	}
 	for _, egressRule := range r.Egress {
-		ruleCopy := egressRule
-		// For each ToEndpoints in each egress rule, add the requirements, which
-		// is a flattened list of all EndpointSelectors from all ToRequires
-		// from rules which select the labels in ctx.From. This ensures that
-		// ToRequires is taken into account even if it isn't part of the current
-		// rule over which we are iterating.
-		if len(requirements) > 0 && len(egressRule.ToEndpoints) > 0 {
-			// Create a deep copy of the rule, as we are going to modify
-			// ToEndpoints with requirements; we don't want to modify the rule
-			// in the repository.
-			ruleCopy = *egressRule.DeepCopy()
-			for idx := range ruleCopy.ToEndpoints {
-				// Update each EndpointSelector in ToEndpoints to contain
-				// requirements.
-				ruleCopy.ToEndpoints[idx].MatchExpressions = append(ruleCopy.ToEndpoints[idx].MatchExpressions, requirements...)
-				ruleCopy.ToEndpoints[idx].SyncRequirementsWithLabelSelector()
-			}
-			ruleCopy.SetAggregatedSelectors()
-		}
-		cnt, err := mergeEgress(ctx, ruleCopy, r.Rule.Labels.DeepCopy(), result.Egress)
+		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
+		cnt, err := mergeEgress(ctx, toEndpoints, egressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Egress)
 		if err != nil {
 			return nil, err
 		}

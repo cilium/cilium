@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 // limitations under the License.
 
 package api
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // EgressRule contains all rule types which can be applied at egress, i.e.
 // network traffic that originates inside the endpoint and exits the endpoint
@@ -174,6 +178,29 @@ func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
 		e.SetAggregatedSelectors()
 	}
 	return e.aggregatedSelectors
+}
+
+// GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
+// all L3 source selectors of the ingress rule
+func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+	res := make(EndpointSelectorSlice, 0, len(e.ToCIDR)+len(e.ToFQDNs)+len(e.ToCIDRSet)+len(e.ToEndpoints)+len(e.ToEntities))
+
+	if len(requirements) > 0 && len(e.ToEndpoints) > 0 {
+		for idx := range e.ToEndpoints {
+			sel := *e.ToEndpoints[idx].DeepCopy()
+			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
+			sel.SyncRequirementsWithLabelSelector()
+			res = append(res, sel)
+		}
+	} else {
+		res = append(res, e.ToEndpoints...)
+	}
+	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
+	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
+
+	return res
 }
 
 // IsLabelBased returns true whether the L3 destination endpoints are selected

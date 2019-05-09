@@ -589,15 +589,14 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 }
 
 func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules,
-	labelsMap, deniedIdentities cache.IdentityCache) *cilium.PortNetworkPolicyRule {
-	// In case the endpoint selector is a wildcard and there are no denied
-	// identities, optimize the policy by setting an empty remote policies list
-	// to match all remote policies.
+	labelsMap cache.IdentityCache) *cilium.PortNetworkPolicyRule {
+	// Optimize the policy if the endpoint selector is a wildcard by
+	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
-	if !sel.IsWildcard() || len(deniedIdentities) > 0 {
+	if !sel.IsWildcard() {
 		for id, labels := range labelsMap {
-			_, ok := deniedIdentities[id]
-			if !ok && sel.Matches(labels) {
+			if sel.Matches(labels) {
+				log.Infof("Selector %v matched labels %v (for id %d)", sel, labels, uint64(id))
 				remotePolicies = append(remotePolicies, uint64(id))
 			}
 		}
@@ -658,7 +657,7 @@ func getPortNetworkPolicyRule(sel api.EndpointSelector, l7Parser policy.L7Parser
 }
 
 func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
-	labelsMap, deniedIdentities cache.IdentityCache) []*cilium.PortNetworkPolicy {
+	labelsMap cache.IdentityCache) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
 		return allowAllPortNetworkPolicy
@@ -686,8 +685,9 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 		}
 
 		allowAll := false
+		i := 0
 		for sel, l7 := range l4.L7RulesPerEp {
-			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap, deniedIdentities)
+			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7, labelsMap)
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 					// Got an allow-all rule, which would short-circuit all of
@@ -697,6 +697,8 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 					pnp.Rules = nil
 					break
 				}
+				i++
+				log.Infof("NP GOt rule (%d), sel: %v, l7: %v, rule: %v", i, sel, l7, rule)
 
 				pnp.Rules = append(pnp.Rules, rule)
 			}
@@ -726,8 +728,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool,
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap,
-	deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache) *cilium.NetworkPolicy {
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap cache.IdentityCache) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
 		Policy:           uint64(id),
@@ -736,8 +737,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, ingressPolicyEnforced, labelsMap, deniedIngressIdentities)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, egressPolicyEnforced, labelsMap, deniedEgressIdentities)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, ingressPolicyEnforced, labelsMap)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, egressPolicyEnforced, labelsMap)
 	}
 
 	return p
@@ -748,8 +749,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
 func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap,
-	deniedIngressIdentities, deniedEgressIdentities cache.IdentityCache, wg *completion.WaitGroup) (error, func() error) {
+	ingressPolicyEnforced, egressPolicyEnforced bool, labelsMap cache.IdentityCache,
+	wg *completion.WaitGroup) (error, func() error) {
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -764,8 +765,8 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackName(), policy, ingressPolicyEnforced, egressPolicyEnforced,
-			labelsMap, deniedIngressIdentities, deniedEgressIdentities)
+		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackName(), policy,
+			ingressPolicyEnforced, egressPolicyEnforced, labelsMap)
 		err := networkPolicy.Validate()
 		if err != nil {
 			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err), nil

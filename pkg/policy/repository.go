@@ -143,12 +143,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 	}
 }
 
-// wildcardL3L4Rules updates each ingress L7 rule to allow at L7 all traffic that
-// is allowed at L3-only or L3/L4.
-func (p *Repository) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
-	p.rules.wildcardL3L4Rules(ctx, ingress, l4Policy)
-}
-
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
 // by searching the policy repository for `PortRule` rules that are attached to
 // a `Rule` where the EndpointSelector matches `ctx.To`. `ctx.From` takes no effect and
@@ -588,7 +582,6 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 		Revision:             p.GetRevision(),
 		L4Policy:             NewL4Policy(),
 		CIDRPolicy:           NewCIDRPolicy(),
-		matchingRules:        matchingRules,
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
 	}
@@ -597,15 +590,13 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 
 	labels := securityIdentity.LabelArray
 	ingressCtx := SearchContext{
-		To:                            labels,
-		rulesSelect:                   true,
-		skipL4RequirementsAggregation: false,
+		To:          labels,
+		rulesSelect: true,
 	}
 
 	egressCtx := SearchContext{
-		From:                          labels,
-		rulesSelect:                   true,
-		skipL4RequirementsAggregation: false,
+		From:        labels,
+		rulesSelect: true,
 	}
 
 	if option.Config.TracingEnabled() {
