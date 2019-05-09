@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,13 +63,6 @@ var (
 		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
 		labels.NewLabel("id2", "c", labels.LabelSourceK8s),
-	}
-
-	labelSelectorB = metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"id1": "b",
-			"id2": "c",
-		},
 	}
 
 	labelsC = labels.LabelArray{

@@ -21,9 +21,6 @@ import (
 
 // logging field definitions
 const (
-	// fieldRetry is the current retry attempt
-	fieldRetry = "retry"
-
 	// fieldMaxRetry is the maximum number of retries
 	fieldMaxRetry = "maxRetry"
 

@@ -272,7 +272,7 @@ func (s *ServiceCache) DeleteIngress(ingress *types.Ingress) {
 
 	s.mutex.Lock()
 	oldService, ok := s.ingresses[svcID]
-	endpoints, _ := s.endpoints[svcID]
+	endpoints := s.endpoints[svcID]
 	delete(s.ingresses, svcID)
 	s.mutex.Unlock()
 
