@@ -120,10 +120,7 @@ func (t MapType) String() string {
 }
 
 func (t MapType) allowsPreallocation() bool {
-	if t == MapTypeLPMTrie {
-		return false
-	}
-	return true
+	return t != MapTypeLPMTrie
 }
 
 func (t MapType) requiresPreallocation() bool {
@@ -193,7 +190,7 @@ func ReadFeatureProbes(filename string) {
 		for mapType := MapTypeHash; mapType < MapTypeMaximum; mapType++ {
 			featureString := mapTypeToFeatureString(mapType)
 			if featureString != "" &&
-				bytes.Compare(scanner.Bytes(), []byte(featureString)) == 0 {
+				bytes.Equal(scanner.Bytes(), []byte(featureString)) {
 				log.Debugf("Detected support for map type %s", mapType.String())
 				supportedMapTypes[mapType] = true
 			}
