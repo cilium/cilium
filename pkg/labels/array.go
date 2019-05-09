@@ -172,7 +172,7 @@ func (ls LabelArray) DeepCopy() LabelArray {
 		return nil
 	}
 
-	o := make(LabelArray, len(ls), len(ls))
+	o := make(LabelArray, len(ls))
 	copy(o, ls)
 	return o
 }
