@@ -1153,22 +1153,22 @@ func (c *DaemonConfig) Validate() error {
 	ctTableMin := 1 << 10 // 1Ki entries
 	ctTableMax := 1 << 24 // 16Mi entries (~1GiB of entries per map)
 	if c.CTMapEntriesGlobalTCP < ctTableMin || c.CTMapEntriesGlobalAny < ctTableMin {
-		return fmt.Errorf("Specified CT tables values %d/%d must exceed minimum %d",
+		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMin)
 	}
 	if c.CTMapEntriesGlobalTCP > ctTableMax || c.CTMapEntriesGlobalAny > ctTableMax {
-		return fmt.Errorf("Specified CT tables values %d/%d must not exceed maximum %d",
+		return fmt.Errorf("specified CT tables values %d/%d must not exceed maximum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMax)
 	}
 
 	policyMapMin := (1 << 8)
 	policyMapMax := (1 << 16)
 	if c.PolicyMapMaxEntries < policyMapMin {
-		return fmt.Errorf("Specified PolicyMap max entries %d must exceed minimum %d",
+		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
 			c.PolicyMapMaxEntries, policyMapMin)
 	}
 	if c.PolicyMapMaxEntries > policyMapMax {
-		return fmt.Errorf("Specified PolicyMap max entries %d must not exceed maximum %d",
+		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
 			c.PolicyMapMaxEntries, policyMapMax)
 	}
 
@@ -1254,7 +1254,7 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 	for _, ipString := range s {
 		_, ipnet, err := net.ParseCIDR(ipString)
 		if err != nil {
-			return fmt.Errorf("Unable to parse excluded local address %s: %s", ipString, err)
+			return fmt.Errorf("unable to parse excluded local address %s: %s", ipString, err)
 		}
 
 		c.excludeLocalAddresses = append(c.excludeLocalAddresses, ipnet)
