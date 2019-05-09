@@ -29,8 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
+	logging "github.com/op/go-logging"
 
-	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -188,7 +188,6 @@ var (
 		},
 	}}
 	// L7 rule sections
-	allowAllL7___ *api.L7Rules
 	allowHTTPRoot = &api.L7Rules{
 		HTTP: []api.PortRuleHTTP{
 			{Method: "GET", Path: "/"},

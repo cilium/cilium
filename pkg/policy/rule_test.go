@@ -29,8 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	logging "github.com/op/go-logging"
 
-	"github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -1335,8 +1335,6 @@ var (
 
 	ctxAToB = SearchContext{From: labelsA, To: labelsB, Trace: TRACE_VERBOSE}
 	ctxAToC = SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
-
-	ctxFromA = SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 )
 
 func expectResult(c *C, expected, obtained api.Decision, buffer *bytes.Buffer) {
