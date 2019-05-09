@@ -46,7 +46,7 @@ func (i IntCounter) Add(key int) (changed bool) {
 
 // Delete decrements the reference count for the specified integer key.
 func (i IntCounter) Delete(key int) bool {
-	value, _ := i[key]
+	value := i[key]
 	if value <= 1 {
 		delete(i, key)
 		return true
