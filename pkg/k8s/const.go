@@ -23,10 +23,6 @@ const (
 	// kube-apiserver.
 	BackOffLoopTimeout = 2 * time.Minute
 
-	// maxUpdateRetries is the maximum number of update retries when
-	// updating k8s resources
-	maxUpdateRetries = 30
-
 	// EnvNodeNameSpec is the environment label used by Kubernetes to
 	// specify the node's name.
 	EnvNodeNameSpec = "K8S_NODE_NAME"

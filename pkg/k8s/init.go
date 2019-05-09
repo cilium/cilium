@@ -83,11 +83,11 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 	log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {
-		return nil, fmt.Errorf("Required IPv4 pod CIDR not present in node resource")
+		return nil, fmt.Errorf("required IPv4 pod CIDR not present in node resource")
 	}
 
 	if requireIPv6CIDR && n.IPv6AllocCIDR == nil {
-		return nil, fmt.Errorf("Required IPv6 pod CIDR not present in node resource")
+		return nil, fmt.Errorf("required IPv6 pod CIDR not present in node resource")
 	}
 
 	return n, nil
