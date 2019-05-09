@@ -50,7 +50,7 @@ func NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixL
 // error if it would exceed the limit.
 func checkLimits(current, newCount, max int) error {
 	if newCount > max {
-		return fmt.Errorf("Adding specified prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
+		return fmt.Errorf("adding specified prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
 			current, newCount, max)
 	}
 	return nil
@@ -84,7 +84,7 @@ func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 				newV6Prefixes = true
 			}
 		default:
-			return false, fmt.Errorf("Unsupported IPAddr bitlength %d", bits)
+			return false, fmt.Errorf("unsupported IPAddr bitlength %d", bits)
 		}
 	}
 
