@@ -343,13 +343,7 @@ func (s *IDPoolTestSuite) TestAllocateID(c *C) {
 		close(allocated)
 	}()
 
-	for {
-		select {
-		case id, ok := <-allocated:
-			if !ok {
-				return
-			}
-			c.Assert(p.Insert(id), Equals, true)
-		}
+	for id := range allocated {
+		c.Assert(p.Insert(id), Equals, true)
 	}
 }
