@@ -87,7 +87,7 @@ func getMaxID(key string, firstID uint32) (uint32, error) {
 		}
 		if k == nil {
 			// Something is really wrong
-			errMsg := "Unable to retrieve last free ID because the key is always empty\n"
+			errMsg := "unable to retrieve last free ID because the key is always empty"
 			log.Error(errMsg)
 			return 0, fmt.Errorf(errMsg)
 		}
