@@ -25,18 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	identity2 "github.com/cilium/cilium/pkg/identity"
-	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/op/go-logging"
+	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
-)
-
-var (
-	localClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, option.Config.ClusterName)
-	otherClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "non-local")
 )
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
@@ -250,7 +243,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	res2, err = rule2.resolveEgressPolicy(fromFoo, &egressState, NewL4Policy(), nil, testSelectorCache)
 	c.Assert(err, IsNil)
-	c.Assert(res, IsNil)
+	c.Assert(res2, IsNil)
 
 	c.Assert(ingressState.selectedRules, Equals, 0)
 	c.Assert(ingressState.matchedRules, Equals, 0)
@@ -1335,8 +1328,6 @@ var (
 
 	ctxAToB = SearchContext{From: labelsA, To: labelsB, Trace: TRACE_VERBOSE}
 	ctxAToC = SearchContext{From: labelsA, To: labelsC, Trace: TRACE_VERBOSE}
-
-	ctxFromA = SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 )
 
 func expectResult(c *C, expected, obtained api.Decision, buffer *bytes.Buffer) {

@@ -42,7 +42,6 @@ var (
 		LabelArray: lbls.LabelArray(),
 	}
 	identityCache = cache.IdentityCache{303: lblsArray}
-	fooEndpointId = 9001
 )
 
 type dummyEndpoint struct {
@@ -59,7 +58,6 @@ func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
 }
 
 func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
-	return
 }
 
 func (d *dummyEndpoint) RLockAlive() error {
@@ -67,7 +65,6 @@ func (d *dummyEndpoint) RLockAlive() error {
 }
 
 func (d *dummyEndpoint) RUnlock() {
-	return
 }
 
 func (ds *PolicyTestSuite) SetUpSuite(c *C) {

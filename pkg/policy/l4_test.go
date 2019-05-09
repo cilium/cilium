@@ -28,8 +28,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *PolicyTestSuite) testDPortCoverage(c *C, policy L4Policy,
-	covers func([]*models.Port) api.Decision) {
+func (s *PolicyTestSuite) testDPortCoverage(c *C, policy L4Policy, covers func([]*models.Port) api.Decision) {
 
 	ports := []*models.Port{}
 	c.Assert(covers(ports), Equals, api.Denied)

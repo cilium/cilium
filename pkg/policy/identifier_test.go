@@ -38,7 +38,6 @@ func (d *DummyEndpoint) GetSecurityIdentity() *identity.Identity {
 
 func (d *DummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
 	d.rev = rev
-	return
 }
 
 func (d *DummyEndpoint) RLockAlive() error {
@@ -46,7 +45,6 @@ func (d *DummyEndpoint) RLockAlive() error {
 }
 
 func (d *DummyEndpoint) RUnlock() {
-	return
 }
 
 func (ds *PolicyTestSuite) TestNewEndpointSet(c *C) {
