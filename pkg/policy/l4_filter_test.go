@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/op/go-logging"
+	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
 )
 
@@ -47,14 +47,12 @@ var (
 	bazSelector = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
 	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, fooSelector)
-	cachedBarSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, barSelector)
 	cachedBazSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, bazSelector)
 
 	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
-	cachedSelectorFoo, _  = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selFoo)
 	cachedSelectorBar1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selBar1)
 	cachedSelectorBar2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selBar2)
 )

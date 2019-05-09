@@ -118,7 +118,6 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 	}
 	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Ingress, trafficdirection.Ingress)
 	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Egress, trafficdirection.Egress)
-	return
 }
 
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {

@@ -29,9 +29,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/op/go-logging"
+	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
@@ -330,7 +330,7 @@ func BenchmarkParseLabel(b *testing.B) {
 	var err error
 	var cntAdd, cntFound int
 
-	lbls := make([]labels.LabelArray, 100, 100)
+	lbls := make([]labels.LabelArray, 100)
 	for i := 0; i < 100; i++ {
 		I := fmt.Sprintf("%d", i)
 		lbls[i] = labels.LabelArray{labels.NewLabel("tag3", I, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)}

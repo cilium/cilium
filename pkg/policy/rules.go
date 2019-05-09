@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
