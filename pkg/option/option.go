@@ -107,7 +107,7 @@ func NormalizeBool(value string) (OptionSetting, error) {
 	case "false", "off", "disable", "disabled", "0":
 		return OptionDisabled, nil
 	default:
-		return OptionDisabled, fmt.Errorf("Invalid option value %s", value)
+		return OptionDisabled, fmt.Errorf("invalid option value %s", value)
 	}
 }
 
@@ -133,11 +133,11 @@ func (l *OptionLibrary) ValidateConfigurationMap(n models.ConfigurationMap) (Opt
 func (l OptionLibrary) Validate(name string, value string) error {
 	key, spec := l.Lookup(name)
 	if key == "" {
-		return fmt.Errorf("Unknown option %s", name)
+		return fmt.Errorf("unknown option %s", name)
 	}
 
 	if spec.Immutable {
-		return fmt.Errorf("Specified option is immutable (read-only)")
+		return fmt.Errorf("specified option is immutable (read-only)")
 	}
 
 	if spec.Verify != nil {
@@ -286,13 +286,13 @@ func ParseOption(arg string, lib *OptionLibrary) (string, OptionSetting, error) 
 	arg = optionSplit[0]
 	if len(optionSplit) > 1 {
 		if result == OptionDisabled {
-			return "", OptionDisabled, fmt.Errorf("Invalid boolean format")
+			return "", OptionDisabled, fmt.Errorf("invalid boolean format")
 		}
 
 		return ParseKeyValue(lib, arg, optionSplit[1])
 	}
 
-	return "", OptionDisabled, fmt.Errorf("Invalid option format")
+	return "", OptionDisabled, fmt.Errorf("invalid option format")
 }
 
 func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting, error) {
@@ -300,7 +300,7 @@ func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting
 
 	key, spec := lib.Lookup(arg)
 	if key == "" {
-		return "", OptionDisabled, fmt.Errorf("Unknown option %q", arg)
+		return "", OptionDisabled, fmt.Errorf("unknown option %q", arg)
 	}
 
 	var err error
@@ -314,7 +314,7 @@ func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting
 	}
 
 	if spec.Immutable {
-		return "", OptionDisabled, fmt.Errorf("Specified option is immutable (read-only)")
+		return "", OptionDisabled, fmt.Errorf("specified option is immutable (read-only)")
 	}
 
 	return key, result, nil
