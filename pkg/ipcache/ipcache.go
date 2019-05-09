@@ -15,7 +15,6 @@
 package ipcache
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 
@@ -162,7 +161,7 @@ func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, ex
 	maxPrefixLengths := impl.GetMaxPrefixLengths(isIPv6)
 	if len(prefixLengths) > maxPrefixLengths {
 		existingPrefixLengths := len(existingPrefixes)
-		return fmt.Errorf("Adding specified CIDR prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
+		return fmt.Errorf("adding specified CIDR prefixes would result in too many prefix lengths (current: %d, result: %d, max: %d)",
 			existingPrefixLengths, len(prefixLengths), maxPrefixLengths)
 	}
 	return nil
@@ -192,7 +191,7 @@ func refPrefixLength(prefixLengths map[int]int, length int) {
 
 // refPrefixLength removes one reference from the prefix length in the map.
 func unrefPrefixLength(prefixLengths map[int]int, length int) {
-	value, _ := prefixLengths[length]
+	value := prefixLengths[length]
 	if value <= 1 {
 		delete(prefixLengths, length)
 	} else {
@@ -267,7 +266,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 
 		// Skip update if IP is already mapped to the given identity
 		// and the host IP hasn't changed.
-		if cachedIdentity == newIdentity && bytes.Compare(oldHostIP, hostIP) == 0 && hostKey == oldHostKey {
+		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) && hostKey == oldHostKey {
 			return true
 		}
 
@@ -306,7 +305,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 			cidrStr := cidr.String()
 			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrStr]; cidrFound {
 				oldHostIP, _ = ipc.getHostIPCache(cidrStr)
-				if cidrIdentity.ID != newIdentity.ID || bytes.Compare(oldHostIP, hostIP) != 0 {
+				if cidrIdentity.ID != newIdentity.ID || !oldHostIP.Equal(hostIP) {
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					oldIdentity = &cidrIdentity.ID
 				} else {
@@ -432,7 +431,7 @@ func (ipc *IPCache) deleteLocked(ip string, source Source) {
 		cidrStr := cidr.String()
 		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrStr]; cidrFound {
 			newHostIP, _ = ipc.getHostIPCache(cidrStr)
-			if cidrIdentity.ID != cachedIdentity.ID || bytes.Compare(oldHostIP, newHostIP) != 0 {
+			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
 				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
 				cacheModification = Upsert
 				oldIdentity = &cachedIdentity.ID
