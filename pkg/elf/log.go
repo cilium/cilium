@@ -22,8 +22,6 @@ import (
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "elf")
 
-	fieldName   = "name"
-	fieldSize   = "size"
 	fieldSymbol = "symbol"
 
 	srcPath = "template-path"

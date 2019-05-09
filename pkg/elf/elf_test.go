@@ -60,7 +60,7 @@ func hash(path string) ([]byte, error) {
 	return hash.Sum(nil), nil
 }
 
-var errDifferentFiles = fmt.Errorf("File hashes differ")
+var errDifferentFiles = fmt.Errorf("file hashes differ")
 
 func compareFiles(path1, path2 string) error {
 	h1, err := hash(path1)
