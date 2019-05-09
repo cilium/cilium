@@ -102,12 +102,12 @@ func ParseMonitorAggregationLevel(value string) (OptionSetting, error) {
 	// If it's not a valid string option, attempt to parse an integer.
 	valueParsed, err := strconv.Atoi(value)
 	if err != nil {
-		err = fmt.Errorf("Invalid monitor aggregation level %q", value)
+		err = fmt.Errorf("invalid monitor aggregation level %q", value)
 		return MonitorAggregationLevelNone, err
 	}
 	parsed := OptionSetting(valueParsed)
 	if parsed < MonitorAggregationLevelNone || parsed > MonitorAggregationLevelMax {
-		err = fmt.Errorf("Monitor aggregation level must be between %d and %d",
+		err = fmt.Errorf("monitor aggregation level must be between %d and %d",
 			MonitorAggregationLevelNone, MonitorAggregationLevelMax)
 		return MonitorAggregationLevelNone, err
 	}

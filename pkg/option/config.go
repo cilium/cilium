@@ -1153,11 +1153,11 @@ func (c *DaemonConfig) Validate() error {
 	ctTableMin := 1 << 10 // 1Ki entries
 	ctTableMax := 1 << 24 // 16Mi entries (~1GiB of entries per map)
 	if c.CTMapEntriesGlobalTCP < ctTableMin || c.CTMapEntriesGlobalAny < ctTableMin {
-		return fmt.Errorf("Specified CT tables values %d/%d must exceed minimum %d",
+		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMin)
 	}
 	if c.CTMapEntriesGlobalTCP > ctTableMax || c.CTMapEntriesGlobalAny > ctTableMax {
-		return fmt.Errorf("Specified CT tables values %d/%d must not exceed maximum %d",
+		return fmt.Errorf("specified CT tables values %d/%d must not exceed maximum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMax)
 	}
 
