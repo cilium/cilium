@@ -74,11 +74,6 @@ func (s *LabelsSuite) TestLabelArraySorted(c *C) {
 	c.Assert(str, checker.DeepEquals, lblsString)
 }
 
-type lblTest struct {
-	label  string
-	result Label
-}
-
 func (s *LabelsSuite) TestMap2Labels(c *C) {
 	m := Map2Labels(map[string]string{
 		"k8s:foo":  "bar",
