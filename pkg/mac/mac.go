@@ -50,7 +50,7 @@ func ParseMAC(s string) (MAC, error) {
 //  fmt.Printf("0x%X", v) // 0x564534231211
 func (m MAC) Uint64() (uint64, error) {
 	if len(m) != 6 {
-		return 0, fmt.Errorf("Invalid MAC address %s", m.String())
+		return 0, fmt.Errorf("invalid MAC address %s", m.String())
 	}
 
 	return uint64(m[5])<<40 | uint64(m[4])<<32 | uint64(m[3])<<24 |
