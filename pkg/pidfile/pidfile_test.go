@@ -87,5 +87,5 @@ func (s *PidfileTestSuite) TestKillFailedParsePid(c *C) {
 	defer Remove(path)
 
 	err = Kill(path)
-	c.Assert(err, ErrorMatches, "Failed to parse pid .*")
+	c.Assert(err, ErrorMatches, "failed to parse pid .*")
 }
