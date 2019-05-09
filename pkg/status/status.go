@@ -91,7 +91,7 @@ type Config struct {
 func NewCollector(probes []Probe, config Config) *Collector {
 	c := &Collector{
 		config:         config,
-		stop:           make(chan struct{}, 0),
+		stop:           make(chan struct{}),
 		staleProbes:    make(map[string]struct{}),
 		probeStartTime: make(map[string]time.Time),
 	}
@@ -225,7 +225,7 @@ func (c *Collector) runProbe(p *Probe) {
 		case <-ctxTimeout:
 			// We have timed out. Report a status and mark that we timed out so we
 			// do not emit status later.
-			staleErr := fmt.Errorf("No response from %s probe within %v seconds",
+			staleErr := fmt.Errorf("no response from %s probe within %v seconds",
 				p.Name, c.config.FailureThreshold.Seconds())
 			c.updateProbeStatus(p, nil, true, staleErr)
 			hardTimeout = true
