@@ -33,12 +33,6 @@ type DNSCacheTestSuite struct{}
 
 var _ = Suite(&DNSCacheTestSuite{})
 
-func sortByName(entries []*cacheEntry) {
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Name < entries[j].Name
-	})
-}
-
 // TestUpdateLookup tests that we can insert DNS data and retrieve it. We
 // iterate through time, ensuring that data is expired as appropriate. We also
 // insert redundant DNS entries that should not change the output.

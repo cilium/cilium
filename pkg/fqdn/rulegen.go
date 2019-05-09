@@ -301,7 +301,7 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
 func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
-	affectedRulesSet := make(map[string]struct{}, 0)
+	affectedRulesSet := make(map[string]struct{})
 	for _, dnsName := range namesToRegen {
 		for _, uuid := range gen.sourceRules.LookupValues(dnsName) {
 			affectedRulesSet[uuid] = struct{}{}

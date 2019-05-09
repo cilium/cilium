@@ -129,7 +129,7 @@ func doResolverLogic(lookupFunc func(string, string, uint16) (*dns.Msg, error), 
 				case err != nil:
 					DNSErrors[dnsName] = fmt.Errorf("error when querying %s: %s", server, err)
 					continue perServerToAttempt
-				case response.Response != true:
+				case !response.Response:
 					continue perServerToAttempt
 				case response.Rcode != dns.RcodeSuccess: // e.g. NXDomain or Refused
 					// Not an error, but also no data we can use. Move on to the next
@@ -191,7 +191,7 @@ func lookup(server string, name string, dnsType uint16) (response *dns.Msg, err 
 	m.RecursionDesired = true
 
 	response, _, err = clientUDP.Exchange(m, server)
-	if err == nil && m.Response == true && m.Truncated == false {
+	if err == nil && m.Response && !m.Truncated {
 		return response, nil
 	}
 
