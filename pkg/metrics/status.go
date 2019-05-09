@@ -15,17 +15,11 @@
 package metrics
 
 import (
-	"time"
-
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-)
-
-const (
-	updateLatencyMetricsInterval = 30 * time.Second
 )
 
 type statusCollector struct {
