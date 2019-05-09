@@ -100,7 +100,7 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 
 	r, err := regexp.Compile(labelPrefix.Prefix)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to compile regexp: %s", err)
+		return nil, fmt.Errorf("unable to compile regexp: %s", err)
 	}
 	labelPrefix.expr = r
 
@@ -113,7 +113,7 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 func ParseLabelPrefixCfg(prefixes []string, file string) error {
 	cfg, err := readLabelPrefixCfgFrom(file)
 	if err != nil {
-		return fmt.Errorf("Unable to read label prefix file: %s", err)
+		return fmt.Errorf("unable to read label prefix file: %s", err)
 	}
 
 	for _, label := range prefixes {
