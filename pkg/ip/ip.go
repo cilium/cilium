@@ -61,10 +61,7 @@ func (s NetsByMask) Less(i, j int) bool {
 	iPrefixSize, _ := s[i].Mask.Size()
 	jPrefixSize, _ := s[j].Mask.Size()
 	if iPrefixSize == jPrefixSize {
-		if bytes.Compare(s[i].IP, s[j].IP) < 0 {
-			return true
-		}
-		return false
+		return bytes.Compare(s[i].IP, s[j].IP) < 0
 	}
 	return iPrefixSize < jPrefixSize
 }
@@ -730,8 +727,7 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 
 	returnIPs := ips[:0] // len==0 but cap==cap(ips)
 	for readIdx, ip := range ips {
-		if len(returnIPs) == 0 ||
-			bytes.Compare(returnIPs[len(returnIPs)-1], ips[readIdx]) != 0 {
+		if len(returnIPs) == 0 || !returnIPs[len(returnIPs)-1].Equal(ips[readIdx]) {
 			returnIPs = append(returnIPs, ip)
 		}
 	}
