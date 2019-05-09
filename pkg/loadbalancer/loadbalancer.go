@@ -178,7 +178,7 @@ func NewL4Type(name string) (L4Type, error) {
 	case "udp":
 		return UDP, nil
 	default:
-		return "", fmt.Errorf("Unknown L4 protocol")
+		return "", fmt.Errorf("unknown L4 protocol")
 	}
 }
 
@@ -278,7 +278,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	}
 
 	if base.IP == "" {
-		return nil, fmt.Errorf("Missing IP address")
+		return nil, fmt.Errorf("missing IP address")
 	}
 
 	proto := NONE
@@ -293,7 +293,7 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 	l4addr := NewL4Addr(proto, base.Port)
 	ip := net.ParseIP(base.IP)
 	if ip == nil {
-		return nil, fmt.Errorf("Invalid IP address \"%s\"", base.IP)
+		return nil, fmt.Errorf("invalid IP address \"%s\"", base.IP)
 	}
 
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
@@ -314,14 +314,14 @@ func NewLBBackEnd(id BackendID, protocol L4Type, ip net.IP, portNumber uint16, w
 
 func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, error) {
 	if base.IP == nil {
-		return nil, fmt.Errorf("Missing IP address")
+		return nil, fmt.Errorf("missing IP address")
 	}
 
 	// FIXME: Should this be NONE ?
 	l4addr := NewL4Addr(NONE, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
-		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
+		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 
 	return &LBBackEnd{
@@ -332,14 +332,14 @@ func NewLBBackEndFromBackendModel(base *models.BackendAddress) (*LBBackEnd, erro
 
 func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error) {
 	if base.IP == nil {
-		return nil, fmt.Errorf("Missing IP address")
+		return nil, fmt.Errorf("missing IP address")
 	}
 
 	// FIXME: Should this be NONE ?
 	l4addr := NewL4Addr(NONE, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
-		return nil, fmt.Errorf("Invalid IP address \"%s\"", *base.IP)
+		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
 	}
 	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
 }
@@ -481,9 +481,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
 		var bes []LBBackEnd
 		if len(lbsvc.BES) < beIndex {
 			bes = make([]LBBackEnd, beIndex)
-			for i, lbsvcBE := range lbsvc.BES {
-				bes[i] = lbsvcBE
-			}
+			copy(bes, lbsvc.BES)
 			lbsvc.BES = bes
 		}
 		if beIndex == 0 {
