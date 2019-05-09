@@ -205,8 +205,9 @@ func runNodeWatcher() error {
 							}
 							if needsUpdate {
 								wg.Add(1)
+								cnpCpy := cnp.DeepCopy()
 								removeNodeFromCNP <- func() {
-									updateCNP(ciliumK8sClient.CiliumV2(), &cnp, nodesToDelete, k8sCapabilities)
+									updateCNP(ciliumK8sClient.CiliumV2(), cnpCpy, nodesToDelete, k8sCapabilities)
 									wg.Done()
 								}
 							}
