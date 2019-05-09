@@ -71,8 +71,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip6tables -S",
 		"iptables -L -v",
 		"ip rule",
-		"ip -4 route show table 2005",
-		"ip -6 route show table 2005",
+		"ip -4 route show table 2004",
+		"ip -6 route show table 2004",
 		"ip -4 route show table 200",
 		"ip -6 route show table 200",
 		// xfrm
