@@ -29,7 +29,7 @@ import (
 func MustCompile(constraint string) go_version.Constraints {
 	verCheck, err := Compile(constraint)
 	if err != nil {
-		panic(fmt.Errorf("Cannot compile go-version constraint '%s' %s", constraint, err))
+		panic(fmt.Errorf("cannot compile go-version constraint '%s' %s", constraint, err))
 	}
 	return verCheck
 }
