@@ -135,7 +135,7 @@ func generateToCidrFromEndpoint(
 	for ip := range endpoint.Backends {
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
-			return fmt.Errorf("Unable to parse ip: %s", ip)
+			return fmt.Errorf("unable to parse ip: %s", ip)
 		}
 
 		found := false
@@ -179,7 +179,7 @@ func deleteToCidrFromEndpoint(
 	for ip := range endpoint.Backends {
 		epIP := net.ParseIP(ip)
 		if epIP == nil {
-			return fmt.Errorf("Unable to parse ip: %s", ip)
+			return fmt.Errorf("unable to parse ip: %s", ip)
 		}
 
 		for _, c := range egress.ToCIDRSet {

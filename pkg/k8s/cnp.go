@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 )
@@ -102,7 +102,7 @@ func (c *CNPStatusUpdateContext) getUpdatedCNPFromStore(cnp *types.SlimCNP) (*ty
 
 	serverRule, ok := serverRuleStore.(*types.SlimCNP)
 	if !ok {
-		return nil, errors.New("Received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
+		return nil, errors.New("received object of unknown type from API server, expecting v2.CiliumNetworkPolicy")
 	}
 
 	return serverRule, nil
