@@ -26,10 +26,11 @@ import (
 )
 
 const (
-	dataSection       = ".data"
-	mapSection        = "maps"
-	endpointMapPrefix = "1/0x"     // CILIUM_MAP_POLICY ## / ## LXC_ID
-	endpointRelPrefix = ".rel1/0x" // .rel ## endpointMapPrefix
+	dataSection = ".data"
+	mapSection  = "maps"
+
+	nullTerminator     = byte(0)
+	relocSectionPrefix = ".rel"
 
 	// nMapRelocations is an approximation of the number of offsets in an
 	// ELF relating to map names that need to be adjusted. It's used for
@@ -38,9 +39,6 @@ const (
 	// $ readelf -a bpf/bpf_lxc.o | grep "cilium_.*_" | grep "^0000" | wc -l
 	// 51
 	nMapRelocations = 64
-
-	nullTerminator     = byte(0)
-	relocSectionPrefix = ".rel"
 )
 
 type symbolKind uint32
@@ -119,16 +117,6 @@ func isGlobalData(sym elf.Symbol) bool {
 		elf.ST_VISIBILITY(sym.Other) == elf.STV_DEFAULT
 }
 
-func getSectionHeaderSize(e *elf.File) uint64 {
-	switch e.Class {
-	case elf.ELFCLASS32:
-		return uint64(unsafe.Sizeof(elf.Section32{}))
-	case elf.ELFCLASS64:
-		return uint64(unsafe.Sizeof(elf.Section64{}))
-	}
-	return 0
-}
-
 func readStringOffset(e *elf.File, r io.ReadSeeker, symbolOffset int64) (uint64, error) {
 	if _, err := r.Seek(symbolOffset, io.SeekStart); err != nil {
 		return 0, err
@@ -148,14 +136,14 @@ func readStringOffset(e *elf.File, r io.ReadSeeker, symbolOffset int64) (uint64,
 		}
 		return uint64(sym64.Name), nil
 	}
-	return 0, fmt.Errorf("Unsupported ELF type %d", e.Class)
+	return 0, fmt.Errorf("unsupported ELF type %d", e.Class)
 }
 
 // extractFrom processes the specified ELF and populates the received symbols
 // object with data and string offsets in the file, for later substitution.
 func (s *symbols) extractFrom(e *elf.File) error {
 	dataOffsets := make(map[string]symbol)
-	stringOffsets := make(map[string]symbol)
+	stringOffsets := make(map[string]symbol, nMapRelocations)
 
 	symbols, err := e.Symbols()
 	if err != nil {
