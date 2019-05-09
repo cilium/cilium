@@ -51,11 +51,7 @@ type NodeDiscovery struct {
 }
 
 func enableLocalNodeRoute() bool {
-	if option.Config.IsFlannelMasterDeviceSet() {
-		return false
-	}
-
-	return true
+	return !option.Config.IsFlannelMasterDeviceSet()
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
