@@ -392,11 +392,6 @@ type DebugCapture struct {
 	// data
 }
 
-type endpointInfo struct {
-	name     string
-	identity int
-}
-
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(data []byte) {
 	prefix := n.infoPrefix()
