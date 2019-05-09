@@ -260,7 +260,7 @@ func AutoComplete() error {
 func ValidatePostInit() error {
 	if option.Config.EnableIPv4 || option.Config.Tunnel != option.TunnelDisabled {
 		if ipv4ExternalAddress == nil {
-			return fmt.Errorf("External IPv4 node address could not be derived, please configure via --ipv4-node")
+			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
 		}
 	}
 
