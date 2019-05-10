@@ -501,6 +501,9 @@ const (
 
 	// IPAMHostSCope is the value to select the hostscope IPAM plugin for option.IPAM
 	IPAMHostScope = "hostscope"
+
+	// IPAMCRD is the value to select the CRD-backed IPAM  plugin for option.IPAM
+	IPAMCRD = "crd"
 )
 
 // FQDNS variables
