@@ -438,6 +438,9 @@ func init() {
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(option.EncryptInterface)
 
+	flags.String(option.EndpointInterfaceNamePrefix, defaults.EndpointInterfaceNamePrefix, "Prefix of interface name shared by all endpoints")
+	option.BindEnv(option.EndpointInterfaceNamePrefix)
+
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 

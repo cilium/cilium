@@ -50,6 +50,7 @@ cilium-agent [flags]
       --enable-policy string                       Enable policy enforcement (default "default")
       --enable-tracing                             Enable tracing while determining policy (debugging)
       --encrypt-interface string                   Transparent encryption interface
+      --endpoint-interface-name-prefix string      Prefix of interface name shared by all endpoints (default "lxc+")
       --endpoint-queue-size int                    size of EventQueue per-endpoint (default 25)
       --envoy-log string                           Path to a separate Envoy log file, if any
       --fixed-identity-mapping map                 Key-value for the fixed identity mapping which allows to use reserved label for fixed identities (default map[])

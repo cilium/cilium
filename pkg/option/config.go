@@ -451,6 +451,10 @@ const (
 
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
+
+	// EndpointInterfaceNamePrefix is the prefix name of the interface
+	// names shared by all endpoints
+	EndpointInterfaceNamePrefix = "endpoint-interface-name-prefix"
 )
 
 // FQDNS variables
@@ -906,28 +910,33 @@ type DaemonConfig struct {
 
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 string
+
+	// EndpointInterfaceNamePrefix is the prefix name of the interface
+	// names shared by all endpoints
+	EndpointInterfaceNamePrefix string
 }
 
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
-		Opts:                      NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                   &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:      defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:  defaults.IPv6ClusterAllocCIDRBase,
-		EnableHostIPRestore:       defaults.EnableHostIPRestore,
-		EnableHealthChecking:      defaults.EnableHealthChecking,
-		EnableIPv4:                defaults.EnableIPv4,
-		EnableIPv6:                defaults.EnableIPv6,
-		ToFQDNsMaxIPsPerHost:      defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:       defaults.KVstorePeriodicSync,
-		IdentityChangeGracePeriod: defaults.IdentityChangeGracePeriod,
-		ContainerRuntimeEndpoint:  make(map[string]string),
-		FixedIdentityMapping:      make(map[string]string),
-		KVStoreOpt:                make(map[string]string),
-		LogOpt:                    make(map[string]string),
-		SelectiveRegeneration:     defaults.SelectiveRegeneration,
-		LoopbackIPv4:              defaults.LoopbackIPv4,
+		Opts:                        NewIntOptions(&DaemonOptionLibrary),
+		Monitor:                     &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		IPv6ClusterAllocCIDR:        defaults.IPv6ClusterAllocCIDR,
+		IPv6ClusterAllocCIDRBase:    defaults.IPv6ClusterAllocCIDRBase,
+		EnableHostIPRestore:         defaults.EnableHostIPRestore,
+		EnableHealthChecking:        defaults.EnableHealthChecking,
+		EnableIPv4:                  defaults.EnableIPv4,
+		EnableIPv6:                  defaults.EnableIPv6,
+		ToFQDNsMaxIPsPerHost:        defaults.ToFQDNsMaxIPsPerHost,
+		KVstorePeriodicSync:         defaults.KVstorePeriodicSync,
+		IdentityChangeGracePeriod:   defaults.IdentityChangeGracePeriod,
+		ContainerRuntimeEndpoint:    make(map[string]string),
+		FixedIdentityMapping:        make(map[string]string),
+		KVStoreOpt:                  make(map[string]string),
+		LogOpt:                      make(map[string]string),
+		SelectiveRegeneration:       defaults.SelectiveRegeneration,
+		LoopbackIPv4:                defaults.LoopbackIPv4,
+		EndpointInterfaceNamePrefix: defaults.EndpointInterfaceNamePrefix,
 	}
 )
 
@@ -1144,6 +1153,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
+	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
