@@ -113,6 +113,7 @@ cilium-agent [flags]
       --restore                                    Restores state, if possible, from previous daemon (default true)
       --sidecar-istio-proxy-image string           Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                       Use a single cluster route instead of per node routes
+      --skip-crd-creation                          Skip Kubernetes Custom Resource Definitions creations
       --socket-path string                         Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --sockops-enable                             Enable sockops when kernel supported
       --state-dir string                           Directory path to store runtime state (default "/var/run/cilium")

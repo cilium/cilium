@@ -743,6 +743,9 @@ func init() {
 	flags.MarkHidden(option.SelectiveRegeneration)
 	option.BindEnv(option.SelectiveRegeneration)
 
+	flags.Bool(option.SkipCRDCreation, false, "Skip Kubernetes Custom Resource Definitions creations")
+	option.BindEnv(option.SkipCRDCreation)
+
 	viper.BindPFlags(flags)
 }
 

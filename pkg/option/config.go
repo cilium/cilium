@@ -463,6 +463,10 @@ const (
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource = "force-local-policy-eval-at-source"
+
+	// SkipCRDCreation specifies whether the CustomResourceDefinition will be
+	// created by the daemon
+	SkipCRDCreation = "skip-crd-creation"
 )
 
 // FQDNS variables
@@ -930,6 +934,10 @@ type DaemonConfig struct {
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource bool
+
+	// SkipCRDCreation disables creation of the CustomResourceDefinition
+	// on daemon startup
+	SkipCRDCreation bool
 }
 
 var (
@@ -1316,6 +1324,7 @@ func (c *DaemonConfig) Populate() {
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
+	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
