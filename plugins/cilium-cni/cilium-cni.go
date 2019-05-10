@@ -422,6 +422,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	n, cniVer, err = loadNetConf(args.StdinData)
 	if err != nil {
+		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 		return
 	}
 
@@ -469,7 +470,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	configResult, err := c.ConfigGet()
 	if err != nil {
-		return fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
+		err = fmt.Errorf("unable to retrieve configuration from cilium-agent: %s", err)
+		return
 	}
 
 	if configResult == nil || configResult.Status == nil {
@@ -497,12 +499,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		)
 		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), ep)
 		if err != nil {
+			err = fmt.Errorf("unable to set up veth on host side: %s", err)
 			return err
 		}
 		defer func() {
 			if err != nil {
-				if err = netlink.LinkDel(veth); err != nil {
-					logger.WithError(err).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
+				if err2 := netlink.LinkDel(veth); err != nil {
+					logger.WithError(err2).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
 				}
 			}
 		}()
@@ -514,6 +517,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
+			err = fmt.Errorf("unable to set up veth on container side: %s", err)
 			return
 		}
 	case option.DatapathModeIpvlan:
@@ -526,6 +530,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			int(conf.DeviceMTU), index, ipvlanConf.OperationMode, ep,
 		)
 		if err != nil {
+			err = fmt.Errorf("unable to setup ipvlan datapath: %s", err)
 			return
 		}
 		defer unix.Close(mapFD)
@@ -534,6 +539,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 	ipam, err = c.IPAMAllocate("", podName)
 	if err != nil {
+		err = fmt.Errorf("unable to allocate IP via local cilium agent: %s", err)
 		return
 	}
 
@@ -551,6 +557,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}()
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
+		err = fmt.Errorf("IP allocation addressing in insufficient: %s", err)
 		return
 	}
 
@@ -572,6 +579,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
 		if err != nil {
+			err = fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV6, err)
 			return
 		}
 		res.IPs = append(res.IPs, ipConfig)
@@ -583,6 +591,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
 		if err != nil {
+			err = fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV4, err)
 			return
 		}
 		res.IPs = append(res.IPs, ipConfig)
@@ -599,6 +608,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
+		err = fmt.Errorf("unable to configure interfaces in container namespace: %s", err)
 		return
 	}
 
