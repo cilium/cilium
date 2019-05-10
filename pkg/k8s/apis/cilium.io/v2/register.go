@@ -103,6 +103,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
 		&CiliumEndpoint{},
+		&CiliumNode{},
+		&CiliumNodeList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
@@ -116,6 +118,10 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 	}
 
 	if err := createCEPCRD(clientset); err != nil {
+		return err
+	}
+
+	if err := createNodeCRD(clientset); err != nil {
 		return err
 	}
 
@@ -253,6 +259,32 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 	}
 
 	return createUpdateCRD(clientset, "v2.CiliumEndpoint", res)
+}
+
+// createNodECRD creates and updates the CiliumNode CRD. It should be called on
+// agent startup but is idempotent and safe to call again.
+func createNodeCRD(clientset apiextensionsclient.Interface) error {
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ciliumnodes." + SchemeGroupVersion.Group,
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   SchemeGroupVersion.Group,
+			Version: SchemeGroupVersion.Version,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     "ciliumnodes",
+				Singular:   "ciliumnode",
+				ShortNames: []string{"cn"},
+				Kind:       "CiliumNode",
+			},
+			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
+				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
+			},
+			Scope: apiextensionsv1beta1.ClusterScoped,
+		},
+	}
+
+	return createUpdateCRD(clientset, "v2.CiliumNode", res)
 }
 
 // createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
