@@ -214,8 +214,10 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 	}
 
 	// Bind the DNS forwarding clients on UDP and TCP
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: true}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: true}
+	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
+	// retries into the previous lookup, supressing them.
+	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 
 	return p, nil
 }
