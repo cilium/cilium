@@ -269,11 +269,6 @@ func ValidatePostInit() error {
 			return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 		}
 
-		if !ipv4AllocRange.Contains(ipv4InternalAddress) {
-			return fmt.Errorf("BUG: Internal IPv4 (%s) must be part of cluster prefix (%s)",
-				ipv4InternalAddress, ipv4AllocRange)
-		}
-
 		ones, _ := ipv4AllocRange.Mask.Size()
 		if ipv4ClusterCidrMaskSize > ones {
 			return fmt.Errorf("IPv4 per node allocation prefix (%s) must be inside cluster prefix (%s)",
