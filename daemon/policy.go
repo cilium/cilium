@@ -721,3 +721,15 @@ func (h *getPolicy) Handle(params GetPolicyParams) middleware.Responder {
 	}
 	return NewGetPolicyOK().WithPayload(policy)
 }
+
+type getPolicySelectors struct {
+	daemon *Daemon
+}
+
+func newGetPolicyCacheHandler(d *Daemon) GetPolicySelectorsHandler {
+	return &getPolicySelectors{daemon: d}
+}
+
+func (h *getPolicySelectors) Handle(params GetPolicySelectorsParams) middleware.Responder {
+	return NewGetPolicySelectorsOK().WithPayload(h.daemon.policy.GetSelectorCache().GetModel())
+}
