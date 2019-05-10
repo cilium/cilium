@@ -495,6 +495,12 @@ const (
 	// assigned from. Used with CNI chaining where IPs are not directly managed
 	// by Cilium.
 	IPv6PodSubnets = "ipv6-pod-subnets"
+
+	// IPAM is the IPAM method to use
+	IPAM = "ipam"
+
+	// IPAMHostSCope is the value to select the hostscope IPAM plugin for option.IPAM
+	IPAMHostScope = "hostscope"
 )
 
 // FQDNS variables
@@ -1000,6 +1006,9 @@ type DaemonConfig struct {
 
 	// IPv6PodSubnets available subnets to be assign IPv6 addresses to pods from
 	IPv6PodSubnets []*net.IPNet
+
+	// IPAM is the IPAM method to use
+	IPAM string
 }
 
 var (
@@ -1027,6 +1036,7 @@ var (
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
+		IPAM:                         IPAMHostScope,
 	}
 )
 
@@ -1309,6 +1319,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
+	c.IPAM = viper.GetString(IPAM)
 	c.IPv4Range = viper.GetString(IPv4Range)
 	c.IPv4NodeAddr = viper.GetString(IPv4NodeAddr)
 	c.IPv4ServiceRange = viper.GetString(IPv4ServiceRange)
