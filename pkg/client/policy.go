@@ -40,6 +40,16 @@ func (c *Client) PolicyGet(labels []string) (*models.Policy, error) {
 	return resp.Payload, nil
 }
 
+// PolicyCacheGet returns the contents of a SelectorCache.
+func (c *Client) PolicyCacheGet() (models.SelectorCache, error) {
+	params := policy.NewGetPolicySelectorsParams().WithTimeout(api.ClientTimeout)
+	resp, err := c.Policy.GetPolicySelectors(params)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
+}
+
 // PolicyDelete deletes policy rules
 func (c *Client) PolicyDelete(labels []string) (*models.Policy, error) {
 	params := policy.NewDeletePolicyParams().WithLabels(labels).WithTimeout(api.ClientTimeout)
