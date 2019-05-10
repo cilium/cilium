@@ -296,6 +296,34 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 }
 
 /*
+GetPolicySelectors sees what selectors match which identities
+*/
+func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolicySelectorsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetPolicySelectorsParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetPolicySelectors",
+		Method:             "GET",
+		PathPattern:        "/policy/selectors",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetPolicySelectorsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetPolicySelectorsOK), nil
+
+}
+
+/*
 PutPolicy creates or update a policy sub tree
 */
 func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
