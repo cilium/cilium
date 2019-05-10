@@ -198,4 +198,8 @@ const (
 
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
+
+	// EndpointInterfaceNamePrefix is the default prefix name of the
+	// interface names shared by all endpoints
+	EndpointInterfaceNamePrefix = "lxc+"
 )
