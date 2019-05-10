@@ -455,6 +455,10 @@ const (
 	// EndpointInterfaceNamePrefix is the prefix name of the interface
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix = "endpoint-interface-name-prefix"
+
+	// SkipCRDCreation specifies whether the CustomResourceDefinition will be
+	// created by the daemon
+	SkipCRDCreation = "skip-crd-creation"
 )
 
 // FQDNS variables
@@ -914,6 +918,10 @@ type DaemonConfig struct {
 	// EndpointInterfaceNamePrefix is the prefix name of the interface
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix string
+
+	// SkipCRDCreation disables creation of the CustomResourceDefinition
+	// on daemon startup
+	SkipCRDCreation bool
 }
 
 var (
@@ -1296,6 +1304,7 @@ func (c *DaemonConfig) Populate() {
 	c.PolicyQueueSize = sanitizeIntParam(PolicyQueueSize, defaults.PolicyQueueSize)
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
+	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {

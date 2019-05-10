@@ -1,0 +1,56 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: ciliumendpoints.cilium.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.id
+    description: Cilium endpoint id
+    name: Endpoint ID
+    type: integer
+  - JSONPath: .status.identity.id
+    description: Cilium identity id
+    name: Identity ID
+    type: integer
+  - JSONPath: .status.policy.ingress.enforcing
+    description: Ingress enforcement in the endpoint
+    name: Ingress Enforcement
+    type: boolean
+  - JSONPath: .status.policy.egress.enforcing
+    description: Egress enforcement in the endpoint
+    name: Egress Enforcement
+    type: boolean
+  - JSONPath: .status.state
+    description: Endpoint current state
+    name: Endpoint State
+    type: string
+  - JSONPath: .status.networking.addressing[0].ipv4
+    description: Endpoint IPv4 address
+    name: IPv4
+    type: string
+  - JSONPath: .status.networking.addressing[0].ipv6
+    description: Endpoint IPv6 address
+    name: IPv6
+    type: string
+  conversion:
+    strategy: None
+  group: cilium.io
+  names:
+    kind: CiliumEndpoint
+    listKind: CiliumEndpointList
+    plural: ciliumendpoints
+    shortNames:
+    - cep
+    - ciliumep
+    singular: ciliumendpoint
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema: {}
+  version: v2
+  versions:
+  - name: v2
+    served: true
+    storage: true
+
