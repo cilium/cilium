@@ -63,8 +63,9 @@ func (ep *testEP) LookupRedirectPort(l4 *policy.L4Filter) uint16 {
 }
 
 type testPolicyRepo struct {
-	err      error
-	revision uint64
+	err           error
+	revision      uint64
+	selectorCache *policy.SelectorCache
 }
 
 func (repo *testPolicyRepo) GetRevision() uint64 {
@@ -73,6 +74,10 @@ func (repo *testPolicyRepo) GetRevision() uint64 {
 
 func (repo *testPolicyRepo) ResolvePolicyLocked(*identityPkg.Identity) (*policy.SelectorPolicy, error) {
 	return policy.NewSelectorPolicy(repo.revision), repo.err
+}
+
+func (repo *testPolicyRepo) GetSelectorCache() *policy.SelectorCache {
+	return repo.selectorCache
 }
 
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {

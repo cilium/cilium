@@ -71,6 +71,13 @@ func NewSelectorPolicy(revision uint64) *SelectorPolicy {
 	return &SelectorPolicy{Revision: revision}
 }
 
+// Delete releases resources held by a SelectorPolicy that must be freed to enable successful GC
+func (p *SelectorPolicy) Delete(selectorCache *SelectorCache) {
+	if p.L4Policy != nil {
+		p.L4Policy.Delete(selectorCache)
+	}
+}
+
 // DistillPolicy filters down the specified SelectorPolicy (which acts upon
 // selectors) into a set of concrete map entries based on the specified
 // selectorCache. These can subsequently be plumbed into the datapath.
@@ -140,24 +147,23 @@ func NewEndpointPolicy() *EndpointPolicy {
 }
 
 // Realizes copies the fields from desired into p. It assumes that the fields in
-// desired are not modified after this function is called.
+// desired are not modified or otherwise used after this function is called.
 func (p *SelectorPolicy) Realizes(desired *SelectorPolicy) {
-	if p == nil {
-		p = NewSelectorPolicy(desired.Revision)
+	if p != nil {
+		p.Revision = desired.Revision
+		p.IngressPolicyEnabled = desired.IngressPolicyEnabled
+		p.EgressPolicyEnabled = desired.EgressPolicyEnabled
+		p.L4Policy = desired.L4Policy
+		desired.L4Policy = nil
+		p.CIDRPolicy = desired.CIDRPolicy
+		desired.CIDRPolicy = nil
 	}
-	p.Revision = desired.Revision
-	p.IngressPolicyEnabled = desired.IngressPolicyEnabled
-	p.EgressPolicyEnabled = desired.EgressPolicyEnabled
-	p.L4Policy = desired.L4Policy
-	p.CIDRPolicy = desired.CIDRPolicy
 }
 
 // Realizes copies the fields from desired into p. It assumes that the fields in
 // desired are not modified after this function is called.
 func (p *EndpointPolicy) Realizes(desired *EndpointPolicy) {
-	if p == nil {
-		p = NewEndpointPolicy()
+	if p != nil {
+		p.SelectorPolicy.Realizes(desired.SelectorPolicy)
 	}
-
-	p.SelectorPolicy.Realizes(desired.SelectorPolicy)
 }
