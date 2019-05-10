@@ -526,6 +526,16 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/PolicyTraceResult"
+  "/policy/selectors":
+    get:
+      summary: See what selectors match which identities
+      tags:
+      - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/SelectorCache"
   "/service":
     get:
       summary: Retrieve list of all services
@@ -1706,6 +1716,26 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+  SelectorCache:
+    description: cache of which identities match selectors in the policy repository
+    type: array
+    items:
+      "$ref": "#/definitions/SelectorIdentityMapping"
+  SelectorIdentityMapping:
+    description: mapping of selector to identities which match it
+    type: object
+    properties:
+      selector:
+        description: string form of selector
+        type: string
+      identities:
+        description: identities mapping to this selector
+        type: array
+        items:
+            type: integer
+      users:
+        description: number of users of this selector in the cache
+        type: integer
   TraceSelector:
     description: Context describing a pair of source and destination identity
     type: object
