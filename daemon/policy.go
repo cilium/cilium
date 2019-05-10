@@ -731,5 +731,5 @@ func newGetPolicyCacheHandler(d *Daemon) GetPolicySelectorsHandler {
 }
 
 func (h *getPolicySelectors) Handle(params GetPolicySelectorsParams) middleware.Responder {
-	return NewGetPolicySelectorsOK().WithPayload(policy.GetSelectorCacheModel())
+	return NewGetPolicySelectorsOK().WithPayload(h.daemon.policy.SelectorCache.GetModel())
 }

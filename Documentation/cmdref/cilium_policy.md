@@ -25,6 +25,7 @@ Manage security policies
 ### SEE ALSO
 
 * [cilium](../cilium)	 - CLI
+* [cilium policy cache](../cilium_policy_cache)	 - Display cache mapping selectors to identities
 * [cilium policy delete](../cilium_policy_delete)	 - Delete policy rules
 * [cilium policy get](../cilium_policy_get)	 - Display policy node information
 * [cilium policy import](../cilium_policy_import)	 - Import security policy in JSON format
