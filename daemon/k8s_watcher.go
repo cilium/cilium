@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -55,7 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -369,9 +369,11 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
-	if err != nil {
-		return fmt.Errorf("Unable to create custom resource definition: %s", err)
+	if !option.Config.SkipCRDCreation {
+		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+		if err != nil {
+			return fmt.Errorf("Unable to create custom resource definition: %s", err)
+		}
 	}
 	d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 
