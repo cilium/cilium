@@ -16,6 +16,7 @@ package ipam
 
 import (
 	"net"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -67,17 +68,22 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 		},
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.V4Prefix: nodeAddressing.IPv4().AllocationCIDR(),
-		logfields.V6Prefix: nodeAddressing.IPv6().AllocationCIDR(),
-	}).Info("Initializing hostscope IPAM")
+	switch strings.ToLower(option.Config.IPAM) {
+	case option.IPAMHostScope:
+		log.WithFields(logrus.Fields{
+			logfields.V4Prefix: nodeAddressing.IPv4().AllocationCIDR(),
+			logfields.V6Prefix: nodeAddressing.IPv6().AllocationCIDR(),
+		}).Info("Initializing hostscope IPAM")
 
-	if c.EnableIPv6 {
-		ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet)
-	}
+		if c.EnableIPv6 {
+			ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet)
+		}
 
-	if c.EnableIPv4 {
-		ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
+		if c.EnableIPv4 {
+			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
+		}
+	default:
+		log.Fatalf("Unknown IPAM backend %s", option.Config.IPAM)
 	}
 
 	return ipam
