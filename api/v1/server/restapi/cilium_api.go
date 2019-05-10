@@ -117,6 +117,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		PolicyGetPolicyResolveHandler: policy.GetPolicyResolveHandlerFunc(func(params policy.GetPolicyResolveParams) middleware.Responder {
 			return middleware.NotImplemented("operation PolicyGetPolicyResolve has not yet been implemented")
 		}),
+		PolicyGetPolicySelectorsHandler: policy.GetPolicySelectorsHandlerFunc(func(params policy.GetPolicySelectorsParams) middleware.Responder {
+			return middleware.NotImplemented("operation PolicyGetPolicySelectors has not yet been implemented")
+		}),
 		PrefilterGetPrefilterHandler: prefilter.GetPrefilterHandlerFunc(func(params prefilter.GetPrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation PrefilterGetPrefilter has not yet been implemented")
 		}),
@@ -235,6 +238,8 @@ type CiliumAPI struct {
 	PolicyGetPolicyHandler policy.GetPolicyHandler
 	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
 	PolicyGetPolicyResolveHandler policy.GetPolicyResolveHandler
+	// PolicyGetPolicySelectorsHandler sets the operation handler for the get policy selectors operation
+	PolicyGetPolicySelectorsHandler policy.GetPolicySelectorsHandler
 	// PrefilterGetPrefilterHandler sets the operation handler for the get prefilter operation
 	PrefilterGetPrefilterHandler prefilter.GetPrefilterHandler
 	// ServiceGetServiceHandler sets the operation handler for the get service operation
@@ -418,6 +423,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.PolicyGetPolicyResolveHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicyResolveHandler")
+	}
+
+	if o.PolicyGetPolicySelectorsHandler == nil {
+		unregistered = append(unregistered, "policy.GetPolicySelectorsHandler")
 	}
 
 	if o.PrefilterGetPrefilterHandler == nil {
@@ -689,6 +698,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/policy/resolve"] = policy.NewGetPolicyResolve(o.context, o.PolicyGetPolicyResolveHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/policy/selectors"] = policy.NewGetPolicySelectors(o.context, o.PolicyGetPolicySelectorsHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

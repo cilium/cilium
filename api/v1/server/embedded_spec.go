@@ -983,6 +983,22 @@ func init() {
         }
       }
     },
+    "/policy/selectors": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "See what selectors match which identities",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SelectorCache"
+            }
+          }
+        }
+      }
+    },
     "/prefilter": {
       "get": {
         "tags": [
@@ -2495,6 +2511,34 @@ func init() {
         }
       }
     },
+    "SelectorCache": {
+      "description": "cache of which identities match selectors in the policy repository",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SelectorIdentityMapping"
+      }
+    },
+    "SelectorIdentityMapping": {
+      "description": "mapping of selector to identities which match it",
+      "type": "object",
+      "properties": {
+        "identities": {
+          "description": "identities mapping to this selector",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "selector": {
+          "description": "string form of selector",
+          "type": "string"
+        },
+        "users": {
+          "description": "number of users of this selector in the cache",
+          "type": "integer"
+        }
+      }
+    },
     "Service": {
       "description": "Collection of endpoints to be served",
       "type": "object",
@@ -3875,6 +3919,22 @@ func init() {
             "description": "Success",
             "schema": {
               "$ref": "#/definitions/PolicyTraceResult"
+            }
+          }
+        }
+      }
+    },
+    "/policy/selectors": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "See what selectors match which identities",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SelectorCache"
             }
           }
         }
@@ -5413,6 +5473,34 @@ func init() {
         },
         "responses": {
           "$ref": "#/definitions/MessageForwardingStatistics"
+        }
+      }
+    },
+    "SelectorCache": {
+      "description": "cache of which identities match selectors in the policy repository",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SelectorIdentityMapping"
+      }
+    },
+    "SelectorIdentityMapping": {
+      "description": "mapping of selector to identities which match it",
+      "type": "object",
+      "properties": {
+        "identities": {
+          "description": "identities mapping to this selector",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "selector": {
+          "description": "string form of selector",
+          "type": "string"
+        },
+        "users": {
+          "description": "number of users of this selector in the cache",
+          "type": "integer"
         }
       }
     },
