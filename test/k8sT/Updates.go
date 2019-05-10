@@ -59,7 +59,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list")
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list", "cilium policy cache -o json")
 	})
 
 	JustAfterEach(func() {
