@@ -737,6 +737,9 @@ func init() {
 	flags.MarkHidden(option.SelectiveRegeneration)
 	option.BindEnv(option.SelectiveRegeneration)
 
+	flags.Bool(option.SkipCRDCreation, false, "skip CRD creation")
+	option.BindEnv(option.SkipCRDCreation)
+
 	viper.BindPFlags(flags)
 }
 
