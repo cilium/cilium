@@ -184,16 +184,25 @@ func (n *Node) getPrimaryAddress() *models.NodeAddressing {
 	if n.IPv6AllocCIDR != nil {
 		ipv6AllocStr = n.IPv6AllocCIDR.String()
 	}
+
+	var v4Str, v6Str string
+	if v4 != nil {
+		v4Str = v4.String()
+	}
+	if v6 != nil {
+		v6Str = v6.String()
+	}
+
 	return &models.NodeAddressing{
 		IPV4: &models.NodeAddressingElement{
 			Enabled:     option.Config.EnableIPv4,
-			IP:          v4.String(),
+			IP:          v4Str,
 			AllocRange:  ipv4AllocStr,
 			AddressType: string(v4Type),
 		},
 		IPV6: &models.NodeAddressingElement{
 			Enabled:     option.Config.EnableIPv6,
-			IP:          v6.String(),
+			IP:          v6Str,
 			AllocRange:  ipv6AllocStr,
 			AddressType: string(v6Type),
 		},
@@ -227,14 +236,23 @@ func (n *Node) getHealthAddresses() *models.NodeAddressing {
 	if n.IPv4HealthIP == nil && n.IPv6HealthIP == nil {
 		return nil
 	}
+
+	var v4Str, v6Str string
+	if n.IPv4HealthIP != nil {
+		v4Str = n.IPv4HealthIP.String()
+	}
+	if n.IPv6HealthIP != nil {
+		v6Str = n.IPv6HealthIP.String()
+	}
+
 	return &models.NodeAddressing{
 		IPV4: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv4,
-			IP:      n.IPv4HealthIP.String(),
+			IP:      v4Str,
 		},
 		IPV6: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv6,
-			IP:      n.IPv6HealthIP.String(),
+			IP:      v6Str,
 		},
 	}
 }
