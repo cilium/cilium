@@ -184,6 +184,7 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
 
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-rbac.yaml
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator-sa.yaml
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator.yaml
 
 
