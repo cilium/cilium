@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -129,6 +130,7 @@ type identitySelector interface {
 	addUser(CachedSelectionUser) (added bool)
 	removeUser(CachedSelectionUser) (last bool)
 	notifyUsers(added, deleted []identity.NumericIdentity)
+	numUsers() int
 }
 
 // scIdentity is the information we need about a an identity that rules can select
@@ -170,6 +172,30 @@ type SelectorCache struct {
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
+}
+
+// GetModel returns the API model of the SelectorCache.
+func (sc *SelectorCache) GetModel() models.SelectorCache {
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+
+	selCacheMdl := make(models.SelectorCache, 0, len(sc.selectors))
+
+	for selector, idSel := range sc.selectors {
+		selections := idSel.GetSelections()
+		ids := make([]int64, 0, len(selections))
+		for i := range selections {
+			ids = append(ids, int64(selections[i]))
+		}
+		selMdl := &models.SelectorIdentityMapping{
+			Selector:   selector,
+			Identities: ids,
+			Users:      int64(idSel.numUsers()),
+		}
+		selCacheMdl = append(selCacheMdl, selMdl)
+	}
+
+	return selCacheMdl
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
@@ -261,6 +287,11 @@ func (s *selectorManager) notifyUsers(added, deleted []identity.NumericIdentity)
 	for user := range s.users {
 		user.IdentitySelectionUpdated(s, s.GetSelections(), added, deleted)
 	}
+}
+
+// lock must be held
+func (s *selectorManager) numUsers() int {
+	return len(s.users)
 }
 
 // updateSelections updates the immutable slice representation of the
