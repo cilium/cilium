@@ -1254,11 +1254,12 @@ func runDaemon() {
 	<-k8sCachesSynced
 	bootstrapStats.k8sInit.End(true)
 	bootstrapStats.restore.Start()
+	var restoreComplete chan struct{}
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
-		restoreComplete := d.regenerateRestoredEndpoints(restoredEndpoints)
+		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
 		go func() {
 			<-restoreComplete
 			endParallelMapMode()
@@ -1314,6 +1315,9 @@ func runDaemon() {
 
 	bootstrapStats.cleanup.Start()
 	if !option.Config.DryMode {
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
 		maps.CollectStaleMapGarbage()
 		maps.RemoveDisabledMaps()
 	}
