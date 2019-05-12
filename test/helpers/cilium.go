@@ -675,6 +675,9 @@ func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
 
 	endpoints := epRes.KVOutput()
 	for _, containerID := range res.ByLines() {
+		if containerID == "" {
+			continue
+		}
 		_, exists := endpoints[containerID]
 		if !exists {
 
