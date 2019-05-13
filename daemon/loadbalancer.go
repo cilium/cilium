@@ -905,6 +905,7 @@ func restoreServices() {
 		if err := lbmap.RestoreService(svc, v2Exists); err != nil {
 			scopedLog.WithError(err).Warning("Unable to restore service in cache")
 			failed++
+			continue
 		}
 
 		if !option.Config.EnableLegacyServices {
