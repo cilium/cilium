@@ -182,13 +182,18 @@ const (
 	// should watch for.
 	K8sWatcherEndpointSelector = "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager"
 
-	// ConntrackGCIntervalLRU is the default connection tracking interval
-	// when using LRU maps
-	ConntrackGCIntervalLRU = 12 * time.Hour
+	// ConntrackGCMaxLRUInterval is the maximum conntrack GC interval when using LRU maps
+	ConntrackGCMaxLRUInterval = 12 * time.Hour
 
-	// ConntrackGCIntervalNonLRU is the default connection tracking
-	// interval when using non-LRU maps
-	ConntrackGCIntervalNonLRU = 15 * time.Minute
+	// ConntrackGCMaxInterval is the maximum conntrack GC interval for non-LRU maps
+	ConntrackGCMaxInterval = 30 * time.Minute
+
+	// ConntrackGCMinInterval is the minimum conntrack GC interval
+	ConntrackGCMinInterval = 10 * time.Second
+
+	// ConntrackGCStartingInterval is the default starting interval for
+	// connection tracking garbage collection
+	ConntrackGCStartingInterval = 5 * time.Minute
 
 	// K8sEventHandover enables use of the kvstore to optimize Kubernetes
 	// event handling by listening for k8s events in the operator and
