@@ -546,7 +546,7 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 // Returns no error if minRequired pods achieve the aforementioned desired
 // state within timeout seconds. Returns an error if the command failed or the
 // timeout was exceeded.
-// When minRequired is 0 the current count of pods are used. This is unreliable.
+// When minRequired is 0 the current count of scheduled/running pods is used. This is unreliable.
 func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired int, timeout time.Duration) error {
 	body := func() bool {
 		podList := &v1.PodList{}
@@ -556,8 +556,14 @@ func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired in
 			return false
 		}
 
+		// Determine how many pods we should wait for. We reject pods that are
+		// being deleted or are in an unknown state.
 		if minRequired == 0 {
-			minRequired = len(podList.Items)
+			for _, pod := range podList.Items {
+				if (pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodPending) && pod.ObjectMeta.DeletionTimestamp != nil {
+					minRequired++
+				}
+			}
 		}
 
 		if len(podList.Items) < minRequired {
