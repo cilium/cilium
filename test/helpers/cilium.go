@@ -684,9 +684,9 @@ func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
 	fmt.Println("fooByLines !!!", foo, len(fooByLines), fooByLines)
 
 	for _, containerID := range res.ByLines() {
-		if containerID == "" {
-			continue
-		}
+		//if containerID == "" {
+		//	continue
+		//}
 		_, exists := endpoints[containerID]
 		if !exists {
 
