@@ -903,7 +903,8 @@ func restoreServices() {
 		// Restore the service cache to guarantee backend ordering
 		// across restarts
 		if err := lbmap.RestoreService(svc, v2Exists); err != nil {
-			log.WithError(err).Warning("Unable to restore service in cache")
+			scopedLog.WithError(err).Warning("Unable to restore service in cache")
+			failed++
 		}
 
 		if !option.Config.EnableLegacyServices {
@@ -915,7 +916,7 @@ func restoreServices() {
 			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
 			if err != nil {
 				failed++
-				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+				scopedLog.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
 					WithError(err).Warning("Unable to convert service key and values v2")
 				continue
 			}
@@ -926,7 +927,7 @@ func restoreServices() {
 				service.AcquireBackendID, service.DeleteBackendID)
 			if err != nil {
 				failed++
-				log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
+				scopedLog.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
 					Warning("Unable to restore service v2")
 			}
 		}
