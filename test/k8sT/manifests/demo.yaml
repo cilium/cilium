@@ -40,7 +40,7 @@ spec:
         - containerPort: 80
         readinessProbe:
           httpGet:
-            path: /
+            path: /public
             port: 80
       nodeSelector:
         "kubernetes.io/hostname": k8s1
