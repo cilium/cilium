@@ -22,6 +22,7 @@ import "C"
 import (
 	"github.com/cilium/cilium/proxylib/accesslog"
 	_ "github.com/cilium/cilium/proxylib/cassandra"
+	_ "github.com/cilium/cilium/proxylib/chaostesting"
 	_ "github.com/cilium/cilium/proxylib/memcached"
 	"github.com/cilium/cilium/proxylib/npds"
 	. "github.com/cilium/cilium/proxylib/proxylib"
