@@ -828,6 +828,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		} else {
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
+		log.Infof("IAN: upserting NetworkPolicy for name %s with IngressPerPortPolicies %v", p.Name, p.IngressPerPortPolicies)
 		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c))
 		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
 		s.networkPolicyEndpoints[p.Name] = ep

@@ -840,6 +840,9 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	log.Debugf("IAN: Enabling flow debug")
+	flowdebug.Enable()
+
 	common.RequireRootPrivilege("cilium-agent")
 
 	log.Info("     _ _ _")

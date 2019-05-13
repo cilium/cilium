@@ -59,7 +59,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list", "cilium policy cache -o json")
+		kubectl.CiliumReport(helpers.KubeSystemNamespace, "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -311,6 +311,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Removing Cilium pre-flight check DaemonSet")
 		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
 
+		By("Deploying compiled version of Cilium")
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
@@ -336,6 +337,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		validateEndpointsConnection()
+		//Expect(false).To(BeTrue())
 		checkNoInteruptsInMigratedSVCFlows()
 
 		By("Downgrading cilium to %s image", oldVersion)
