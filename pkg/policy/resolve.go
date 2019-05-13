@@ -16,12 +16,7 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
-
-	"github.com/sirupsen/logrus"
 )
 
 // SelectorPolicy is a structure which contains the resolved policy for a
@@ -71,21 +66,6 @@ type PolicyOwner interface {
 	GetSecurityIdentity() *identity.Identity
 }
 
-func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.EndpointSelector) []identity.NumericIdentity {
-	identities := make([]identity.NumericIdentity, 0, len(labelsMap))
-	for idx, labels := range labelsMap {
-		if selector.Matches(labels) {
-			log.WithFields(logrus.Fields{
-				logfields.IdentityLabels: labels,
-				logfields.L4PolicyID:     idx,
-			}).Debug("L4 Policy matches")
-			identities = append(identities, idx)
-		}
-	}
-
-	return identities
-}
-
 // NewSelectorPolicy returns an empty SelectorPolicy stub.
 func NewSelectorPolicy(revision uint64) *SelectorPolicy {
 	return &SelectorPolicy{Revision: revision}
@@ -93,10 +73,10 @@ func NewSelectorPolicy(revision uint64) *SelectorPolicy {
 
 // DistillPolicy filters down the specified SelectorPolicy (which acts upon
 // selectors) into a set of concrete map entries based on the specified
-// identityCache. These can subsequently be plumbed into the datapath.
+// selectorCache. These can subsequently be plumbed into the datapath.
 //
 // Must be performed while holding the Repository lock.
-func (p *SelectorPolicy) DistillPolicy(policyOwner PolicyOwner, identityCache cache.IdentityCache) *EndpointPolicy {
+func (p *SelectorPolicy) DistillPolicy(policyOwner PolicyOwner, selectorCache *SelectorCache) *EndpointPolicy {
 
 	calculatedPolicy := &EndpointPolicy{
 		SelectorPolicy: p,
@@ -105,14 +85,14 @@ func (p *SelectorPolicy) DistillPolicy(policyOwner PolicyOwner, identityCache ca
 	}
 
 	if !p.IngressPolicyEnabled {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Ingress)
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(selectorCache, trafficdirection.Ingress)
 	}
 
 	if !p.EgressPolicyEnabled {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Egress)
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(selectorCache, trafficdirection.Egress)
 	}
 
-	calculatedPolicy.computeDesiredL4PolicyMapEntries(identityCache)
+	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	calculatedPolicy.PolicyMapState.DetermineAllowLocalhost(p.L4Policy)
 
 	return calculatedPolicy
@@ -120,25 +100,25 @@ func (p *SelectorPolicy) DistillPolicy(policyOwner PolicyOwner, identityCache ca
 
 // computeDesiredL4PolicyMapEntries transforms the EndpointPolicy.L4Policy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
-func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.IdentityCache) {
+func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress)
+	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Ingress, trafficdirection.Ingress)
+	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Egress, trafficdirection.Egress)
 	return
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(direction, identityCache)
+		keysFromFilter := filter.ToKeys(direction)
 		for _, keyFromFilter := range keysFromFilter {
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
 			// already exist.
 			if filter.IsRedirect() {
-				proxyPort = p.PolicyOwner.LookupRedirectPort(&filter)
+				proxyPort = p.PolicyOwner.LookupRedirectPort(filter)
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by

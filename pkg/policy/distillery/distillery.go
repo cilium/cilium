@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -39,7 +38,7 @@ func init() {
 type SelectorPolicy interface {
 	// Consume returns the policy in terms of connectivity to peer
 	// Identities. The callee MUST NOT modify the returned pointer.
-	Consume(owner policy.PolicyOwner, cache cache.IdentityCache) *policy.EndpointPolicy
+	Consume(owner policy.PolicyOwner, cache *policy.SelectorCache) *policy.EndpointPolicy
 }
 
 // policyCache represents a cache of resolved policies for identities.
