@@ -20,11 +20,9 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,7 +35,7 @@ import (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType) {
+func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
 	var maps []*ctmap.Map
 
 	if e == nil {
@@ -70,6 +68,10 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 		deleted := ctmap.GC(m, filter)
 
 		if deleted > 0 {
+			ratio := float64(deleted) / float64(m.MapInfo.MaxEntries)
+			if ratio > maxDeleteRatio {
+				maxDeleteRatio = ratio
+			}
 			log.WithFields(logrus.Fields{
 				logfields.Path: path,
 				"count":        deleted,
@@ -100,18 +102,6 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *c
 	return filter
 }
 
-func calculateInterval(mapType bpf.MapType) time.Duration {
-	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
-		return val
-	}
-
-	if mapType == bpf.MapTypeLRUHash {
-		return defaults.ConntrackGCIntervalLRU
-	}
-
-	return defaults.ConntrackGCIntervalNonLRU
-}
-
 // EnableConntrackGC enables the connection tracking garbage collection.
 func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) {
 	var (
@@ -122,9 +112,10 @@ func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) 
 
 	go func() {
 		for {
+			var maxDeleteRatio float64
 			eps := GetEndpoints()
 			if len(eps) > 0 || initialScan {
-				mapType = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
@@ -139,7 +130,7 @@ func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) 
 				initialScan = false
 			}
 
-			time.Sleep(calculateInterval(mapType))
+			time.Sleep(ctmap.GetInterval(mapType, maxDeleteRatio))
 		}
 	}()
 

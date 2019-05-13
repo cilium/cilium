@@ -19,8 +19,11 @@ package ctmap
 import (
 	"strings"
 	"testing"
+	"time"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 
@@ -64,4 +67,21 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 			}
 		}
 	}
+}
+
+func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.1), Equals, 10*time.Second)  // no change
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.2), Equals, 10*time.Second)  // no change
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.25), Equals, 10*time.Second) // no change
+
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.40), Equals, 6*time.Second)
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.60), Equals, 4*time.Second)
+
+	d, err := time.ParseDuration("1m40s")
+	c.Assert(err, IsNil)
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.01), Equals, d)
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.04), Equals, 25*time.Second)
+
+	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxLRUInterval)
+	c.Assert(calculateInterval(bpf.MapTypeHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxInterval)
 }
