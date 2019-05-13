@@ -314,7 +314,7 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 			}
 		}
 	}
-	l4IngressPolicy.Delete(d.Repository.GetSelectorCache())
+	l4IngressPolicy.Detach(d.Repository.GetSelectorCache())
 
 	// Handle L3-wildcard of L7 destinations
 	// Eg, when you have L4+L7 "allow /public on 80" with L3 "allow all from foo"

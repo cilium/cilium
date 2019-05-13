@@ -196,7 +196,7 @@ func mergeIngressPortProto(ctx *SearchContext, endpoints api.EndpointSelectorSli
 	filterToMerge := createL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels, selectorCache)
 
 	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
-		filterToMerge.delete(selectorCache)
+		filterToMerge.detach(selectorCache)
 		return 0, err
 	}
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
@@ -585,7 +585,7 @@ func mergeEgressPortProto(ctx *SearchContext, endpoints api.EndpointSelectorSlic
 	filterToMerge := createL4EgressFilter(endpoints, r, p, proto, ruleLabels, selectorCache)
 
 	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
-		filterToMerge.delete(selectorCache)
+		filterToMerge.detach(selectorCache)
 		return 0, err
 	}
 	existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)

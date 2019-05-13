@@ -175,7 +175,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 //
 // TODO: Coalesce l7 rules?
 //
-// Caller must release resources by calling Delete() on the returned map!
+// Caller must release resources by calling Detach() on the returned map!
 //
 // Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
@@ -195,7 +195,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 //
-// Caller must release resources by calling Delete() on the returned map!
+// Caller must release resources by calling Detach() on the returned map!
 //
 // NOTE: This is only called from unit tests.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
@@ -235,7 +235,7 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Ingress verdict: %s", verdict.String())
-	ingressPolicy.Delete(p.GetSelectorCache())
+	ingressPolicy.Detach(p.GetSelectorCache())
 
 	return verdict
 }
@@ -268,7 +268,7 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Egress verdict: %s", verdict.String())
-	egressPolicy.Delete(p.GetSelectorCache())
+	egressPolicy.Detach(p.GetSelectorCache())
 	return verdict
 }
 

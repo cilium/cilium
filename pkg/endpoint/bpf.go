@@ -562,10 +562,6 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		close(datapathRegenCtxt.ctCleaned)
 	}
 
-	if e.realizedPolicy == nil {
-		e.realizedPolicy = &policy.EndpointPolicy{}
-	}
-
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if option.Config.DryMode {
 
@@ -673,27 +669,24 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 	}
 
 	stats.proxyConfiguration.Start()
-	var finalizeFunc revert.FinalizeFunc
-	var revertFunc revert.RevertFunc
 	// Walk the L4Policy to add new redirects and update the desired policy map
 	// state to set the newly allocated proxy ports.
-	var desiredRedirects map[string]bool
 	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
-		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
+		desiredRedirects, err, finalizeFunc, revertFunc := e.addNewRedirects(owner, e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
 		if err != nil {
 			stats.proxyConfiguration.End(false)
 			return err
 		}
 		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 		datapathRegenCtxt.revertStack.Push(revertFunc)
-	}
 
-	// At this point, traffic is no longer redirected to the proxy for
-	// now-obsolete redirects, since we synced the updated policy map above.
-	// It's now safe to remove the redirects from the proxy's configuration.
-	finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
-	datapathRegenCtxt.finalizeList.Append(finalizeFunc)
-	datapathRegenCtxt.revertStack.Push(revertFunc)
+		// At this point, traffic is no longer redirected to the proxy for
+		// now-obsolete redirects, since we synced the updated policy map above.
+		// It's now safe to remove the redirects from the proxy's configuration.
+		finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
+		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
+		datapathRegenCtxt.revertStack.Push(revertFunc)
+	}
 	stats.proxyConfiguration.End(true)
 
 	stats.prepareBuild.Start()
@@ -1001,9 +994,6 @@ func (e *Endpoint) syncPolicyMap() error {
 			if err != nil {
 				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
 				errors = append(errors, err)
-			} else {
-				// Operation was successful, add to realized state.
-				e.realizedPolicy.PolicyMapState[keyToAdd] = entry
 			}
 		}
 	}
