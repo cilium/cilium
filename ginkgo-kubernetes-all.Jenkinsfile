@@ -56,13 +56,13 @@ pipeline {
             steps {
                 sh 'env'
                 Status("PENDING", "${env.JOB_NAME}")
-                sh 'rm -rf src; mkdir -p src/github.com/cilium'
-                sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
+                sh 'mkdir -p ${PROJ_PATH}'
+                sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
                 sh '/usr/local/bin/cleanup || true'
             }
         }
-        stage('Boot VMs 1.{11,12}'){
+        stage('Copy code and boot VMs 1.{11,12}'){
 
             options {
                 timeout(time: 30, unit: 'MINUTES')
@@ -73,9 +73,49 @@ pipeline {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
 
-            steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant up --no-provision'
+            parallel {
+                stage('Boot vms 1.11') {
+                    environment {
+                        TESTED_SUITE="1.11"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8S 1.11 vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('Boot vms 1.12') {
+                    environment {
+                        TESTED_SUITE="1.12"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8S 1.12 vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         stage('BDD-Test-k8s-1.11-and-1.12') {
@@ -85,36 +125,117 @@ pipeline {
             options {
                 timeout(time: 100, unit: 'MINUTES')
             }
-            steps {
-                script {
-                    parallel(
-                        "K8s-1.11":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        "K8s-1.12":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.12 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        failFast: "${FAILFAST}".toBoolean()
-                    )
+            failFast true
+            parallel {
+                stage('BDD-Test-k8s-1.11') {
+                    environment {
+                        TESTED_SUITE="1.11"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.11 tests fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            post {
-                always {
-                    sh 'cd test/; ./post_build_agent.sh || true'
-                    sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: '*.zip'
-                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
+                stage('BDD-Test-k8s-1.12') {
+                    environment {
+                        TESTED_SUITE="1.12"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.12 tests fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        stage('Boot VMs 1.{13,15}'){
+        stage('Copy code and boot VMs 1.{13,15}'){
+
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
-            steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant up --no-provision'
+
+            environment {
+                GOPATH="${WORKSPACE}"
+                TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
+            }
+
+            parallel {
+                stage('Boot vms 1.13') {
+                    environment {
+                        TESTED_SUITE="1.13"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8S 1.13 vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('Boot vms 1.15') {
+                    environment {
+                        TESTED_SUITE="1.15"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
+                        sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} vagrant up k8s1-${TESTED_SUITE} k8s2-${TESTED_SUITE} --provision'
+                    }
+                    post {
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8S 1.15 vm provisioning fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         stage('BDD-Test-k8s-1.13-and-1.15') {
@@ -124,35 +245,67 @@ pipeline {
             options {
                 timeout(time: 100, unit: 'MINUTES')
             }
-            steps {
-                script {
-                    parallel(
-                        "K8s-1.13":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        "K8s-1.15":{
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
-                        },
-                        failFast: "${FAILFAST}".toBoolean()
-                    )
+            failFast true
+            parallel {
+                stage('BDD-Test-k8s-1.13') {
+                    environment {
+                        TESTED_SUITE="1.13"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.13 tests fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            post {
-                always {
-                    sh 'cd test/; ./post_build_agent.sh || true'
-                    sh 'cd test/; ./archive_test_results.sh || true'
-                    archiveArtifacts artifacts: '*.zip'
-                    junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
+                stage('BDD-Test-k8s-1.15') {
+                    environment {
+                        TESTED_SUITE="1.15"
+                        GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
+                        TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                    }
+                    steps {
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                    }
+                    post {
+                        always {
+                            sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'
+                            sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
+                            sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
+                            sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
+                            sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                        }
+                        unsuccessful {
+                            script {
+                                if  (!currentBuild.displayName.contains('fail')) {
+                                    currentBuild.displayName = 'K8s 1.15 tests fail\n' + currentBuild.displayName
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
     post {
         always {
-            sh "cd ${TESTDIR}; K8S_VERSION=1.11 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy -f || true"
-            sh "cd ${TESTDIR}; ./post_build_agent.sh || true"
+            archiveArtifacts artifacts: '*.zip'
+            junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
             cleanWs()
         }
         success {
