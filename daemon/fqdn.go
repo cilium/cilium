@@ -101,7 +101,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 			// Nil check here? Hopefully not necessary...
 			numIds = append(numIds, numId.ID)
 		}
-		d.policy.SelectorCache.UpdateFQDNSelector(selector, numIds)
+		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds)
 	}
 
 	// Selectors which no longer map to IPs (due to TTL expiry, cache being
@@ -111,7 +111,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 	log.WithFields(logrus.Fields{
 		"fqdnSelectors": selectorsWithoutIPs,
 	}).Debug("removing all identities from FQDN selectors")
-	d.policy.SelectorCache.RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
+	d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,

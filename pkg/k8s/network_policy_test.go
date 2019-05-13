@@ -173,8 +173,8 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
 
 	epSelector := api.NewESFromLabels(fromEndpoints...)
-	cachedEPSelector, _ := repo.SelectorCache.AddIdentitySelector(dummySelectorCacheUser, epSelector)
-	defer func() { repo.SelectorCache.RemoveSelector(dummySelectorCacheUser, cachedEPSelector) }()
+	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, epSelector)
+	defer func() { repo.GetSelectorCache().RemoveSelector(dummySelectorCacheUser, cachedEPSelector) }()
 
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
@@ -196,7 +196,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 			},
 		},
 	})
-	ingressL4Policy.Delete(repo.SelectorCache)
+	ingressL4Policy.Delete(repo.GetSelectorCache())
 
 	ctx.To = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -361,8 +361,8 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
 
 	epSelector := api.NewESFromLabels(toEndpoints...)
-	cachedEPSelector, _ := repo.SelectorCache.AddIdentitySelector(dummySelectorCacheUser, epSelector)
-	defer func() { repo.SelectorCache.RemoveSelector(dummySelectorCacheUser, cachedEPSelector) }()
+	cachedEPSelector, _ := repo.GetSelectorCache().AddIdentitySelector(dummySelectorCacheUser, epSelector)
+	defer func() { repo.GetSelectorCache().RemoveSelector(dummySelectorCacheUser, cachedEPSelector) }()
 
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))
@@ -384,7 +384,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 			},
 		},
 	})
-	egressL4Policy.Delete(repo.SelectorCache)
+	egressL4Policy.Delete(repo.GetSelectorCache())
 
 	ctx.From = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -888,7 +888,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	l4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	l4Policy.Delete(repo.SelectorCache)
+	l4Policy.Delete(repo.GetSelectorCache())
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

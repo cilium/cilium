@@ -159,7 +159,7 @@ func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoin
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
-	ep, err := endpoint.NewEndpointFromChangeModel(epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d.policy, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -384,7 +384,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.policy, epTemplate)
 	if err2 != nil {
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}

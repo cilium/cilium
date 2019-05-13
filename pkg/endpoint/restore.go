@@ -61,7 +61,7 @@ func transformEndpointForDowngrade(ep *Endpoint) {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(owner Owner, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 	possibleEPs := map[uint16]*Endpoint{}
 	for _, epDirName := range eptsDirNames {
 		epDir := filepath.Join(basePath, epDirName)
@@ -105,7 +105,7 @@ func ReadEPsFromDirNames(basePath string, eptsDirNames []string) map[uint16]*End
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := ParseEndpoint(strEp)
+		ep, err := ParseEndpoint(owner.GetPolicyRepository(), strEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue

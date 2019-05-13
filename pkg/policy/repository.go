@@ -55,11 +55,18 @@ type Repository struct {
 
 	// SelectorCache tracks the selectors used in the policies
 	// resolved from the repository.
-	SelectorCache *SelectorCache
+	selectorCache *SelectorCache
+
+	// PolicyCache tracks the selector policies created from this repo
+	policyCache *PolicyCache
 }
 
 func (p *Repository) GetSelectorCache() *SelectorCache {
-	return p.SelectorCache
+	return p.selectorCache
+}
+
+func (p *Repository) GetPolicyCache() *PolicyCache {
+	return p.policyCache
 }
 
 // NewPolicyRepository allocates a new policy repository
@@ -68,12 +75,14 @@ func NewPolicyRepository() *Repository {
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()
 	ruleReactionQueue.Run()
-	return &Repository{
+	repo := &Repository{
 		revision:              1,
 		RepositoryChangeQueue: repoChangeQueue,
 		RuleReactionQueue:     ruleReactionQueue,
-		SelectorCache:         NewSelectorCache(cache.GetIdentityCache()),
+		selectorCache:         NewSelectorCache(cache.GetIdentityCache()),
 	}
+	repo.policyCache = NewPolicyCache(repo, true)
+	return repo
 }
 
 // traceState is an internal structure used to collect information
@@ -171,7 +180,7 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 // Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 
-	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision(), p.SelectorCache)
+	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +199,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 //
 // NOTE: This is only called from unit tests.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.SelectorCache)
+	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 
 	if err != nil {
 		return nil, err
@@ -226,7 +235,7 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Ingress verdict: %s", verdict.String())
-	ingressPolicy.Delete(p.SelectorCache)
+	ingressPolicy.Delete(p.GetSelectorCache())
 
 	return verdict
 }
@@ -259,7 +268,7 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Egress verdict: %s", verdict.String())
-	egressPolicy.Delete(p.SelectorCache)
+	egressPolicy.Delete(p.GetSelectorCache())
 	return verdict
 }
 
@@ -566,12 +575,12 @@ func (p *Repository) GetRulesList() *models.Policy {
 	}
 }
 
-// ResolvePolicyLocked returns the SelectorPolicy for the provided
+// resolvePolicyLocked returns the selectorPolicy for the provided
 // identity from the set of rules in the repository.  If the policy
 // cannot be generated due to conflicts at L4 or L7, returns an error.
 //
 // Must be performed while holding the Repository lock.
-func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*SelectorPolicy, error) {
+func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*selectorPolicy, error) {
 	// First obtain whether policy applies in both traffic directions, as well
 	// as list of rules which actually select this endpoint. This allows us
 	// to not have to iterate through the entire rule list multiple times and
@@ -579,8 +588,9 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
-	calculatedPolicy := &SelectorPolicy{
+	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
+		SelectorCache:        p.GetSelectorCache(),
 		L4Policy:             NewL4Policy(),
 		CIDRPolicy:           NewCIDRPolicy(),
 		IngressPolicyEnabled: ingressEnabled,
@@ -606,7 +616,7 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision(), p.SelectorCache)
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision(), p.GetSelectorCache())
 		if err != nil {
 			return nil, err
 		}
@@ -621,7 +631,7 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision(), p.SelectorCache)
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision(), p.GetSelectorCache())
 		if err != nil {
 			return nil, err
 		}
