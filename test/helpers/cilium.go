@@ -675,13 +675,13 @@ func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
 
 	endpoints := epRes.KVOutput()
 	resByLines := res.ByLines()
-	fmt.Println("resByLines !!!", len(resByLines), resByLines)
+	log.Debugf("resByLines !!! %d %s", len(resByLines), resByLines)
 	foo := s.Exec(fmt.Sprintf("docker network inspect %s", dockerNetwork))
 	if !foo.WasSuccessful() {
 		return errors.New("Cannot get Docker containers in the given network")
 	}
 	fooByLines := foo.ByLines()
-	fmt.Println("fooByLines !!!", foo, len(fooByLines), fooByLines)
+	log.Debugf("fooByLines !!! %d %q %s", len(fooByLines), foo, fooByLines)
 
 	for _, containerID := range res.ByLines() {
 		//if containerID == "" {
