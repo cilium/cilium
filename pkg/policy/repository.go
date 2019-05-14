@@ -83,8 +83,8 @@ type traceState struct {
 	ruleID int
 }
 
-func (state *traceState) trace(rules ruleSlice, ctx *SearchContext) {
-	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, len(rules))
+func (state *traceState) trace(rules int, ctx *SearchContext) {
+	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
 	if state.constrainedRules > 0 {
 		ctx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
 	} else if state.matchedRules > 0 {

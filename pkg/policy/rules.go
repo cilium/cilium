@@ -152,7 +152,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	matchedRules.wildcardL3L4Rules(ctx, true, result.Ingress, requirements)
 	result.Revision = revision
 
-	state.trace(matchedRules, ctx)
+	state.trace(len(rules), ctx)
 	return result, nil
 }
 
@@ -197,7 +197,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	matchedRules.wildcardL3L4Rules(ctx, false, result.Egress, requirements)
 	result.Revision = revision
 
-	state.trace(matchedRules, ctx)
+	state.trace(len(rules), ctx)
 	return result, nil
 }
 
@@ -212,7 +212,7 @@ func (rules ruleSlice) resolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 		state.ruleID++
 	}
 
-	state.trace(rules, ctx)
+	state.trace(len(rules), ctx)
 	return result
 }
 
