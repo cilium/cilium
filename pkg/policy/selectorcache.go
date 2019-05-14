@@ -21,6 +21,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -87,6 +89,33 @@ type identitySelector interface {
 	notifyUsers(added, deleted []identity.NumericIdentity)
 }
 
+// Identity is the information we need about a an identity that rules can select
+type Identity struct {
+	NID       identity.NumericIdentity
+	lbls      labels.LabelArray
+	namespace string // value of the namespace label, or nil
+}
+
+// IdentityCache is a cache of identity to labels mapping
+type IdentityCache map[identity.NumericIdentity]Identity
+
+func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) Identity {
+	return Identity{
+		NID:       nid,
+		lbls:      lbls,
+		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
+	}
+}
+
+func getIdentityCache() IdentityCache {
+	ids := cache.GetIdentityCache()
+	idCache := make(map[identity.NumericIdentity]Identity, len(ids))
+	for nid, lbls := range ids {
+		idCache[nid] = newIdentity(nid, lbls)
+	}
+	return idCache
+}
+
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
@@ -95,7 +124,7 @@ type SelectorCache struct {
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
 	// UpdateIdentities() function.
-	idCache cache.IdentityCache
+	idCache IdentityCache
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
@@ -104,7 +133,7 @@ type SelectorCache struct {
 // newSelectorCache creates a new SelectorCache.
 func newSelectorCache() *SelectorCache {
 	return &SelectorCache{
-		idCache:   cache.GetIdentityCache(),
+		idCache:   getIdentityCache(),
 		selectors: make(map[string]identitySelector),
 	}
 }
@@ -123,6 +152,12 @@ type selectorManager struct {
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
+
+//
+// CachedSelector implementation (== Public API)
+//
+// No locking needed.
+//
 
 // GetSelections returns the set of numeric identities currently
 // selected.  The cached selections can be concurrently updated. In
@@ -199,7 +234,28 @@ type fqdnSelector struct {
 
 type labelIdentitySelector struct {
 	selectorManager
-	selector api.EndpointSelector
+	selector   api.EndpointSelector
+	namespaces []string // allowed namespaces, or nil
+}
+
+func (l *labelIdentitySelector) MatchesNamespace(ns string) bool {
+	if len(l.namespaces) > 0 {
+		if ns != "" {
+			for i := range l.namespaces {
+				if ns == l.namespaces[i] {
+					return true
+				}
+			}
+		}
+		// namespace required, but no match
+		return false
+	}
+	// no namespace required, match
+	return true
+}
+
+func (l *labelIdentitySelector) Matches(identity Identity) bool {
+	return l.MatchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
 
 //
@@ -362,7 +418,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	}
 
 	// Selectors are never modified once a rule is placed in the policy repository,
-	// so no need to copy.
+	// so no need to deep copy.
 
 	newIDSel := &labelIdentitySelector{
 		selectorManager: selectorManager{
@@ -372,13 +428,17 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 		},
 		selector: selector,
 	}
+	// check is selector has a namespace match or requirement
+	if namespaces, ok := selector.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel); ok {
+		newIDSel.namespaces = namespaces
+	}
 
 	// Add the initial user
 	newIDSel.users[user] = struct{}{}
 
 	// Find all matching identities from the identity cache.
-	for numericID, lbls := range sc.idCache {
-		if selector.Matches(lbls) {
+	for numericID, identity := range sc.idCache {
+		if newIDSel.Matches(identity) {
 			newIDSel.cachedSelections[numericID] = struct{}{}
 		}
 	}
@@ -427,7 +487,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 		if _, exists := sc.idCache[numericID]; exists {
 			log.WithFields(logrus.Fields{logfields.Identity: numericID}).Warning("UpdateIdentities: Adding an existing identity")
 		}
-		sc.idCache[numericID] = lbls
+		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
 
 	// Iterate through all locally used identity selectors and
@@ -442,9 +502,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 					delete(idSel.cachedSelections, numericID)
 				}
 			}
-			for numericID, lbls := range added {
+			for numericID := range added {
 				if _, exists := idSel.cachedSelections[numericID]; !exists {
-					if idSel.selector.Matches(lbls) {
+					if idSel.Matches(sc.idCache[numericID]) {
 						adds = append(adds, numericID)
 						idSel.cachedSelections[numericID] = struct{}{}
 					}

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -126,11 +127,13 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveIdentitySelector(c *C) {
 	sc := newSelectorCache()
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
-		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
+		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
+			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil)
 
-	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
+	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
 	cached := user1.AddIdentitySelector(testSelector)
@@ -141,12 +144,14 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveIdentitySelector(c *C) {
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
 	// Try add the same selector from the same user the second time
-	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
+	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 	cached2 := user1.AddIdentitySelector(testSelector)
 	c.Assert(cached2, Equals, cached)
 
 	// Add the same selector from a different user
-	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
+	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
+		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 	user2 := newUser(c, "user2", sc)
 	cached3 := user2.AddIdentitySelector(testSelector)
 
