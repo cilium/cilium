@@ -16,7 +16,6 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #define SOCKMAP 1
-#define LB_L3
 
 #include <node_config.h>
 #include <bpf/api.h>
