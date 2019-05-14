@@ -16,7 +16,6 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -84,16 +83,24 @@ func (keys MapState) DetermineAllowLocalhost(l4Policy *L4Policy) {
 	}
 }
 
-// AllowAllIdentities translates all identities in identityCache to their
-// corresponding Key in the specified direction (ingress, egress) which allows
+// AllowAllIdentities translates all identities in selectorCache to their
+// corresponding Keys in the specified direction (ingress, egress) which allows
 // all at L3.
-func (keys MapState) AllowAllIdentities(identityCache cache.IdentityCache, direction trafficdirection.TrafficDirection) {
-	// Allow all identities
-	for identity := range identityCache {
-		keyToAdd := Key{
-			Identity:         identity.Uint32(),
-			TrafficDirection: direction.Uint8(),
+func (keys MapState) AllowAllIdentities(selectorCache *SelectorCache, ingress, egress bool) {
+	selectorCache.ForEachIdentity(func(identity identity.NumericIdentity) {
+		if ingress {
+			keyToAdd := Key{
+				Identity:         identity.Uint32(),
+				TrafficDirection: trafficdirection.Ingress.Uint8(),
+			}
+			keys[keyToAdd] = MapStateEntry{}
 		}
-		keys[keyToAdd] = MapStateEntry{}
-	}
+		if egress {
+			keyToAdd := Key{
+				Identity:         identity.Uint32(),
+				TrafficDirection: trafficdirection.Egress.Uint8(),
+			}
+			keys[keyToAdd] = MapStateEntry{}
+		}
+	})
 }

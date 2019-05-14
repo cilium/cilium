@@ -72,7 +72,7 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 // UpdateIdentities informs the policy package of all identity changes
 // and also triggers policy updates.
 func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
-	policy.UpdateIdentities(added, deleted)
+	d.policy.GetSelectorCache().UpdateIdentities(added, deleted)
 	d.TriggerPolicyUpdates(true, "one or more identities created or deleted")
 }
 
