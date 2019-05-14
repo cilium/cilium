@@ -275,10 +275,14 @@ func (n *Node) Identity() Identity {
 	}
 }
 
+func getCluster() string {
+	return option.Config.ClusterName
+}
+
 // IsLocal returns true if this is the node on which the agent itself is
 // running on
 func (n *Node) IsLocal() bool {
-	return n != nil && n.Name == GetName()
+	return n != nil && n.Name == GetName() && n.Cluster == getCluster()
 }
 
 // PublicAttrEquals returns true only if the public attributes of both nodes
