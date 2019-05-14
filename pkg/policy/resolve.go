@@ -105,7 +105,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 	}
 
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
-	calculatedPolicy.PolicyMapState.DetermineAllowLocalhost(p.L4Policy)
+	calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
 
 	return calculatedPolicy
 }

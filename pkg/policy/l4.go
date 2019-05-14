@@ -292,19 +292,22 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 //
-// endpointsWithL3Override determines selectors for which L7 rules should be
-// wildcarded (eg, host / world in the relevant daemon modes).
-func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, endpointsWithL3Override api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+// hostWildcardL7 determines if L7 traffic from Host should be
+// wildcarded (in the relevant daemon mode).
+func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 bool, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache) *L4Filter {
 
 	filter := createL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true, selectorCache)
 
-	// If the filter would apply L7 rules for endpointsWithL3Override,
-	// then wildcard those specific endpoints at L7.
-	if !rule.Rules.IsEmpty() {
-		for _, selector := range endpointsWithL3Override {
-			cs := filter.cacheIdentitySelector(selector, selectorCache)
-			filter.L7RulesPerEp[cs] = api.L7Rules{}
+	// If the filter would apply L7 rules for the Host, when we should accept everything from host,
+	// then wildcard Host at L7.
+	if !rule.Rules.IsEmpty() && hostWildcardL7 {
+		for _, cs := range filter.CachedSelectors {
+			if cs.Selects(identity.ReservedIdentityHost) {
+				hostSelector := api.ReservedEndpointSelectors[labels.IDNameHost]
+				hcs := filter.cacheIdentitySelector(hostSelector, selectorCache)
+				filter.L7RulesPerEp[hcs] = api.L7Rules{}
+			}
 		}
 	}
 

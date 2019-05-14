@@ -177,23 +177,24 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
 //
-// If any rules contain L7 rules that overlap with the endpointsWithL3Override,
-// then for the endpoints with L3 override, the L7 rules will be translated
-// into L7 wildcards (ie, traffic will be forwarded to the proxy for endpoints
-// matching those labels, but the proxy will allow all such traffic).
-func mergeIngressPortProto(ctx *SearchContext, endpoints api.EndpointSelectorSlice, endpointsWithL3Override api.EndpointSelectorSlice, r api.PortRule, p api.PortProtocol,
+// If any rules contain L7 rules that select Host and we should accept
+// all traffic from host (hostWildcardL7 == true) the L7 rules will be
+// translated into L7 wildcards (ie, traffic will be forwarded to the
+// proxy for endpoints matching those labels, but the proxy will allow
+// all such traffic).
+func mergeIngressPortProto(ctx *SearchContext, endpoints api.EndpointSelectorSlice, hostWildcardL7 bool, r api.PortRule, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap, selectorCache *SelectorCache) (int, error) {
 
 	key := p.Port + "/" + string(proto)
 	existingFilter, ok := resMap[key]
 	if !ok {
-		resMap[key] = createL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels, selectorCache)
+		resMap[key] = createL4IngressFilter(endpoints, hostWildcardL7, r, p, proto, ruleLabels, selectorCache)
 		return 1, nil
 	}
 
 	// Create a new L4Filter based off of the arguments provided to this function
 	// for merging with the filter which is already in the policy map.
-	filterToMerge := createL4IngressFilter(endpoints, endpointsWithL3Override, r, p, proto, ruleLabels, selectorCache)
+	filterToMerge := createL4IngressFilter(endpoints, hostWildcardL7, r, p, proto, ruleLabels, selectorCache)
 
 	if err := mergePortProto(ctx, existingFilter, filterToMerge, selectorCache); err != nil {
 		filterToMerge.detach(selectorCache)
@@ -269,10 +270,7 @@ func mergeIngress(ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, t
 	// restrictions on these endpoints into L7 allow-all so that the
 	// traffic is always allowed, but is also always redirected through the
 	// proxy
-	endpointsWithL3Override := []api.EndpointSelector{}
-	if option.Config.AlwaysAllowLocalhost() {
-		endpointsWithL3Override = append(endpointsWithL3Override, api.ReservedEndpointSelectors[labels.IDNameHost])
-	}
+	hostWildcardL7 := option.Config.AlwaysAllowLocalhost()
 
 	var (
 		cnt int
@@ -281,7 +279,7 @@ func mergeIngress(ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, t
 
 	// L3-only rule (with requirements folded into fromEndpoints).
 	if len(toPorts) == 0 && len(fromEndpoints) > 0 {
-		cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap, selectorCache)
+		cnt, err = mergeIngressPortProto(ctx, fromEndpoints, hostWildcardL7, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap, selectorCache)
 		if err != nil {
 			return found, err
 		}
@@ -319,19 +317,19 @@ func mergeIngress(ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, t
 
 		for _, p := range r.Ports {
 			if p.Protocol != api.ProtoAny {
-				cnt, err := mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, r, p, p.Protocol, ruleLabels, resMap, selectorCache)
+				cnt, err := mergeIngressPortProto(ctx, fromEndpoints, hostWildcardL7, r, p, p.Protocol, ruleLabels, resMap, selectorCache)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 			} else {
-				cnt, err := mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoTCP, ruleLabels, resMap, selectorCache)
+				cnt, err := mergeIngressPortProto(ctx, fromEndpoints, hostWildcardL7, r, p, api.ProtoTCP, ruleLabels, resMap, selectorCache)
 				if err != nil {
 					return found, err
 				}
 				found += cnt
 
-				cnt, err = mergeIngressPortProto(ctx, fromEndpoints, endpointsWithL3Override, r, p, api.ProtoUDP, ruleLabels, resMap, selectorCache)
+				cnt, err = mergeIngressPortProto(ctx, fromEndpoints, hostWildcardL7, r, p, api.ProtoUDP, ruleLabels, resMap, selectorCache)
 				if err != nil {
 					return found, err
 				}
