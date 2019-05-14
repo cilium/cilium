@@ -139,7 +139,7 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 }
 
 // ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache, deniedIdentities cache.IdentityCache) []Key {
+func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identityCache cache.IdentityCache) []Key {
 	keysToAdd := []Key{}
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
@@ -166,17 +166,15 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection, identity
 	for _, sel := range l4.Endpoints {
 		identities := getSecurityIdentities(identityCache, &sel)
 		for _, id := range identities {
-			if _, identityIsDenied := deniedIdentities[id]; !identityIsDenied {
-				srcID := id.Uint32()
-				keyToAdd := Key{
-					Identity: srcID,
-					// NOTE: Port is in host byte-order!
-					DestPort:         port,
-					Nexthdr:          proto,
-					TrafficDirection: direction.Uint8(),
-				}
-				keysToAdd = append(keysToAdd, keyToAdd)
+			srcID := id.Uint32()
+			keyToAdd := Key{
+				Identity: srcID,
+				// NOTE: Port is in host byte-order!
+				DestPort:         port,
+				Nexthdr:          proto,
+				TrafficDirection: direction.Uint8(),
 			}
+			keysToAdd = append(keysToAdd, keyToAdd)
 		}
 	}
 

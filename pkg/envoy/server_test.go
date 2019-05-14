@@ -104,8 +104,19 @@ var EndpointSelector1 = api.NewESFromLabels(
 	labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 )
 
+// EndpointSelector1 with FromRequires("k8s:version=v2") folded in
+var RequiresV2Selector1 = api.NewESFromLabels(
+	labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
+	labels.NewLabel("version", "v2", labels.LabelSourceK8s),
+)
+
 var EndpointSelector2 = api.NewESFromLabels(
 	labels.NewLabel("version", "v1", labels.LabelSourceK8s),
+)
+
+// Wildcard endpoint selector with FromRequires("k8s:version=v2") folded in
+var RequiresV2Selector = api.NewESFromLabels(
+	labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 )
 
 var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}
@@ -126,10 +137,6 @@ var IdentityCache = cache.IdentityCache{
 		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 	},
 }
-
-var DeniedIdentitiesNone = make(cache.IdentityCache)
-
-var DeniedIdentities1001 = cache.IdentityCache{1001: labels.LabelArray{}}
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
 	RemotePolicies: []uint64{1001, 1002},
@@ -166,8 +173,8 @@ var ExpectedPortNetworkPolicyRule3 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
-var ExpectedPortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1002}, // Like ExpectedPortNetworkPolicyRule1 but 1001 is denied.
+var ExpectedPortNetworkPolicyRule4RequiresV2 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1002}, // Like ExpectedPortNetworkPolicyRule1 but "k8s:version=v2" is required.
 	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
@@ -178,8 +185,8 @@ var ExpectedPortNetworkPolicyRule4 = &cilium.PortNetworkPolicyRule{
 	},
 }
 
-var ExpectedPortNetworkPolicyRule5 = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1002, 1003}, // Wildcard, but 1001 is denied.
+var ExpectedPortNetworkPolicyRule5RequiresV2 = &cilium.PortNetworkPolicyRule{
+	RemotePolicies: []uint64{1002}, // Wildcard, but "k8s:version=v2" required
 	L7: &cilium.PortNetworkPolicyRule_HttpRules{
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
@@ -205,6 +212,17 @@ var L4PolicyMap1 = map[string]policy.L4Filter{
 	},
 }
 
+var L4PolicyMap1RequiresV2 = map[string]policy.L4Filter{
+	"80/TCP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			RequiresV2Selector1: L7Rules1,
+		},
+	},
+}
+
 var L4PolicyMap2 = map[string]policy.L4Filter{
 	"8080/UDP": {
 		Port:     8080,
@@ -223,6 +241,17 @@ var L4PolicyMap3 = map[string]policy.L4Filter{
 		L7Parser: policy.ParserTypeHTTP,
 		L7RulesPerEp: policy.L7DataMap{
 			api.WildcardEndpointSelector: L7Rules1,
+		},
+	},
+}
+
+var L4PolicyMap3RequiresV2 = map[string]policy.L4Filter{
+	"80/UDP": {
+		Port:     80,
+		Protocol: api.ProtoTCP,
+		L7Parser: policy.ParserTypeHTTP,
+		L7RulesPerEp: policy.L7DataMap{
+			RequiresV2Selector: L7Rules1,
 		},
 	},
 }
@@ -279,22 +308,22 @@ var ExpectedPerPortPolicies3 = []*cilium.PortNetworkPolicy{
 	},
 }
 
-var ExpectedPerPortPolicies4 = []*cilium.PortNetworkPolicy{
+var ExpectedPerPortPolicies4RequiresV2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
 		Protocol: envoy_api_v2_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
-			ExpectedPortNetworkPolicyRule4,
+			ExpectedPortNetworkPolicyRule4RequiresV2,
 		},
 	},
 }
 
-var ExpectedPerPortPolicies5 = []*cilium.PortNetworkPolicy{
+var ExpectedPerPortPolicies5RequiresV2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
 		Protocol: envoy_api_v2_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
-			ExpectedPortNetworkPolicyRule5,
+			ExpectedPortNetworkPolicyRule5RequiresV2,
 		},
 	},
 }
@@ -321,8 +350,18 @@ var L4Policy1 = &policy.L4Policy{
 	Egress:  L4PolicyMap2,
 }
 
+var L4Policy1RequiresV2 = &policy.L4Policy{
+	Ingress: L4PolicyMap1RequiresV2,
+	Egress:  L4PolicyMap2,
+}
+
 var L4Policy2 = &policy.L4Policy{
 	Ingress: L4PolicyMap3,
+	Egress:  L4PolicyMap2,
+}
+
+var L4Policy2RequiresV2 = &policy.L4Policy{
+	Ingress: L4PolicyMap3RequiresV2,
 	Egress:  L4PolicyMap2,
 }
 
@@ -333,34 +372,34 @@ func (s *ServerSuite) TestGetHTTPRule(c *C) {
 
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 	obtained := getPortNetworkPolicyRule(EndpointSelector1, policy.ParserTypeHTTP, L7Rules1,
-		IdentityCache, DeniedIdentitiesNone)
+		IdentityCache)
 	c.Assert(obtained, checker.DeepEquals, ExpectedPortNetworkPolicyRule1)
 
 	obtained = getPortNetworkPolicyRule(EndpointSelector2, policy.ParserTypeHTTP, L7Rules2,
-		IdentityCache, DeniedIdentitiesNone)
+		IdentityCache)
 	c.Assert(obtained, checker.DeepEquals, ExpectedPortNetworkPolicyRule2)
 }
 
 func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4+L7
-	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true, IdentityCache, DeniedIdentitiesNone)
+	obtained := getDirectionNetworkPolicy(L4PolicyMap1, true, IdentityCache)
 	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies1)
 
 	// L4+L7
-	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true, IdentityCache, DeniedIdentitiesNone)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap2, true, IdentityCache)
 	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies2)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(L4PolicyMap4, true, IdentityCache, DeniedIdentitiesNone)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap4, true, IdentityCache)
 	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies6)
 
 	// L4-only
-	obtained = getDirectionNetworkPolicy(L4PolicyMap5, true, IdentityCache, DeniedIdentitiesNone)
+	obtained = getDirectionNetworkPolicy(L4PolicyMap5, true, IdentityCache)
 	c.Assert(obtained, checker.DeepEquals, ExpectedPerPortPolicies7)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy1, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy1, true, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -371,7 +410,7 @@ func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, true, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -382,29 +421,29 @@ func (s *ServerSuite) TestGetNetworkPolicyWildcard(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyDeny(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy1, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy1RequiresV2, true, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
-		IngressPerPortPolicies: ExpectedPerPortPolicies4,
+		IngressPerPortPolicies: ExpectedPerPortPolicies4RequiresV2,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyWildcardDeny(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2RequiresV2, true, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
-		IngressPerPortPolicies: ExpectedPerPortPolicies5,
+		IngressPerPortPolicies: ExpectedPerPortPolicies5RequiresV2,
 		EgressPerPortPolicies:  ExpectedPerPortPolicies2,
 	}
 	c.Assert(obtained, checker.DeepEquals, expected)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", nil, true, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", nil, true, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -415,7 +454,7 @@ func (s *ServerSuite) TestGetNetworkPolicyNil(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, false, true, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, false, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
@@ -426,11 +465,11 @@ func (s *ServerSuite) TestGetNetworkPolicyIngressNotEnforced(c *C) {
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyEgressNotEnforced(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2, true, false, IdentityCache, DeniedIdentities1001, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4Policy2RequiresV2, true, false, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
-		IngressPerPortPolicies: ExpectedPerPortPolicies5,
+		IngressPerPortPolicies: ExpectedPerPortPolicies5RequiresV2,
 		EgressPerPortPolicies:  allowAllPortNetworkPolicy,
 	}
 	c.Assert(obtained, checker.DeepEquals, expected)
@@ -483,7 +522,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4PolicyL7, true, true, IdentityCache, DeniedIdentitiesNone, DeniedIdentitiesNone)
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4PolicyL7, true, true, IdentityCache)
 	expected := &cilium.NetworkPolicy{
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
