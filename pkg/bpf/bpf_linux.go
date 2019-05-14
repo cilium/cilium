@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2018 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,12 +96,19 @@ type bpfAttrMapOpElem struct {
 	flags uint64
 }
 
-// UpdateElementFromPointers updates the map in fd with the given value in the given key.
+// UpdateElement updates the map in fd with the given value in the given key.
 // The flags can have the following values:
 // bpf.BPF_ANY to create new element or update existing;
 // bpf.BPF_NOEXIST to create new element if it didn't exist;
 // bpf.BPF_EXIST to update existing element.
-func UpdateElementFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
+func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
+	uba := bpfAttrMapOpElem{
+		mapFd: uint32(fd),
+		key:   uint64(uintptr(key)),
+		value: uint64(uintptr(value)),
+		flags: uint64(flags),
+	}
+
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		duration = spanstat.Start()
@@ -109,8 +116,8 @@ func UpdateElementFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_UPDATE_ELEM,
-		structPtr,
-		sizeOfStruct,
+		uintptr(unsafe.Pointer(&uba)),
+		unsafe.Sizeof(uba),
 	)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpUpdate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
@@ -123,26 +130,15 @@ func UpdateElementFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	return nil
 }
 
-// UpdateElement updates the map in fd with the given value in the given key.
-// The flags can have the following values:
-// bpf.BPF_ANY to create new element or update existing;
-// bpf.BPF_NOEXIST to create new element if it didn't exist;
-// bpf.BPF_EXIST to update existing element.
-// Deprecated, use UpdateElementFromPointers
-func UpdateElement(fd int, key, value unsafe.Pointer, flags uint64) error {
+// LookupElement looks up for the map value stored in fd with the given key. The value
+// is stored in the value unsafe.Pointer.
+func LookupElement(fd int, key, value unsafe.Pointer) error {
 	uba := bpfAttrMapOpElem{
 		mapFd: uint32(fd),
 		key:   uint64(uintptr(key)),
 		value: uint64(uintptr(value)),
-		flags: uint64(flags),
 	}
 
-	return UpdateElementFromPointers(fd, uintptr(unsafe.Pointer(&uba)), unsafe.Sizeof(uba))
-}
-
-// LookupElement looks up for the map value stored in fd with the given key. The value
-// is stored in the value unsafe.Pointer.
-func LookupElementFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		duration = spanstat.Start()
@@ -150,8 +146,8 @@ func LookupElementFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_LOOKUP_ELEM,
-		structPtr,
-		sizeOfStruct,
+		uintptr(unsafe.Pointer(&uba)),
+		unsafe.Sizeof(uba),
 	)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
@@ -162,19 +158,6 @@ func LookupElementFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	}
 
 	return nil
-}
-
-// LookupElement looks up for the map value stored in fd with the given key. The value
-// is stored in the value unsafe.Pointer.
-// Deprecated, use LookupElementFromPointers
-func LookupElement(fd int, key, value unsafe.Pointer) error {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   uint64(uintptr(key)),
-		value: uint64(uintptr(value)),
-	}
-
-	return LookupElementFromPointers(fd, uintptr(unsafe.Pointer(&uba)), unsafe.Sizeof(uba))
 }
 
 func deleteElement(fd int, key unsafe.Pointer) (uintptr, syscall.Errno) {
@@ -210,8 +193,13 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 	return nil
 }
 
-// GetNextKeyFromPointers stores, in nextKey, the next key after the key of the map in fd.
-func GetNextKeyFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
+// GetNextKey stores, in nextKey, the next key after the key of the map in fd.
+func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
+	uba := bpfAttrMapOpElem{
+		mapFd: uint32(fd),
+		key:   uint64(uintptr(key)),
+		value: uint64(uintptr(nextKey)),
+	}
 
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
@@ -220,8 +208,8 @@ func GetNextKeyFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	ret, _, err := unix.Syscall(
 		unix.SYS_BPF,
 		BPF_MAP_GET_NEXT_KEY,
-		structPtr,
-		sizeOfStruct,
+		uintptr(unsafe.Pointer(&uba)),
+		unsafe.Sizeof(uba),
 	)
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpGetNextKey, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
@@ -232,18 +220,6 @@ func GetNextKeyFromPointers(fd int, structPtr, sizeOfStruct uintptr) error {
 	}
 
 	return nil
-}
-
-// GetNextKey stores, in nextKey, the next key after the key of the map in fd.
-// Deprecated, use GetNextKeyFromPointers
-func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
-	uba := bpfAttrMapOpElem{
-		mapFd: uint32(fd),
-		key:   uint64(uintptr(key)),
-		value: uint64(uintptr(nextKey)),
-	}
-
-	return GetNextKeyFromPointers(fd, uintptr(unsafe.Pointer(&uba)), unsafe.Sizeof(uba))
 }
 
 // This struct must be in sync with union bpf_attr's anonymous struct used by
