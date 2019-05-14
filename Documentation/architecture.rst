@@ -137,8 +137,8 @@ handshake initiating the connection will traverse the endpoint policy object unt
 is ESTABLISHED. Then after the connection is ESTABLISHED only the L7 Policy
 object is still required.
 
-.. image:: /_static/cilium_bpf_endpoint.svg
-   :target: /_static/cilium_bpf_endpoint.svg
+.. image:: _static/cilium_bpf_endpoint.svg
+   :target: _static/cilium_bpf_endpoint.svg
 
 Egress from Endpoint
 --------------------
@@ -150,8 +150,8 @@ named cilium_vxlan. Similar to above, when socket layer enforcement is enabled
 and a L7 proxy is in use we can avoid running the endpoint policy block between
 the endpoint and the L7 Policy for TCP traffic.
 
-.. image:: /_static/cilium_bpf_egress.svg
-   :target: /_static/cilium_bpf_egress.svg
+.. image:: _static/cilium_bpf_egress.svg
+   :target: _static/cilium_bpf_egress.svg
 
 Ingress to Endpoint
 -------------------
@@ -160,8 +160,8 @@ Finally we show ingress to local endpoint also with optional overlay network.
 Similar to above socket layer enforcement can be used to avoid a set of
 policy traversals between the proxy and the endpoint socket.
 
-.. image:: /_static/cilium_bpf_ingress.svg
-   :target: /_static/cilium_bpf_ingress.svg
+.. image:: _static/cilium_bpf_ingress.svg
+   :target: _static/cilium_bpf_ingress.svg
 
 veth-based versus ipvlan-based datapath
 ---------------------------------------
@@ -251,5 +251,5 @@ Kubernetes Integration
 The following diagram shows the integration of iptables rules as installed by
 kube-proxy and the iptables rules as installed by Cilium.
 
-.. image:: /_static/kubernetes_iptables.svg
-   :target: /_static/kubernetes_iptables.svg
+.. image:: _static/kubernetes_iptables.svg
+   :target: _static/kubernetes_iptables.svg
