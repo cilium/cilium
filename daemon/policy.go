@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -231,6 +232,8 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 	return 0, fmt.Errorf("policy addition event was cancelled")
 }
 
+var fqdnInit sync.Once
+
 // policyAdd adds a slice of rules to the policy repository owned by the
 // daemon. Eventual changes in policy rules are propagated to all locally
 // managed endpoints. Returns the policy revision number of the repository after
@@ -256,6 +259,19 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	// IPs here. This would allow us to pre-populate the SelectorCache with the
 	// IPs that already have been resolved which correspond to DNS names that
 	// are in the newly added rules.
+	var err error
+	if _, L7ToFQDNs := fqdn.ContainsToFQDNs(sourceRules); L7ToFQDNs {
+		fqdnInit.Do(func() { err = d.lateInitDNSProxy() })
+		// err is set inside fqdnInit.Do
+		if err != nil {
+			err = fmt.Errorf("Failed to on-demand start DNS Proxy. This is fatal! %s", err)
+			resChan <- &PolicyAddResult{
+				newRev: 0,
+				err:    api.Error(PutPolicyFailureCode, err),
+			}
+			return
+		}
+	}
 	rules, _ := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
 	if len(rules) == 0 && len(sourceRules) > 0 {
 		// All rules being added have ToFQDNs UUIDs that have been removed and

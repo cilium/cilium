@@ -270,6 +270,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		}
 	}
 
+	return nil
+}
+
+func (d *Daemon) lateInitDNSProxy() error {
 	// Do not start the proxy in dry mode. The proxy would not get any traffic in the
 	// dry mode anyway, and some of the socket operations require privileges not availabe
 	// in all unit tests.
@@ -286,6 +290,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	if err != nil {
 		return err
 	}
+
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
 		// LookupEPByIP
 		func(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
@@ -456,13 +461,15 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			stat.ProcessingTime.End(true)
 			return nil
 		})
-	if err == nil {
-		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
 
-		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+	if err != nil {
+		return err
 	}
-	return err // filled by StartDNSProxy
+
+	proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+
+	// Increase the ProxyPort reference count so that it will never get released.
+	return d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
 }
 
 type getFqdnCache struct {

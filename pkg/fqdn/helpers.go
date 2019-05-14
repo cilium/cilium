@@ -29,6 +29,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ContainsToFQDNs indicates whether a ToFQDN rule exists in the api.Rule and
+// returns whether it is L3, L7 or both.
+func ContainsToFQDNs(rules []*api.Rule) (L3, L7 bool) {
+	for _, rule := range rules {
+		for _, egressRule := range rule.Egress {
+			if len(egressRule.ToFQDNs) > 0 {
+				L3 = true
+			}
+			for _, portRule := range egressRule.ToPorts {
+				if len(portRule.Rules.DNS) > 0 {
+					L7 = true
+				}
+			}
+		}
+	}
+	return L3, L7
+}
+
 // getUUIDFromRuleLabels returns the value of the UUID label
 func getRuleUUIDLabel(rule *api.Rule) (uuid string) {
 	return rule.Labels.Get(uuidLabelSearchKey)
