@@ -1765,6 +1765,7 @@
     "github.com/cilium/proxy/go/cilium/api",
     "github.com/cilium/proxy/go/envoy/api/v2",
     "github.com/cilium/proxy/go/envoy/api/v2/core",
+    "github.com/cilium/proxy/go/envoy/api/v2/endpoint",
     "github.com/cilium/proxy/go/envoy/api/v2/listener",
     "github.com/cilium/proxy/go/envoy/api/v2/route",
     "github.com/cilium/proxy/go/envoy/config/bootstrap/v2",
