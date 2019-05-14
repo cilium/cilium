@@ -453,6 +453,8 @@ func NewL4Policy() *L4Policy {
 
 // Detach makes the L4Policy ready for garbage collection, removing
 // circular pointer references.
+// Note that the L4Policy itself is not modified in any way, so that it may still
+// be used concurrently.
 func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)

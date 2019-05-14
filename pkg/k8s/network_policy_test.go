@@ -196,7 +196,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 			},
 		},
 	})
-	ingressL4Policy.Delete(repo.GetSelectorCache())
+	ingressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.To = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -384,7 +384,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 			},
 		},
 	})
-	egressL4Policy.Delete(repo.GetSelectorCache())
+	egressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.From = labels.LabelArray{
 		labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -888,7 +888,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	l4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(l4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	l4Policy.Delete(repo.GetSelectorCache())
+	l4Policy.Detach(repo.GetSelectorCache())
 
 	ctx = policy.SearchContext{
 		From: labels.LabelArray{

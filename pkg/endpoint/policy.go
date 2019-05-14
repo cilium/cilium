@@ -73,12 +73,13 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 		return nil, nil
 	}
 
-	// Publish the updated policy to L7 proxies.
-	var desiredL4Policy *policy.L4Policy
-	if e.desiredPolicy != nil {
-		desiredL4Policy = e.desiredPolicy.L4Policy
+	// If desired L4Policy is nil then no policy change is needed.
+	if e.desiredPolicy == nil || e.desiredPolicy.L4Policy == nil {
+		return nil, nil
 	}
-	return owner.UpdateNetworkPolicy(e, desiredL4Policy, proxyWaitGroup)
+
+	// Publish the updated policy to L7 proxies.
+	return owner.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
@@ -227,10 +228,9 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	}
 	// Apply possible option changes before regenerating maps, as map regeneration
 	// depends on the conntrack options
-	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
-		if e.desiredPolicy.L4Policy.RequiresConntrack() {
-			opts[option.Conntrack] = option.OptionEnabled
-		}
+	l4Policy := e.getDesiredL4Policy()
+	if l4Policy.RequiresConntrack() {
+		opts[option.Conntrack] = option.OptionEnabled
 	}
 
 	optsChanged = e.applyOptsLocked(opts)
@@ -376,7 +376,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	e.realizedBPFConfig = e.desiredBPFConfig
 
 	// Set realized state to desired state fields.
-	e.realizedPolicy.Realizes(e.desiredPolicy)
+	e.realizedPolicy = e.desiredPolicy
 
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for

@@ -92,9 +92,10 @@ func (cache *PolicyCache) insert(identity *identityPkg.Identity) (SelectorPolicy
 func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 	cache.Lock()
 	defer cache.Unlock()
-	_, ok := cache.policies[identity.ID]
+	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
+		cip.getPolicy().Detach()
 	}
 	return ok
 }
@@ -117,7 +118,8 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	}
 
 	// Don't resolve policy if it was already done for this Identity.
-	currentRevision := cip.getPolicy().Revision
+	currentPolicy := cip.getPolicy()
+	currentRevision := currentPolicy.Revision
 	if revision <= currentRevision {
 		return false, nil
 	}
@@ -147,6 +149,7 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	changed := revision > currentRevision
 	if changed {
 		cip.setPolicy(selPolicy)
+		currentPolicy.Detach()
 	}
 	return changed, nil
 }

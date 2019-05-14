@@ -77,6 +77,15 @@ func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorP
 	}
 }
 
+// Detach releases resources held by a selectorPolicy to enable
+// successful eventual GC.  Note that the selectorPolicy itself if not
+// modified in any way, so that it can be used concurrently.
+func (p *selectorPolicy) Detach() {
+	if p.L4Policy != nil {
+		p.L4Policy.Detach(p.SelectorCache)
+	}
+}
+
 // DistillPolicy filters down the specified selectorPolicy (which acts
 // upon selectors) into a set of concrete map entries based on the
 // SelectorCache. These can subsequently be plumbed into the datapath.
@@ -140,20 +149,4 @@ func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(0, repo.GetSelectorCache()),
 	}
-}
-
-// Realizes copies the fields from desired into p. It assumes that the fields in
-// desired are not modified after this function is called.
-func (p *selectorPolicy) Realizes(desired *selectorPolicy) {
-	p.Revision = desired.Revision
-	p.IngressPolicyEnabled = desired.IngressPolicyEnabled
-	p.EgressPolicyEnabled = desired.EgressPolicyEnabled
-	p.L4Policy = desired.L4Policy
-	p.CIDRPolicy = desired.CIDRPolicy
-}
-
-// Realizes copies the fields from desired into p. It assumes that the fields in
-// desired are not modified after this function is called.
-func (p *EndpointPolicy) Realizes(desired *EndpointPolicy) {
-	p.selectorPolicy.Realizes(desired.selectorPolicy)
 }
