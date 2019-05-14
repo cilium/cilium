@@ -673,6 +673,11 @@ func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
 		return errors.New("Cannot get cilium endpoint list")
 	}
 
+	omg := s.ExecCilium("endpoint list -o json")
+	if !omg.WasSuccessful() {
+		return errors.New("omg")
+	}
+
 	endpoints := epRes.KVOutput()
 	resByLines := res.ByLines()
 	log.Debugf("resByLines !!! %d %s", len(resByLines), resByLines)
