@@ -57,7 +57,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -901,34 +900,37 @@ func deleteHostDevice() {
 	}
 }
 
-func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
+func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Blacklist allocation of the external IP
 	d.ipam.Blacklist(family.PrimaryExternal(), "node-ip")
 
-	allocRange := family.AllocationCIDR()
+	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
+	// In that case, removal and re-creation of the cilium_host is
+	// required. It will also cause disruption of networking until all
+	// endpoints have been regenerated.
 	routerIP = family.Router()
-	if routerIP != nil && !allocRange.Contains(routerIP) {
-		log.Warningf("Detected allocation CIDR change to %s, previous router IP %s", allocRange, routerIP)
+	if routerIP != nil {
+		err = d.ipam.AllocateIP(routerIP, "router")
+		if err != nil {
+			log.Warningf("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
-		// The restored router IP is not part of the allocation range.
-		// This indicates that the allocation range has changed.
-		if !option.Config.IsFlannelMasterDeviceSet() {
-			deleteHostDevice()
+			// The restored router IP is not part of the allocation range.
+			// This indicates that the allocation range has changed.
+			if !option.Config.IsFlannelMasterDeviceSet() {
+				deleteHostDevice()
+			}
+
+			// force re-allocation of the router IP
+			routerIP = nil
 		}
-
-		// force re-allocation of the router IP
-		routerIP = nil
 	}
 
 	if routerIP == nil {
-		routerIP = ip.GetNextIP(family.AllocationCIDR().IP)
-	}
-
-	err = d.ipam.AllocateIP(routerIP, "router")
-	if err != nil {
-		err = fmt.Errorf("Unable to allocate IPv4 router IP %s from allocation range %s: %s",
-			routerIP, allocRange, err)
-		return
+		routerIP, err = d.ipam.AllocateNextFamily(ipam.DeriveFamily(family.PrimaryExternal()), "router")
+		if err != nil {
+			err = fmt.Errorf("Unable to allocate IPv4 router IP: %s", err)
+			return
+		}
 	}
 
 	return
@@ -1149,7 +1151,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	bootstrapStats.ipam.Start()
 	if option.Config.EnableIPv4 {
-		routerIP, err := d.prepareAllocationCIDR(dp.LocalNodeAddressing().IPv4())
+		routerIP, err := d.allocateDatapathIPs(dp.LocalNodeAddressing().IPv4())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1159,7 +1161,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	if option.Config.EnableIPv6 {
-		routerIP, err := d.prepareAllocationCIDR(dp.LocalNodeAddressing().IPv6())
+		routerIP, err := d.allocateDatapathIPs(dp.LocalNodeAddressing().IPv6())
 		if err != nil {
 			return nil, nil, err
 		}

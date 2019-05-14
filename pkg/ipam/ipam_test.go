@@ -87,3 +87,8 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv6)
 }
+
+func (s *IPAMSuite) TestDeriveFamily(c *C) {
+	c.Assert(DeriveFamily(net.ParseIP("1.1.1.1")), Equals, IPv4)
+	c.Assert(DeriveFamily(net.ParseIP("f00d::1")), Equals, IPv6)
+}
