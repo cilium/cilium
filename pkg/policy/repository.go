@@ -199,7 +199,7 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 //
 // Caller must release resources by calling Detach() on the returned map!
 //
-// NOTE: This is only called from unit tests.
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 
@@ -247,7 +247,7 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 // connection, the request will be denied. The policy repository mutex must be
 // held.
 //
-// NOTE: This is only called from unit tests.
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	// Lack of DPorts in the SearchContext means L3-only search
 	if len(ctx.DPorts) == 0 {
@@ -292,6 +292,7 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) Add(r api.Rule, localRuleConsumers []Endpoint) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()

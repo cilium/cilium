@@ -203,25 +203,25 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), qaBarLbls)
+	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), qaBarSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
-	prodBarSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), prodBarLbls)
+	prodBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, prodBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), prodBarSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, prodBarSecLblsCtx)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), qaFooLbls)
+	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), qaFooSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, qaFooSecLblsCtx)
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
-	prodFooSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), prodFooLbls)
+	prodFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, prodFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), prodFooSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, prodFooSecLblsCtx)
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
-	prodFooJoeSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), prodFooJoeLbls)
+	prodFooJoeSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, prodFooJoeLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), prodFooJoeSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, prodFooJoeSecLblsCtx)
 
 	// Prepare endpoints
 	cleanup, err2 := prepareEndpointDirs()
@@ -340,13 +340,13 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), qaBarLbls)
+	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), qaBarSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
-	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), qaFooLbls)
+	qaFooSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaFooLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), qaFooSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, qaFooSecLblsCtx)
 
 	rules := api.Rules{
 		{
@@ -468,9 +468,9 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 
 func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
-	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(ds.d, context.Background(), qaBarLbls)
+	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
 	c.Assert(err, Equals, nil)
-	defer cache.Release(ds.d, context.Background(), qaBarSecLblsCtx)
+	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
 
 	rules := api.Rules{
 		{
