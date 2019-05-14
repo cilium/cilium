@@ -135,7 +135,7 @@ type identitySelector interface {
 type Identity struct {
 	NID       identity.NumericIdentity
 	lbls      labels.LabelArray
-	namespace string // value of the namespace label, or nil
+	namespace string // value of the namespace label, or ""
 }
 
 // IdentityCache is a cache of Identities keyed by the numeric identity
@@ -299,7 +299,7 @@ type fqdnSelector struct {
 type labelIdentitySelector struct {
 	selectorManager
 	selector   api.EndpointSelector
-	namespaces []string // allowed namespaces, or nil
+	namespaces []string // allowed namespaces, or ""
 }
 
 // xxxMatches returns true if the CachedSelector matches given labels.
@@ -475,8 +475,8 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
 	key := selector.LabelSelector.String()
 	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
 	idSel := sc.selectors[key]
+	sc.mutex.Unlock()
 	return idSel
 }
 
@@ -565,14 +565,14 @@ func (sc *SelectorCache) RemoveSelectors(user CachedSelectionUser, selectors Cac
 // ChangeUser changes the CachedSelectionUser that gets updates on the
 // updates on the cached selector.
 func (sc *SelectorCache) ChangeUser(from, to CachedSelectionUser, selector CachedSelector) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
 	key := selector.String()
+	sc.mutex.Lock()
 	idSel, exists := sc.selectors[key]
 	if exists {
 		idSel.removeUser(from)
 		idSel.addUser(to)
 	}
+	sc.mutex.Unlock()
 }
 
 // UpdateIdentities propagates identity updates to selectors
@@ -593,9 +593,12 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 	}
 	for numericID, lbls := range added {
 		if old, exists := sc.idCache[numericID]; exists {
-			// Skip if no change
-			if lbls.String() == old.lbls.String() {
-				log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add an existing identical identity")
+			// Skip if no change. Not skipping if label
+			// order is different, but identity labels are
+			// sorted for the kv-store, so there should
+			// not be too many false negatives.
+			if lbls.Same(old.lbls) {
+				log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
 				delete(added, numericID)
 				continue
 			}
