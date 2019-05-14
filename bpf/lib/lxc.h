@@ -88,6 +88,8 @@ skb_redirect_to_proxy_hairpin(struct __sk_buff *skb, __be16 proxy_port)
 	struct iphdr *ip4;
 	int ret;
 
+	skb->cb[0] = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
+
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
@@ -95,7 +97,6 @@ skb_redirect_to_proxy_hairpin(struct __sk_buff *skb, __be16 proxy_port)
 	if (IS_ERR(ret))
 		return ret;
 
-	skb->cb[0] = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, proxy_port);
 
 	return redirect(HOST_IFINDEX, 0);
