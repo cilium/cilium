@@ -81,7 +81,7 @@ func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.W
 	if e.desiredPolicy != nil {
 		desiredL4Policy = e.desiredPolicy.L4Policy
 	}
-	return owner.UpdateNetworkPolicy(e, desiredL4Policy, *e.prevIdentityCache, e.desiredPolicy.DeniedIngressIdentities, e.desiredPolicy.DeniedEgressIdentities, proxyWaitGroup)
+	return owner.UpdateNetworkPolicy(e, desiredL4Policy, *e.prevIdentityCache, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field

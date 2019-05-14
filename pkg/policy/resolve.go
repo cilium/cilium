@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 
@@ -46,13 +45,6 @@ type SelectorPolicy struct {
 	// EgressPolicyEnabled specifies whether this policy contains any policy
 	// at egress.
 	EgressPolicyEnabled bool
-
-	// matchingRules is the set of rules in the repository that were
-	// matched during policy resolution. These refer directly into the
-	// policy repository and must not be modified.
-	//
-	// GH-7516 tracks removal of this field.
-	matchingRules ruleSlice
 }
 
 // EndpointPolicy is a structure which contains the resolved policy across all
@@ -71,16 +63,6 @@ type EndpointPolicy struct {
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
-
-	// DeniedIngressIdentities is the set of identities which are not allowed
-	// by policy on ingress. This field is populated when an identity does not
-	// meet restraints set forth in FromRequires.
-	DeniedIngressIdentities cache.IdentityCache
-
-	// DeniedEgressIdentities is the set of identities which are not allowed
-	// by policy on egress. This field is populated when an identity does not
-	// meet restraints set forth in ToRequires.
-	DeniedEgressIdentities cache.IdentityCache
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
@@ -117,67 +99,16 @@ func NewSelectorPolicy(revision uint64) *SelectorPolicy {
 func (p *SelectorPolicy) DistillPolicy(policyOwner PolicyOwner, identityCache cache.IdentityCache) *EndpointPolicy {
 
 	calculatedPolicy := &EndpointPolicy{
-		SelectorPolicy:          p,
-		PolicyMapState:          make(MapState),
-		PolicyOwner:             policyOwner,
-		DeniedIngressIdentities: cache.IdentityCache{},
-		DeniedEgressIdentities:  cache.IdentityCache{},
+		SelectorPolicy: p,
+		PolicyMapState: make(MapState),
+		PolicyOwner:    policyOwner,
 	}
 
-	labels := policyOwner.GetSecurityIdentity().LabelArray
-	ingressCtx := SearchContext{
-		To:                            labels,
-		rulesSelect:                   true,
-		skipL4RequirementsAggregation: true,
-	}
-
-	egressCtx := SearchContext{
-		From:                          labels,
-		rulesSelect:                   true,
-		skipL4RequirementsAggregation: true,
-	}
-
-	if option.Config.TracingEnabled() {
-		ingressCtx.Trace = TRACE_ENABLED
-		egressCtx.Trace = TRACE_ENABLED
-	}
-
-	if p.IngressPolicyEnabled {
-		for identity, labels := range identityCache {
-			ingressCtx.From = labels
-			egressCtx.To = labels
-
-			ingressAccess := p.matchingRules.canReachIngressRLocked(&ingressCtx)
-			if ingressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if ingressAccess == api.Denied {
-				calculatedPolicy.DeniedIngressIdentities[identity] = labels
-			}
-		}
-	} else {
+	if !p.IngressPolicyEnabled {
 		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Ingress)
 	}
 
-	if p.EgressPolicyEnabled {
-		for identity, labels := range identityCache {
-			egressCtx.To = labels
-
-			egressAccess := p.matchingRules.canReachEgressRLocked(&egressCtx)
-			if egressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Egress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if egressAccess == api.Denied {
-				calculatedPolicy.DeniedEgressIdentities[identity] = labels
-			}
-		}
-	} else {
+	if !p.EgressPolicyEnabled {
 		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Egress)
 	}
 
@@ -194,14 +125,14 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries(identityCache cache.Id
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress, p.DeniedIngressIdentities)
-	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress, p.DeniedEgressIdentities)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Ingress, trafficdirection.Ingress)
+	p.computeDirectionL4PolicyMapEntries(identityCache, p.L4Policy.Egress, trafficdirection.Egress)
 	return
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection, deniedIdentities cache.IdentityCache) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(identityCache cache.IdentityCache, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToKeys(direction, identityCache, deniedIdentities)
+		keysFromFilter := filter.ToKeys(direction, identityCache)
 		for _, keyFromFilter := range keysFromFilter {
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
@@ -249,6 +180,4 @@ func (p *EndpointPolicy) Realizes(desired *EndpointPolicy) {
 	}
 
 	p.SelectorPolicy.Realizes(desired.SelectorPolicy)
-	p.DeniedEgressIdentities = desired.DeniedEgressIdentities
-	p.DeniedIngressIdentities = desired.DeniedIngressIdentities
 }

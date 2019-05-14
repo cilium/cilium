@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +13,10 @@
 // limitations under the License.
 
 package api
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // IngressRule contains all rule types which can be applied at ingress,
 // i.e. network traffic that originates outside of the endpoint and
@@ -132,6 +136,27 @@ func (i *IngressRule) GetSourceEndpointSelectors() EndpointSelectorSlice {
 		i.SetAggregatedSelectors()
 	}
 	return i.aggregatedSelectors
+}
+
+// GetSourceEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
+// all L3 source selectors of the ingress rule
+func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.FromEntities)+len(i.FromCIDRSet)+len(i.FromCIDR))
+	if len(requirements) > 0 && len(i.FromEndpoints) > 0 {
+		for idx := range i.FromEndpoints {
+			sel := *i.FromEndpoints[idx].DeepCopy()
+			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
+			sel.SyncRequirementsWithLabelSelector()
+			res = append(res, sel)
+		}
+	} else {
+		res = append(res, i.FromEndpoints...)
+	}
+	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
+
+	return res
 }
 
 // IsLabelBased returns true whether the L3 source endpoints are selected based

@@ -97,7 +97,7 @@ loop:
 	return decision
 }
 
-func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap) {
+func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Policy L4PolicyMap, requirements []v1.LabelSelectorRequirement) {
 	// Duplicate L3-only rules into wildcard L7 rules.
 	for _, r := range rules {
 		if ingress {
@@ -112,11 +112,11 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 					continue
 				}
 
-				fromEndpoints := rule.GetSourceEndpointSelectors()
+				fromEndpoints := rule.GetSourceEndpointSelectorsWithRequirements(requirements)
 				ruleLabels := r.Rule.Labels.DeepCopy()
 
 				// L3-only rule.
-				if len(rule.ToPorts) == 0 {
+				if len(rule.ToPorts) == 0 && len(fromEndpoints) > 0 {
 					wildcardL3L4Rule(api.ProtoTCP, 0, fromEndpoints, ruleLabels, l4Policy)
 					wildcardL3L4Rule(api.ProtoUDP, 0, fromEndpoints, ruleLabels, l4Policy)
 				} else {
@@ -151,11 +151,11 @@ func (rules ruleSlice) wildcardL3L4Rules(ctx *SearchContext, ingress bool, l4Pol
 					continue
 				}
 
-				toEndpoints := rule.GetDestinationEndpointSelectors()
+				toEndpoints := rule.GetDestinationEndpointSelectorsWithRequirements(requirements)
 				ruleLabels := r.Rule.Labels.DeepCopy()
 
 				// L3-only rule.
-				if len(rule.ToPorts) == 0 {
+				if len(rule.ToPorts) == 0 && len(toEndpoints) > 0 {
 					wildcardL3L4Rule(api.ProtoTCP, 0, toEndpoints, ruleLabels, l4Policy)
 					wildcardL3L4Rule(api.ProtoUDP, 0, toEndpoints, ruleLabels, l4Policy)
 				} else {
@@ -189,25 +189,26 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	ctx.PolicyTrace("Resolving ingress policy for %+v\n", ctx.To)
 
 	state := traceState{}
+	var matchedRules ruleSlice
 	var requirements []v1.LabelSelectorRequirement
 
 	// Iterate over all FromRequires which select ctx.To. These requirements
 	// will be appended to each EndpointSelector's MatchExpressions in
 	// each FromEndpoints for all ingress rules. This ensures that FromRequires
 	// is taken into account when evaluating policy at L4.
-	if !ctx.skipL4RequirementsAggregation {
-		for _, r := range rules {
+	for _, r := range rules {
+		if r.EndpointSelector.Matches(ctx.To) {
+			matchedRules = append(matchedRules, r)
 			for _, ingressRule := range r.Ingress {
-				if r.EndpointSelector.Matches(ctx.To) {
-					for _, requirement := range ingressRule.FromRequires {
-						requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
-					}
+				for _, requirement := range ingressRule.FromRequires {
+					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
 				}
 			}
 		}
 	}
 
-	for _, r := range rules {
+	ctx.rulesSelect = true
+	for _, r := range matchedRules {
 		found, err := r.resolveIngressPolicy(ctx, &state, result, requirements)
 		if err != nil {
 			return nil, err
@@ -218,10 +219,10 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 		}
 	}
 
-	rules.wildcardL3L4Rules(ctx, true, result.Ingress)
+	matchedRules.wildcardL3L4Rules(ctx, true, result.Ingress, requirements)
 	result.Revision = revision
 
-	state.trace(rules, ctx)
+	state.trace(matchedRules, ctx)
 	return result, nil
 }
 
@@ -231,26 +232,27 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	ctx.PolicyTrace("\n")
 	ctx.PolicyTrace("Resolving egress policy for %+v\n", ctx.From)
 
+	state := traceState{}
+	var matchedRules ruleSlice
 	var requirements []v1.LabelSelectorRequirement
 
 	// Iterate over all ToRequires which select ctx.To. These requirements will
 	// be appended to each EndpointSelector's MatchExpressions in each
-	// ToEndpoints for all ingress rules. This ensures that ToRequires is
+	// ToEndpoints for all egress rules. This ensures that ToRequires is
 	// taken into account when evaluating policy at L4.
-	if !ctx.skipL4RequirementsAggregation {
-		for _, r := range rules {
+	for _, r := range rules {
+		if r.EndpointSelector.Matches(ctx.From) {
+			matchedRules = append(matchedRules, r)
 			for _, egressRule := range r.Egress {
-				if r.EndpointSelector.Matches(ctx.From) {
-					for _, requirement := range egressRule.ToRequires {
-						requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
-					}
+				for _, requirement := range egressRule.ToRequires {
+					requirements = append(requirements, requirement.ConvertToLabelSelectorRequirementSlice()...)
 				}
 			}
 		}
 	}
 
-	state := traceState{}
-	for i, r := range rules {
+	ctx.rulesSelect = true
+	for i, r := range matchedRules {
 		state.ruleID = i
 		found, err := r.resolveEgressPolicy(ctx, &state, result, requirements)
 		if err != nil {
@@ -262,10 +264,10 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 		}
 	}
 
-	rules.wildcardL3L4Rules(ctx, false, result.Egress)
+	matchedRules.wildcardL3L4Rules(ctx, false, result.Egress, requirements)
 	result.Revision = revision
 
-	state.trace(rules, ctx)
+	state.trace(matchedRules, ctx)
 	return result, nil
 }
 
