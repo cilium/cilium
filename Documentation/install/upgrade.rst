@@ -303,17 +303,22 @@ Upgrading from >=1.4.0 to 1.5.y
 New Default Values
 ~~~~~~~~~~~~~~~~~~
 
- * The connection-tracking garbage collector intervals is now 12 hours when
-   using LRU maps (newer kernels) and 15 minutes an all older kernels. The
-   interval can be overwritten with the option ``--conntrack-gc-interval``.
-   If connectivity between pods is faulty and ``cilium monitor --type drop``
-   shows ``xx drop (CT: Map insertion failed)`` it is recommended to set
-   ``--conntrack-gc-interval`` to an interval lower than the default.
-   Alternatively, the value for ``bpf-ct-global-any-max`` and
-   ``bpf-ct-global-tcp-max`` should be increased. Setting both of these options
-   will be a trade-off of CPU for ``conntrack-gc-interval``, and for
-   ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` the amount of memory
-   consumed.
+ * The connection-tracking garbage collector interval is now dynamic. It will
+   automatically  adjust based n on the percentage of the connection tracking
+   table that has been cleared in the last run. The interval will vary between
+   10 seconds and 30 minutes or 12 hours for LRU based maps. This should
+   automatically optimize CPU consumption as much as possible while keeping the
+   connection tracking table utilization below 25%. If needed, the interval can
+   be set to a static interval with the option ``--conntrack-gc-interval``. If
+   connectivity fails and ``cilium monitor --type drop`` shows ``xx drop (CT:
+   Map insertion failed)``, then it is likely that the connection tracking
+   table is filling up and the automatic adjustment of the garbage collector
+   interval is insufficient. Set ``--conntrack-gc-interval`` to an interval
+   lower than the default.  Alternatively, the value for
+   ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` can be increased.
+   Setting both of these options will be a trade-off of CPU for
+   ``conntrack-gc-interval``, and for ``bpf-ct-global-any-max`` and
+   ``bpf-ct-global-tcp-max`` the amount of memory consumed.
 
 .. _1.5_new_options:
 
