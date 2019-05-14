@@ -34,4 +34,6 @@ type IPAM struct {
 
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
+
+	blacklist map[string]string
 }

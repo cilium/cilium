@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
@@ -54,6 +53,7 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 		nodeAddressing: nodeAddressing,
 		config:         c,
 		owner:          map[string]string{},
+		blacklist:      map[string]string{},
 	}
 
 	if c.EnableIPv6 {
@@ -91,8 +91,6 @@ func (ipam *IPAM) reserveLocalRoutes() {
 		return
 	}
 
-	allocRange := ipam.nodeAddressing.IPv4().AllocationCIDR()
-
 	for _, r := range routes {
 		// ignore routes which point to defaults.HostDevice
 		if r.LinkIndex == link.Attrs().Index {
@@ -111,17 +109,9 @@ func (ipam *IPAM) reserveLocalRoutes() {
 			continue
 		}
 
-		log.WithField("route", logfields.Repr(r)).Debug("Considering route")
-
-		if allocRange.Contains(r.Dst.IP) {
-			log.WithFields(logrus.Fields{
-				"route":            r.Dst,
-				logfields.V4Prefix: allocRange,
-			}).Info("Marking local route as no-alloc in node allocation prefix")
-
-			for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
-				ipam.AllocateIP(ip, r.Dst.String())
-			}
+		log.WithField("route", r.Dst).Info("Blacklisting local route as no-alloc")
+		for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
+			ipam.Blacklist(ip, "local route: "+r.Dst.String())
 		}
 	}
 }
@@ -132,4 +122,13 @@ func (ipam *IPAM) ReserveLocalRoutes() {
 	if ipam.IPv4Allocator != nil {
 		ipam.reserveLocalRoutes()
 	}
+}
+
+// Blacklist ensures that a certain IP is never allocated. It is preferred to
+// use Blacklist() instead of allocating the IP as the allocation block can
+// change and suddenly cover the IP to be blacklisted.
+func (ipam *IPAM) Blacklist(ip net.IP, owner string) {
+	ipam.allocatorMutex.Lock()
+	ipam.blacklist[ip.String()] = owner
+	ipam.allocatorMutex.Unlock()
 }

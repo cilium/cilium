@@ -49,6 +49,11 @@ var (
 func (ipam *IPAM) AllocateIP(ip net.IP, owner string) error {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
+
+	if owner, ok := ipam.blacklist[ip.String()]; ok {
+		return fmt.Errorf("IP %s is blacklisted, owned by %s", ip.String(), owner)
+	}
+
 	family := familyIPv4
 	if ip.To4() != nil {
 		if ipam.IPv4Allocator == nil {
@@ -94,17 +99,27 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator *ipallocator.Range
 		return nil, fmt.Errorf("%s allocator not available", family)
 	}
 
-	ip, err = allocator.AllocateNext()
-	if err == nil {
-		log.WithFields(logrus.Fields{
-			"ip":    ip.String(),
-			"owner": owner,
-		}).Debugf("Allocated random IP")
-		ipam.owner[ip.String()] = owner
-		metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
-	}
+	for {
+		ip, err = allocator.AllocateNext()
+		if err != nil {
+			return
+		}
 
-	return
+		if owner, ok := ipam.blacklist[ip.String()]; !ok {
+			log.WithFields(logrus.Fields{
+				"ip":    ip.String(),
+				"owner": owner,
+			}).Debugf("Allocated random IP")
+			ipam.owner[ip.String()] = owner
+			metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
+			return
+		}
+
+		// The allocated IP is blacklisted, do not use it. The
+		// blacklisted IP is now allocated so it won't be allocated in
+		// the next iteration.
+		ipam.owner[ip.String()] = fmt.Sprintf("%s (blacklisted)", owner)
+	}
 }
 
 // AllocateNextFamily allocates the next IP of the requested address family

@@ -513,9 +513,7 @@ func (d *dockerClient) IgnoreRunningWorkloads() {
 		if cIP == nil {
 			continue
 		}
-		if err := allocator.AllocateIP(cIP.IP(), "ignored workload"); err != nil {
-			continue
-		}
+		allocator.Blacklist(cIP.IP(), "ignored docker container: "+cont.ID)
 		// TODO Release this address when the ignored container leaves
 		scopedLog.WithFields(logrus.Fields{
 			logfields.IPAddr: cIP.IP(),

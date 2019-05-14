@@ -17,6 +17,7 @@
 package ipam
 
 import (
+	"net"
 	"testing"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -62,4 +63,27 @@ func (s *IPAMSuite) TestLock(c *C) {
 
 	err = ipam.IPv4Allocator.Release(epipv4.IP())
 	c.Assert(err, IsNil)
+}
+
+func (s *IPAMSuite) TestBlackList(c *C) {
+	fakeAddressing := fake.NewNodeAddressing()
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
+
+	// force copy of first possible IP in allocation range
+	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+	nextIP(ipv4)
+
+	ipam.Blacklist(ipv4, "test")
+	err := ipam.AllocateIP(ipv4, "test")
+	c.Assert(err, Not(IsNil))
+	ipam.ReleaseIP(ipv4)
+
+	// force copy of first possible IP in allocation range
+	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+	nextIP(ipv6)
+
+	ipam.Blacklist(ipv6, "test")
+	err = ipam.AllocateIP(ipv6, "test")
+	c.Assert(err, Not(IsNil))
+	ipam.ReleaseIP(ipv6)
 }
