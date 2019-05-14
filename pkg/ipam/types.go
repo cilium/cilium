@@ -19,6 +19,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Allocator is the interface for an IP allocator implementation
@@ -53,4 +55,13 @@ type IPAM struct {
 	allocatorMutex lock.RWMutex
 
 	blacklist map[string]string
+}
+
+// DebugStatus implements debug.StatusObject to provide debug status collection
+// ability
+func (ipam *IPAM) DebugStatus() string {
+	ipam.allocatorMutex.RLock()
+	str := spew.Sdump(ipam)
+	ipam.allocatorMutex.RUnlock()
+	return str
 }
