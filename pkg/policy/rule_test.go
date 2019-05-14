@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"testing"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
@@ -39,85 +38,6 @@ var (
 	localClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, option.Config.ClusterName)
 	otherClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "non-local")
 )
-
-func (ds *PolicyTestSuite) TestRuleCanReach(c *C) {
-	fooFoo2ToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "foo2"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-	fooToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	rule1 := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(
-							labels.ParseSelectLabel("foo"),
-							labels.ParseSelectLabel("foo2"),
-						),
-					},
-				},
-			},
-		},
-	}
-
-	state := traceState{}
-	c.Assert(rule1.canReachIngress(fooFoo2ToBar, &state), Equals, api.Allowed)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 1)
-	state = traceState{}
-	c.Assert(rule1.canReachIngress(fooToBar, &traceState{}), Equals, api.Undecided)
-	c.Assert(state.selectedRules, Equals, 0)
-	c.Assert(state.matchedRules, Equals, 0)
-
-	// selector: bar
-	// allow: foo
-	// require: baz
-	rule2 := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("foo")),
-					},
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("baz")),
-					},
-				},
-			},
-		},
-	}
-
-	fooBazToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", "baz"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-	bazToBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("baz"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	state = traceState{}
-	c.Assert(rule2.canReachIngress(fooToBar, &state), Equals, api.Denied)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
-
-	state = traceState{}
-	c.Assert(rule2.canReachIngress(bazToBar, &state), Equals, api.Undecided)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
-
-	state = traceState{}
-	c.Assert(rule2.canReachIngress(fooBazToBar, &state), Equals, api.Allowed)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 1)
-}
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
@@ -1096,171 +1016,6 @@ func (ds *PolicyTestSuite) TestEgressRuleRestrictions(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
-func (ds *PolicyTestSuite) TestRuleCanReachFromEntity(c *C) {
-	fromWorld := &SearchContext{
-		From: labels.ParseSelectLabelArray("reserved:world"),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	fromCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", localClusterLabel),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	fromOtherCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("foo", otherClusterLabel),
-		To:   labels.ParseSelectLabelArray("bar"),
-	}
-
-	rule1 := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Ingress: []api.IngressRule{
-				{
-					FromEntities: []api.Entity{
-						api.EntityWorld,
-						api.EntityCluster,
-					},
-				},
-			},
-		},
-	}
-
-	c.Assert(rule1.Sanitize(), IsNil)
-
-	state := traceState{}
-	c.Assert(rule1.canReachIngress(fromWorld, &state), Equals, api.Allowed)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 1)
-	state = traceState{}
-	c.Assert(rule1.canReachIngress(fromCluster, &state), Equals, api.Allowed)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 1)
-	state = traceState{}
-	c.Assert(rule1.canReachIngress(fromOtherCluster, &traceState{}), Equals, api.Undecided)
-	c.Assert(state.selectedRules, Equals, 0)
-	c.Assert(state.matchedRules, Equals, 0)
-}
-
-func (ds *PolicyTestSuite) TestRuleCanReachEntity(c *C) {
-	api.InitEntities(option.Config.ClusterName)
-
-	toWorld := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("reserved:world"),
-	}
-
-	toCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo", localClusterLabel),
-	}
-
-	toOtherCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
-	}
-
-	rule1 := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Egress: []api.EgressRule{
-				{
-					ToEntities: []api.Entity{
-						api.EntityWorld,
-						api.EntityCluster,
-					},
-				},
-			},
-		},
-	}
-
-	c.Assert(rule1.Sanitize(), IsNil)
-
-	state := traceState{}
-	c.Assert(rule1.canReachEgress(toWorld, &state), Equals, api.Allowed)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 1)
-	state = traceState{}
-	c.Assert(rule1.canReachEgress(toCluster, &state), Equals, api.Allowed)
-	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 1)
-	state = traceState{}
-	c.Assert(rule1.canReachEgress(toOtherCluster, &traceState{}), Equals, api.Undecided)
-	c.Assert(state.selectedRules, Equals, 0)
-	c.Assert(state.matchedRules, Equals, 0)
-}
-
-func BenchmarkRuleCanReachEntity(b *testing.B) {
-	api.InitEntities(option.Config.ClusterName)
-
-	toOtherCluster := &SearchContext{
-		From: labels.ParseSelectLabelArray("bar"),
-		To:   labels.ParseSelectLabelArray("foo", otherClusterLabel),
-	}
-	toFooBar := &SearchContext{
-		From: labels.ParseSelectLabelArray("k8s:app=bar", "k8s:namespace=default"),
-		To:   labels.ParseSelectLabelArray("k8s:app=FooBar", "k8s:namespace=default"),
-	}
-	toFooBar2 := &SearchContext{
-		From: labels.ParseSelectLabelArray("k8s:app=bar", "k8s:namespace=default"),
-		To:   labels.ParseSelectLabelArray("k8s:app=FooBar2", "k8s:namespace=default2"),
-	}
-
-	rule1 := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
-			Egress: []api.EgressRule{
-				{
-					ToEntities: []api.Entity{
-						api.EntityWorld,
-						api.EntityCluster,
-					},
-				},
-			},
-		},
-	}
-
-	rule2 := rule{
-		Rule: api.Rule{
-			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("k8s:app=bar"), labels.ParseSelectLabel("k8s:namespace=default")),
-			Egress: []api.EgressRule{
-				{
-					ToEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default2"), labels.ParseSelectLabel("k8s:app=FooBar")),
-						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar4")),
-						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar3")),
-						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar2")),
-						api.NewESFromLabels(labels.ParseSelectLabel("k8s:namespace=default"), labels.ParseSelectLabel("k8s:app=FooBar")),
-					},
-				},
-			},
-		},
-	}
-
-	b.ResetTimer()
-	allowed := 0
-	for i := 0; i < b.N; i++ {
-		state := traceState{}
-		verdict := rule2.canReachEgress(toFooBar, &state)
-		if verdict == api.Allowed {
-			allowed++
-		}
-
-		state = traceState{}
-		verdict = rule2.canReachEgress(toFooBar2, &state)
-		if verdict == api.Allowed {
-			allowed++
-		}
-
-		state = traceState{}
-		verdict = rule1.canReachEgress(toOtherCluster, &state)
-		if verdict == api.Allowed {
-			allowed++
-		}
-	}
-	b.Log("Allowed: ", allowed)
-}
-
 func (ds *PolicyTestSuite) TestPolicyEntityValidationEgress(c *C) {
 	r := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
@@ -1812,15 +1567,6 @@ func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.Endpoints), Equals, 1)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
@@ -1873,15 +1619,6 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.Endpoints), Equals, 1)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
@@ -1917,15 +1654,6 @@ func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
 	buffer := new(bytes.Buffer)
 	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
@@ -1961,15 +1689,6 @@ func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
 	buffer := new(bytes.Buffer)
 	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
