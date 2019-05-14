@@ -26,10 +26,6 @@ import (
 )
 
 // TupleKey6 represents the key for IPv6 entries in the local BPF conntrack map.
-// Address field names are correct for return traffic, i.e., they are reversed
-// compared to the original direction traffic.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type TupleKey6 struct {
 	DestAddr   types.IPv6      `align:"daddr"`
 	SourceAddr types.IPv6      `align:"saddr"`
@@ -111,8 +107,6 @@ func (k TupleKey6) Dump(buffer *bytes.Buffer, reverse bool) bool {
 }
 
 // TupleKey6Global represents the key for IPv6 entries in the global BPF conntrack map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type TupleKey6Global struct {
 	TupleKey6
 }

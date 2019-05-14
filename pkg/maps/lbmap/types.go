@@ -255,22 +255,12 @@ type RevNatValue interface {
 	ToNetwork() RevNatValue
 }
 
-type idx [MaxSeq]uint16
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *idx) DeepCopyInto(out *idx) {
-	copy(out[:], in[:])
-	return
-}
-
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type RRSeqValue struct {
 	// Length of Generated sequence
 	Count uint16
 
 	// Generated Sequence
-	Idx idx
+	Idx [MaxSeq]uint16
 }
 
 func (s *RRSeqValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
