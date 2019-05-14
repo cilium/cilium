@@ -85,8 +85,10 @@ type IdentityAllocatorOwner interface {
 	GetNodeSuffix() string
 }
 
-// InitIdentityAllocator creates the the identity allocator. Only the first
-// invocation of this function will have an effect.
+// InitIdentityAllocator creates the the identity allocator. Only the
+// first invocation of this function will have an effect.  Caller must
+// have initialized well known identities before calling this (by
+// calling identity.InitWellKnownIdentities()).
 func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
@@ -94,8 +96,6 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 	if IdentityAllocator != nil {
 		log.Panic("InitIdentityAllocator() in succession without calling Close()")
 	}
-
-	identity.InitWellKnownIdentities()
 
 	log.Info("Initializing identity allocator")
 
