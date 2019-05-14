@@ -535,6 +535,19 @@
   revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
+  digest = "1:bf40199583e5143d1472fc34d10d6f4b69d97572142acf343b3e43136da40823"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/internal/diff",
+    "cmp/internal/flags",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
+  pruneopts = "NUT"
+  revision = "v0.3.0"
+
+[[projects]]
   branch = "master"
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
   name = "github.com/google/gofuzz"
@@ -1809,6 +1822,7 @@
     "github.com/golang/protobuf/ptypes/duration",
     "github.com/golang/protobuf/ptypes/struct",
     "github.com/golang/protobuf/ptypes/wrappers",
+    "github.com/google/go-cmp/cmp",
     "github.com/google/gopacket",
     "github.com/google/gopacket/layers",
     "github.com/google/gops/agent",
