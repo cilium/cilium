@@ -26,12 +26,6 @@ var (
 		Identity:         identity.ReservedIdentityHost.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
-
-	// worldKey represents an ingress L3 allow from the world.
-	worldKey = Key{
-		Identity:         identity.ReservedIdentityWorld.Uint32(),
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
 )
 
 // MapState is a state of a policy map.
@@ -72,11 +66,11 @@ type MapStateEntry struct {
 	ProxyPort uint16
 }
 
-// DetermineAllowLocalhost determines whether communication should be allowed to
-// the localhost. It inserts the Key corresponding to the localhost in
-// the desiredPolicyKeys if the endpoint is allowed to communicate with the
-// localhost.
-func (keys MapState) DetermineAllowLocalhost(l4Policy *L4Policy) {
+// DetermineAllowLocalhostIngress determines whether communication should be allowed
+// from the localhost. It inserts the Key corresponding to the localhost in
+// the desiredPolicyKeys if the localhost is allowed to communicate with the
+// endpoint.
+func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 
 	if option.Config.AlwaysAllowLocalhost() || (l4Policy != nil && l4Policy.HasRedirect()) {
 		keys[localHostKey] = MapStateEntry{}
