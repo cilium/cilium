@@ -455,6 +455,10 @@ const (
 	// EndpointInterfaceNamePrefix is the prefix name of the interface
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix = "endpoint-interface-name-prefix"
+
+	// BlacklistConflictingRoutes removes all IPs from the IPAM block if a
+	// local route not owned by Cilium conflicts with it
+	BlacklistConflictingRoutes = "blacklist-conflicting-routes"
 )
 
 // FQDNS variables
@@ -914,6 +918,10 @@ type DaemonConfig struct {
 	// EndpointInterfaceNamePrefix is the prefix name of the interface
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix string
+
+	// BlacklistConflictingRoutes removes all IPs from the IPAM block if a
+	// local route not owned by Cilium conflicts with it
+	BlacklistConflictingRoutes bool
 }
 
 var (
@@ -937,6 +945,7 @@ var (
 		SelectiveRegeneration:       defaults.SelectiveRegeneration,
 		LoopbackIPv4:                defaults.LoopbackIPv4,
 		EndpointInterfaceNamePrefix: defaults.EndpointInterfaceNamePrefix,
+		BlacklistConflictingRoutes:  defaults.BlacklistConflictingRoutes,
 	}
 )
 
@@ -1216,6 +1225,7 @@ func (c *DaemonConfig) Populate() {
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = getPrometheusServerAddr()
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
+	c.BlacklistConflictingRoutes = viper.GetBool(BlacklistConflictingRoutes)
 	c.RestoreState = viper.GetBool(Restore)
 	c.RunDir = viper.GetString(StateDir)
 	c.SidecarIstioProxyImage = viper.GetString(SidecarIstioProxyImage)
