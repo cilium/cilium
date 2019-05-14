@@ -69,21 +69,18 @@ var (
 	// Proxy6Map represents the BPF map for IPv6 proxy
 	Proxy6Map = bpf.NewMap(Proxy6MapName,
 		bpf.MapTypeHash,
-		&Proxy6Key{},
 		int(unsafe.Sizeof(Proxy6Key{})),
-		&Proxy6Value{},
 		int(unsafe.Sizeof(Proxy6Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			proxyKey, proxyValue := mapKey.(*Proxy6Key), mapValue.(*Proxy6Value)
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := Proxy6Key{}, Proxy6Value{}
 
-			if _, _, err := bpf.ConvertKeyValue(key, value, proxyKey, proxyValue); err != nil {
+			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
 				return nil, nil, err
 			}
 
-			return proxyKey.ToNetwork(), proxyValue.ToNetwork(), nil
-
+			return k.ToNetwork(), v.ToNetwork(), nil
 		}).WithNonPersistent()
 )
 

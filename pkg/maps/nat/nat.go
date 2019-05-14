@@ -78,34 +78,47 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 	return fmt.Sprintf("%dsec", tsecStart-tsecCreated)
 }
 
+func nat4DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	k, v := tuple.TupleKey4Global{}, NatEntry4{}
+
+	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+		return nil, nil, err
+	}
+	return &k, &v, nil
+}
+
+func nat6DumpParser(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+	k, v := tuple.TupleKey6Global{}, NatEntry6{}
+
+	if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+		return nil, nil, err
+	}
+	return &k, &v, nil
+}
+
 // NewMap instantiates a Map.
 func NewMap(name string, v4 bool) *Map {
+	var parser bpf.DumpParser
 	var sizeKey, sizeVal int
-	var mapKey bpf.MapKey
-	var mapValue bpf.MapValue
 
 	if v4 {
-		mapKey = &tuple.TupleKey4Global{}
-		sizeKey = int(unsafe.Sizeof(tuple.TupleKey4Global{}))
-		mapValue = &NatEntry4{}
+		sizeKey = int(unsafe.Sizeof(tuple.TupleKey4{}))
 		sizeVal = int(unsafe.Sizeof(NatEntry4{}))
+		parser = nat4DumpParser
 	} else {
-		mapKey = &tuple.TupleKey6Global{}
-		sizeKey = int(unsafe.Sizeof(tuple.TupleKey6Global{}))
-		mapValue = &NatEntry6{}
+		sizeKey = int(unsafe.Sizeof(tuple.TupleKey6{}))
 		sizeVal = int(unsafe.Sizeof(NatEntry6{}))
+		parser = nat6DumpParser
 	}
 	return &Map{
 		Map: *bpf.NewMap(
 			name,
 			bpf.MapTypeLRUHash,
-			mapKey,
 			sizeKey,
-			mapValue,
 			sizeVal,
 			MaxEntries,
 			0, 0,
-			bpf.ConvertKeyValue,
+			parser,
 		).WithCache(),
 		v4: v4,
 	}
@@ -147,7 +160,7 @@ func statStartGc(m *Map) gcStats {
 
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
-	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
+	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
 		currentKey := key.(*tuple.TupleKey4Global)
 		err := m.Delete(currentKey)
 		if err != nil {
@@ -162,7 +175,7 @@ func doFlush4(m *Map) gcStats {
 
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
-	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
+	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
 		currentKey := key.(*tuple.TupleKey6Global)
 		err := m.Delete(currentKey)
 		if err != nil {
