@@ -439,92 +439,6 @@ func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *
 	return nil
 }
 
-// canReachIngress returns the decision as to whether the set of labels specified
-// in ctx.From match with the label selectors specified in the ingress rules
-// contained within r.
-func (r *rule) canReachIngress(ctx *SearchContext, state *traceState) api.Decision {
-
-	if !ctx.rulesSelect {
-		if !r.EndpointSelector.Matches(ctx.To) {
-			state.unSelectRule(ctx, ctx.To, r)
-			return api.Undecided
-		}
-	}
-
-	state.selectRule(ctx, r)
-
-	// If a requirement explicitly denies access, we can return.
-	if r.meetsRequirementsIngress(ctx, state) == api.Denied {
-		return api.Denied
-	}
-
-	return r.canReachFromEndpoints(ctx, state)
-}
-
-func (r *rule) canReachFromEndpoints(ctx *SearchContext, state *traceState) api.Decision {
-	// assume requirements have already been analyzed.
-	for _, r := range r.Ingress {
-		for _, sel := range r.GetSourceEndpointSelectors() {
-			if len(sel.MatchExpressions) > 0 {
-				ctx.PolicyTrace("    Requires %+v", sel.MatchExpressions)
-			}
-			ctx.PolicyTrace("    Allows from labels %+v", sel.MatchLabels)
-			if sel.Matches(ctx.From) {
-				ctx.PolicyTrace("      Found all required labels")
-				if len(r.ToPorts) == 0 {
-					ctx.PolicyTrace("+       No L4 restrictions\n")
-					state.matchedRules++
-					return api.Allowed
-				}
-				ctx.PolicyTrace("        Rule restricts traffic to specific L4 destinations; deferring policy decision to L4 policy stage\n")
-			} else {
-				ctx.PolicyTrace("      Labels %v not found\n", ctx.From)
-			}
-		}
-	}
-	return api.Undecided
-}
-
-func (r *rule) canReachToEndpoints(ctx *SearchContext, state *traceState) api.Decision {
-	// assume requirements have already been analyzed.
-	for _, r := range r.Egress {
-		for _, sel := range r.GetDestinationEndpointSelectors() {
-			ctx.PolicyTrace("    Allows to labels %+v", sel)
-			if sel.Matches(ctx.To) {
-				ctx.PolicyTrace("      Found all required labels")
-				if len(r.ToPorts) == 0 {
-					ctx.PolicyTrace("+       No L4 restrictions\n")
-					state.matchedRules++
-					return api.Allowed
-				}
-				ctx.PolicyTrace("        Rule restricts traffic from specific L4 destinations; deferring policy decision to L4 policy stage\n")
-			} else {
-				ctx.PolicyTrace("      Labels %v not found\n", ctx.To)
-			}
-		}
-	}
-	return api.Undecided
-}
-
-// meetsRequirementsIngress returns whether the labels in ctx.From do not
-// meet the requirements in the provided rule. If a rule does meet the
-// requirements in the rule, that does not mean that the rule allows traffic
-// from the labels in ctx.From, merely that the rule does not deny it.
-func (r *rule) meetsRequirementsIngress(ctx *SearchContext, state *traceState) api.Decision {
-	for _, r := range r.Ingress {
-		for _, sel := range r.FromRequires {
-			ctx.PolicyTrace("    Requires from labels %+v", sel)
-			if !sel.Matches(ctx.From) {
-				ctx.PolicyTrace("-     Labels %v not found\n", ctx.From)
-				state.constrainedRules++
-				return api.Denied
-			}
-			ctx.PolicyTrace("+     Found all required labels\n")
-		}
-	}
-	return api.Undecided
-}
-
 func (r *rule) matches(securityIdentity *identity.Identity) bool {
 	r.metadata.Mutex.Lock()
 	defer r.metadata.Mutex.Unlock()
@@ -545,46 +459,6 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 }
 
 // ****************** EGRESS POLICY ******************
-
-// canReachEgress returns the decision as to whether the set of labels specified
-// in ctx.To match with the label selectors specified in the egress rules
-// contained within r.
-func (r *rule) canReachEgress(ctx *SearchContext, state *traceState) api.Decision {
-
-	if !ctx.rulesSelect {
-		if !r.EndpointSelector.Matches(ctx.From) {
-			state.unSelectRule(ctx, ctx.From, r)
-			return api.Undecided
-		}
-	}
-
-	state.selectRule(ctx, r)
-
-	if r.meetsRequirementsEgress(ctx, state) == api.Denied {
-		return api.Denied
-	}
-
-	return r.canReachToEndpoints(ctx, state)
-}
-
-// meetsRequirementsEgress returns whether the labels in ctx.To do not
-// meet the requirements in the provided rule. If a rule does meet the
-// requirements in the rule, that does not mean that the rule allows traffic
-// from the labels in ctx.To, merely that the rule does not deny it.
-func (r *rule) meetsRequirementsEgress(ctx *SearchContext, state *traceState) api.Decision {
-	for _, r := range r.Egress {
-		for _, sel := range r.ToRequires {
-			ctx.PolicyTrace("    Requires from labels %+v", sel)
-			if !sel.Matches(ctx.To) {
-				ctx.PolicyTrace("-     Labels %v not found\n", ctx.To)
-				state.constrainedRules++
-				return api.Denied
-			}
-			ctx.PolicyTrace("+     Found all required labels\n")
-		}
-	}
-	return api.Undecided
-}
 
 func mergeEgress(ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, toPorts []api.PortRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	found := 0
