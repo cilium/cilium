@@ -17,14 +17,11 @@ package ipam
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"net"
 
 	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
-	k8sAPI "k8s.io/kubernetes/pkg/apis/core"
-	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 const (
@@ -60,7 +57,7 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) error {
 			return ErrIPv4Disabled
 		}
 
-		if err := ipam.IPv4Allocator.Allocate(ip); err != nil {
+		if err := ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
 			return err
 		}
 	} else {
@@ -69,7 +66,7 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) error {
 			return ErrIPv6Disabled
 		}
 
-		if err := ipam.IPv6Allocator.Allocate(ip); err != nil {
+		if err := ipam.IPv6Allocator.Allocate(ip, owner); err != nil {
 			return err
 		}
 	}
@@ -94,13 +91,13 @@ func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
 	return ipam.AllocateIP(ip, owner)
 }
 
-func (ipam *IPAM) allocateNextFamily(family Family, allocator *ipallocator.Range, owner string) (ip net.IP, err error) {
+func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner string) (ip net.IP, err error) {
 	if allocator == nil {
 		return nil, fmt.Errorf("%s allocator not available", family)
 	}
 
 	for {
-		ip, err = allocator.AllocateNext()
+		ip, err = allocator.AllocateNext(owner)
 		if err != nil {
 			return
 		}
@@ -208,41 +205,27 @@ func (ipam *IPAM) ReleaseIPString(ipAddr string) error {
 }
 
 // Dump dumps the list of allocated IP addresses
-func (ipam *IPAM) Dump() (map[string]string, map[string]string) {
+func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string) {
 	ipam.allocatorMutex.RLock()
 	defer ipam.allocatorMutex.RUnlock()
 
-	allocv4 := map[string]string{}
-	ralv4 := k8sAPI.RangeAllocation{}
 	if ipam.IPv4Allocator != nil {
-		ipam.IPv4Allocator.Snapshot(&ralv4)
-		origIP := big.NewInt(0).SetBytes(ipam.nodeAddressing.IPv4().AllocationCIDR().IP.To4())
-		v4Bits := big.NewInt(0).SetBytes(ralv4.Data)
-		for i := 0; i < v4Bits.BitLen(); i++ {
-			if v4Bits.Bit(i) != 0 {
-				ip := net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String()
-				owner, _ := ipam.owner[ip]
-				// If owner is not available, report IP but leave owner empty
-				allocv4[ip] = owner
-			}
+		allocv4 = ipam.IPv4Allocator.Dump()
+		for ip := range allocv4 {
+			owner, _ := ipam.owner[ip]
+			// If owner is not available, report IP but leave owner empty
+			allocv4[ip] = owner
 		}
 	}
 
-	allocv6 := map[string]string{}
-	ralv6 := k8sAPI.RangeAllocation{}
 	if ipam.IPv6Allocator != nil {
-		ipam.IPv6Allocator.Snapshot(&ralv6)
-		origIP := big.NewInt(0).SetBytes(ipam.nodeAddressing.IPv6().AllocationCIDR().IP)
-		v6Bits := big.NewInt(0).SetBytes(ralv6.Data)
-		for i := 0; i < v6Bits.BitLen(); i++ {
-			if v6Bits.Bit(i) != 0 {
-				ip := net.IP(big.NewInt(0).Add(origIP, big.NewInt(int64(uint(i+1)))).Bytes()).String()
-				owner, _ := ipam.owner[ip]
-				// If owner is not available, report IP but leave owner empty
-				allocv6[ip] = owner
-			}
+		allocv6 = ipam.IPv6Allocator.Dump()
+		for ip := range allocv6 {
+			owner, _ := ipam.owner[ip]
+			// If owner is not available, report IP but leave owner empty
+			allocv6[ip] = owner
 		}
 	}
 
-	return allocv4, allocv6
+	return
 }

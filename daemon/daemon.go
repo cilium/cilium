@@ -1098,10 +1098,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	}
 
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	log.WithFields(logrus.Fields{
-		logfields.V4Prefix: dp.LocalNodeAddressing().IPv4().AllocationCIDR(),
-		logfields.V6Prefix: dp.LocalNodeAddressing().IPv6().AllocationCIDR(),
-	}).Info("Initializing IPAM")
 	d.ipam = ipam.NewIPAM(dp.LocalNodeAddressing(), ipam.Configuration{
 		EnableIPv4: option.Config.EnableIPv4,
 		EnableIPv6: option.Config.EnableIPv6,
