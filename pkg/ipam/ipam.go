@@ -41,6 +41,14 @@ const (
 	IPv4 Family = "ipv4"
 )
 
+// DeriveFamily derives the address family of an IP
+func DeriveFamily(ip net.IP) Family {
+	if ip.To4() == nil {
+		return IPv6
+	}
+	return IPv4
+}
+
 // Configuration is the configuration of an IP address manager
 type Configuration struct {
 	EnableIPv4 bool
