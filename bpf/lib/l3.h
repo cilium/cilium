@@ -98,7 +98,7 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	update_metrics(skb->len, direction, REASON_FORWARDED);
 #endif
 
-#ifdef USE_BPF_PROG_FOR_INGRESS_POLICY
+#if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 	skb->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
@@ -136,7 +136,7 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	update_metrics(skb->len, direction, REASON_FORWARDED);
 #endif
 
-#ifdef USE_BPF_PROG_FOR_INGRESS_POLICY
+#if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 	skb->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else

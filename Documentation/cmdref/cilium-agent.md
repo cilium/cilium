@@ -58,6 +58,7 @@ cilium-agent [flags]
       --flannel-manage-existing-containers         Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel. Require Cilium to be running in the hostPID.
       --flannel-master-device string               Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
       --flannel-uninstall-on-exit                  When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
+      --force-local-policy-eval-at-source          Force policy evaluation of all local communication at the source endpoint (default true)
   -h, --help                                       help for cilium-agent
       --http-idle-timeout uint                     Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                 Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
