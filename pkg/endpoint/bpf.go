@@ -171,7 +171,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
-				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup)
+				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
 				if err != nil {
 					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
 					return err, nil, nil
@@ -179,7 +179,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
 
-				proxyID := e.ProxyID(&l4)
+				proxyID := e.ProxyID(l4)
 				if e.realizedRedirects == nil {
 					e.realizedRedirects = make(map[string]uint16)
 				}
@@ -211,7 +211,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToKeys(direction, *e.prevIdentityCache)
+			keysFromFilter := l4.ToKeys(direction)
 
 			for _, keyFromFilter := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {

@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kafka"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -204,41 +203,31 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegis
 // canAccess determines if the kafka message req sent by identity is allowed to
 // be forwarded according to the rules configured on kafkaRedirect
 func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, srcIdentity identity.NumericIdentity) bool {
-	var id *identity.Identity
-
-	if srcIdentity != 0 {
-		id = cache.LookupIdentityByID(srcIdentity)
-		if id == nil {
-			log.WithFields(logrus.Fields{
-				logfields.Request:  req.String(),
-				logfields.Identity: srcIdentity,
-			}).Warn("Unable to resolve identity to labels")
-		}
-	}
-
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Request:  req.String(),
-		logfields.Identity: id,
+		logfields.Request: req.String(),
+		"NumericIdentity": srcIdentity,
 	})
 
 	k.redirect.mutex.RLock()
-	rules := k.redirect.rules.GetRelevantRules(id)
+	rules := k.redirect.rules.GetRelevantRulesForKafka(srcIdentity)
 	k.redirect.mutex.RUnlock()
 
-	if rules.Kafka == nil {
+	if len(rules) == 0 {
 		flowdebug.Log(scopedLog, "No Kafka rules matching identity, rejecting")
 		return false
 	}
 
-	b, err := json.Marshal(rules.Kafka)
-	if err != nil {
-		flowdebug.Log(scopedLog, "Error marshalling kafka rules to apply")
-		return false
-	} else {
-		flowdebug.Log(scopedLog.WithField("rule", string(b)), "Applying rule")
+	if flowdebug.Enabled() {
+		b, err := json.Marshal(rules)
+		if err != nil {
+			flowdebug.Log(scopedLog, "Error marshalling kafka rules to apply")
+			return false
+		} else {
+			flowdebug.Log(scopedLog.WithField("rule", string(b)), "Applying rule")
+		}
 	}
 
-	return req.MatchesRule(rules.Kafka)
+	return req.MatchesRule(rules)
 }
 
 // kafkaLogRecord wraps an accesslog.LogRecord so that we can define methods with a receiver

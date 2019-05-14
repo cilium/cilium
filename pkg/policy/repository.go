@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,6 +52,10 @@ type Repository struct {
 	// can include queueing endpoint regenerations, policy revision increments
 	// for endpoints, etc.
 	RuleReactionQueue *eventqueue.EventQueue
+
+	// SelectorCache tracks the selectors used in the policies
+	// resolved from the repository.
+	SelectorCache *SelectorCache
 }
 
 // NewPolicyRepository allocates a new policy repository
@@ -63,6 +68,7 @@ func NewPolicyRepository() *Repository {
 		revision:              1,
 		RepositoryChangeQueue: repoChangeQueue,
 		RuleReactionQueue:     ruleReactionQueue,
+		SelectorCache:         NewSelectorCache(cache.GetIdentityCache()),
 	}
 }
 
@@ -94,9 +100,10 @@ func (state *traceState) trace(rules ruleSlice, ctx *SearchContext) {
 	}
 }
 
+// This belongs to l4.go as this manipulates L4Filters
 func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
-	ruleLabels labels.LabelArray, l4Policy L4PolicyMap) {
-	for k, filter := range l4Policy {
+	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache *SelectorCache) {
+	for _, filter := range l4Policy {
 		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
 			continue
 		}
@@ -106,7 +113,8 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 		case ParserTypeHTTP:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				}
 			}
@@ -115,7 +123,8 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			for _, sel := range endpoints {
 				rule := api.PortRuleKafka{}
 				rule.Sanitize()
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					Kafka: []api.PortRuleKafka{rule},
 				}
 			}
@@ -124,22 +133,23 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			for _, sel := range endpoints {
 				rule := api.PortRuleDNS{}
 				rule.Sanitize()
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					DNS: []api.PortRuleDNS{rule},
 				}
 			}
 		default:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					L7Proto: filter.L7Parser.String(),
 					L7:      []api.PortRuleL7{},
 				}
 			}
 		}
-		filter.Endpoints = append(filter.Endpoints, endpoints...)
 		filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
-		l4Policy[k] = filter
+		// l4Policy[k] = filter // pointer now, no need to reset
 	}
 }
 
@@ -151,9 +161,13 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 // rule found in the repository takes precedence.
 //
 // TODO: Coalesce l7 rules?
+//
+// Caller must release resources by calling Delete() on the returned map!
+//
+// Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 
-	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision())
+	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision(), p.SelectorCache)
 	if err != nil {
 		return nil, err
 	}
@@ -168,9 +182,11 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 //
+// Caller must release resources by calling Delete() on the returned map!
+//
 // NOTE: This is only called from unit tests.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision())
+	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.SelectorCache)
 
 	if err != nil {
 		return nil, err
@@ -206,6 +222,8 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Ingress verdict: %s", verdict.String())
+	ingressPolicy.Delete(p.SelectorCache)
+
 	return verdict
 }
 
@@ -237,6 +255,7 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Egress verdict: %s", verdict.String())
+	egressPolicy.Delete(p.SelectorCache)
 	return verdict
 }
 
@@ -583,7 +602,7 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision())
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision(), p.SelectorCache)
 		if err != nil {
 			return nil, err
 		}
@@ -598,7 +617,7 @@ func (p *Repository) ResolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision())
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision(), p.SelectorCache)
 		if err != nil {
 			return nil, err
 		}
