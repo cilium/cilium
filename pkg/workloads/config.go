@@ -92,7 +92,7 @@ func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string) 
 }
 
 type allocatorInterface interface {
-	AllocateIP(ip net.IP, owner string) error
+	Blacklist(ip net.IP, owner string)
 }
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it

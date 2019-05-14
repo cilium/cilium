@@ -297,9 +297,7 @@ func (c *criClient) IgnoreRunningWorkloads() {
 		if cIP == nil {
 			continue
 		}
-		if err := allocator.AllocateIP(cIP.IP(), "ignored workload"); err != nil {
-			continue
-		}
+		allocator.Blacklist(cIP.IP(), "ignored container: "+pod.GetId())
 		//TODO Release this address when the ignored container leaves
 		scopedLog.WithFields(logrus.Fields{
 			logfields.IPAddr: cIP.IP(),

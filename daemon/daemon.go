@@ -902,19 +902,10 @@ func deleteHostDevice() {
 }
 
 func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
-	// Reserve the IPv4 external node IP within the allocation range if
-	// required.
-	allocRange := family.AllocationCIDR()
-	nodeIP := family.PrimaryExternal()
-	if allocRange.Contains(nodeIP) {
-		err = d.ipam.AllocateIP(nodeIP, "node")
-		if err != nil {
-			err = fmt.Errorf("Unable to allocate external IPv4 node IP %s from allocation range %s: %s",
-				nodeIP, allocRange, err)
-			return
-		}
-	}
+	// Blacklist allocation of the external IP
+	d.ipam.Blacklist(family.PrimaryExternal(), "node-ip")
 
+	allocRange := family.AllocationCIDR()
 	routerIP = family.Router()
 	if routerIP != nil && !allocRange.Contains(routerIP) {
 		log.Warningf("Detected allocation CIDR change to %s, previous router IP %s", allocRange, routerIP)
