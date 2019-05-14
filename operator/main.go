@@ -58,6 +58,7 @@ var (
 	shutdownSignal      = make(chan struct{})
 	synchronizeServices bool
 	enableCepGC         bool
+	synchronizeNodes    bool
 
 	ciliumK8sClient clientset.Interface
 )
@@ -101,6 +102,7 @@ func init() {
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
 
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
+	flags.BoolVar(&synchronizeNodes, "synchronize-k8s-nodes", true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
@@ -142,17 +144,34 @@ func initConfig() {
 	viper.SetConfigName("cilium-operator")
 }
 
+func requiresKVstore() bool {
+	if identityGCInterval != time.Duration(0) {
+		return true
+	}
+
+	switch {
+	case synchronizeServices, synchronizeNodes:
+		return true
+	}
+
+	return false
+}
+
 func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
 	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
-	if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
+	if requiresKVstore() {
+		scopedLog := log.WithFields(logrus.Fields{
 			"kvstore": kvStore,
 			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
-		}).Fatal("Unable to setup kvstore")
+		})
+		scopedLog.Info("Connecting to kvstore...")
+		if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
+			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
+		}
 	}
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
@@ -175,8 +194,10 @@ func runOperator(cmd *cobra.Command) {
 		enableCiliumEndpointSyncGC()
 	}
 
-	if err := runNodeWatcher(); err != nil {
-		log.WithError(err).Error("Unable to setup node watcher")
+	if synchronizeNodes {
+		if err := runNodeWatcher(); err != nil {
+			log.WithError(err).Error("Unable to setup node watcher")
+		}
 	}
 
 	if identityGCInterval != time.Duration(0) {
