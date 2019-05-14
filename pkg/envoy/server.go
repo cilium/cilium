@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
+	envoy_api_v2_endpoint "github.com/cilium/proxy/go/envoy/api/v2/endpoint"
 	envoy_api_v2_listener "github.com/cilium/proxy/go/envoy/api/v2/listener"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	envoy_config_bootstrap_v2 "github.com/cilium/proxy/go/envoy/config/bootstrap/v2"
@@ -477,11 +478,20 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_STATIC},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					LbPolicy:             envoy_api_v2.Cluster_ROUND_ROBIN,
-					Hosts: []*envoy_api_v2_core.Address{
-						{
-							Address: &envoy_api_v2_core.Address_Pipe{
-								Pipe: &envoy_api_v2_core.Pipe{Path: xdsSock}},
-						},
+					LoadAssignment: &envoy_api_v2.ClusterLoadAssignment{
+						ClusterName: "xds-grpc-cilium",
+						Endpoints: []*envoy_api_v2_endpoint.LocalityLbEndpoints{{
+							LbEndpoints: []*envoy_api_v2_endpoint.LbEndpoint{{
+								HostIdentifier: &envoy_api_v2_endpoint.LbEndpoint_Endpoint{
+									Endpoint: &envoy_api_v2_endpoint.Endpoint{
+										Address: &envoy_api_v2_core.Address{
+											Address: &envoy_api_v2_core.Address_Pipe{
+												Pipe: &envoy_api_v2_core.Pipe{Path: xdsSock}},
+										},
+									},
+								},
+							}},
+						}},
 					},
 					Http2ProtocolOptions: &envoy_api_v2_core.Http2ProtocolOptions{},
 				},
