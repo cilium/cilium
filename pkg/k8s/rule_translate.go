@@ -52,8 +52,6 @@ func (k RuleTranslator) Translate(r *api.Rule, result *policy.TranslationResult)
 // TranslateEgress populates/depopulates egress rules with ToCIDR entries based
 // on toService entries
 func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
-
-	defer r.SetAggregatedSelectors()
 	err := k.depopulateEgress(r, result)
 	if err != nil {
 		return err

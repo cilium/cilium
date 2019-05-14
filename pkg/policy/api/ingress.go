@@ -108,34 +108,6 @@ type IngressRule struct {
 	//
 	// +optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
-
-	aggregatedSelectors EndpointSelectorSlice
-}
-
-// SetAggregatedSelectors creates a single slice containing all of the following
-// fields within the IngressRule, converted to EndpointSelector, to be stored
-// within the IngressRule for easy lookup while performing policy evaluation
-// for the rule:
-// * FromEndpoints
-// * FromEntities
-// * FromCIDR
-// * FromCIDRSet
-func (i *IngressRule) SetAggregatedSelectors() {
-	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.FromEntities)+len(i.FromCIDRSet)+len(i.FromCIDR))
-	res = append(res, i.FromEndpoints...)
-	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
-	i.aggregatedSelectors = res
-}
-
-// GetSourceEndpointSelectors returns a slice of endpoints selectors covering
-// all L3 source selectors of the ingress rule
-func (i *IngressRule) GetSourceEndpointSelectors() EndpointSelectorSlice {
-	if i.aggregatedSelectors == nil {
-		i.SetAggregatedSelectors()
-	}
-	return i.aggregatedSelectors
 }
 
 // GetSourceEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
