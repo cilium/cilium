@@ -21,15 +21,19 @@ import (
 	"math"
 	"net"
 	"os"
+	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -549,4 +553,71 @@ func Exists(e CtEndpoint, ipv4, ipv6 bool) bool {
 	}
 
 	return result
+}
+
+var cachedGCInterval time.Duration
+
+// GetInterval returns the interval adjusted based on the deletion ratio of the
+// last run
+func GetInterval(mapType bpf.MapType, maxDeleteRatio float64) (interval time.Duration) {
+	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
+		interval = val
+		return
+	}
+
+	if interval = cachedGCInterval; interval == time.Duration(0) {
+		interval = defaults.ConntrackGCStartingInterval
+	}
+
+	return calculateInterval(mapType, interval, maxDeleteRatio)
+}
+
+func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
+	interval = prevInterval
+
+	if maxDeleteRatio == 0.0 {
+		return
+	}
+
+	switch {
+	case maxDeleteRatio > 0.25:
+		if maxDeleteRatio > 0.9 {
+			maxDeleteRatio = 0.9
+		}
+		// 25%..90% => 1.3x..10x shorter
+		interval = time.Duration(float64(interval) * (1.0 - maxDeleteRatio)).Round(time.Second)
+
+		if interval < defaults.ConntrackGCMinInterval {
+			interval = defaults.ConntrackGCMinInterval
+		}
+
+	case maxDeleteRatio < 0.05:
+		// When less than 5% of entries were deleted, increase the
+		// interval. Use a simple 1.5x multiplier to start growing slowly
+		// as a new node may not be seeing workloads yet and thus the
+		// scan will return a low deletion ratio at first.
+		interval = time.Duration(float64(interval) * 1.5).Round(time.Second)
+
+		switch mapType {
+		case bpf.MapTypeLRUHash:
+			if interval > defaults.ConntrackGCMaxLRUInterval {
+				interval = defaults.ConntrackGCMaxLRUInterval
+			}
+		default:
+			if interval > defaults.ConntrackGCMaxInterval {
+				interval = defaults.ConntrackGCMaxInterval
+			}
+		}
+	}
+
+	if interval != prevInterval {
+		log.WithFields(logrus.Fields{
+			"newInterval": interval,
+			"deleteRatio": maxDeleteRatio,
+		}).Info("Conntrack garbage collector interval recalculated")
+	}
+
+	cachedGCInterval = interval
+
+	return
 }
