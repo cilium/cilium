@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
 var (
@@ -65,12 +65,17 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 		blacklist:      map[string]string{},
 	}
 
+	log.WithFields(logrus.Fields{
+		logfields.V4Prefix: nodeAddressing.IPv4().AllocationCIDR(),
+		logfields.V6Prefix: nodeAddressing.IPv6().AllocationCIDR(),
+	}).Info("Initializing hostscope IPAM")
+
 	if c.EnableIPv6 {
-		ipam.IPv6Allocator = ipallocator.NewCIDRRange(nodeAddressing.IPv6().AllocationCIDR().IPNet)
+		ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet)
 	}
 
 	if c.EnableIPv4 {
-		ipam.IPv4Allocator = ipallocator.NewCIDRRange(nodeAddressing.IPv4().AllocationCIDR().IPNet)
+		ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 	}
 
 	return ipam

@@ -58,7 +58,7 @@ func (s *IPAMSuite) TestLock(c *C) {
 	c.Assert(err, IsNil)
 
 	// Let's allocate the IP first so we can see the tests failing
-	err = ipam.IPv4Allocator.Allocate(epipv4.IP())
+	err = ipam.IPv4Allocator.Allocate(epipv4.IP(), "test")
 	c.Assert(err, IsNil)
 
 	err = ipam.IPv4Allocator.Release(epipv4.IP())
