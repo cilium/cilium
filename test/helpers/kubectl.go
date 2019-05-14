@@ -556,11 +556,15 @@ func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired in
 			return false
 		}
 
+		var required int
+
 		if minRequired == 0 {
-			minRequired = len(podList.Items)
+			required = len(podList.Items)
+		} else {
+			required = minRequired
 		}
 
-		if len(podList.Items) < minRequired {
+		if len(podList.Items) < required {
 			return false
 		}
 
@@ -585,7 +589,7 @@ func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired in
 			currScheduled++
 		}
 
-		return currScheduled >= minRequired
+		return currScheduled >= required
 	}
 
 	return WithTimeout(
