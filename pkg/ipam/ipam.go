@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
@@ -127,6 +128,10 @@ func (ipam *IPAM) reserveLocalRoutes() {
 // ReserveLocalRoutes walks through local routes/subnets and reserves them in
 // the allocator pool in case of overlap
 func (ipam *IPAM) ReserveLocalRoutes() {
+	if !option.Config.BlacklistConflictingRoutes {
+		return
+	}
+
 	if ipam.IPv4Allocator != nil {
 		ipam.reserveLocalRoutes()
 	}
