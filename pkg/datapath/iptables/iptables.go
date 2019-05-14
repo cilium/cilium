@@ -599,24 +599,27 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				"-j", "RETURN"}, false); err != nil {
 				return err
 			}
-			// Exclude crypto traffic from the masquarade rules
-			// Crypto traffic does not need to hit any other rules in the table,
-			// so we can ACCEPT for the nat table.
-			if err := runProg("iptables", []string{
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-m", "mark", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-				"-m", "comment", "--comment", "exclude encrypt from masquerade",
-				"-j", "ACCEPT"}, false); err != nil {
-				return err
-			}
-			if err := runProg("iptables", []string{
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-m", "mark", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
-				"-m", "comment", "--comment", "exclude decrypt from masquerade",
-				"-j", "ACCEPT"}, false); err != nil {
-				return err
+
+			if option.Config.EnableIPSec {
+				// Exclude crypto traffic from the masquarade rules
+				// Crypto traffic does not need to hit any other rules in the table,
+				// so we can ACCEPT for the nat table.
+				if err := runProg("iptables", []string{
+					"-t", "nat",
+					"-A", ciliumPostNatChain,
+					"-m", "mark", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
+					"-m", "comment", "--comment", "exclude encrypt from masquerade",
+					"-j", "ACCEPT"}, false); err != nil {
+					return err
+				}
+				if err := runProg("iptables", []string{
+					"-t", "nat",
+					"-A", ciliumPostNatChain,
+					"-m", "mark", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
+					"-m", "comment", "--comment", "exclude decrypt from masquerade",
+					"-j", "ACCEPT"}, false); err != nil {
+					return err
+				}
 			}
 
 			// Exclude proxy return traffic from the masquarade rules
@@ -703,8 +706,10 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		}
 	}
 
-	if err := addCiliumXfrmRules(); err != nil {
-		return fmt.Errorf("cannot install xfrm rules: %s", err)
+	if option.Config.EnableIPSec {
+		if err := addCiliumXfrmRules(); err != nil {
+			return fmt.Errorf("cannot install xfrm rules: %s", err)
+		}
 	}
 
 	for _, c := range ciliumChains {
