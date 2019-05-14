@@ -31,11 +31,7 @@ const (
 // CountIPsInCIDR takes a RFC4632/RFC4291-formatted IPv4/IPv6 CIDR and
 // determines how many IP addresses reside within that CIDR.
 // Returns 0 if the input CIDR cannot be parsed.
-func CountIPsInCIDR(cidr string) int {
-	_, ipnet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return 0
-	}
+func CountIPsInCIDR(ipnet *net.IPNet) int {
 	subnet, size := ipnet.Mask.Size()
 	if subnet == size {
 		return 1

@@ -42,7 +42,9 @@ func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 		nextIP(ipv6)
 	}
 
-	allocv4, allocv6 := ipam.Dump()
+	allocv4, allocv6, status := ipam.Dump()
+	c.Assert(status, Not(Equals), "")
+
 	// Test the format of the dumped ip addresses
 	for ip := range allocv4 {
 		c.Assert(net.ParseIP(ip), NotNil)

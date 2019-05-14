@@ -2044,6 +2044,9 @@ func init() {
           "items": {
             "type": "string"
           }
+        },
+        "status": {
+          "type": "string"
         }
       }
     },
@@ -4965,6 +4968,9 @@ func init() {
           "items": {
             "type": "string"
           }
+        },
+        "status": {
+          "type": "string"
         }
       }
     },

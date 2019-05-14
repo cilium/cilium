@@ -36,8 +36,10 @@ type Allocator interface {
 	AllocateNext(owner string) (net.IP, error)
 
 	// Dump returns a map of all allocated IPs with the IP represented as
-	// key in the map
-	Dump() map[string]string
+	// key in the map. Dump must also provide a status one-liner to
+	// represent the overall status, e.g. number of IPs allocated and
+	// overall health information if available.
+	Dump() (map[string]string, string)
 }
 
 // Config is the IPAM configuration used for a particular IPAM type.
