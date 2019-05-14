@@ -75,7 +75,7 @@ func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	GenerateNumIdentities(3000)
 	testSelectorCache.UpdateIdentities(identityCache, nil)
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 	rulez, _ := repo.AddList(GenerateNumRules(1000))
 
 	epSet := NewEndpointSet(5)
@@ -168,8 +168,8 @@ func (d DummyOwner) GetSecurityIdentity() *identity.Identity {
 func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		ip, _ := repo.ResolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, testSelectorCache)
+		ip, _ := repo.resolvePolicyLocked(fooIdentity)
+		_ = ip.DistillPolicy(DummyOwner{})
 	}
 }
 
@@ -183,7 +183,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -210,13 +210,14 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-	identityPolicy, err := repo.ResolvePolicyLocked(fooIdentity)
+	selectorPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := identityPolicy.DistillPolicy(DummyOwner{}, testSelectorCache)
+	policy := selectorPolicy.DistillPolicy(DummyOwner{})
 
 	expectedEndpointPolicy := EndpointPolicy{
-		SelectorPolicy: &SelectorPolicy{
-			Revision: repo.GetRevision(),
+		selectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Ingress: L4PolicyMap{
 					"80/TCP": {
@@ -267,7 +268,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
 
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -295,16 +296,17 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 
-	identityPolicy, err := repo.ResolvePolicyLocked(fooIdentity)
+	selectorPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := identityPolicy.DistillPolicy(DummyOwner{}, testSelectorCache)
+	policy := selectorPolicy.DistillPolicy(DummyOwner{})
 
 	cachedSelectorHost := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	c.Assert(cachedSelectorHost, Not(IsNil))
 
 	expectedEndpointPolicy := EndpointPolicy{
-		SelectorPolicy: &SelectorPolicy{
-			Revision: repo.GetRevision(),
+		selectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Ingress: L4PolicyMap{
 					"80/TCP": {

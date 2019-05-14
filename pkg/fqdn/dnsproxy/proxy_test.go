@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/miekg/dns"
 	. "gopkg.in/check.v1"
@@ -35,6 +36,7 @@ func Test(t *testing.T) {
 }
 
 type DNSProxyTestSuite struct {
+	repo         *policy.Repository
 	dnsTCPClient *dns.Client
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
@@ -77,13 +79,14 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
+	s.repo = policy.NewPolicyRepository()
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 100 * time.Millisecond, SingleInflight: true}
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
 	proxy, err := StartDNSProxy("", 0,
 		func(ip net.IP) (*endpoint.Endpoint, error) {
-			ep := endpoint.NewEndpointWithState(123, endpoint.StateReady)
+			ep := endpoint.NewEndpointWithState(s.repo, 123, endpoint.StateReady)
 			return ep, nil
 		},
 		func(lookupTime time.Time, ep *endpoint.Endpoint, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error {

@@ -135,7 +135,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
-	l4IngressPolicy.Delete(repo.SelectorCache)
+	l4IngressPolicy.Delete(repo.GetSelectorCache())
 
 	// Case1B: implicitly wildcard all endpoints.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
@@ -178,7 +178,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
-	l4IngressPolicy.Delete(repo.SelectorCache)
+	l4IngressPolicy.Delete(repo.GetSelectorCache())
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
@@ -300,7 +300,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
-	l4IngressPolicy.Delete(repo.SelectorCache)
+	l4IngressPolicy.Delete(repo.GetSelectorCache())
 }
 
 // Case 3: allow all at L3 in both rules. Both rules have same parser type and

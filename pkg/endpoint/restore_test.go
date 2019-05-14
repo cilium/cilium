@@ -22,7 +22,7 @@ import (
 
 func (s *EndpointSuite) TesttransformEndpointForDowngrade(c *C) {
 	/* Cilium 1.2 converted BoolOptions -> IntOptions. */
-	e := NewEndpointWithState(42, StateReady)
+	e := NewEndpointWithState(s.repo, 42, StateReady)
 	e.Options.Opts["foo"] = 0
 	e.Options.Opts["bar"] = 1
 	e.Options.Opts["baz"] = 2

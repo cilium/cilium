@@ -42,7 +42,9 @@ var (
 // Hook up gocheck into the "go test" runner.
 func Test(t *testing.T) { TestingT(t) }
 
-type EndpointSuite struct{}
+type EndpointSuite struct {
+	repo *policy.Repository
+}
 
 var _ = Suite(&EndpointSuite{})
 
@@ -57,6 +59,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	cache.InitIdentityAllocator(&testIdentityAllocator{})
+	s.repo = policy.NewPolicyRepository()
 }
 
 func (s *EndpointSuite) TearDownTest(c *C) {
@@ -164,7 +167,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(100, StateCreating)
+	e := NewEndpointWithState(s.repo, 100, StateCreating)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -188,7 +191,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(100, StateCreating)
+	e := NewEndpointWithState(s.repo, 100, StateCreating)
 	e.UnconditionalLock()
 	defer e.Unlock()
 

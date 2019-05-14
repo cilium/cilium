@@ -44,7 +44,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
 	fooNumericIdentity := 9001
@@ -238,7 +238,7 @@ func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
 
 func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	// cannot add empty rule
 	rev, _, err := repo.Add(api.Rule{}, []Endpoint{})
@@ -324,7 +324,7 @@ func (ds *PolicyTestSuite) TestAddSearchDelete(c *C) {
 
 func BenchmarkParseLabel(b *testing.B) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	b.ResetTimer()
 	var err error
@@ -363,7 +363,7 @@ func BenchmarkParseLabel(b *testing.B) {
 
 func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	fooToBar := &SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
@@ -456,7 +456,7 @@ func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
 
 func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	fooToBar := &SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
@@ -558,7 +558,7 @@ func (ds *PolicyTestSuite) TestAllowsEgress(c *C) {
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -719,12 +719,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -862,12 +862,12 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -928,12 +928,12 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -1018,12 +1018,12 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	if !c.Check((*policy), checker.Equals, expectedPolicy) {
 		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -1149,12 +1149,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -1292,12 +1292,12 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
@@ -1428,12 +1428,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	}
 
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
@@ -1564,12 +1564,12 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	}
 
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.SelectorCache)
+	policy.Delete(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	app2Selector := labels.ParseSelectLabelArray("id=app2")
 
@@ -1749,7 +1749,7 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 
 func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 	repo := NewPolicyRepository()
-	repo.SelectorCache = testSelectorCache
+	repo.selectorCache = testSelectorCache
 
 	// Add rules to allow foo=>bar
 	l3rule := buildRule("foo", "bar", "")
