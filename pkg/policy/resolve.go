@@ -19,13 +19,16 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
-// SelectorPolicy is a structure which contains the resolved policy for a
+// selectorPolicy is a structure which contains the resolved policy for a
 // particular Identity across all layers (L3, L4, and L7), with the policy
 // still determined in terms of EndpointSelectors.
-type SelectorPolicy struct {
+type selectorPolicy struct {
 	// Revision is the revision of the policy repository used to generate
-	// this SelectorPolicy.
+	// this selectorPolicy.
 	Revision uint64
+
+	// SelectorCache managing selectors in L4Policy
+	SelectorCache *SelectorCache
 
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy *L4Policy
@@ -45,7 +48,7 @@ type SelectorPolicy struct {
 // EndpointPolicy is a structure which contains the resolved policy across all
 // layers (L3, L4, and L7), distilled against a set of identities.
 type EndpointPolicy struct {
-	*SelectorPolicy
+	*selectorPolicy
 
 	// PolicyMapState contains the state of this policy as it relates to the
 	// datapath. In the future, this will be factored out of this object to
@@ -66,26 +69,29 @@ type PolicyOwner interface {
 	GetSecurityIdentity() *identity.Identity
 }
 
-// NewSelectorPolicy returns an empty SelectorPolicy stub.
-func NewSelectorPolicy(revision uint64) *SelectorPolicy {
-	return &SelectorPolicy{Revision: revision}
+// newSelectorPolicy returns an empty selectorPolicy stub.
+func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorPolicy {
+	return &selectorPolicy{
+		Revision:      revision,
+		SelectorCache: selectorCache,
+	}
 }
 
-// DistillPolicy filters down the specified SelectorPolicy (which acts upon
-// selectors) into a set of concrete map entries based on the specified
-// selectorCache. These can subsequently be plumbed into the datapath.
+// DistillPolicy filters down the specified selectorPolicy (which acts
+// upon selectors) into a set of concrete map entries based on the
+// SelectorCache. These can subsequently be plumbed into the datapath.
 //
 // Must be performed while holding the Repository lock.
-func (p *SelectorPolicy) DistillPolicy(policyOwner PolicyOwner, selectorCache *SelectorCache) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy {
 
 	calculatedPolicy := &EndpointPolicy{
-		SelectorPolicy: p,
+		selectorPolicy: p,
 		PolicyMapState: make(MapState),
 		PolicyOwner:    policyOwner,
 	}
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(selectorCache,
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(p.SelectorCache,
 			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
 	}
 
@@ -130,18 +136,15 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
-func NewEndpointPolicy() *EndpointPolicy {
+func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
 	return &EndpointPolicy{
-		SelectorPolicy: NewSelectorPolicy(0),
+		selectorPolicy: newSelectorPolicy(0, repo.GetSelectorCache()),
 	}
 }
 
 // Realizes copies the fields from desired into p. It assumes that the fields in
 // desired are not modified after this function is called.
-func (p *SelectorPolicy) Realizes(desired *SelectorPolicy) {
-	if p == nil {
-		p = NewSelectorPolicy(desired.Revision)
-	}
+func (p *selectorPolicy) Realizes(desired *selectorPolicy) {
 	p.Revision = desired.Revision
 	p.IngressPolicyEnabled = desired.IngressPolicyEnabled
 	p.EgressPolicyEnabled = desired.EgressPolicyEnabled
@@ -152,9 +155,5 @@ func (p *SelectorPolicy) Realizes(desired *SelectorPolicy) {
 // Realizes copies the fields from desired into p. It assumes that the fields in
 // desired are not modified after this function is called.
 func (p *EndpointPolicy) Realizes(desired *EndpointPolicy) {
-	if p == nil {
-		p = NewEndpointPolicy()
-	}
-
-	p.SelectorPolicy.Realizes(desired.SelectorPolicy)
+	p.selectorPolicy.Realizes(desired.selectorPolicy)
 }

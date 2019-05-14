@@ -52,7 +52,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/distillery"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -292,7 +291,7 @@ type Endpoint struct {
 
 	// selectorPolicy represents a reference to the shared SelectorPolicy
 	// for all endpoints that have the same Identity.
-	selectorPolicy distillery.SelectorPolicy
+	selectorPolicy policy.SelectorPolicy
 
 	desiredPolicy *policy.EndpointPolicy
 
@@ -419,7 +418,7 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(ID uint16, state string) *Endpoint {
+func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		ID:             ID,
 		OpLabels:       pkgLabels.NewOpLabels(),
@@ -429,8 +428,8 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 		hasBPFProgram:  make(chan struct{}, 0),
 		controllers:    controller.NewManager(),
 		EventQueue:     eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
-		desiredPolicy:  policy.NewEndpointPolicy(),
-		realizedPolicy: policy.NewEndpointPolicy(),
+		desiredPolicy:  policy.NewEndpointPolicy(repo),
+		realizedPolicy: policy.NewEndpointPolicy(repo),
 	}
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
@@ -441,7 +440,7 @@ func NewEndpointWithState(ID uint16, state string) *Endpoint {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(repo *policy.Repository, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
@@ -462,8 +461,8 @@ func NewEndpointFromChangeModel(base *models.EndpointChangeRequest) (*Endpoint, 
 		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
-		desiredPolicy:    policy.NewEndpointPolicy(),
-		realizedPolicy:   policy.NewEndpointPolicy(),
+		desiredPolicy:    policy.NewEndpointPolicy(repo),
+		realizedPolicy:   policy.NewEndpointPolicy(repo),
 		controllers:      controller.NewManager(),
 	}
 
@@ -1063,7 +1062,7 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 
 // ParseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
-func ParseEndpoint(strEp string) (*Endpoint, error) {
+func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	strEpSlice := strings.Split(strEp, ":")
@@ -1083,8 +1082,8 @@ func ParseEndpoint(strEp string) (*Endpoint, error) {
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
-	ep.desiredPolicy = policy.NewEndpointPolicy()
-	ep.realizedPolicy = policy.NewEndpointPolicy()
+	ep.desiredPolicy = policy.NewEndpointPolicy(repo)
+	ep.realizedPolicy = policy.NewEndpointPolicy(repo)
 	ep.controllers = controller.NewManager()
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
