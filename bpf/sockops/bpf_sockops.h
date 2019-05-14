@@ -75,14 +75,23 @@ static __always_inline void sk_msg_extract4_key(struct sk_msg_md *msg,
 	key->dport = msg->remote_port >> 16;
 }
 
+#ifdef ENABLE_LEGACY_SERVICES
 static __always_inline void sk_lb4_key(struct lb4_key *lb4,
 				       struct sock_key *key)
 {
 	/* SK MSG is always egress, so use daddr */
 	lb4->address = key->dip4;
 	lb4->dport = key->dport;
-	lb4->slave = 0;
 }
+#else
+static __always_inline void sk_lb4_key_v2(struct lb4_key_v2 *lb4,
+					  struct sock_key *key)
+{
+	/* SK MSG is always egress, so use daddr */
+	lb4->address = key->dip4;
+	lb4->dport = key->dport;
+}
+#endif
 
 static __always_inline bool redirect_to_proxy(int verdict)
 {
