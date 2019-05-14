@@ -75,8 +75,6 @@ func OpenCallMap() (*PolicyPlumbingMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.MapKey = &PlumbingKey{}
-	m.MapValue = &PlumbingValue{}
 	return &PolicyPlumbingMap{Map: m}, nil
 }
 
