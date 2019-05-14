@@ -202,4 +202,8 @@ const (
 	// EndpointInterfaceNamePrefix is the default prefix name of the
 	// interface names shared by all endpoints
 	EndpointInterfaceNamePrefix = "lxc+"
+
+	// BlacklistConflictingRoutes removes all IPs from the IPAM block if a
+	// local route not owned by Cilium conflicts with it
+	BlacklistConflictingRoutes = true
 )
