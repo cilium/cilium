@@ -200,12 +200,16 @@ examples if running with Kubernetes):
 The above indicates that a packet to endpoint ID ``25729`` has been dropped due
 to violation of the Layer 3 policy.
 
-If connectivity between pods is faulty and ``cilium monitor --type drop``
-shows ``xx drop (CT: Map insertion failed)`` it is recommended to set
-``--conntrack-gc-interval`` to an interval lower than the default.
-Alternatively, the value for ``bpf-ct-global-any-max`` and
-``bpf-ct-global-tcp-max`` should be increased. Setting both of these options
-will be a trade-off of CPU for ``conntrack-gc-interval``, and for
+Handling drop (CT: Map insertion failed)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If connectivity fails and ``cilium monitor --type drop`` shows ``xx drop (CT:
+Map insertion failed)``, then it is likely that the connection tracking table
+is filling up and the automatic adjustment of the garbage collector interval is
+insufficient. Set ``--conntrack-gc-interval`` to an interval lower than the
+default.  Alternatively, the value for ``bpf-ct-global-any-max`` and
+``bpf-ct-global-tcp-max`` can be increased. Setting both of these options will
+be a trade-off of CPU for ``conntrack-gc-interval``, and for
 ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` the amount of memory
 consumed.
 
