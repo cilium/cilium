@@ -1021,6 +1021,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	d.policyTrigger = t
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sSvcCache)
+	debug.RegisterStatusObject("ipam", d.ipam)
 
 	bootstrapStats.k8sInit.Start()
 	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
