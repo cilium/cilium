@@ -47,7 +47,9 @@ func (s *IPTestSuite) TestCountIPs(c *C) {
 		"::1/120":        255,
 	}
 	for cidr, nIPs := range tests {
-		count := CountIPsInCIDR(cidr)
+		_, ipnet, err := net.ParseCIDR(cidr)
+		c.Assert(err, IsNil)
+		count := CountIPsInCIDR(ipnet)
 		c.Assert(count, Equals, nIPs)
 	}
 }

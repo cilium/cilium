@@ -102,8 +102,10 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIPAMIPParams) middleware.Resp
 // DumpIPAM dumps in the form of a map, the list of
 // reserved IPv4 and IPv6 addresses.
 func (d *Daemon) DumpIPAM() *models.IPAMStatus {
-	allocv4, allocv6 := d.ipam.Dump()
-	status := &models.IPAMStatus{}
+	allocv4, allocv6, st := d.ipam.Dump()
+	status := &models.IPAMStatus{
+		Status: st,
+	}
 
 	v4 := []string{}
 	for ip := range allocv4 {

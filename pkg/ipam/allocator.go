@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/metrics"
 
@@ -205,12 +206,15 @@ func (ipam *IPAM) ReleaseIPString(ipAddr string) error {
 }
 
 // Dump dumps the list of allocated IP addresses
-func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string) {
+func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, status string) {
+	var st4, st6 string
+
 	ipam.allocatorMutex.RLock()
 	defer ipam.allocatorMutex.RUnlock()
 
 	if ipam.IPv4Allocator != nil {
-		allocv4 = ipam.IPv4Allocator.Dump()
+		allocv4, st4 = ipam.IPv4Allocator.Dump()
+		st4 = "IPv4: " + st4
 		for ip := range allocv4 {
 			owner, _ := ipam.owner[ip]
 			// If owner is not available, report IP but leave owner empty
@@ -219,12 +223,18 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string) 
 	}
 
 	if ipam.IPv6Allocator != nil {
-		allocv6 = ipam.IPv6Allocator.Dump()
+		allocv6, st6 = ipam.IPv6Allocator.Dump()
+		st6 = "IPv6: " + st6
 		for ip := range allocv6 {
 			owner, _ := ipam.owner[ip]
 			// If owner is not available, report IP but leave owner empty
 			allocv6[ip] = owner
 		}
+	}
+
+	status = strings.Join([]string{st4, st6}, ", ")
+	if status == "" {
+		status = "Not running"
 	}
 
 	return

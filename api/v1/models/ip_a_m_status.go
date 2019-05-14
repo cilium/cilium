@@ -25,6 +25,9 @@ type IPAMStatus struct {
 
 	// ipv6
 	IPV6 []string `json:"ipv6"`
+
+	// status
+	Status string `json:"status,omitempty"`
 }
 
 // Validate validates this IP a m status

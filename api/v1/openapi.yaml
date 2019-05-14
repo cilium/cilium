@@ -1473,6 +1473,8 @@ definitions:
         type: array
         items:
           type: string
+      status:
+        type: string
   ClusterStatus:
     description: Status of cluster
     properties:

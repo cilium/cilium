@@ -15,8 +15,11 @@
 package ipam
 
 import (
+	"fmt"
 	"math/big"
 	"net"
+
+	"github.com/cilium/cilium/pkg/ip"
 
 	k8sAPI "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
@@ -48,7 +51,7 @@ func (h *hostScopeAllocator) AllocateNext(owner string) (net.IP, error) {
 	return h.allocator.AllocateNext()
 }
 
-func (h *hostScopeAllocator) Dump() map[string]string {
+func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 	alloc := map[string]string{}
 	ral := k8sAPI.RangeAllocation{}
 	h.allocator.Snapshot(&ral)
@@ -61,5 +64,8 @@ func (h *hostScopeAllocator) Dump() map[string]string {
 		}
 	}
 
-	return alloc
+	maxIPs := ip.CountIPsInCIDR(h.allocCIDR)
+	status := fmt.Sprintf("%d/%d allocated from %s", len(alloc), maxIPs, h.allocCIDR.String())
+
+	return alloc, status
 }
