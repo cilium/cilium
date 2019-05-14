@@ -1812,15 +1812,6 @@ func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.Endpoints), Equals, 1)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
@@ -1873,15 +1864,6 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.Endpoints), Equals, 1)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
@@ -1917,15 +1899,6 @@ func (ds *PolicyTestSuite) TestEgressL3AllowWorld(c *C) {
 	buffer := new(bytes.Buffer)
 	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
@@ -1961,15 +1934,6 @@ func (ds *PolicyTestSuite) TestEgressL3AllowAllEntity(c *C) {
 	buffer := new(bytes.Buffer)
 	ctx := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
-
-	cidrPolicy := repo.ResolveCIDRPolicy(&ctx)
-	c.Assert(cidrPolicy, Not(IsNil))
-
-	c.Log(buffer)
-
-	// Check that no CIDR rules were generated
-	c.Assert(len(cidrPolicy.Ingress.Map), Equals, 0)
-	c.Assert(len(cidrPolicy.Egress.Map), Equals, 0)
 }
 
 func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
