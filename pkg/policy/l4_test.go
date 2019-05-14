@@ -83,12 +83,6 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		filter = createL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 	}
-
-	filter := createL4IngressFilter(nil, false, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
-
-	filter = createL4EgressFilter(nil, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
-	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 }
 
 type SortablePolicyRules []*models.PolicyRule

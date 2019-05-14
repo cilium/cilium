@@ -131,26 +131,26 @@ type identitySelector interface {
 	notifyUsers(added, deleted []identity.NumericIdentity)
 }
 
-// Identity is the information we need about a an identity that rules can select
-type Identity struct {
+// scIdentity is the information we need about a an identity that rules can select
+type scIdentity struct {
 	NID       identity.NumericIdentity
 	lbls      labels.LabelArray
 	namespace string // value of the namespace label, or ""
 }
 
-// IdentityCache is a cache of Identities keyed by the numeric identity
-type IdentityCache map[identity.NumericIdentity]Identity
+// scIdentityCache is a cache of Identities keyed by the numeric identity
+type scIdentityCache map[identity.NumericIdentity]scIdentity
 
-func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) Identity {
-	return Identity{
+func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentity {
+	return scIdentity{
 		NID:       nid,
 		lbls:      lbls,
 		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
 }
 
-func getIdentityCache(ids cache.IdentityCache) IdentityCache {
-	idCache := make(map[identity.NumericIdentity]Identity, len(ids))
+func getIdentityCache(ids cache.IdentityCache) scIdentityCache {
+	idCache := make(map[identity.NumericIdentity]scIdentity, len(ids))
 	for nid, lbls := range ids {
 		idCache[nid] = newIdentity(nid, lbls)
 	}
@@ -165,7 +165,7 @@ type SelectorCache struct {
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
 	// UpdateIdentities() function.
-	idCache         IdentityCache
+	idCache         scIdentityCache
 	idCacheRevision uint64
 
 	// map key is the string representation of the selector being cached.
@@ -324,7 +324,7 @@ func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 	return true
 }
 
-func (l *labelIdentitySelector) matches(identity Identity) bool {
+func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
 
@@ -536,7 +536,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	return newIDSel, true
 }
 
-func (sc *SelectorCache) removeSelectorLocked(user CachedSelectionUser, selector CachedSelector) {
+func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
@@ -547,24 +547,24 @@ func (sc *SelectorCache) removeSelectorLocked(user CachedSelectionUser, selector
 }
 
 // RemoveSelector removes CachedSelector for the user.
-func (sc *SelectorCache) RemoveSelector(user CachedSelectionUser, selector CachedSelector) {
+func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	sc.removeSelectorLocked(user, selector)
+	sc.removeSelectorLocked(selector, user)
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
-func (sc *SelectorCache) RemoveSelectors(user CachedSelectionUser, selectors CachedSelectorSlice) {
+func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	for _, selector := range selectors {
-		sc.removeSelectorLocked(user, selector)
+		sc.removeSelectorLocked(selector, user)
 	}
 }
 
 // ChangeUser changes the CachedSelectionUser that gets updates on the
 // updates on the cached selector.
-func (sc *SelectorCache) ChangeUser(from, to CachedSelectionUser, selector CachedSelector) {
+func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
 	key := selector.String()
 	sc.mutex.Lock()
 	idSel, exists := sc.selectors[key]
@@ -653,6 +653,9 @@ func (sc *SelectorCache) GetIDCacheRevision() uint64 {
 	return sc.idCacheRevision
 }
 
+// ForEachIdentity iterates through all identities in the selector
+// cache, calling the provided iteration function for each numeric
+// identity. Returns the current identity revision.
 func (sc *SelectorCache) ForEachIdentity(iter func(identity.NumericIdentity)) uint64 {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()

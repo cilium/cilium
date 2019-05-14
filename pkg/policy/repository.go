@@ -164,7 +164,6 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			}
 		}
 		filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
-		// l4Policy[k] = filter // pointer now, no need to reset
 	}
 }
 

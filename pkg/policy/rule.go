@@ -58,44 +58,38 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
+func (l4 *L4Filter) mergeCachedSelectors(from *L4Filter, selectorCache *SelectorCache) {
+	for _, cs := range from.CachedSelectors {
+		if l4.CachedSelectors.Insert(cs) {
+			// Update selector owner to the existingFilter
+			selectorCache.ChangeUser(cs, from, l4)
+		} else {
+			// selector was already in existingFilter.CachedSelectors, release
+			selectorCache.RemoveSelector(cs, from)
+		}
+	}
+	from.CachedSelectors = nil
+}
+
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) error {
 	// Handle cases where filter we are merging new rule with, new rule itself
 	// allows all traffic on L3, or both rules allow all traffic on L3.
-	//
-	// Case 1: either filter selects all endpoints, which means that this filter
-	// can now simply select all endpoints.
 	if existingFilter.AllowsAllAtL3() {
+		// Case 1: existing filter selects all endpoints, which means that this filter
+		// can now simply select all endpoints.
+		//
 		// Release references held by filterToMerge.CachedSelectors
-		selectorCache.RemoveSelectors(filterToMerge, filterToMerge.CachedSelectors)
-		filterToMerge.CachedSelectors = nil
-	} else if filterToMerge.AllowsAllAtL3() {
-		// Release references held by existingFilter.CachedSelectors!
-		selectorCache.RemoveSelectors(existingFilter, existingFilter.CachedSelectors)
-		existingFilter.CachedSelectors = nil
-		existingFilter.allowsAllAtL3 = true
-		for _, cs := range filterToMerge.CachedSelectors {
-			if existingFilter.CachedSelectors.Insert(cs) {
-				// Update selector owner to the existingFilter
-				selectorCache.ChangeUser(filterToMerge, existingFilter, cs)
-			} else {
-				// selector was already in existingFilter.CachedSelectors, release
-				selectorCache.RemoveSelector(filterToMerge, cs)
-			}
-		}
+		selectorCache.RemoveSelectors(filterToMerge.CachedSelectors, filterToMerge)
 		filterToMerge.CachedSelectors = nil
 	} else {
-		// Case 2: no wildcard endpoint selectors in existing filter or in filter
-		// to merge, so just append endpoints.
-		for _, cs := range filterToMerge.CachedSelectors {
-			if existingFilter.CachedSelectors.Insert(cs) {
-				// Update selector owner to the existingFilter
-				selectorCache.ChangeUser(filterToMerge, existingFilter, cs)
-			} else {
-				// selector was already in existingFilter.CachedSelectors, release
-				selectorCache.RemoveSelector(filterToMerge, cs)
-			}
+		// Case 2: Merge selectors from filterToMerge to the existingFilter.
+		if filterToMerge.AllowsAllAtL3() {
+			// Allowing all, release selectors from existingFilter
+			selectorCache.RemoveSelectors(existingFilter.CachedSelectors, existingFilter)
+			existingFilter.CachedSelectors = nil
+			existingFilter.allowsAllAtL3 = true
 		}
-		filterToMerge.CachedSelectors = nil
+		existingFilter.mergeCachedSelectors(filterToMerge, selectorCache)
 	}
 
 	// Merge the L7-related data from the arguments provided to this function

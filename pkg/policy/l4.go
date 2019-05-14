@@ -220,25 +220,16 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSe
 		return
 	}
 
-	if len(endpoints) > 0 {
-		for _, epsel := range endpoints {
-			l7[epsel] = rules
-		}
-	} else {
-		panic("Must have at least the wildcard selector")
+	for _, epsel := range endpoints {
+		l7[epsel] = rules
 	}
-}
-
-// detach releases the references held in the L4Filter and must be called before
-// the filter is left to be garbage collected.
-func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
-	selectorCache.RemoveSelectors(l4, l4.CachedSelectors)
 }
 
 // createL4Filter creates a filter for L4 policy that applies to the specified
 // endpoints and port/protocol, with reference to the original rules that the
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
+// Not called with an empty peerEndpoints.
 func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, selectorCache *SelectorCache) *L4Filter {
 
@@ -256,7 +247,7 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 		Ingress:          ingress,
 	}
 
-	if len(peerEndpoints) == 0 || peerEndpoints.SelectsAllEndpoints() {
+	if peerEndpoints.SelectsAllEndpoints() {
 		l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
 		l4.allowsAllAtL3 = true
 	} else {
@@ -285,6 +276,12 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 	}
 
 	return l4
+}
+
+// detach releases the references held in the L4Filter and must be called before
+// the filter is left to be garbage collected.
+func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
+	selectorCache.RemoveSelectors(l4.CachedSelectors, l4)
 }
 
 // createL4IngressFilter creates a filter for L4 policy that applies to the
@@ -369,6 +366,9 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
 // key format: "port/proto"
 type L4PolicyMap map[string]*L4Filter
 
+// Detach removes the cached selectors held by L4PolicyMap from the
+// selectorCache, allowing the map to be garbage collected when there
+// are no more references to it.
 func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 	for _, f := range l4 {
 		f.detach(selectorCache)

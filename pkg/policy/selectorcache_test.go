@@ -98,7 +98,7 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 
 func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
 	notifications := csu.notifications
-	csu.sc.RemoveSelector(csu, sel)
+	csu.sc.RemoveSelector(sel, csu)
 	delete(csu.selections, sel)
 
 	// No notifications for a removed selector

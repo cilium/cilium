@@ -58,8 +58,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		if prefix == nil {
 			continue
 		}
-		// XXX: Figure out if CIDR identity allocations need to be propagated to the selector cache.
-		// With nil owner they wount.
+		// Figure out if this call needs to be able to update the selector cache synchronously.
 		id, isNew, err := cache.AllocateIdentity(context.Background(), nil, cidr.GetCIDRLabels(prefix))
 		if err != nil {
 			cache.ReleaseSlice(context.Background(), nil, usedIdentities)
