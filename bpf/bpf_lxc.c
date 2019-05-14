@@ -1223,7 +1223,7 @@ int handle_to_container(struct __sk_buff *skb)
 	skb->cb[CB_SRC_LABEL] = identity;
 
 	switch (proto) {
-#ifdef ENABLE_ARP_PASSTHROUGH
+#if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
 		ret = TC_ACT_OK;
 		break;
