@@ -971,6 +971,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, err
 	}
 
+	// Must be done before calling policy.NewPolicyRepostory() below.
+	identity.InitWellKnownIdentities()
+
 	d := Daemon{
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:       k8s.NewServiceCache(),
@@ -1253,6 +1256,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
+	// well known identities have already been initialized above
 	go cache.InitIdentityAllocator(&d)
 
 	bootstrapStats.clusterMeshInit.Start()
