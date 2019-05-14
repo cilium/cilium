@@ -58,6 +58,10 @@ type Repository struct {
 	SelectorCache *SelectorCache
 }
 
+func (p *Repository) GetSelectorCache() *SelectorCache {
+	return p.SelectorCache
+}
+
 // NewPolicyRepository allocates a new policy repository
 func NewPolicyRepository() *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)

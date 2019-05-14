@@ -111,7 +111,8 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, identity *
 	}
 
 	// Don't resolve policy if it was already done for this Identity.
-	currentRevision := cip.getPolicy().Revision
+	currentPolicy := cip.getPolicy()
+	currentRevision := currentPolicy.Revision
 	if revision <= currentRevision {
 		return false, nil
 	}
@@ -141,6 +142,7 @@ func (cache *policyCache) updateSelectorPolicy(repo PolicyRepository, identity *
 	changed := revision > currentRevision
 	if changed {
 		cip.setPolicy(identityPolicy)
+		currentPolicy.Delete(repo.GetSelectorCache())
 	}
 	return changed, nil
 }
@@ -169,6 +171,7 @@ func Lookup(identity *identityPkg.Identity) SelectorPolicy {
 type PolicyRepository interface {
 	ResolvePolicyLocked(*identityPkg.Identity) (*policy.SelectorPolicy, error)
 	GetRevision() uint64
+	GetSelectorCache() *policy.SelectorCache
 }
 
 // UpdatePolicy resolves the policy for the security identity of the specified
