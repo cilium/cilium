@@ -210,9 +210,9 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-	selectorPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := selectorPolicy.DistillPolicy(DummyOwner{})
+	policy := selPolicy.DistillPolicy(DummyOwner{})
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -296,9 +296,9 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 
-	selectorPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := selectorPolicy.DistillPolicy(DummyOwner{})
+	policy := selPolicy.DistillPolicy(DummyOwner{})
 
 	cachedSelectorHost := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	c.Assert(cachedSelectorHost, Not(IsNil))

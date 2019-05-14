@@ -135,7 +135,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
-	l4IngressPolicy.Delete(repo.GetSelectorCache())
+	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Case1B: implicitly wildcard all endpoints.
 	repo = parseAndAddRules(c, api.Rules{&api.Rule{
@@ -178,7 +178,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 0)
-	l4IngressPolicy.Delete(repo.GetSelectorCache())
+	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second
@@ -250,8 +250,8 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	// Case 2B: Flip order of case 2A so that rule being merged with is different
 	// than rule being consumed.
@@ -300,7 +300,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.L7RulesPerEp), Equals, 1)
-	l4IngressPolicy.Delete(repo.GetSelectorCache())
+	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
 // Case 3: allow all at L3 in both rules. Both rules have same parser type and
@@ -368,8 +368,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = identicalHTTPRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -444,8 +444,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = identicalKafkaRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -695,8 +695,8 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -754,8 +754,8 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -830,8 +830,8 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -900,8 +900,8 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -986,8 +986,8 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = case8Rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -1065,8 +1065,8 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	state = traceState{}
 	res, err = case8Rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
@@ -1252,8 +1252,8 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	buffer = new(bytes.Buffer)
 	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
@@ -1318,8 +1318,8 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	buffer = new(bytes.Buffer)
 	ctxToC := SearchContext{To: labelsC, Trace: TRACE_VERBOSE}
@@ -1398,8 +1398,8 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	// Endpoints not selected by the rule should not match the rule.
 	buffer = new(bytes.Buffer)
@@ -1453,6 +1453,6 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 	c.Assert(*res, checker.Equals, *expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
-	res.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	res.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 }

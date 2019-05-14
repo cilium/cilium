@@ -231,10 +231,10 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSe
 
 // delete releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected!
-func (l4 *L4Filter) delete(selectorCache *SelectorCache) {
+func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	selectorCache.RemoveSelectors(l4, l4.CachedSelectors)
-	l4.CachedSelectors = nil
-	l4.L7RulesPerEp = nil
+	//l4.CachedSelectors = nil
+	//l4.L7RulesPerEp = nil
 }
 
 // createL4Filter creates a filter for L4 policy that applies to the specified
@@ -368,10 +368,9 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
 // key format: "port/proto"
 type L4PolicyMap map[string]*L4Filter
 
-func (l4 L4PolicyMap) Delete(selectorCache *SelectorCache) {
-	for k, f := range l4 {
-		f.delete(selectorCache)
-		delete(l4, k)
+func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
+	for _, f := range l4 {
+		f.detach(selectorCache)
 	}
 }
 
@@ -456,9 +455,11 @@ func NewL4Policy() *L4Policy {
 
 // Delete makes the L4Policy ready for garbage collection, removing
 // circular pointer references.
-func (l4 *L4Policy) Delete(selectorCache *SelectorCache) {
-	l4.Ingress.Delete(selectorCache)
-	l4.Egress.Delete(selectorCache)
+// Note that the L4Policy itself is not modified in any way, so that it may still
+// be used concurrently.
+func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
+	l4.Ingress.Detach(selectorCache)
+	l4.Egress.Detach(selectorCache)
 }
 
 // IngressCoversContext checks if the receiver's ingress L4Policy contains

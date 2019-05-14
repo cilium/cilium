@@ -719,7 +719,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
@@ -862,7 +862,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
@@ -928,7 +928,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
@@ -1018,7 +1018,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	if !c.Check((*policy), checker.Equals, expectedPolicy) {
 		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
@@ -1149,7 +1149,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
@@ -1292,7 +1292,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 		},
 	}
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
@@ -1428,7 +1428,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 	}
 
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
@@ -1564,7 +1564,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	}
 
 	c.Assert((*policy), checker.Equals, expectedPolicy)
-	policy.Delete(repo.GetSelectorCache())
+	policy.Detach(repo.GetSelectorCache())
 }
 
 func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
@@ -1683,8 +1683,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
-	l4IngressPolicy.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	l4IngressPolicy.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 
 	// L4 from app3 has no rules
 	expected = NewL4Policy()
@@ -1693,8 +1693,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(len(*l4IngressPolicy), Equals, 0)
 	c.Assert(*l4IngressPolicy, checker.Equals, expected.Ingress)
-	l4IngressPolicy.Delete(testSelectorCache)
-	expected.Delete(testSelectorCache)
+	l4IngressPolicy.Detach(testSelectorCache)
+	expected.Detach(testSelectorCache)
 }
 
 func buildSearchCtx(from, to string, port uint16) *SearchContext {
