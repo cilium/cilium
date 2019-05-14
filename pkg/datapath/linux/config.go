@@ -236,6 +236,10 @@ func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.Endpoin
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
 
+	if option.Config.ForceLocalPolicyEvalAtSource {
+		fmt.Fprintf(fw, "#define FORCE_LOCAL_POLICY_EVAL_AT_SOURCE 1\n")
+	}
+
 	if e.RequireRouting() {
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}

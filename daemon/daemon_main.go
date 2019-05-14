@@ -476,6 +476,9 @@ func init() {
 
 	flags.StringVar(&option.Config.IPSecKeyFile, option.IPSecKeyFileName, "", "Path to IPSec key file")
 
+	flags.Bool(option.ForceLocalPolicyEvalAtSource, defaults.ForceLocalPolicyEvalAtSource, "Force policy evaluation of all local communication at the source endpoint")
+	option.BindEnv(option.ForceLocalPolicyEvalAtSource)
+
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)
 	option.BindEnv(option.HTTP403Message)
