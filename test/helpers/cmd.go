@@ -197,6 +197,7 @@ func (res *CmdRes) ByLines() []string {
 	if strings.Contains(stdoutStr, "\r\n") {
 		sep = "\r\n"
 	}
+	stdoutStr = strings.TrimRight(stdoutStr, sep)
 	return strings.Split(stdoutStr, sep)
 }
 
