@@ -113,7 +113,7 @@ spec:
             add:
             - NET_ADMIN
             - SYS_MODULE
-          privileged: true
+          privileged: false
         volumeMounts:
         - mountPath: /sys/fs/bpf
           name: bpf-maps
@@ -168,7 +168,7 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
+          privileged: false
         volumeMounts:
         - mountPath: /sys/fs/bpf
           name: bpf-maps
