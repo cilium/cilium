@@ -94,17 +94,21 @@ const (
 type mapAttributes struct {
 	mapKey     bpf.MapKey
 	keySize    int
+	mapValue   bpf.MapValue
+	valueSize  int
 	maxEntries int
 	parser     bpf.DumpParser
 	bpfDefine  string
 	natMap     *nat.Map
 }
 
-func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize, maxEntries int, parser bpf.DumpParser, nat *nat.Map) {
+func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int, mapValue bpf.MapValue, valueSize, maxEntries int, parser bpf.DumpParser, nat *nat.Map) {
 	mapInfo[mapType] = mapAttributes{
 		bpfDefine:  define,
 		mapKey:     mapKey,
 		keySize:    keySize,
+		mapValue:   mapValue,
+		valueSize:  valueSize,
 		maxEntries: maxEntries,
 		parser:     parser,
 		natMap:     nat,
@@ -120,31 +124,37 @@ func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
 	natV4 := natMaps[0]
 	natV6 := natMaps[1]
 
-	mapType := MapTypeIPv4TCPLocal
-	for _, maxEntries := range []int{MapNumEntriesLocal, tcpMaxEntries} {
-		setupMapInfo(MapType(mapType), "CT_MAP_TCP4",
-			&CtKey4{},
-			int(unsafe.Sizeof(CtKey4{})), maxEntries,
-			bpf.ConvertKeyValue, natV4)
-		mapType++
-		setupMapInfo(MapType(mapType), "CT_MAP_TCP6",
-			&CtKey6{},
-			int(unsafe.Sizeof(CtKey6{})), maxEntries,
-			bpf.ConvertKeyValue, natV6)
-		mapType++
-	}
-	for _, maxEntries := range []int{MapNumEntriesLocal, anyMaxEntries} {
-		setupMapInfo(MapType(mapType), "CT_MAP_ANY4",
-			&CtKey4{},
-			int(unsafe.Sizeof(tuple.TupleKey4{})), maxEntries,
-			bpf.ConvertKeyValue, natV4)
-		mapType++
-		setupMapInfo(MapType(mapType), "CT_MAP_ANY6",
-			&CtKey6{},
-			int(unsafe.Sizeof(CtKey6{})), maxEntries,
-			bpf.ConvertKeyValue, natV6)
-		mapType++
-	}
+	setupMapInfo(MapType(MapTypeIPv4TCPLocal), "CT_MAP_TCP4",
+		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		MapNumEntriesLocal, bpf.ConvertKeyValue, natV4)
+
+	setupMapInfo(MapType(MapTypeIPv6TCPLocal), "CT_MAP_TCP6",
+		&CtKey6{}, int(unsafe.Sizeof(CtKey4{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		MapNumEntriesLocal, bpf.ConvertKeyValue, natV6)
+
+	setupMapInfo(MapType(MapTypeIPv4TCPGlobal), "CT_MAP_TCP4",
+		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		tcpMaxEntries, bpf.ConvertKeyValue, natV4)
+
+	setupMapInfo(MapType(MapTypeIPv6TCPGlobal), "CT_MAP_TCP6",
+		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		tcpMaxEntries, bpf.ConvertKeyValue, natV6)
+
+	setupMapInfo(MapType(MapTypeIPv4AnyLocal), "CT_MAP_ANY4",
+		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		MapNumEntriesLocal, bpf.ConvertKeyValue, natV4)
+
+	setupMapInfo(MapType(MapTypeIPv6AnyLocal), "CT_MAP_ANY6",
+		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		MapNumEntriesLocal, bpf.ConvertKeyValue, natV6)
+
+	setupMapInfo(MapType(MapTypeIPv4AnyGlobal), "CT_MAP_ANY4",
+		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		anyMaxEntries, bpf.ConvertKeyValue, natV4)
+
+	setupMapInfo(MapType(MapTypeIPv6AnyGlobal), "CT_MAP_ANY6",
+		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})), &CtEntry{}, int(unsafe.Sizeof(CtEntry{})),
+		anyMaxEntries, bpf.ConvertKeyValue, natV6)
 }
 
 func init() {
@@ -214,8 +224,8 @@ func NewMap(mapName string, mapType MapType) *Map {
 			bpf.MapTypeLRUHash,
 			mapInfo[mapType].mapKey,
 			mapInfo[mapType].keySize,
-			&CtEntry{},
-			int(unsafe.Sizeof(CtEntry{})),
+			mapInfo[mapType].mapValue,
+			mapInfo[mapType].valueSize,
 			mapInfo[mapType].maxEntries,
 			0, 0,
 			mapInfo[mapType].parser,
