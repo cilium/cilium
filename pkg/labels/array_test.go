@@ -81,3 +81,67 @@ func (s *LabelsSuite) TestHas(c *C) {
 		c.Assert(lbls.Has(tt.input), Equals, tt.expected)
 	}
 }
+
+func (s *LabelsSuite) TestSame(c *C) {
+	lbls1 := LabelArray{
+		NewLabel("env", "devel", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceContainer),
+	}
+	lbls2 := LabelArray{
+		NewLabel("env", "devel", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceContainer),
+	}
+	lbls3 := LabelArray{
+		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("env", "devel", LabelSourceAny),
+	}
+	lbls4 := LabelArray{
+		NewLabel("env", "devel", LabelSourceAny),
+	}
+	lbls5 := LabelArray{
+		NewLabel("env", "prod", LabelSourceAny),
+	}
+	lbls6 := LabelArray{}
+
+	c.Assert(lbls1.Same(lbls1), Equals, true)
+	c.Assert(lbls1.Same(lbls2), Equals, true)
+	c.Assert(lbls1.Same(lbls3), Equals, false) // inverted order
+	c.Assert(lbls1.Same(lbls4), Equals, false) // different count
+	c.Assert(lbls1.Same(lbls5), Equals, false)
+	c.Assert(lbls1.Same(lbls6), Equals, false)
+
+	c.Assert(lbls2.Same(lbls1), Equals, true)
+	c.Assert(lbls2.Same(lbls2), Equals, true)
+	c.Assert(lbls2.Same(lbls3), Equals, false) // inverted order
+	c.Assert(lbls2.Same(lbls4), Equals, false) // different count
+	c.Assert(lbls2.Same(lbls5), Equals, false)
+	c.Assert(lbls2.Same(lbls6), Equals, false)
+
+	c.Assert(lbls3.Same(lbls1), Equals, false)
+	c.Assert(lbls3.Same(lbls2), Equals, false)
+	c.Assert(lbls3.Same(lbls3), Equals, true)
+	c.Assert(lbls3.Same(lbls4), Equals, false)
+	c.Assert(lbls3.Same(lbls5), Equals, false)
+	c.Assert(lbls3.Same(lbls6), Equals, false)
+
+	c.Assert(lbls4.Same(lbls1), Equals, false)
+	c.Assert(lbls4.Same(lbls2), Equals, false)
+	c.Assert(lbls4.Same(lbls3), Equals, false)
+	c.Assert(lbls4.Same(lbls4), Equals, true)
+	c.Assert(lbls4.Same(lbls5), Equals, false)
+	c.Assert(lbls4.Same(lbls6), Equals, false)
+
+	c.Assert(lbls5.Same(lbls1), Equals, false)
+	c.Assert(lbls5.Same(lbls2), Equals, false)
+	c.Assert(lbls5.Same(lbls3), Equals, false)
+	c.Assert(lbls5.Same(lbls4), Equals, false)
+	c.Assert(lbls5.Same(lbls5), Equals, true)
+	c.Assert(lbls5.Same(lbls6), Equals, false)
+
+	c.Assert(lbls6.Same(lbls1), Equals, false)
+	c.Assert(lbls6.Same(lbls2), Equals, false)
+	c.Assert(lbls6.Same(lbls3), Equals, false)
+	c.Assert(lbls6.Same(lbls4), Equals, false)
+	c.Assert(lbls6.Same(lbls5), Equals, false)
+	c.Assert(lbls6.Same(lbls6), Equals, true)
+}

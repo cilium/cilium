@@ -198,3 +198,16 @@ func (ls LabelArray) String() string {
 	res += "]"
 	return res
 }
+
+// Same returns true if the label arrays are the same, i.e., have the same labels in the same order.
+func (ls LabelArray) Same(b LabelArray) bool {
+	if len(ls) != len(b) {
+		return false
+	}
+	for l := range ls {
+		if !ls[l].Equals(&b[l]) {
+			return false
+		}
+	}
+	return true
+}
