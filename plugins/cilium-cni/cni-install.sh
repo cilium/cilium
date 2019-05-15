@@ -21,7 +21,7 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
 	;;
 "portmap")
-	;&
+	;;
 "aws-cni")
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
 	;;
