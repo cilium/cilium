@@ -116,4 +116,9 @@ func (conn *Connection) CheckOnData(c *C, reply, endStream bool, data *[][]byte,
 	buf := conn.ReplyBuf
 	c.Check(*buf, DeepEquals, expReplyBuf, Commentf("Inject buffer mismatch"))
 	*buf = (*buf)[:0] // make empty again
+
+	// Clear the same-direction inject buffer, simulating the datapath forwarding the injected data
+	injectBuf := conn.getInjectBuf(reply)
+	*injectBuf = (*injectBuf)[:0]
+	log.Debugf("proxylib test helper: Cleared inject buf, used %d/%d", len(*injectBuf), cap(*injectBuf))
 }
