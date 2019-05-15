@@ -181,9 +181,6 @@ func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 }
 
 var (
-	// selectorCache is the global selector cache. Additional ones
-	// are only created for testing.
-	selectorCache = NewSelectorCache(cache.GetIdentityCache())
 	// Empty slice of numeric identities used for all selectors that select nothing
 	emptySelection []identity.NumericIdentity
 	// wildcardSelectorKey is used to compare if a key is for a wildcard
@@ -680,46 +677,4 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 		sc.updateFQDNSelector(fqdnSels[i], noIdentities)
 	}
 	sc.mutex.Unlock()
-}
-
-// Export global functions to interface with the global selector cache
-
-// AddIdentitySelector adds the given api.EndpointSelector in to the
-// selector cache. If an identical EndpointSelector has already been
-// cached, the corresponding CachedSelector is returned, otherwise one
-// is created and added to the cache.
-func AddIdentitySelector(user CachedSelectionUser, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
-	return selectorCache.AddIdentitySelector(user, selector)
-}
-
-// RemoveIdentitySelector removes CachedSelector for the user.
-func RemoveIdentitySelector(user CachedSelectionUser, selector CachedSelector) {
-	selectorCache.RemoveSelector(selector, user)
-}
-
-// UpdateFQDNSelector updates the mapping of fqdnKey (the FQDNSelector from a
-// policy rule as a string) to to the provided list of identities. If the
-// contents of the cachedSelections differ from those in the identities slice,
-// all users are notified.
-func UpdateFQDNSelector(fqdnSelector api.FQDNSelector, identities []identity.NumericIdentity) {
-	selectorCache.UpdateFQDNSelector(fqdnSelector, identities)
-}
-
-// RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
-// set of FQDNSelectors in the global SelectorCache.
-func RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector) {
-	selectorCache.RemoveIdentitiesFQDNSelectors(fqdnSels)
-}
-
-// AddFQDNSelector adds the given api.EndpointSelector to the selector cache. If
-// an identical FQDNSelector has already been cached, the corresponding
-// CachedSelector is returned, otherwise one is created and added to the cache.
-func AddFQDNSelector(user CachedSelectionUser, fqdnSelector api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
-	return selectorCache.AddFQDNSelector(user, fqdnSelector)
-}
-
-// UpdateIdentities propagates identity updates to selectors in the selector
-// cache.
-func UpdateIdentities(added, deleted cache.IdentityCache) {
-	selectorCache.UpdateIdentities(added, deleted)
 }
