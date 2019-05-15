@@ -1879,6 +1879,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 }
 
 func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
+	ginkgoext.By("Performing Cilium status preflight check")
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
@@ -1894,6 +1895,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 }
 
 func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
+	ginkgoext.By("Performing Cilium controllers preflight check")
 	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
 	ciliumPods, err := kub.GetCiliumPods(KubeSystemNamespace)
 	if err != nil {
@@ -1919,6 +1921,7 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 }
 
 func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
+	ginkgoext.By("Performing Cilium health check")
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
 
@@ -2053,6 +2056,7 @@ func (kub *Kubectl) KubeDNSPreFlightCheck() error {
 // servicePreFlightCheck makes sure that k8s service with given name and
 // namespace is properly plumbed in Cilium
 func (kub *Kubectl) servicePreFlightCheck(serviceName, serviceNamespace string) error {
+	ginkgoext.By("Performing K8s service preflight check")
 	var service *v1.Service
 	for _, s := range kub.serviceCache.services.Items {
 		if s.Name == serviceName && s.Namespace == serviceNamespace {
@@ -2103,6 +2107,7 @@ CILIUM_SERVICES:
 
 // ciliumServicePreFlightCheck checks that k8s service is plumbed correctly
 func (kub *Kubectl) ciliumServicePreFlightCheck() error {
+	ginkgoext.By("Performing Cilium service preflight check")
 	for _, pod := range kub.serviceCache.pods {
 		k8sServicesFound := map[string]bool{}
 
