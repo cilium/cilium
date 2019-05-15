@@ -258,7 +258,7 @@ enum {
 #define DROP_NO_TUNNEL_OPT_	-148 /* unused */
 #define DROP_INVALID_GENEVE_	-149 /* unused */
 #define DROP_UNKNOWN_TARGET	-150
-#define DROP_NON_LOCAL		-151
+#define DROP_UNROUTABLE		-151
 #define DROP_NO_LXC		-152
 #define DROP_CSUM_L3		-153
 #define DROP_CSUM_L4		-154

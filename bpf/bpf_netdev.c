@@ -208,18 +208,16 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 
-#ifdef FROM_HOST
-	/* The destination IP address could not be associated with a local
-	 * endpoint or a tunnel destination. If it is destined to an IP in
-	 * the local range, then we can't route it back to the host as it
-	 * will create a routing loop. Drop it. */
-	dst = (union v6addr *) &ip6->daddr;
-	if (ipv6_match_prefix_96(dst, &node_ip))
-		return DROP_NON_LOCAL;
-#endif
-#ifdef ENABLE_IPSEC
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+#ifdef FROM_HOST
+	if (info == NULL) {
+		/* We have received a packet for which no ipcache entry exists,
+		 * we do not know what to do with this packet, drop it. */
+		return DROP_UNROUTABLE;
+	}
+#endif
+#ifdef ENABLE_IPSEC
 	if (secctx > WORLD_ID && info && info->key) {
 		__u8 key = get_min_encrypt_key(info->key);
 
@@ -348,16 +346,15 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
     return redirect(HOST_IFINDEX, BPF_F_INGRESS);
 #else
 
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 #ifdef FROM_HOST
-	/* The destination IP address could not be associated with a local
-	 * endpoint or a tunnel destination. If it is destined to an IP in
-	 * the local range, then we can't route it back to the host as it
-	 * will create a routing loop. Drop it. */
-	if ((ip4->daddr & IPV4_MASK) == (IPV4_GATEWAY & IPV4_MASK))
-		return DROP_NON_LOCAL;
+	if (info == NULL) {
+		/* We have received a packet for which no ipcache entry exists,
+		 * we do not know what to do with this packet, drop it. */
+		return DROP_UNROUTABLE;
+	}
 #endif
 #ifdef ENABLE_IPSEC
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (secctx > WORLD_ID && info && info->key) {
 		__u8 key = get_min_encrypt_key(info->key);
 

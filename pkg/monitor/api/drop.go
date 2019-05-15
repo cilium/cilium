@@ -42,7 +42,7 @@ var errors = map[uint8]string{
 	148: "Error retrieving tunnel options", // Unused
 	149: "Invalid Geneve option",           // Unused
 	150: "Unknown L3 target address",
-	151: "Not a local target address",
+	151: "Stale or unroutable IP",
 	152: "No matching local container found",
 	153: "Error while correcting L3 checksum",
 	154: "Error while correcting L4 checksum",
