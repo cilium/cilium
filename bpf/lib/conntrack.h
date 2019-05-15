@@ -634,6 +634,20 @@ ct_update6_slave_and_backend_id(void *map,
 	return;
 }
 
+static inline void __inline__
+ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
+			 struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->rev_nat_index = state->rev_nat_index;
+	return;
+}
+
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
@@ -736,6 +750,20 @@ ct_update4_slave_and_backend_id(void *map,
 	entry->slave = state->slave;
 	/* See the ct_create4 comments re the rx_bytes hack */
 	entry->rx_bytes = state->backend_id;
+	return;
+}
+
+static inline void __inline__
+ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
+			 struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->rev_nat_index = state->rev_nat_index;
 	return;
 }
 
@@ -865,6 +893,12 @@ ct_update6_slave_and_backend_id(void *map,
 {
 }
 
+static inline void __inline__
+ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
+			 struct ct_state *state)
+{
+}
+
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
 					struct ct_state *ct_state)
@@ -888,6 +922,12 @@ static inline void __inline__
 ct_update4_slave_and_backend_id(void *map,
 				struct ipv4_ct_tuple *tuple,
 				struct ct_state *state)
+{
+}
+
+static inline void __inline__
+ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
+			 struct ct_state *state)
 {
 }
 
