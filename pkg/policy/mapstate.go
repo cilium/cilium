@@ -16,7 +16,6 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -25,12 +24,6 @@ var (
 	// localHostKey represents an ingress L3 allow from the local host.
 	localHostKey = Key{
 		Identity:         identity.ReservedIdentityHost.Uint32(),
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
-
-	// worldKey represents an ingress L3 allow from the world.
-	worldKey = Key{
-		Identity:         identity.ReservedIdentityWorld.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 )
@@ -73,27 +66,35 @@ type MapStateEntry struct {
 	ProxyPort uint16
 }
 
-// DetermineAllowLocalhost determines whether communication should be allowed to
-// the localhost. It inserts the Key corresponding to the localhost in
-// the desiredPolicyKeys if the endpoint is allowed to communicate with the
-// localhost.
-func (keys MapState) DetermineAllowLocalhost(l4Policy *L4Policy) {
+// DetermineAllowLocalhostIngress determines whether communication should be allowed
+// from the localhost. It inserts the Key corresponding to the localhost in
+// the desiredPolicyKeys if the localhost is allowed to communicate with the
+// endpoint.
+func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 
 	if option.Config.AlwaysAllowLocalhost() || (l4Policy != nil && l4Policy.HasRedirect()) {
 		keys[localHostKey] = MapStateEntry{}
 	}
 }
 
-// AllowAllIdentities translates all identities in identityCache to their
-// corresponding Key in the specified direction (ingress, egress) which allows
+// AllowAllIdentities translates all identities in selectorCache to their
+// corresponding Keys in the specified direction (ingress, egress) which allows
 // all at L3.
-func (keys MapState) AllowAllIdentities(identityCache cache.IdentityCache, direction trafficdirection.TrafficDirection) {
-	// Allow all identities
-	for identity := range identityCache {
-		keyToAdd := Key{
-			Identity:         identity.Uint32(),
-			TrafficDirection: direction.Uint8(),
+func (keys MapState) AllowAllIdentities(selectorCache *SelectorCache, ingress, egress bool) {
+	selectorCache.ForEachIdentity(func(identity identity.NumericIdentity) {
+		if ingress {
+			keyToAdd := Key{
+				Identity:         identity.Uint32(),
+				TrafficDirection: trafficdirection.Ingress.Uint8(),
+			}
+			keys[keyToAdd] = MapStateEntry{}
 		}
-		keys[keyToAdd] = MapStateEntry{}
-	}
+		if egress {
+			keyToAdd := Key{
+				Identity:         identity.Uint32(),
+				TrafficDirection: trafficdirection.Egress.Uint8(),
+			}
+			keys[keyToAdd] = MapStateEntry{}
+		}
+	})
 }

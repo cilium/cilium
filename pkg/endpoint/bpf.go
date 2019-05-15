@@ -171,7 +171,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
-				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, &l4, proxyWaitGroup)
+				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
 				if err != nil {
 					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
 					return err, nil, nil
@@ -179,7 +179,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
 
-				proxyID := e.ProxyID(&l4)
+				proxyID := e.ProxyID(l4)
 				if e.realizedRedirects == nil {
 					e.realizedRedirects = make(map[string]uint16)
 				}
@@ -211,7 +211,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToKeys(direction, *e.prevIdentityCache)
+			keysFromFilter := l4.ToKeys(direction)
 
 			for _, keyFromFilter := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
@@ -562,10 +562,6 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		close(datapathRegenCtxt.ctCleaned)
 	}
 
-	if e.realizedPolicy == nil {
-		e.realizedPolicy = &policy.EndpointPolicy{}
-	}
-
 	// If dry mode is enabled, no further changes to BPF maps are performed
 	if option.Config.DryMode {
 
@@ -687,7 +683,6 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 		datapathRegenCtxt.revertStack.Push(revertFunc)
 	}
-
 	// At this point, traffic is no longer redirected to the proxy for
 	// now-obsolete redirects, since we synced the updated policy map above.
 	// It's now safe to remove the redirects from the proxy's configuration.
@@ -1001,9 +996,6 @@ func (e *Endpoint) syncPolicyMap() error {
 			if err != nil {
 				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
 				errors = append(errors, err)
-			} else {
-				// Operation was successful, add to realized state.
-				e.realizedPolicy.PolicyMapState[keyToAdd] = entry
 			}
 		}
 	}

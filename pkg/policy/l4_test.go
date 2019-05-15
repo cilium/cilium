@@ -68,7 +68,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		},
 	}
 	selectors := []api.EndpointSelector{
-		{},
+		api.NewESFromLabels(),
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
@@ -77,10 +77,10 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter := CreateL4IngressFilter(eps, nil, portrule, tuple, tuple.Protocol, nil)
+		filter := createL4IngressFilter(eps, false, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 
-		filter = CreateL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil)
+		filter = createL4EgressFilter(eps, portrule, tuple, tuple.Protocol, nil, testSelectorCache)
 		c.Assert(len(filter.L7RulesPerEp), Equals, 1)
 	}
 }
@@ -92,9 +92,6 @@ func (a SortablePolicyRules) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule }
 
 func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
-	fooSelector := api.NewESFromLabels(labels.ParseSelectLabel("foo"))
-	wildcardSelector := api.NewESFromLabels()
-
 	model := &models.L4Policy{}
 	c.Assert(pretty.Sprintf("%+ v", model.Egress), checker.DeepEquals, "[]")
 	c.Assert(pretty.Sprintf("%+ v", model.Ingress), checker.DeepEquals, "[]")
@@ -110,10 +107,10 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		Ingress: L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
-				Endpoints: []api.EndpointSelector{fooSelector},
-				L7Parser:  "http",
+				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
+				L7Parser:        "http",
 				L7RulesPerEp: L7DataMap{
-					fooSelector: api.L7Rules{
+					cachedFooSelector: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 					},
 				},
@@ -121,10 +118,10 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			},
 			"9090/TCP": {
 				Port: 9090, Protocol: api.ProtoTCP,
-				Endpoints: []api.EndpointSelector{fooSelector},
-				L7Parser:  "tester",
+				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
+				L7Parser:        "tester",
 				L7RulesPerEp: L7DataMap{
-					fooSelector: api.L7Rules{
+					cachedFooSelector: api.L7Rules{
 						L7Proto: "tester",
 						L7: []api.PortRuleL7{
 							map[string]string{
@@ -140,16 +137,16 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			},
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
-				Endpoints: []api.EndpointSelector{fooSelector},
-				L7Parser:  "http",
+				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
+				L7Parser:        "http",
 				L7RulesPerEp: L7DataMap{
-					fooSelector: api.L7Rules{
+					cachedFooSelector: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{
 							{Path: "/", Method: "GET"},
 							{Path: "/bar", Method: "GET"},
 						},
 					},
-					wildcardSelector: api.L7Rules{
+					wildcardCachedSelector: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 					},
 				},
@@ -177,7 +174,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "any.foo=": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
         "http": [
           {
             "path": "/",
@@ -193,7 +190,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "any.foo=": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
         "l7proto": "tester",
         "l7": [
           {
@@ -214,17 +211,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u003cnone\u003e": {
-        "http": [
-          {
-            "path": "/",
-            "method": "GET"
-          }
-        ]
-      }
-    },
-    {
-      "any.foo=": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
         "http": [
           {
             "path": "/",
@@ -232,6 +219,16 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
           },
           {
             "path": "/bar",
+            "method": "GET"
+          }
+        ]
+      }
+    },
+    {
+      "\u0026LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[],}": {
+        "http": [
+          {
+            "path": "/",
             "method": "GET"
           }
         ]

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -67,6 +68,11 @@ var (
 		labels:   []string{"id.foo", "id.bar"},
 		identity: identity.NumericIdentity(256),
 	}
+
+	dummySelectorCacheUser = &DummySelectorCacheUser{}
+	testSelectorCache      = policy.NewSelectorCache(cache.IdentityCache{})
+
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
 )
 
 // newTestBrokerConf returns BrokerConf with default configuration adjusted for
@@ -225,7 +231,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	r := newRedirect(localEndpointMock, pp, uint16(portInt))
 
 	r.rules = policy.L7DataMap{
-		api.WildcardEndpointSelector: api.L7Rules{
+		wildcardCachedSelector: api.L7Rules{
 			Kafka: []api.PortRuleKafka{kafkaRule1, kafkaRule2},
 		},
 	}
