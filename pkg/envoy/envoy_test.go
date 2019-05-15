@@ -170,7 +170,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, Not(IsNil))
-	c.Assert(err, DeepEquals, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener listener:22: cannot bind '[::]:22': Address already in use"})
+	c.Assert(err, DeepEquals, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '[::]:22': Address already in use"})
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// Remove listener1
