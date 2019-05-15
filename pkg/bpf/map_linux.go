@@ -65,10 +65,14 @@ type MapValue interface {
 }
 
 type MapInfo struct {
-	MapType       MapType
-	MapKey        MapKey
-	KeySize       uint32
-	MapValue      MapValue
+	MapType  MapType
+	MapKey   MapKey
+	KeySize  uint32
+	MapValue MapValue
+	// ReadValueSize is the value size that is used to read from the BPF maps
+	// this value an the ValueSize values can be different for BPF_MAP_TYPE_PERCPU_HASH
+	// for example.
+	ReadValueSize uint32
 	ValueSize     uint32
 	MaxEntries    uint32
 	Flags         uint32
@@ -126,13 +130,37 @@ type Map struct {
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue MapValue, valueSize int, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
+func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue MapValue, valueSize, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       mapType,
 			MapKey:        mapKey,
 			KeySize:       uint32(keySize),
 			MapValue:      mapValue,
+			ReadValueSize: uint32(valueSize),
+			ValueSize:     uint32(valueSize),
+			MaxEntries:    uint32(maxEntries),
+			Flags:         flags,
+			InnerID:       innerID,
+			OwnerProgType: ProgTypeUnspec,
+		},
+		name:       path.Base(name),
+		dumpParser: dumpParser,
+	}
+	return m
+}
+
+// NewPerCPUHashMap creates a new Map type of "per CPU hash" - object representing a BPF map
+// The number of cpus is used to have the size representation of a value when
+// a lookup is made on this map types.
+func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue, valueSize, cpus, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
+	m := &Map{
+		MapInfo: MapInfo{
+			MapType:       BPF_MAP_TYPE_PERCPU_HASH,
+			MapKey:        mapKey,
+			KeySize:       uint32(keySize),
+			MapValue:      mapValue,
+			ReadValueSize: uint32(valueSize * cpus),
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
@@ -275,6 +303,7 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 			info.KeySize = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "value_size:\t%d", &value); n == 1 && err == nil {
 			info.ValueSize = uint32(value)
+			info.ReadValueSize = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "max_entries:\t%d", &value); n == 1 && err == nil {
 			info.MaxEntries = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "map_flags:\t0x%x", &value); n == 1 && err == nil {
@@ -509,7 +538,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
-	value := make([]byte, m.ValueSize)
+	value := make([]byte, m.ReadValueSize)
 
 	if err := m.Open(); err != nil {
 		return err
@@ -591,7 +620,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		prevKey    = make([]byte, m.KeySize)
 		currentKey = make([]byte, m.KeySize)
 		nextKey    = make([]byte, m.KeySize)
-		value      = make([]byte, m.ValueSize)
+		value      = make([]byte, m.ReadValueSize)
 
 		prevKeyValid = false
 	)
