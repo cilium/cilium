@@ -1,6 +1,13 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# The source of truth for vagrant box versions.
+# Sets SERVER_BOX, SERVER_VERSION, NETNEXT_SERVER_BOXET and NEXT_SERVER_VERSION
+# Accepts overrides from env variables
+require_relative 'vagrant_box_defaults.rb'
+$SERVER_BOX = (ENV['SERVER_BOX'] || $SERVER_BOX)
+$SERVER_VERSION= (ENV['SERVER_VERSION'] || $SERVER_VERSION)
+
 Vagrant.require_version ">= 2.0.0"
 
 if ARGV.first == "up" && ENV['CILIUM_SCRIPT'] != 'true'
@@ -124,7 +131,7 @@ Vagrant.configure(2) do |config|
         vb.customize ["modifyvm", :id, "--audio", "none"]
 
         config.vm.box = "cilium/ubuntu-dev"
-        config.vm.box_version = "151"
+        config.vm.box_version = $SERVER_VERSION
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
         if ENV["NFS"] then
