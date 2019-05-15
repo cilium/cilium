@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,6 +52,15 @@ type Repository struct {
 	// can include queueing endpoint regenerations, policy revision increments
 	// for endpoints, etc.
 	RuleReactionQueue *eventqueue.EventQueue
+
+	// SelectorCache tracks the selectors used in the policies
+	// resolved from the repository.
+	selectorCache *SelectorCache
+}
+
+// GetSelectorCache() returns the selector cache used by the Repository
+func (p *Repository) GetSelectorCache() *SelectorCache {
+	return p.selectorCache
 }
 
 // NewPolicyRepository allocates a new policy repository
@@ -63,6 +73,7 @@ func NewPolicyRepository() *Repository {
 		revision:              1,
 		RepositoryChangeQueue: repoChangeQueue,
 		RuleReactionQueue:     ruleReactionQueue,
+		selectorCache:         NewSelectorCache(cache.GetIdentityCache()),
 	}
 }
 

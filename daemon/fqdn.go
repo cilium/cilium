@@ -90,7 +90,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	return selectorIdentitySliceMapping, nil
 }
 
-func updateSelectorCache(selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) {
+func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) {
 	// Update mapping of selector to set of IPs in selector cache.
 	for selector, identitySlice := range selectors {
 		log.WithFields(logrus.Fields{
@@ -101,7 +101,7 @@ func updateSelectorCache(selectors map[policyApi.FQDNSelector][]*identity.Identi
 			// Nil check here? Hopefully not necessary...
 			numIds = append(numIds, numId.ID)
 		}
-		policy.UpdateFQDNSelector(selector, numIds)
+		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds)
 	}
 
 	// Selectors which no longer map to IPs (due to TTL expiry, cache being
@@ -111,7 +111,7 @@ func updateSelectorCache(selectors map[policyApi.FQDNSelector][]*identity.Identi
 	log.WithFields(logrus.Fields{
 		"fqdnSelectors": selectorsWithoutIPs,
 	}).Debug("removing all identities from FQDN selectors")
-	policy.RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
+	d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
@@ -134,7 +134,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			}
 
 			// Update selector cache for said FQDN selectors.
-			updateSelectorCache(selectorsIdentities, selectorsWithoutIPs)
+			d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs)
 
 			// Insert the new rules into the policy repository. We need them to
 			// replace the previous set. This requires the labels to match (including
