@@ -124,7 +124,7 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 		return fmt.Errorf("Timeout config Ticker interval too short (must be at least 1 second): %v", config.Ticker)
 	}
 
-	bodyChan := make(chan bool)
+	bodyChan := make(chan bool, 1)
 
 	asyncBody := func(ch chan bool) {
 		success := body()
