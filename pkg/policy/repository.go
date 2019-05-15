@@ -115,9 +115,10 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 	}
 }
 
+// This belongs to l4.go as this manipulates L4Filters
 func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
-	ruleLabels labels.LabelArray, l4Policy L4PolicyMap) {
-	for k, filter := range l4Policy {
+	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache *SelectorCache) {
+	for _, filter := range l4Policy {
 		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
 			continue
 		}
@@ -127,7 +128,8 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 		case ParserTypeHTTP:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				}
 			}
@@ -136,7 +138,8 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			for _, sel := range endpoints {
 				rule := api.PortRuleKafka{}
 				rule.Sanitize()
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					Kafka: []api.PortRuleKafka{rule},
 				}
 			}
@@ -145,22 +148,22 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			for _, sel := range endpoints {
 				rule := api.PortRuleDNS{}
 				rule.Sanitize()
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					DNS: []api.PortRuleDNS{rule},
 				}
 			}
 		default:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
-				filter.L7RulesPerEp[sel] = api.L7Rules{
+				cs := filter.cacheIdentitySelector(sel, selectorCache)
+				filter.L7RulesPerEp[cs] = api.L7Rules{
 					L7Proto: filter.L7Parser.String(),
 					L7:      []api.PortRuleL7{},
 				}
 			}
 		}
-		filter.Endpoints = append(filter.Endpoints, endpoints...)
 		filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
-		l4Policy[k] = filter
 	}
 }
 
@@ -172,9 +175,13 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 // rule found in the repository takes precedence.
 //
 // TODO: Coalesce l7 rules?
+//
+// Caller must release resources by calling Detach() on the returned map!
+//
+// Note: Only used for policy tracing
 func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
 
-	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision())
+	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 	if err != nil {
 		return nil, err
 	}
@@ -189,9 +196,11 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // are merged together. If rules contains overlapping port definitions, the first
 // rule found in the repository takes precedence.
 //
-// NOTE: This is only called from unit tests.
+// Caller must release resources by calling Detach() on the returned map!
+//
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
-	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision())
+	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 
 	if err != nil {
 		return nil, err
@@ -227,6 +236,8 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Ingress verdict: %s", verdict.String())
+	ingressPolicy.Detach(p.GetSelectorCache())
+
 	return verdict
 }
 
@@ -235,7 +246,7 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 // connection, the request will be denied. The policy repository mutex must be
 // held.
 //
-// NOTE: This is only called from unit tests.
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	// Lack of DPorts in the SearchContext means L3-only search
 	if len(ctx.DPorts) == 0 {
@@ -258,6 +269,7 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	ctx.PolicyTrace("Egress verdict: %s", verdict.String())
+	egressPolicy.Detach(p.GetSelectorCache())
 	return verdict
 }
 
@@ -279,6 +291,7 @@ func (p *Repository) SearchRLocked(labels labels.LabelArray) api.Rules {
 // This is just a helper function for unit testing.
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
+// NOTE: This is only called from unit tests, but from multiple packages.
 func (p *Repository) Add(r api.Rule, localRuleConsumers []Endpoint) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
@@ -605,7 +618,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision())
+		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&ingressCtx, p.GetRevision(), p.GetSelectorCache())
 		if err != nil {
 			return nil, err
 		}
@@ -620,7 +633,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision())
+		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&egressCtx, p.GetRevision(), p.GetSelectorCache())
 		if err != nil {
 			return nil, err
 		}

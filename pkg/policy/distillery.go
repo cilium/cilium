@@ -20,7 +20,6 @@ import (
 	"unsafe"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -31,7 +30,7 @@ import (
 type SelectorPolicy interface {
 	// Consume returns the policy in terms of connectivity to peer
 	// Identities. The callee MUST NOT modify the returned pointer.
-	Consume(owner PolicyOwner, cache cache.IdentityCache) *EndpointPolicy
+	Consume(owner PolicyOwner) *EndpointPolicy
 }
 
 // PolicyCache represents a cache of resolved policies for identities.
@@ -93,9 +92,10 @@ func (cache *PolicyCache) insert(identity *identityPkg.Identity) (SelectorPolicy
 func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 	cache.Lock()
 	defer cache.Unlock()
-	_, ok := cache.policies[identity.ID]
+	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
+		cip.getPolicy().Detach()
 	}
 	return ok
 }
@@ -118,7 +118,8 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	}
 
 	// Don't resolve policy if it was already done for this Identity.
-	currentRevision := cip.getPolicy().Revision
+	currentPolicy := cip.getPolicy()
+	currentRevision := currentPolicy.Revision
 	if revision <= currentRevision {
 		return false, nil
 	}
@@ -148,6 +149,7 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	changed := revision > currentRevision
 	if changed {
 		cip.setPolicy(selPolicy)
+		currentPolicy.Detach()
 	}
 	return changed, nil
 }
@@ -214,11 +216,11 @@ func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 //
 // This denotes that a particular endpoint is 'consuming' the policy from the
 // selector policy cache.
-func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner, identityCache cache.IdentityCache) *EndpointPolicy {
+func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
 	// Changing this requires shifting IdentityCache management
 	// responsibilities from the caller into this package.
-	return cip.getPolicy().DistillPolicy(owner, identityCache)
+	return cip.getPolicy().DistillPolicy(owner)
 }

@@ -272,10 +272,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 						RemotePolicies: expectedRemotePolicies,
 						L7:             &PNPAllowAll,
 					},
-					{
-						RemotePolicies: expectedRemotePolicies,
-						L7:             &PNPAllowGETbar,
-					},
+					//{
+					//	RemotePolicies: expectedRemotePolicies,
+					//	L7:             &PNPAllowGETbar,
+					//},
 				},
 			},
 		},
@@ -284,7 +284,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.DeepEquals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
 
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	c.Assert(prodBarNetworkPolicy, Not(IsNil))
@@ -322,10 +322,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 						RemotePolicies: expectedRemotePolicies,
 						L7:             &PNPAllowAll,
 					},
-					{
-						RemotePolicies: expectedRemotePolicies,
-						L7:             &PNPAllowGETbar,
-					},
+					//{
+					//	RemotePolicies: expectedRemotePolicies,
+					//	L7:             &PNPAllowGETbar,
+					//},
 				},
 			},
 		},
@@ -334,7 +334,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(prodBarNetworkPolicy, checker.DeepEquals, expectedNetworkPolicy)
+	c.Assert(prodBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
@@ -416,7 +416,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
 		},
 	}
-	c.Assert(qaBarNetworkPolicy, checker.DeepEquals, expectedNetworkPolicy)
+	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
 }
 
 func (ds *DaemonSuite) TestReplacePolicy(c *C) {
