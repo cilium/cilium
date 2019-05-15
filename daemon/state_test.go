@@ -45,12 +45,12 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func createEndpoints() ([]*e.Endpoint, map[uint16]*e.Endpoint) {
+func (ds *DaemonSuite) createEndpoints() ([]*e.Endpoint, map[uint16]*e.Endpoint) {
 	epsWanted := []*e.Endpoint{
-		endpointCreator(256, identity.NumericIdentity(256)),
-		endpointCreator(257, identity.NumericIdentity(256)),
-		endpointCreator(258, identity.NumericIdentity(256)),
-		endpointCreator(259, identity.NumericIdentity(256)),
+		ds.endpointCreator(256, identity.NumericIdentity(1256)),
+		ds.endpointCreator(257, identity.NumericIdentity(1257)),
+		ds.endpointCreator(258, identity.NumericIdentity(1258)),
+		ds.endpointCreator(259, identity.NumericIdentity(1259)),
 	}
 	epsMap := map[uint16]*e.Endpoint{
 		epsWanted[0].ID: epsWanted[0],
@@ -65,12 +65,23 @@ func getStrID(id uint16) string {
 	return fmt.Sprintf("%05d", id)
 }
 
-func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
+func (ds *DaemonSuite) endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 	strID := getStrID(id)
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, id)
 
-	ep := e.NewEndpointWithState(id, e.StateReady)
+	identity := &identity.Identity{
+		ID: secID,
+		Labels: labels.Labels{
+			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
+		},
+	}
+	identity.Sanitize()
+
+	repo := ds.d.GetPolicyRepository()
+	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
+
+	ep := e.NewEndpointWithState(repo, id, e.StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.DockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.DockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -80,12 +91,7 @@ func endpointCreator(id uint16, secID identity.NumericIdentity) *e.Endpoint {
 	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.IfIndex = 1
 	ep.SetNodeMACLocked(mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}))
-	ep.SecurityIdentity = &identity.Identity{
-		ID: secID,
-		Labels: labels.Labels{
-			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
-		},
-	}
+	ep.SecurityIdentity = identity
 	ep.OpLabels = labels.NewOpLabels()
 	return ep
 }
@@ -125,7 +131,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return false
 	}
 	ds.OnGetPolicyRepository = func() *policy.Repository {
-		return policy.NewPolicyRepository()
+		return ds.d.GetPolicyRepository()
 	}
 	ds.OnAlwaysAllowLocalhost = func() bool {
 		return false
@@ -204,7 +210,7 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	}()
 	ds.d.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{})
 
-	epsWanted, epsMap := createEndpoints()
+	epsWanted, epsMap := ds.createEndpoints()
 	tmpDir, err := ioutil.TempDir("", "cilium-tests")
 	defer func() {
 		os.RemoveAll(tmpDir)
@@ -221,7 +227,7 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(err, IsNil)
 	epsNames, err := ds.generateEPs(tmpDir, epsWanted, epsMap)
 	c.Assert(err, IsNil)
-	eps := e.ReadEPsFromDirNames(tmpDir, epsNames)
+	eps := e.ReadEPsFromDirNames(ds.d, tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	e.OrderEndpointAsc(epsWanted)

@@ -166,7 +166,7 @@ func (d DummyOwner) GetSecurityIdentity() *identity.Identity {
 func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		ip, _ := repo.ResolvePolicyLocked(fooIdentity)
+		ip, _ := repo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, identityCache)
 	}
 }
@@ -208,13 +208,14 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
 	identityCache = cache.GetIdentityCache()
-	identityPolicy, err := repo.ResolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := identityPolicy.DistillPolicy(DummyOwner{}, identityCache)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, identityCache)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		SelectorPolicy: &SelectorPolicy{
-			Revision: repo.GetRevision(),
+		selectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Ingress: L4PolicyMap{
 					"80/TCP": {
@@ -293,13 +294,14 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	defer repo.Mutex.RUnlock()
 
 	identityCache = cache.GetIdentityCache()
-	identityPolicy, err := repo.ResolvePolicyLocked(fooIdentity)
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := identityPolicy.DistillPolicy(DummyOwner{}, identityCache)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, identityCache)
 
 	expectedEndpointPolicy := EndpointPolicy{
-		SelectorPolicy: &SelectorPolicy{
-			Revision: repo.GetRevision(),
+		selectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
 				Ingress: L4PolicyMap{
 					"80/TCP": {

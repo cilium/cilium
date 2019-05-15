@@ -44,8 +44,8 @@ type endpointGeneratorSpec struct {
 	fakeControllerManager    bool
 }
 
-func newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
-	e, err := NewEndpointFromChangeModel(&models.EndpointChangeRequest{
+func newEndpoint(c *check.C, repo *policy.Repository, spec endpointGeneratorSpec) *Endpoint {
+	e, err := NewEndpointFromChangeModel(repo, &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{},
 		ID:         200,
 		Labels: models.Labels{
@@ -110,7 +110,7 @@ func newEndpoint(c *check.C, spec endpointGeneratorSpec) *Endpoint {
 }
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *check.C) {
-	e := newEndpoint(c, endpointGeneratorSpec{})
+	e := newEndpoint(c, s.repo, endpointGeneratorSpec{})
 	cepA := e.GetCiliumEndpointStatus()
 
 	// Run successful controllers in the background
@@ -142,7 +142,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 }
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
-	e := newEndpoint(c, endpointGeneratorSpec{})
+	e := newEndpoint(c, s.repo, endpointGeneratorSpec{})
 	cepA := e.GetCiliumEndpointStatus()
 
 	go func() {
@@ -170,7 +170,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 }
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusDeepEqual(c *check.C) {
-	a := newEndpoint(c, endpointGeneratorSpec{
+	a := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,
 		logErrors:                maxLogs,
@@ -179,7 +179,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusDeepEqual(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 
-	b := newEndpoint(c, endpointGeneratorSpec{
+	b := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,
 		logErrors:                maxLogs,
@@ -195,7 +195,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusDeepEqual(c *check.C) {
 }
 
 func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
-	e := newEndpoint(c, endpointGeneratorSpec{
+	e := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,
 		logErrors:                maxLogs,
@@ -210,7 +210,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusCorrectnes(c *check.C) {
 }
 
 func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
-	e := newEndpoint(c, endpointGeneratorSpec{
+	e := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,
 		logErrors:                maxLogs,
@@ -228,31 +228,28 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	c.Assert(err, check.Equals, nil)
 	defer cache.Release(context.Background(), nil, fooIdentity)
 
-	e.desiredPolicy = &policy.EndpointPolicy{
-		PolicyMapState: policy.MapState{
-			// L3-only map state
-			{
-				Identity: uint32(fooIdentity.ID),
-				DestPort: 0,
-				Nexthdr:  0,
-			}: {},
-			// L4-only map state
-			{
-				Identity: 0,
-				DestPort: 80,
-				Nexthdr:  6,
-			}: {},
-			// L3-dependent L4 map state
-			{
-				Identity: uint32(fooIdentity.ID),
-				DestPort: 80,
-				Nexthdr:  6,
-			}: {},
-		},
-		SelectorPolicy: &policy.SelectorPolicy{
-			IngressPolicyEnabled: true,
-			EgressPolicyEnabled:  true,
-		},
+	e.desiredPolicy = policy.NewEndpointPolicy(s.repo)
+	e.desiredPolicy.IngressPolicyEnabled = true
+	e.desiredPolicy.EgressPolicyEnabled = true
+	e.desiredPolicy.PolicyMapState = policy.MapState{
+		// L3-only map state
+		{
+			Identity: uint32(fooIdentity.ID),
+			DestPort: 0,
+			Nexthdr:  0,
+		}: {},
+		// L4-only map state
+		{
+			Identity: 0,
+			DestPort: 80,
+			Nexthdr:  6,
+		}: {},
+		// L3-dependent L4 map state
+		{
+			Identity: uint32(fooIdentity.ID),
+			DestPort: 80,
+			Nexthdr:  6,
+		}: {},
 	}
 
 	apiPolicy = e.getEndpointPolicy()
@@ -284,7 +281,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 }
 
 func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatusDeepEqual(c *check.C) {
-	a := newEndpoint(c, endpointGeneratorSpec{
+	a := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,
 		logErrors:                maxLogs,
@@ -293,7 +290,7 @@ func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatusDeepEqual(c *check.C) {
 		numPortsPerIdentity:      10,
 	})
 
-	b := newEndpoint(c, endpointGeneratorSpec{
+	b := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		fakeControllerManager:    true,
 		failingControllers:       10,
 		logErrors:                maxLogs,
@@ -312,7 +309,7 @@ func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatusDeepEqual(c *check.C) {
 }
 
 func (s *EndpointSuite) BenchmarkGetCiliumEndpointStatus(c *check.C) {
-	e := newEndpoint(c, endpointGeneratorSpec{
+	e := newEndpoint(c, s.repo, endpointGeneratorSpec{
 		failingControllers:       10,
 		logErrors:                maxLogs,
 		allowedIngressIdentities: 100,
