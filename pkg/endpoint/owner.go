@@ -62,4 +62,10 @@ type Owner interface {
 
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
+
+	// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
+	GetNodeSuffix() string
+
+	// UpdateIdentities propagates identity updates to selectors
+	UpdateIdentities(added, deleted cache.IdentityCache)
 }
