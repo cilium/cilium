@@ -59,9 +59,10 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 			continue
 		}
 
-		id, isNew, err := cache.AllocateIdentity(context.Background(), cidr.GetCIDRLabels(prefix))
+		// Figure out if this call needs to be able to update the selector cache synchronously.
+		id, isNew, err := cache.AllocateIdentity(context.Background(), nil, cidr.GetCIDRLabels(prefix))
 		if err != nil {
-			cache.ReleaseSlice(context.Background(), usedIdentities)
+			cache.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix.String(), err)
 		}
 
@@ -95,7 +96,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 		}
 
 		if id := cache.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
-			released, err := cache.Release(context.Background(), id)
+			released, err := cache.Release(context.Background(), nil, id)
 			if err != nil {
 				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}

@@ -224,9 +224,9 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, cilium_v2.AllowedIdentityList(nil))
 
 	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
-	fooIdentity, _, err := cache.AllocateIdentity(context.Background(), fooLbls)
+	fooIdentity, _, err := cache.AllocateIdentity(context.Background(), nil, fooLbls)
 	c.Assert(err, check.Equals, nil)
-	defer cache.Release(context.Background(), fooIdentity)
+	defer cache.Release(context.Background(), nil, fooIdentity)
 
 	e.desiredPolicy = &policy.EndpointPolicy{
 		PolicyMapState: policy.MapState{
