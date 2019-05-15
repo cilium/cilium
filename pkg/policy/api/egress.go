@@ -148,36 +148,6 @@ type EgressRule struct {
 	//     - 'sg-XXXXXXXXXXXXX'
 	// +optional
 	ToGroups []ToGroups `json:"toGroups,omitempty"`
-
-	aggregatedSelectors EndpointSelectorSlice
-}
-
-// SetAggregatedSelectors creates a single slice containing all of the following
-// fields within the EgressRule, converted to EndpointSelector, to be stored
-// within the EgressRule for easy lookup while performing policy evaluation
-// for the rule:
-// * ToEndpoints
-// * ToEntities
-// * ToCIDR
-// * ToCIDRSet
-// * ToFQDNs
-func (e *EgressRule) SetAggregatedSelectors() {
-	res := make(EndpointSelectorSlice, 0, len(e.ToCIDR)+len(e.ToFQDNs)+len(e.ToCIDRSet)+len(e.ToEndpoints)+len(e.ToEntities))
-	res = append(res, e.ToEndpoints...)
-	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
-	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
-	e.aggregatedSelectors = res
-}
-
-// GetDestinationEndpointSelectors returns a slice of endpoints selectors
-// covering all L3 destination selectors of the egress rule
-func (e *EgressRule) GetDestinationEndpointSelectors() EndpointSelectorSlice {
-	if e.aggregatedSelectors == nil {
-		e.SetAggregatedSelectors()
-	}
-	return e.aggregatedSelectors
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
@@ -237,6 +207,5 @@ func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
 		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	}
 	newRule.ToGroups = nil
-	e.SetAggregatedSelectors()
 	return newRule, nil
 }

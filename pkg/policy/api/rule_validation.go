@@ -143,8 +143,6 @@ func (i *IngressRule) sanitize() error {
 		return fmt.Errorf("too many ingress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 	}
 
-	i.SetAggregatedSelectors()
-
 	return nil
 }
 
@@ -233,8 +231,6 @@ func (e *EgressRule) sanitize() error {
 	if l := len(prefixLengths); l > MaxCIDRPrefixLengths {
 		return fmt.Errorf("too many egress CIDR prefix lengths %d/%d", l, MaxCIDRPrefixLengths)
 	}
-
-	e.SetAggregatedSelectors()
 
 	return nil
 }
