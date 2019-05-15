@@ -639,19 +639,18 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		if (IS_ERR(ret)) {
 			goto drop_no_service;
 		}
-		break;
+		goto update_state;
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
+		// See lb4_local comment
+		if (state->rev_nat_index == 0) {
+			state->rev_nat_index = svc_v2->rev_nat_index;
+			ct_update6_rev_nat_index(map, tuple, state);
+		}
 		break;
 	default:
 		goto drop_no_service;
-	}
-
-	// See lb4_local comment
-	if (state->rev_nat_index == 0) {
-		state->rev_nat_index = svc_v2->rev_nat_index;
-		ct_update6_rev_nat_index(map, tuple, state);
 	}
 
 #ifdef ENABLE_LEGACY_SERVICES
@@ -676,6 +675,10 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
+		state->slave = slave_svc->count;
+		ct_update6_slave_and_backend_id(map, tuple, state);
+		state->rev_nat_index = svc_v2->rev_nat_index;
+		ct_update6_rev_nat_index(map, tuple, state);
 	}
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
@@ -699,6 +702,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		ct_update6_slave_and_backend_id(map, tuple, state);
 	}
 
+update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
@@ -1081,23 +1085,22 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		if (IS_ERR(ret)) {
 			goto drop_no_service;
 		}
-		break;
+		goto update_state;
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
+		// For backward-compatibility we need to update reverse NAT index
+		// in the CT_SERVICE entry for old connections, as later in the code
+		// we check whether the right backend is used. Having it set to 0
+		// would trigger a new backend selection which would in many cases
+		// would pick a different backend.
+		if (unlikely(state->rev_nat_index == 0)) {
+			state->rev_nat_index = svc_v2->rev_nat_index;
+			ct_update4_rev_nat_index(map, tuple, state);
+		}
 		break;
 	default:
-        goto drop_no_service;
-	}
-
-	// For backward-compatibility we need to update reverse NAT index
-	// in the CT_SERVICE entry for old connections, as later in the code
-	// we check whether the right backend is used. Having it set to 0
-	// would trigger a new backend selection which would in many cases
-	// would pick a different backend.
-	if (state->rev_nat_index == 0) {
-		state->rev_nat_index = svc_v2->rev_nat_index;
-		ct_update4_rev_nat_index(map, tuple, state);
+		goto drop_no_service;
 	}
 
 #ifdef ENABLE_LEGACY_SERVICES
@@ -1130,6 +1133,10 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
+		state->slave = slave_svc->count;
+		ct_update4_slave_and_backend_id(map, tuple, state);
+		state->rev_nat_index = svc_v2->rev_nat_index;
+		ct_update4_rev_nat_index(map, tuple, state);
 	}
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
@@ -1153,6 +1160,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		ct_update4_slave_and_backend_id(map, tuple, state);
 	}
 
+update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
