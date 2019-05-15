@@ -2,15 +2,20 @@
 # vi: set ft=ruby
 Vagrant.require_version ">= 2.2.0"
 
+# The source of truth for vagrant box versions.
+# Sets SERVER_BOX, SERVER_VERSION, NETNEXT_SERVER_BOXET and NEXT_SERVER_VERSION
+# Accepts overrides from env variables
+require_relative '../vagrant_box_defaults.rb'
+$SERVER_BOX = (ENV['SERVER_BOX'] || $SERVER_BOX)
+$SERVER_VERSION= (ENV['SERVER_VERSION'] || $SERVER_VERSION)
+$NETNEXT_SERVER_BOX = (ENV['NETNEXT_SERVER_BOX'] || $NETNEXT_SERVER_BOX)
+$NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSION)
+
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
 $K8S_VERSION = ENV['K8S_VERSION'] || "1.14"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="1"? true : false
-$SERVER_BOX = (ENV['SERVER_BOX'] || "cilium/ubuntu-dev")
-$SERVER_VERSION= "151"
-$NETNEXT_SERVER_BOX= "cilium/ubuntu-next"
-$NETNEXT_SERVER_VERSION= "23"
 $IPv6=(ENV['IPv6'] || "0")
 $CONTAINER_RUNTIME=(ENV['CONTAINER_RUNTIME'] || "docker")
 $CNI_INTEGRATION=(ENV['CNI_INTEGRATION'] || "")
