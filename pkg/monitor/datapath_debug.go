@@ -101,6 +101,7 @@ const (
 	DbgIPIDMapFailed6
 	DbgIPIDMapSucceed4
 	DbgIPIDMapSucceed6
+	DbgLbStaleCT
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -355,6 +356,8 @@ func (n *DebugMsg) subTypeString() string {
 		return fmt.Sprintf("Successfully mapped daddr=%s to identity=%d", ip4Str(n.Arg1), n.Arg2)
 	case DbgIPIDMapSucceed6:
 		return fmt.Sprintf("Successfully mapped daddr.p4=[::%s] to identity=%d", ip6Str(n.Arg1), n.Arg2)
+	case DbgLbStaleCT:
+		return fmt.Sprintf("Stale CT entry found stale_ct.rev_nat_id=%d, svc.rev_nat_id=%d", n.Arg2, n.Arg1)
 	default:
 		return fmt.Sprintf("Unknown message type=%d arg1=%d arg2=%d", n.SubType, n.Arg1, n.Arg2)
 	}

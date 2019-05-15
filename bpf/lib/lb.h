@@ -428,6 +428,7 @@ static inline int __inline__ lb6_extract_key_v2(struct __sk_buff *skb,
 static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 						    struct lb6_key *key)
 {
+	key->slave = 0;
 #ifdef LB_L4
 	if (key->dport) {
 		struct lb6_service *svc;
@@ -460,6 +461,7 @@ static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 static inline
 struct lb6_service_v2 *__lb6_lookup_service_v2(struct lb6_key_v2 *key)
 {
+	key->slave = 0;
 #ifdef LB_L4
 	if (key->dport) {
 		struct lb6_service_v2 *svc;
@@ -629,6 +631,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		}
 		state->backend_id = slave_svc->backend_id;
 		state->slave = slave_svc->count;
+		state->rev_nat_index = svc_v2->rev_nat_index;
 		ret = ct_create6(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
@@ -645,6 +648,12 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		goto drop_no_service;
 	}
 
+	// See lb4_local comment
+	if (state->rev_nat_index == 0) {
+		state->rev_nat_index = svc_v2->rev_nat_index;
+		ct_update6_rev_nat_index(map, tuple, state);
+	}
+
 #ifdef ENABLE_LEGACY_SERVICES
 	if (state->backend_id == 0) {
 		if (!(svc = lb6_lookup_service(skb, (struct lb6_key *)key))) {
@@ -658,6 +667,16 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 	}
 #endif /* ENABLE_LEGACY_SERVICES */
 
+	// See lb4_local comment
+	if (state->rev_nat_index != svc_v2->rev_nat_index) {
+		cilium_dbg_lb(skb, DBG_LB_STALE_CT, svc_v2->rev_nat_index,
+			      state->rev_nat_index);
+		slave = lb6_select_slave(skb, svc_v2->count, svc_v2->weight);
+		if (!(slave_svc = lb6_lookup_slave_v2(skb, key, slave))) {
+			goto drop_no_service;
+		}
+		state->backend_id = slave_svc->backend_id;
+	}
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
@@ -827,6 +846,7 @@ static inline int __inline__ lb4_extract_key_v2(struct __sk_buff *skb,
 
 static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
+	key->slave = 0;
 #ifdef LB_L4
 	if (key->dport) {
 		struct lb4_service *svc;
@@ -870,6 +890,7 @@ static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 static inline
 struct lb4_service_v2 *__lb4_lookup_service_v2(struct lb4_key_v2 *key)
 {
+	key->slave = 0;
 #ifdef LB_L4
 	if (key->dport) {
 		struct lb4_service_v2 *svc;
@@ -1052,6 +1073,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		state->backend_id = slave_svc->backend_id;
 		/* See the lb4_services_v2.count comment re the hack */
 		state->slave = slave_svc->count;
+		state->rev_nat_index = svc_v2->rev_nat_index;
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
@@ -1066,6 +1088,16 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		break;
 	default:
         goto drop_no_service;
+	}
+
+	// For backward-compatibility we need to update reverse NAT index
+	// in the CT_SERVICE entry for old connections, as later in the code
+	// we check whether the right backend is used. Having it set to 0
+	// would trigger a new backend selection which would in many cases
+	// would pick a different backend.
+	if (state->rev_nat_index == 0) {
+		state->rev_nat_index = svc_v2->rev_nat_index;
+		ct_update4_rev_nat_index(map, tuple, state);
 	}
 
 #ifdef ENABLE_LEGACY_SERVICES
@@ -1084,6 +1116,21 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	}
 #endif /* ENABLE_LEGACY_SERVICES */
 
+	// If the CT_SERVICE entry is from a non-related connection (e.g.
+	// endpoint has been removed, but its CT entries were not (it is
+	// totally possible due to the bug in DumpReliablyWithCallback)),
+	// then a wrong (=from unrelated service) backend can be selected.
+	// To avoid this, check that reverse NAT indices match. If not,
+	// select a new backend.
+	if (state->rev_nat_index != svc_v2->rev_nat_index) {
+		cilium_dbg_lb(skb, DBG_LB_STALE_CT, svc_v2->rev_nat_index,
+			      state->rev_nat_index);
+		slave = lb4_select_slave(skb, svc_v2->count, svc_v2->weight);
+		if (!(slave_svc = lb4_lookup_slave_v2(skb, key, slave))) {
+			goto drop_no_service;
+		}
+		state->backend_id = slave_svc->backend_id;
+	}
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
