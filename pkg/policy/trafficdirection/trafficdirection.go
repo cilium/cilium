@@ -19,13 +19,13 @@ type TrafficDirection uint8
 
 const (
 	// Invalid represents an invalid traffic direction.
-	Invalid TrafficDirection = 2
+	Invalid TrafficDirection = 0
 
 	// Egress represents egress traffic.
-	Egress TrafficDirection = 1
+	Egress TrafficDirection = 2
 
 	// Ingress represents ingress traffic.
-	Ingress TrafficDirection = 0
+	Ingress TrafficDirection = 1
 )
 
 // Uint8 normalizes the TrafficDirection for insertion into BPF maps.
