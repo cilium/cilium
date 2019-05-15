@@ -31,6 +31,11 @@ type SelectorCacheTestSuite struct{}
 
 var _ = Suite(&SelectorCacheTestSuite{})
 
+type DummySelectorCacheUser struct{}
+
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+}
+
 type cachedSelectionUser struct {
 	c             *C
 	sc            *SelectorCache
@@ -91,9 +96,9 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	return cached
 }
 
-func (csu *cachedSelectionUser) RemoveIdentitySelector(sel CachedSelector) {
+func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
 	notifications := csu.notifications
-	csu.sc.RemoveSelector(csu, sel)
+	csu.sc.RemoveSelector(sel, csu)
 	delete(csu.selections, sel)
 
 	// No notifications for a removed selector
@@ -123,8 +128,8 @@ func (ds *SelectorCacheTestSuite) SetUpTest(c *C) {
 func (ds *SelectorCacheTestSuite) TearDownTest(c *C) {
 }
 
-func (ds *SelectorCacheTestSuite) TestAddRemoveIdentitySelector(c *C) {
-	sc := newSelectorCache()
+func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
@@ -159,21 +164,21 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveIdentitySelector(c *C) {
 	c.Assert(cached3, Equals, cached)
 
 	// Removing the first user does not remove the cached selector
-	user1.RemoveIdentitySelector(cached)
+	user1.RemoveSelector(cached)
 	// Remove is idempotent
-	user1.RemoveIdentitySelector(cached)
+	user1.RemoveSelector(cached)
 
 	// Removing the last user removes the cached selector
-	user2.RemoveIdentitySelector(cached3)
+	user2.RemoveSelector(cached3)
 	// Remove is idempotent
-	user2.RemoveIdentitySelector(cached3)
+	user2.RemoveSelector(cached3)
 
 	// All identities removed
 	c.Assert(len(sc.selectors), Equals, 0)
 }
 
 func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -200,15 +205,15 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	c.Assert(len(selections2), Equals, 1)
 	c.Assert(selections2[0], Equals, identity.NumericIdentity(2345))
 
-	user1.RemoveIdentitySelector(cached)
-	user1.RemoveIdentitySelector(cached2)
+	user1.RemoveSelector(cached)
+	user1.RemoveSelector(cached2)
 
 	// All identities removed
 	c.Assert(len(sc.selectors), Equals, 0)
 }
 
 func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -260,15 +265,15 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	c.Assert(len(selections), Equals, 1)
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
-	user1.RemoveIdentitySelector(cached)
-	user1.RemoveIdentitySelector(cached2)
+	user1.RemoveSelector(cached)
+	user1.RemoveSelector(cached2)
 
 	// All identities removed
 	c.Assert(len(sc.selectors), Equals, 0)
 }
 
 func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	googleSel := api.FQDNSelector{MatchName: "google.com"}
 	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
@@ -317,8 +322,8 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	sc.UpdateFQDNSelector(ciliumSel, ciliumIdentities)
 	c.Assert(user1.deletes, Equals, 4)
 
-	user1.RemoveIdentitySelector(cached)
-	user1.RemoveIdentitySelector(cached2)
+	user1.RemoveSelector(cached)
+	user1.RemoveSelector(cached2)
 
 	// All identities removed
 	c.Assert(len(sc.selectors), Equals, 0)
@@ -329,7 +334,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	googleSel := api.FQDNSelector{MatchName: "google.com"}
 	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
@@ -377,7 +382,7 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 }
 
 func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
-	sc := newSelectorCache()
+	sc := NewSelectorCache(cache.IdentityCache{})
 	// Add some identities to the identity cache
 	sc.UpdateIdentities(cache.IdentityCache{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -432,8 +437,8 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 
 	c.Assert(cached.GetSelections(), checker.DeepEquals, cached2.GetSelections())
 
-	user1.RemoveIdentitySelector(cached)
-	user2.RemoveIdentitySelector(cached2)
+	user1.RemoveSelector(cached)
+	user2.RemoveSelector(cached2)
 
 	// All identities removed
 	c.Assert(len(sc.selectors), Equals, 0)
