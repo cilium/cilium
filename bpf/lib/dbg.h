@@ -111,6 +111,9 @@ enum {
 	DBG_IP_ID_MAP_SUCCEED6,	/* arg1: daddr (last 4 bytes)
 				 * arg2: identity
 				 * arg3: unused */
+	DBG_LB_STALE_CT,	/* arg1: svc rev_nat_id
+				   arg2: stale CT rev_nat_id
+				   arg3: unused */
 };
 
 /* Capture types */
