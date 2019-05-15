@@ -44,7 +44,7 @@ func init() {
 
 type BlockParser struct {
 	connection *Connection
-	inserted   bool
+	inserted   int
 }
 
 func (p *BlockParserFactory) Create(connection *Connection) Parser {
@@ -117,9 +117,16 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 		return ERROR, int(ERROR_INVALID_FRAME_LENGTH)
 	}
 
-	if p.inserted {
-		p.inserted = false
-		return DROP, block_len
+	if p.inserted > 0 {
+		if p.inserted == block_len {
+			p.inserted = 0
+			return DROP, block_len
+		}
+		// partial insert in progress
+		n := p.connection.Inject(reply, []byte(block)[p.inserted:])
+		// Drop the INJECT block in the current direction
+		p.inserted += n
+		return INJECT, n
 	}
 
 	if !reply {
@@ -171,10 +178,10 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 	}
 	if bytes.Contains(block, []byte("INSERT")) {
 		// Inject the block in the current direction
-		p.connection.Inject(reply, []byte(block))
+		n := p.connection.Inject(reply, []byte(block))
 		// Drop the INJECT block in the current direction
-		p.inserted = true
-		return INJECT, block_len
+		p.inserted = n
+		return INJECT, n
 	}
 
 	return ERROR, int(ERROR_INVALID_FRAME_TYPE)
