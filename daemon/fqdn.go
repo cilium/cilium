@@ -121,80 +121,12 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
 	cfg := fqdn.Config{
-		MinTTL:         option.Config.ToFQDNsMinTTL,
-		OverLimit:      option.Config.ToFQDNsMaxIPsPerHost,
-		Cache:          fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
-		LookupDNSNames: fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRulesAndUpdateSelectors: func(generatedRules []*policyApi.Rule, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) error {
-			// Convert set of selectors with IPs to update to set of selectors
-			// with identities corresponding to said IPs.
-			selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate)
-			if err != nil {
-				return err
-			}
-
-			// Update selector cache for said FQDN selectors.
-			d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs)
-
-			// Insert the new rules into the policy repository. We need them to
-			// replace the previous set. This requires the labels to match (including
-			// the ToFQDN-UUID one).
-			_, err = d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
-			return err
-		},
-		PollerResponseNotify: func(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
-			// Do nothing if this option is off
-			if !option.Config.ToFQDNsEnablePollerEvents {
-				return
-			}
-
-			// FIXME: Not always true but we don't have the protocol information here
-			protocol := accesslog.TransportProtocol(u8proto.ProtoIDs["udp"])
-
-			record := logger.LogRecord{
-				LogRecord: accesslog.LogRecord{
-					Type:              accesslog.TypeResponse,
-					ObservationPoint:  accesslog.Ingress,
-					IPVersion:         accesslog.VersionIPv4,
-					TransportProtocol: protocol,
-					Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-					NodeAddressInfo:   accesslog.NodeAddressInfo{},
-				},
-			}
-
-			if ip := node.GetExternalIPv4(); ip != nil {
-				record.LogRecord.NodeAddressInfo.IPv4 = ip.String()
-			}
-
-			if ip := node.GetIPv6(); ip != nil {
-				record.LogRecord.NodeAddressInfo.IPv6 = ip.String()
-			}
-
-			// Construct the list of DNS types for question and answer RRs
-			questionTypes := []uint16{dns.TypeA, dns.TypeAAAA}
-			answerTypes := []uint16{}
-			for _, ip := range response.IPs {
-				if ip.To4() == nil {
-					answerTypes = append(answerTypes, dns.TypeAAAA)
-				} else {
-					answerTypes = append(answerTypes, dns.TypeA)
-				}
-			}
-
-			// Update DNS specific data in the LogRecord
-			logger.LogTags.Verdict(accesslog.VerdictForwarded, "DNSPoller")(&record)
-			logger.LogTags.DNS(&accesslog.LogRecordDNS{
-				Query:             qname,
-				IPs:               response.IPs,
-				TTL:               uint32(response.TTL),
-				CNAMEs:            nil,
-				ObservationSource: accesslog.DNSSourceAgentPoller,
-				RCode:             dns.RcodeSuccess,
-				QTypes:            questionTypes,
-				AnswerTypes:       answerTypes,
-			})(&record)
-			record.Log()
-		}}
+		MinTTL:                              option.Config.ToFQDNsMinTTL,
+		OverLimit:                           option.Config.ToFQDNsMaxIPsPerHost,
+		Cache:                               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
+		LookupDNSNames:                      fqdn.DNSLookupDefaultResolver,
+		AddGeneratedRulesAndUpdateSelectors: d.addGeneratedRulesAndUpdateSelectors,
+		PollerResponseNotify:                d.pollerResponseNotify}
 
 	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
@@ -286,176 +218,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	if err != nil {
 		return err
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
-		// LookupEPByIP
-		func(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
-			e := endpointmanager.LookupIP(endpointIP)
-			if e == nil {
-				return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
-			}
-
-			return e, nil
-		},
-		// NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
-		// events, proxy metrics and storing DNS data in the DNS cache. This may
-		// result in rule generation.
-		// It will:
-		// - Report a monitor error event and proxy metrics when the proxy sees an
-		//   error, and when it can't process something in this function
-		// - Report the verdict in a monitor event and emit proxy metrics
-		// - Insert the DNS data into the cache when msg is a DNS response and we
-		//   can lookup the endpoint related to it
-		// epAddr and serverAddr should match the original request, where epAddr is
-		// the source for egress (the only case current).
-		func(lookupTime time.Time, ep *endpoint.Endpoint, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
-			var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
-			var verdict accesslog.FlowVerdict
-			var reason string
-			metricError := metricErrorAllow
-			stat.ProcessingTime.Start()
-
-			endMetric := func() {
-				stat.ProcessingTime.End(true)
-				metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS, upstream).Observe(
-					stat.UpstreamTime.Total().Seconds())
-				metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
-					stat.ProcessingTime.Total().Seconds())
-			}
-
-			switch {
-			case stat.IsTimeout():
-				metricError = metricErrorTimeout
-				endMetric()
-				return nil
-			case stat.Err != nil:
-				metricError = metricErrorProxy
-				verdict = accesslog.VerdictError
-				reason = "Error: " + stat.Err.Error()
-			case allowed:
-				verdict = accesslog.VerdictForwarded
-				reason = "Allowed by policy"
-			case !allowed:
-				metricError = metricErrorDenied
-				verdict = accesslog.VerdictDenied
-				reason = "Denied by policy"
-			}
-
-			// We determine the direction based on the DNS packet. The observation
-			// point is always Egress, however.
-			var flowType accesslog.FlowType
-			if msg.Response {
-				flowType = accesslog.TypeResponse
-			} else {
-				flowType = accesslog.TypeRequest
-			}
-
-			var serverPort int
-			serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
-			if err != nil {
-				log.WithError(err).Error("cannot extract endpoint IP from DNS request")
-			} else {
-				if serverPort, err = strconv.Atoi(serverPortStr); err != nil {
-					log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
-				}
-			}
-			if ep == nil {
-				// This is a hard fail. We cannot proceed because record.Log requires a
-				// non-nil ep, and we also don't want to insert this data into the
-				// cache if we don't know that an endpoint asked for it (this is
-				// asserted via ep != nil here and msg.Response && msg.Rcode ==
-				// dns.RcodeSuccess below).
-				err := errors.New("DNS request cannot be associated with an existing endpoint")
-				log.WithError(err).Error("cannot find matching endpoint")
-				endMetric()
-				return err
-			}
-			qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
-			if err != nil {
-				// This error is ok because all these values are used for reporting, or filling in the cache.
-				log.WithError(err).Error("cannot extract DNS message details")
-			}
-
-			ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, verdict)
-			record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
-				func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
-				logger.LogTags.Verdict(verdict, reason),
-				logger.LogTags.Addressing(logger.AddressingInfo{
-					SrcIPPort:   ep.String(),
-					DstIPPort:   serverAddr,
-					SrcIdentity: ep.GetIdentity().Uint32(),
-				}),
-				func(lr *logger.LogRecord) {
-					lr.LogRecord.SourceEndpoint = accesslog.EndpointInfo{
-						ID:           ep.GetID(),
-						IPv4:         ep.GetIPv4Address(),
-						IPv6:         ep.GetIPv6Address(),
-						Labels:       ep.GetLabels(),
-						LabelsSHA256: ep.GetLabelsSHA(),
-						Identity:     uint64(ep.GetIdentity()),
-					}
-
-					// When the server is an endpoint, get all the data for it.
-					// When external, use the ipcache to fill in the SecID
-					if serverEP := endpointmanager.LookupIPv4(serverIP); serverEP != nil {
-						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
-							ID:           serverEP.GetID(),
-							IPv4:         serverEP.GetIPv4Address(),
-							IPv6:         serverEP.GetIPv6Address(),
-							Labels:       serverEP.GetLabels(),
-							LabelsSHA256: serverEP.GetLabelsSHA(),
-							Identity:     uint64(serverEP.GetIdentity()),
-						}
-					} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
-						secID := secIDCache.LookupIdentityByID(serverSecID.ID)
-						// TODO: handle IPv6
-						lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
-							IPv4: serverIP,
-							// IPv6:         serverEP.GetIPv6Address(),
-							Labels:       secID.Labels.GetModel(),
-							LabelsSHA256: secID.GetLabelsSHA256(),
-							Identity:     uint64(serverSecID.ID.Uint32()),
-						}
-					}
-				},
-				logger.LogTags.DNS(&accesslog.LogRecordDNS{
-					Query:             qname,
-					IPs:               responseIPs,
-					TTL:               TTL,
-					CNAMEs:            CNAMEs,
-					ObservationSource: accesslog.DNSSourceProxy,
-					RCode:             rcode,
-					QTypes:            qTypes,
-					AnswerTypes:       recordTypes,
-				}),
-			)
-			record.Log()
-
-			if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-				// This must happen before the ruleGen update below, to ensure that
-				// this data is included in the serialized Endpoint object.
-				log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-				if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
-					ep.SyncEndpointHeaderFile(d)
-				}
-
-				log.WithFields(logrus.Fields{
-					"qname": qname,
-					"ips":   responseIPs,
-				}).Debug("Updating DNS name in cache from response to to query")
-				err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
-					qname: {
-						IPs: responseIPs,
-						TTL: int(TTL),
-					}})
-				if err != nil {
-					log.WithError(err).Error("error updating internal DNS cache for rule generation")
-				}
-				endMetric()
-			}
-
-			stat.ProcessingTime.End(true)
-			return nil
-		})
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, d.lookupEPByIP, d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
@@ -463,6 +226,256 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 	}
 	return err // filled by StartDNSProxy
+}
+
+// addGeneratedRulesAndUpdateSelectors takes updates to rules that contain
+// toFQDNs. These replacement rules are inserted into the policy repository and
+// the selector caches are updated with the DNS->IP mappings.
+func (d *Daemon) addGeneratedRulesAndUpdateSelectors(generatedRules []*policyApi.Rule, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) error {
+	// Convert set of selectors with IPs to update to set of selectors
+	// with identities corresponding to said IPs.
+	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate)
+	if err != nil {
+		return err
+	}
+
+	// Update selector cache for said FQDN selectors.
+	d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs)
+
+	// Insert the new rules into the policy repository. We need them to
+	// replace the previous set. This requires the labels to match (including
+	// the ToFQDN-UUID one).
+	_, err = d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
+	return err
+}
+
+// pollerResponseNotify handles update events for updates from the poller. It
+// sends these on as monitor events and accesslog entries.
+// Note: The poller directly updates d.dnsRuleGen with new IP data, separate
+// from this callback.
+func (d *Daemon) pollerResponseNotify(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
+	// Do nothing if this option is off
+	if !option.Config.ToFQDNsEnablePollerEvents {
+		return
+	}
+
+	// FIXME: Not always true but we don't have the protocol information here
+	protocol := accesslog.TransportProtocol(u8proto.ProtoIDs["udp"])
+
+	record := logger.LogRecord{
+		LogRecord: accesslog.LogRecord{
+			Type:              accesslog.TypeResponse,
+			ObservationPoint:  accesslog.Ingress,
+			IPVersion:         accesslog.VersionIPv4,
+			TransportProtocol: protocol,
+			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
+			NodeAddressInfo:   accesslog.NodeAddressInfo{},
+		},
+	}
+
+	if ip := node.GetExternalIPv4(); ip != nil {
+		record.LogRecord.NodeAddressInfo.IPv4 = ip.String()
+	}
+
+	if ip := node.GetIPv6(); ip != nil {
+		record.LogRecord.NodeAddressInfo.IPv6 = ip.String()
+	}
+
+	// Construct the list of DNS types for question and answer RRs
+	questionTypes := []uint16{dns.TypeA, dns.TypeAAAA}
+	answerTypes := []uint16{}
+	for _, ip := range response.IPs {
+		if ip.To4() == nil {
+			answerTypes = append(answerTypes, dns.TypeAAAA)
+		} else {
+			answerTypes = append(answerTypes, dns.TypeA)
+		}
+	}
+
+	// Update DNS specific data in the LogRecord
+	logger.LogTags.Verdict(accesslog.VerdictForwarded, "DNSPoller")(&record)
+	logger.LogTags.DNS(&accesslog.LogRecordDNS{
+		Query:             qname,
+		IPs:               response.IPs,
+		TTL:               uint32(response.TTL),
+		CNAMEs:            nil,
+		ObservationSource: accesslog.DNSSourceAgentPoller,
+		RCode:             dns.RcodeSuccess,
+		QTypes:            questionTypes,
+		AnswerTypes:       answerTypes,
+	})(&record)
+	record.Log()
+}
+
+// lookupEPByIP returns the endpoint that this IP belongs to
+func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
+	e := endpointmanager.LookupIP(endpointIP)
+	if e == nil {
+		return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
+	}
+
+	return e, nil
+}
+
+// NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
+// events, proxy metrics and storing DNS data in the DNS cache. This may
+// result in rule generation.
+// It will:
+// - Report a monitor error event and proxy metrics when the proxy sees an
+//   error, and when it can't process something in this function
+// - Report the verdict in a monitor event and emit proxy metrics
+// - Insert the DNS data into the cache when msg is a DNS response and we
+//   can lookup the endpoint related to it
+// epAddr and serverAddr should match the original request, where epAddr is
+// the source for egress (the only case current).
+func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
+	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
+	var verdict accesslog.FlowVerdict
+	var reason string
+	metricError := metricErrorAllow
+	stat.ProcessingTime.Start()
+
+	endMetric := func() {
+		stat.ProcessingTime.End(true)
+		metrics.ProxyUpstreamTime.WithLabelValues(metrics.ErrorTimeout, metrics.L7DNS, upstream).Observe(
+			stat.UpstreamTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
+			stat.ProcessingTime.Total().Seconds())
+	}
+
+	switch {
+	case stat.IsTimeout():
+		metricError = metricErrorTimeout
+		endMetric()
+		return nil
+	case stat.Err != nil:
+		metricError = metricErrorProxy
+		verdict = accesslog.VerdictError
+		reason = "Error: " + stat.Err.Error()
+	case allowed:
+		verdict = accesslog.VerdictForwarded
+		reason = "Allowed by policy"
+	case !allowed:
+		metricError = metricErrorDenied
+		verdict = accesslog.VerdictDenied
+		reason = "Denied by policy"
+	}
+
+	// We determine the direction based on the DNS packet. The observation
+	// point is always Egress, however.
+	var flowType accesslog.FlowType
+	if msg.Response {
+		flowType = accesslog.TypeResponse
+	} else {
+		flowType = accesslog.TypeRequest
+	}
+
+	var serverPort int
+	serverIP, serverPortStr, err := net.SplitHostPort(serverAddr)
+	if err != nil {
+		log.WithError(err).Error("cannot extract endpoint IP from DNS request")
+	} else {
+		if serverPort, err = strconv.Atoi(serverPortStr); err != nil {
+			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
+		}
+	}
+	if ep == nil {
+		// This is a hard fail. We cannot proceed because record.Log requires a
+		// non-nil ep, and we also don't want to insert this data into the
+		// cache if we don't know that an endpoint asked for it (this is
+		// asserted via ep != nil here and msg.Response && msg.Rcode ==
+		// dns.RcodeSuccess below).
+		err := errors.New("DNS request cannot be associated with an existing endpoint")
+		log.WithError(err).Error("cannot find matching endpoint")
+		endMetric()
+		return err
+	}
+	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
+	if err != nil {
+		// This error is ok because all these values are used for reporting, or filling in the cache.
+		log.WithError(err).Error("cannot extract DNS message details")
+	}
+
+	ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, verdict)
+	record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
+		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
+		logger.LogTags.Verdict(verdict, reason),
+		logger.LogTags.Addressing(logger.AddressingInfo{
+			SrcIPPort:   ep.String(),
+			DstIPPort:   serverAddr,
+			SrcIdentity: ep.GetIdentity().Uint32(),
+		}),
+		func(lr *logger.LogRecord) {
+			lr.LogRecord.SourceEndpoint = accesslog.EndpointInfo{
+				ID:           ep.GetID(),
+				IPv4:         ep.GetIPv4Address(),
+				IPv6:         ep.GetIPv6Address(),
+				Labels:       ep.GetLabels(),
+				LabelsSHA256: ep.GetLabelsSHA(),
+				Identity:     uint64(ep.GetIdentity()),
+			}
+
+			// When the server is an endpoint, get all the data for it.
+			// When external, use the ipcache to fill in the SecID
+			if serverEP := endpointmanager.LookupIPv4(serverIP); serverEP != nil {
+				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
+					ID:           serverEP.GetID(),
+					IPv4:         serverEP.GetIPv4Address(),
+					IPv6:         serverEP.GetIPv6Address(),
+					Labels:       serverEP.GetLabels(),
+					LabelsSHA256: serverEP.GetLabelsSHA(),
+					Identity:     uint64(serverEP.GetIdentity()),
+				}
+			} else if serverSecID, exists := ipcache.IPIdentityCache.LookupByIP(serverIP); exists {
+				secID := secIDCache.LookupIdentityByID(serverSecID.ID)
+				// TODO: handle IPv6
+				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
+					IPv4: serverIP,
+					// IPv6:         serverEP.GetIPv6Address(),
+					Labels:       secID.Labels.GetModel(),
+					LabelsSHA256: secID.GetLabelsSHA256(),
+					Identity:     uint64(serverSecID.ID.Uint32()),
+				}
+			}
+		},
+		logger.LogTags.DNS(&accesslog.LogRecordDNS{
+			Query:             qname,
+			IPs:               responseIPs,
+			TTL:               TTL,
+			CNAMEs:            CNAMEs,
+			ObservationSource: accesslog.DNSSourceProxy,
+			RCode:             rcode,
+			QTypes:            qTypes,
+			AnswerTypes:       recordTypes,
+		}),
+	)
+	record.Log()
+
+	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
+		// This must happen before the ruleGen update below, to ensure that
+		// this data is included in the serialized Endpoint object.
+		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
+		if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
+			ep.SyncEndpointHeaderFile(d)
+		}
+
+		log.WithFields(logrus.Fields{
+			"qname": qname,
+			"ips":   responseIPs,
+		}).Debug("Updating DNS name in cache from response to to query")
+		err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
+			qname: {
+				IPs: responseIPs,
+				TTL: int(TTL),
+			}})
+		if err != nil {
+			log.WithError(err).Error("error updating internal DNS cache for rule generation")
+		}
+		endMetric()
+	}
+
+	stat.ProcessingTime.End(true)
+	return nil
 }
 
 type getFqdnCache struct {
