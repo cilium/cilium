@@ -20,7 +20,6 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -33,13 +32,13 @@ type CtKey4 struct {
 // NewValue creates a new bpf.MapValue.
 func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
 
-// ToNetwork converts CtKey4 ports to network byte order.
-func (k *CtKey4) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
+// CtKey4Global is needed to provide CtEntry type to Lookup values
+type CtKey4Global struct {
+	tuple.TupleKey4Global
 }
+
+// NewValue creates a new bpf.MapValue.
+func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
 // CtKey6 is needed to provide CtEntry type to Lookup values
 type CtKey6 struct {
@@ -49,13 +48,13 @@ type CtKey6 struct {
 // NewValue creates a new bpf.MapValue.
 func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
 
-// ToNetwork converts CtKey6 ports to network byte order.
-func (k *CtKey6) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
+// CtKey6 is needed to provide CtEntry type to Lookup values
+type CtKey6Global struct {
+	tuple.TupleKey6Global
 }
+
+// NewValue creates a new bpf.MapValue.
+func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
 func createTupleKey(remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (tuple.TupleKey, error) {
 	ip, port, err := net.SplitHostPort(remoteAddr)
@@ -161,10 +160,18 @@ func Lookup(epname string, remoteAddr, localAddr string, proto u8proto.U8proto, 
 		if err != nil {
 			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
 		}
-		if ipv4 {
-			m.MapKey = &CtKey4{}
+		if epname == "global" {
+			if ipv4 {
+				m.MapKey = &CtKey4Global{}
+			} else {
+				m.MapKey = &CtKey6Global{}
+			}
 		} else {
-			m.MapKey = &CtKey6{}
+			if ipv4 {
+				m.MapKey = &CtKey4{}
+			} else {
+				m.MapKey = &CtKey6{}
+			}
 		}
 		m.MapValue = &CtEntry{}
 	}
