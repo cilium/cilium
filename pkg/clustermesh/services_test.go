@@ -23,6 +23,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -61,6 +62,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
 	s.svcCache = k8s.NewServiceCache()
+	identity.InitWellKnownIdentities()
 	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
 	dir, err := ioutil.TempDir("", "multicluster")
 	s.testDir = dir
