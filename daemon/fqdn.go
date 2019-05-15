@@ -78,7 +78,7 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	for selector, selectorIPs := range selectorsWithIPsToUpdate {
 		var currentlyAllocatedIdentities []*identity.Identity
 		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
-			secIDCache.ReleaseSlice(context.TODO(), usedIdentities)
+			secIDCache.ReleaseSlice(context.TODO(), nil, usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
 			return nil, err
