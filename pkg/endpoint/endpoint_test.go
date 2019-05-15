@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -54,6 +55,7 @@ func (t *testIdentityAllocator) GetNodeSuffix() string { return "foo" }
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
+	identity.InitWellKnownIdentities()
 	cache.InitIdentityAllocator(&testIdentityAllocator{})
 }
 

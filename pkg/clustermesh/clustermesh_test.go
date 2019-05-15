@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -107,6 +108,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	kvstore.SetupDummy("etcd")
 	defer kvstore.Close()
 
+	identity.InitWellKnownIdentities()
 	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
 	defer cache.Close()
 
