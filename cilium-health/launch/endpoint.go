@@ -237,7 +237,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Nod
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(info)
+	ep, err := endpoint.NewEndpointFromChangeModel(owner.GetPolicyRepository(), info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}

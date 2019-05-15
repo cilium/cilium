@@ -146,7 +146,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	possibleEPs := endpoint.ReadEPsFromDirNames(dir, eptsID)
+	possibleEPs := endpoint.ReadEPsFromDirNames(d, dir, eptsID)
 
 	if len(possibleEPs) == 0 {
 		log.Info("No old endpoints found.")

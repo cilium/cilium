@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/distillery"
 	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/sirupsen/logrus"
@@ -167,7 +166,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 		// assigned after the endpoint is added to the endpointmanager
 		// (and hence also the identitymanager). In that case, detect
 		// that the selectorPolicy is not set and find it.
-		e.selectorPolicy = distillery.Lookup(e.SecurityIdentity)
+		e.selectorPolicy = repo.GetPolicyCache().Lookup(e.SecurityIdentity)
 		if e.selectorPolicy == nil {
 			err := fmt.Errorf("no cached selectorPolicy found")
 			e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
@@ -176,7 +175,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	}
 	// TODO: GH-7515: This should be triggered closer to policy change
 	// handlers, but for now let's just update it here.
-	if err := distillery.UpdatePolicy(repo, e.SecurityIdentity); err != nil {
+	if err := repo.GetPolicyCache().UpdatePolicy(e.SecurityIdentity); err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
