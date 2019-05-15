@@ -297,3 +297,11 @@ func (ds *DaemonSuite) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
 	}
 	panic("ClearPolicyConsumers should not have been called")
 }
+
+func (ds *DaemonSuite) GetNodeSuffix() string {
+	return ds.d.GetNodeSuffix()
+}
+
+func (ds *DaemonSuite) UpdateIdentities(added, deleted cache.IdentityCache) {
+	ds.d.UpdateIdentities(added, deleted)
+}
