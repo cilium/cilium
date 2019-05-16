@@ -195,6 +195,11 @@ const (
 	// connection tracking garbage collection
 	ConntrackGCStartingInterval = 5 * time.Minute
 
+	// PolicyMapEntries is the default number of entries allowed in an
+	// endpoint's policymap, ie the maximum number of peer identities that
+	// the endpoint could send/receive traffic to/from.
+	PolicyMapEntries = 16384 // Cilium 1.5 and earlier value
+
 	// K8sEventHandover enables use of the kvstore to optimize Kubernetes
 	// event handling by listening for k8s events in the operator and
 	// mirroring it into the kvstore for reduced overhead in large
