@@ -113,7 +113,10 @@ func (conn *Connection) CheckOnData(c *C, reply, endStream bool, data *[][]byte,
 		}
 	}
 
-	buf := conn.ReplyBuf
+	buf := conn.OrigBuf
+	if reply {
+		buf = conn.ReplyBuf
+	}
 	c.Check(*buf, DeepEquals, expReplyBuf, Commentf("Inject buffer mismatch"))
 	*buf = (*buf)[:0] // make empty again
 
