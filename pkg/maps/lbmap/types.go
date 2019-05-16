@@ -171,10 +171,10 @@ type ServiceValueV2 interface {
 	GetWeight() uint16
 
 	// Set backend identifier
-	SetBackendID(id loadbalancer.BackendID)
+	SetBackendID(id uint32)
 
 	// Get backend identifier
-	GetBackendID() loadbalancer.BackendID
+	GetBackendID() uint32
 
 	// Returns a RevNatKey matching a ServiceValue
 	RevNatKey() RevNatKey
@@ -191,10 +191,10 @@ type BackendKey interface {
 	Map() *bpf.Map
 
 	// Set backend identifier
-	SetID(loadbalancer.BackendID)
+	SetID(uint32)
 
 	// Get backend identifier
-	GetID() loadbalancer.BackendID
+	GetID() uint32
 }
 
 // BackendValue is the interface describing protocol independent backend value.
@@ -223,7 +223,7 @@ type Backend interface {
 	Map() *bpf.Map
 
 	// Get backend identifier
-	GetID() loadbalancer.BackendID
+	GetID() uint32
 
 	// Get key of the backend entry
 	GetKey() bpf.MapKey
@@ -460,7 +460,7 @@ func LBSVC2ServiceKeynValuenBackendV2(svc *loadbalancer.LBSVC) (ServiceKeyV2, []
 
 		svcValue.SetRevNat(int(svc.FE.ID))
 		svcValue.SetWeight(be.Weight)
-		svcValue.SetBackendID(loadbalancer.BackendID(be.ID))
+		svcValue.SetBackendID(uint32(be.ID))
 
 		backends = append(backends, backend)
 		svcValues = append(svcValues, svcValue)
@@ -529,8 +529,8 @@ func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) ServiceKeyV2 {
 
 func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
 	if be.IsIPv6() {
-		return NewBackend6(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.All)
+		return NewBackend6(uint32(be.ID), be.IP, be.Port, u8proto.All)
 	}
 
-	return NewBackend4(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.All)
+	return NewBackend4(uint32(be.ID), be.IP, be.Port, u8proto.All)
 }
