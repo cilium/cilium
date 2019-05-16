@@ -127,6 +127,9 @@ func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	c.Check(err, IsNil)      // Avoid assert to ensure Close() is called below.
 	err = existingMap.Open() // Reopen should be no-op.
 	c.Check(err, IsNil)
+	found, err := existingMap.OpenIfExists()
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
 	err = existingMap.Close()
 	c.Assert(err, IsNil)
 }
@@ -257,6 +260,10 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	defer existingMap.Close()
 	c.Assert(err, IsNil)
 
+	empty, err := existingMap.IsEmpty()
+	c.Assert(err, IsNil)
+	c.Assert(empty, Equals, true)
+
 	key1 := &TestKey{Key: 103}
 	value1 := &TestValue{Value: 203}
 	key2 := &TestKey{Key: 104}
@@ -272,6 +279,10 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	value, err = existingMap.Lookup(key2)
 	c.Assert(err, Not(IsNil))
 	c.Assert(value, Equals, nil)
+
+	empty, err = existingMap.IsEmpty()
+	c.Assert(err, IsNil)
+	c.Assert(empty, Equals, false)
 
 	err = existingMap.Update(key1, value2)
 	c.Assert(err, IsNil)
