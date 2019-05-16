@@ -27,28 +27,24 @@ type PolicyPlumbingMap struct {
 	*bpf.Map
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type PlumbingKey struct {
+type plumbingKey struct {
 	key uint32
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type PlumbingValue struct {
+type plumbingValue struct {
 	fd uint32
 }
 
-func (k *PlumbingKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *PlumbingKey) NewValue() bpf.MapValue    { return &PlumbingValue{} }
+func (k *plumbingKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *plumbingKey) NewValue() bpf.MapValue    { return &plumbingValue{} }
 
-func (k *PlumbingKey) String() string {
+func (k *plumbingKey) String() string {
 	return fmt.Sprintf("Endpoint: %d", k.key)
 }
 
-func (v *PlumbingValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+func (v *plumbingValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
-func (v *PlumbingValue) String() string {
+func (v *plumbingValue) String() string {
 	return fmt.Sprintf("fd: %d", v.fd)
 }
 
@@ -57,7 +53,7 @@ func (v *PlumbingValue) String() string {
 func RemoveGlobalMapping(id uint32) error {
 	gpm, err := OpenCallMap()
 	if err == nil {
-		k := PlumbingKey{
+		k := plumbingKey{
 			key: id,
 		}
 		err = gpm.Map.Delete(&k)
