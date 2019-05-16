@@ -60,7 +60,7 @@ var (
 
 			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
 		}).WithCache()
-	Backend4Map = bpf.NewMap("cilium_lb4_backends",
+	Backend4Map = bpf.NewMap("cilium_lb4_backends_v2",
 		bpf.MapTypeHash,
 		&Backend4Key{},
 		int(unsafe.Sizeof(Backend4Key{})),
@@ -77,6 +77,23 @@ var (
 
 			return mapKey, backendVal.ToNetwork(), nil
 		}).WithCache()
+	OldBackend4Map = bpf.NewMap("cilium_lb4_backends",
+		bpf.MapTypeHash,
+		&OldBackend4Key{},
+		int(unsafe.Sizeof(OldBackend4Key{})),
+		&Backend4Value{},
+		int(unsafe.Sizeof(Backend4Value{})),
+		MaxEntries,
+		0, 0,
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			backendVal := mapValue.(*Backend4Value)
+
+			if _, _, err := bpf.ConvertKeyValue(key, value, mapKey, backendVal); err != nil {
+				return nil, nil, err
+			}
+
+			return mapKey, backendVal.ToNetwork(), nil
+		})
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		&RevNat4Key{},
@@ -434,6 +451,19 @@ func (k *Backend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
 func (k *Backend4Key) Map() *bpf.Map             { return Backend4Map }
 func (k *Backend4Key) SetID(id uint32)           { k.ID = id }
 func (k *Backend4Key) GetID() uint32             { return k.ID }
+
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type OldBackend4Key struct {
+	ID uint16
+}
+
+func (k *OldBackend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
+func (k *OldBackend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *OldBackend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
+func (k *OldBackend4Key) Map() *bpf.Map             { return OldBackend4Map }
+func (k *OldBackend4Key) SetID(id uint32)           { k.ID = uint16(id) }
+func (k *OldBackend4Key) GetID() uint32             { return uint32(k.ID) }
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true

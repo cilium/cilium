@@ -61,7 +61,7 @@ var (
 
 			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
 		}).WithCache()
-	Backend6Map = bpf.NewMap("cilium_lb6_backends",
+	Backend6Map = bpf.NewMap("cilium_lb6_backends_v2",
 		bpf.MapTypeHash,
 		&Backend6Key{},
 		int(unsafe.Sizeof(Backend6Key{})),
@@ -78,6 +78,23 @@ var (
 
 			return mapKey, backendVal.ToNetwork(), nil
 		}).WithCache()
+	OldBackend6Map = bpf.NewMap("cilium_lb6_backends",
+		bpf.MapTypeHash,
+		&OldBackend6Key{},
+		int(unsafe.Sizeof(OldBackend6Key{})),
+		&Backend6Value{},
+		int(unsafe.Sizeof(Backend6Value{})),
+		MaxEntries,
+		0, 0,
+		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
+			backendVal := mapValue.(*Backend4Value)
+
+			if _, _, err := bpf.ConvertKeyValue(key, value, mapKey, backendVal); err != nil {
+				return nil, nil, err
+			}
+
+			return mapKey, backendVal.ToNetwork(), nil
+		})
 	// RevNat6Map represents the BPF map for reverse NAT in IPv6 load balancer
 	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
@@ -420,6 +437,19 @@ func (k *Backend6Key) NewValue() bpf.MapValue    { return &Backend6Value{} }
 func (k *Backend6Key) Map() *bpf.Map             { return Backend6Map }
 func (k *Backend6Key) SetID(id uint32)           { k.ID = id }
 func (k *Backend6Key) GetID() uint32             { return k.ID }
+
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type OldBackend6Key struct {
+	ID uint16
+}
+
+func (k *OldBackend6Key) String() string            { return fmt.Sprintf("%d", k.ID) }
+func (k *OldBackend6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+func (k *OldBackend6Key) NewValue() bpf.MapValue    { return &Backend6Value{} }
+func (k *OldBackend6Key) Map() *bpf.Map             { return OldBackend6Map }
+func (k *OldBackend6Key) SetID(id uint32)           { k.ID = uint16(id) }
+func (k *OldBackend6Key) GetID() uint32             { return uint32(k.ID) }
 
 // Backend6Value must match 'struct lb6_backend' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
