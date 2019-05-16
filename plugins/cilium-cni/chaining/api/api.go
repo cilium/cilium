@@ -34,12 +34,11 @@ var (
 
 // PluginContext is the context given to chaining plugins
 type PluginContext struct {
-	Logger     *logrus.Entry
-	Args       *skel.CmdArgs
-	CniArgs    types.ArgsSpec
-	NetConf    *types.NetConf
-	CniVersion string
-	Client     *client.Client
+	Logger  *logrus.Entry
+	Args    *skel.CmdArgs
+	CniArgs types.ArgsSpec
+	NetConf *types.NetConf
+	Client  *client.Client
 }
 
 // ChainingPlugin is the interface each chaining plugin must implement
