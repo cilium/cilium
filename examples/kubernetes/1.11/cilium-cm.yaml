@@ -163,6 +163,7 @@ data:
   # Enable chaining with another CNI plugin
   #
   # Supported modes:
+  #  - aws-cni
   #  - flannel
   #  - portmap (Enables HostPort support for Cilium)
   #cni-chaining-mode: none

@@ -23,6 +23,9 @@ case "$CILIUM_CNI_CHAINING_MODE" in
 "portmap")
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
 	;;
+"aws-cni")
+	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conflist}
+	;;
 *)
 	CNI_CONF_NAME=${CNI_CONF_NAME:-05-cilium.conf}
 	;;
@@ -102,6 +105,30 @@ EOF
     {
       "type": "portmap",
       "capabilities": {"portMappings": true},
+    }
+  ]
+}
+EOF
+	;;
+
+"aws-cni")
+	cat > ${CNI_CONF_NAME} <<EOF
+{
+  "name": "aws-cni",
+  "plugins": [
+    {
+      "name": "aws-cni",
+      "type": "aws-cni",
+      "vethPrefix": "eni"
+    },
+    {
+      "type": "portmap",
+      "capabilities": {"portMappings": true},
+      "snat": true
+    },
+    {
+       "name": "cilium",
+       "type": "cilium-cni"
     }
   ]
 }
