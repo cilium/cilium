@@ -461,6 +461,9 @@ type OldBackend4Key struct {
 func (k *OldBackend4Key) String() string            { return fmt.Sprintf("%d", k.ID) }
 func (k *OldBackend4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *OldBackend4Key) NewValue() bpf.MapValue    { return &Backend4Value{} }
+func (k *OldBackend4Key) Map() *bpf.Map             { return OldBackend4Map }
+func (k *OldBackend4Key) SetID(id uint32)           { k.ID = uint16(id) }
+func (k *OldBackend4Key) GetID() uint32             { return uint32(k.ID) }
 
 // Backend4Value must match 'struct lb4_backend' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true

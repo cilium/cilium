@@ -441,6 +441,7 @@ skip_service_lookup:
 	 * incoming connection. */
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
+	// TODO(brb) check if svc != NULL && ct_state->rev_nat_id != svc->rev_nat_id: remove entry and drop
 	if (ret < 0)
 		return ret;
 

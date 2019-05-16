@@ -238,6 +238,41 @@ func (m *Map) UnpinIfExists() error {
 	return m.Unpin()
 }
 
+// OpenIfExists open the given map if the map exists.
+// Returned bool indicates whether the maps exists.
+func (m *Map) OpenIfExists() (bool, error) {
+	found, err := m.exist()
+	if err != nil {
+		return false, err
+	}
+
+	if !found {
+		return false, nil
+	}
+
+	return true, m.Open()
+}
+
+// IsEmpty checks whether the given map is empty, and returns true if so.
+func (m *Map) IsEmpty() (bool, error) {
+	var (
+		prevKey    = make([]byte, m.KeySize)
+		currentKey = make([]byte, m.KeySize)
+	)
+
+	if err := m.Open(); err != nil {
+		return false, err
+	}
+
+	err := GetNextKey(m.fd, unsafe.Pointer(&prevKey[0]), unsafe.Pointer(&currentKey[0]))
+	if err != nil {
+		// Map is empty
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // DeepEquals compares the current map against another map to see that the
 // attributes of the two maps are the same.
 func (m *Map) DeepEquals(other *Map) bool {
