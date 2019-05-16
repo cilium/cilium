@@ -80,8 +80,10 @@ apt-get clean
 #
 FROM docker.io/library/golang:1.12.5 as runtime-gobuild
 WORKDIR /tmp
-RUN go get -u github.com/cilium/go-bindata/... && \
-go get -u github.com/google/gops && \
+RUN go get -d github.com/google/gops && \
+cd /go/src/github.com/google/gops && \
+git checkout -b v0.3.6 v0.3.6 && \
+go install && \
 strip /go/bin/gops
 
 #
