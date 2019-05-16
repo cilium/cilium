@@ -20,6 +20,7 @@ import (
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -818,6 +819,61 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	return nil
 }
 
+// migrateBackendMaps migrates backend entries from the given old map to the new
+// one. Removes the old map after migration.
+func migrateBackendMaps(oldBackendMap, newBackendMap *bpf.Map, isIPv6 bool) error {
+	var key lbmap.BackendKey
+
+	// Skip if backend v2 has any entry. Otherwise, we are risking to corrupt it.
+	empty, err := newBackendMap.IsEmpty()
+	if err != nil {
+		return fmt.Errorf("Unable to query %s: %s", newBackendMap.Name(), err)
+	}
+	if !empty {
+		return nil
+	}
+
+	exist, err := oldBackendMap.OpenIfExists()
+	if err != nil {
+		return fmt.Errorf("Unable to open %s: %s", oldBackendMap.Name(), err)
+	}
+	if !exist {
+		return nil
+	}
+	defer oldBackendMap.Close()
+
+	// Migrate entries
+
+	backends := map[uint32]lbmap.BackendValue{}
+	f := func(key bpf.MapKey, value bpf.MapValue) {
+		id := key.(lbmap.BackendKey).GetID()
+		backends[id] = value.DeepCopyMapValue().(lbmap.BackendValue)
+	}
+	if err := oldBackendMap.DumpWithCallback(f); err != nil {
+		return fmt.Errorf("Unable to dump entries %s: %s", oldBackendMap.Name(), err)
+	}
+
+	for id, val := range backends {
+		if isIPv6 {
+			key = lbmap.NewBackend6Key(id)
+		} else {
+			key = lbmap.NewBackend4Key(id)
+		}
+
+		// Dump has changed the endianity to host, so we need to revert back
+		// to network
+		if err := newBackendMap.Update(key, val.ToNetwork()); err != nil {
+			return fmt.Errorf("Unable to update %s -> %s pair in %s: %s",
+				key, val, newBackendMap.Name(), err)
+		}
+	}
+
+	log.WithField(logfields.BPFMapName, newBackendMap.Name()).
+		Info("Migrated backend entries")
+
+	return nil
+}
+
 func restoreBackendIDs() (map[lbmap.BackendAddrID]loadbalancer.BackendID, error) {
 	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
@@ -842,6 +898,19 @@ func restoreBackendIDs() (map[lbmap.BackendAddrID]loadbalancer.BackendID, error)
 
 func restoreServices() {
 	before := time.Now()
+
+	if option.Config.EnableIPv4 {
+		err := migrateBackendMaps(lbmap.OldBackend4Map, lbmap.Backend4Map, false)
+		if err != nil {
+			log.WithError(err).Warning("Error occured while migrating lb4_backend maps")
+		}
+	}
+	if option.Config.EnableIPv6 {
+		err := migrateBackendMaps(lbmap.OldBackend6Map, lbmap.Backend6Map, false)
+		if err != nil {
+			log.WithError(err).Warning("Error occured while migrating lb6_backend maps")
+		}
+	}
 
 	// Restore Backend IDs first, otherwise they can get taken by subsequent
 	// calls to UpdateService

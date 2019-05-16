@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -194,6 +195,25 @@ func RemoveDisabledMaps() {
 		p := path.Join(bpf.MapPrefixPath(), m)
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
 			globalSweeper.removeMapPath(p)
+		}
+	}
+}
+
+// RemoveMigratedBackendMaps removes the old (key=uint16) backend maps.
+// Should be called after the content of the maps have been migrated to
+// the new (key=uint32 backends) AND all endpoints have been regenerated.
+func RemoveMigratedBackendMaps() {
+	if option.Config.EnableIPv4 {
+		if err := lbmap.OldBackend4Map.UnpinIfExists(); err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, lbmap.OldBackend4Map.Name()).
+				Warning("Unable to remove the BPF map")
+
+		}
+	}
+	if option.Config.EnableIPv6 {
+		if err := lbmap.OldBackend6Map.UnpinIfExists(); err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, lbmap.OldBackend6Map.Name()).
+				Warning("Unable to remove the BPF map")
 		}
 	}
 }
