@@ -163,6 +163,7 @@ data:
   # Enable chaining with another CNI plugin
   #
   # Supported modes:
+  #  - aws-cni
   #  - flannel
   #  - portmap (Enables HostPort support for Cilium)
   #cni-chaining-mode: none
@@ -217,6 +218,12 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: flannel-master-device
+              name: cilium-config
+              optional: true
+        - name: CILIUM_CNI_CHAINING_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: cni-chaining-mode
               name: cilium-config
               optional: true
         - name: CILIUM_FLANNEL_UNINSTALL_ON_EXIT
