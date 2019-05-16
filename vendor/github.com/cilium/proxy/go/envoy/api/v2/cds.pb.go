@@ -19,6 +19,8 @@ import (
 	_ "github.com/lyft/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -1830,6 +1832,20 @@ type ClusterDiscoveryServiceServer interface {
 	StreamClusters(ClusterDiscoveryService_StreamClustersServer) error
 	DeltaClusters(ClusterDiscoveryService_DeltaClustersServer) error
 	FetchClusters(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
+}
+
+// UnimplementedClusterDiscoveryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedClusterDiscoveryServiceServer struct {
+}
+
+func (*UnimplementedClusterDiscoveryServiceServer) StreamClusters(srv ClusterDiscoveryService_StreamClustersServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamClusters not implemented")
+}
+func (*UnimplementedClusterDiscoveryServiceServer) DeltaClusters(srv ClusterDiscoveryService_DeltaClustersServer) error {
+	return status.Errorf(codes.Unimplemented, "method DeltaClusters not implemented")
+}
+func (*UnimplementedClusterDiscoveryServiceServer) FetchClusters(ctx context.Context, req *DiscoveryRequest) (*DiscoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchClusters not implemented")
 }
 
 func RegisterClusterDiscoveryServiceServer(s *grpc.Server, srv ClusterDiscoveryServiceServer) {
