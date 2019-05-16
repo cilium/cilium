@@ -1,0 +1,18 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "httpbin-service-failure"
+specs:
+  - endpointSelector:
+      matchLabels:
+        app: httpbin
+    ingress:
+    - toPorts:
+      - ports:
+        - port: "8000"
+          protocol: TCP
+        rules:
+          l7proto: chaos
+          l7:
+          - probability: "0.8"
+            rewrite-status: 504 Application Error
