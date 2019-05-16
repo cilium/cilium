@@ -49,7 +49,7 @@ var (
 
 	// globalMap wraps the kvstore and provides reference-tracking for keys
 	// that are upserted or released from the kvstore.
-	globalMap *kvReferenceCounter
+	globalMap = newKVReferenceCounter(kvstoreImplementation{})
 
 	setupIPIdentityWatcher sync.Once
 )
@@ -385,7 +385,6 @@ var (
 // in the key-value store.
 func InitIPIdentityWatcher() {
 	setupIPIdentityWatcher.Do(func() {
-		globalMap = newKVReferenceCounter(kvstoreImplementation{})
 		go func() {
 			log.Info("Starting IP identity watcher")
 			watcher = NewIPIdentityWatcher(kvstore.Client())
