@@ -39,11 +39,6 @@ echo "done configuring journald"
 
 sudo service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
-sudo -E /usr/local/go/bin/go get github.com/cilium/go-bindata/...
-sudo -E /usr/local/go/bin/go get -u github.com/google/gops
-sudo -E /usr/local/go/bin/go get -d github.com/lyft/protoc-gen-validate
-sudo -E /usr/local/go/bin/go get -u github.com/gordonklaus/ineffassign
-(cd ~/go/src/github.com/lyft/protoc-gen-validate ; sudo git checkout 4349a359d42fdfee53b85dd5c89a2f169e1dc6b2 ; make build)
 sudo chown -R vagrant:vagrant /home/vagrant 2>/dev/null
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
