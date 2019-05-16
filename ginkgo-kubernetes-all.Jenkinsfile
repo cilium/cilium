@@ -108,15 +108,16 @@ pipeline {
             }
         }
 
-        stage('Boot VMs 1.13'){
+        stage('Boot VMs 1.{13,15}'){
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
                 sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant up --no-provision'
             }
         }
-        stage('BDD-Test-k8s-1.13') {
+        stage('BDD-Test-k8s-1.13-and-1.15') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -129,16 +130,19 @@ pipeline {
                         "K8s-1.13":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
                         },
+                        "K8s-1.15":{
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST}'
+                        },
                         failFast: "${FAILFAST}".toBoolean()
                     )
                 }
             }
             post {
                 always {
+                    sh 'cd test/; ./post_build_agent.sh || true'
                     sh 'cd test/; ./archive_test_results.sh || true'
                     archiveArtifacts artifacts: '*.zip'
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'test/*.xml'
-                    sh 'cd test/; ./post_build_agent.sh || true'
                 }
             }
         }
