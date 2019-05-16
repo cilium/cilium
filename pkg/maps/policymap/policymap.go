@@ -37,10 +37,6 @@ const (
 	// with that identity on that port for that direction.
 	MapName = CallMapName + "_"
 
-	// MaxEntries is the upper limit of entries in the per endpoint policy
-	// table
-	MaxEntries = 16384
-
 	// ProgArrayMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
 	// programs. This number *MUST* be identical to the maximum endponit ID.
@@ -52,7 +48,13 @@ const (
 	AllPorts = uint16(0)
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-policy")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-policy")
+
+	// MaxEntries is the upper limit of entries in the per endpoint policy
+	// table
+	MaxEntries = 16384
+)
 
 type PolicyMap struct {
 	*bpf.Map
@@ -287,4 +289,9 @@ func Open(path string) (*PolicyMap, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// InitMapInfo updates the map info defaults for policy maps.
+func InitMapInfo(maxEntries int) {
+	MaxEntries = maxEntries
 }
