@@ -260,10 +260,9 @@ func (s *CassandraSuite) TestSimpleCassandraPolicy(c *C) {
 
 	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
 
-	unauthMsg := createUnauthMsg(0x4)
 	data := hexData(c, "040000000500000000",
 		"0400000407000000760000006f53454c45435420636c75737465725f6e616d652c20646174615f63656e7465722c207261636b2c20746f6b656e732c20706172746974696f6e65722c20736368656d615f76657273696f6e2046524f4d2073797374656d2e6c6f63616c205748455245206b65793d276c6f63616c27000100")
-	conn.CheckOnDataOK(c, false, false, &data, unauthMsg,
+	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.PASS, len(data[0]),
 		proxylib.DROP, len(data[1]),
 		proxylib.MORE, 9)
@@ -394,8 +393,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicyDenied(c *C) {
 	}
 	data := [][]byte{batchMsg}
 
-	unauthMsg := createUnauthMsg(0x4)
-	conn.CheckOnDataOK(c, false, false, &data, unauthMsg,
+	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.DROP, len(data[0]),
 		proxylib.MORE, 9)
 
@@ -535,8 +533,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatementDenied(c *C) 
 	}
 	data := [][]byte{batchMsg}
 
-	unauthMsg := createUnauthMsg(0x4)
-	conn.CheckOnDataOK(c, false, false, &data, unauthMsg,
+	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.DROP, len(data[0]),
 		proxylib.MORE, 9)
 
@@ -620,9 +617,7 @@ func (s *CassandraSuite) TestCassandraExecutePreparedStatementUnknownID(c *C) {
 	}
 	data := [][]byte{executeMsg}
 
-	unpreparedMsg := createUnpreparedMsg(0x04, []byte{0x0, 0x4}, "aaaa")
-
-	conn.CheckOnDataOK(c, false, false, &data, unpreparedMsg,
+	conn.CheckOnDataOK(c, false, false, &data, []byte{},
 		proxylib.DROP, len(data[0]),
 		proxylib.MORE, 9)
 
