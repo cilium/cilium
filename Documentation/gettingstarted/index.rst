@@ -67,6 +67,15 @@ Operations
 
    grafana
 
+Chaos Testing
+-------------
+
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   chaos-testing
+
 Istio
 -----
 
