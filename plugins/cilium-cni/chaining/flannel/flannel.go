@@ -141,6 +141,14 @@ func (f *flannelChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCo
 	return &cniTypesVer.Result{}, nil
 }
 
+func (f *flannelChainer) ImplementsDelete() bool {
+	return false
+}
+
+func (f *flannelChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext) (err error) {
+	return nil
+}
+
 func init() {
 	chainingapi.Register("cbr0", &flannelChainer{})
 }

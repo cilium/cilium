@@ -503,12 +503,43 @@ func cmdDel(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
 	// are guaranteed to be recoverable.
-	log.WithField("args", args).Debug("Processing CNI DEL request")
+
+	logger := log.WithField("eventUUID", uuid.NewUUID())
+	logger.WithField("args", args).Debug("Processing CNI DEL request")
+
+	n, cniVer, err := types.LoadNetConf(args.StdinData)
+	if err != nil {
+		return err
+	}
+
+	cniArgs := types.ArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+		return fmt.Errorf("unable to extract CNI arguments: %s", err)
+	}
 
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		// this error can be recovered from
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
+	}
+
+	if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
+		var (
+			ctx = chainingapi.PluginContext{
+				Logger:     logger,
+				Args:       args,
+				CniArgs:    cniArgs,
+				NetConf:    n,
+				CniVersion: cniVer,
+				Client:     c,
+			}
+		)
+
+		if chainAction.ImplementsDelete() {
+			return chainAction.Delete(context.TODO(), ctx)
+		}
+	} else {
+		logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
 	}
 
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
