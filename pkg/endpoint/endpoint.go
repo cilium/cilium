@@ -991,6 +991,9 @@ func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
 	if e.Options.Library == nil {
 		e.Options.Library = &EndpointMutableOptionLibrary
 	}
+	if e.Options.Opts == nil {
+		e.Options.Opts = option.OptionMap{}
+	}
 
 	if opts != nil {
 		epOptLib := option.GetEndpointMutableOptionLibrary()
