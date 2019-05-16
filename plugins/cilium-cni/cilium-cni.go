@@ -371,7 +371,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		}
 		defer func() {
 			if err != nil {
-				if err2 := netlink.LinkDel(veth); err != nil {
+				if err2 := netlink.LinkDel(veth); err2 != nil {
 					logger.WithError(err2).WithField(logfields.Veth, veth.Name).Warn("failed to clean up and delete veth")
 				}
 			}
