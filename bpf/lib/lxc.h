@@ -109,10 +109,10 @@ ipv4_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 	    csum_l4_replace(skb, l4_off, csum, old_ip, host_ip, 4 | BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
-	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
+	//cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
-	cilium_dbg3(skb, DBG_REV_PROXY_UPDATE,
-		    key.sport << 16 | key.dport, key.saddr, key.nexthdr);
+	//cilium_dbg3(skb, DBG_REV_PROXY_UPDATE,
+	//	    key.sport << 16 | key.dport, key.saddr, key.nexthdr);
 	if (map_update_elem(&PROXY4_MAP, &key, &value, 0) < 0)
 		return DROP_PROXYMAP_CREATE_FAILED;
 
@@ -162,7 +162,7 @@ ipv6_redirect_to_host_port(struct __sk_buff *skb, struct csum_offset *csum,
 			return DROP_CSUM_L4;
 	}
 
-	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
+	//cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, new_port);
 
 	if (map_update_elem(&PROXY6_MAP, &key, &value, 0) < 0)
 		return DROP_PROXYMAP_CREATE_FAILED;
@@ -178,8 +178,8 @@ static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
 {
 	volatile __u32 tc_index = skb->tc_index;
 #ifdef DEBUG
-	if (tc_index & TC_INDEX_F_SKIP_PROXY)
-		cilium_dbg(skb, DBG_SKIP_PROXY, tc_index, 0);
+	//if (tc_index & TC_INDEX_F_SKIP_PROXY)
+	//	cilium_dbg(skb, DBG_SKIP_PROXY, tc_index, 0);
 #endif
 
 	return tc_index & TC_INDEX_F_SKIP_PROXY;

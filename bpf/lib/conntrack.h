@@ -217,7 +217,7 @@ static inline int __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	int reopen;
 
 	if ((entry = map_lookup_elem(map, tuple))) {
-		cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
+		//cilium_dbg(skb, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 		}
@@ -410,9 +410,9 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	 * This will find an existing flow in the reverse direction.
 	 * The reverse direction is the one where reverse nat index is stored.
 	 */
-	cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
-		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
-	cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
+	//cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
+	//	      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
+	//cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
 	ret = __ct_lookup(map, skb, tuple, action, dir, ct_state, is_tcp,
 			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
@@ -436,7 +436,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 	skb->cb[CB_NAT46_STATE] = NAT46_CLEAR;
 #endif
 out:
-	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
+	//cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
 	if (conn_is_dns(tuple->dport))
 		*monitor = MTU;
 	return ret;
