@@ -51,6 +51,14 @@ type ChainingPlugin interface {
 	// ImplementsAdd returns true if the chaining plugin implements its own
 	// add logic
 	ImplementsAdd() bool
+
+	// Delete is called on CNI DELETE. It is given the plugin context from
+	// the previous plugin.
+	Delete(ctx context.Context, pluginContext PluginContext) (err error)
+
+	// ImplementsDelete returns true if the chaining plugin implements its
+	// own delete logic
+	ImplementsDelete() bool
 }
 
 // Register is called by chaining plugins to register themselves. After
