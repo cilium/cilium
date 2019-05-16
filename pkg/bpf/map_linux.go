@@ -49,9 +49,6 @@ type MapKey interface {
 
 	// Allocates a new value matching the key type
 	NewValue() MapValue
-
-	// DeepCopyMapKey returns a deep copy of the map key
-	DeepCopyMapKey() MapKey
 }
 
 type MapValue interface {
@@ -59,9 +56,6 @@ type MapValue interface {
 
 	// Returns pointer to start of value
 	GetValuePtr() unsafe.Pointer
-
-	// DeepCopyMapValue returns a deep copy of the map value
-	DeepCopyMapValue() MapValue
 }
 
 type MapInfo struct {

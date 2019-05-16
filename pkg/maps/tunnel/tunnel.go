@@ -64,9 +64,6 @@ func init() {
 	TunnelMap.NonPersistent = true
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type TunnelEndpoint struct {
 	bpf.EndpointKey
 }
