@@ -559,7 +559,7 @@ struct ct_state {
 	__be32 svc_addr;
 	__u32 src_sec_id;
 	__u16 slave;		/* Slave slot number in a legacy service */
-	__u16 backend_id;	/* Backend ID in lb4_backends */
+	__u32 backend_id;	/* Points to cilium_lb{4,6}_backends */
 };
 
 /* ep_config corresponds to the EndpointConfig object in pkg/maps/configmap. */
