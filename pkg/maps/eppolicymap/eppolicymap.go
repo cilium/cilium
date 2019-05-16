@@ -71,7 +71,7 @@ func CreateEPPolicyMap() {
 		fd, err := bpf.CreateMap(bpf.BPF_MAP_TYPE_HASH,
 			uint32(unsafe.Sizeof(policymap.PolicyKey{})),
 			uint32(unsafe.Sizeof(policymap.PolicyEntry{})),
-			policymap.MaxEntries,
+			uint32(policymap.MaxEntries),
 			0, 0, innerMapName)
 
 		if err != nil {

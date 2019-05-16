@@ -354,6 +354,9 @@ const (
 	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
 	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
 
+	// PolicyMapEntriesName configures max entries for BPF policymap.
+	PolicyMapEntriesName = "bpf-policy-map-max"
+
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
 	LogSystemLoadConfigName = "log-system-load"
@@ -700,6 +703,10 @@ type DaemonConfig struct {
 	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
 	// allowed in each non-TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalAny int
+
+	// PolicyMapMaxEntries is the maximum number of peer identities that an
+	// endpoint may allow traffic to exchange traffic with.
+	PolicyMapMaxEntries int
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
@@ -1080,6 +1087,17 @@ func (c *DaemonConfig) Validate() error {
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMax)
 	}
 
+	policyMapMin := (1 << 8)
+	policyMapMax := (1 << 16)
+	if c.PolicyMapMaxEntries < policyMapMin {
+		return fmt.Errorf("Specified PolicyMap max entries %d must exceed minimum %d",
+			c.PolicyMapMaxEntries, policyMapMin)
+	}
+	if c.PolicyMapMaxEntries > policyMapMax {
+		return fmt.Errorf("Specified PolicyMap max entries %d must not exceed maximum %d",
+			c.PolicyMapMaxEntries, policyMapMax)
+	}
+
 	return nil
 }
 
@@ -1238,6 +1256,7 @@ func (c *DaemonConfig) Populate() {
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)
 	c.FlannelUninstallOnExit = viper.GetBool(FlannelUninstallOnExit)
 	c.FlannelManageExistingContainers = viper.GetBool(FlannelManageExistingContainers)
+	c.PolicyMapMaxEntries = viper.GetInt(PolicyMapEntriesName)
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
