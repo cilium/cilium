@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 
 	"github.com/spf13/cobra"
@@ -49,7 +48,7 @@ func dumpRevNat(serviceList map[string][]string) {
 func dumpSVC(serviceList map[string][]string) {
 	// It's safe to use the same map for both IPv4 and IPv6, as backend
 	// IDs are allocated from the same pool regardless the protocol
-	backendMap := make(map[loadbalancer.BackendID]lbmap.BackendValue)
+	backendMap := make(map[uint32]lbmap.BackendValue)
 
 	parseBackendEntry := func(key bpf.MapKey, value bpf.MapValue) {
 		id := key.(lbmap.BackendKey).GetID()

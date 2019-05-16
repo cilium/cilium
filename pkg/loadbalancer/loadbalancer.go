@@ -61,7 +61,7 @@ type FEPortName string
 type ServiceID uint16
 
 // BackendID is the backend's ID.
-type BackendID uint16
+type BackendID uint32
 
 // ID is the ID of L3n4Addr endpoint (either service or backend).
 type ID uint32

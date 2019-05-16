@@ -357,10 +357,10 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 
 		if svcVal.IsIPv6() {
 			svc6Val := svcVal.(*Service6Value)
-			b, err = NewBackend6(backendID, svc6Val.Address.IP(), svc6Val.Port, u8proto.All)
+			b, err = NewBackend6(uint32(backendID), svc6Val.Address.IP(), svc6Val.Port, u8proto.All)
 		} else {
 			svc4Val := svcVal.(*Service4Value)
-			b, err = NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
+			b, err = NewBackend4(uint32(backendID), svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
 		}
 		if err != nil {
 			return err
@@ -458,7 +458,7 @@ func updateServiceV2Locked(fe ServiceKey, backends map[BackendAddrID]ServiceValu
 			svcValV2.SetCount(legacySlaveSlot) // For the backward-compatibility
 		}
 		backendID := cache.getBackendIDByAddrID(addrID)
-		svcValV2.SetBackendID(backendID)
+		svcValV2.SetBackendID(uint32(backendID))
 		svcValV2.SetRevNat(revNATID)
 		svcValV2.SetWeight(svcVal.GetWeight())
 		svcKeyV2.SetSlave(slot)
@@ -526,7 +526,7 @@ func removeBackendsLocked(removedBackendIDs []loadbalancer.BackendID, isIPv6 boo
 	}
 
 	for _, backendID := range removedBackendIDs {
-		backendKey.SetID(backendID)
+		backendKey.SetID(uint32(backendID))
 		if err := deleteBackendLocked(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
 		}
@@ -632,7 +632,8 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
 		backendValue := value.DeepCopyMapValue().(BackendValue)
-		backendValueMap[backendKey.GetID()] = backendValue
+		backendValueMap[loadbalancer.BackendID(backendKey.GetID())] =
+			backendValue
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -644,7 +645,7 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 			return
 		}
 
-		backendID := svcValue.GetBackendID()
+		backendID := loadbalancer.BackendID(svcValue.GetBackendID())
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.BPFMapKey:   svcKey,
@@ -725,7 +726,8 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 		// is a value.
 		backendKey := key.(BackendKey)
 		backendValue := value.DeepCopyMapValue().(BackendValue)
-		backendValueMap[backendKey.GetID()] = backendValue
+		backendValueMap[loadbalancer.BackendID(backendKey.GetID())] =
+			backendValue
 	}
 
 	if option.Config.EnableIPv4 {
@@ -941,7 +943,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	}
 
 	for _, id := range backendsToRemove {
-		backendKey.SetID(id)
+		backendKey.SetID(uint32(id))
 		if err := deleteBackendLocked(backendKey); err != nil {
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
 		}
@@ -1049,9 +1051,9 @@ func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error
 	for addrID, id := range toRemove {
 		log.WithField(logfields.BackendID, id).Debug("Removing orphan backend")
 		if addrID.IsIPv6() {
-			key = NewBackend6Key(id)
+			key = NewBackend6Key(uint32(id))
 		} else {
-			key = NewBackend4Key(id)
+			key = NewBackend4Key(uint32(id))
 		}
 		if err := deleteBackendLocked(key); err != nil {
 			errors = append(errors,

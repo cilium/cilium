@@ -171,7 +171,7 @@ func RemoveDisabledMaps() {
 			"cilium_lb6_services",
 			"cilium_lb6_services_v2",
 			"cilium_lb6_rr_seq_v2",
-			"cilium_lb6_backends",
+			"cilium_lb6_backends_v2",
 			"cilium_snat_v6_external",
 			"cilium_proxy6"}...)
 	}
@@ -185,7 +185,7 @@ func RemoveDisabledMaps() {
 			"cilium_lb4_services",
 			"cilium_lb4_services_v2",
 			"cilium_lb4_rr_seq_v2",
-			"cilium_lb4_backends",
+			"cilium_lb4_backends_v2",
 			"cilium_snat_v4_external",
 			"cilium_proxy4"}...)
 	}
