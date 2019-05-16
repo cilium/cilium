@@ -177,6 +177,7 @@ skip_service_lookup:
 
 	switch (ret) {
 	case CT_NEW:
+ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
 		 * Create a CT entry which allows to track replies and to
@@ -190,6 +191,11 @@ skip_service_lookup:
 		break;
 
 	case CT_ESTABLISHED:
+		/* Did we end up at a stale non-service entry? Recreate if so. */
+		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index)) {
+			ct_delete6(get_ct_map6(tuple), tuple, skb);
+			goto ct_recreate6;
+		}
 		break;
 
 	case CT_RELATED:
@@ -478,6 +484,7 @@ skip_service_lookup:
 
 	switch (ret) {
 	case CT_NEW:
+ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
 		 * Create a CT entry which allows to track replies and to
@@ -491,6 +498,11 @@ skip_service_lookup:
 		break;
 
 	case CT_ESTABLISHED:
+		/* Did we end up at a stale non-service entry? Recreate if so. */
+		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index)) {
+			ct_delete4(get_ct_map4(&tuple), &tuple, skb);
+			goto ct_recreate4;
+		}
 		break;
 
 	case CT_RELATED:
