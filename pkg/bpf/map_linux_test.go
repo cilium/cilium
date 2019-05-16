@@ -48,6 +48,15 @@ func (v *TestValue) String() string              { return fmt.Sprintf("value=%d"
 func (v *TestValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
 
+func DumpParserFunc(key []byte, value []byte) (MapKey, MapValue, error) {
+	k, v := TestKey{}, TestValue{}
+
+	if err := ConvertKeyValue(key, value, &k, &v); err != nil {
+		return nil, nil, err
+	}
+	return &k, &v, nil
+}
+
 var _ = Suite(&BPFPrivilegedTestSuite{})
 
 var (
@@ -55,15 +64,12 @@ var (
 
 	testMap = NewMap("cilium_test",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue,
-	).WithCache()
+		DumpParserFunc).WithCache()
 )
 
 func runTests(m *testing.M) (int, error) {
@@ -93,21 +99,13 @@ func TestMain(m *testing.M) {
 func (s *BPFPrivilegedTestSuite) TestGetMapInfo(c *C) {
 	mi, err := GetMapInfo(os.Getpid(), testMap.GetFd())
 	c.Assert(err, IsNil)
-
-	// Check OpenMap warning section
-	testMap.MapKey = nil
-	testMap.MapValue = nil
-	defer func() {
-		testMap.MapKey = &TestKey{}
-		testMap.MapValue = &TestValue{}
-	}()
 	c.Assert(&testMap.MapInfo, checker.DeepEquals, mi)
 }
 
 func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	// Ensure that os.IsNotExist() can be used with Map.Open()
 	noSuchMap := NewMap("cilium_test_no_exist",
-		MapTypeHash, &TestKey{}, 4, &TestValue{}, 4, maxEntries, 0, 0, nil)
+		MapTypeHash, 4, 4, maxEntries, 0, 0, nil)
 	err := noSuchMap.Open()
 	c.Assert(os.IsNotExist(err), Equals, true)
 	c.Assert(err, ErrorMatches, ".*cilium_test_no_exist.*")
@@ -115,14 +113,12 @@ func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	err = existingMap.Open()
 	c.Check(err, IsNil)      // Avoid assert to ensure Close() is called below.
 	err = existingMap.Open() // Reopen should be no-op.
@@ -137,31 +133,21 @@ func (s *BPFPrivilegedTestSuite) TestOpenMap(c *C) {
 	c.Assert(openedMap, IsNil)
 
 	openedMap, err = OpenMap("cilium_test")
-	c.Assert(err, IsNil)
-
-	// Check OpenMap warning section
-	testMap.MapKey = nil
-	testMap.MapValue = nil
-	defer func() {
-		testMap.MapKey = &TestKey{}
-		testMap.MapValue = &TestValue{}
-	}()
 	noDiff := openedMap.DeepEquals(testMap)
 	c.Assert(noDiff, Equals, true)
+	c.Assert(err, IsNil)
 }
 
 func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 	// existingMap is the same as testMap. OpenOrCreate should skip recreation.
 	existingMap := NewMap("cilium_test",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	isNew, err := existingMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	c.Assert(isNew, Equals, false)
@@ -170,14 +156,12 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 	EnableMapPreAllocation() // prealloc on/off is controllable in HASH map case.
 	preallocMap := NewMap("cilium_test",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		0,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	isNew, err = preallocMap.OpenOrCreate()
 	defer preallocMap.Close()
 	c.Assert(err, IsNil)
@@ -193,14 +177,12 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 	parallelMap := NewMap("cilium_test",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	isNew, err := parallelMap.OpenParallel()
 	defer parallelMap.Close()
 	c.Assert(err, IsNil)
@@ -210,7 +192,6 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 	c.Assert(isNew, Equals, false)
 	c.Assert(err, Not(IsNil))
 
-	// Check OpenMap warning section
 	noDiff := parallelMap.DeepEquals(testMap)
 	c.Assert(noDiff, Equals, true)
 
@@ -245,14 +226,12 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	err := existingMap.Open()
 	defer existingMap.Close()
 	c.Assert(err, IsNil)
@@ -342,7 +321,7 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 
 	dump3 := map[string][]string{}
 	noSuchMap := NewMap("cilium_test_no_exist",
-		MapTypeHash, &TestKey{}, 4, &TestValue{}, 4, maxEntries, 0, 0, nil)
+		MapTypeHash, 4, 4, maxEntries, 0, 0, nil)
 	err = noSuchMap.DumpIfExists(dump3)
 	c.Assert(err, IsNil)
 	c.Assert(len(dump3), Equals, 0)
@@ -363,14 +342,12 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 	// so we setup and use another map.
 	upgradeMap := NewMap("cilium_test_upgrade",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	_, err := upgradeMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -387,14 +364,12 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 	EnableMapPreAllocation()
 	preallocMap := NewMap("cilium_test_upgrade",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		0,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	upgrade = upgradeMap.CheckAndUpgrade(&preallocMap.MapInfo)
 	c.Assert(upgrade, Equals, true)
 	DisableMapPreAllocation()
@@ -404,14 +379,12 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 	var exist bool
 	unpinMap := NewMap("cilium_test_unpin",
 		MapTypeHash,
-		&TestKey{},
 		int(unsafe.Sizeof(TestKey{})),
-		&TestValue{},
 		int(unsafe.Sizeof(TestValue{})),
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		DumpParserFunc).WithCache()
 	_, err := unpinMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	exist, err = unpinMap.exist()

@@ -103,13 +103,19 @@ var (
 	// SockMap represents the BPF map for sockets
 	SockMap = bpf.NewMap(mapName,
 		bpf.MapTypeSockHash,
-		&SockmapKey{},
 		int(unsafe.Sizeof(SockmapKey{})),
-		&SockmapValue{},
 		4,
 		MaxEntries,
 		0, 0,
-		bpf.ConvertKeyValue,
+		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
+			k, v := &SockmapKey{}, &SockmapValue{}
+
+			if err := bpf.ConvertKeyValue(key, value, k, v); err != nil {
+				return nil, nil, err
+			}
+
+			return k, v, nil
+		},
 	)
 )
 
