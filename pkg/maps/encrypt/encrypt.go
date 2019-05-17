@@ -48,10 +48,10 @@ func (v EncryptValue) String() string {
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
-func (v EncryptValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
+func (v *EncryptValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
-func (k EncryptKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+func (k *EncryptKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure represeting the BPF
 // map value
