@@ -22,7 +22,7 @@ documents how to do so.  For more information about HostPort, check the
    understand the implications of this feature.
 
 Enable Portmap Chaining in the ConfigMap
-======================================
+========================================
 
 1. If you have not deployed Cilium yet, download the Cilium deployment yaml:
 
