@@ -62,6 +62,10 @@ type IPAM struct {
 // DebugStatus implements debug.StatusObject to provide debug status collection
 // ability
 func (ipam *IPAM) DebugStatus() string {
+	if ipam == nil {
+		return "<nil>"
+	}
+
 	ipam.allocatorMutex.RLock()
 	str := spew.Sdump(ipam)
 	ipam.allocatorMutex.RUnlock()
