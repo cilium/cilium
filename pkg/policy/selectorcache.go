@@ -215,6 +215,9 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
 func (s *selectorManager) GetSelections() []identity.NumericIdentity {
+	if s.selections == nil {
+		return []identity.NumericIdentity{}
+	}
 	return *(*[]identity.NumericIdentity)(atomic.LoadPointer(&s.selections))
 }
 
