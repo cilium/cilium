@@ -203,6 +203,20 @@ func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, 
 	}
 }
 
+func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, selectorCache *SelectorCache) {
+	for _, fqdnSel := range selectors {
+		l4.cacheFQDNSelector(fqdnSel, selectorCache)
+	}
+}
+
+func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *SelectorCache) CachedSelector {
+	cs, added := selectorCache.AddFQDNSelector(l4, sel)
+	if added {
+		l4.CachedSelectors = append(l4.CachedSelectors, cs)
+	}
+	return cs
+}
+
 // GetRelevantRulesForKafka returns the relevant rules based on the remote numeric identity.
 func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api.PortRuleKafka {
 	var rules []api.PortRuleKafka
@@ -231,7 +245,7 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSe
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
 func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, selectorCache *SelectorCache) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, selectorCache *SelectorCache, fqdns api.FQDNSelectorSlice) *L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
@@ -253,6 +267,7 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 	} else {
 		l4.CachedSelectors = make(CachedSelectorSlice, 0, len(peerEndpoints))
 		l4.cacheIdentitySelectors(peerEndpoints, selectorCache)
+		l4.cacheFQDNSelectors(fqdns, selectorCache)
 	}
 
 	if protocol == api.ProtoTCP && rule.Rules != nil {
@@ -294,7 +309,7 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 bool, rule api.PortRule, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache) *L4Filter {
 
-	filter := createL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true, selectorCache)
+	filter := createL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true, selectorCache, nil)
 
 	// If the filter would apply L7 rules for the Host, when we should accept everything from host,
 	// then wildcard Host at L7.
@@ -316,9 +331,9 @@ func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, hostWildcard
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func createL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache, fqdns api.FQDNSelectorSlice) *L4Filter {
 
-	return createL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false, selectorCache)
+	return createL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false, selectorCache, fqdns)
 }
 
 // IsRedirect returns true if the L4 filter contains a port redirection
