@@ -60,7 +60,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		}
 
 		// Figure out if this call needs to be able to update the selector cache synchronously.
-		id, isNew, err := cache.AllocateIdentity(context.Background(), nil, cidr.GetCIDRLabels(prefix))
+		id, _, err := cache.AllocateIdentity(context.Background(), nil, cidr.GetCIDRLabels(prefix))
 		if err != nil {
 			cache.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix.String(), err)
@@ -69,9 +69,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 
 		usedIdentities = append(usedIdentities, id)
-		if isNew {
-			allocatedIdentities[prefix.String()] = id
-		}
+		allocatedIdentities[prefix.String()] = id
 	}
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
