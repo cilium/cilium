@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
+.. _kata-gce:
+
 ******************************
 Kata with Cilium on Google GCE
 ******************************
@@ -12,7 +14,7 @@ Kata Containers is an open source project that provides a secure container
 runtime with lightweight virtual machines that feel and perform like containers,
 but provide stronger workload isolation using hardware virtualization technology
 as a second layer of defense.
-Similar to the OCI runtime `runc` provided by Docker, Cilium can be used with
+Similar to the OCI runtime ``runc`` provided by Docker, Cilium can be used with
 Kata Containers, providing a higher degree of security at the network layer and
 at the compute layer with Kata.
 This guide provides a walkthrough of installing Kata with Cilium on GCE.
@@ -24,7 +26,7 @@ GCE Requirements
 ================
 
 1. Install the Google Cloud SDK (``gcloud``) see `Installing Google Cloud SDK <https://cloud.google.com/sdk/install>`_
-  Verify your gcloud installation and configuration:
+   Verify your gcloud installation and configuration:
 
 .. code:: bash
 
@@ -105,9 +107,9 @@ CRI into OCI. There are two supported ways called CRI-O and CRI-containerd.
 It is up to you to choose the one that you want, but you have to pick one.
 
 If you select CRI-O, follow the "CRI-O Tutorial" instructions
-`here <https://github.com/cri-o/cri-o/blob/master/tutorial.md/>`_ to properly install it.
+`here <https://github.com/cri-o/cri-o/blob/master/tutorial.md/>`__ to properly install it.
 If you select containerd with cri plugin, follow the "Getting Started for Developers"
-instructions `here <https://github.com/containerd/cri#getting-started-for-developers>`_ to properly install it.
+instructions `here <https://github.com/containerd/cri#getting-started-for-developers>`__ to properly install it.
 
 Setup your Kubernetes environment and make sure the following requirements are met:
 
@@ -132,9 +134,9 @@ also called CRI socket. This socket path is different depending on which CRI
 implementation you chose, and the kubelet service has to be updated accordingly.
 
 Configure Kubernetes for CRI-O
-******************************
+------------------------------
 
-Add `/etc/systemd/system/kubelet.service.d/0-crio.conf`
+Add ``/etc/systemd/system/kubelet.service.d/0-crio.conf``
 
 ::
 
@@ -142,9 +144,9 @@ Add `/etc/systemd/system/kubelet.service.d/0-crio.conf`
   Environment="KUBELET_EXTRA_ARGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///var/run/crio/crio.sock"
 
 Configure for Kubernetes for containerd
-***************************************
+---------------------------------------
 
-Add `/etc/systemd/system/kubelet.service.d/0-cri-containerd.conf`
+Add ``/etc/systemd/system/kubelet.service.d/0-cri-containerd.conf``
 
 ::
 
@@ -195,7 +197,7 @@ For CRI-O as container runtime:
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
 
 For containerd as container runtime:
--------------------------------
+------------------------------------
 
 .. tabs::
   .. group-tab:: K8s 1.14
@@ -265,12 +267,12 @@ should be healthy and ready:
    kube-proxy-l47rx                        1/1     Running   0          6m
    kube-proxy-zj6v5                        1/1     Running   0          6m
 
-For troubleshooting any issues, please refer to :ref:`_k8s_install_etcd_operator`
+For troubleshooting any issues, please refer to :ref:`k8s_install_etcd_operator`
 
 Install Kata on a running Kubernetes Cluster
 ============================================
 
-Kubernetes configured with CRI runtimes by default uses `runc` runtime for running a
+Kubernetes configured with CRI runtimes by default uses ``runc`` runtime for running a
 workload. You will need to configure Kubernetes to be able to use an alternate runtime.
 
 `RuntimeClass <https://kubernetes.io/docs/concepts/containers/runtime-class/>`_
@@ -293,11 +295,11 @@ tool as shown below.
   kubectl apply -f https://raw.githubusercontent.com/kata-containers/packaging/4bb97ef14a4ba8170b9d501b3e567037eb0f9a41/kata-deploy/kata-rbac.yaml
   kubectl apply -f https://raw.githubusercontent.com/kata-containers/packaging/4bb97ef14a4ba8170b9d501b3e567037eb0f9a41/kata-deploy/kata-deploy.yaml
 
-This will install all the required Kata binaries under `/opt/kata` and configure
+This will install all the required Kata binaries under ``/opt/kata`` and configure
 CRI implementation with the RuntimeClass handlers for the Kata runtime binaries.
 Kata Containers can leverage Qemu and Firecracker hypervisor for running
-the lightweight VM. `kata-fc` binary runs a Firecracker isolated Kata Container while
-`kata-qemu` runs a Qemu isolated Kata Container.
+the lightweight VM. ``kata-fc`` binary runs a Firecracker isolated Kata Container while
+``kata-qemu`` runs a Qemu isolated Kata Container.
 
 2) Create the RuntimeClass resource for Kata-containers
 
