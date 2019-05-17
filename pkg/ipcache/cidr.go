@@ -53,6 +53,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 	// maintain list of newly allocated identities to update ipcache
 	allocatedIdentities := map[string]*identity.Identity{}
+	newlyAllocatedIdentities := map[string]*identity.Identity{}
 
 	for _, prefix := range prefixes {
 		if prefix == nil {
@@ -69,18 +70,24 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 
 		usedIdentities = append(usedIdentities, id)
+		allocatedIdentities[prefix.String()] = id
 		if isNew {
-			allocatedIdentities[prefix.String()] = id
+			newlyAllocatedIdentities[prefix.String()] = id
 		}
+
 	}
 
 	allocatedIdentitiesSlice := make([]*identity.Identity, 0, len(allocatedIdentities))
 
-	for prefixString, id := range allocatedIdentities {
+	// Only upsert into ipcache if identity wasn't allocated before.
+	for prefixString, id := range newlyAllocatedIdentities {
 		IPIdentityCache.Upsert(prefixString, nil, 0, Identity{
 			ID:     id.ID,
 			Source: FromCIDR,
 		})
+	}
+
+	for _, id := range allocatedIdentities {
 		allocatedIdentitiesSlice = append(allocatedIdentitiesSlice, id)
 	}
 
