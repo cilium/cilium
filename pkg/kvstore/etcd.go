@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"os"
 	"strconv"
@@ -49,6 +50,10 @@ const (
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 type etcdModule struct {
 	opts   backendOptions
@@ -302,12 +307,15 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 			default:
 			}
 
-			locker, err := e.LockPath(ctx, InitLockPath)
+			// Generate a random number so that we can acquire a lock even
+			// if other agents are killed while locking this path.
+			randNumber := strconv.FormatUint(rand.Uint64(), 16)
+			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
 			if err == nil {
 				initLockSucceeded <- true
 				close(initLockSucceeded)
 				locker.Unlock()
-				e.getLogger().Info("Distributed lock successful, etcd has quorum")
+				e.getLogger().Debug("Distributed lock successful, etcd has quorum")
 				return
 			}
 
