@@ -620,6 +620,8 @@ veth
 Viljoen
 virtio
 virtualbox
+Virtualization
+virtualization
 vlan
 vm
 VM
