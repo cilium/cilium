@@ -59,6 +59,11 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"dmesg --time-format=iso",
 		"bpftool map show",
 		"bpftool prog show",
+		// LB
+		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb4_backends",
+		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb4_services_v2",
+		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_ct4_global",
+		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_ct_any4_global",
 		// Versions
 		"docker version",
 		"docker info",
