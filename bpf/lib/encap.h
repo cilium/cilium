@@ -76,8 +76,6 @@ __encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
 
-	cilium_dbg(skb, DBG_ENCAP, node_id, seclabel);
-
 	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;

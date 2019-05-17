@@ -228,8 +228,6 @@ ct_recreate6:
 		if (IS_ERR(ret))
 			return ret;
 
-		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
-
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_EGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -304,8 +302,6 @@ to_host:
 	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
-		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
-
 		ret = ipv6_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_EGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -318,8 +314,6 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_dbg(skb, DBG_TO_STACK, 0, 0);
-
 	ret = ipv6_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
@@ -545,8 +539,6 @@ ct_recreate4:
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		cilium_dbg(skb, DBG_TO_HOST, skb->cb[CB_POLICY], 0);
-
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -613,8 +605,6 @@ to_host:
 	if (is_defined(ENABLE_HOST_REDIRECT)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
-		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
-
 		ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -631,8 +621,6 @@ to_host:
 	}
 
 pass_to_stack:
-	cilium_dbg(skb, DBG_TO_STACK, 0, 0);
-
 	ret = ipv4_l3(skb, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != TC_ACT_OK))
 		return ret;
@@ -987,8 +975,6 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, int *forwarding
 						 *forwarding_reason, monitor);
 		if (IS_ERR(ret))
 			return ret;
-
-		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		if (eth_store_saddr(skb, (__u8 *) &router_mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
