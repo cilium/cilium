@@ -174,7 +174,7 @@ const (
 	KubectlPolicyNameLabel      = k8sConst.PolicyLabelName
 	KubectlPolicyNameSpaceLabel = k8sConst.PolicyLabelNamespace
 
-	CiliumStableVersion      = "v1.4"
+	CiliumStableVersion      = "v1.5"
 	CiliumStableImageVersion = "cilium/cilium:" + CiliumStableVersion
 	CiliumDeveloperImage     = "k8s1:5000/cilium/cilium-dev:latest"
 
@@ -217,6 +217,7 @@ var (
 	CiliumV1_3 = versioncheck.MustCompile(">=v1.2.90,<v1.4")
 	CiliumV1_4 = versioncheck.MustCompile(">=v1.3.90,<v1.5")
 	CiliumV1_5 = versioncheck.MustCompile(">=v1.4.90,<v1.6")
+	CiliumV1_6 = versioncheck.MustCompile(">=v1.5.90,<v1.7")
 )
 
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
