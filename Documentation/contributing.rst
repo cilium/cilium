@@ -233,8 +233,8 @@ This box will need to be updated when a new developer needs a new dependency
 that is not installed in the current version of the box, or if a dependency that
 is cached within the box becomes stale.
 
-Make sure that you update vagrant box versions in `test Vagrantfile <https://github.com/cilium/cilium/blob/master/test/Vagrantfile>`
-and `root Vagrantfile <https://github.com/cilium/cilium/blob/master/Vagrantfile>` after new box is built and tested.
+Make sure that you update vagrant box versions in `test Vagrantfile <https://github.com/cilium/cilium/blob/master/test/Vagrantfile>`__
+and `root Vagrantfile <https://github.com/cilium/cilium/blob/master/Vagrantfile>`__ after new box is built and tested.
 
 Development process
 -------------------
