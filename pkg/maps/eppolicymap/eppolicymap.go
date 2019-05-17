@@ -90,7 +90,7 @@ func CreateEPPolicyMap() {
 func (v EPPolicyValue) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
 
 // GetValuePtr returns the unsafe value pointer to the Endpoint Policy fd
-func (v EPPolicyValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v.Fd) }
+func (v *EPPolicyValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // NewValue returns a new empty instance of the Endpoint Policy fd
 func (k EndpointKey) NewValue() bpf.MapValue { return &EPPolicyValue{} }

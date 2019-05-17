@@ -56,10 +56,10 @@ func (v SockmapValue) String() string {
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
-func (v SockmapValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(&v) }
+func (v *SockmapValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
-func (k SockmapKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(&k) }
+func (k *SockmapKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
