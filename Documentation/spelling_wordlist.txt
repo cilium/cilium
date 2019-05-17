@@ -170,6 +170,7 @@ fallback
 Fastabend
 fc
 filename
+filenames
 filesystem
 filesystems
 firewalling
