@@ -138,9 +138,8 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				return err
 			}
 
-			// Update selector cache for said FQDN selectors.
+			// Update mapping in selector cache with new identities.
 			d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs)
-
 			return nil
 		},
 		PollerResponseNotify: func(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
@@ -197,7 +196,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			record.Log()
 		}}
 
-	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
+	rg := fqdn.NewRuleGen(cfg)
+	d.policy.GetSelectorCache().SetIdentityPopulator(rg)
+	d.dnsRuleGen = rg
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)

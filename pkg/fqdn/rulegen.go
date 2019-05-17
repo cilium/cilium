@@ -15,11 +15,15 @@
 package fqdn
 
 import (
+	"context"
 	"net"
 	"regexp"
 	"time"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -71,6 +75,61 @@ type RuleGen struct {
 
 	// cache is a private copy of the pointer from config.
 	cache *DNSCache
+}
+
+func (gen *RuleGen) StartManagerFQDNSelector(selector api.FQDNSelector) (identities []identity.NumericIdentity, existed bool) {
+	// Get all IPs which map to names which this selector matches.
+	// Allocate identities??
+	log.WithField("selector", selector).Debug("RuleGen: StartManagerFQDNSelector")
+	gen.Mutex.Lock()
+	_, exists := gen.allSelectors[selector]
+	if exists {
+		gen.Mutex.Unlock()
+		return nil, true
+	}
+
+	gen.allSelectors[selector] = selector.ToRegex()
+	_, _, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, gen.cache)
+	gen.Mutex.Unlock()
+
+	var err error
+
+	// Used to track identities which are allocated in calls to
+	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
+	// we have to undo all of our changes and release the identities.
+	// This is best effort, as releasing can fail as well.
+	usedIdentities := make([]*identity.Identity, 0)
+	selectorIdentitySliceMapping := make(map[api.FQDNSelector][]identity.NumericIdentity)
+
+	// Allocate identities for each IPNet and then map to selector
+	for selector, selectorIPs := range selectorIPMapping {
+		log.WithFields(logrus.Fields{
+			"fqdnSelector": selector,
+			"ips":          selectorIPs,
+		}).Debug("getting identities for IPs associated with FQDNSelector")
+		var currentlyAllocatedIdentities []*identity.Identity
+		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+			cache.ReleaseSlice(context.TODO(), nil, usedIdentities)
+			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
+				"failed to allocate identities for IPs")
+			return
+		}
+		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
+		numIDs := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
+		for i := range currentlyAllocatedIdentities {
+			numIDs = append(numIDs, currentlyAllocatedIdentities[i].ID)
+		}
+		selectorIdentitySliceMapping[selector] = numIDs
+	}
+
+	return selectorIdentitySliceMapping[selector], false
+}
+
+func (gen *RuleGen) StopManagerFQDNSelector(selector api.FQDNSelector) {
+	log.WithField("selector", selector).Debug("RuleGen: StopManagerFQDNSelector")
+	gen.Mutex.Lock()
+	delete(gen.allSelectors, selector)
+	gen.Mutex.Unlock()
 }
 
 // NewRuleGen creates an initialized RuleGen.
@@ -191,18 +250,18 @@ func (gen *RuleGen) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]
 	gen.Lock()
 	defer gen.Unlock()
 
-	//perDNSName:
+perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
-		_ = gen.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
+		updated := gen.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
-		/*if !updated {
+		if !updated {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
 			}).Info("UpdateDNSIPs: IPs didn't change")
 			continue perDNSName
-		}*/
+		}
 
 		// record the IPs that were different
 		updatedNames[dnsName] = lookupIPs.IPs
@@ -295,17 +354,7 @@ func (gen *RuleGen) updateDNSResources(selUpdate *SelectorUpdate) (newDNSNames, 
 		for policyMatchStr, dnsPatternAsRE := range REsToAddForSelector {
 			delete(namesToStopManaging, dnsPatternAsRE) // keep managing this matchName/Pattern
 			// check if this is already managed or not
-			/*if exists := gen.sourceRules.LookupContainsValue(dnsPatternAsRE, uuid); exists {
-				oldDNSNames = append(oldDNSNames, policyMatchStr)
-			} else {*/
-			// This ToFQDNs.MatchName/Pattern has not been seen before
 			newDNSNames = append(newDNSNames, policyMatchStr)
-			// Add this egress rule as a dependent on ToFQDNs.MatchPattern, but fixup the literal
-			// name so it can work as a regex
-			/*if err = gen.sourceRules.Add(dnsPatternAsRE, uuid); err != nil {
-				return nil, nil, err
-			}*/
-			//}
 		}
 	}
 

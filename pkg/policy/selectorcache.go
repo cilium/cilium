@@ -129,8 +129,6 @@ type identitySelector interface {
 	addUser(CachedSelectionUser) (added bool)
 	removeUser(CachedSelectionUser) (last bool)
 	notifyUsers(added, deleted []identity.NumericIdentity)
-	addOwner()
-	removeOwner() bool
 }
 
 // scIdentity is the information we need about a an identity that rules can select
@@ -172,6 +170,8 @@ type SelectorCache struct {
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
+
+	pop identityPopulator
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
@@ -180,6 +180,10 @@ func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 		idCache:   getIdentityCache(ids),
 		selectors: make(map[string]identitySelector),
 	}
+}
+
+func (sc *SelectorCache) SetIdentityPopulator(pop identityPopulator) {
+	sc.pop = pop
 }
 
 var (
@@ -238,21 +242,24 @@ func (s *selectorManager) IsWildcard() bool {
 	return s.key == wildcardSelectorKey
 }
 
+func (s *fqdnSelector) NotifyAdded() {
+	// Make the user (FQDN subsystem) aware of this selector.
+	if ids, exists := s.user.StartManagerFQDNSelector(s.selector); !exists {
+		for _, id := range ids {
+			s.cachedSelections[id] = struct{}{}
+		}
+		s.updateSelections()
+	}
+
+}
+
+func (s *fqdnSelector) NotifyRemoved() {
+	s.user.StopManagerFQDNSelector(s.selector)
+}
+
 // String returns the map key for this selector
 func (s *selectorManager) String() string {
 	return s.key
-}
-
-func (s *selectorManager) addOwner() {
-	s.ownerCount += 1
-}
-
-func (s *selectorManager) removeOwner() bool {
-	s.ownerCount -= 1
-	if s.ownerCount == 0 {
-		return true
-	}
-	return false
 }
 
 // lock must be held
@@ -268,6 +275,15 @@ func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
 func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
 	delete(s.users, user)
 	return len(s.users) == 0
+}
+
+func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
+	delete(f.users, user)
+	removed := len(f.users) == 0
+	if removed {
+		f.NotifyRemoved()
+	}
+	return removed
 }
 
 // lock must be held
@@ -308,6 +324,12 @@ func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) 
 type fqdnSelector struct {
 	selectorManager
 	selector api.FQDNSelector
+	user     identityPopulator
+}
+
+type identityPopulator interface {
+	StartManagerFQDNSelector(selector api.FQDNSelector) (identities []identity.NumericIdentity, existed bool)
+	StopManagerFQDNSelector(selector api.FQDNSelector)
 }
 
 type labelIdentitySelector struct {
@@ -447,9 +469,12 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
+	log.WithField("fqdnSelector", fqdnSelec.String()).Debug("AddFQDNSelector")
+
 	key := fqdnSelec.String()
 	fqdnSel, exists := sc.selectors[key]
 	if exists {
+		log.WithField("fqdnSelector", fqdnSelec.String()).Debug("AddFQDNSelector: selector exists already, adding user")
 		return fqdnSel, fqdnSel.addUser(user)
 	}
 
@@ -460,11 +485,14 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
+		user:     sc.pop,
 	}
 
 	// Add the initial user
 	newFQDNSel.users[user] = struct{}{}
 	newFQDNSel.updateSelections()
+
+	newFQDNSel.NotifyAdded()
 
 	// Do not go through the identity cache to see what identities "match" this
 	// selector. This has to be updated via whatever is getting the CIDR identities
@@ -492,6 +520,14 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 	idSel := sc.selectors[key]
 	sc.mutex.Unlock()
 	return idSel
+}
+
+func (sc *SelectorCache) NotifyFQDNSelectorUsed(selector api.FQDNSelector) {
+
+}
+
+func (sc *SelectorCache) NotifyFQDNSelectorNotUsed(selector api.FQDNSelector) {
+
 }
 
 // AddIdentitySelector adds the given api.EndpointSelector in to the
@@ -691,126 +727,4 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 		sc.updateFQDNSelector(fqdnSels[i], noIdentities)
 	}
 	sc.mutex.Unlock()
-}
-
-func (sc *SelectorCache) addIdentitySelectorOwner(selector api.EndpointSelector) {
-	key := selector.String()
-	sel, added := sc.selectors[key]
-
-	if !added {
-		newIDSel := &labelIdentitySelector{
-			selectorManager: selectorManager{
-				key:              key,
-				users:            make(map[CachedSelectionUser]struct{}),
-				cachedSelections: make(map[identity.NumericIdentity]struct{}),
-			},
-			selector: selector,
-		}
-		newIDSel.addOwner()
-		sc.selectors[key] = newIDSel
-		return
-	}
-	sel.addOwner()
-}
-
-func (sc *SelectorCache) addFQDNSelectorOwner(selector api.FQDNSelector) {
-	key := selector.String()
-	sel, added := sc.selectors[key]
-
-	if !added {
-		newIDSel := &fqdnSelector{
-			selectorManager: selectorManager{
-				key:              key,
-				users:            make(map[CachedSelectionUser]struct{}),
-				cachedSelections: make(map[identity.NumericIdentity]struct{}),
-			},
-			selector: selector,
-		}
-		newIDSel.addOwner()
-		sc.selectors[key] = newIDSel
-		return
-	}
-	sel.addOwner()
-}
-
-func (sc *SelectorCache) removeIdentitySelectorOwner(selector api.EndpointSelector) bool {
-	key := selector.String()
-	sel, added := sc.selectors[key]
-
-	// If selector isn't in the cache, this is a no-op.
-	if added {
-		// No references to selector exist in policy repository, remove from
-		// SelectorCache.
-		if sel.removeOwner() {
-			delete(sc.selectors, key)
-			return true
-		}
-	}
-	return false
-}
-
-func (sc *SelectorCache) removeFQDNSelectorOwner(selector api.FQDNSelector) bool {
-	key := selector.String()
-	sel, added := sc.selectors[key]
-
-	// If selector isn't in the cache, this is a no-op.
-	if added {
-		// No references to selector exist in policy repository, remove from
-		// SelectorCache now.
-		if sel.removeOwner() {
-			delete(sc.selectors, key)
-			return true
-		}
-	}
-	return false
-}
-
-// SelectorUpdate contains lists of added and deleted api.EndpointSelectors and
-// api.FQDNSelectors. All lists may contain duplicates!
-type SelectorUpdate struct {
-	// AddedEpSels is the list of api.EndpointSelector that is added by rules.
-	AddedEpSels []api.EndpointSelector
-	// DeletedpSels is the list of api.EndpointSelector that is deleted by
-	// rules.
-	DeletedEpSels []api.EndpointSelector
-	// AddedFQDNSels is the list of api.FQDNSelector that is added by rules.
-	AddedFQDNSels []api.FQDNSelector
-	// DeletedFQDNSels is the list of api.FQDNSelector that is deleted by rules.
-	DeletedFQDNSels []api.FQDNSelector
-}
-
-// Update inserts and then removes all of the selectors in update into the
-// SelectorCache. Returns the set of EndpointSelector and FQDNSelector which
-// were deleted (e.g., had a refCount of zero after deletion was performed).
-func (sc *SelectorCache) Update(update *SelectorUpdate) (map[api.EndpointSelector]struct{}, map[api.FQDNSelector]struct{}) {
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
-	deletedEpSels := make(map[api.EndpointSelector]struct{})
-	deletedFQDNSels := make(map[api.FQDNSelector]struct{})
-
-	// Add first, then delete - this way we don't unnecessary clear the cache
-	// if state has already been computed!
-
-	for _, addedEpSel := range update.AddedEpSels {
-		sc.addIdentitySelectorOwner(addedEpSel)
-	}
-
-	for _, deletedEpSel := range update.DeletedEpSels {
-		if sc.removeIdentitySelectorOwner(deletedEpSel) {
-			deletedEpSels[deletedEpSel] = struct{}{}
-		}
-	}
-
-	for _, addedFqdnSel := range update.AddedFQDNSels {
-		sc.addFQDNSelectorOwner(addedFqdnSel)
-	}
-
-	for _, deletedFqdnSel := range update.DeletedFQDNSels {
-		if sc.removeFQDNSelectorOwner(deletedFqdnSel) {
-			deletedFQDNSels[deletedFqdnSel] = struct{}{}
-		}
-	}
-
-	return deletedEpSels, deletedFQDNSels
 }
