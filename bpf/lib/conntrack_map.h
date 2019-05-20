@@ -22,7 +22,7 @@
 #include "config.h"
 
 #if defined CT_MAP_TCP4 && defined CT_MAP_TCP6
-#ifdef HAVE_LRU_MAP_TYPE
+#ifdef HAVE_LRU_HASH_MAP_TYPE
 #define CT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
 #else
 #define CT_MAP_TYPE BPF_MAP_TYPE_HASH
@@ -35,7 +35,7 @@ struct bpf_elf_map __section_maps CT_MAP_TCP6 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_TCP,
-#ifndef HAVE_LRU_MAP_TYPE
+#ifndef HAVE_LRU_HASH_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
 #endif
 };
@@ -46,7 +46,7 @@ struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_ANY,
-#ifndef HAVE_LRU_MAP_TYPE
+#ifndef HAVE_LRU_HASH_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
 #endif
 };
@@ -68,7 +68,7 @@ struct bpf_elf_map __section_maps CT_MAP_TCP4 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_TCP,
-#ifndef HAVE_LRU_MAP_TYPE
+#ifndef HAVE_LRU_HASH_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
 #endif
 };
@@ -79,7 +79,7 @@ struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
 	.size_value	= sizeof(struct ct_entry),
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= CT_MAP_SIZE_ANY,
-#ifndef HAVE_LRU_MAP_TYPE
+#ifndef HAVE_LRU_HASH_MAP_TYPE
 	.flags		= CONDITIONAL_PREALLOC,
 #endif
 };

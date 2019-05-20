@@ -78,7 +78,7 @@ __u64 sock_cookie_or_zero(struct bpf_sock_addr *ctx)
 static __always_inline __maybe_unused
 __u64 sock_cookie_or_rnd(struct bpf_sock_addr *ctx)
 {
-#ifdef HAVE_GET_SOCK_COOKIE
+#ifdef BPF__PROG_TYPE_cgroup_sock_addr__HELPER_bpf_get_socket_cookie
 	return get_socket_cookie(ctx);
 #else
 	/* Given this is for the entire connection, we can pick one

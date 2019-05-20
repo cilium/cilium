@@ -141,7 +141,7 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 
 static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
 {
-#ifdef HAVE_SET_HASH_INVALID
+#ifdef BPF__PROG_TYPE_sched_cls__HELPER_bpf_set_hash_invalid
 	set_hash_invalid(skb);
 #else
 	/* Ugly workaround for 4.8 kernel where we don't have this function. */
