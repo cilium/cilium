@@ -1244,13 +1244,18 @@ to allow bootstrapping Cilium and enable network connectivity with policy
 enforcement in the cluster for essential services without depending on any
 dependencies.
 
-======================== ============ ================ =========== ============================================================================
-Deployment               Namespace    ServiceAccount   Numeric ID  Labels
-======================== ============ ================ =========== ============================================================================
-etcd-operator            kube-system  default          100         ``io.cilium/app=etcd-operator``
-cilium-etcd              kube-system  default          101         ``app=etcd``, ``etcd_cluster=cilium-etcd``, ``io.cilium/app=etcd-operator``
-kube-dns                 kube-system  kube-dns         102         ``k8s-app=kube-dns``
-kube-dns (EKS)           kube-system  default          103         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``
-core-dns                 kube-system  coredns          104         ``k8s-app=kube-dns``
-cilium-operator          kube-system  cilium-operator  105         ``name=cilium-operator``, ``io.cilium/app=operator``
-======================== ============ ================ =========== ============================================================================
+======================== =================== ==================== ================= =========== ============================================================================
+Deployment               Namespace           ServiceAccount       Cluster Name      Numeric ID  Labels
+======================== =================== ==================== ================= =========== ============================================================================
+cilium-etcd-operator     <cilium-namespace>  cilium-etcd-operator <cilium-cluster>  107         ``name=cilium-etcd-operator``, ``io.cilium/app=etcd-operator``
+etcd-operator            <cilium-namespace>  cilium-etcd-sa       <cilium-cluster>  100         ``io.cilium/app=etcd-operator``
+cilium-etcd              <cilium-namespace>  default              <cilium-cluster>  101         ``app=etcd``, ``etcd_cluster=cilium-etcd``, ``io.cilium/app=etcd-operator``
+kube-dns                 kube-system         kube-dns             <cilium-cluster>  102         ``k8s-app=kube-dns``
+kube-dns (EKS)           kube-system         kube-dns             <cilium-cluster>  103         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=kube-dns``
+core-dns                 kube-system         coredns              <cilium-cluster>  104         ``k8s-app=kube-dns``
+core-dns (EKS)           kube-system         coredns              <cilium-cluster>  106         ``k8s-app=kube-dns``, ``eks.amazonaws.com/component=coredns``
+cilium-operator          <cilium-namespace>  cilium-operator      <cilium-cluster>  105         ``name=cilium-operator``, ``io.cilium/app=operator``
+======================== =================== ==================== ================= =========== ============================================================================
+
+*Note*: if ``cilium-cluster`` is not defined with the ``cluster-name`` option,
+the default value will be set to "``default``".
