@@ -506,7 +506,7 @@ static __always_inline int do_netdev_encrypt_fib(struct __sk_buff *skb, int *enc
 {
 	int ret = 0;
 
-#ifdef HAVE_FIB_LOOKUP
+#ifdef BPF__PROG_TYPE_sched_cls__HELPER_bpf_fib_lookup
 	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
 	struct iphdr *iphdr;
@@ -540,7 +540,7 @@ static __always_inline int do_netdev_encrypt_fib(struct __sk_buff *skb, int *enc
 	}
 	*encrypt_iface = fib_params.ifindex;
 drop_err_fib:
-#endif /* HAVE_FIB_LOOKUP */
+#endif /* BPF__PROG_TYPE_sched_cls__HELPER_bpf_fib_lookup */
 	return ret;
 }
 
