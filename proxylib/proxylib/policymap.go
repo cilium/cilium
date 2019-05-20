@@ -251,6 +251,7 @@ func newPolicyInstance(config *cilium.NetworkPolicy) *PolicyInstance {
 }
 
 func (p *PolicyInstance) Matches(ingress bool, port, remoteId uint32, l7 interface{}) bool {
+	log.Debugf("NPDS::PolicyInstance::Matches(ingress: %v, port: %d, remoteId: %d, l7: %v (policy: %v)", ingress, port, remoteId, l7, p.protobuf)
 	if ingress {
 		return p.Ingress.Matches(port, remoteId, l7)
 	}
