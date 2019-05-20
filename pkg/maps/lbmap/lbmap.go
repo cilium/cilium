@@ -291,7 +291,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	log.WithFields(logrus.Fields{
 		"frontend": fe,
 		"backends": besValuesV2,
-	}).Debugf("Updating BPF representation of service")
+	}).Warningf("Updating BPF representation of service")
 
 	// Add the new backends to the BPF maps
 	if err := updateBackendsLocked(addedBackends); err != nil {
@@ -343,7 +343,7 @@ func acquireNewBackendIDs(backends []ServiceValue,
 		log.WithFields(logrus.Fields{
 			logfields.BackendName: addrID,
 			logfields.BackendID:   backendID,
-		}).Debug("Acquired backend ID")
+		}).Warning("Acquired backend ID")
 	}
 	return newBackendIDs, nil
 }
@@ -361,6 +361,7 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 		} else {
 			svc4Val := svcVal.(*Service4Value)
 			b, err = NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
+			log.Warningf("updateBackendsLocked: ID %s addr:%s port:%s", backendID, svc4Val.Address.IP(), svc4Val.Port)
 		}
 		if err != nil {
 			return err
@@ -368,6 +369,7 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 		if err := updateBackend(b); err != nil {
 			return err
 		}
+		log.Warning("Backend update okay")
 	}
 	return nil
 
@@ -531,7 +533,7 @@ func removeBackendsLocked(removedBackendIDs []loadbalancer.BackendID, isIPv6 boo
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
 		}
 		releaseBackendID(backendID)
-		log.WithField(logfields.BackendID, backendID).Debug("Deleted backend")
+		log.WithField(logfields.BackendID, backendID).Warning("Deleted backend")
 	}
 
 	return nil
@@ -946,7 +948,7 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
 		}
 		releaseBackendID(id)
-		log.WithField(logfields.BackendID, id).Debug("Deleted backend")
+		log.WithField(logfields.BackendID, id).Warning("Deleted backend")
 	}
 
 	return nil

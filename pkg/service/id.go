@@ -84,7 +84,9 @@ func getMaxServiceID() (uint32, error) {
 
 // AcquireBackendID acquires a new local ID for the given backend.
 func AcquireBackendID(l3n4Addr loadbalancer.L3n4Addr) (loadbalancer.BackendID, error) {
-	return restoreBackendID(l3n4Addr, 0)
+	id, err := restoreBackendID(l3n4Addr, 0)
+	log.Warning("AcquireBackendID: done for ID %d", id)
+	return id, err
 }
 
 // RestoreBackendID tries to restore the given local ID for the given backend.
@@ -96,9 +98,11 @@ func RestoreBackendID(l3n4Addr loadbalancer.L3n4Addr, id loadbalancer.BackendID)
 		return err
 	}
 
+	log.Warning("RestoreBackendID: done for ID %d", newID)
 	// TODO(brb) This shouldn't happen (otherwise, there is a bug in the code).
 	//           But maybe it makes sense to delete all svc v2 in this case.
 	if newID != id {
+		log.Warning("RestoreBackendID: done for ID %d != %d", newID, id)
 		DeleteBackendID(newID)
 		return fmt.Errorf("Restored backend ID for %+v does not match (%d != %d)",
 			l3n4Addr, newID, id)
