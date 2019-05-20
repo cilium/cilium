@@ -60,6 +60,20 @@ pipeline {
                }
             }
         }
+        stage('Preload vagrant boxes') {
+            steps {
+                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
+            }
+            post {
+                unsuccessful {
+                    script {
+                        if  (!currentBuild.displayName.contains('fail')) {
+                            currentBuild.displayName = 'preload vagrant boxes fail' + currentBuild.displayName
+                        }
+                    }
+                }
+            }
+        }
         stage ("Copy code and boot vms"){
             options {
                 timeout(time: 45, unit: 'MINUTES')
