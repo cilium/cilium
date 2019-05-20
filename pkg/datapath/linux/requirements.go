@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/bpf/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -196,6 +197,9 @@ func CheckMinRequirements() {
 		log.Info("linking environment: OK!")
 	}
 
+	// Old Cilium BPF feature probes.
+	// TODO(mrostecki): Remove them completely and move missing checks to
+	// bpftool.
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
@@ -207,12 +211,26 @@ func CheckMinRequirements() {
 	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
 	}
-	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
+	featuresFilePath := filepath.Join(globalsDir, "bpf_features_legacy.h")
 	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
 	}
 
 	checkBPFLogs("bpf_requirements", true)
 	checkBPFLogs("bpf_features", false)
-	bpf.ReadFeatureProbes(featuresFilePath)
+
+	// bpftool checks
+	if !option.Config.DryMode {
+		probeManager, err := probes.NewProbeManager()
+		if err != nil {
+			log.WithError(err).Fatal("BPF check: NOT OK.")
+		}
+		if err := probeManager.SystemConfigProbes(); err != nil {
+			log.WithError(err).Warning("BPF system config check: NOT OK.")
+		}
+		if err := probes.CreateHeadersFile(); err != nil {
+			log.WithError(err).Fatal("BPF check: NOT OK.")
+		}
+		bpf.InitSupportedMapTypes()
+	}
 }
