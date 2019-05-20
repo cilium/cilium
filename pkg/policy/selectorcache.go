@@ -245,6 +245,10 @@ func (s *selectorManager) IsWildcard() bool {
 // must be holding selectorcache mutex
 func (s *fqdnSelector) NotifyAdded() {
 	// Make the user (FQDN subsystem) aware of this selector.
+	if s.user == nil {
+		return
+	}
+
 	if ids, exists := s.user.StartManagerFQDNSelector(s.selector); !exists {
 		for _, id := range ids {
 			s.cachedSelections[id] = struct{}{}
@@ -255,7 +259,9 @@ func (s *fqdnSelector) NotifyAdded() {
 }
 
 func (s *fqdnSelector) NotifyRemoved() {
-	s.user.StopManagerFQDNSelector(s.selector)
+	if s.user != nil {
+		s.user.StopManagerFQDNSelector(s.selector)
+	}
 }
 
 // String returns the map key for this selector
