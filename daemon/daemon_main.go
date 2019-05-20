@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/common"
 	_ "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/bpf/probes"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
@@ -283,6 +284,10 @@ func checkMinRequirements() {
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
+
+	// Old Cilium BPF feature probes.
+	// TODO(mrostecki): Remove them completely and move missing checks to
+	// bpftool.
 	if err := os.Chdir(option.Config.LibDir); err != nil {
 		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
 	}
@@ -290,14 +295,25 @@ func checkMinRequirements() {
 	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
 		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
 	}
-	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
+	featuresFilePath := filepath.Join(globalsDir, "bpf_features_legacy.h")
 	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
+		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features_legacy.h")
 	}
-
 	checkBPFLogs("bpf_requirements", true)
 	checkBPFLogs("bpf_features", false)
-	bpf.ReadFeatureProbes(featuresFilePath)
+
+	// bpftool checks
+	probeManager, err := probes.NewProbeManager()
+	if err != nil {
+		log.WithError(err).Fatal("BPF check: NOT OK.")
+	}
+	if err := probeManager.SystemConfigProbes(); err != nil {
+		log.WithError(err).Warning("BPF system config check: NOT OK.")
+	}
+	if err := probes.CreateHeadersFile(); err != nil {
+		log.WithError(err).Fatal("BPF check: NOT OK.")
+	}
+	bpf.InitSupportedMapTypes()
 }
 
 func skipInit(basePath string) bool {
