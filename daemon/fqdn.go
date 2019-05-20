@@ -138,6 +138,13 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 				return err
 			}
 
+			// Possible in case where DNS lookup resolves no new IPs - we don't
+			// need to plumb anything because it should already be in the selector
+			// cache in this case.
+			if len(selectorsIdentities) == 0 && len(selectorsWithoutIPs) == 0 {
+				return nil
+			}
+
 			// Update mapping in selector cache with new identities.
 			d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs)
 			return nil

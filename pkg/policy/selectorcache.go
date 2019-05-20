@@ -242,6 +242,7 @@ func (s *selectorManager) IsWildcard() bool {
 	return s.key == wildcardSelectorKey
 }
 
+// must be holding selectorcache mutex
 func (s *fqdnSelector) NotifyAdded() {
 	// Make the user (FQDN subsystem) aware of this selector.
 	if ids, exists := s.user.StartManagerFQDNSelector(s.selector); !exists {
