@@ -52,6 +52,20 @@ pipeline {
                }
             }
         }
+        stage('Preload vagrant boxes') {
+            steps {
+                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
+            }
+            post {
+                unsuccessful {
+                    script {
+                        if  (!currentBuild.displayName.contains('fail')) {
+                            currentBuild.displayName = 'preload vagrant boxes fail' + currentBuild.displayName
+                        }
+                    }
+                }
+            }
+        }
         stage('UnitTesting') {
             options {
                 timeout(time: 20, unit: 'MINUTES')
