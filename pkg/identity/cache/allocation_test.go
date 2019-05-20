@@ -141,8 +141,8 @@ func (d *dummyOwner) GetNodeSuffix() string {
 	return "foo"
 }
 
-// WaitUntilCount waits until the cached identity count reaches
-// 'target' and returns the number of events processed to get
+// WaitUntilID waits until an update event is received for the
+// 'target' identity and returns the number of events processed to get
 // there. Returns 0 in case of 'd.updated' channel is closed or
 // nothing is received from that channel in 60 seconds.
 func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
@@ -313,7 +313,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	c.Assert(owner.WaitUntilID(id3.ID), Not(Equals), 0)
 }
 
-func (ias *IdentityAllocatorSuite) TestLocalAllocationr(c *C) {
+func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 
 	owner := newDummyOwner()
@@ -340,16 +340,23 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocationr(c *C) {
 	cache := GetIdentityCache()
 	c.Assert(cache[id.ID], Not(IsNil))
 
+	// 1st Release, not released
 	released, err := Release(context.Background(), nil, id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, false)
+
+	// Identity still exists
+	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
+
+	// 2nd Release, released
 	released, err = Release(context.Background(), nil, id)
 	c.Assert(err, IsNil)
 	c.Assert(released, Equals, true)
 
-	// KV-store still holds on to the key, so it is not deleted yet via KV-store events
-	// This may be racy, as timing here depends on scheduling.
-	c.Assert(owner.GetIdentity(id.ID), checker.DeepEquals, lbls1.LabelArray())
+	// Wait until the identity is released
+	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
+	// Identity does not exist any more
+	c.Assert(owner.GetIdentity(id.ID), IsNil)
 
 	cache = GetIdentityCache()
 	c.Assert(cache[id.ID], IsNil)
