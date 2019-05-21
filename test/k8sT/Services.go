@@ -110,8 +110,15 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks ClusterIP Connectivity", func() {
 
 		var (
-			demoYAML = helpers.ManifestGet("demo.yaml")
+			vm          *helpers.SSHMeta
+			demoYAML    = helpers.ManifestGet("demo.yaml")
+			monitorStop = func() error { return nil }
 		)
+
+		BeforeAll(func() {
+			vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+			ExpectCiliumReady(vm)
+		}
 
 		BeforeEach(func() {
 			res := kubectl.Apply(demoYAML)
@@ -122,6 +129,18 @@ var _ = Describe("K8sServicesTest", func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
+		})
+
+		JustBeforeEach(func() {
+			monitorStop = vm.MonitorStart()
+		})
+
+		JustAfterEach(func() {
+			Expect(monitorStop()).To(BeNil(), "cannot stop monitor command")
+		})
+
+		AfterFailed(func() {
+			vm.ReportFailed()
 		})
 
 		It("Checks service on same node", func() {

@@ -64,6 +64,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb4_services_v2",
 		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_ct4_global",
 		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_ct_any4_global",
+		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_lb4_reverse_nat",
 		// Versions
 		"docker version",
 		"docker info",
