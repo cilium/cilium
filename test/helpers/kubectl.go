@@ -574,6 +574,37 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	return kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 }
 
+// WaitforDeployReady waits for all required replicas of a deployment to be
+// ready. Upon timeout an error is returned.
+func (kub *Kubectl) WaitforDeployReady(namespace, name string, timeout time.Duration) error {
+	var specReplicas, currentReplicas int32
+
+	body := func() bool {
+		deploy := apps_v1.Deployment{}
+		cmdRes := kub.Exec(fmt.Sprintf("%s -n %s get deploy %s -o json", KubectlCmd, namespace, name))
+		if cmdRes == nil {
+			kub.logger.Infof("kubectl.Exec returned nil result while getting Deployment for %s/%s", namespace, name)
+			return false
+		}
+
+		err := cmdRes.Unmarshal(&deploy)
+		if err != nil {
+			kub.logger.Infof("Error while getting Deployment for %s/%s: %s", namespace, name, err)
+			return false
+		}
+
+		specReplicas = deploy.Status.Replicas
+		currentReplicas = deploy.Status.ReadyReplicas
+
+		return currentReplicas >= specReplicas
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("Deployment %s/%s not ready after %s (%d/%d ready)", namespace, name, timeout, currentReplicas, specReplicas),
+		&TimeoutConfig{Timeout: timeout})
+}
+
 // WaitforDaemonSetReady waits for all required replicas of a daemonset to be
 // ready. Upon timeout an error is returned.
 func (kub *Kubectl) WaitforDaemonSetReady(namespace, name string, timeout time.Duration) error {
