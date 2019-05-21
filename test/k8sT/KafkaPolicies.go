@@ -130,10 +130,13 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			ProvisionInfraPods(kubectl)
 
 			kubectl.Apply(demoPath)
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=kafkaTestApp", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Kafka Pods are not ready after timeout")
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "kafka-broker", helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "empire-hq", helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "empire-outpost-8888", helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "empire-outpost-9999", helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "empire-backup", helpers.HelperTimeout)
 
-			err = kubectl.WaitForKubeDNSEntry("kafka-service", helpers.DefaultNamespace)
+			err := kubectl.WaitForKubeDNSEntry("kafka-service", helpers.DefaultNamespace)
 			Expect(err).To(BeNil(), "DNS entry of kafka-service is not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()

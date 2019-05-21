@@ -39,6 +39,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
+	apps_v1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 )
 
@@ -570,6 +571,31 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	return kub.Exec(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 }
 
+// WaitforDeployReady waits for all required replicas of a deployment to be
+// ready. Upon timeout an error is returned.
+func (kub *Kubectl) WaitforDeployReady(namespace, name string, timeout time.Duration) error {
+	var specReplicas, currentReplicas int32
+
+	body := func() bool {
+		deploy := apps_v1.Deployment{}
+		err := kub.Exec(fmt.Sprintf("%s -n %s get deploy %s -o json", KubectlCmd, namespace, name)).Unmarshal(&deploy)
+		if err != nil {
+			kub.logger.Infof("Error while getting Deployment for %s/%s: %s", namespace, name, err)
+			return false
+		}
+
+		specReplicas = deploy.Status.Replicas
+		currentReplicas = deploy.Status.ReadyReplicas
+
+		return currentReplicas >= specReplicas
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("Deployment %s/%s not ready after %s (%d/%d ready)", namespace, name, timeout, currentReplicas, specReplicas),
+		&TimeoutConfig{Timeout: timeout})
+}
+
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
 // specified namespace that match the provided JSONPath filter to have their
 // containterStatuses equal to "ready". Returns true if all pods achieve
@@ -714,7 +740,11 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
-	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
+	deployName := map[string]string{
+		"coredns": "coredns",
+		"kubedns": "kube-dns",
+	}[GetDNSEngine()]
+	return kub.WaitforDeployReady("kube-system", deployName, DNSHelperTimeout)
 }
 
 // WaitForKubeDNSEntry waits until the given DNS entry exists in the kube-dns
