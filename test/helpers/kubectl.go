@@ -416,6 +416,37 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 	return nil, cb
 }
 
+// MonitorStart runs cilium monitor in the background and dumps the contents
+// into a log file for later debugging
+func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
+	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -v", KubectlCmd, namespace, pod)
+	ctx, cancel := context.WithCancel(context.Background())
+	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
+
+	cb := func() error {
+		cancel()
+		<-ctx.Done()
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			kub.logger.WithError(err).Errorf(
+				"cannot create test results path '%s'", testPath)
+			return err
+		}
+
+		err = WriteOrAppendToFile(
+			filepath.Join(testPath, filename),
+			res.CombineOutput().Bytes(),
+			LogPerm)
+		if err != nil {
+			log.WithError(err).Errorf("cannot create monitor log file %s", filename)
+			return err
+		}
+		return nil
+	}
+
+	return cb
+}
+
 // BackgroundReport dumps the result of the given commands on cilium pods each
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
