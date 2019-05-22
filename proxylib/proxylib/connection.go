@@ -174,7 +174,11 @@ func (connection *Connection) OnData(reply, endStream bool, data *[][]byte, filt
 
 func (connection *Connection) Matches(l7 interface{}) bool {
 	log.Debugf("proxylib: Matching policy on connection %v", connection)
-	return connection.Instance.PolicyMatches(connection.PolicyName, connection.Ingress, connection.Port, connection.SrcId, l7)
+	remoteID := connection.DstId
+	if connection.Ingress {
+		remoteID = connection.SrcId
+	}
+	return connection.Instance.PolicyMatches(connection.PolicyName, connection.Ingress, connection.Port, remoteID, l7)
 }
 
 // getInjectBuf return the pointer to the inject buffer slice header for the indicated direction
