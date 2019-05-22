@@ -19,6 +19,7 @@
 #define __LIB_COMMON_H_
 
 #include <bpf_features.h>
+#include <bpf_features_legacy.h>
 #include <bpf/api.h>
 #include <linux/if_ether.h>
 #include <linux/ipv6.h>
