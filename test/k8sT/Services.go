@@ -132,7 +132,10 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			By("testing connectivity via cluster IP %s", clusterIP)
+			monitorStop := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
+				"cluster-ip-same-node.log")
 			status := kubectl.Exec(helpers.CurlFail("http://%s/", clusterIP))
+			monitorStop()
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
