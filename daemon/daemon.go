@@ -939,8 +939,6 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
-	var authKeySize int
-
 	bootstrapStats.daemonInit.Start()
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
@@ -950,20 +948,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
 	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
 
-	if option.Config.EnableIPSec {
-		var spi uint8
-		var err error
-
-		authKeySize, spi, err = ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
-		if err != nil {
-			return nil, nil, err
-		}
-		if option.Config.EnableIPv6 {
-			if err := ipsec.EnableIPv6Forwarding(); err != nil {
-				return nil, nil, err
-			}
-		}
-		node.SetIPsecKeyIdentity(spi)
+	authKeySize, err := setupIPSec()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
@@ -1152,6 +1139,27 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
+}
+
+func setupIPSec() (int, error) {
+	var authKeySize int
+
+	if option.Config.EnableIPSec {
+		var spi uint8
+		var err error
+
+		authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+		if err != nil {
+			return authKeySize, err
+		}
+		if option.Config.EnableIPv6 {
+			if err := ipsec.EnableIPv6Forwarding(); err != nil {
+				return authKeySize, err
+			}
+		}
+		node.SetIPsecKeyIdentity(spi)
+	}
+	return authKeySize, nil
 }
 
 func (d *Daemon) allocateHealthIPs() error {
