@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #define __LIB_COMMON_H_
 
 #include <bpf_features.h>
+#include <bpf_features_legacy.h>
 #include <bpf/api.h>
 #include <linux/if_ether.h>
 #include <linux/ipv6.h>
