@@ -122,6 +122,7 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 	bodyChan := make(chan bool)
 
 	asyncBody := func(ch chan bool) {
+		defer ginkgo.GinkgoRecover()
 		success := body()
 		ch <- success
 		if success {
