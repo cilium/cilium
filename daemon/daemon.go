@@ -1186,27 +1186,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// well known identities have already been initialized above
 	go cache.InitIdentityAllocator(&d)
 
-	bootstrapStats.clusterMeshInit.Start()
-	if path := option.Config.ClusterMeshConfig; path != "" {
-		if option.Config.ClusterID == 0 {
-			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
-		} else {
-			log.WithField("path", path).Info("Initializing ClusterMesh routing")
-			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
-				Name:            "clustermesh",
-				ConfigDirectory: path,
-				NodeKeyCreator:  nodeStore.KeyCreator,
-				ServiceMerger:   &d.k8sSvcCache,
-				NodeManager:     nodeMngr,
-			})
-			if err != nil {
-				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
-			}
-
-			d.clustermesh = clustermesh
-		}
-	}
-	bootstrapStats.clusterMeshInit.End(true)
+	d.bootstrapClusterMesh(nodeMngr)
 
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
@@ -1245,6 +1225,30 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
+}
+
+func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
+	bootstrapStats.clusterMeshInit.Start()
+	if path := option.Config.ClusterMeshConfig; path != "" {
+		if option.Config.ClusterID == 0 {
+			log.Info("Cluster-ID is not specified, skipping ClusterMesh initialization")
+		} else {
+			log.WithField("path", path).Info("Initializing ClusterMesh routing")
+			clustermesh, err := clustermesh.NewClusterMesh(clustermesh.Configuration{
+				Name:            "clustermesh",
+				ConfigDirectory: path,
+				NodeKeyCreator:  nodeStore.KeyCreator,
+				ServiceMerger:   &d.k8sSvcCache,
+				NodeManager:     nodeMngr,
+			})
+			if err != nil {
+				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
+			}
+
+			d.clustermesh = clustermesh
+		}
+	}
+	bootstrapStats.clusterMeshInit.End(true)
 }
 
 func (d *Daemon) bootstrapIPAM() {
