@@ -1110,35 +1110,8 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	})
 	bootstrapStats.ipam.End(true)
 
-	if option.Config.WorkloadsEnabled() {
-		bootstrapStats.workloadsInit.Start()
-		// workaround for to use the values of the deprecated dockerEndpoint
-		// variable if it is set with a different value than defaults.
-		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
-		if defaultDockerEndpoint != option.Config.DockerEndpoint {
-			option.Config.ContainerRuntimeEndpoint[string(workloads.Docker)] = option.Config.DockerEndpoint
-			log.Warn(`"docker" flag is deprecated.` +
-				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
-		}
-
-		opts := make(map[workloads.WorkloadRuntimeType]map[string]string)
-		for rt, ep := range option.Config.ContainerRuntimeEndpoint {
-			opts[workloads.WorkloadRuntimeType(rt)] = make(map[string]string)
-			opts[workloads.WorkloadRuntimeType(rt)][workloads.EpOpt] = ep
-		}
-		if opts[workloads.Docker] == nil {
-			opts[workloads.Docker] = make(map[string]string)
-		}
-		opts[workloads.Docker][workloads.DatapathModeOpt] = option.Config.DatapathMode
-
-		// Workloads must be initialized after IPAM has started as it requires
-		// to allocate IPs.
-		if err := workloads.Setup(d.ipam, option.Config.Workloads, opts); err != nil {
-			return nil, nil, fmt.Errorf("unable to setup workload: %s", err)
-		}
-
-		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
-		bootstrapStats.workloadsInit.End(true)
+	if err := d.bootstrapWorkloads(); err != nil {
+		return nil, nil, err
 	}
 
 	bootstrapStats.restore.Start()
@@ -1317,6 +1290,40 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
+}
+
+func (d *Daemon) bootstrapWorkloads() error {
+	if option.Config.WorkloadsEnabled() {
+		bootstrapStats.workloadsInit.Start()
+		// workaround for to use the values of the deprecated dockerEndpoint
+		// variable if it is set with a different value than defaults.
+		defaultDockerEndpoint := workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint")
+		if defaultDockerEndpoint != option.Config.DockerEndpoint {
+			option.Config.ContainerRuntimeEndpoint[string(workloads.Docker)] = option.Config.DockerEndpoint
+			log.Warn(`"docker" flag is deprecated.` +
+				`Please use "--container-runtime-endpoint=docker=` + defaultDockerEndpoint + `" instead`)
+		}
+
+		opts := make(map[workloads.WorkloadRuntimeType]map[string]string)
+		for rt, ep := range option.Config.ContainerRuntimeEndpoint {
+			opts[workloads.WorkloadRuntimeType(rt)] = make(map[string]string)
+			opts[workloads.WorkloadRuntimeType(rt)][workloads.EpOpt] = ep
+		}
+		if opts[workloads.Docker] == nil {
+			opts[workloads.Docker] = make(map[string]string)
+		}
+		opts[workloads.Docker][workloads.DatapathModeOpt] = option.Config.DatapathMode
+
+		// Workloads must be initialized after IPAM has started as it requires
+		// to allocate IPs.
+		if err := workloads.Setup(d.ipam, option.Config.Workloads, opts); err != nil {
+			return fmt.Errorf("unable to setup workload: %s", err)
+		}
+
+		log.Infof("Container runtime options set: %s", workloads.GetRuntimeOptions())
+		bootstrapStats.workloadsInit.End(true)
+	}
+	return nil
 }
 
 // Close shuts down a daemon
