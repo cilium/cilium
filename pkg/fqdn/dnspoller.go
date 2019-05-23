@@ -96,6 +96,7 @@ func NewDNSPoller(config Config, ruleManager *RuleGen) *DNSPoller {
 // 3- Update IPs for each dnsName in .ruleManager. If the IPs have changed for the
 // name, it will generate and emit them.
 func (poller *DNSPoller) LookupUpdateDNS(ctx context.Context) error {
+	log.Info("LookupUpdateDNS occurring")
 	// Collect the DNS names that need lookups. This avoids locking
 	// poller during lookups.
 	dnsNamesToPoll := poller.ruleManager.GetDNSNames()

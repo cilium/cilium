@@ -93,6 +93,10 @@ func (gen *RuleGen) StartManagerFQDNSelector(selector api.FQDNSelector) (identit
 
 	log.WithField("selector", selector).Debug("RuleGen: StartManagerFQDNSelector - selector does not exist in cache; adding it")
 
+	if len(selector.MatchName) > 0 {
+		gen.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
+	}
+
 	gen.allSelectors[selector] = selector.ToRegex()
 	fqdnSels := make(map[api.FQDNSelector]struct{})
 	fqdnSels[selector] = struct{}{}
@@ -136,6 +140,9 @@ func (gen *RuleGen) StopManagerFQDNSelector(selector api.FQDNSelector) {
 	log.WithField("selector", selector).Debug("RuleGen: StopManagerFQDNSelector")
 	gen.Mutex.Lock()
 	delete(gen.allSelectors, selector)
+	if len(selector.MatchName) > 0 {
+		delete(gen.namesToPoll, prepareMatchName(selector.MatchName))
+	}
 	gen.Mutex.Unlock()
 }
 
@@ -193,6 +200,8 @@ func (gen *RuleGen) GetDNSNames() (dnsNames []string) {
 	for name := range gen.namesToPoll {
 		dnsNames = append(dnsNames, name)
 	}
+
+	log.Infof("GetDNSNames: %s", dnsNames)
 
 	return dnsNames
 }
