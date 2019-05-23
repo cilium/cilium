@@ -1072,7 +1072,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if k8s.IsEnabled() {
+	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix:       node.GetIPv4AllocRange(),
@@ -1091,6 +1091,8 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
 		bootstrapStats.k8sInit.End(true)
+	} else if !option.Config.AnnotateK8sNode {
+		log.Debug("Annotate k8s node is disabled.")
 	}
 
 	d.nodeDiscovery.StartDiscovery(node.GetName())

@@ -225,4 +225,9 @@ const (
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false
+
+	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
+	// enabled by default to annotate kubernetes node and can be disabled using
+	// the provided option.
+	AnnotateK8sNode = true
 )
