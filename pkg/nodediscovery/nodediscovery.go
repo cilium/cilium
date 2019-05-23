@@ -92,6 +92,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 			EnableLocalNodeRoute:    enableLocalNodeRoute(),
 			AuxiliaryPrefixes:       auxPrefixes,
 			EnableIPSec:             option.Config.EnableIPSec,
+			EncryptNode:             option.Config.EncryptNode,
 		},
 		LocalNode: node.Node{
 			Source: node.FromLocalNode,

@@ -139,6 +139,9 @@ const (
 	// EnableIPSec is the default value for IPSec enablement
 	EnableIPSec = false
 
+	// EncryptNode encrypts node IP traffic, this is the ExternalIP addresss in kvstore
+	EncryptNode = false
+
 	// MonitorQueueSize is the default value for the monitor queue size
 	MonitorQueueSize = 32768
 
