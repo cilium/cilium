@@ -126,6 +126,9 @@ const (
 	// EncryptInterface enables encryption on specified interface
 	EncryptInterface = "encrypt-interface"
 
+	// EncryptNode enables node IP encryption
+	EncryptNode = "encrypt-node"
+
 	// EnvoyLog sets the path to a separate Envoy log file, if any
 	EnvoyLog = "envoy-log"
 
@@ -626,6 +629,7 @@ type DaemonConfig struct {
 	HostV6Addr       net.IP     // Host v6 address of the snooping device
 	LBInterface      string     // Set with name of the interface to loadbalance packets from
 	EncryptInterface string     // Set with name of network facing interface to encrypt
+	EncryptNode      bool       // Set to true for encrypting node IP traffic
 	Workloads        []string   // List of Workloads set by the user to used by cilium.
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
@@ -1238,6 +1242,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnablePolicy = strings.ToLower(viper.GetString(EnablePolicy))
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
+	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
 	c.HostDevice = getHostDevice()
