@@ -212,9 +212,8 @@ var _ = Describe("K8sChaosTest", func() {
 			ExpectAllPodsTerminated(kubectl)
 
 			By("Waiting for cilium pods to be ready")
-			err := kubectl.WaitforPods(
-				helpers.KubeSystemNamespace, fmt.Sprintf("-l %s", ciliumFilter), helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+			err := kubectl.WaitforDaemonSetReady(helpers.KubeSystemNamespace, "cilium", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cilium pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
