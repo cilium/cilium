@@ -91,6 +91,9 @@ type LocalNodeConfiguration struct {
 
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
+
+	// EncryptNode enables encrypting NodeIP traffic requries EnableIPSec
+	EncryptNode bool
 }
 
 // NodeHandler handles node related events such as addition, update or deletion

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -65,6 +66,18 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 				Source: ipcache.FromKVStore,
 			})
 		}
+
+		if option.Config.EncryptNode {
+			hostIP := nodeCopy.GetNodeIP(false)
+			if hostIP != nil {
+				hostKey := node.GetIPsecKeyIdentity()
+				ipcache.IPIdentityCache.Upsert(hostIP.String(), hostIP, hostKey, ipcache.Identity{
+					ID:     identity.ReservedIdentityHost,
+					Source: ipcache.FromKVStore,
+				})
+			}
+		}
+
 		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
 		if ciliumIPv6 != nil {
 			hostIP := nodeCopy.GetNodeIP(true)

@@ -40,6 +40,8 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+
+	"github.com/vishvananda/netlink"
 )
 
 func writeIncludes(w io.Writer) (int, error) {
@@ -146,6 +148,15 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	}
 	if option.Config.EnableIPSec {
 		fmt.Fprintf(fw, "#define ENABLE_IPSEC 1\n")
+	}
+	if option.Config.EncryptNode {
+		fmt.Fprintf(fw, "#define ENCRYPT_NODE 1\n")
+	}
+	if option.Config.EncryptInterface != "" {
+		link, err := netlink.LinkByName(option.Config.EncryptInterface)
+		if err == nil {
+			fmt.Fprintf(fw, "#define ENCRYPT_IFACE %d\n", link.Attrs().Index)
+		}
 	}
 	if !option.Config.InstallIptRules && option.Config.Masquerade {
 		fmt.Fprintf(fw, "#define ENABLE_MASQUERADE 1\n")

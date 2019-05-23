@@ -447,6 +447,9 @@ func init() {
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(option.EncryptInterface)
 
+	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Encrypt node IP")
+	option.BindEnv(option.EncryptNode)
+
 	flags.String(option.EndpointInterfaceNamePrefix, defaults.EndpointInterfaceNamePrefix, "Prefix of interface name shared by all endpoints")
 	option.BindEnv(option.EndpointInterfaceNamePrefix)
 

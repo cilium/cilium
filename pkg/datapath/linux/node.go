@@ -474,6 +474,25 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 		}
 	}
 
+	if n.nodeConfig.EnableIPv4 && n.nodeConfig.EncryptNode {
+		internalIPv4 := n.nodeAddressing.IPv4().PrimaryExternal()
+		exactMask := net.IPv4Mask(255, 255, 255, 255)
+		ipsecLocal := &net.IPNet{IP: internalIPv4, Mask: exactMask}
+		if newNode.IsLocal() {
+			ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
+			n.replaceNodeIPSecInRoute(ipsecLocal)
+			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, ipsec.IPSecDirIn)
+			upsertIPsecLog(err, "local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
+		} else {
+			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
+				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
+				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
+				upsertIPsecLog(err, "IPv4", ipsecLocal, ipsecRemote, spi)
+			}
+		}
+	}
+
 	if n.nodeConfig.EnableIPv6 && newNode.IPv6AllocCIDR != nil {
 		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
 		if newNode.IsLocal() {
@@ -496,6 +515,26 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 			}
 		}
 	}
+
+	if n.nodeConfig.EnableIPv6 && n.nodeConfig.EncryptNode {
+		internalIPv6 := n.nodeAddressing.IPv6().PrimaryExternal()
+		internalMask := net.CIDRMask(64, 128)
+		ipsecLocal := &net.IPNet{IP: internalIPv6, Mask: internalMask}
+		if newNode.IsLocal() {
+			ipsecIPv6Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
+			n.replaceNodeIPSecInRoute(ipsecLocal)
+			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, ipsec.IPSecDirIn)
+			upsertIPsecLog(err, "local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
+		} else {
+			if remoteIPv6 := newNode.GetNodeIP(false); remoteIPv6 != nil {
+				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: internalMask}
+				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
+				upsertIPsecLog(err, "IPv6", ipsecLocal, ipsecRemote, spi)
+			}
+		}
+	}
+
 }
 
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition bool) error {
@@ -705,6 +744,32 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 	}
 }
 
+func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt bool) route.Route {
+	var nexthop net.IP
+	var tbl int
+	var dev string
+
+	if ip.IP.To4() != nil {
+		nexthop = n.nodeAddressing.IPv4().PrimaryExternal()
+	} else {
+		nexthop = n.nodeAddressing.IPv6().PrimaryExternal()
+	}
+
+	if dflt {
+		dev = n.datapathConfig.HostDevice
+	} else {
+		tbl = linux_defaults.RouteTableIPSec
+		dev = n.datapathConfig.HostDevice //n.datapathConfig.EncryptInterface
+	}
+
+	return route.Route{
+		Nexthop: &nexthop,
+		Device:  dev,
+		Prefix:  *ip,
+		Table:   tbl,
+	}
+}
+
 // replaceNodeIPSecOutRoute replace the out IPSec route in the host routing table
 // with the new route. If no route exists the route is installed on the host.
 func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
@@ -723,6 +788,33 @@ func (n *linuxNodeHandler) replaceNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 
 	_, err := route.Upsert(n.createNodeIPSecOutRoute(ip), &n.nodeConfig.MtuConfig)
+	if err != nil {
+		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
+	}
+}
+
+// replaceNodeExternalIPSecOutRoute replace the out IPSec route in the host routing table
+// with the new route. If no route exists the route is installed on the host.
+func (n *linuxNodeHandler) replaceNodeExternalIPSecOutRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	_, err := route.Upsert(n.createNodeExternalIPSecOutRoute(ip, true), &n.nodeConfig.MtuConfig)
+	if err != nil {
+		log.WithError(err).Error("Unable to replace the IPSec route OUT the default routing table")
+	}
+	_, err = route.Upsert(n.createNodeExternalIPSecOutRoute(ip, false), &n.nodeConfig.MtuConfig)
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route OUT the host routing table")
 	}

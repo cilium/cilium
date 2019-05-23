@@ -402,8 +402,11 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 
 #ifdef ENCAP_IFINDEX
 			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
-#endif
+#elif ENCRYPT_NODE
+			return redirect(ENCRYPT_IFACE, 0);
+#else
 			return TC_ACT_OK;
+#endif
 		}
 	}
 #endif
