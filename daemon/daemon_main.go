@@ -366,6 +366,9 @@ func init() {
 	flags.Bool(option.BlacklistConflictingRoutes, defaults.BlacklistConflictingRoutes, "Don't blacklist IP allocations conflicting with local non-cilium routes")
 	option.BindEnv(option.BlacklistConflictingRoutes)
 
+	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes nodes")
+	option.BindEnv(option.AnnotateK8sNode)
+
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
 

@@ -216,4 +216,7 @@ const (
 	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
 	// provide backwards compatibility, it can be disabled via an option
 	ForceLocalPolicyEvalAtSource = true
+
+	// Annotate k8s nodes when bootstrapping the daemon
+	AnnotateK8sNode = true
 )

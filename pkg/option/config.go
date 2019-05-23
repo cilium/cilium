@@ -66,6 +66,8 @@ const (
 	// disabled.
 	AllowLocalhostPolicy = "policy"
 
+	AnnotateK8sNode = "annotate-k8s-node"
+
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
@@ -938,6 +940,9 @@ type DaemonConfig struct {
 	// SkipCRDCreation disables creation of the CustomResourceDefinition
 	// on daemon startup
 	SkipCRDCreation bool
+
+	// Specifies wheather to annotate the kubernetes nodes or not
+	AnnotateK8sNode bool
 }
 
 var (
@@ -963,6 +968,7 @@ var (
 		EndpointInterfaceNamePrefix:  defaults.EndpointInterfaceNamePrefix,
 		BlacklistConflictingRoutes:   defaults.BlacklistConflictingRoutes,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
+		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 	}
 )
 
@@ -1163,6 +1169,7 @@ func (c *DaemonConfig) Populate() {
 	c.AccessLog = viper.GetString(AccessLog)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
+	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
