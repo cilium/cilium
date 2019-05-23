@@ -136,6 +136,10 @@ const (
 	// EnableIPSec is the default value for IPSec enablement
 	EnableIPSec = false
 
+	// EncryptNode enables encrypting traffic from host networking applications
+	// which are not part of Cilium manged pods.
+	EncryptNode = false
+
 	// MonitorQueueSizePerCPU is the default value for the monitor queue
 	// size per CPU
 	MonitorQueueSizePerCPU = 1024

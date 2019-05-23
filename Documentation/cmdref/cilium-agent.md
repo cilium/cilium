@@ -54,6 +54,7 @@ cilium-agent [flags]
       --enable-policy string                       Enable policy enforcement (default "default")
       --enable-tracing                             Enable tracing while determining policy (debugging)
       --encrypt-interface string                   Transparent encryption interface
+      --encrypt-node                               Enables encrypting traffic from non-Cilium pods and host networking
       --endpoint-interface-name-prefix string      Prefix of interface name shared by all endpoints (default "lxc+")
       --endpoint-queue-size int                    size of EventQueue per-endpoint (default 25)
       --envoy-log string                           Path to a separate Envoy log file, if any
