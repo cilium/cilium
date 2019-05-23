@@ -85,7 +85,7 @@ func (s *FQDNSelector) ToRegex() *regexp.Regexp {
 	if s.MatchName != "" {
 		preparedMatch = strings.ToLower(dns.Fqdn(s.MatchName))
 	} else {
-		preparedMatch = s.MatchPattern
+		preparedMatch = matchpattern.Sanitize(s.MatchPattern)
 	}
 
 	regex, _ := matchpattern.Validate(preparedMatch)

@@ -47,6 +47,8 @@ func mapSelectorsToIPs(fqdnSelectors map[api.FQDNSelector]struct{}, cache *DNSCa
 	emitted := make(map[string][]net.IP)           // name -> IPs we wrote out
 	selectorIPMapping = make(map[api.FQDNSelector][]net.IP)
 
+	log.WithField("fqdnSelectors", fqdnSelectors).Debug("mapSelectorsToIPs")
+
 	// Build an IP collection to remove all duplicates
 	allIPs := []net.IP{}
 

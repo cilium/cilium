@@ -244,16 +244,20 @@ func (s *selectorManager) IsWildcard() bool {
 
 // must be holding selectorcache mutex
 func (s *fqdnSelector) NotifyAdded() {
+	log.WithField("selector", s.String()).Debug("NotifyAdded")
 	// Make the user (FQDN subsystem) aware of this selector.
 	if s.user == nil {
 		return
 	}
 
 	if ids, exists := s.user.StartManagerFQDNSelector(s.selector); !exists {
+		log.WithField("selector", s.String()).Debug("selector did not previously exist; updating selections")
 		for _, id := range ids {
 			s.cachedSelections[id] = struct{}{}
 		}
 		s.updateSelections()
+	} else {
+		log.WithField("selector", s.String()).Debug("selector previously existed; not updating selections")
 	}
 
 }
@@ -476,14 +480,14 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
-	log.WithField("fqdnSelector", fqdnSelec.String()).Debug("AddFQDNSelector")
-
 	key := fqdnSelec.String()
 	fqdnSel, exists := sc.selectors[key]
 	if exists {
 		log.WithField("fqdnSelector", fqdnSelec.String()).Debug("AddFQDNSelector: selector exists already, adding user")
 		return fqdnSel, fqdnSel.addUser(user)
 	}
+
+	log.WithField("fqdnSelector", fqdnSelec.String()).Debug("AddFQDNSelector; selector did not previously exist, so adding to cache")
 
 	newFQDNSel := &fqdnSelector{
 		selectorManager: selectorManager{
@@ -598,6 +602,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	sel, exists := sc.selectors[key]
 	if exists {
 		if sel.removeUser(user) {
+			log.WithField("selector", key).Info("deleting selector from SelectorCache")
 			delete(sc.selectors, key)
 		}
 	}

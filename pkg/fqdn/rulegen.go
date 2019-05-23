@@ -75,21 +75,28 @@ type RuleGen struct {
 
 	// cache is a private copy of the pointer from config.
 	cache *DNSCache
+
+	bootstrapCompleted bool
 }
 
 func (gen *RuleGen) StartManagerFQDNSelector(selector api.FQDNSelector) (identities []identity.NumericIdentity, existed bool) {
 	// Get all IPs which map to names which this selector matches.
 	// Allocate identities??
-	log.WithField("selector", selector).Debug("RuleGen: StartManagerFQDNSelector")
+	log.WithField("selector", selector.String()).Debug("RuleGen: StartManagerFQDNSelector")
 	gen.Mutex.Lock()
 	_, exists := gen.allSelectors[selector]
 	if exists {
+		log.WithField("selector", selector).Debug("RuleGen: StartManagerFQDNSelector - selector already exists in cache, returning")
 		gen.Mutex.Unlock()
 		return nil, true
 	}
 
+	log.WithField("selector", selector).Debug("RuleGen: StartManagerFQDNSelector - selector does not exist in cache; adding it")
+
 	gen.allSelectors[selector] = selector.ToRegex()
-	_, _, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, gen.cache)
+	fqdnSels := make(map[api.FQDNSelector]struct{})
+	fqdnSels[selector] = struct{}{}
+	_, _, selectorIPMapping := mapSelectorsToIPs(fqdnSels, gen.cache)
 	gen.Mutex.Unlock()
 
 	var err error
@@ -239,6 +246,13 @@ func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
 		UpdateSelectors(selectorIPMapping, namesMissingIPs)
 }
 
+func (gen *RuleGen) CompleteBootstrap() {
+	gen.Lock()
+	log.Info("marking bootstrap as completed for rulegen")
+	gen.bootstrapCompleted = true
+	gen.Unlock()
+}
+
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
 // affectedRules: a list of rule UUIDs that were affected by the new IPs (lookup in .allRules)
@@ -255,12 +269,16 @@ perDNSName:
 		updated := gen.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
-		if !updated {
+		if !updated && gen.bootstrapCompleted {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
 			}).Info("UpdateDNSIPs: IPs didn't change")
 			continue perDNSName
+		}
+
+		if !gen.bootstrapCompleted {
+			log.Info("IPs didn't change, but bootstrap not completed yet, so treating this as an update to force regeneration of endpoints")
 		}
 
 		// record the IPs that were different

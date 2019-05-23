@@ -329,6 +329,8 @@ func (c *DNSCache) UpdateFromCache(update *DNSCache, namesToUpdate []string) {
 		return
 	}
 
+	log.Info("UpdateFromCache")
+
 	update.RLock()
 	defer update.RUnlock()
 
@@ -345,6 +347,7 @@ func (c *DNSCache) UpdateFromCache(update *DNSCache, namesToUpdate []string) {
 			continue
 		}
 		for _, newEntry := range newEntries {
+			log.Infof("UpdateFromCache: updating cache with new entry: %v", newEntry)
 			c.updateWithEntry(newEntry)
 		}
 	}

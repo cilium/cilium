@@ -59,6 +59,8 @@ type Repository struct {
 
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *PolicyCache
+
+	bootstrapComplete chan struct{}
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -82,9 +84,20 @@ func NewPolicyRepository() *Repository {
 		RepositoryChangeQueue: repoChangeQueue,
 		RuleReactionQueue:     ruleReactionQueue,
 		selectorCache:         NewSelectorCache(cache.GetIdentityCache()),
+		bootstrapComplete:     make(chan struct{}),
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
+}
+
+func (p *Repository) CompleteBootstrap() {
+	p.Mutex.Lock()
+	select {
+	case <-p.bootstrapComplete:
+	default:
+		close(p.bootstrapComplete)
+	}
+	p.Mutex.Unlock()
 }
 
 // traceState is an internal structure used to collect information
