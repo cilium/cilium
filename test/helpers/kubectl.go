@@ -561,6 +561,28 @@ func (kub *Kubectl) WaitforDeployReady(namespace, name string, timeout time.Dura
 		&TimeoutConfig{Timeout: timeout})
 }
 
+// WaitforDaemonSetReady waits for all required replicas of a daemonset to be
+// ready. Upon timeout an error is returned.
+func (kub *Kubectl) WaitforDaemonSetReady(namespace, name string, timeout time.Duration) error {
+	var specReplicas, currentReplicas int32
+
+	body := func() bool {
+		ds := apps_v1.DaemonSet{}
+		err := kub.Exec(fmt.Sprintf("%s -n %s get daemonset %s -o json", KubectlCmd, namespace, name)).Unmarshal(&ds)
+		if err != nil {
+			kub.logger.Infof("Error while getting DaemonSet for %s/%s: %s", namespace, name, err)
+			return false
+		}
+
+		return ds.Status.NumberUnavailable == 0
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("DaemonSet %s/%s not ready after %s (%d/%d ready)", namespace, name, timeout, specReplicas, currentReplicas),
+		&TimeoutConfig{Timeout: timeout})
+}
+
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
 // specified namespace that match the provided JSONPath filter to have their
 // containterStatuses equal to "ready". Returns true if all pods achieve
