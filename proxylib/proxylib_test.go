@@ -645,3 +645,52 @@ func TestAllowEmptyPolicy(t *testing.T) {
 	CheckClose(t, 2, buf, 2)
 	CheckClose(t, 1, buf, 1)
 }
+
+func TestAllowAllPolicyL3Egress(t *testing.T) {
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
+	defer logServer.Close()
+
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
+	}
+
+	//logging.ToggleDebugLogs(true)
+	//log.SetLevel(log.DebugLevel)
+
+	insertPolicyText(t, mod, "1", []string{`
+		name: "FooBar"
+		policy: 42
+		egress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    remote_policies: 2
+		    l7_proto: "test.headerparser"
+		    l7_rules: <
+		      l7_rules: <>
+		    >
+		  >
+		>
+		`})
+
+	// Using headertester parser
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, false, 42, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+		80, proxylib.OK, 1)
+
+	// Original direction data, drops with remaining data
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
+	data := line1 + line2 + line3 + line4
+	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data)}, []ExpFilterOp{
+		{proxylib.PASS, len(line1)},
+		{proxylib.PASS, len(line2)},
+		{proxylib.PASS, len(line3)},
+		{proxylib.PASS, len(line4)},
+	}, proxylib.OK, "")
+
+	expPasses, expDrops := 4, 0
+	checkAccessLogs(t, logServer, expPasses, expDrops)
+
+	CheckClose(t, 1, buf, 1)
+}

@@ -459,8 +459,8 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	e.ctCleaned = true
 
 	// Synchronously try to update PolicyMap for this endpoint. If any
-	// part of updating the PolicyMap fails, bail out and do not generate
-	// BPF. Unfortunately, this means that the map will be in an inconsistent
+	// part of updating the PolicyMap fails, bail out.
+	// Unfortunately, this means that the map will be in an inconsistent
 	// state with the current program (if it exists) for this endpoint.
 	// GH-3897 would fix this by creating a new map to do an atomic swap
 	// with the old one.
@@ -468,7 +468,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	// This must be done after allocating the new redirects, to update the
 	// policy map with the new proxy ports.
 	stats.mapSync.Start()
-	err = e.syncPolicyMap()
+	err = e.syncPolicyMapDelta()
 	stats.mapSync.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -636,7 +636,7 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		// GH-3897 would fix this by creating a new map to do an atomic swap
 		// with the old one.
 		stats.mapSync.Start()
-		err := e.syncPolicyMap()
+		err := e.syncPolicyMapDelta()
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -902,6 +902,96 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return info, nil
 }
 
+// syncPolicyMapDelta updates the bpf policy map state based on the
+// difference between the realized and desired policy state without
+// dumping the bpf policy map.
+func (e *Endpoint) syncPolicyMapDelta() error {
+	// Nothing to do if the desired policy is already fully realized.
+	if e.realizedPolicy == e.desiredPolicy {
+		return nil
+	}
+
+	errors := []error{}
+
+	// Delete policy keys present in the realized state, but not present in the desired state
+	for keyToDelete := range e.realizedPolicy.PolicyMapState {
+		// If key that is in realized state is not in desired state, just remove it.
+		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
+
+			// Convert from policy.Key to policymap.Key
+			policyKeyToPolicyMapKey := policymap.PolicyKey{
+				Identity:         keyToDelete.Identity,
+				DestPort:         keyToDelete.DestPort,
+				Nexthdr:          keyToDelete.Nexthdr,
+				TrafficDirection: keyToDelete.TrafficDirection,
+			}
+
+			err := e.PolicyMap.DeleteKey(policyKeyToPolicyMapKey)
+			if err != nil {
+				// TODO: Maybe we should ignore delete errors
+				// if due to map or the entry not existing?
+				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", policyKeyToPolicyMapKey.String())
+				errors = append(errors, err)
+			} else {
+				// Operation was successful, remove from realized state.
+				delete(e.realizedPolicy.PolicyMapState, keyToDelete)
+			}
+		}
+	}
+
+	err := e.addPolicyMapDelta()
+
+	if len(errors) > 0 {
+		return fmt.Errorf("deleting stale PolicyMap state failed: %s", errors)
+	}
+
+	return err
+}
+
+// addPolicyMapDelta adds new or updates existing bpf policy map state based
+// on the difference between the realized and desired policy state without
+// dumping the bpf policy map.
+func (e *Endpoint) addPolicyMapDelta() error {
+	// Nothing to do if the desired policy is already fully realized.
+	if e.realizedPolicy == e.desiredPolicy {
+		return nil
+	}
+
+	errors := []error{}
+
+	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
+		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || oldEntry != entry {
+
+			// Convert from policy.Key to policymap.Key
+			policyKeyToPolicyMapKey := policymap.PolicyKey{
+				Identity:         keyToAdd.Identity,
+				DestPort:         keyToAdd.DestPort,
+				Nexthdr:          keyToAdd.Nexthdr,
+				TrafficDirection: keyToAdd.TrafficDirection,
+			}
+
+			err := e.PolicyMap.AllowKey(policyKeyToPolicyMapKey, entry.ProxyPort)
+			if err != nil {
+				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
+				errors = append(errors, err)
+			} else {
+				// Operation was successful, add to realized state.
+				// The realized policy (including the policy map state) will
+				// be replaced with the desired state, but only if everything
+				// is successful. If something fails, this ensures that the
+				// realized state reflects the state of the bpf map.
+				e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("updating desired PolicyMap state failed: %s", errors)
+	}
+
+	return nil
+}
+
 // syncPolicyMap attempts to synchronize the PolicyMap for this endpoint to
 // contain the set of PolicyKeys represented by the endpoint's desiredMapState.
 // It checks the current contents of the endpoint's PolicyMap and deletes any
@@ -974,37 +1064,20 @@ func (e *Endpoint) syncPolicyMap() error {
 			if err != nil {
 				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
 				errors = append(errors, err)
-			} else {
+			} else if e.realizedPolicy != e.desiredPolicy {
 				// Operation was successful, remove from realized state.
 				delete(e.realizedPolicy.PolicyMapState, policyMapKeyToPolicyKey)
 			}
 		}
 	}
 
-	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || oldEntry != entry {
-
-			// Convert from policy.Key to policymap.Key
-			policyKeyToPolicyMapKey := policymap.PolicyKey{
-				Identity:         keyToAdd.Identity,
-				DestPort:         keyToAdd.DestPort,
-				Nexthdr:          keyToAdd.Nexthdr,
-				TrafficDirection: keyToAdd.TrafficDirection,
-			}
-
-			err := e.PolicyMap.AllowKey(policyKeyToPolicyMapKey, entry.ProxyPort)
-			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
-				errors = append(errors, err)
-			}
-		}
-	}
+	err = e.addPolicyMapDelta()
 
 	if len(errors) > 0 {
 		return fmt.Errorf("synchronizing desired PolicyMap state failed: %s", errors)
 	}
 
-	return nil
+	return err
 }
 
 func (e *Endpoint) syncPolicyMapController() {
