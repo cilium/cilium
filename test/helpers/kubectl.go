@@ -39,6 +39,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
+	apps_v1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 )
 
@@ -571,6 +572,34 @@ func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 // NamespaceDelete deletes a given Kubernetes namespace
 func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	return kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+}
+
+// WaitforDaemonSetReady waits for all required replicas of a daemonset to be
+// ready. Upon timeout an error is returned.
+func (kub *Kubectl) WaitforDaemonSetReady(namespace, name string, timeout time.Duration) error {
+	var specReplicas, currentReplicas int32
+
+	body := func() bool {
+		ds := apps_v1.DaemonSet{}
+		cmdRes := kub.Exec(fmt.Sprintf("%s -n %s get daemonset %s -o json", KubectlCmd, namespace, name))
+		if cmdRes == nil {
+			kub.logger.Infof("kubectl.Exec returned nil result while getting DaemonSet for %s/%s", namespace, name)
+			return false
+		}
+
+		err := cmdRes.Unmarshal(&ds)
+		if err != nil {
+			kub.logger.Infof("Error while getting DaemonSet for %s/%s: %s", namespace, name, err)
+			return false
+		}
+
+		return ds.Status.NumberUnavailable == 0
+	}
+
+	return WithTimeout(
+		body,
+		fmt.Sprintf("DaemonSet %s/%s not ready after %s (%d/%d ready)", namespace, name, timeout, currentReplicas, specReplicas),
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the

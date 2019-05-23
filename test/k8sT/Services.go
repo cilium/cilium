@@ -120,6 +120,8 @@ var _ = Describe("K8sServicesTest", func() {
 		BeforeEach(func() {
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
+			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testds", helpers.HelperTimeout)
+			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testclient", helpers.HelperTimeout)
 		})
 
 		AfterEach(func() {
@@ -160,6 +162,8 @@ var _ = Describe("K8sServicesTest", func() {
 		BeforeAll(func() {
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("Unable to apply %s", demoYAML)
+			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testds", helpers.HelperTimeout)
+			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testclient", helpers.HelperTimeout)
 		})
 
 		AfterAll(func() {

@@ -55,9 +55,8 @@ func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
 // ExpectCiliumRunning is a wrapper around helpers/WaitForPodsRunning. It
 // asserts the cilium pods are running on all nodes.
 func ExpectCiliumRunning(vm *helpers.Kubectl) {
-	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", vm.GetNumNodes(), longTimeout)
+	err := vm.WaitforDaemonSetReady(helpers.KubeSystemNamespace, "cilium", longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
-
 }
 
 // ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
@@ -93,7 +92,7 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 	By("Waiting for all cilium pre-flight pods to be ready")
 
-	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium-pre-flight-check", longTimeout)
+	err := vm.WaitforDaemonSetReady(helpers.KubeSystemNamespace, "cilium-pre-flight-check", longTimeout)
 	warningMessage := ""
 	if err != nil {
 		res := vm.Exec(fmt.Sprintf(
@@ -102,6 +101,14 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 		warningMessage = res.Output().String()
 	}
 	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
+}
+
+// ExpectDaemonSetReady is a wrapper around helpers.WaitforDaemonSetReady
+// It asserts that the error returned by that function is nil, indicating that
+// the daemonset's pods were ready within timeout.
+func ExpectDaemonSetReady(vm *helpers.Kubectl, namespace, name string, timeout time.Duration) {
+	err := vm.WaitforDaemonSetReady(namespace, name, timeout)
+	Expect(err).To(BeNil(), "DaemonSet %s/%s not ready after timeout:\n %s", namespace, name, err)
 }
 
 // ProvisionInfraPods deploys DNS, etcd-operator, and cilium into the kubernetes
