@@ -2,11 +2,18 @@
 # vi: set ft=ruby :
 
 # The source of truth for vagrant box versions.
-# Sets SERVER_BOX, SERVER_VERSION, NETNEXT_SERVER_BOXET and NEXT_SERVER_VERSION
+# Sets SERVER_BOX, SERVER_VERSION, NETNEXT_SERVER_BOX and NETNEXT_SERVER_VERSION
 # Accepts overrides from env variables
 require_relative 'vagrant_box_defaults.rb'
 $SERVER_BOX = (ENV['SERVER_BOX'] || $SERVER_BOX)
 $SERVER_VERSION= (ENV['SERVER_VERSION'] || $SERVER_VERSION)
+$NETNEXT_SERVER_BOX = (ENV['NETNEXT_SERVER_BOX'] || $NETNEXT_SERVER_BOX)
+$NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSION)
+
+if ENV['NETNEXT'] == "true"
+    $SERVER_BOX = $NETNEXT_SERVER_BOX
+    $SERVER_VERSION = $NETNEXT_SERVER_VERSION
+end
 
 Vagrant.require_version ">= 2.0.0"
 
@@ -125,7 +132,7 @@ Vagrant.configure(2) do |config|
         # Prevent VirtualBox from interfering with host audio stack
         vb.customize ["modifyvm", :id, "--audio", "none"]
 
-        config.vm.box = "cilium/ubuntu-dev"
+        config.vm.box = $SERVER_BOX
         config.vm.box_version = $SERVER_VERSION
         vb.memory = ENV['VM_MEMORY'].to_i
         vb.cpus = ENV['VM_CPUS'].to_i
