@@ -87,7 +87,10 @@ LXC_OPTIONS = \
 # tested as well.
 MAX_LXC_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6
 
-bpf_lxc.ll: bpf_lxc.c $(LIB)
+bpf_features.h:
+	../contrib/scripts/generate-feature-headers.sh
+
+bpf_lxc.ll: bpf_lxc.c bpf_features.h $(LIB)
 	$(QUIET) set -e; \
 	$(foreach OPTS,$(LXC_OPTIONS), \
 		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
