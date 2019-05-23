@@ -928,8 +928,6 @@ func (e *Endpoint) syncPolicyMapDelta() error {
 
 			err := e.PolicyMap.DeleteKey(policyKeyToPolicyMapKey)
 			if err != nil {
-				// TODO: Maybe we should ignore delete errors
-				// if due to map or the entry not existing?
 				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", policyKeyToPolicyMapKey.String())
 				errors = append(errors, err)
 			} else {
