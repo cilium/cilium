@@ -1,0 +1,8 @@
+#ifndef BPF_FEATURES_LEGACY_H_
+#define BPF_FEATURES_LEGACY_H_
+
+#define HAVE_MAP_VAL_ADJ
+
+#define HAVE_MARK_MAP_VALS
+
+#endif /* BPF_FEATURES_LEGACY_H_ */
