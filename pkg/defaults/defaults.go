@@ -216,4 +216,9 @@ const (
 	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
 	// provide backwards compatibility, it can be disabled via an option
 	ForceLocalPolicyEvalAtSource = true
+
+	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is 
+	// enabled by default to annotate kubernetes node and can be disabled using
+	// the provided option.
+	AnnotateK8sNode = true
 )
