@@ -18,10 +18,11 @@ package fqdn
 
 import (
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
@@ -42,62 +43,80 @@ func (ds *DNSCacheTestSuite) TestKeepUniqueNames(c *C) {
 	}
 }
 
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesWithOtherCIDRSet(c *C) {
-	// Validate that if empty cache the ToCidrRule is always empty
-	rule := makeRule("cilium.io", "cilium.io")
-	cache := NewDNSCache(0)
-	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
-	rule.Egress = append(rule.Egress, api.EgressRule{
-		ToCIDRSet: api.IPsToCIDRRules([]net.IP{net.ParseIP("4.4.4.4")})})
+func (ds *DNSCacheTestSuite) TestMapIPsToSelectors(c *C) {
 
-	injectToCIDRSetRules(rule, cache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-	c.Assert(rule.Egress[1].ToCIDRSet, HasLen, 1)
-}
+	var (
+		ciliumIP1 = net.ParseIP("1.2.3.4")
+		ciliumIP2 = net.ParseIP("1.2.3.5")
+	)
 
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesInvalidCache(c *C) {
-	// Validate that if empty cache the ToCidrRule is always empty
-	rule := makeRule("cilium.io", "cilium.io")
-	EmptyCache := NewDNSCache(0)
-	injectToCIDRSetRules(rule, EmptyCache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
+	log.Level = logrus.DebugLevel
 
-	// Validate that if empty cache the ToCidrRule is cleared correctly
-	rule.Egress[0].ToCIDRSet = api.IPsToCIDRRules([]net.IP{net.ParseIP("1.1.1.1")})
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-	injectToCIDRSetRules(rule, EmptyCache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
-}
+	// Create DNS cache
+	now := time.Now()
+	cache := NewDNSCache(60)
 
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesByMatchName(c *C) {
-	rule := makeRule("cilium.io", "cilium.io")
-	cache := NewDNSCache(0)
-	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
-
-	injectToCIDRSetRules(rule, cache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-}
-
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesByMatchPattern(c *C) {
-
-	rule := makeRule("cilium.io")
-	rule.Egress[0].ToFQDNs = api.FQDNSelectorSlice{
-		{MatchPattern: "cilium.io"},
-	}
-	cache := NewDNSCache(0)
-	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
-	reg := regexpmap.NewRegexpMap()
-	reg.Add("cilium.io", "cilium.io")
-
-	injectToCIDRSetRules(rule, cache, reg)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-
-	rule = makeRule("cilium.io")
-	rule.Egress[0].ToFQDNs = api.FQDNSelectorSlice{
-		{MatchPattern: "ciliumtest.io"},
+	selectors := map[api.FQDNSelector]struct{}{
+		ciliumIOSel: {},
 	}
 
-	injectToCIDRSetRules(rule, cache, reg)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
+	// Empty cache.
+	selsMissingIPs, selIPMapping := mapSelectorsToIPs(selectors, cache)
+	c.Assert(len(selsMissingIPs), Equals, 1)
+	c.Assert(selsMissingIPs[0], Equals, ciliumIOSel)
+	c.Assert(len(selIPMapping), Equals, 0)
 
+	// Just one IP.
+	changed := cache.Update(now, prepareMatchName(ciliumIOSel.MatchName), []net.IP{ciliumIP1}, 100)
+	c.Assert(changed, Equals, true)
+	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	c.Assert(len(selsMissingIPs), Equals, 0)
+	c.Assert(len(selIPMapping), Equals, 1)
+	ciliumIPs, ok := selIPMapping[ciliumIOSel]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(ciliumIPs), Equals, 1)
+	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
+
+	// Two IPs now.
+	changed = cache.Update(now, prepareMatchName(ciliumIOSel.MatchName), []net.IP{ciliumIP1, ciliumIP2}, 100)
+	c.Assert(changed, Equals, true)
+	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	c.Assert(len(selsMissingIPs), Equals, 0)
+	c.Assert(len(selIPMapping), Equals, 1)
+	ciliumIPs, ok = selIPMapping[ciliumIOSel]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(ciliumIPs), Equals, 2)
+	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
+	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
+
+	// Test with a MatchPattern.
+	selectors = map[api.FQDNSelector]struct{}{
+		ciliumIOSelMatchPattern: {},
+	}
+	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	c.Assert(len(selsMissingIPs), Equals, 0)
+	c.Assert(len(selIPMapping), Equals, 1)
+	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(ciliumIPs), Equals, 2)
+	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
+	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
+
+	selectors = map[api.FQDNSelector]struct{}{
+		ciliumIOSelMatchPattern: {},
+		ciliumIOSel:             {},
+	}
+	selsMissingIPs, selIPMapping = mapSelectorsToIPs(selectors, cache)
+	c.Assert(len(selsMissingIPs), Equals, 0)
+	c.Assert(len(selIPMapping), Equals, 2)
+	ciliumIPs, ok = selIPMapping[ciliumIOSelMatchPattern]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(ciliumIPs), Equals, 2)
+	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
+	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
+	ciliumIPs, ok = selIPMapping[ciliumIOSel]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(ciliumIPs), Equals, 2)
+	c.Assert(ciliumIPs[0].Equal(ciliumIP1), Equals, true)
+	c.Assert(ciliumIPs[1].Equal(ciliumIP2), Equals, true)
 }

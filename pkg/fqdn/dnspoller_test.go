@@ -35,97 +35,103 @@ import (
 // add 2 rules with the different names, remove 1 rule. One lookup
 //
 // Each case follows the same steps:
-// 1- insert rulesToAdd, ensure that we return the same number of rules
+// 1- insert selectorsToAdd, ensure that we return the same number of rules
 // 2- run lookupIterationsAfterAdd DNS lookups
-// 3- remove rulesToDelete
+// 3- remove selectorsToDelete
 // 4- rule lookupIterationsAfterDelete DNS lookups
 // 5- call the testCase checkFunc
+
+var (
+	ciliumIOSel = api.FQDNSelector{
+		MatchName: "cilium.io",
+	}
+
+	githubSel = api.FQDNSelector{
+		MatchName: "github.com",
+	}
+
+	ciliumIOSelMatchPattern = api.FQDNSelector{
+		MatchPattern: "*cilium.io.",
+	}
+)
+
 func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 	var testCases = []struct {
 		desc                        string
-		rulesToAdd                  []*api.Rule
-		rulesToDelete               []*api.Rule
+		selectorsToAdd              api.FQDNSelectorSlice
+		selectorsToDelete           api.FQDNSelectorSlice
 		lookupIterationsAfterAdd    int // # of times to call LookupUpdateDNS after add but before delete
 		lookupIterationsAfterDelete int // # of times to call LookupUpdateDNS after delete
-		checkFunc                   func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen)
+		checkFunc                   func(lookups map[string]int, gen *RuleGen)
 	}{
 		{
 			desc:                        "Lookup a name when added in a rule",
 			lookupIterationsAfterAdd:    1,
 			lookupIterationsAfterDelete: 0,
-			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen) {
+			checkFunc: func(lookups map[string]int, gen *RuleGen) {
 				c.Assert(len(lookups), Equals, 1, Commentf("More than one DNS name was looked up for a rule with 1 DNS name"))
 				for _, name := range []string{dns.Fqdn("cilium.io")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
 			},
-			rulesToAdd:    []*api.Rule{rule1},
-			rulesToDelete: nil,
+			selectorsToAdd:    api.FQDNSelectorSlice{ciliumIOSel},
+			selectorsToDelete: nil,
 		},
-
 		{
 			desc:                        "Lookup each name once when 2 are added in a rule",
 			lookupIterationsAfterAdd:    1,
 			lookupIterationsAfterDelete: 0,
-			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen) {
+			checkFunc: func(lookups map[string]int, gen *RuleGen) {
 				c.Assert(len(lookups), Equals, 2, Commentf("More than two DNS names was looked up for a rule with 2 DNS name"))
 				for _, name := range []string{dns.Fqdn("cilium.io"), dns.Fqdn("github.com")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
 			},
-			rulesToAdd:    []*api.Rule{rule3},
-			rulesToDelete: nil,
+			selectorsToAdd:    api.FQDNSelectorSlice{ciliumIOSel, githubSel},
+			selectorsToDelete: nil,
 		},
-
 		{
 			desc:                        "Lookup name once when two rules refer to it",
 			lookupIterationsAfterAdd:    1,
 			lookupIterationsAfterDelete: 0,
-			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen) {
+			checkFunc: func(lookups map[string]int, gen *RuleGen) {
 				c.Assert(len(lookups), Equals, 1, Commentf("More than one DNS name was looked up for a rule with 1 DNS name"))
 				for _, name := range []string{dns.Fqdn("cilium.io")} {
 					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
 			},
-			rulesToAdd:    []*api.Rule{rule1, rule2},
-			rulesToDelete: nil,
+			selectorsToAdd:    api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSel},
+			selectorsToDelete: nil,
 		},
-
 		{
 			desc:                        "No lookups after removing all rules",
 			lookupIterationsAfterAdd:    0,
 			lookupIterationsAfterDelete: 1,
-			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen) {
+			checkFunc: func(lookups map[string]int, gen *RuleGen) {
 				c.Assert(len(lookups), Equals, 0, Commentf("DNS lookups occurred after removing all rules"))
 			},
-			rulesToAdd:    []*api.Rule{rule1},
-			rulesToDelete: []*api.Rule{rule1},
+			selectorsToAdd:    api.FQDNSelectorSlice{ciliumIOSel},
+			selectorsToDelete: api.FQDNSelectorSlice{ciliumIOSel},
 		},
-
 		{
-			desc:                        "One lookup for a name after removing one of two referring rules",
+			desc:                        "One lookup for a name after removing one of two referring FQDNSelectors",
 			lookupIterationsAfterAdd:    0,
 			lookupIterationsAfterDelete: 1,
-			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen) {
-				c.Assert(len(gen.GetDNSNames()), Equals, 1, Commentf("Incorrect number of DNS targets for single name with a single referring rule"))
-				c.Assert(len(lookups), Equals, 1, Commentf("Incorrect number of lookups for single name with a single referring rule"))
-				for _, name := range []string{dns.Fqdn("cilium.io")} {
-					c.Assert(lookups[name], Not(Equals), 0, Commentf("No lookups for DNS name %s in rule", name))
-					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
-				}
+			checkFunc: func(lookups map[string]int, gen *RuleGen) {
+				c.Assert(len(gen.GetDNSNames()), Equals, 0, Commentf("No more DNS names should be present since tracking of FQDNSelectors is done via set (adding two of the same selector is equivalent to adding one)"))
+				c.Assert(len(lookups), Equals, 0, Commentf("Incorrect number of lookups for single name with a single FQDNSelector"))
 			},
-			rulesToAdd:    []*api.Rule{rule1, rule2},
-			rulesToDelete: []*api.Rule{rule2},
+			selectorsToAdd:    api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSel},
+			selectorsToDelete: api.FQDNSelectorSlice{ciliumIOSel},
 		},
-
 		{
 			desc:                        "One lookup for a name after removing an unrelated rule",
 			lookupIterationsAfterAdd:    0,
 			lookupIterationsAfterDelete: 1,
-			checkFunc: func(lookups map[string]int, generatedRules []*api.Rule, gen *RuleGen) {
+			checkFunc: func(lookups map[string]int, gen *RuleGen) {
 				c.Assert(len(gen.GetDNSNames()), Equals, 1, Commentf("Incorrect number of DNS targets for single name with a single referring rule"))
 				c.Assert(len(lookups), Equals, 1, Commentf("Incorrect number of lookups for single name with a single referring rule"))
 				for _, name := range []string{dns.Fqdn("cilium.io")} {
@@ -133,16 +139,15 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 					c.Assert(lookups[name], Equals, 1, Commentf("More than one DNS lookup was triggered for the same DNS name %s", name))
 				}
 			},
-			rulesToAdd:    []*api.Rule{rule1, rule4},
-			rulesToDelete: []*api.Rule{rule4},
+			selectorsToAdd:    api.FQDNSelectorSlice{ciliumIOSel, githubSel},
+			selectorsToDelete: api.FQDNSelectorSlice{githubSel},
 		},
 	}
 
 	for _, testCase := range testCases {
 		c.Logf("Testcase: %s", testCase.desc)
 		var (
-			lookups        = make(map[string]int)
-			generatedRules = make([]*api.Rule, 0)
+			lookups = make(map[string]int)
 
 			cfg = Config{
 				MinTTL: 1,
@@ -152,7 +157,7 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 					return lookupDNSNames(ipLookups, lookups, dnsNames), nil
 				},
 
-				AddGeneratedRulesAndUpdateSelectors: func([]*api.Rule, map[api.FQDNSelector][]net.IP, []api.FQDNSelector) error {
+				UpdateSelectors: func(map[api.FQDNSelector][]net.IP, []api.FQDNSelector) error {
 					return nil
 				},
 			}
@@ -161,33 +166,9 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 			poller = NewDNSPoller(cfg, gen)
 		)
 
-		rulesToAdd := []*api.Rule{}
-		for _, rule := range testCase.rulesToAdd {
-			rulesToAdd = append(rulesToAdd, rule.DeepCopy())
+		for _, fqdnSel := range testCase.selectorsToAdd {
+			gen.RegisterForIdentityUpdates(fqdnSel)
 		}
-		rulesToDelete := []*api.Rule{}
-		for _, rule := range testCase.rulesToDelete {
-			// Copy the pointer to an added rule if any
-			for i := range testCase.rulesToAdd {
-				if rule == testCase.rulesToAdd[i] {
-					rulesToDelete = append(rulesToDelete, rulesToAdd[i])
-				}
-			}
-		}
-
-		// add rules and run basic checks
-		gen.PrepareFQDNRules(rulesToAdd)
-		for i, rule := range rulesToAdd {
-			c.Assert(len(getRuleUUIDLabel(rule)), Not(Equals), 0, Commentf("Added a FQDN label to each marked rule"))
-			if i > 0 {
-				c.Assert(getRuleUUIDLabel(rule), Not(Equals), getRuleUUIDLabel(rulesToAdd[0]), Commentf("Each rule must have a unique UUID"))
-			}
-		}
-		for _, rule := range rulesToDelete {
-			c.Assert(len(getRuleUUIDLabel(rule)), Not(Equals), 0, Commentf("Added a FQDN label to each marked rule"))
-		}
-
-		gen.StartManageDNSName(rulesToAdd)
 		for i := testCase.lookupIterationsAfterAdd; i > 0; i-- {
 			err := poller.LookupUpdateDNS(context.Background())
 			c.Assert(err, IsNil, Commentf("Error running DNS lookups"))
@@ -195,13 +176,15 @@ func (ds *FQDNTestSuite) TestRuleGenRuleHandling(c *C) {
 
 		// delete rules listed in the test case (note: we don't delete any unless
 		// they are listed)
-		gen.StopManageDNSName(rulesToDelete)
+		for _, fqdnSel := range testCase.selectorsToDelete {
+			gen.UnregisterForIdentityUpdates(fqdnSel)
+		}
 		for i := testCase.lookupIterationsAfterDelete; i > 0; i-- {
 			err := poller.LookupUpdateDNS(context.Background())
 			c.Assert(err, IsNil, Commentf("Error running DNS lookups"))
 		}
 
 		// call the testcase checkFunc, it will assert everything relevant to the test
-		testCase.checkFunc(lookups, generatedRules, gen)
+		testCase.checkFunc(lookups, gen)
 	}
 }

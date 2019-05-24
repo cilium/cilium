@@ -76,6 +76,10 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 
 	// Allocate identities for each IPNet and then map to selector
 	for selector, selectorIPs := range selectorsWithIPsToUpdate {
+		log.WithFields(logrus.Fields{
+			"fqdnSelector": selector,
+			"ips":          selectorIPs,
+		}).Debug("getting identities for IPs associated with FQDNSelector")
 		var currentlyAllocatedIdentities []*identity.Identity
 		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
 			secIDCache.ReleaseSlice(context.TODO(), nil, usedIdentities)
@@ -96,7 +100,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 		log.WithFields(logrus.Fields{
 			"fqdnSelectorString": selector,
 			"identitySlice":      identitySlice}).Debug("updating FQDN selector")
-		numIds := make([]identity.NumericIdentity, len(identitySlice))
+		numIds := make([]identity.NumericIdentity, 0, len(identitySlice))
 		for _, numId := range identitySlice {
 			// Nil check here? Hopefully not necessary...
 			numIds = append(numIds, numId.ID)
@@ -104,14 +108,23 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 		d.policy.GetSelectorCache().UpdateFQDNSelector(selector, numIds)
 	}
 
-	// Selectors which no longer map to IPs (due to TTL expiry, cache being
-	// cleared forcibly via CLI, etc.) still exist in the selector cache
-	// since policy is imported which allows it, but the selector does
-	// not map to any IPs anymore.
-	log.WithFields(logrus.Fields{
-		"fqdnSelectors": selectorsWithoutIPs,
-	}).Debug("removing all identities from FQDN selectors")
-	d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
+	if len(selectorsWithoutIPs) > 0 {
+		// Selectors which no longer map to IPs (due to TTL expiry, cache being
+		// cleared forcibly via CLI, etc.) still exist in the selector cache
+		// since policy is imported which allows it, but the selector does
+		// not map to any IPs anymore.
+		log.WithFields(logrus.Fields{
+			"fqdnSelectors": selectorsWithoutIPs,
+		}).Debug("removing all identities from FQDN selectors")
+		d.policy.GetSelectorCache().RemoveIdentitiesFQDNSelectors(selectorsWithoutIPs)
+	}
+
+	// There may be nothing to update - in this case, we exit and do not need
+	// to trigger policy updates for all endpoints.
+	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
+		return
+	}
+	d.TriggerPolicyUpdates(true, "updated identities for FQDNs")
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
@@ -121,14 +134,17 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
 	cfg := fqdn.Config{
-		MinTTL:                              option.Config.ToFQDNsMinTTL,
-		OverLimit:                           option.Config.ToFQDNsMaxIPsPerHost,
-		Cache:                               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
-		LookupDNSNames:                      fqdn.DNSLookupDefaultResolver,
-		AddGeneratedRulesAndUpdateSelectors: d.addGeneratedRulesAndUpdateSelectors,
-		PollerResponseNotify:                d.pollerResponseNotify}
+		MinTTL:               option.Config.ToFQDNsMinTTL,
+		OverLimit:            option.Config.ToFQDNsMaxIPsPerHost,
+		Cache:                fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
+		LookupDNSNames:       fqdn.DNSLookupDefaultResolver,
+		UpdateSelectors:      d.updateSelectors,
+		PollerResponseNotify: d.pollerResponseNotify,
+	}
 
-	d.dnsRuleGen = fqdn.NewRuleGen(cfg)
+	rg := fqdn.NewRuleGen(cfg)
+	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
+	d.dnsRuleGen = rg
 	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
 	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
@@ -228,10 +244,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	return err // filled by StartDNSProxy
 }
 
-// addGeneratedRulesAndUpdateSelectors takes updates to rules that contain
-// toFQDNs. These replacement rules are inserted into the policy repository and
-// the selector caches are updated with the DNS->IP mappings.
-func (d *Daemon) addGeneratedRulesAndUpdateSelectors(generatedRules []*policyApi.Rule, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) error {
+// updateSelectors propagates the mapping of FQDNSelector to identity, as well
+// as the set of FQDNSelectors which have no IPs which correspond to them
+// (usually due to TTL expiry), down to policy layer managed by this daemon.
+func (d *Daemon) updateSelectors(selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) error {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
 	selectorsIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate)
@@ -239,14 +255,9 @@ func (d *Daemon) addGeneratedRulesAndUpdateSelectors(generatedRules []*policyApi
 		return err
 	}
 
-	// Update selector cache for said FQDN selectors.
+	// Update mapping in selector cache with new identities.
 	d.updateSelectorCacheFQDNs(selectorsIdentities, selectorsWithoutIPs)
-
-	// Insert the new rules into the policy repository. We need them to
-	// replace the previous set. This requires the labels to match (including
-	// the ToFQDN-UUID one).
-	_, err = d.PolicyAdd(generatedRules, &AddOptions{Replace: true, Generated: true, Source: metrics.LabelEventSourceFQDN})
-	return err
+	return nil
 }
 
 // pollerResponseNotify handles update events for updates from the poller. It

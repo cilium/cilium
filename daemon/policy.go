@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -246,28 +245,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		logger.WithField(logfields.CiliumNetworkPolicy, sourceRules.String()).Info("Policy Add Request")
 	}
 
-	// These must be marked before actually adding them to the repository since
-	// a copy may be made and we won't be able to add the ToFQDN tracking
-	// labels.
-	// CAUTION, there is a small race between this PrepareFQDNRules invocation and
-	// taking the policy lock. As long as policyAdd is fed by a single-threaded
-	// queue this should never be an issue.
-	// TODO - we do not update the SelectorCache with the mapping of selector to
-	// IPs here. This would allow us to pre-populate the SelectorCache with the
-	// IPs that already have been resolved which correspond to DNS names that
-	// are in the newly added rules.
-	rules, _ := d.dnsRuleGen.PrepareFQDNRules(sourceRules)
-	if len(rules) == 0 && len(sourceRules) > 0 {
-		// All rules being added have ToFQDNs UUIDs that have been removed and
-		// will not be re-inserted to avoid a race.
-		err := errors.New("PrepareFQDNRules delete all rules due invalid UUIDs")
-		resChan <- &PolicyAddResult{
-			newRev: 0,
-			err:    api.Error(PutPolicyFailureCode, err),
-		}
-	}
-
-	prefixes := policy.GetCIDRPrefixes(rules)
+	prefixes := policy.GetCIDRPrefixes(sourceRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
 	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
@@ -341,14 +319,12 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	if opts != nil {
 		if opts.Replace {
-			for _, r := range rules {
+			for _, r := range sourceRules {
 				oldRules := d.policy.SearchRLocked(r.Labels)
 				removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 				if len(oldRules) > 0 {
-					d.dnsRuleGen.StopManageDNSName(oldRules)
 					deletedRules, _, _ := d.policy.DeleteByLabelsLocked(r.Labels)
 					deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
-
 				}
 			}
 		}
@@ -356,27 +332,19 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 			oldRules := d.policy.SearchRLocked(opts.ReplaceWithLabels)
 			removedPrefixes = append(removedPrefixes, policy.GetCIDRPrefixes(oldRules)...)
 			if len(oldRules) > 0 {
-				d.dnsRuleGen.StopManageDNSName(oldRules)
 				deletedRules, _, _ := d.policy.DeleteByLabelsLocked(opts.ReplaceWithLabels)
 				deletedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 			}
 		}
 	}
 
-	addedRules, newRev := d.policy.AddListLocked(rules)
+	addedRules, newRev := d.policy.AddListLocked(sourceRules)
 
 	// The information needed by the caller is available at this point, signal
 	// accordingly.
 	resChan <- &PolicyAddResult{
 		newRev: newRev,
 		err:    nil,
-	}
-
-	// The rules are added, we can begin ToFQDN DNS polling for them
-	// Note: api.FQDNSelector.sanitize checks that the matchName entries are
-	// valid. This error should never happen (of course).
-	if err := d.dnsRuleGen.StartManageDNSName(rules); err != nil {
-		log.WithError(err).Warn("Error trying to manage rules during PolicyAdd")
 	}
 
 	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
@@ -408,11 +376,11 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
 
-	labels := make([]string, 0, len(rules))
-	for _, r := range rules {
+	labels := make([]string, 0, len(sourceRules))
+	for _, r := range sourceRules {
 		labels = append(labels, r.Labels.GetModel()...)
 	}
-	repr, err := monitorAPI.PolicyUpdateRepr(len(rules), labels, newRev)
+	repr, err := monitorAPI.PolicyUpdateRepr(len(sourceRules), labels, newRev)
 	if err != nil {
 		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to represent policy update as monitor notification")
 	} else {
@@ -603,9 +571,6 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 			log.WithError(err).Error("Unable to recompile base programs")
 		}
 	}
-
-	// Stop polling for ToFQDN DNS names for these rules
-	d.dnsRuleGen.StopManageDNSName(rules)
 
 	if option.Config.SelectiveRegeneration {
 		r := &PolicyReactionEvent{
