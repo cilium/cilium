@@ -96,6 +96,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		By("Making sure all endpoints are in ready state")
 		err = kubectl.CiliumEndpointWaitReady()
 		ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
+
+		ExpectDaemonSetReady(kubectl, "default", "testds", helpers.HelperTimeout)
+		ExpectDaemonSetReady(kubectl, "default", "testclient", helpers.HelperTimeout)
 	}
 
 	Context("Encapsulation", func() {

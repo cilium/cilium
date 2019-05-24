@@ -54,10 +54,8 @@ var _ = Describe("K8sChaosTest", func() {
 	Context("Connectivity demo application", func() {
 		BeforeEach(func() {
 			kubectl.Apply(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
-
-			err := kubectl.WaitforPods(
-				helpers.DefaultNamespace, fmt.Sprintf("-l zgroup=testDS"), helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+			ExpectDaemonSetReady(kubectl, "default", "testds", helpers.HelperTimeout)
+			ExpectDaemonSetReady(kubectl, "default", "testclient", helpers.HelperTimeout)
 		})
 
 		AfterEach(func() {
@@ -114,12 +112,10 @@ var _ = Describe("K8sChaosTest", func() {
 
 		It("Endpoint can still connect while Cilium is not running", func() {
 			By("Waiting for deployed pods to be ready")
-			err := kubectl.WaitforPods(
-				helpers.DefaultNamespace,
-				fmt.Sprintf("-l zgroup=testDSClient"), helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+			ExpectDaemonSetReady(kubectl, "default", "testds", helpers.HelperTimeout)
+			ExpectDaemonSetReady(kubectl, "default", "testclient", helpers.HelperTimeout)
 
-			err = kubectl.CiliumEndpointWaitReady()
+			err := kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			By("Checking connectivity before restarting Cilium")
