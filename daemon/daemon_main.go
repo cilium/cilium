@@ -1183,6 +1183,8 @@ func runDaemon() {
 		}
 	}
 
+	option.Config.RunMonitorAgent = true
+
 	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig))
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
@@ -1211,9 +1213,6 @@ func runDaemon() {
 	bootstrapStats.enableConntrack.End(true)
 
 	endpointmanager.EndpointSynchronizer = &endpointsynchronizer.EndpointSynchronizer{}
-
-	log.Info("Launching node monitor daemon")
-	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
 
 	bootstrapStats.k8sInit.Start()
 

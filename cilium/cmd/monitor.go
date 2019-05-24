@@ -24,9 +24,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/monitor/listener"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/format"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 

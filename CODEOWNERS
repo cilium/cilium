@@ -62,7 +62,6 @@ ginkgo-all.Jenkinsfile @cilium/ci
 ginkgo-kubernetes-all.Jenkinsfile @cilium/ci
 Jenkinsfile @cilium/ci
 Jenkinsfile.nightly @cilium/ci
-monitor/ @cilium/monitor
 operator/ @cilium/operator
 pkg/annotation @cilium/kubernetes
 pkg/apierror/ @cilium/api
@@ -101,6 +100,7 @@ pkg/logging/ @cilium/cli
 pkg/mac @cilium/bpf
 pkg/maps/ @cilium/bpf
 pkg/metrics @cilium/metrics
+pkg/monitor @cilium/monitor
 pkg/monitor/api @cilium/api
 pkg/monitor/datapath_debug.go @cilium/bpf
 pkg/monitor/format @cilium/cli

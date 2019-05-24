@@ -20,7 +20,6 @@ import (
 	"path"
 
 	"github.com/cilium/cilium/cilium/cmd"
-	"github.com/cilium/cilium/monitor"
 )
 
 func main() {
@@ -31,10 +30,8 @@ func main() {
 		daemonMain()
 	case "cilium":
 		cmd.Execute()
-	case "cilium-node-monitor":
-		monitor.Execute()
 	default:
-		panic(fmt.Sprintf("Invalid executable name: %s. Only \"cilium-agent\", "+
-			"\"cilium\" or \"cilium-node-monitor\" is supported.", base))
+		panic(fmt.Sprintf("Invalid executable name: %s. Only \"cilium-agent\" or "+
+			"\"cilium\" are supported.", base))
 	}
 }

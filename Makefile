@@ -378,7 +378,6 @@ govet:
     ./cilium-health/... \
     ./common/... \
     ./daemon/... \
-    ./monitor/... \
     ./operator/... \
     ./pkg/... \
     ./plugins/... \

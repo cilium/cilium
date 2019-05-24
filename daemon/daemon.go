@@ -30,7 +30,6 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/common"
-	monitorLaunch "github.com/cilium/cilium/monitor/launch"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
@@ -73,6 +72,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
+	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -138,7 +138,7 @@ type Daemon struct {
 	uniqueIDMU lock.Mutex
 	uniqueID   map[uint64]context.CancelFunc
 
-	nodeMonitor  *monitorLaunch.NodeMonitor
+	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
 	// dnsRuleGen manages toFQDNs rules
@@ -968,15 +968,21 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
 		uniqueID:          map[uint64]context.CancelFunc{},
-		nodeMonitor:       monitorLaunch.NewNodeMonitor(option.Config.MonitorQueueSize),
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
+		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
+		compilationMutex:  new(lock.RWMutex),
+		mtuConfig:         mtuConfig,
+		datapath:          dp,
+		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+	}
 
-		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
-		compilationMutex: new(lock.RWMutex),
-		mtuConfig:        mtuConfig,
-		datapath:         dp,
-		nodeDiscovery:    nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+	if option.Config.RunMonitorAgent {
+		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
+		if err != nil {
+			return nil, nil, err
+		}
+		d.monitorAgent = monitorAgent
 	}
 	bootstrapStats.daemonInit.End(true)
 
@@ -1449,18 +1455,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	option.Config.ConfigPatchMutex.Lock()
 	defer option.Config.ConfigPatchMutex.Unlock()
 
-	nmArgs := d.nodeMonitor.GetArgs()
-	if numPagesEntry, ok := cfgSpec.Options["MonitorNumPages"]; ok && nmArgs[0] != numPagesEntry {
-		if len(nmArgs) == 0 || nmArgs[0] != numPagesEntry {
-			args := []string{"--num-pages %s", numPagesEntry}
-			d.nodeMonitor.Restart(args)
-		}
-		if len(cfgSpec.Options) == 0 {
-			return NewPatchConfigOK()
-		}
-		delete(cfgSpec.Options, "MonitorNumPages")
-	}
-
 	// Track changes to daemon's configuration
 	var changes int
 
@@ -1522,11 +1516,12 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		PolicyEnforcement: policy.GetPolicyEnabled(),
 	}
 
+	monitorState := d.monitorAgent.State()
 	status := &models.DaemonConfigurationStatus{
 		Addressing:       node.GetNodeAddressing(),
 		K8sConfiguration: k8s.GetKubeconfigPath(),
 		K8sEndpoint:      k8s.GetAPIServer(),
-		NodeMonitor:      d.nodeMonitor.State(),
+		NodeMonitor:      &monitorState,
 		KvstoreConfiguration: &models.KVstoreConfiguration{
 			Type:    option.Config.KVStore,
 			Options: option.Config.KVStoreOpt,
@@ -1626,12 +1621,12 @@ func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string)
 		return nil
 	}
 	event := monitorAPI.AgentNotify{Type: typ, Text: text}
-	return d.nodeMonitor.SendEvent(monitorAPI.MessageTypeAgent, event)
+	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, event)
 }
 
 // NewProxyLogRecord is invoked by the proxy accesslog on each new access log entry
 func (d *Daemon) NewProxyLogRecord(l *logger.LogRecord) error {
-	return d.nodeMonitor.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
+	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAccessLog, l.LogRecord)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this
