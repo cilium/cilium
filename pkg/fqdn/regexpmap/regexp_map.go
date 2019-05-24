@@ -122,11 +122,11 @@ func (r refCount) Keys() []string {
 type RegexpMap struct {
 
 	// lookupValues is a map that use a lookupValue as a key and has a
-	// RegexpList with the regexes that ONLY affect that lookupValue.
+	// RegexpList with the stringToRegExp that ONLY affect that lookupValue
 	lookupValues map[string]*RegexpList
 
-	// stringToRegExp is a map that use a regular expression as a key and the
-	// value is the compiled regexp.
+	// stringToRegExp is a map that use a regular expression as a key and the value is
+	// the compiled regexp
 	stringToRegExp map[string]*regexp.Regexp
 
 	// regexRefCount is a map that use a regular expression as a key and the

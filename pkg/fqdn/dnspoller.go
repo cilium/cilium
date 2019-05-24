@@ -49,7 +49,7 @@ func StartDNSPoller(poller *DNSPoller) {
 // handled directly, but will depend on the resolver's behavior.
 // fqdn.Config can be opitonally used to set how the DNS lookups are
 // executed (via LookupDNSNames) and how generated policy rules are handled
-// (via AddGeneratedRulesAndUpdateSelectors).
+// (via UpdateSelectors).
 type DNSPoller struct {
 	lock.Mutex // this guards both maps and their contents
 
