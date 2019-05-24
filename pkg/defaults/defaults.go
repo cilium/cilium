@@ -68,9 +68,6 @@ const (
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
 
-	// EventsPipe is the name of the named pipe for agent <=> monitor events
-	EventsPipe = "events.sock"
-
 	// EnableHostIPRestore controls whether the host IP should be restored
 	// from previous state automatically
 	EnableHostIPRestore = true
@@ -230,4 +227,8 @@ const (
 	// enabled by default to annotate kubernetes node and can be disabled using
 	// the provided option.
 	AnnotateK8sNode = true
+
+	// MonitorBufferPages is the default number of pages to use for the
+	// ring buffer interacting with the kernel
+	MonitorBufferPages = 64
 )

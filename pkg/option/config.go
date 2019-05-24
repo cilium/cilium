@@ -958,6 +958,9 @@ type DaemonConfig struct {
 
 	// Specifies wheather to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
+
+	// RunMonitorAgent indicates whether to run the monitor agent
+	RunMonitorAgent bool
 }
 
 var (
