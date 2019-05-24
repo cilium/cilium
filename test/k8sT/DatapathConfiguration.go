@@ -90,6 +90,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to install Cilium")
 
 		ExpectCiliumReady(kubectl)
+		ExpectKubeDNSReady(kubectl)
 		ExpectETCDOperatorReady(kubectl)
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
