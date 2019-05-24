@@ -371,6 +371,7 @@ var _ = Describe("NightlyExamples", func() {
 
 		AfterAll(func() {
 			_ = kubectl.Apply(helpers.DNSDeployment())
+			ExpectKubeDNSReady(kubectl)
 		})
 
 		for _, image := range helpers.NightlyStableUpgradesFrom {

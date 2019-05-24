@@ -56,6 +56,7 @@ var _ = Describe("K8sUpdates", func() {
 
 	AfterAll(func() {
 		_ = kubectl.Apply(helpers.DNSDeployment())
+		ExpectKubeDNSReady(kubectl)
 		kubectl.CloseSSHClient()
 	})
 
@@ -155,6 +156,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		By("Installing kube-dns")
 		_ = kubectl.Apply(helpers.DNSDeployment())
+		ExpectKubeDNSReady(kubectl)
 
 		// Deploy the etcd operator
 		By("Deploying etcd-operator")
