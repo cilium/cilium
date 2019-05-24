@@ -172,6 +172,8 @@ type SelectorCache struct {
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
+
+	localIdentityNotifier identityNotifier
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -204,6 +206,15 @@ func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 		idCache:   getIdentityCache(ids),
 		selectors: make(map[string]identitySelector),
 	}
+}
+
+// SetLocalIdentityNotifier injects the provided identityNotifier into the
+// SelectorCache. Currently, this is used to inject the FQDN subsystem into
+// the SelectorCache so the SelectorCache can notify the FQDN subsystem when
+// it should be aware of a given FQDNSelector for which CIDR identities need
+// to be provided upon DNS lookups which corespond to said FQDNSelector.
+func (sc *SelectorCache) SetLocalIdentityNotifier(pop identityNotifier) {
+	sc.localIdentityNotifier = pop
 }
 
 var (
@@ -282,6 +293,15 @@ func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
 	return len(s.users) == 0
 }
 
+func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
+	delete(f.users, user)
+	removed := len(f.users) == 0
+	if removed {
+		f.dnsProxy.UnregisterForIdentityUpdates(f.selector)
+	}
+	return removed
+}
+
 // lock must be held
 func (s *selectorManager) notifyUsers(added, deleted []identity.NumericIdentity) {
 	for user := range s.users {
@@ -325,6 +345,42 @@ func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) 
 type fqdnSelector struct {
 	selectorManager
 	selector api.FQDNSelector
+	// dnsProxy updates the set of identities which correspond to this selector.
+	dnsProxy identityNotifier
+}
+
+// identityNotifier provides a means for other subsystems to be made aware of a
+// given FQDNSelector (currently pkg/fqdn) so that said subsystems can notify
+// the SelectorCache about new IPs (via CIDR Identities) which correspond to
+// said FQDNSelector. This is necessary since there is nothing intrinsic to a
+// CIDR Identity that says that it corresponds to a given FQDNSelector; this
+// relationship is contained only via DNS responses, which are handled
+// externally.
+type identityNotifier interface {
+	// RegisterForIdentityUpdates exposes this FQDNSelector so that identities
+	// for IPs contained in a DNS response that matches said selector can be
+	// propagated back to the SelectorCache via `UpdateFQDNSelector`. When called,
+	// implementers (currently `pkg/fqdn/RuleGen`) should iterate over all DNS
+	// names that they are aware of, and see if they match the FQDNSelector.
+	// All IPs which correspond to the DNS names which match this Selector will
+	// be returned as CIDR identities, as other DNS Names which have already
+	// been resolved may match this FQDNSelector.
+	// Once this function is called, the SelectorCache will be updated any time
+	// new IPs are resolved for DNS names which match this FQDNSelector.
+	// This function is only called when the SelectorCache has been made aware
+	// of this FQDNSelector for the first time, since we only need to get the
+	// set of CIDR identities which match this FQDNSelector already from the
+	// identityNotifier on the first pass; any subsequent updates will eventually
+	// call `UpdateFQDNSelector`.
+	RegisterForIdentityUpdates(selector api.FQDNSelector) (identities []identity.NumericIdentity)
+
+	// UnregisterForIdentityUpdates removes this FQDNSelector from the set of
+	// FQDNSelectors which are being tracked by the identityNotifier. The result
+	// of this is that no more updates for IPs which correspond to said selector
+	// are propagated back to the SelectorCache via `UpdateFQDNSelector`.
+	// This occurs when there are no more users of a given FQDNSelector for the
+	// SelectorCache.
+	UnregisterForIdentityUpdates(selector api.FQDNSelector)
 }
 
 type labelIdentitySelector struct {
@@ -389,6 +445,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 				cachedSelections: make(map[identity.NumericIdentity]struct{}),
 			},
 			selector: fqdnSelec,
+			dnsProxy: sc.localIdentityNotifier,
 		}
 		sc.selectors[fqdnKey] = fqdnSel
 	} else {
@@ -477,10 +534,17 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
+		dnsProxy: sc.localIdentityNotifier,
 	}
 
 	// Add the initial user
 	newFQDNSel.users[user] = struct{}{}
+
+	// Make the FQDN subsystem aware of this selector.
+	ids := newFQDNSel.dnsProxy.RegisterForIdentityUpdates(newFQDNSel.selector)
+	for _, id := range ids {
+		newFQDNSel.cachedSelections[id] = struct{}{}
+	}
 	newFQDNSel.updateSelections()
 
 	// Do not go through the identity cache to see what identities "match" this
