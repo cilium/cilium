@@ -17,11 +17,7 @@
 package fqdn
 
 import (
-	"net"
-
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
-	"github.com/cilium/cilium/pkg/policy/api"
 	. "gopkg.in/check.v1"
 )
 
@@ -40,64 +36,4 @@ func (ds *DNSCacheTestSuite) TestKeepUniqueNames(c *C) {
 		val := KeepUniqueNames(item.argument)
 		c.Assert(val, checker.DeepEquals, item.expected)
 	}
-}
-
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesWithOtherCIDRSet(c *C) {
-	// Validate that if empty cache the ToCidrRule is always empty
-	rule := makeRule("cilium.io", "cilium.io")
-	cache := NewDNSCache(0)
-	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
-	rule.Egress = append(rule.Egress, api.EgressRule{
-		ToCIDRSet: api.IPsToCIDRRules([]net.IP{net.ParseIP("4.4.4.4")})})
-
-	injectToCIDRSetRules(rule, cache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-	c.Assert(rule.Egress[1].ToCIDRSet, HasLen, 1)
-}
-
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesInvalidCache(c *C) {
-	// Validate that if empty cache the ToCidrRule is always empty
-	rule := makeRule("cilium.io", "cilium.io")
-	EmptyCache := NewDNSCache(0)
-	injectToCIDRSetRules(rule, EmptyCache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
-
-	// Validate that if empty cache the ToCidrRule is cleared correctly
-	rule.Egress[0].ToCIDRSet = api.IPsToCIDRRules([]net.IP{net.ParseIP("1.1.1.1")})
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-	injectToCIDRSetRules(rule, EmptyCache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
-}
-
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesByMatchName(c *C) {
-	rule := makeRule("cilium.io", "cilium.io")
-	cache := NewDNSCache(0)
-	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
-
-	injectToCIDRSetRules(rule, cache, nil)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-}
-
-func (ds *DNSCacheTestSuite) TestInjectCIDRSetRulesByMatchPattern(c *C) {
-
-	rule := makeRule("cilium.io")
-	rule.Egress[0].ToFQDNs = api.FQDNSelectorSlice{
-		{MatchPattern: "cilium.io"},
-	}
-	cache := NewDNSCache(0)
-	cache.Update(now, "cilium.io.", []net.IP{net.ParseIP("1.1.1.1")}, 1)
-	reg := regexpmap.NewRegexpMap()
-	reg.Add("cilium.io", "cilium.io")
-
-	injectToCIDRSetRules(rule, cache, reg)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 1)
-
-	rule = makeRule("cilium.io")
-	rule.Egress[0].ToFQDNs = api.FQDNSelectorSlice{
-		{MatchPattern: "ciliumtest.io"},
-	}
-
-	injectToCIDRSetRules(rule, cache, reg)
-	c.Assert(rule.Egress[0].ToCIDRSet, HasLen, 0)
-
 }
