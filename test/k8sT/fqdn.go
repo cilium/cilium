@@ -48,11 +48,13 @@ var _ = Describe("K8sFQDNTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		ProvisionInfraPods(kubectl)
 
+		By("Applying bind deployment")
 		bindManifest = helpers.ManifestGet("bind_deployment.yaml")
 
 		res := kubectl.Apply(bindManifest)
 		res.ExpectSuccess("Bind config cannot be deployed")
 
+		By("Applying demo manifest")
 		res = kubectl.Apply(demoManifest)
 		res.ExpectSuccess("Demo config cannot be deployed")
 
