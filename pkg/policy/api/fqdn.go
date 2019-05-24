@@ -17,8 +17,10 @@ package api
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/miekg/dns"
 )
 
 var (
@@ -74,6 +76,21 @@ func (s *FQDNSelector) sanitize() error {
 	}
 	_, err := matchpattern.Validate(s.MatchPattern)
 	return err
+}
+
+// ToRegex converts the given FQDNSelector to its corresponding regular
+// expression.
+func (s *FQDNSelector) ToRegex() *regexp.Regexp {
+	var preparedMatch string
+	if s.MatchName != "" {
+		preparedMatch = strings.ToLower(dns.Fqdn(s.MatchName))
+	} else {
+		preparedMatch = matchpattern.Sanitize(s.MatchPattern)
+	}
+
+	regex, _ := matchpattern.Validate(preparedMatch)
+	return regex
+
 }
 
 // PortRuleDNS is a list of allowed DNS lookups.
