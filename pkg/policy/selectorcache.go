@@ -172,6 +172,8 @@ type SelectorCache struct {
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
+
+	pop identityPopulator
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -206,6 +208,10 @@ func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	}
 }
 
+func (sc *SelectorCache) SetIdentityPopulator(pop identityPopulator) {
+	sc.pop = pop
+}
+
 var (
 	// Empty slice of numeric identities used for all selectors that select nothing
 	emptySelection []identity.NumericIdentity
@@ -238,6 +244,9 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
 func (s *selectorManager) GetSelections() []identity.NumericIdentity {
+	if s.selections == nil {
+		return []identity.NumericIdentity{}
+	}
 	return *(*[]identity.NumericIdentity)(atomic.LoadPointer(&s.selections))
 }
 
@@ -256,6 +265,27 @@ func (s *selectorManager) Selects(nid identity.NumericIdentity) bool {
 // endpoints.
 func (s *selectorManager) IsWildcard() bool {
 	return s.key == wildcardSelectorKey
+}
+
+// must be holding selectorcache mutex
+func (s *fqdnSelector) NotifyAdded() {
+	// Make the user (FQDN subsystem) aware of this selector.
+	if s.user == nil {
+		return
+	}
+
+	if ids, exists := s.user.StartManagerFQDNSelector(s.selector); !exists {
+		for _, id := range ids {
+			s.cachedSelections[id] = struct{}{}
+		}
+		s.updateSelections()
+	}
+}
+
+func (s *fqdnSelector) NotifyRemoved() {
+	if s.user != nil {
+		s.user.StopManagerFQDNSelector(s.selector)
+	}
 }
 
 // String returns the map key for this selector
@@ -280,6 +310,15 @@ func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
 func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
 	delete(s.users, user)
 	return len(s.users) == 0
+}
+
+func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
+	delete(f.users, user)
+	removed := len(f.users) == 0
+	if removed {
+		f.NotifyRemoved()
+	}
+	return removed
 }
 
 // lock must be held
@@ -325,6 +364,12 @@ func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) 
 type fqdnSelector struct {
 	selectorManager
 	selector api.FQDNSelector
+	user     identityPopulator
+}
+
+type identityPopulator interface {
+	StartManagerFQDNSelector(selector api.FQDNSelector) (identities []identity.NumericIdentity, existed bool)
+	StopManagerFQDNSelector(selector api.FQDNSelector)
 }
 
 type labelIdentitySelector struct {
@@ -477,11 +522,14 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
+		user:     sc.pop,
 	}
 
 	// Add the initial user
 	newFQDNSel.users[user] = struct{}{}
 	newFQDNSel.updateSelections()
+
+	newFQDNSel.NotifyAdded()
 
 	// Do not go through the identity cache to see what identities "match" this
 	// selector. This has to be updated via whatever is getting the CIDR identities
