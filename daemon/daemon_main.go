@@ -1358,6 +1358,7 @@ func runDaemon() {
 			if restoreComplete != nil {
 				<-restoreComplete
 			}
+			d.dnsRuleGen.CompleteBootstrap()
 			maps.CollectStaleMapGarbage()
 			maps.RemoveDisabledMaps()
 		}()
