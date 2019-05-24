@@ -274,6 +274,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 
 func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 	sc := NewSelectorCache(cache.IdentityCache{})
+	sc.SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	// Add some identities to the identity cache
 	googleSel := api.FQDNSelector{MatchName: "google.com"}
 	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
@@ -335,6 +336,7 @@ func (ds *SelectorCacheTestSuite) TestFQDNSelectorUpdates(c *C) {
 
 func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 	sc := NewSelectorCache(cache.IdentityCache{})
+	sc.SetLocalIdentityNotifier(newDummyIdentityNotifier())
 	// Add some identities to the identity cache
 	googleSel := api.FQDNSelector{MatchName: "google.com"}
 	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
@@ -378,7 +380,6 @@ func (ds *SelectorCacheTestSuite) TestRemoveIdentitiesFQDNSelectors(c *C) {
 
 	selections2 = cached2.GetSelections()
 	c.Assert(len(selections2), Equals, 0)
-
 }
 
 func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
@@ -442,4 +443,93 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 
 	// All identities removed
 	c.Assert(len(sc.selectors), Equals, 0)
+}
+
+func (ds *SelectorCacheTestSuite) TestIdentityNotifier(c *C) {
+	sc := NewSelectorCache(cache.IdentityCache{})
+	idNotifier := newDummyIdentityNotifier()
+	sc.SetLocalIdentityNotifier(idNotifier)
+	// Add some identities to the identity cache
+	googleSel := api.FQDNSelector{MatchName: "google.com"}
+	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
+
+	// Nothing should be registered yet.
+	c.Assert(idNotifier.IsRegistered(ciliumSel), Equals, false)
+	c.Assert(idNotifier.IsRegistered(googleSel), Equals, false)
+
+	injectedIDs := []identity.NumericIdentity{1000, 1001, 1002}
+	idNotifier.injectIdentitiesForSelector(ciliumSel, injectedIDs)
+
+	// Add a user without adding identities explicitly. The identityNotifier
+	// should have populated them for us.
+	user1 := newUser(c, "user1", sc)
+	cached := user1.AddFQDNSelector(ciliumSel)
+	_, exists := sc.selectors[ciliumSel.String()]
+	c.Assert(exists, Equals, true)
+
+	selections := cached.GetSelections()
+	c.Assert(len(selections), Equals, 3)
+	for i, selection := range selections {
+		c.Assert(selection, Equals, injectedIDs[i])
+	}
+
+	// Add another selector from the same user
+	cached2 := user1.AddFQDNSelector(googleSel)
+	c.Assert(cached2, Not(Equals), cached)
+
+	selections2 := cached2.GetSelections()
+	c.Assert(len(selections2), Equals, 0)
+
+	sc.RemoveIdentitiesFQDNSelectors([]api.FQDNSelector{
+		googleSel,
+		ciliumSel,
+	})
+
+	selections = cached.GetSelections()
+	c.Assert(len(selections), Equals, 0)
+
+	selections2 = cached2.GetSelections()
+	c.Assert(len(selections2), Equals, 0)
+
+	sc.RemoveSelector(cached, user1)
+	c.Assert(idNotifier.IsRegistered(ciliumSel), Equals, false)
+	c.Assert(idNotifier.IsRegistered(googleSel), Equals, true)
+
+	sc.RemoveSelector(cached2, user1)
+	c.Assert(idNotifier.IsRegistered(googleSel), Equals, false)
+
+}
+
+type dummyIdentityNotifier struct {
+	selectors map[api.FQDNSelector][]identity.NumericIdentity
+}
+
+func newDummyIdentityNotifier() *dummyIdentityNotifier {
+	return &dummyIdentityNotifier{
+		selectors: make(map[api.FQDNSelector][]identity.NumericIdentity),
+	}
+}
+
+// RegisterForIdentityUpdates starts managing this selector.
+func (d *dummyIdentityNotifier) RegisterForIdentityUpdates(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
+	ids, ok := d.selectors[selector]
+	if !ok {
+		d.selectors[selector] = []identity.NumericIdentity{}
+	}
+	return ids
+}
+
+// UnregisterForIdentityUpdates stops managing this selector.
+func (d *dummyIdentityNotifier) UnregisterForIdentityUpdates(selector api.FQDNSelector) {
+	delete(d.selectors, selector)
+}
+
+func (d *dummyIdentityNotifier) injectIdentitiesForSelector(fqdnSel api.FQDNSelector, ids []identity.NumericIdentity) {
+	d.selectors[fqdnSel] = ids
+}
+
+// IsRegistered returns whether this selector is being managed.
+func (d *dummyIdentityNotifier) IsRegistered(selector api.FQDNSelector) bool {
+	_, ok := d.selectors[selector]
+	return ok
 }
