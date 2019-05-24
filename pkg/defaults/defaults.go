@@ -68,9 +68,6 @@ const (
 	// PidFilePath is the path to the pid file for the agent.
 	PidFilePath = RuntimePath + "/cilium.pid"
 
-	// EventsPipe is the name of the named pipe for agent <=> monitor events
-	EventsPipe = "events.sock"
-
 	// EnableHostIPRestore controls whether the host IP should be restored
 	// from previous state automatically
 	EnableHostIPRestore = true
@@ -221,4 +218,7 @@ const (
 	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
 	// provide backwards compatibility, it can be disabled via an option
 	ForceLocalPolicyEvalAtSource = true
+
+	// MonitorBufferPages is the default number of pages
+	MonitorBufferPages = 64
 )

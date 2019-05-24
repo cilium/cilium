@@ -348,7 +348,7 @@ func (d *Daemon) startStatusCollector() {
 		{
 			Name: "node-monitor",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				return d.nodeMonitor.State(), nil
+				return d.monitorAgent.State(), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()

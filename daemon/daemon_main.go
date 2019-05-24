@@ -1206,9 +1206,6 @@ func runDaemon() {
 
 	endpointmanager.EndpointSynchronizer = &endpointsynchronizer.EndpointSynchronizer{}
 
-	log.Info("Launching node monitor daemon")
-	go d.nodeMonitor.Run(path.Join(defaults.RuntimePath, defaults.EventsPipe), bpf.GetMapRoot())
-
 	bootstrapStats.k8sInit.Start()
 
 	// We need to set up etcd in parallel so we will initialize the k8s

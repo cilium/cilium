@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package agent
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"path"
@@ -26,11 +23,11 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/monitor/listener"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/sirupsen/logrus"
 )
@@ -74,36 +71,11 @@ type Monitor struct {
 	monitorEvents    *bpf.PerCpuEvents
 }
 
-// agentPipeReader reads agent events from the agentPipe and distributes to all listeners
-func (m *Monitor) agentPipeReader(ctx context.Context, agentPipe io.Reader) {
-	log.Info("Beginning to read cilium agent events")
-	defer log.Info("Stopped reading cilium agent events")
-
-	for !isCtxDone(ctx) {
-		meta, p := payload.Meta{}, payload.Payload{}
-		err := payload.ReadMetaPayload(agentPipe, &meta, &p)
-		switch {
-		// this captures the case where we are shutting down and main closes the
-		// pipe socket
-		case isCtxDone(ctx):
-			return
-
-		case err == io.EOF || err == io.ErrUnexpectedEOF:
-			log.Fatal("Agent pipe unexpectedly closed, shutting down")
-
-		case err != nil:
-			log.WithError(err).Fatal("Unable to read cilium agent events from pipe")
-		}
-
-		m.send(&p)
-	}
-}
-
 // NewMonitor creates a Monitor, and starts client connection handling and agent event
 // handling.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0, server1_2 net.Listener) (m *Monitor, err error) {
+func NewMonitor(ctx context.Context, nPages int, server1_0, server1_2 net.Listener) (m *Monitor) {
 	m = &Monitor{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
@@ -115,10 +87,7 @@ func NewMonitor(ctx context.Context, nPages int, agentPipe io.Reader, server1_0,
 	go m.connectionHandler1_0(ctx, server1_0)
 	go m.connectionHandler1_2(ctx, server1_2)
 
-	// start agent event pipe reader
-	go m.agentPipeReader(ctx, agentPipe)
-
-	return m, nil
+	return
 }
 
 // registerNewListener adds the new MonitorListener to the global list. It also spawns
@@ -208,7 +177,6 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 	errorEvent := m.errorEvent
 	m.Unlock()
 
-	last := time.Now()
 	for !isCtxDone(stopCtx) {
 		todo, err := monitorEvents.Poll(pollTimeout)
 		switch {
@@ -228,31 +196,29 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
 			}
 		}
-
-		if time.Since(last) > 5*time.Second {
-			last = time.Now()
-			m.dumpStat()
-		}
 	}
 }
 
-// dumpStat prints out the monitor status in JSON.
-func (m *Monitor) dumpStat() {
+// Status returns the current status of the monitor
+func (m *Monitor) Status() models.MonitorStatus {
 	m.Lock()
 	defer m.Unlock()
 
-	c := int64(m.monitorEvents.Cpus)
-	n := int64(m.monitorEvents.Npages)
-	p := int64(m.monitorEvents.Pagesize)
-	l, _, u := m.monitorEvents.Stats()
-	ms := models.MonitorStatus{Cpus: c, Npages: n, Pagesize: p, Lost: int64(l), Unknown: int64(u)}
-
-	mp, err := json.Marshal(ms)
-	if err != nil {
-		log.WithError(err).Error("Error marshalling JSON")
-		return
+	if m.monitorEvents == nil {
+		return models.MonitorStatus{}
 	}
-	fmt.Println(string(mp))
+
+	lost, _, unknown := m.monitorEvents.Stats()
+	status := models.MonitorStatus{
+		Cpus:     int64(m.monitorEvents.Cpus),
+		Lost:     int64(lost),
+		Npages:   int64(m.monitorEvents.Npages),
+		Pagesize: int64(m.monitorEvents.Pagesize),
+		Unknown:  int64(unknown),
+	}
+
+	return status
+
 }
 
 // connectionHandler1_0 handles all the incoming connections and sets up the

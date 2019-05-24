@@ -59,10 +59,6 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 	dr.Subsystem = debug.CollectSubsystemStatus()
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())
 
-	if d.nodeMonitor.State() != nil {
-		dr.CiliumNodemonitorMemoryMap = memoryMap(d.nodeMonitor.GetPid())
-	}
-
 	dr.EnvironmentVariables = []string{}
 	for _, k := range viper.AllKeys() {
 		// Assuming we are only getting strings

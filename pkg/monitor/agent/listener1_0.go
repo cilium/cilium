@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitor
+package agent
 
 import (
-	"encoding/gob"
 	"net"
 
-	"github.com/cilium/cilium/monitor/listener"
+	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 )
 
-// listenerv1_2 implements the ciliim-node-monitor API protocol compatible with
-// cilium 1.2
+// listenerv1_0 implements the ciliim-node-monitor API protocol compatible with
+// cilium 1.0
 // cleanupFn is called on exit
-type listenerv1_2 struct {
+type listenerv1_0 struct {
 	conn      net.Conn
 	queue     chan *payload.Payload
 	cleanupFn func(listener.MonitorListener)
 }
 
-func newListenerv1_2(c net.Conn, queueSize int, cleanupFn func(listener.MonitorListener)) *listenerv1_2 {
-	ml := &listenerv1_2{
+func newListenerv1_0(c net.Conn, queueSize int, cleanupFn func(listener.MonitorListener)) *listenerv1_0 {
+	ml := &listenerv1_0{
 		conn:      c,
 		queue:     make(chan *payload.Payload, queueSize),
 		cleanupFn: cleanupFn,
@@ -43,7 +42,7 @@ func newListenerv1_2(c net.Conn, queueSize int, cleanupFn func(listener.MonitorL
 	return ml
 }
 
-func (ml *listenerv1_2) Enqueue(pl *payload.Payload) {
+func (ml *listenerv1_0) Enqueue(pl *payload.Payload) {
 	select {
 	case ml.queue <- pl:
 	default:
@@ -53,15 +52,20 @@ func (ml *listenerv1_2) Enqueue(pl *payload.Payload) {
 
 // drainQueue encodes and sends monitor payloads to the listener. It is
 // intended to be a goroutine.
-func (ml *listenerv1_2) drainQueue() {
+func (ml *listenerv1_0) drainQueue() {
 	defer func() {
 		ml.conn.Close()
 		ml.cleanupFn(ml)
 	}()
 
-	enc := gob.NewEncoder(ml.conn)
 	for pl := range ml.queue {
-		if err := pl.EncodeBinary(enc); err != nil {
+		buf, err := pl.BuildMessage()
+		if err != nil {
+			log.WithError(err).Error("Unable to send notification to listeners")
+			continue
+		}
+
+		if _, err := ml.conn.Write(buf); err != nil {
 			switch {
 			case listener.IsDisconnected(err):
 				log.Debug("Listener disconnected")
@@ -75,6 +79,6 @@ func (ml *listenerv1_2) drainQueue() {
 	}
 }
 
-func (ml *listenerv1_2) Version() listener.Version {
-	return listener.Version1_2
+func (ml *listenerv1_0) Version() listener.Version {
+	return listener.Version1_0
 }
