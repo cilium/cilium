@@ -1889,6 +1889,13 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s' is unhealthy: %s", pod, status.OutputPrettyPrint())
 		}
+		noQuorum, err := regexp.Match(`^.*KVStore:.*has-quorum=false.*$`, status.Output().Bytes())
+		if err != nil {
+			return fmt.Errorf("Failed to check for kvstore quorum: %s", err.Error())
+		}
+		if noQuorum {
+			return fmt.Errorf("KVStore doesn't have quorum: %s", status.OutputPrettyPrint())
+		}
 	}
 
 	return nil
