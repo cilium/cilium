@@ -894,8 +894,8 @@ EOF`, k, v)
 		AfterAll(func() {
 			_ = kubectl.Delete(demoPath)
 			_ = kubectl.Delete(demoManifest)
+			_ = kubectl.Delete(cnpSecondNS)
 			_ = kubectl.NamespaceDelete(secondNS)
-			_ = kubectl.NamespaceDelete(cnpSecondNS)
 		})
 
 		It("Tests the same Policy in different namespaces", func() {
