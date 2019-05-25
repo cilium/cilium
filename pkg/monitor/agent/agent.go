@@ -61,7 +61,6 @@ func buildServer(path string) (net.Listener, error) {
 type Agent struct {
 	mutex     lock.Mutex
 	lost      uint64
-	server1_0 net.Listener
 	server1_2 net.Listener
 	monitor   *Monitor
 	queue     chan payload.Payload
@@ -73,20 +72,13 @@ func NewAgent(ctx context.Context, npages int) (a *Agent, err error) {
 		queue: make(chan payload.Payload, option.Config.MonitorQueueSize),
 	}
 
-	a.server1_0, err = buildServer(defaults.MonitorSockPath1_0)
-	if err != nil {
-		return
-	}
-
 	a.server1_2, err = buildServer(defaults.MonitorSockPath1_2)
 	if err != nil {
-		a.server1_0.Close()
 		return
 	}
 
-	a.monitor = NewMonitor(ctx, npages, a.server1_0, a.server1_2)
+	a.monitor = NewMonitor(ctx, npages, a.server1_2)
 
-	log.Infof("Serving cilium node monitor v1.0 API at unix://%s", defaults.MonitorSockPath1_0)
 	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
 
 	go a.eventDrainer()
@@ -96,7 +88,6 @@ func NewAgent(ctx context.Context, npages int) (a *Agent, err error) {
 
 // Stop stops the monitor agent
 func (a *Agent) Stop() {
-	a.server1_0.Close()
 	a.server1_2.Close()
 	close(a.queue)
 }
