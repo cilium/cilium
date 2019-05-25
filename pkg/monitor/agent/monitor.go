@@ -75,7 +75,7 @@ type Monitor struct {
 // handling.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewMonitor(ctx context.Context, nPages int, server1_0, server1_2 net.Listener) (m *Monitor) {
+func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Monitor) {
 	m = &Monitor{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
@@ -84,7 +84,6 @@ func NewMonitor(ctx context.Context, nPages int, server1_0, server1_2 net.Listen
 	}
 
 	// start new MonitorListener handler
-	go m.connectionHandler1_0(ctx, server1_0)
 	go m.connectionHandler1_2(ctx, server1_2)
 
 	return
@@ -108,10 +107,6 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, 
 	}
 
 	switch version {
-	case listener.Version1_0:
-		newListener := newListenerv1_0(conn, queueSize, m.removeListener)
-		m.listeners[newListener] = struct{}{}
-
 	case listener.Version1_2:
 		newListener := newListenerv1_2(conn, queueSize, m.removeListener)
 		m.listeners[newListener] = struct{}{}
@@ -219,29 +214,6 @@ func (m *Monitor) Status() models.MonitorStatus {
 
 	return status
 
-}
-
-// connectionHandler1_0 handles all the incoming connections and sets up the
-// listener objects. It will block on Accept, but expects the caller to close
-// server, inducing a return.
-func (m *Monitor) connectionHandler1_0(parentCtx context.Context, server net.Listener) {
-	for !isCtxDone(parentCtx) {
-		conn, err := server.Accept()
-		switch {
-		case isCtxDone(parentCtx) && conn != nil:
-			conn.Close()
-			fallthrough
-
-		case isCtxDone(parentCtx) && conn == nil:
-			return
-
-		case err != nil:
-			log.WithError(err).Warn("Error accepting connection")
-			continue
-		}
-
-		m.registerNewListener(parentCtx, conn, listener.Version1_0)
-	}
 }
 
 // connectionHandler1_2 handles all the incoming connections and sets up the
