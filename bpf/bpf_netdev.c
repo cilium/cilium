@@ -218,7 +218,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 #ifdef ENABLE_IPSEC
-	if (secctx > WORLD_ID && info && info->key) {
+	if (info && info->key) {
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_cb(skb, key);
@@ -355,7 +355,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 #endif
 #ifdef ENABLE_IPSEC
-	if (secctx > WORLD_ID && info && info->key) {
+	if (info && info->key) {
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_cb(skb, key);
