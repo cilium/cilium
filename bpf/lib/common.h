@@ -333,6 +333,11 @@ static inline void __inline__ set_identity(struct __sk_buff *skb, __u32 identity
 	skb->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
+static inline void __inline__ set_identity_cb(struct __sk_buff *skb, __u32 identity)
+{
+	skb->cb[1] = identity;
+}
+
 /* We cap key index at 4 bits because mark value is used to map skb to key */
 #define MAX_KEY_INDEX 15
 
@@ -360,6 +365,11 @@ static inline __u32 __inline__ or_encrypt_key(__u8 key)
 static inline void __inline__ set_encrypt_key(struct __sk_buff *skb, __u8 key)
 {
 	skb->mark = or_encrypt_key(key);
+}
+
+static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key)
+{
+	skb->cb[0] = or_encrypt_key(key);
 }
 
 /*
