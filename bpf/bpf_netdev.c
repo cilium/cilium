@@ -221,8 +221,8 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	if (secctx > WORLD_ID && info && info->key) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key(skb, key);
-		set_identity(skb, secctx);
+		set_encrypt_key_cb(skb, key);
+		set_identity_cb(skb, secctx);
 	}
 #endif
 	return TC_ACT_OK;
@@ -358,8 +358,8 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	if (secctx > WORLD_ID && info && info->key) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key(skb, key);
-		set_identity(skb, secctx);
+		set_encrypt_key_cb(skb, key);
+		set_identity_cb(skb, secctx);
 	}
 #endif
 	return TC_ACT_OK;
