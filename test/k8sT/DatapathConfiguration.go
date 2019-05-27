@@ -182,6 +182,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 			cleanService()
 		})
 	})
+
+	Context("PerEndpointRoute", func() {
+		It("Check connectivity with IPv6 disabled", func() {
+			deployCilium("cilium-ds-patch-per-endpoint-route.yaml")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
 })
 
 func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
