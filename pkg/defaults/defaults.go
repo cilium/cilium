@@ -136,8 +136,13 @@ const (
 	// EnableIPSec is the default value for IPSec enablement
 	EnableIPSec = false
 
-	// MonitorQueueSize is the default value for the monitor queue size
-	MonitorQueueSize = 32768
+	// MonitorQueueSizePerCPU is the default value for the monitor queue
+	// size per CPU
+	MonitorQueueSizePerCPU = 1024
+
+	// MonitorQueueSizePerCPUMaximum is the maximum value for the monitor
+	// queue size when derived from the number of CPUs
+	MonitorQueueSizePerCPUMaximum = 16384
 
 	// NodeInitTimeout is the time the agent is waiting until giving up to
 	// initialize the local node with the kvstore

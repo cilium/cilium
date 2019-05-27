@@ -29,14 +29,12 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 )
 
 const (
 	pollTimeout = 5000
-
-	// queueSize is the size of the message queue
-	queueSize = 65536
 )
 
 // isCtxDone is a utility function that returns true when the context's Done()
@@ -108,7 +106,7 @@ func (m *Monitor) registerNewListener(parentCtx context.Context, conn net.Conn, 
 
 	switch version {
 	case listener.Version1_2:
-		newListener := newListenerv1_2(conn, queueSize, m.removeListener)
+		newListener := newListenerv1_2(conn, option.Config.MonitorQueueSize, m.removeListener)
 		m.listeners[newListener] = struct{}{}
 
 	default:
