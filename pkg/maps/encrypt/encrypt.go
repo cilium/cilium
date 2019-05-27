@@ -78,8 +78,8 @@ var (
 		MaxEntries,
 		0, 0,
 		func(key []byte, value []byte) (bpf.MapKey, bpf.MapValue, error) {
-			k, v := EncryptKey{}, EncryptValue{}
-			if err := bpf.ConvertKeyValue(key, value, &k, &v); err != nil {
+			k, v := &EncryptKey{}, &EncryptValue{}
+			if err := bpf.ConvertKeyValue(key, value, k, v); err != nil {
 				return nil, nil, err
 			}
 			return k, v, nil
