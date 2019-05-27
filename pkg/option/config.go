@@ -1336,6 +1336,13 @@ func (c *DaemonConfig) Populate() {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
 	}
 
+	if c.MonitorQueueSize == 0 {
+		c.MonitorQueueSize = runtime.NumCPU() * defaults.MonitorQueueSizePerCPU
+		if c.MonitorQueueSize > defaults.MonitorQueueSizePerCPUMaximum {
+			c.MonitorQueueSize = defaults.MonitorQueueSizePerCPUMaximum
+		}
+	}
+
 	// Metrics Setup
 	defaultMetrics := metrics.DefaultMetrics()
 	for _, metric := range viper.GetStringSlice(Metrics) {
