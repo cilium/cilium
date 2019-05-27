@@ -142,7 +142,7 @@ const (
 
 	// CurlConnectTimeout is the timeout for the connect() call that curl
 	// invokes
-	CurlConnectTimeout = 5
+	CurlConnectTimeout = 2
 
 	// CurlMaxTimeout is the hard timeout. It starts when curl is invoked
 	// and interrupts curl regardless of whether curl is currently
@@ -150,6 +150,11 @@ const (
 	// seconds longer than CurlConnectTimeout to provide some time to
 	// actually transfer data.
 	CurlMaxTimeout = 8
+
+	// CurlRetries is the number of retries to attempt. The intention is to retry
+	// multiple times within CurlMaxTimeout. In cases where we race to implement
+	// policy, this allows curl to resend the TCP SYN sooner.
+	CurlRetries = int(CurlMaxTimeout/CurlConnectTimeout) + 1
 
 	DefaultNamespace    = "default"
 	KubeSystemNamespace = "kube-system"

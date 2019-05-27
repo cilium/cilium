@@ -386,7 +386,7 @@ var _ = Describe("K8sServicesTest", func() {
 		It("Tests bookinfo demo", func() {
 
 			// We use wget in this test because the Istio apps do not provide curl.
-			wgetCommand := fmt.Sprintf("wget --tries=2 --connect-timeout %d", helpers.CurlConnectTimeout)
+			wgetCommand := fmt.Sprintf("wget --tries=%d --connect-timeout %d", helpers.CurlRetries, helpers.CurlConnectTimeout)
 
 			version := "version"
 			v1 := "v1"
