@@ -565,8 +565,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 
 			It("Validate toEntities Cluster", func() {
-				Skip("Test currently broken GH-7947")
-
 				By("Installing toEntities Cluster")
 				importPolicy(cnpToEntitiesCluster, "to-entities-cluster")
 
