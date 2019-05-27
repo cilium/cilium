@@ -64,7 +64,7 @@ data:
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.
-  monitor-aggregation: "none"
+  monitor-aggregation: "medium"
 
   # ct-global-max-entries-* specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
