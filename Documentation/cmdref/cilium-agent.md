@@ -113,6 +113,7 @@ cilium-agent [flags]
       --prepend-iptables-chains                    Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string               IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                 Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
+      --read-cni-conf string                       Read to the CNI configuration at specified path to extract per node configuration
       --restore                                    Restores state, if possible, from previous daemon (default true)
       --sidecar-istio-proxy-image string           Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --single-cluster-route                       Use a single cluster route instead of per node routes
