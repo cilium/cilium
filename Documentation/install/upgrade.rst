@@ -281,7 +281,7 @@ Changes that may require action
     perform more aggressive aggregation on packet forwarding related events to
     reduce CPU consumption while running ``cilium monitor``. The automatic
     change only applies to the default ConfigMap. Existing deployments will
-    need to change the setting in the ConfigMap explicitely.
+    need to change the setting in the ConfigMap explicitly.
 
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
