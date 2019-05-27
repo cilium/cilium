@@ -108,8 +108,6 @@ to_host:
 		union macaddr router_mac = NODE_MAC;
 		int ret;
 
-		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
-
 		ret = ipv6_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_INGRESS);
 		if (ret != TC_ACT_OK)
 			return ret;
@@ -188,8 +186,6 @@ to_host:
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 		union macaddr router_mac = NODE_MAC;
 		int ret;
-
-		cilium_dbg(skb, DBG_TO_HOST, is_policy_skip(skb), 0);
 
 		ret = ipv4_l3(skb, ETH_HLEN, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
 		if (ret != TC_ACT_OK)
