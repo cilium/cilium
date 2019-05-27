@@ -17,6 +17,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -27,6 +28,17 @@ type NetConf struct {
 	cniTypes.NetConf
 	MTU  int  `json:"mtu"`
 	Args Args `json:"args"`
+}
+
+// ReadNetConf reads a CNI configuration file and returns the corresponding
+// NetConf structure
+func ReadNetConf(path string) (*NetConf, string, error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("Unable to read CNI configuration '%s': %s", path, err)
+	}
+
+	return LoadNetConf(b)
 }
 
 // LoadNetConf unmarshals a Cilium network configuration from JSON and returns

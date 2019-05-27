@@ -65,6 +65,7 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/workloads"
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
@@ -642,6 +643,9 @@ func init() {
 	flags.String(option.IPv4NodeAddr, "auto", "IPv4 address of node")
 	option.BindEnv(option.IPv4NodeAddr)
 
+	flags.String(option.ReadCNIConfiguration, "", "Read to the CNI configuration at specified path to extract per node configuration")
+	option.BindEnv(option.ReadCNIConfiguration)
+
 	flags.Bool(option.Restore, true, "Restores state, if possible, from previous daemon")
 	option.BindEnv(option.Restore)
 
@@ -891,6 +895,17 @@ func initEnv(cmd *cobra.Command) {
 
 	if option.Config.PProf {
 		pprof.Enable()
+	}
+
+	if option.Config.ReadCNIConfiguration != "" {
+		netConf, _, err := cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to read CNI configuration")
+		}
+
+		if netConf.MTU != 0 {
+			option.Config.MTU = netConf.MTU
+		}
 	}
 
 	if option.Config.PreAllocateMaps {
