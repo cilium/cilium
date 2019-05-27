@@ -381,20 +381,13 @@ int tail_handle_ipv6(struct __sk_buff *skb)
 static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 {
 	struct ipv4_ct_tuple tuple = {};
-	union macaddr router_mac = NODE_MAC;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, verdict, l3_off = ETH_HLEN, l4_off;
+	int ret, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct lb4_service_v2 *svc;
 	struct lb4_key_v2 key = {};
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
-	__be32 orig_dip;
-	__u32 tunnel_endpoint = 0;
-	__u8 encrypt_key = 0;
-	__u32 monitor = 0;
-	__u8 reason;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -428,6 +421,44 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 skip_service_lookup:
+	ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC_AFTER_LB);
+	return DROP_MISSED_TAIL_CALL;
+}
+
+static inline int handle_ipv4_from_lxc_after_lb(struct __sk_buff *skb, __u32 *dstID)
+{
+	struct ipv4_ct_tuple tuple = {};
+	union macaddr router_mac = NODE_MAC;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int ret, verdict, l3_off = ETH_HLEN, l4_off;
+	struct csum_offset csum_off = {};
+	struct lb4_key_v2 key = {};
+	struct ct_state ct_state_new = {};
+	struct ct_state ct_state = {};
+	__be32 orig_dip;
+	__u32 tunnel_endpoint = 0;
+	__u8 encrypt_key = 0;
+	__u32 monitor = 0;
+	__u8 reason;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip4->protocol;
+
+	if (unlikely(!is_valid_lxc_src_ipv4(ip4)))
+		return DROP_INVALID_SIP;
+
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+
+	ret = lb4_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	if (IS_ERR(ret) && ret != DROP_UNKNOWN_L4)
+		return ret;
+
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
 	 * is _not_ TCP or UDP we should not be using proxy logic anyways. For
@@ -624,6 +655,18 @@ pass_to_stack:
 #endif
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC_AFTER_LB) int tail_ipv4_from_lxc_after_lb(struct __sk_buff *skb)
+{
+	__u32 dstID = 0;
+	int ret = handle_ipv4_from_lxc_after_lb(skb, &dstID);
+
+	if (IS_ERR(ret))
+		return send_drop_notify(skb, SECLABEL, dstID, 0, ret, TC_ACT_SHOT,
+		                        METRIC_EGRESS);
+
+	return ret;
 }
 
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_FROM_LXC)
