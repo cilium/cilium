@@ -627,8 +627,7 @@ func init() {
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
 
-	flags.Int(option.MonitorQueueSizeName, defaults.MonitorQueueSize,
-		"Size of the event queue when reading monitor events")
+	flags.Int(option.MonitorQueueSizeName, 0, "Size of the event queue when reading monitor events")
 	option.BindEnv(option.MonitorQueueSizeName)
 
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")

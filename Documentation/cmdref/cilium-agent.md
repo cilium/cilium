@@ -102,7 +102,7 @@ cilium-agent [flags]
       --masquerade                                 Masquerade packets from endpoints leaving the host (default true)
       --metrics strings                            Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                 Level of monitor aggregation for traces from the datapath (default "None")
-      --monitor-queue-size int                     Size of the event queue when reading monitor events (default 32768)
+      --monitor-queue-size int                     Size of the event queue when reading monitor events
       --mtu int                                    Overwrite auto-detected MTU of underlying network
       --nat46-range string                         IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --policy-queue-size int                      size of queues for policy-related events (default 100)
