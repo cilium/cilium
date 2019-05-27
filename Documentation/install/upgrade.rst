@@ -276,6 +276,13 @@ Changes that may require action
     unless the environment variable ``CILIUM_CUSTOM_CNI_CONF`` is set in which
     case any already existing configuration file is untouched.
 
+  * The new default value for the option ``monitor-aggregation`` is now
+    ``medium`` instead of ``none``. This will cause the BPF datapath to
+    perform more aggressive aggregation on packet forwarding related events to
+    reduce CPU consumption while running ``cilium monitor``. The automatic
+    change only applies to the default ConfigMap. Existing deployments will
+    need to change the setting in the ConfigMap explicitely.
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
