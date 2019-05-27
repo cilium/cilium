@@ -159,6 +159,21 @@ func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoin
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+	if option.Config.EnableEndpointRoutes {
+		if epTemplate.DatapathConfiguration == nil {
+			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
+		}
+
+		// Indicate to insert a per endpoint route instead of routing
+		// via cilium_host interface
+		epTemplate.DatapathConfiguration.InstallEndpointRoute = true
+
+		// Since routing occurs via endpoint interface directly, BPF
+		// program is needed on that device at egress as BPF program on
+		// cilium_host interface is bypassed
+		epTemplate.DatapathConfiguration.RequireEgressProg = true
+	}
+
 	ep, err := endpoint.NewEndpointFromChangeModel(d.policy, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
