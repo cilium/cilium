@@ -470,6 +470,9 @@ const (
 	// SkipCRDCreation specifies whether the CustomResourceDefinition will be
 	// created by the daemon
 	SkipCRDCreation = "skip-crd-creation"
+
+	// EnableEndpointRoutes enables use of per endpoint routes
+	EnableEndpointRoutes = "enable-endpoint-routes"
 )
 
 // FQDNS variables
@@ -945,6 +948,9 @@ type DaemonConfig struct {
 	// SkipCRDCreation disables creation of the CustomResourceDefinition
 	// on daemon startup
 	SkipCRDCreation bool
+
+	// EnableEndpointRoutes enables use of per endpoint routes
+	EnableEndpointRoutes bool
 }
 
 var (
@@ -970,6 +976,7 @@ var (
 		EndpointInterfaceNamePrefix:  defaults.EndpointInterfaceNamePrefix,
 		BlacklistConflictingRoutes:   defaults.BlacklistConflictingRoutes,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
+		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 	}
 )
 

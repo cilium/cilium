@@ -429,6 +429,9 @@ func init() {
 	flags.MarkHidden(option.LegacyDisableIPv4Name)
 	option.BindEnv(option.LegacyDisableIPv4Name)
 
+	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
+	option.BindEnv(option.EnableEndpointRoutes)
+
 	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
 	option.BindEnv(option.EnableHealthChecking)
 

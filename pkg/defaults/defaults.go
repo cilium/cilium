@@ -221,4 +221,8 @@ const (
 	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
 	// provide backwards compatibility, it can be disabled via an option
 	ForceLocalPolicyEvalAtSource = true
+
+	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
+	// It is disabled by default for backwards compatibility.
+	EnableEndpointRoutes = false
 )
