@@ -42,7 +42,7 @@ function annotate_section_names {
 	    -e "s/\(section '2\/14'\)/\1 (tail_call IPV6_TO_ENDPOINT)/"
 }
 
-if ! grep -q "CILIUM_CALL_SIZE.*13" "$BPFDIR/lib/common.h" ; then
+if ! grep -q "CILIUM_CALL_SIZE.*15" "$BPFDIR/lib/common.h" ; then
 	echo "This script is out of date compared to CILIUM_CALL_SIZE." 1>&2
 	exit 1
 fi
