@@ -422,7 +422,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 		return
 	}
 
-	scopedLog.Info("Completed endpoint regeneration")
+	scopedLog.Debug("Completed endpoint regeneration")
 	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 }
 
