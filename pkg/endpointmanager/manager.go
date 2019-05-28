@@ -450,10 +450,14 @@ func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, 
 // by endpointIDs. It signals to the provided WaitGroup when all of the endpoints
 // in said set have had regenerations queued up.
 func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
-	wg.Add(len(endpointIDs))
 
 	for endpointID := range endpointIDs {
 		ep := endpoints[endpointID]
+		if ep == nil {
+			log.WithField(logfields.EndpointID, endpointID).Error("Enqueued regenerate for non-existent Endpoint")
+			continue
+		}
+		wg.Add(1)
 		go func() {
 			regenerateEndpointNonBlocking(owner, ep, regenMetadata)
 			wg.Done()
