@@ -934,31 +934,6 @@ func restoreServices() {
 		}
 	}
 
-	// Delete v2 services which do not have the legacy equivalents. Can
-	// happen after cilium-agent has been downgraded to < v1.5, some svc gets
-	// removed, and then the agent upgraded again to >= v1.5 (observed on the CI).
-	if option.Config.EnableLegacyServices {
-		for feHash, svc := range svcMapV2 {
-			if _, found := svcMap[feHash]; !found {
-				// Remove revNAT if there is no restored service using it
-				delRevNAT := true
-				if _, found := svcIDs[svc.FE.ID]; found {
-					delRevNAT = false
-				}
-
-				log.WithFields(logrus.Fields{
-					logfields.ServiceID: svc.FE.ID,
-					"delRevNAT":         delRevNAT,
-				}).Debug("Deleting orphan service from BPF maps v2")
-
-				if err := lbmap.DeleteOrphanServiceV2AndRevNAT(svc.FE, delRevNAT); err != nil {
-					log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
-						Warning("Unable to remove orphan service v2")
-				}
-			}
-		}
-	}
-
 	// Remove backend entries which are not used by any service.
 	if errs := lbmap.DeleteOrphanBackends(service.DeleteBackendID); errs != nil && len(errs) > 0 {
 		for _, err := range errs {
