@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
-	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
@@ -1293,51 +1292,7 @@ func runDaemon() {
 	// (Check Daemon.initK8sSubsystem() for more info)
 	<-k8sCachesSynced
 	bootstrapStats.k8sInit.End(true)
-	bootstrapStats.restore.Start()
-	var restoreComplete chan struct{}
-	if option.Config.RestoreState {
-		// When we regenerate restored endpoints, it is guaranteed tha we have
-		// received the full list of policies present at the time the daemon
-		// is bootstrapped.
-		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
-		go func() {
-			<-restoreComplete
-			endParallelMapMode()
-		}()
-
-		go func() {
-			if k8s.IsEnabled() {
-				// Start controller which removes any leftover Kubernetes
-				// services that may have been deleted while Cilium was not
-				// running. Once this controller succeeds, because it has no
-				// RunInterval specified, it will not run again unless updated
-				// elsewhere. This means that if, for instance, a user manually
-				// adds a service via the CLI into the BPF maps, that it will
-				// not be cleaned up by the daemon until it restarts.
-				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
-					controller.ControllerParams{
-						DoFunc: func(ctx context.Context) error {
-							return d.syncLBMapsWithK8s()
-						},
-					},
-				)
-				return
-			}
-			if err := d.SyncLBMap(); err != nil {
-				log.WithError(err).Warn("Error while recovering endpoints")
-			}
-		}()
-	} else {
-		log.Info("State restore is disabled. Existing endpoints on node are ignored")
-		// We need to read all docker containers so we know we won't
-		// going to allocate the same IP addresses and we will ignore
-		// these containers from reading.
-		workloads.IgnoreRunningWorkloads()
-
-		// No restore happened, end parallel map mode immediately
-		endParallelMapMode()
-	}
-	bootstrapStats.restore.End(true)
+	restoreComplete := d.initRestore(restoredEndpoints)
 
 	if option.Config.IsFlannelMasterDeviceSet() {
 		// health checking is not supported by flannel
