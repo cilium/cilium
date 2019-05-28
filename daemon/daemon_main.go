@@ -898,7 +898,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.ReadCNIConfiguration != "" {
-		netConf, _, err := cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
+		netConf, err := cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
 		if err != nil {
 			log.WithError(err).Fatal("Unable to read CNI configuration")
 		}

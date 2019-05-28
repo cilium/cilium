@@ -45,7 +45,7 @@ func testConfRead(c *check.C, confContent string, netconf *NetConf) {
 	err = ioutil.WriteFile(p, []byte(confContent), 0644)
 	c.Assert(err, check.IsNil)
 
-	netConf, _, err := ReadNetConf(p)
+	netConf, err := ReadNetConf(p)
 	c.Assert(err, check.IsNil)
 
 	c.Assert(netConf, checker.DeepEquals, netconf)
@@ -104,6 +104,6 @@ func (t *CNITypesSuite) TestReadCNIConfError(c *check.C) {
 	err = ioutil.WriteFile(p, []byte(errorConf), 0644)
 	c.Assert(err, check.IsNil)
 
-	_, _, err = ReadNetConf(p)
+	_, err = ReadNetConf(p)
 	c.Assert(err, check.Not(check.IsNil))
 }
