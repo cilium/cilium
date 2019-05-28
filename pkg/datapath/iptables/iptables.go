@@ -35,23 +35,25 @@ import (
 )
 
 const (
-	ciliumOutputChain     = "CILIUM_OUTPUT"
-	ciliumOutputRawChain  = "CILIUM_OUTPUT_raw"
-	ciliumPostNatChain    = "CILIUM_POST"
-	ciliumPostMangleChain = "CILIUM_POST_mangle"
-	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
-	ciliumPreRawChain     = "CILIUM_PRE_raw"
-	ciliumForwardChain    = "CILIUM_FORWARD"
-	feederDescription     = "cilium-feeder:"
-	xfrmDescription       = "cilium-xfrm-notrack:"
+	ciliumOutputChain      = "CILIUM_OUTPUT"
+	ciliumOutputRawChain   = "CILIUM_OUTPUT_raw"
+	ciliumPostNatChain     = "CILIUM_POST"
+	ciliumPostNatKubeChain = "CILIUM_POST_KUBE"
+	ciliumPostMangleChain  = "CILIUM_POST_mangle"
+	ciliumPreMangleChain   = "CILIUM_PRE_mangle"
+	ciliumPreRawChain      = "CILIUM_PRE_raw"
+	ciliumForwardChain     = "CILIUM_FORWARD"
+	feederDescription      = "cilium-feeder:"
+	xfrmDescription        = "cilium-xfrm-notrack:"
 )
 
 type customChain struct {
-	name       string
-	table      string
-	hook       string
-	feederArgs []string
-	ipv6       bool // ip6tables chain in addition to iptables chain
+	name        string
+	table       string
+	hook        string
+	feederArgs  []string
+	ipv6        bool // ip6tables chain in addition to iptables chain
+	appendFixed bool
 }
 
 func runProg(prog string, args []string, quiet bool) error {
@@ -157,7 +159,7 @@ func (c *customChain) remove() {
 
 func (c *customChain) installFeeder() error {
 	installMode := "-A"
-	if option.Config.PrependIptablesChains {
+	if option.Config.PrependIptablesChains && !c.appendFixed {
 		installMode = "-I"
 	}
 
@@ -203,6 +205,14 @@ var ciliumChains = []customChain{
 		table:      "nat",
 		hook:       "POSTROUTING",
 		feederArgs: []string{""},
+	},
+	{
+		name:        ciliumPostNatKubeChain,
+		table:       "nat",
+		hook:        "POSTROUTING",
+		feederArgs:  []string{""},
+		ipv6:        true,
+		appendFixed: true,
 	},
 	{
 		name:       ciliumPostMangleChain,
@@ -275,7 +285,7 @@ func (m *IptablesManager) RemoveRules() {
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.ip6tables {
-		tables6 := []string{"mangle", "raw"}
+		tables6 := []string{"nat", "mangle", "raw"}
 		for _, t := range tables6 {
 			removeCiliumRules(t, "ip6tables")
 		}
@@ -519,6 +529,39 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			"-m", "comment", "--comment", "cilium: cluster->any forward accept",
 			"-j", "ACCEPT"}, false); err != nil {
 			return err
+		}
+
+		// For communication from host to local services via k8s cluster IP
+		// we need to fix up wrong source address selection. Linux routing
+		// will initially select a source address based on the service IP and
+		// after Kubernetes iptables rules selected a local backend, we still
+		// retain the original source address (and not the one on cilium_host).
+		// As a result, ipcache will assign a WORLD identity (via catch-all 0/0)
+		// as opposed to a HOST identity and therefore policy is dropping the
+		// skb. As there is no fixup by iptables, we need to SNAT for these
+		// cases. This rule here must come after all Kubernetes post-routing
+		// chains, so we can match on our endpoint allocation range.
+		if option.Config.EnableIPv4 {
+			if err := runProg("iptables", []string{
+				"-t", "nat",
+				"-A", ciliumPostNatKubeChain,
+				"-d", node.GetIPv4AllocRange().String(),
+				"-o", ifName,
+				"-m", "comment", "--comment", "cilium: host->service(cluster ip)->local-endpoint on " + ifName + " src address fix",
+				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+				return err
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if err := runProg("ip6tables", []string{
+				"-t", "nat",
+				"-A", ciliumPostNatKubeChain,
+				"-d", node.GetIPv6AllocRange().String(),
+				"-o", ifName,
+				"-m", "comment", "--comment", "cilium: host->service(cluster ip)->local-endpoint on " + ifName + " src address fix",
+				"-j", "SNAT", "--to-source", node.GetIPv6().String()}, false); err != nil {
+				return err
+			}
 		}
 
 		// Mark all packets sourced from processes running on the host with a
