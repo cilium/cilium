@@ -78,6 +78,12 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv4)
 
+	nextIP(ipv4)
+	_, ipNet, err := net.ParseCIDR(fakeAddressing.IPv4().AllocationCIDR().String())
+	c.Assert(err, IsNil)
+	ipam.BlacklistIPNet(*ipNet, "test")
+	c.Assert(ipam.blacklist.Contains(ipv4), Equals, true)
+
 	// force copy of first possible IP in allocation range
 	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 	nextIP(ipv6)
@@ -86,6 +92,12 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	err = ipam.AllocateIP(ipv6, "test")
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv6)
+
+	nextIP(ipv6)
+	_, ipNet, err = net.ParseCIDR(fakeAddressing.IPv6().AllocationCIDR().String())
+	c.Assert(err, IsNil)
+	ipam.BlacklistIPNet(*ipNet, "test")
+	c.Assert(ipam.blacklist.Contains(ipv6), Equals, true)
 }
 
 func (s *IPAMSuite) TestDeriveFamily(c *C) {
