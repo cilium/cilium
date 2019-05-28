@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -973,4 +974,17 @@ func restoreServices() {
 		"skipped":          skipped,
 		"removed":          removed,
 	}).Info("Restore service IDs from BPF maps")
+}
+
+// GetServiceList returns list of services
+func (d *Daemon) GetServiceList() []*models.Service {
+	list := []*models.Service{}
+
+	d.loadBalancer.BPFMapMU.RLock()
+	defer d.loadBalancer.BPFMapMU.RUnlock()
+
+	for _, v := range d.loadBalancer.SVCMap {
+		list = append(list, v.GetModel())
+	}
+	return list
 }
