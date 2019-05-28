@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/sirupsen/logrus"
 )
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -185,8 +186,12 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
 func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
-	log.Infof("L4Filter::IdentitySelectionUpdated(selector: %v, selections: %v, added: %v, deleted: %v) call received",
-		selector, selections, added, deleted)
+	log.WithFields(logrus.Fields{
+		"selector":   selector,
+		"selections": selections,
+		"added":      added,
+		"deleted":    deleted,
+	}).Debug("identities selected by L4Filter updated")
 }
 
 func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
