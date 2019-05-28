@@ -1506,19 +1506,6 @@ func numWorkerThreads() int {
 	return ncpu
 }
 
-// GetServiceList returns list of services
-func (d *Daemon) GetServiceList() []*models.Service {
-	list := []*models.Service{}
-
-	d.loadBalancer.BPFMapMU.RLock()
-	defer d.loadBalancer.BPFMapMU.RUnlock()
-
-	for _, v := range d.loadBalancer.SVCMap {
-		list = append(list, v.GetModel())
-	}
-	return list
-}
-
 // SendNotification sends an agent notification to the monitor
 func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string) error {
 	if option.Config.DryMode {
