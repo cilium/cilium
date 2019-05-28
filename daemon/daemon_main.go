@@ -1180,6 +1180,53 @@ func endParallelMapMode() {
 	ipcachemap.IPCache.EndParallelMode()
 }
 
+func (d *Daemon) initKVStore() {
+	goopts := &kvstore.ExtraOptions{
+		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
+	}
+
+	// If K8s is enabled we can do the service translation automagically by
+	// looking at services from k8s and retrieve the service IP from that.
+	// This makes cilium to not depend on kube dns to interact with etcd
+	if k8s.IsEnabled() && kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace) {
+		// Wait services and endpoints cache are synced with k8s before setting
+		// up etcd so we can perform the name resolution for etcd-operator
+		// to the service IP as well perform the service -> backend IPs for
+		// that service IP.
+		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
+		log := log.WithField(logfields.LogSubsys, "etcd")
+		goopts.DialOption = []grpc.DialOption{
+			grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {
+				// If the service is available, do the service translation to
+				// the service IP. Otherwise dial with the original service
+				// name `s`.
+				svc := k8s.ParseServiceIDFrom(s)
+				if svc != nil {
+					backendIP := d.k8sSvcCache.GetRandomBackendIP(*svc)
+					if backendIP != nil {
+						s = backendIP.String()
+					}
+				} else {
+					log.Debug("Service not found")
+				}
+				log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
+				return net.Dial("tcp", s)
+			},
+			),
+		}
+	}
+
+	if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
+		addr := option.Config.KVStoreOpt[addrkey]
+
+		log.WithError(err).WithFields(logrus.Fields{
+			"kvstore": option.Config.KVStore,
+			"address": addr,
+		}).Fatal("Unable to setup kvstore")
+	}
+}
+
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice:       option.Config.HostDevice,
@@ -1242,51 +1289,7 @@ func runDaemon() {
 	// itself relies on the kvstore to be setup and the caches will not be
 	// synced unless we setup the kvstore at the same time.
 	k8sCachesSynced := d.initK8sSubsystem()
-
-	goopts := &kvstore.ExtraOptions{
-		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
-	}
-
-	// If K8s is enabled we can do the service translation automagically by
-	// looking at services from k8s and retrieve the service IP from that.
-	// This makes cilium to not depend on kube dns to interact with etcd
-	if k8s.IsEnabled() && kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace) {
-		// Wait services and endpoints cache are synced with k8s before setting
-		// up etcd so we can perform the name resolution for etcd-operator
-		// to the service IP as well perform the service -> backend IPs for
-		// that service IP.
-		d.waitForCacheSync(k8sAPIGroupServiceV1Core, k8sAPIGroupEndpointV1Core)
-		log := log.WithField(logfields.LogSubsys, "etcd")
-		goopts.DialOption = []grpc.DialOption{
-			grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {
-				// If the service is available, do the service translation to
-				// the service IP. Otherwise dial with the original service
-				// name `s`.
-				svc := k8s.ParseServiceIDFrom(s)
-				if svc != nil {
-					backendIP := d.k8sSvcCache.GetRandomBackendIP(*svc)
-					if backendIP != nil {
-						s = backendIP.String()
-					}
-				} else {
-					log.Debug("Service not found")
-				}
-				log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
-				return net.Dial("tcp", s)
-			},
-			),
-		}
-	}
-
-	if err := kvstore.Setup(option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
-		addrkey := fmt.Sprintf("%s.address", option.Config.KVStore)
-		addr := option.Config.KVStoreOpt[addrkey]
-
-		log.WithError(err).WithFields(logrus.Fields{
-			"kvstore": option.Config.KVStore,
-			"address": addr,
-		}).Fatal("Unable to setup kvstore")
-	}
+	d.initKVStore()
 
 	// Wait only for certain caches, but not all!
 	// (Check Daemon.initK8sSubsystem() for more info)
