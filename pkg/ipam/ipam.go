@@ -62,7 +62,9 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 		nodeAddressing: nodeAddressing,
 		config:         c,
 		owner:          map[string]string{},
-		blacklist:      IPBlacklist{},
+		blacklist: IPBlacklist{
+			ips: map[string]string{},
+		},
 	}
 
 	log.WithFields(logrus.Fields{
