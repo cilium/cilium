@@ -89,3 +89,13 @@ func (s *SpanStat) Reset() {
 	s.successDuration = 0
 	s.failureDuration = 0
 }
+
+// Seconds returns the number of seconds represents by the spanstat. If a span
+// is still open, it is closed first.
+func (s *SpanStat) Seconds() float64 {
+	if !s.spanStart.IsZero() {
+		s.End(true)
+	}
+
+	return s.Total().Seconds()
+}
