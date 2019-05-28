@@ -48,7 +48,7 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) error {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	if owner, ok := ipam.blacklist[ip.String()]; ok {
+	if ipam.blacklist.Contains(ip) {
 		return fmt.Errorf("IP %s is blacklisted, owned by %s", ip.String(), owner)
 	}
 
@@ -103,7 +103,7 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 			return
 		}
 
-		if owner, ok := ipam.blacklist[ip.String()]; !ok {
+		if !ipam.blacklist.Contains(ip) {
 			log.WithFields(logrus.Fields{
 				"ip":    ip.String(),
 				"owner": owner,
