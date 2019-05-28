@@ -42,6 +42,23 @@ type Allocator interface {
 	Dump() (map[string]string, string)
 }
 
+// IPNetWithOwner is a structure containing a net.IPNet struct with the owner
+// of that IP Network.
+type IPNetWithOwner struct {
+	ipNet net.IPNet
+	owner string
+}
+
+// IPBlacklist is a structure used to store information related to blacklisted
+// IPs and IPNetworks.
+type IPBlacklist struct {
+	// A hashmap contatining IP and the corresponding owners.
+	ips map[string]string
+
+	// A list of IPNetwork with owners, for blacklisting subnets.
+	ipNets []*IPNetWithOwner
+}
+
 // Config is the IPAM configuration used for a particular IPAM type.
 type IPAM struct {
 	nodeAddressing datapath.NodeAddressing
@@ -56,7 +73,7 @@ type IPAM struct {
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
 
-	blacklist map[string]string
+	blacklist IPBlacklist
 }
 
 // DebugStatus implements debug.StatusObject to provide debug status collection

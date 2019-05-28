@@ -903,7 +903,7 @@ func deleteHostDevice() {
 
 func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
 	// Blacklist allocation of the external IP
-	d.ipam.Blacklist(family.PrimaryExternal(), "node-ip")
+	d.ipam.BlacklistIP(family.PrimaryExternal(), "node-ip")
 
 	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
 	// In that case, removal and re-creation of the cilium_host is

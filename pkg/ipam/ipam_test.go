@@ -73,7 +73,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
 	nextIP(ipv4)
 
-	ipam.Blacklist(ipv4, "test")
+	ipam.BlacklistIP(ipv4, "test")
 	err := ipam.AllocateIP(ipv4, "test")
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv4)
@@ -82,7 +82,7 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	ipv6 := net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 	nextIP(ipv6)
 
-	ipam.Blacklist(ipv6, "test")
+	ipam.BlacklistIP(ipv6, "test")
 	err = ipam.AllocateIP(ipv6, "test")
 	c.Assert(err, Not(IsNil))
 	ipam.ReleaseIP(ipv6)

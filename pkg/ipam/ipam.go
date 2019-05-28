@@ -62,7 +62,7 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 		nodeAddressing: nodeAddressing,
 		config:         c,
 		owner:          map[string]string{},
-		blacklist:      map[string]string{},
+		blacklist:      IPBlacklist{},
 	}
 
 	log.WithFields(logrus.Fields{
@@ -124,9 +124,7 @@ func (ipam *IPAM) reserveLocalRoutes() {
 		}
 
 		log.WithField("route", r.Dst).Info("Blacklisting local route as no-alloc")
-		for ip := r.Dst.IP.Mask(r.Dst.Mask); r.Dst.Contains(ip); nextIP(ip) {
-			ipam.Blacklist(ip, "local route: "+r.Dst.String())
-		}
+		ipam.BlacklistIPNet(*r.Dst, "local route: "+r.Dst.String())
 	}
 }
 
@@ -142,11 +140,22 @@ func (ipam *IPAM) ReserveLocalRoutes() {
 	}
 }
 
-// Blacklist ensures that a certain IP is never allocated. It is preferred to
-// use Blacklist() instead of allocating the IP as the allocation block can
+// BlacklistIP ensures that a certain IP is never allocated. It is preferred to
+// use BlacklistIP() instead of allocating the IP as the allocation block can
 // change and suddenly cover the IP to be blacklisted.
-func (ipam *IPAM) Blacklist(ip net.IP, owner string) {
+func (ipam *IPAM) BlacklistIP(ip net.IP, owner string) {
 	ipam.allocatorMutex.Lock()
-	ipam.blacklist[ip.String()] = owner
+	ipam.blacklist.ips[ip.String()] = owner
+	ipam.allocatorMutex.Unlock()
+}
+
+// BlacklistIPNet ensures that a certain IPNetwork is never allocated, similar
+// to BlacklistIP.
+func (ipam *IPAM) BlacklistIPNet(ipNet net.IPNet, owner string) {
+	ipam.allocatorMutex.Lock()
+	ipam.blacklist.ipNets = append(ipam.blacklist.ipNets, &IPNetWithOwner{
+		ipNet: ipNet,
+		owner: owner,
+	})
 	ipam.allocatorMutex.Unlock()
 }
