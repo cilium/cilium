@@ -15,11 +15,17 @@
 package main
 
 import (
+	"fmt"
+	"net"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -133,4 +139,190 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	status.Allocations = allocv4
 
 	return status
+}
+
+func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (routerIP net.IP, err error) {
+	// Blacklist allocation of the external IP
+	d.ipam.BlacklistIP(family.PrimaryExternal(), "node-ip")
+
+	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
+	// In that case, removal and re-creation of the cilium_host is
+	// required. It will also cause disruption of networking until all
+	// endpoints have been regenerated.
+	routerIP = family.Router()
+	if routerIP != nil {
+		err = d.ipam.AllocateIP(routerIP, "router")
+		if err != nil {
+			log.Warningf("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
+
+			// The restored router IP is not part of the allocation range.
+			// This indicates that the allocation range has changed.
+			if !option.Config.IsFlannelMasterDeviceSet() {
+				deleteHostDevice()
+			}
+
+			// force re-allocation of the router IP
+			routerIP = nil
+		}
+	}
+
+	if routerIP == nil {
+		routerIP, err = d.ipam.AllocateNextFamily(ipam.DeriveFamily(family.PrimaryExternal()), "router")
+		if err != nil {
+			err = fmt.Errorf("Unable to allocate IPv4 router IP: %s", err)
+			return
+		}
+	}
+
+	return
+}
+
+func (d *Daemon) allocateHealthIPs() error {
+	bootstrapStats.healthCheck.Start()
+	if option.Config.EnableHealthChecking {
+		if option.Config.EnableIPv4 {
+			health4, err := d.ipam.AllocateNextFamily(ipam.IPv4, "health")
+			if err != nil {
+				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+			}
+
+			d.nodeDiscovery.LocalNode.IPv4HealthIP = health4
+			log.Debugf("IPv4 health endpoint address: %s", health4)
+		}
+
+		if option.Config.EnableIPv6 {
+			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6, "health")
+			if err != nil {
+				if d.nodeDiscovery.LocalNode.IPv4HealthIP != nil {
+					d.ipam.ReleaseIP(d.nodeDiscovery.LocalNode.IPv4HealthIP)
+				}
+				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
+			}
+
+			d.nodeDiscovery.LocalNode.IPv6HealthIP = health6
+			log.Debugf("IPv6 health endpoint address: %s", health6)
+		}
+	}
+	bootstrapStats.healthCheck.End(true)
+	return nil
+}
+
+func (d *Daemon) allocateIPs() error {
+	bootstrapStats.ipam.Start()
+	if option.Config.EnableIPv4 {
+		routerIP, err := d.allocateDatapathIPs(d.datapath.LocalNodeAddressing().IPv4())
+		if err != nil {
+			return err
+		}
+		if routerIP != nil {
+			node.SetInternalIPv4(routerIP)
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		routerIP, err := d.allocateDatapathIPs(d.datapath.LocalNodeAddressing().IPv6())
+		if err != nil {
+			return err
+		}
+		if routerIP != nil {
+			node.SetIPv6Router(routerIP)
+		}
+	}
+
+	log.Info("Addressing information:")
+	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
+	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
+	log.Infof("  Local node-name: %s", node.GetName())
+	log.Infof("  Node-IPv6: %s", node.GetIPv6())
+
+	if option.Config.EnableIPv6 {
+		log.Infof("  IPv6 node prefix: %s", node.GetIPv6NodeRange())
+		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
+
+		if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {
+			log.WithError(err).Fatal("Unable to list local IPv6 addresses")
+		} else {
+			log.Info("  Local IPv6 addresses:")
+			for _, ip := range addrs {
+				log.Infof("  - %s", ip)
+			}
+		}
+	}
+
+	log.Infof("  External-Node IPv4: %s", node.GetExternalIPv4())
+	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4())
+
+	if option.Config.EnableIPv4 {
+		log.Infof("  Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
+		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
+
+		// Allocate IPv4 service loopback IP
+		loopbackIPv4 := net.ParseIP(option.Config.LoopbackIPv4)
+		if loopbackIPv4 == nil {
+			return fmt.Errorf("Invalid IPv4 loopback address %s", option.Config.LoopbackIPv4)
+		}
+		node.SetIPv4Loopback(loopbackIPv4)
+		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
+
+		if addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses(); err != nil {
+			log.WithError(err).Fatal("Unable to list local IPv4 addresses")
+		} else {
+			log.Info("  Local IPv4 addresses:")
+			for _, ip := range addrs {
+				log.Infof("  - %s", ip)
+			}
+		}
+	}
+	bootstrapStats.ipam.End(true)
+	return d.allocateHealthIPs()
+}
+
+func (d *Daemon) bootstrapIPAM() {
+	// If the device has been specified, the IPv4AllocPrefix and the
+	// IPv6AllocPrefix were already allocated before the k8s.Init().
+	//
+	// If the device hasn't been specified, k8s.Init() allocated the
+	// IPv4AllocPrefix and the IPv6AllocPrefix from k8s node annotations.
+	//
+	// If k8s.Init() failed to retrieve the IPv4AllocPrefix we can try to derive
+	// it from an existing node_config.h file or from previous cilium_host
+	// interfaces.
+	//
+	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
+	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
+	bootstrapStats.ipam.Start()
+	log.Info("Initializing node addressing")
+
+	node.SetIPv4ClusterCidrMaskSize(option.Config.IPv4ClusterCIDRMaskSize)
+
+	if option.Config.IPv4Range != AutoCIDR {
+		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
+		if err != nil {
+			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
+		}
+		node.SetIPv4AllocRange(allocCIDR)
+	}
+
+	if option.Config.IPv6Range != AutoCIDR {
+		_, net, err := net.ParseCIDR(option.Config.IPv6Range)
+		if err != nil {
+			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
+		}
+
+		if err := node.SetIPv6NodeRange(net); err != nil {
+			log.WithError(err).WithField(logfields.V6Prefix, net).Fatal("Invalid per node IPv6 allocation prefix")
+		}
+	}
+
+	if err := node.AutoComplete(); err != nil {
+		log.WithError(err).Fatal("Cannot autocomplete node addresses")
+	}
+
+	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
+	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), ipam.Configuration{
+		EnableIPv4: option.Config.EnableIPv4,
+		EnableIPv6: option.Config.EnableIPv6,
+	})
+	bootstrapStats.ipam.End(true)
 }
