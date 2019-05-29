@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@
 #include "lib/policy.h"
 
 #ifdef ENABLE_IPV6
-static inline int handle_ipv6(struct __sk_buff *skb)
+static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 {
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
@@ -50,9 +50,12 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	if (!decrypted) {
+	if (decrypted) {
+		*identity = get_identity(skb);
+	} else {
 		if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
+		*identity = key.tunnel_id;
 	}
 
 	cilium_dbg(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -123,7 +126,7 @@ to_host:
 
 #ifdef ENABLE_IPV4
 
-static inline int handle_ipv4(struct __sk_buff *skb)
+static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 {
 	void *data_end, *data;
 	struct iphdr *ip4;
@@ -137,9 +140,12 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 		return DROP_INVALID;
 
 	/* If packets are decrypted the key has already been pushed into metadata. */
-	if (!decrypted) {
+	if (decrypted) {
+		*identity = get_identity(skb);
+	} else {
 		if (unlikely(skb_get_tunnel_key(skb, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
+		*identity = key.tunnel_id;
 	}
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
@@ -201,10 +207,11 @@ to_host:
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
-	int ret = handle_ipv4(skb);
+	__u32 src_identity = 0;
+	int ret = handle_ipv4(skb, &src_identity);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
+		return send_drop_notify_error(skb, src_identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -214,6 +221,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
+	__u32 src_identity = 0;
 	__u16 proto;
 	int ret;
 
@@ -241,7 +249,7 @@ int from_overlay(struct __sk_buff *skb)
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
 		/* This is considered the fast path, no tail call */
-		ret = handle_ipv6(skb);
+		ret = handle_ipv6(skb, &src_identity);
 #else
 		ret = DROP_UNKNOWN_L3;
 #endif
@@ -263,7 +271,7 @@ int from_overlay(struct __sk_buff *skb)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
+		return send_drop_notify_error(skb, src_identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
 	else
 		return ret;
 }

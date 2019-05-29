@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -90,7 +90,7 @@ static inline int arp_respond(struct __sk_buff *skb, union macaddr *mac, int dir
 	return TC_ACT_OK;
 
 error:
-	return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_EGRESS);
+	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
 }
 
 #endif /* __LIB_ARP__ */

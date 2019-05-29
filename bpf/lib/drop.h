@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -116,10 +116,10 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 
 #endif
 
-static inline int send_drop_notify_error(struct __sk_buff *skb, int error,
+static inline int send_drop_notify_error(struct __sk_buff *skb, __u32 src, int error,
                                          int exitcode, __u8 direction)
 {
-	return send_drop_notify(skb, 0, 0, 0, error, exitcode, direction);
+	return send_drop_notify(skb, src, 0, 0, error, exitcode, direction);
 }
 
 #endif /* __LIB_DROP__ */
