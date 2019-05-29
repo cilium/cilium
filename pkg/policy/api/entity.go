@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ var (
 
 	endpointSelectorInit = NewESFromLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
 
-	endpointSelectorNone = NewESFromLabels(labels.NewLabel(labels.IDNameNone, "", labels.LabelSourceReserved))
+	EndpointSelectorNone = NewESFromLabels(labels.NewLabel(labels.IDNameNone, "", labels.LabelSourceReserved))
 
 	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
 
@@ -64,7 +64,7 @@ var (
 		EntityWorld: {endpointSelectorWorld},
 		EntityHost:  {endpointSelectorHost},
 		EntityInit:  {endpointSelectorInit},
-		EntityNone:  {endpointSelectorNone},
+		EntityNone:  {EndpointSelectorNone},
 
 		// EntityCluster is populated with an empty entry to allow the
 		// cilium client importing this package to perform basic rule
