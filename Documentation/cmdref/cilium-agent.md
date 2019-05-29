@@ -17,6 +17,7 @@ cilium-agent [flags]
 ```
       --access-log string                                     Path to access log of supported L7 requests observed
       --agent-labels strings                                  Additional labels to identify this agent
+      --allow-icmp-frag-needed                                Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                                Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
       --annotate-k8s-node                                     Annotate Kubernetes node (default true)
       --auto-create-cilium-node-resource                      Automatically create CiliumNode resource for own node on startup (default true)

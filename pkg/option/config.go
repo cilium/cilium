@@ -53,6 +53,9 @@ const (
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
 
+	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in policy.
+	AllowICMPFragNeeded = "allow-icmp-frag-needed"
+
 	// AllowLocalhost is the policy when to allow local stack to reach local endpoints { auto | always | policy }
 	AllowLocalhost = "allow-localhost"
 
@@ -1178,6 +1181,10 @@ type DaemonConfig struct {
 	// DisableCNPStatusUpdates disables updating of CNP NodeStatus in the CNP
 	// CRD.
 	DisableCNPStatusUpdates bool
+
+	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in
+	// the network policy for cilium-agent.
+	AllowICMPFragNeeded bool
 }
 
 var (
@@ -1210,6 +1217,7 @@ var (
 		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
+		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 	}
 )
 
@@ -1501,6 +1509,7 @@ func (c *DaemonConfig) Populate() {
 
 	c.AccessLog = viper.GetString(AccessLog)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
+	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
