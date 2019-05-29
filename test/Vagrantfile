@@ -98,6 +98,8 @@ Vagrant.configure("2") do |config|
                 nfs: $NFS
             # Provision section
             server.vm.provision :shell,
+                :inline => "sudo sysctl -w net.ipv6.conf.all.forwarding=1"
+            server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
             server.vm.provision "file", source: "provision/", destination: "/tmp/"
             server.vm.provision "shell" do |sh|
