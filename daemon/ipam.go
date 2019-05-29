@@ -113,6 +113,9 @@ func (d *Daemon) DumpIPAM() *models.IPAMStatus {
 	}
 
 	v6 := []string{}
+	if allocv4 == nil {
+		allocv4 = map[string]string{}
+	}
 	for ip, owner := range allocv6 {
 		v6 = append(v6, ip)
 		// merge allocv6 into allocv4
