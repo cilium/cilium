@@ -75,7 +75,7 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// so we need to wait until 5 pods are in ready state.
 	// This is to avoid cases where a few pods are ready, but the
 	// new one is not created yet.
-	By("Waiting for all etcd-operator pods are ready")
+	By("Waiting for all etcd-operator pods to be ready")
 
 	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l io.cilium/app=etcd-operator", 5, longTimeout)
 	warningMessage := ""
