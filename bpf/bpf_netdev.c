@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@
 #include "lib/nat.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
-static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
+static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
 	 * cilium_host (peer) to ensure the packet is being considered to be
@@ -59,7 +59,7 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb)
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(skb, (__u8 *) &cilium_net_mac.addr, 0) < 0)
-		return send_drop_notify_error(skb, DROP_WRITE_ERROR, TC_ACT_OK, METRIC_INGRESS);
+		return send_drop_notify_error(skb, src_identity, DROP_WRITE_ERROR, TC_ACT_OK, METRIC_INGRESS);
 
 	return TC_ACT_OK;
 }
@@ -152,7 +152,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
-		ret = rewrite_dmac_to_host(skb);
+		ret = rewrite_dmac_to_host(skb, secctx);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
 			return ret;
@@ -289,7 +289,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
-		ret = rewrite_dmac_to_host(skb);
+		ret = rewrite_dmac_to_host(skb, secctx);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
 			return ret;
@@ -376,7 +376,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 	skb->cb[CB_SRC_IDENTITY] = 0;
 	ret = handle_ipv4(skb, proxy_identity);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
+		return send_drop_notify_error(skb, proxy_identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	return ret;
 }
@@ -442,7 +442,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 		/* We should only be seeing an error here for packets which have
 		 * been targetting an endpoint managed by us. */
 		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, ret, TC_ACT_SHOT, METRIC_INGRESS);
+			return send_drop_notify_error(skb, identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
 		break;
 #endif
 
@@ -455,7 +455,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 		 *
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed. */
-		return send_drop_notify_error(skb, DROP_MISSED_TAIL_CALL,
+		return send_drop_notify_error(skb, identity, DROP_MISSED_TAIL_CALL,
 		                              TC_ACT_OK, METRIC_INGRESS);
 
 #endif

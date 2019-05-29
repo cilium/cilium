@@ -903,7 +903,7 @@ static __always_inline int snat_process(struct __sk_buff *skb, int dir)
 	      skb->protocol == bpf_htons(ETH_P_IPV6) ? snat_v6_process(skb, dir) :
 	      TC_ACT_OK;
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, dir);
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, dir);
 #endif
 	return ret;
 }

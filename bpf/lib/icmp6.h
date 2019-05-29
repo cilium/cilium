@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -126,7 +126,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_ECHO_REPLY) int tail_icm
 	skb->cb[0] = 0;
 	ret = __icmp6_send_echo_reply(skb, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, direction);
 
 	return ret;
 }
@@ -312,7 +312,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED) int tail_
 	skb->cb[0] = 0;
 	ret = __icmp6_send_time_exceeded(skb, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, direction);
 
 	return ret;
 #else
@@ -368,7 +368,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_han
 	skb->cb[0] = 0;
 	ret = __icmp6_handle_ns(skb, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, ret, TC_ACT_SHOT, direction);
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, direction);
 
 	return ret;
 }
