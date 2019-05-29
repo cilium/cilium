@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ func (r *PortRuleDNS) Sanitize() error {
 // any toFQDNs rules means the endpoint must enforce policy, but the IPs are later
 // added as toCIDRSet entries and processed as such.
 func (s *FQDNSelector) GetAsEndpointSelectors() EndpointSelectorSlice {
-	return []EndpointSelector{endpointSelectorNone}
+	return []EndpointSelector{EndpointSelectorNone}
 }
 
 // FQDNSelectorSlice is a wrapper type for []FQDNSelector to make is simpler to
