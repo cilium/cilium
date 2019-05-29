@@ -99,7 +99,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 	}
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(p.SelectorCache,
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(
 			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
 	}
 
