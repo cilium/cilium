@@ -314,18 +314,18 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
 					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL, detail)
-					if versionInfo < nonce {
-						// versions after VersionInfo, upto and including ResponseNonce are NACKed
-						requestLog.Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
-						// Watcher will behave as if the sent version was acked.
-						// Otherwise we will just be sending the same failing
-						// version over and over filling logs.
-						versionInfo = state.version
-					}
-
 				} else {
 					requestLog.Debug("ACK received but no observers are waiting for ACKs")
 				}
+				if versionInfo < nonce {
+					// versions after VersionInfo, upto and including ResponseNonce are NACKed
+					requestLog.Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
+					// Watcher will behave as if the sent version was acked.
+					// Otherwise we will just be sending the same failing
+					// version over and over filling logs.
+					versionInfo = state.version
+				}
+
 				if state.pendingWatchCancel != nil {
 					// A pending watch exists for this type URL. Cancel it to
 					// start a new watch.
