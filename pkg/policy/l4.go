@@ -146,20 +146,26 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
-	// The BPF datapath only supports a value of '0' for identity (wildcarding
-	// at L3) if there is a corresponding port (i.e., a non-zero port).
-	// Wildcarding at L3 and L4 at the same time is not understood by the
-	// datapath at this time. So, if we have L3-only policy (e.g., port == 0),
-	// we need to explicitly allow each identity at port 0.
-	if l4.AllowsAllAtL3() && l4.Port != 0 {
-		keyToAdd := Key{
-			Identity: 0,
-			// NOTE: Port is in host byte-order!
-			DestPort:         port,
-			Nexthdr:          proto,
-			TrafficDirection: direction.Uint8(),
+	if l4.AllowsAllAtL3() {
+		if l4.Port == 0 {
+			// Allow-all
+			keyToAdd := Key{
+				DestPort:         0,
+				Nexthdr:          0,
+				TrafficDirection: direction.Uint8(),
+			}
+			keysToAdd = append(keysToAdd, keyToAdd)
+		} else {
+			// L4 allow
+			keyToAdd := Key{
+				Identity: 0,
+				// NOTE: Port is in host byte-order!
+				DestPort:         port,
+				Nexthdr:          proto,
+				TrafficDirection: direction.Uint8(),
+			}
+			keysToAdd = append(keysToAdd, keyToAdd)
 		}
-		keysToAdd = append(keysToAdd, keyToAdd)
 		if !l4.HasL3DependentL7Rules() {
 			return keysToAdd
 		} // else we need to calculate all L3-dependent L4 peers below.
