@@ -505,7 +505,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// We will leak the master key here as the key has already been
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
-		a.localKeys.release(k)
+		releaseKeyAndID()
 		return 0, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
 	}
 
