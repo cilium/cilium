@@ -62,7 +62,7 @@ CILIUM_CONTAINERD= \
   $(ETCD_OPERATOR) \
   cilium-rbac.yaml
 
-all: transform cilium.yaml cilium-crio.yaml cilium-containerd.yaml cilium-microk8s.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml
+all: transform cilium.yaml cilium-crio.yaml cilium-containerd.yaml cilium-microk8s.yaml cilium-minikube.yaml cilium-external-etcd.yaml cilium-with-node-init.yaml cilium-pre-flight-with-rm-svc-v2.yaml
 
 %.sed:
 	for k8s_version in $(K8S_VERSIONS); do \
@@ -190,6 +190,28 @@ cilium-minikube.yaml:
             sed -i 's+/var/lib/etcd-secrets/etcd-client.crt+/var/lib/etcd-secrets/apiserver-etcd-client.crt+' cilium-minikube.yaml; \
             fi); \
             done
+
+cilium-pre-flight.yaml.sed:
+	for k8s_version in $(K8S_VERSIONS); do \
+	    (mkdir -p $$k8s_version && \
+	    cd $$k8s_version && \
+	    sed -f transforms2sed.sed ../templates/v1/$@ | \
+	    sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g | \
+	    sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g | \
+	    sed s+__CILIUM_ETCD_OPERATOR_VERSION__+$(CILIUM_ETCD_OPERATOR_VERSION)+g | \
+		sed /__CILIUM_RM_SVC_V2__/d > "cilium-pre-flight.yaml") \
+	done
+
+cilium-pre-flight-with-rm-svc-v2.yaml:
+	for k8s_version in $(K8S_VERSIONS); do \
+	    (mkdir -p $$k8s_version && \
+	    cd $$k8s_version && \
+	    sed -f transforms2sed.sed ../templates/v1/cilium-pre-flight.yaml.sed | \
+	    sed s+__CILIUM_INIT_VERSION__+$(CILIUM_INIT_VERSION)+g | \
+	    sed s+__CILIUM_ETCD_OPERATOR_VERSION__+$(CILIUM_ETCD_OPERATOR_VERSION)+g | \
+		sed -e '/__CILIUM_RM_SVC_V2__/{r ../templates/v1/rm-svc-v2.tpl' -e 'd}' | \
+	    sed s+__CILIUM_VERSION__+$(CILIUM_VERSION)+g > "cilium-pre-flight-with-rm-svc-v2.yaml") \
+	done
 
 clean:
 	for k8s_version in $(K8S_VERSIONS); do \
