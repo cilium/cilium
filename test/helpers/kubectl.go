@@ -546,7 +546,7 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 	}
 	for _, node := range strings.Split(data.Output().String(), " ") {
 		for _, label := range metadata {
-			kub.Exec(fmt.Sprintf("%s annotate nodes %s %s", KubectlCmd, node, label))
+			kub.Exec(fmt.Sprintf("%s annotate --overwrite nodes %s %s=''", KubectlCmd, node, label))
 		}
 	}
 	return nil
