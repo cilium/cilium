@@ -127,6 +127,14 @@ get_proxy_port:
 }
 #else
 
+static inline void __inline__
+account(struct __sk_buff *skb, struct policy_entry *policy)
+{
+	/* FIXME: Use per cpu counters */
+	__sync_fetch_and_add(&policy->packets, 1);
+	__sync_fetch_and_add(&policy->bytes, skb->len);
+}
+
 static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, int dir, bool is_fragment)
@@ -147,9 +155,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 			cilium_dbg3(skb, DBG_L4_CREATE, identity, SECLABEL,
 				    dport << 16 | proto);
 
-			/* FIXME: Use per cpu counters */
-			__sync_fetch_and_add(&policy->packets, 1);
-			__sync_fetch_and_add(&policy->bytes, skb->len);
+			account(skb, policy);
 			goto get_proxy_port;
 		}
 	}
@@ -159,9 +165,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		/* FIXME: Use per cpu counters */
-		__sync_fetch_and_add(&policy->packets, 1);
-		__sync_fetch_and_add(&policy->bytes, skb->len);
+		account(skb, policy);
 		return TC_ACT_OK;
 	}
 
@@ -171,9 +175,7 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		key.protocol = proto;
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
-			/* FIXME: Use per cpu counters */
-			__sync_fetch_and_add(&policy->packets, 1);
-			__sync_fetch_and_add(&policy->bytes, skb->len);
+			account(skb, policy);
 			goto get_proxy_port;
 		}
 	}
