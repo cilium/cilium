@@ -178,6 +178,16 @@ __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 			account(skb, policy);
 			goto get_proxy_port;
 		}
+		key.dport = 0;
+		key.protocol = 0;
+	}
+
+	/* Final fallback if allow-all policy is in place. */
+	key.sec_label = 0;
+	policy = map_lookup_elem(map, &key);
+	if (policy) {
+		account(skb, policy);
+		return TC_ACT_OK;
 	}
 
 	if (skb->cb[CB_POLICY])
