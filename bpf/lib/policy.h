@@ -18,6 +18,8 @@
 #ifndef __LIB_POLICY_H_
 #define __LIB_POLICY_H_
 
+#include <linux/icmp.h>
+
 #include "drop.h"
 #include "dbg.h"
 #include "eps.h"
@@ -145,6 +147,27 @@ static inline int __inline__
 __policy_can_access(void *map, struct __sk_buff *skb, __u32 identity,
 		    __u16 dport, __u8 proto, int dir, bool is_fragment)
 {
+#ifdef ALLOW_ICMP_FRAG_NEEDED
+	// When ALLOW_ICMP_FRAG_NEEDED is defined we allow all packets
+	// of ICMP type 3 code 4 - Fragmentation Needed
+	if (proto == IPPROTO_ICMP) {
+		void *data, *data_end;
+		struct icmphdr icmphdr;
+		struct iphdr *ip4;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		__u32 off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+
+		if (skb_load_bytes(skb, off, &icmphdr, sizeof(icmphdr)) < 0)
+			return DROP_INVALID;
+
+		if(icmphdr.type == ICMP_DEST_UNREACH && icmphdr.code == ICMP_FRAG_NEEDED)
+			return TC_ACT_OK;
+	}
+#endif /* ALLOW_ICMP_FRAG_NEEDED */
+
 	struct policy_entry *policy;
 
 	struct policy_key key = {

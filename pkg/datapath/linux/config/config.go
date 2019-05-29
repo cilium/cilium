@@ -284,6 +284,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		fmt.Fprintf(fw, "\n// JSON_OUTPUT: %s\n", encodedConfig)
 	}
 
+	if option.Config.AllowICMPFragNeeded {
+		fmt.Fprintf(fw, "#define ALLOW_ICMP_FRAG_NEEDED 1\n")
+	}
+
 	return fw.Flush()
 }
 
