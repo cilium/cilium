@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,21 +80,23 @@ func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
 // AllowAllIdentities translates all identities in selectorCache to their
 // corresponding Keys in the specified direction (ingress, egress) which allows
 // all at L3.
-func (keys MapState) AllowAllIdentities(selectorCache *SelectorCache, ingress, egress bool) {
-	selectorCache.ForEachIdentity(func(identity identity.NumericIdentity) {
-		if ingress {
-			keyToAdd := Key{
-				Identity:         identity.Uint32(),
-				TrafficDirection: trafficdirection.Ingress.Uint8(),
-			}
-			keys[keyToAdd] = MapStateEntry{}
+func (keys MapState) AllowAllIdentities(ingress, egress bool) {
+	if ingress {
+		keyToAdd := Key{
+			Identity:         0,
+			DestPort:         0,
+			Nexthdr:          0,
+			TrafficDirection: trafficdirection.Ingress.Uint8(),
 		}
-		if egress {
-			keyToAdd := Key{
-				Identity:         identity.Uint32(),
-				TrafficDirection: trafficdirection.Egress.Uint8(),
-			}
-			keys[keyToAdd] = MapStateEntry{}
+		keys[keyToAdd] = MapStateEntry{}
+	}
+	if egress {
+		keyToAdd := Key{
+			Identity:         0,
+			DestPort:         0,
+			Nexthdr:          0,
+			TrafficDirection: trafficdirection.Egress.Uint8(),
 		}
-	})
+		keys[keyToAdd] = MapStateEntry{}
+	}
 }
