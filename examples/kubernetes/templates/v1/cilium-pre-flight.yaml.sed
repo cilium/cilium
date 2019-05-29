@@ -32,6 +32,7 @@ spec:
           command: ["/bin/echo"]
           args:
           - "hello"
+__CILIUM_RM_SVC_V2__
       containers:
         - image: docker.io/cilium/cilium:__CILIUM_VERSION__
           imagePullPolicy: Always
@@ -75,3 +76,7 @@ spec:
           path: /var/run/cilium
           type: DirectoryOrCreate
         name: cilium-run
+      - hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+        name: bpf-maps
