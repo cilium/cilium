@@ -37,7 +37,7 @@ const (
 
 	// MaxSetOfBackendID is maximum number of set of backendIDs IDs that can be
 	// stored in the local ID allocator.
-	MaxSetOfBackendID = uint32(0xFFFFFFFF)
+	MaxSetOfBackendID = uint32(0xFFFF)
 
 	serviceKvstorePrefix = common.OperationalPath + "/ServicesV2/"
 )
