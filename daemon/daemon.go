@@ -51,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -628,8 +627,8 @@ func (d *Daemon) initMaps() error {
 
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncLXCMap().
+	// xDS cache will be added later by calling AddListener(), but only if necessary.
 	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
-		&envoy.NetworkPolicyHostsCache,
 		bpfIPCache.NewListener(d),
 	})
 

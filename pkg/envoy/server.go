@@ -166,7 +166,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 
 	nphdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      NetworkPolicyHostsCache,
-		AckObserver: nil, // We don't wait for ACKs for those resources.
+		AckObserver: &NetworkPolicyHostsCache,
 	}
 
 	stopServer := startXDSGRPCServer(socketListener, ldsConfig, npdsConfig, nphdsConfig, 5*time.Second)

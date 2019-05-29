@@ -17,6 +17,7 @@ package envoy
 import (
 	"net"
 	"sort"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
+	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,7 +55,17 @@ var (
 	// NetworkPolicyHosts. Resources in this cache must have the
 	// NetworkPolicyHostsTypeURL type URL.
 	NetworkPolicyHostsCache = newNPHDSCache()
+
+	observerOnce = sync.Once{}
 )
+
+// HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
+func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
+	// Start caching for IP/ID mappings on the first indication someone wants them
+	observerOnce.Do(func() {
+		ipcache.IPIdentityCache.AddListener(cache)
+	})
+}
 
 // OnIPIdentityCacheGC is required to implement IPIdentityMappingListener.
 func (cache *NPHDSCache) OnIPIdentityCacheGC() {
