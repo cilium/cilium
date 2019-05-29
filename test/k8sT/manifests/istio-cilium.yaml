@@ -832,7 +832,7 @@ data:
         command: ['sh', '-c', 'max=120; i=0; until nslookup kube-dns.kube-system.svc.cluster.local; do i=$((i + 1)); if [ $i -eq $max ]; then echo timed-out; exit 1; else sleep 1; fi done ']
       [[ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) "NONE" ]]
       - name: istio-init
-        image: "docker.io/istio/proxy_init:1.1.3"
+        image: "docker.io/istio/proxy_init:1.1.7"
         args:
         - "-p"
         - [[ .MeshConfig.ProxyListenPort ]]
@@ -866,11 +866,12 @@ data:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
         restartPolicy: Always
       [[ end -]]
       containers:
       - name: istio-proxy
-        image: [[ annotation .ObjectMeta `sidecar.istio.io/proxyImage`  "docker.io/cilium/istio_proxy:1.1.3"  ]]
+        image: [[ annotation .ObjectMeta `sidecar.istio.io/proxyImage`  "docker.io/cilium/istio_proxy:1.1.7"  ]]
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -967,6 +968,7 @@ data:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           runAsGroup: 1337
           [[ else -]]
           
@@ -984,13 +986,15 @@ data:
         [[ else -]]
           limits:
             cpu: 2000m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
             cpu: 100m
             memory: 128Mi
           
         [[ end -]]
         volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: cilium-bpf-maps
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
         [[- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) ]]
@@ -1009,6 +1013,9 @@ data:
           [[ end ]]
           [[- end ]]
       volumes:
+      - hostPath:
+          path: /sys/fs/bpf
+        name: cilium-bpf-maps
       - hostPath:
           path: /var/run/cilium
         name: cilium-unix-sock-dir
@@ -1173,7 +1180,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-cleanup-secrets-1.1.3
+  name: istio-cleanup-secrets-1.1.7
   namespace: istio-system
   annotations:
     "helm.sh/hook": post-delete
@@ -1197,7 +1204,7 @@ spec:
       serviceAccountName: istio-cleanup-secrets-service-account
       containers:
         - name: kubectl
-          image: "docker.io/istio/kubectl:1.1.3"
+          image: "docker.io/istio/kubectl:1.1.7"
           imagePullPolicy: IfNotPresent
           command:
           - /bin/bash
@@ -1301,7 +1308,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job	
 metadata:	
-  name: istio-security-post-install-1.1.3	
+  name: istio-security-post-install-1.1.7	
   namespace: istio-system	
   annotations:	
     "helm.sh/hook": post-install	
@@ -1324,7 +1331,7 @@ spec:
       serviceAccountName: istio-security-post-install-account	
       containers:	
         - name: kubectl	
-          image: "docker.io/istio/kubectl:1.1.3"	
+          image: "docker.io/istio/kubectl:1.1.7"	
           imagePullPolicy: IfNotPresent	
           command: [ "/bin/bash", "/tmp/security/run.sh", "/tmp/security/custom-resources.yaml" ]	
           volumeMounts:	
@@ -1999,7 +2006,7 @@ spec:
       serviceAccountName: istio-galley-service-account
       containers:
         - name: galley
-          image: "docker.io/istio/galley:1.1.3"
+          image: "docker.io/istio/galley:1.1.7"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 443
@@ -2013,10 +2020,12 @@ spec:
           - --livenessProbePath=/healthliveness
           - --readinessProbePath=/healthready
           - --readinessProbeInterval=1s
+          - --deployment-namespace=istio-system
           - --insecure=false
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort=15014
+          - --log_output_level=default:info
           volumeMounts:
           - name: certs
             mountPath: /etc/certs
@@ -2122,7 +2131,7 @@ spec:
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
-          image: "docker.io/cilium/istio_proxy:1.1.3"
+          image: "docker.io/cilium/istio_proxy:1.1.7"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 15020
@@ -2142,8 +2151,7 @@ spec:
           - router
           - --domain
           - $(POD_NAMESPACE).svc.cluster.local
-          - --log_output_level
-          - 'info'
+          - --log_output_level=default:info
           - --drainDuration
           - '45s' #drainDuration
           - --parentShutdownDuration
@@ -2175,7 +2183,7 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 256Mi
+              memory: 1024Mi
             requests:
               cpu: 100m
               memory: 128Mi
@@ -2352,7 +2360,7 @@ spec:
                 - s390x      
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.1.3"
+        image: "docker.io/istio/mixer:1.1.7"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15014
@@ -2361,6 +2369,7 @@ spec:
           - --monitoringPort=15014
           - --address
           - unix:///sock/mixer.socket
+          - --log_output_level=default:info
           - --configStoreURL=mcps://istio-galley.istio-system.svc:9901
           - --configDefaultNamespace=istio-system
           - --useAdapterCRDs=true
@@ -2387,7 +2396,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/cilium/istio_proxy:1.1.3"
+        image: "docker.io/cilium/istio_proxy:1.1.7"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2424,7 +2433,7 @@ spec:
         resources:
           limits:
             cpu: 2000m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -2519,7 +2528,7 @@ spec:
                 - s390x      
       containers:
       - name: mixer
-        image: "docker.io/istio/mixer:1.1.3"
+        image: "docker.io/istio/mixer:1.1.7"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15014
@@ -2528,6 +2537,7 @@ spec:
           - --monitoringPort=15014
           - --address
           - unix:///sock/mixer.socket
+          - --log_output_level=default:info
           - --configStoreURL=mcps://istio-galley.istio-system.svc:9901
           - --certFile=/etc/certs/cert-chain.pem
           - --keyFile=/etc/certs/key.pem
@@ -2568,7 +2578,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
-        image: "docker.io/cilium/istio_proxy:1.1.3"
+        image: "docker.io/cilium/istio_proxy:1.1.7"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -2605,7 +2615,7 @@ spec:
         resources:
           limits:
             cpu: 2000m
-            memory: 128Mi
+            memory: 1024Mi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -2657,12 +2667,13 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
         - name: discovery
-          image: "docker.io/cilium/istio_pilot:1.1.3"
+          image: "docker.io/cilium/istio_pilot:1.1.7"
           imagePullPolicy: IfNotPresent
           args:
           - "discovery"
           - --plugins=authn,authz,health,mixer,envoyfilter,cilium
           - --monitoringAddr=:15014
+          - --log_output_level=default:info
           - --domain
           - cluster.local
           - --keepaliveMaxServerConnectionAge
@@ -2708,7 +2719,7 @@ spec:
             mountPath: /etc/certs
             readOnly: true
         - name: istio-proxy
-          image: "docker.io/cilium/istio_proxy:1.1.3"
+          image: "docker.io/cilium/istio_proxy:1.1.7"
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 15003
@@ -2744,7 +2755,7 @@ spec:
           resources:
             limits:
               cpu: 2000m
-              memory: 128Mi
+              memory: 1024Mi
             requests:
               cpu: 100m
               memory: 128Mi
@@ -2824,14 +2835,6 @@ spec:
         sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: prometheus
-      initContainers:
-      - name: prom-init
-        image: "busybox:1.30.1"
-        command: ['sh', '-c', 'counter=0; until [ "$counter" -ge 30 ]; do if [ -f /etc/istio-certs/key.pem ]; then exit 0; else echo waiting for istio certs && sleep 1 && counter=$((counter+1)); fi; done; exit 1;']
-        imagePullPolicy: IfNotPresent
-        volumeMounts:
-          - mountPath: /etc/istio-certs
-            name: istio-certs
       containers:
         - name: prometheus
           image: "docker.io/prom/prometheus:v2.3.1"
@@ -2866,7 +2869,6 @@ spec:
       - name: istio-certs
         secret:
           defaultMode: 420
-          optional: true
           secretName: istio.default
       affinity:      
         nodeAffinity:
@@ -2936,7 +2938,7 @@ spec:
       serviceAccountName: istio-citadel-service-account
       containers:
         - name: citadel
-          image: "docker.io/istio/citadel:1.1.3"
+          image: "docker.io/istio/citadel:1.1.7"
           imagePullPolicy: IfNotPresent
           args:
             - --append-dns-names=true

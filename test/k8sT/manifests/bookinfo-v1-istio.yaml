@@ -39,7 +39,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"ea70aaa61673cbb572dd129901db299c33d39225b176fdc9090574e60ebb1b27","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"3d3c003bd3193c765b0c8c8cb6fa19bdbb17fe97f020b521070c3512b1bf2973","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-bpf-maps","cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: details
@@ -111,7 +111,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"details","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.3
+        image: docker.io/cilium/istio_proxy:1.1.7
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -128,7 +128,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -136,9 +136,12 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: cilium-bpf-maps
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
         - mountPath: /etc/istio/proxy
@@ -172,7 +175,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.3
+        image: docker.io/istio/proxy_init:1.1.7
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -186,10 +189,14 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           runAsNonRoot: false
           runAsUser: 0
       terminationGracePeriodSeconds: 0
       volumes:
+      - hostPath:
+          path: /sys/fs/bpf
+        name: cilium-bpf-maps
       - hostPath:
           path: /var/run/cilium
         name: cilium-unix-sock-dir
@@ -229,7 +236,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"ea70aaa61673cbb572dd129901db299c33d39225b176fdc9090574e60ebb1b27","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"3d3c003bd3193c765b0c8c8cb6fa19bdbb17fe97f020b521070c3512b1bf2973","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-bpf-maps","cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: reviews
@@ -301,7 +308,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"reviews","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.3
+        image: docker.io/cilium/istio_proxy:1.1.7
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -318,7 +325,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -326,9 +333,12 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: cilium-bpf-maps
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
         - mountPath: /etc/istio/proxy
@@ -362,7 +372,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.3
+        image: docker.io/istio/proxy_init:1.1.7
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -376,10 +386,14 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           runAsNonRoot: false
           runAsUser: 0
       terminationGracePeriodSeconds: 0
       volumes:
+      - hostPath:
+          path: /sys/fs/bpf
+        name: cilium-bpf-maps
       - hostPath:
           path: /var/run/cilium
         name: cilium-unix-sock-dir
@@ -419,7 +433,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"ea70aaa61673cbb572dd129901db299c33d39225b176fdc9090574e60ebb1b27","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"3d3c003bd3193c765b0c8c8cb6fa19bdbb17fe97f020b521070c3512b1bf2973","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-bpf-maps","cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: productpage
@@ -491,7 +505,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"productpage","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.3
+        image: docker.io/cilium/istio_proxy:1.1.7
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -508,7 +522,7 @@ spec:
         resources:
           limits:
             cpu: "2"
-            memory: 128Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 128Mi
@@ -516,9 +530,12 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           readOnlyRootFilesystem: true
           runAsGroup: 1337
         volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: cilium-bpf-maps
         - mountPath: /var/run/cilium
           name: cilium-unix-sock-dir
         - mountPath: /etc/istio/proxy
@@ -552,7 +569,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.3
+        image: docker.io/istio/proxy_init:1.1.7
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -566,10 +583,14 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
           runAsNonRoot: false
           runAsUser: 0
       terminationGracePeriodSeconds: 0
       volumes:
+      - hostPath:
+          path: /sys/fs/bpf
+        name: cilium-bpf-maps
       - hostPath:
           path: /var/run/cilium
         name: cilium-unix-sock-dir
