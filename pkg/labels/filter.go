@@ -159,18 +159,15 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 	}
 
 	expressions := []string{
-		k8sConst.PodNamespaceLabel,                                   // include io.kubernetes.pod.namspace
-		k8sConst.PodNamespaceMetaLabels,                              // include all namespace labels
-		"!io.kubernetes",                                             // ignore all other io.kubernetes labels
-		"!.*kubernetes.io",                                           // ignore all other kubernetes.io labels (annotation.*.k8s.io)
-		"!pod-template-generation",                                   // ignore pod-template-generation
-		"!pod-template-hash",                                         // ignore pod-template-hash
-		"!controller-revision-hash",                                  // ignore controller-revision-hash
-		"!annotation." + k8sConst.CiliumK8sAnnotationPrefix,          // ignore all cilium annotations
-		"!annotation." + k8sConst.CiliumIdentityAnnotationDeprecated, // ignore all cilium annotations
-		"!annotation.sidecar.istio.io",                               // ignore all istio sidecar annotation labels
-		"!annotation.etcd.version",                                   // ignore all etcd.version annotations
-		"!etcd_node",                                                 // ignore etcd_node label
+		k8sConst.PodNamespaceLabel,      // include io.kubernetes.pod.namspace
+		k8sConst.PodNamespaceMetaLabels, // include all namespace labels
+		"!io.kubernetes",                // ignore all other io.kubernetes labels
+		"!.*kubernetes.io",              // ignore all other kubernetes.io labels (annotation.*.k8s.io)
+		"!pod-template-generation",      // ignore pod-template-generation
+		"!pod-template-hash",            // ignore pod-template-hash
+		"!controller-revision-hash",     // ignore controller-revision-hash
+		"!annotation.*",                 // ignore all annotation labels
+		"!etcd_node",                    // ignore etcd_node label
 	}
 
 	for _, e := range expressions {
