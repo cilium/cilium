@@ -50,6 +50,9 @@ const (
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
 
+	// Allow ICMP Fragmentation Needed type packets in policy.
+	AllowICMPFragNeeded = "allow-icmp-frag-needed"
+
 	// AllowLocalhost is the policy when to allow local stack to reach local endpoints { auto | always | policy }
 	AllowLocalhost = "allow-localhost"
 
@@ -975,6 +978,10 @@ type DaemonConfig struct {
 	// Cilium relevant information. This can be used to pass per node
 	// configuration to Cilium.
 	ReadCNIConfiguration string
+
+	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in
+	// the network policy for cilium-agent.
+	AllowICMPFragNeeded bool
 }
 
 var (
@@ -1002,6 +1009,7 @@ var (
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
+		AllowICMPFragNeeded:			defaults.AllowICMPFragNeeded
 	}
 )
 
@@ -1212,6 +1220,7 @@ func ReplaceDeprecatedFields(m map[string]interface{}) {
 func (c *DaemonConfig) Populate() {
 	c.AccessLog = viper.GetString(AccessLog)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
+	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)

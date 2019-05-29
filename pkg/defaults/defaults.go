@@ -240,4 +240,9 @@ const (
 	// MonitorBufferPages is the default number of pages to use for the
 	// ring buffer interacting with the kernel
 	MonitorBufferPages = 64
+
+	// AllowICMPFragNeeded is the default value for option.AllowICMPFragNeeded flag.
+	// It is enabled by default and directs that the ICMP Fragmentation needed type
+	// packets are allowed to enable TCP Path MTU.
+	AllowICMPFragNeeded = true
 )
