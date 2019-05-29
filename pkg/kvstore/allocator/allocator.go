@@ -488,17 +488,6 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, fmt.Errorf("another writer has allocated this key")
 	}
 
-	value, err = a.GetNoCache(ctx, key)
-	if err != nil {
-		releaseKeyAndID()
-		return 0, false, err
-	}
-
-	if value != 0 {
-		releaseKeyAndID()
-		return 0, false, fmt.Errorf("master key already exists")
-	}
-
 	// create /id/<ID> and fail if it already exists
 	keyPath := path.Join(a.idPrefix, strID)
 	success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
