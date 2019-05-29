@@ -32,6 +32,16 @@ spec:
           command: ["/bin/echo"]
           args:
           - "hello"
+        - name: rm-cilium-svc-v2
+          image: docker.io/cilium/cilium:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash"]
+          args:
+          - -c
+          - "rm /sys/fs/bpf/tc/globals/cilium_lb{4,6}_{services_v2,backends,rr_seq_v2}; true"
+          volumeMounts:
+          - mountPath: /sys/fs/bpf
+            name: bpf-maps
       containers:
         - image: docker.io/cilium/cilium:latest
           imagePullPolicy: Always
@@ -58,6 +68,7 @@ spec:
           - mountPath: /var/run/cilium
             name: cilium-run
       hostNetwork: true
+      priorityClassName: system-node-critical
       restartPolicy: Always
       tolerations:
         - effect: NoSchedule
