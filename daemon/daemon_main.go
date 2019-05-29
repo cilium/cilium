@@ -361,6 +361,9 @@ func init() {
 	flags.StringSlice(option.AgentLabels, []string{}, "Additional labels to identify this agent")
 	option.BindEnv(option.AgentLabels)
 
+	flags.Bool(option.AllowICMPFragNeeded, defaults.AllowICMPFragNeeded, "Annotate Kubernetes node")
+	option.BindEnv(option.AllowICMPFragNeeded)
+
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 

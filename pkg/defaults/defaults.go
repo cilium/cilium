@@ -245,4 +245,9 @@ const (
 	// handled. During this delay, the node can re-appear and the delete
 	// event is ignored.
 	NodeDeleteDelay = 30 * time.Second
+
+	// AllowICMPFragNeeded is the default value for option.AllowICMPFragNeeded flag.
+	// It is enabled by default and directs that the ICMP Fragmentation needed type
+	// packets are allowed to enable TCP Path MTU.
+	AllowICMPFragNeeded = true
 )
