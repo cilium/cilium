@@ -685,19 +685,6 @@ func (sc *SelectorCache) GetIDCacheRevision() uint64 {
 	return rev
 }
 
-// ForEachIdentity iterates through all identities in the selector
-// cache, calling the provided iteration function for each numeric
-// identity. Returns the current identity revision.
-func (sc *SelectorCache) ForEachIdentity(iter func(identity.NumericIdentity)) uint64 {
-	sc.mutex.Lock()
-	rev := sc.idCacheRevision
-	for nid := range sc.idCache {
-		iter(nid)
-	}
-	sc.mutex.Unlock()
-	return rev
-}
-
 // RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the
 // set of FQDNSelectors.
 func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelector) {
