@@ -133,6 +133,10 @@ type Allocator struct {
 	// being derived from the basePrefix.
 	valuePrefix string
 
+	// slaveKeysMutex protects the concurrent access of the slave key by this
+	// agent.
+	slaveKeysMutex lock.Mutex
+
 	// lockPrefix is the prefix to use for all kvstore locks. This prefix
 	// is different from the idPrefix and valuePrefix to simplify watching
 	// for ID and key changes.
@@ -450,6 +454,9 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	kvstore.Trace("kvstore state is: ", nil, logrus.Fields{fieldID: value})
 
 	if value != 0 {
+		a.slaveKeysMutex.Lock()
+		defer a.slaveKeysMutex.Unlock()
+
 		_, err := a.localKeys.allocate(k, value)
 		if err != nil {
 			return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
@@ -474,6 +481,9 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		a.localKeys.release(k)
 		a.idPool.Release(unmaskedID)
 	}
+
+	a.slaveKeysMutex.Lock()
+	defer a.slaveKeysMutex.Unlock()
 
 	oldID, err := a.localKeys.allocate(k, id)
 	if err != nil {
@@ -648,6 +658,10 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 	}
 
 	k := key.GetKey()
+
+	a.slaveKeysMutex.Lock()
+	defer a.slaveKeysMutex.Unlock()
+
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
 	lastUse, err = a.localKeys.release(k)
