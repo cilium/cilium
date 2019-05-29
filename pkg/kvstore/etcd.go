@@ -658,8 +658,8 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 
 // GetPrefix returns the first key which matches the prefix and its value
 func (e *etcdClient) GetPrefix(prefix string) (string, []byte, error) {
+	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix(), client.WithLimit(1))
 	increaseMetric(prefix, metricRead, "GetPrefix")
-	getR, err := e.client.Get(ctx.Background(), prefix, client.WithPrefix())
 	if err != nil {
 		return "", nil, Hint(err)
 	}
