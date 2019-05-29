@@ -801,7 +801,7 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 func (e *etcdClient) GetPrefix(ctx context.Context, prefix string) (string, []byte, error) {
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
-	getR, err := e.client.Get(ctx, prefix, client.WithPrefix())
+	getR, err := e.client.Get(ctx, prefix, client.WithPrefix(), client.WithLimit(1))
 	increaseMetric(prefix, metricRead, "GetPrefix", duration.EndError(err).Total(), err)
 	if err != nil {
 		return "", nil, Hint(err)
