@@ -231,6 +231,10 @@ var (
 				WithIngressRules([]api.IngressRule{{
 			FromEndpoints: []api.EndpointSelector{allowBarL3_},
 		}})
+	rule____AllowAll = api.NewRule().
+				WithIngressRules([]api.IngressRule{{
+			FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+		}})
 
 	// Misc other bpf key fields for convenience / readability.
 	l7RedirectNone_ = uint16(0)
@@ -241,6 +245,7 @@ var (
 	mapKeyAllowBar__ = Key{identityBar, 0, 0, dirIngress}
 	mapKeyAllowFooL4 = Key{identityFoo, 80, 6, dirIngress}
 	mapKeyAllow___L4 = Key{0, 80, 6, dirIngress}
+	mapKeyAllowAll__ = Key{0, 0, 0, dirIngress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = MapStateEntry{l7RedirectNone_}
 	mapEntryL7Proxy = MapStateEntry{l7RedirectProxy}
@@ -288,6 +293,12 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 
 	endpointSelected, _ := d.Repository.GetRulesMatching(epLabels)
 	io.WriteString(d.log, fmt.Sprintf("[distill] Endpoint selected by policy: %t\n", endpointSelected))
+	if !endpointSelected {
+		allowAllIngress := true
+		allowAllEgress := false // Skip egress
+		result.AllowAllIdentities(allowAllIngress, allowAllEgress)
+		return result, nil
+	}
 
 	// Prepare the L4 policy so we know whether L4 policy may apply
 	ingressL4 := SearchContext{
@@ -448,6 +459,47 @@ func Test_MergeRules(t *testing.T) {
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
+				_, _ = repo.AddList(api.Rules{rule})
+			}
+		}
+		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
+			logBuffer := new(bytes.Buffer)
+			repo = repo.WithLogBuffer(logBuffer)
+			mapstate, err := repo.distillPolicy(labelsFoo)
+			if err != nil {
+				t.Errorf("Policy resolution failure: %s", err)
+			}
+			if equal, err := checker.DeepEqual(mapstate, tt.result); !equal {
+				t.Logf("Rules:\n%s\n\n", tt.rules.String())
+				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
+				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+			}
+		})
+	}
+}
+
+func Test_AllowAll(t *testing.T) {
+	identityCache := cache.IdentityCache{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.NumericIdentity(identityBar): labelsBar,
+	}
+	selectorCache := NewSelectorCache(identityCache)
+
+	tests := []struct {
+		test     int
+		selector api.EndpointSelector
+		rules    api.Rules
+		result   MapState
+	}{
+		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_}},
+		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_}},
+	}
+
+	for _, tt := range tests {
+		repo := newPolicyDistillery(selectorCache)
+		for _, r := range tt.rules {
+			if r != nil {
+				rule := r.WithEndpointSelector(tt.selector)
 				_, _ = repo.AddList(api.Rules{rule})
 			}
 		}
