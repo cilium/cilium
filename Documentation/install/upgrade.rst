@@ -380,7 +380,11 @@ New ConfigMap Options
 
   * ``enable-legacy-services``: enables legacy services (prior v1.5) to
     prevent from terminating established connections to services when
-    upgrading Cilium from < v1.5 to v1.5.
+    upgrading Cilium from < v1.5 to v1.5. If enabled, the option needs
+    to stay enabled until a user is confident that they will not need to
+    downgrade to < v1.5 anymore. Disabling and then enabling the option is
+    not possible without breaking the established connections from `Pod`
+    to `Service`.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
