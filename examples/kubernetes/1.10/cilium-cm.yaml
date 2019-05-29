@@ -167,3 +167,24 @@ data:
   #  - flannel
   #  - portmap (Enables HostPort support for Cilium)
   #cni-chaining-mode: none
+
+  # Enable fetching of container-runtime specific metadata
+  #
+  # By default, the Kubernetes pod and namespace labels are retrieved and
+  # associated with endpoints for identification purposes. By integrating
+  # with the container runtime, container runtime specific labels can be
+  # retrieved, such labels will be prefixed with container:
+  #
+  # CAUTION: The container runtime labels can include information such as pod
+  # annotations which may result in each pod being associated a unique set of
+  # labels which can result in excessive security identities being allocated.
+  # Please review the labels filter when enabling container runtime labels.
+  #
+  # Supported values:
+  # - containerd
+  # - crio
+  # - docker
+  # - none
+  # - auto (automatically detect the container runtime)
+  #
+  container-runtime: none
