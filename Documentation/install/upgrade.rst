@@ -305,6 +305,45 @@ Upgrading from >=1.4.0 to 1.5.y
    the ConfigMap before upgrading. Refer to the section :ref:`upgrade_configmap`
    on how to upgrade the `ConfigMap`.
 
+#. If you previously upgraded to v1.5, downgraded to <v1.5, and now want to
+   upgrade to v1.5 again, then you must run the following `DaemonSet` before
+   doing the upgrade:
+
+    .. tabs::
+      .. group-tab:: K8s 1.10
+
+        .. parsed-literal::
+
+          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-pre-flight-with-rm-svc-v2.yaml
+
+      .. group-tab:: K8s 1.11
+
+        .. parsed-literal::
+
+          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-pre-flight-with-rm-svc-v2.yaml
+
+      .. group-tab:: K8s 1.12
+
+        .. parsed-literal::
+
+          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-pre-flight-with-rm-svc-v2.yaml
+
+      .. group-tab:: K8s 1.13
+
+        .. parsed-literal::
+
+          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-pre-flight-with-rm-svc-v2.yaml
+
+      .. group-tab:: K8s 1.14
+
+        .. parsed-literal::
+
+          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight-with-rm-svc-v2.yaml
+
+
+   See :ref:`pre_flight` for instructions how to run, validate and remove
+   a pre-flight `DaemonSet`.
+
 #. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
 
 New Default Values
