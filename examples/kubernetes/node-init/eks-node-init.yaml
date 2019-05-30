@@ -1,0 +1,72 @@
+kind: DaemonSet
+apiVersion: extensions/v1beta1
+metadata:
+  name: cilium-node-init
+  labels:
+    app: cilium-node-init
+spec:
+  template:
+    metadata:
+      labels:
+        app: cilium-node-init
+    spec:
+      tolerations:
+      - operator: Exists
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: node-init
+          image: gcr.io/google-containers/startup-script:v1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+          - name: STARTUP_SCRIPT
+            value: |
+              #!/bin/bash
+
+              set -o errexit
+              set -o pipefail
+              set -o nounset
+
+              if [[ ! -f /tmp/cilium-installed-v1 ]]; then
+                echo "Installing BPF filesystem mount"
+
+                cat >/tmp/sys-fs-bpf.mount <<EOF
+              [Unit]
+              Description=Mount BPF filesystem (Cilium)
+              Documentation=http://docs.cilium.io/
+              DefaultDependencies=no
+              Before=local-fs.target umount.target
+              After=swap.target
+
+              [Mount]
+              What=bpffs
+              Where=/sys/fs/bpf
+              Type=bpf
+
+              [Install]
+              WantedBy=multi-user.target
+              EOF
+
+                if [ -d "/etc/systemd/system/" ]; then
+                  mv /tmp/sys-fs-bpf.mount /etc/systemd/system/
+                  echo "Installed sys-fs-bpf.mount to /etc/systemd/system/"
+                elif [ -d "/lib/systemd/system/" ]; then
+                  mv /tmp/sys-fs-bpf.mount /lib/systemd/system/
+                  echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
+                fi
+
+                systemctl enable sys-fs-bpf.mount
+                systemctl start sys-fs-bpf.mount
+
+                echo "Link information:"
+                ip link
+
+                echo "Routing table:"
+                ip route
+
+                echo "Node initialization complete"
+
+                touch /tmp/cilium-installed-v1
+              fi

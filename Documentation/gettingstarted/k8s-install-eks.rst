@@ -82,6 +82,19 @@ leaving a node to be automatically be masqueraded.
 
        kubectl -n kube-system set env ds aws-node AWS_VPC_K8S_CNI_EXTERNALSNAT=true
        
+Prepare the nodes for Cilium
+============================
+
+Deploy the following DaemonSet to prepare all EKS nodes for Cilium:
+
+   .. code:: bash
+
+       kubectl -n kube-system apply -f \ |SCM_WEB|\/examples/kubernetes/node-init/eks-node-init.yaml
+
+This will mount the BPF filesystem and ensures that the filesystem is
+automatically mounted when the node is rebooted. Due to being a DaemonSet, any
+new node added to the cluster will automatically get initialized as well.
+
 .. include:: k8s-install-etcd-operator-steps.rst
 
 .. note::
@@ -89,6 +102,7 @@ leaving a node to be automatically be masqueraded.
    You may notice that the ``kube-dns-*`` pods get restarted. The
    ``cilium-operator`` will automatically restart CoreDNS if the pods are not
    managed by the Cilium CNI plugin.
+
 
 Validate the Installation
 =========================
