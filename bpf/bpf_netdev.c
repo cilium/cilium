@@ -222,7 +222,11 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_cb(skb, key);
+#ifdef IP_POOLS
+		set_encrypt_dip(skb, info->tunnel_endpoint);
+#else
 		set_identity_cb(skb, secctx);
+#endif
 	}
 #endif
 	return TC_ACT_OK;
@@ -359,7 +363,11 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_cb(skb, key);
+#ifdef IP_POOLS
+		set_encrypt_dip(skb, info->tunnel_endpoint);
+#else
 		set_identity_cb(skb, secctx);
+#endif
 	}
 #endif
 	return TC_ACT_OK;
@@ -394,15 +402,50 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 
 		if (magic == MARK_MAGIC_ENCRYPT) {
 			__u32 seclabel, tunnel_endpoint = 0;
+#ifdef IP_POOLS
+			__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
+			void *data, *data_end;
+			struct iphdr *iphdr;
+			__be32 sum;
+#endif
 
 			seclabel = get_identity(skb);
 			tunnel_endpoint = skb->cb[4];
 			skb->mark = 0;
-			bpf_clear_cb(skb);
-
 #ifdef ENCAP_IFINDEX
+			bpf_clear_cb(skb);
 			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
-#elif ENCRYPT_NODE
+#endif
+#ifdef IP_POOLS
+			if (!revalidate_data(skb, &data, &data_end, &iphdr))
+				return DROP_INVALID;
+
+			/* When IP_POOLS is enabled ip addresses are not
+			 * assigned on a per node basis so lacking node
+			 * affinity we can not use IP address to assign the
+			 * destination IP. Instead rewrite it here from cb[].
+			 */
+			sum = csum_diff(&iphdr->daddr, 4, &tunnel_endpoint, 4, 0);
+			if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, daddr),
+			    &tunnel_endpoint, 4, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
+			    0, sum, 0) < 0)
+				return DROP_CSUM_L3;
+
+			if (!revalidate_data(skb, &data, &data_end, &iphdr))
+				return DROP_INVALID;
+
+			sum = csum_diff(&iphdr->saddr, 4, &tunnel_source, 4, 0);
+			if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, saddr),
+			    &tunnel_source, 4, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
+			    0, sum, 0) < 0)
+				return DROP_CSUM_L3;
+#endif
+			bpf_clear_cb(skb);
+#if ENCRYPT_NODE
 			return redirect(ENCRYPT_IFACE, 0);
 #else
 			return TC_ACT_OK;
