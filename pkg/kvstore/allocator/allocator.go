@@ -468,6 +468,8 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
 		}
 
+		log.WithField(fieldKey, k).Info("Reusing existing global key")
+
 		return value, false, nil
 	}
 
@@ -519,6 +521,8 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		releaseKeyAndID()
 		return 0, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
 	}
+
+	log.WithField(fieldKey, k).Info("Allocated new global key")
 
 	return id, true, nil
 }
@@ -684,6 +688,8 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 	if lastUse {
 		valueKey := path.Join(a.valuePrefix, k, a.suffix)
+		log.WithField(fieldKey, key).Info("Released last local use of key, invoking global release")
+
 		if err := kvstore.Delete(valueKey); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{fieldKey: key}).Warning("Ignoring node specific ID")
 		}
