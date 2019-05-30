@@ -448,14 +448,6 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	// data but the local agent still holds a reference for the given master key.
 	if value == 0 {
 		value = a.localKeys.lookupKey(k)
-		if value != 0 {
-			// re-create master key
-			keyPath := path.Join(a.idPrefix, strconv.FormatUint(uint64(value), 10))
-			success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
-			if err != nil || !success {
-				return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
-			}
-		}
 	} else {
 		_, err := a.localKeys.allocate(k, value)
 		if err != nil {
@@ -710,7 +702,7 @@ func (a *Allocator) RunGC() error {
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(a.valuePrefix, string(v))
-		uses, err := kvstore.ListPrefix(valueKeyPrefix)
+		k, v, err := kvstore.GetPrefix(context.Background(), valueKeyPrefix)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
@@ -718,7 +710,7 @@ func (a *Allocator) RunGC() error {
 		}
 
 		// if ID has no user, delete it
-		if len(uses) == 0 {
+		if k == "" && v == nil {
 			scopedLog := log.WithFields(logrus.Fields{
 				fieldKey: key,
 				fieldID:  path.Base(key),
