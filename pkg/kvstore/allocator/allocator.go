@@ -640,7 +640,7 @@ func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID
 
 	for k, v := range pairs {
 		if prefixMatchesKey(prefix, k) {
-			id, err := strconv.ParseUint(string(v), 10, 64)
+			id, err := strconv.ParseUint(string(v.Data), 10, 64)
 			if err == nil {
 				return idpool.ID(id), nil
 			}
@@ -728,7 +728,7 @@ func (a *Allocator) RunGC() error {
 		}
 
 		// fetch list of all /value/<key> keys
-		valueKeyPrefix := path.Join(a.valuePrefix, string(v))
+		valueKeyPrefix := path.Join(a.valuePrefix, string(v.Data))
 		pairs, err := kvstore.ListPrefix(valueKeyPrefix)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
