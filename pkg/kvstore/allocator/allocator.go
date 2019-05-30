@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,10 @@ const (
 	// listTimeout is the time to wait for the initial list operation to
 	// succeed when creating a new allocator
 	listTimeout = 3 * time.Minute
+
+	// ciliumSlash represents the special token used to determine the end of a
+	// slave key prefix.
+	ciliumSlash = "__CILIUM_SLASH__"
 )
 
 // Allocator is a distributed ID allocator backed by a KVstore. It maps
@@ -399,7 +404,7 @@ func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
 func (a *Allocator) createValueNodeKey(ctx context.Context, key string, newID idpool.ID) error {
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
-	valueKey := path.Join(a.valuePrefix, key, a.suffix)
+	valueKey := path.Join(a.valuePrefix, key, ciliumSlash, a.suffix)
 	if _, err := kvstore.UpdateIfDifferent(ctx, valueKey, []byte(newID.String()), true); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
@@ -605,49 +610,24 @@ func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error
 		return id, nil
 	}
 
-	return a.GetNoCache(ctx, key)
-}
-
-func prefixMatchesKey(prefix, key string) bool {
-	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
-	lastSlash := strings.LastIndex(key, "/")
-	return len(prefix) == lastSlash
+	return a.GetNoCache(ctx, key.GetKey())
 }
 
 // GetNoCache returns the ID which is allocated to a key in the kvstore
-func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	// ListPrefix() will return all keys matching the prefix, the prefix
-	// can cover multiple different keys, example:
-	//
-	// key1 := label1;label2;
-	// key2 := label1;label2;label3;
-	//
-	// In order to retrieve the correct key, the position of the last '/'
-	// is signficant, e.g.
-	//
-	// prefix := cilium/state/identities/v1/value/label;foo;
-	//
-	// key1 := cilium/state/identities/v1/value/label;foo;/172.0.124.60
-	// key2 := cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
-	//
-	// Only key1 should match
-	prefix := path.Join(a.valuePrefix, key.GetKey())
-	pairs, err := kvstore.ListPrefix(prefix)
-	kvstore.Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
-	if err != nil {
+func (a *Allocator) GetNoCache(ctx context.Context, key string) (idpool.ID, error) {
+	prefix := path.Join(a.valuePrefix, key, ciliumSlash)
+	k, v, err := kvstore.GetPrefix(context.Background(), prefix)
+	kvstore.Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: v})
+	if err != nil || v == nil {
 		return 0, err
 	}
 
-	for k, v := range pairs {
-		if prefixMatchesKey(prefix, k) {
-			id, err := strconv.ParseUint(string(v.Data), 10, 64)
-			if err == nil {
-				return idpool.ID(id), nil
-			}
-		}
+	id, err := strconv.ParseUint(string(v), 10, 64)
+	if err != nil {
+		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %s", v, err)
 	}
 
-	return idpool.NoID, nil
+	return idpool.ID(id), nil
 }
 
 // GetByID returns the key associated with an ID. Returns nil if no key is
@@ -690,7 +670,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 	}
 
 	if lastUse {
-		valueKey := path.Join(a.valuePrefix, k, a.suffix)
+		valueKey := path.Join(a.valuePrefix, k, ciliumSlash, a.suffix)
 		log.WithField(fieldKey, key).Info("Released last local use of key, invoking global release")
 
 		if err := kvstore.Delete(valueKey); err != nil {
@@ -730,24 +710,15 @@ func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint
 		}
 
 		// fetch list of all /value/<key> keys
-		valueKeyPrefix := path.Join(a.valuePrefix, string(v.Data))
-		pairs, err := kvstore.ListPrefix(valueKeyPrefix)
+		id, err := a.GetNoCache(context.Background(), string(v.Data))
 		if err != nil {
-			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
+			log.WithError(err).WithField(fieldPrefix, filepath.Join(a.valuePrefix, key, ciliumSlash)).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
 			continue
 		}
 
-		hasUsers := false
-		for k := range pairs {
-			if prefixMatchesKey(valueKeyPrefix, k) {
-				hasUsers = true
-				break
-			}
-		}
-
 		// if ID has no user, delete it
-		if !hasUsers {
+		if id == idpool.NoID {
 			scopedLog := log.WithFields(logrus.Fields{
 				fieldKey: key,
 				fieldID:  path.Base(key),
@@ -776,7 +747,7 @@ func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissin
 		err       error
 		recreated bool
 		keyPath   = path.Join(a.idPrefix, id.String())
-		valueKey  = path.Join(a.valuePrefix, value, a.suffix)
+		valueKey  = path.Join(a.valuePrefix, value, ciliumSlash, a.suffix)
 	)
 
 	if reliablyMissing {

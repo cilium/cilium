@@ -327,13 +327,13 @@ func testGetNoCache(c *C, maxID idpool.ID, testName string, suffix string) {
 	c.Assert(longID, Not(Equals), 0)
 	c.Assert(new, Equals, true)
 
-	observedID, err := allocator.GetNoCache(context.Background(), key)
+	observedID, err := allocator.GetNoCache(context.Background(), key.GetKey())
 	c.Assert(err, IsNil)
 	c.Assert(observedID, Not(Equals), 0)
 
 	labelsShort := "foo;/;"
 	shortKey := TestType(labelsShort)
-	observedID, err = allocator.GetNoCache(context.Background(), shortKey)
+	observedID, err = allocator.GetNoCache(context.Background(), shortKey.GetKey())
 	c.Assert(err, IsNil)
 	c.Assert(observedID, Equals, idpool.NoID)
 
@@ -342,46 +342,9 @@ func testGetNoCache(c *C, maxID idpool.ID, testName string, suffix string) {
 	c.Assert(shortID, Not(Equals), 0)
 	c.Assert(new, Equals, true)
 
-	observedID, err = allocator.GetNoCache(context.Background(), shortKey)
+	observedID, err = allocator.GetNoCache(context.Background(), shortKey.GetKey())
 	c.Assert(err, IsNil)
 	c.Assert(observedID, Equals, shortID)
-}
-
-func (s *AllocatorSuite) TestprefixMatchesKey(c *C) {
-	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
-
-	tests := []struct {
-		prefix   string
-		key      string
-		expected bool
-	}{
-		{
-			prefix:   "foo",
-			key:      "foo/bar",
-			expected: true,
-		},
-		{
-			prefix:   "foo/;bar;baz;/;a;",
-			key:      "foo/;bar;baz;/;a;/alice",
-			expected: true,
-		},
-		{
-			prefix:   "foo/;bar;baz;",
-			key:      "foo/;bar;baz;/;a;/alice",
-			expected: false,
-		},
-		{
-			prefix:   "foo/;bar;baz;/;a;/baz",
-			key:      "foo/;bar;baz;/;a;/alice",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		c.Logf("prefixMatchesKey(%q, %q) expected to be %t", tt.prefix, tt.key, tt.expected)
-		result := prefixMatchesKey(tt.prefix, tt.key)
-		c.Assert(result, Equals, tt.expected)
-	}
 }
 
 func (s *AllocatorSuite) TestGetNoCache(c *C) {
