@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -237,13 +237,13 @@ enum {
  * These also serve as drop reasons for metrics,
  * where reason > 0 corresponds to -(DROP_*)
  */
-#define DROP_INVALID_SMAC	-130
-#define DROP_INVALID_DMAC	-131
+#define DROP_INVALID_SMAC	-130 /* unused */
+#define DROP_INVALID_DMAC	-131 /* unused */
 #define DROP_INVALID_SIP	-132
 #define DROP_POLICY		-133
 #define DROP_INVALID		-134
 #define DROP_CT_INVALID_HDR	-135
-#define DROP_CT_MISSING_ACK	-136
+#define DROP_CT_MISSING_ACK	-136 /* unused */
 #define DROP_CT_UNKNOWN_PROTO	-137
 #define DROP_CT_CANT_CREATE_	-138 /* unused */
 #define DROP_UNKNOWN_L3		-139
@@ -259,17 +259,17 @@ enum {
 #define DROP_INVALID_GENEVE_	-149 /* unused */
 #define DROP_UNKNOWN_TARGET	-150
 #define DROP_UNROUTABLE		-151
-#define DROP_NO_LXC		-152
+#define DROP_NO_LXC		-152 /* unused */
 #define DROP_CSUM_L3		-153
 #define DROP_CSUM_L4		-154
 #define DROP_CT_CREATE_FAILED	-155
 #define DROP_INVALID_EXTHDR	-156
 #define DROP_FRAG_NOSUPPORT	-157
 #define DROP_NO_SERVICE		-158
-#define DROP_POLICY_L4		-159
+#define DROP_POLICY_L4		-159 /* unused */
 #define DROP_NO_TUNNEL_ENDPOINT -160
 #define DROP_PROXYMAP_CREATE_FAILED_	-161 /* unused */
-#define DROP_POLICY_CIDR		-162
+#define DROP_POLICY_CIDR		-162 /* unused */
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
 #define DROP_NO_CONFIG		-165
