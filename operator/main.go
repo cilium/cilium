@@ -161,7 +161,7 @@ func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
-	go StartServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
+	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
 	if requiresKVstore() {
 		scopedLog := log.WithFields(logrus.Fields{

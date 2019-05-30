@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
-// StartServer starts an api server listening on the given address.
-func StartServer(addr string, shutdownSignal <-chan struct{}) {
+// startServer starts an api server listening on the given address.
+func startServer(addr string, shutdownSignal <-chan struct{}) {
 	log.Infof("Starting apiserver on address %s", addr)
 
 	http.HandleFunc("/healthz", healthHandler)
@@ -38,9 +38,7 @@ func StartServer(addr string, shutdownSignal <-chan struct{}) {
 		}
 	}()
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.WithError(err).Error("apiserver listen")
-	}
+	log.Fatalf("Unable to start status api: %s", srv.ListenAndServe())
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,12 +59,15 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 // checkStatus checks the connection status to the kvstore and
 // k8s apiserver and returns an error if any of them is unhealthy
 func checkStatus() error {
+	if requiresKVstore() {
+		if client := kvstore.Client(); client == nil {
+			return fmt.Errorf("kvstore client not configured")
+		} else if _, err := client.Status(); err != nil {
+			return err
+		}
+	}
 
-	if client := kvstore.Client(); client == nil {
-		return fmt.Errorf("kvstore client not configured")
-	} else if _, err := client.Status(); err != nil {
-		return err
-	} else if _, err := k8s.Client().Discovery().ServerVersion(); err != nil {
+	if _, err := k8s.Client().Discovery().ServerVersion(); err != nil {
 		return err
 	}
 
