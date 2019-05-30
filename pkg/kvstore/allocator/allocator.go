@@ -720,15 +720,22 @@ func (a *Allocator) RunGC() error {
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(a.valuePrefix, string(v))
-		uses, err := kvstore.ListPrefix(valueKeyPrefix)
+		pairs, err := kvstore.ListPrefix(valueKeyPrefix)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
 			continue
 		}
 
+		users := 0
+		for k := range pairs {
+			if prefixMatchesKey(valueKeyPrefix, k) {
+				users++
+			}
+		}
+
 		// if ID has no user, delete it
-		if len(uses) == 0 {
+		if users == 0 {
 			scopedLog := log.WithFields(logrus.Fields{
 				fieldKey: key,
 				fieldID:  path.Base(key),
