@@ -383,14 +383,6 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 	a.remoteCachesMutex.RUnlock()
 }
 
-func invalidKey(key, prefix string, deleteInvalid bool) {
-	log.WithFields(logrus.Fields{fieldKey: key, fieldPrefix: prefix}).Warning("Found invalid key outside of prefix")
-
-	if deleteInvalid {
-		kvstore.Delete(key)
-	}
-}
-
 // Selects an available ID.
 // Returns a triple of the selected ID ORed with prefixMask,
 // the ID string and the originally selected ID.
