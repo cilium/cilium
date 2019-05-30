@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,6 +89,14 @@ func (c *cache) getLogger() *logrus.Entry {
 		"kvstoreErr":    err,
 		"prefix":        c.prefix,
 	})
+}
+
+func invalidKey(key, prefix string, deleteInvalid bool) {
+	log.WithFields(logrus.Fields{fieldKey: key, fieldPrefix: prefix}).Warning("Found invalid key outside of prefix")
+
+	if deleteInvalid {
+		kvstore.Delete(key)
+	}
 }
 
 func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
