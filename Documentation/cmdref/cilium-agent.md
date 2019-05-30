@@ -75,11 +75,13 @@ cilium-agent [flags]
       --ipsec-key-file string                      Path to IPSec key file
       --ipv4-cluster-cidr-mask-size int            Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                           IPv4 address of node (default "auto")
+      --ipv4-pod-subnets strings                   List of IPv4 pod subnets to preconfigure for encryption
       --ipv4-range string                          Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
       --ipv4-service-loopback-address string       IPv4 address for service loopback SNAT (default "169.254.42.1")
       --ipv4-service-range string                  Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
       --ipv6-cluster-alloc-cidr string             IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
       --ipv6-node string                           IPv6 address of node (default "auto")
+      --ipv6-pod-subnets strings                   List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                          Per-node IPv6 endpoint prefix, must be /96, e.g. fd02:1:1::/96 (default "auto")
       --ipv6-service-range string                  Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --ipvlan-master-device string                Device facing external network acting as ipvlan master (default "undefined")
