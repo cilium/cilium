@@ -20,8 +20,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Value is an abstraction of the data stored in the kvstore as well as the
+// mod revision of that data.
+type Value struct {
+	Data        []byte
+	ModRevision uint64
+}
+
 // KeyValuePairs is a map of key=value pairs
-type KeyValuePairs map[string][]byte
+type KeyValuePairs map[string]Value
 
 // Capabilities is a bitmask to indicate the capabilities of a backend
 type Capabilities uint32
