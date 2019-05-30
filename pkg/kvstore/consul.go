@@ -578,9 +578,12 @@ func (c *consulClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 		return nil, err
 	}
 
-	p := KeyValuePairs(make(map[string][]byte, len(pairs)))
+	p := KeyValuePairs(make(map[string]Value, len(pairs)))
 	for i := 0; i < len(pairs); i++ {
-		p[pairs[i].Key] = pairs[i].Value
+		p[pairs[i].Key] = Value{
+			Data:        pairs[i].Value,
+			ModRevision: pairs[i].ModifyIndex,
+		}
 	}
 
 	return p, nil

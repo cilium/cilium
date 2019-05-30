@@ -701,7 +701,7 @@ func (a *Allocator) RunGC() error {
 		}
 
 		// fetch list of all /value/<key> keys
-		valueKeyPrefix := path.Join(a.valuePrefix, string(v))
+		valueKeyPrefix := path.Join(a.valuePrefix, string(v.Data))
 		k, v, err := kvstore.GetPrefix(context.Background(), valueKeyPrefix)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")

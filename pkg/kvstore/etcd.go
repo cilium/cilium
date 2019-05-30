@@ -961,9 +961,12 @@ func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
 		return nil, Hint(err)
 	}
 
-	pairs := KeyValuePairs{}
+	pairs := KeyValuePairs(make(map[string]Value, getR.Count))
 	for i := int64(0); i < getR.Count; i++ {
-		pairs[string(getR.Kvs[i].Key)] = getR.Kvs[i].Value
+		pairs[string(getR.Kvs[i].Key)] = Value{
+			Data:        getR.Kvs[i].Value,
+			ModRevision: uint64(getR.Kvs[i].ModRevision),
+		}
 
 	}
 
