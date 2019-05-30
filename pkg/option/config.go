@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -484,6 +485,16 @@ const (
 	// ExcludeLocalAddress excludes certain addresses to be recognized as a
 	// local address
 	ExcludeLocalAddress = "exclude-local-address"
+
+	// IPv4PodSubnets A list of IPv4 subnets that pods may be
+	// assigned from. Used with CNI chaining where IPs are not directly managed
+	// by Cilium.
+	IPv4PodSubnets = "ipv4-pod-subnets"
+
+	// IPv6PodSubnets A list of IPv6 subnets that pods may be
+	// assigned from. Used with CNI chaining where IPs are not directly managed
+	// by Cilium.
+	IPv6PodSubnets = "ipv6-pod-subnets"
 )
 
 // FQDNS variables
@@ -983,6 +994,12 @@ type DaemonConfig struct {
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
+
+	// IPv4PodSubnets available subnets to be assign IPv4 addresses to pods from
+	IPv4PodSubnets []*net.IPNet
+
+	// IPv6PodSubnets available subnets to be assign IPv6 addresses to pods from
+	IPv6PodSubnets []*net.IPNet
 }
 
 var (
@@ -1023,6 +1040,11 @@ func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
 	}
 
 	return false
+}
+
+// IsPodSubnetsDefined returns true if encryption subnets should be configured at init time.
+func (c *DaemonConfig) IsPodSubnetsDefined() bool {
+	return len(c.IPv4PodSubnets) > 0 || len(c.IPv6PodSubnets) > 0
 }
 
 // IsLBEnabled returns true if LB should be enabled
@@ -1361,6 +1383,25 @@ func (c *DaemonConfig) Populate() {
 	}
 	c.ToFQDNsProxyPort = viper.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = viper.GetString(ToFQDNsPreCache)
+
+	// Convert IP strings into net.IPNet types
+	subnets, invalid := ip.ParseCIDRs(viper.GetStringSlice(IPv4PodSubnets))
+	if len(invalid) > 0 {
+		log.WithFields(
+			logrus.Fields{
+				"Subnets": invalid,
+			}).Warning("IPv4PodSubnets parameter can not be parsed.")
+	}
+	c.IPv4PodSubnets = subnets
+
+	subnets, invalid = ip.ParseCIDRs(viper.GetStringSlice(IPv6PodSubnets))
+	if len(invalid) > 0 {
+		log.WithFields(
+			logrus.Fields{
+				"Subnets": invalid,
+			}).Warning("IPv6PodSubnets parameter can not be parsed.")
+	}
+	c.IPv6PodSubnets = subnets
 
 	// Map options
 	if m := viper.GetStringMapString(ContainerRuntimeEndpoint); len(m) != 0 {

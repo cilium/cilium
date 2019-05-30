@@ -156,7 +156,16 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		link, err := netlink.LinkByName(option.Config.EncryptInterface)
 		if err == nil {
 			fmt.Fprintf(fw, "#define ENCRYPT_IFACE %d\n", link.Attrs().Index)
+
+			addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
+			if err == nil {
+				a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
+				fmt.Fprintf(fw, "#define IPV4_ENCRYPT_IFACE %d\n", a)
+			}
 		}
+	}
+	if option.Config.IsPodSubnetsDefined() {
+		fmt.Fprintf(fw, "#define IP_POOLS 1\n")
 	}
 	if !option.Config.InstallIptRules && option.Config.Masquerade {
 		fmt.Fprintf(fw, "#define ENABLE_MASQUERADE 1\n")

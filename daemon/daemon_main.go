@@ -450,6 +450,12 @@ func init() {
 	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Enables encrypting traffic from non-Cilium pods and host networking")
 	option.BindEnv(option.EncryptNode)
 
+	flags.StringSlice(option.IPv4PodSubnets, []string{}, "List of IPv4 pod subnets to preconfigure for encryption")
+	option.BindEnv(option.IPv4PodSubnets)
+
+	flags.StringSlice(option.IPv6PodSubnets, []string{}, "List of IPv6 pod subnets to preconfigure for encryption")
+	option.BindEnv(option.IPv6PodSubnets)
+
 	flags.String(option.EndpointInterfaceNamePrefix, defaults.EndpointInterfaceNamePrefix, "Prefix of interface name shared by all endpoints")
 	option.BindEnv(option.EndpointInterfaceNamePrefix)
 
