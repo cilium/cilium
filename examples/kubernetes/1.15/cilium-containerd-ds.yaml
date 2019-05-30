@@ -60,14 +60,8 @@ spec:
               optional: true
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
-        - name: CILIUM_CNI_CHAINING_MODE
-          valueFrom:
-            configMapKeyRef:
-              key: cni-chaining-mode
-              name: cilium-config
-              optional: true
-        image: docker.io/cilium/cilium:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/cilium:v1.5.2
+        imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
             exec:
@@ -149,13 +143,13 @@ spec:
       - command:
         - /init-container.sh
         env:
-        - name: CILIUM_ALL_STATE
+        - name: CLEAN_CILIUM_STATE
           valueFrom:
             configMapKeyRef:
               key: clean-cilium-state
               name: cilium-config
               optional: true
-        - name: CILIUM_BPF_STATE
+        - name: CLEAN_CILIUM_BPF_STATE
           valueFrom:
             configMapKeyRef:
               key: clean-cilium-bpf-state
