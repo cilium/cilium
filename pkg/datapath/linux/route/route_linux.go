@@ -378,6 +378,7 @@ func DeleteRule(fwmark int, table int) error {
 func DeleteRuleIPv6(fwmark int, table int) error {
 	rule := netlink.NewRule()
 	rule.Mark = fwmark
+	rule.Mask = linux_defaults.RouteMarkMask
 	rule.Table = table
 	rule.Family = netlink.FAMILY_V6
 	return netlink.RuleDel(rule)
