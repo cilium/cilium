@@ -324,6 +324,11 @@ static inline int __inline__ get_identity(struct __sk_buff *skb)
 	return ((skb->mark & 0xFF) << 16) | skb->mark >> 16;
 }
 
+static inline void __inline__ set_encrypt_dip(struct __sk_buff *skb, __u32 ip_endpoint)
+{
+	skb->cb[4] = ip_endpoint;
+}
+
 /**
  * set_identity - pushes 24 bit identity into skb mark value.
  */
