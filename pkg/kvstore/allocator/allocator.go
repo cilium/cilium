@@ -406,6 +406,11 @@ func (a *Allocator) createValueNodeKey(key string, newID idpool.ID) error {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
+	// mark the key as verified in the local cache
+	if err := a.localKeys.verify(key); err != nil {
+		log.WithError(err).Error("BUG: Unable to verify local key")
+	}
+
 	return nil
 }
 
@@ -452,11 +457,6 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		if err = a.createValueNodeKey(k, value); err != nil {
 			a.localKeys.release(k)
 			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
-		}
-
-		// mark the key as verified in the local cache
-		if err := a.localKeys.verify(k); err != nil {
-			log.WithError(err).Error("BUG: Unable to verify local key")
 		}
 
 		return value, false, nil
