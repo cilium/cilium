@@ -142,6 +142,39 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 
 }
 
+func (s *AllocatorSuite) TestGC(c *C) {
+	allocatorName := randomTestName()
+	maxID := idpool.ID(256 + c.N)
+	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"), WithoutGC())
+	c.Assert(err, IsNil)
+	c.Assert(allocator, Not(IsNil))
+	defer allocator.DeleteAllKeys()
+	defer allocator.Delete()
+
+	allocator.DeleteAllKeys()
+
+	shortKey := TestType("1;")
+	shortID, _, err := allocator.Allocate(context.Background(), shortKey)
+	c.Assert(err, IsNil)
+	c.Assert(shortID, Not(Equals), 0)
+
+	longKey := TestType("1;2;")
+	longID, _, err := allocator.Allocate(context.Background(), longKey)
+	c.Assert(err, IsNil)
+	c.Assert(longID, Not(Equals), 0)
+
+	allocator.Release(context.Background(), shortKey)
+
+	allocator.RunGC()
+
+	// wait for cache to be updated via delete notification
+	c.Assert(testutils.WaitUntil(func() bool { return allocator.mainCache.getByID(shortID) == nil }, 5*time.Second), IsNil)
+
+	key, err := allocator.GetByID(shortID)
+	c.Assert(err, IsNil)
+	c.Assert(key, Equals, TestType(""))
+}
+
 func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID),
 		WithSuffix(suffix), WithoutGC())
