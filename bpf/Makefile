@@ -4,8 +4,8 @@ include ../Makefile.defs
 
 SUBDIRS = sockops
 
-BPF_SIMPLE = bpf_netdev.o bpf_overlay.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
-BPF = bpf_lxc.o bpf_lb.o bpf_sock.o $(BPF_SIMPLE)
+BPF_SIMPLE = bpf_netdev.o bpf_xdp.o bpf_ipsec.o bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
+BPF = bpf_lxc.o bpf_lb.o bpf_overlay.o bpf_sock.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate
 
@@ -68,6 +68,28 @@ bpf_sock.ll: bpf_sock.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 bpf_sock.o: bpf_sock.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+# The following option combinations are compile tested
+OVERLAY_OPTIONS = \
+	 -DENABLE_IPV4 \
+	 -DENABLE_IPV6
+
+# These options are intended to max out the BPF program complexity. it is load
+# tested as well.
+MAX_OVERLAY_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 #-DENABLE_IPSEC (from node_config.h)
+
+bpf_overlay.ll: bpf_overlay.c $(LIB)
+	$(QUIET) set -e; \
+	$(foreach OPTS,$(OVERLAY_OPTIONS), \
+		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_overlay.o: bpf_overlay.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
