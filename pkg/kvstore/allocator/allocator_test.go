@@ -219,8 +219,11 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
 	}
 
+	keysToDelete := map[string]uint64{}
 	// running the GC should not evict any entries
-	allocator.RunGC()
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 0)
 
 	v, err := kvstore.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
@@ -237,7 +240,12 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	allocator.RunGC()
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, int(maxID))
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 0)
 
 	v, err = kvstore.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)

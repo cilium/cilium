@@ -681,12 +681,14 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (a *Allocator) RunGC() error {
+func (a *Allocator) RunGC(keysToDelete map[string]uint64) (map[string]uint64, error) {
 	// fetch list of all /id/ keys
 	allocated, err := kvstore.ListPrefix(a.idPrefix)
 	if err != nil {
-		return fmt.Errorf("list failed: %s", err)
+		return nil, fmt.Errorf("list failed: %s", err)
 	}
+
+	keysToDeleteNew := map[string]uint64{}
 
 	// iterate over /id/
 	for key, v := range allocated {
@@ -702,30 +704,39 @@ func (a *Allocator) RunGC() error {
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(a.valuePrefix, string(v.Data))
-		k, v, err := kvstore.GetPrefix(context.Background(), valueKeyPrefix)
+		k, kvstoreValue, err := kvstore.GetPrefix(context.Background(), valueKeyPrefix)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
 			continue
 		}
 
-		// if ID has no user, delete it
-		if k == "" && v == nil {
+		// if ID has no user, mark it to be delete it in the next RunGC
+		if k == "" && kvstoreValue == nil {
 			scopedLog := log.WithFields(logrus.Fields{
 				fieldKey: key,
 				fieldID:  path.Base(key),
 			})
-			if err := kvstore.Delete(key); err != nil {
-				scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
+			// Only delete if this key was previously marked as to be deleted
+			if modRev, ok := keysToDelete[key]; ok && modRev == v.ModRevision {
+				if err := kvstore.Delete(key); err != nil {
+					scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
+				} else {
+					delete(keysToDelete, key)
+					scopedLog.Info("Deleted unused allocator master key")
+				}
 			} else {
-				scopedLog.Info("Deleted unused allocator master key")
+				// If the key was not found mark it to be delete in the next RunGC
+				keysToDeleteNew[key] = v.ModRevision
 			}
+		} else {
+			delete(keysToDelete, key)
 		}
 
 		lock.Unlock()
 	}
 
-	return nil
+	return keysToDeleteNew, nil
 }
 
 func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissing bool) {
