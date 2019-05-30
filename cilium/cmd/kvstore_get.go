@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ var kvstoreGetCmd = &cobra.Command{
 				return
 			}
 			for k, v := range pairs {
-				fmt.Printf("%s => %s\n", k, string(v))
+				fmt.Printf("%s => %s\n", k, string(v.Data))
 			}
 		} else {
 			val, err := kvstore.Get(key)
