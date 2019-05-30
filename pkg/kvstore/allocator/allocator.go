@@ -78,7 +78,8 @@ const (
 //
 // Lookup ID by key:
 // 1. Return ID from local cache updated by watcher (no kvstore interactions)
-// 2. Do GetPrefix() on slave key excluding node suffix, return first result
+// 2. Do ListPrefix() on slave key excluding node suffix, return the first
+//    result that matches the exact prefix.
 //
 // Lookup key by ID:
 // 1. Return key from local cache updated by watcher (no kvstore interactions)
@@ -608,26 +609,38 @@ func prefixMatchesKey(prefix, key string) bool {
 
 // Get returns the ID which is allocated to a key in the kvstore
 func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	// GetPrefix() will choose any "first" key with the same prefix as the
-	// specified key. In the worst case this may alternate between
-	// returning the prefix that is specified and returning a key with a
-	// longer prefix (even if this exact prefix already exists in the
-	// kvstore). In that case, we will potentially allocate duplicate
-	// identities for the same set of labels. This is not efficient, but
-	// should have the correct identity properties.
+	// ListPrefix() will return all keys matching the prefix, the prefix
+	// can cover multiple different keys, example:
+	//
+	// key1 := label1;label2;
+	// key2 := label1;label2;label3;
+	//
+	// In order to retrieve the correct key, the position of the last '/'
+	// is signficant, e.g.
+	//
+	// prefix := cilium/state/identities/v1/value/label;foo;
+	//
+	// key1 := cilium/state/identities/v1/value/label;foo;/172.0.124.60
+	// key2 := cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
+	//
+	// Only key1 should match
 	prefix := path.Join(a.valuePrefix, key.GetKey())
-	k, v, err := kvstore.GetPrefix(ctx, prefix)
-	kvstore.Trace("AllocateGet", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: v})
-	if err != nil || v == nil || !prefixMatchesKey(prefix, k) {
+	pairs, err := kvstore.ListPrefix(prefix)
+	kvstore.Trace("ListPrefix", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
+	if err != nil {
 		return 0, err
 	}
 
-	id, err := strconv.ParseUint(string(v), 10, 64)
-	if err != nil {
-		return idpool.NoID, fmt.Errorf("unable to parse value '%s': %s", v, err)
+	for k, v := range pairs {
+		if prefixMatchesKey(prefix, k) {
+			id, err := strconv.ParseUint(string(v), 10, 64)
+			if err == nil {
+				return idpool.ID(id), nil
+			}
+		}
 	}
 
-	return idpool.ID(id), nil
+	return idpool.NoID, nil
 }
 
 // GetByID returns the key associated with an ID. Returns nil if no key is
