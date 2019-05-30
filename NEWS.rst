@@ -2,6 +2,88 @@
 NEWS
 ******
 
+v1.5.2
+======
+
+::
+
+    André Martins (17):
+          metrics: add map_ops_total by default
+          Dockerfile: update golang to 1.12.5
+          docs: fix architecture images' URL
+          docs: add missing cilium-operator-sa.yaml for k8s 1.14 upgrade guide
+          operator: fix concurrent access of variable in cnp garbage collection
+          docs: give better troubleshooting for conntrack-gc-interval
+          test: replace guestbook test docker image
+          pkg/envoy: use proto.Equal instead comparing strings
+          daemon/Makefile: rm -f on make clean for links
+          test/provision: bump k8s testing to v1.13.6
+          pkg/ipcache: initialize globalmap at import time
+          pkg/endpoint: fix assignment in nil map on restore
+          test: add v1.15.0-beta.0 to the CI
+          add support for k8s 1.14.2
+          docs: update well-known-identities documentation
+          docs: move well known identities to the concepts section
+          pkg/maps: use pointer in receivers for GetKeyPtr and GetValuePtr
+    
+    Daniel Borkmann (3):
+          bpf: do propagate backend, and rev nat to new entry
+          bpf: force recreation of regular ct entry upon service collision
+          cilium: fix up source address selection for cluster ip
+    
+    Ian Vernon (1):
+          test: fix incorrect deletion statement for policy
+    
+    Ifeanyi Ubah (1):
+          CI: Log at INFO and above for all unit tests
+    
+    Jarno Rajahalme (3):
+          envoy: Do not use deprecated configuration options.
+          proxylib: Fix egress enforcement
+          envoy: Prevent resending NACKed resources also when there are no ACK observers.
+    
+    Joe Stringer (2):
+          daemon: Make policymap size configurable
+          cni: Fix incorrect logging in failure case
+    
+    John Fastabend (2):
+          cilium: IsLocal() needs to compare both Name and Cluster
+          cilium: encode table attribute in Route delete
+    
+    Maciej Kwiek (5):
+          Jenkins separate directories for parallel builds
+          Bump vagrant box versions for tests
+          Bump vagrant box version for tests to 151
+          Add jenkins stage for loading vagrant boxes
+          Recover from ginkgo fail in WithTimeout helper
+    
+    Martynas Pumputis (7):
+          maps: Remove disabled svc v2 maps
+          daemon: Improve logging of service restoration
+          daemon: Do not restore service if adding to cache fails
+          daemon: Remove stale maps only after restoring all endpoints
+          datapath: Redo backend selection if stale CT_SERVICE entry is found
+          bpf: Fix dump parsers of encrypt and sockmap maps
+          service: Reduce backend ID allocation space
+    
+    Ray Bejjani (5):
+          CI: WaitForNPods uses count of pods
+          CI: Consolidate WaitforNPods and WaitForPodsRunning
+          fqdn: DNSProxy does not fold similar DNS requests
+          CI: Consolidate Vagrant box information into 1 file
+          endpoint: Guard against deleted endpoints in regenerate
+    
+    Thomas Graf (9):
+          cni: Fix unexpected end of JSON input on errors
+          ctmap: Introduce variable conntrack gc interval
+          doc: Adjust documentation with new dynamic gc interval
+          Revert "maps/ctmap: add ctmap benchmark"
+          Revert "pkg/bpf: use own binary which does not require to create buffers"
+          Revert "pkg/bpf: add newer LookupElement, GetNextKey and UpdateElement functions"
+          Revert "pkg/{bpf,datapath,maps}: use same MapKey and MapValue in map iterations"
+          Revert "pkg/bpf: add DeepCopyMapKey and DeepCopyMapValue"
+          bpf: Remove several debug messages
+    
 v1.5.1
 ======
 
