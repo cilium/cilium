@@ -446,15 +446,29 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	kvstore.Trace("kvstore state is: ", nil, logrus.Fields{fieldID: value})
 
-	if value != 0 {
-		a.slaveKeysMutex.Lock()
-		defer a.slaveKeysMutex.Unlock()
+	a.slaveKeysMutex.Lock()
+	defer a.slaveKeysMutex.Unlock()
 
+	// We shouldn't assume the fact the master key does not exist in the kvstore
+	// that localKeys does not have it. The KVStore might have lost all of its
+	// data but the local agent still holds a reference for the given master key.
+	if value == 0 {
+		value = a.localKeys.lookupKey(k)
+		if value != 0 {
+			// re-create master key
+			keyPath := path.Join(a.idPrefix, strconv.FormatUint(uint64(value), 10))
+			success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
+			if err != nil || !success {
+				return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
+			}
+		}
+	} else {
 		_, err := a.localKeys.allocate(k, value)
 		if err != nil {
 			return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
 		}
-
+	}
+	if value != 0 {
 		if err = a.createValueNodeKey(ctx, k, value); err != nil {
 			a.localKeys.release(k)
 			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
@@ -477,9 +491,6 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		a.idPool.Release(unmaskedID)
 	}
 
-	a.slaveKeysMutex.Lock()
-	defer a.slaveKeysMutex.Unlock()
-
 	oldID, err := a.localKeys.allocate(k, id)
 	if err != nil {
 		a.idPool.Release(unmaskedID)
@@ -497,7 +508,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	keyPath := path.Join(a.idPrefix, strID)
 	success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
 	if err != nil || !success {
-		// Creation failed. Another agent most likely beat us to allocting this
+		// Creation failed. Another agent most likely beat us to allocating this
 		// ID, retry.
 		releaseKeyAndID()
 		return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
@@ -603,7 +614,7 @@ func prefixMatchesKey(prefix, key string) bool {
 	return len(prefix) == lastSlash
 }
 
-// Get returns the ID which is allocated to a key in the kvstore
+// GetNoCache returns the ID which is allocated to a key in the kvstore
 func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
 	// ListPrefix() will return all keys matching the prefix, the prefix
 	// can cover multiple different keys, example:
