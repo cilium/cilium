@@ -708,12 +708,14 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (a *Allocator) RunGC() error {
+func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
 	// fetch list of all /id/ keys
 	allocated, err := kvstore.ListPrefix(a.idPrefix)
 	if err != nil {
-		return fmt.Errorf("list failed: %s", err)
+		return nil, fmt.Errorf("list failed: %s", err)
 	}
+
+	staleKeys := map[string]uint64{}
 
 	// iterate over /id/
 	for key, v := range allocated {
@@ -736,30 +738,37 @@ func (a *Allocator) RunGC() error {
 			continue
 		}
 
-		users := 0
+		hasUsers := false
 		for k := range pairs {
 			if prefixMatchesKey(valueKeyPrefix, k) {
-				users++
+				hasUsers = true
+				break
 			}
 		}
 
 		// if ID has no user, delete it
-		if users == 0 {
+		if !hasUsers {
 			scopedLog := log.WithFields(logrus.Fields{
 				fieldKey: key,
 				fieldID:  path.Base(key),
 			})
-			if err := kvstore.Delete(key); err != nil {
-				scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
+			// Only delete if this key was previously marked as to be deleted
+			if modRev, ok := staleKeysPrevRound[key]; ok && modRev == v.ModRevision {
+				if err := kvstore.Delete(key); err != nil {
+					scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
+				} else {
+					scopedLog.Info("Deleted unused allocator master key")
+				}
 			} else {
-				scopedLog.Info("Deleted unused allocator master key")
+				// If the key was not found mark it to be delete in the next RunGC
+				staleKeys[key] = v.ModRevision
 			}
 		}
 
 		lock.Unlock()
 	}
 
-	return nil
+	return staleKeys, nil
 }
 
 func (a *Allocator) recreateMasterKey(id idpool.ID, value string, reliablyMissing bool) {
