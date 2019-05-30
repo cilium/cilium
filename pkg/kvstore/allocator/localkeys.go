@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,6 +83,19 @@ func (lk *localKeys) verify(key string) error {
 	}
 
 	return fmt.Errorf("key %s not found", key)
+}
+
+// lookupKey returns the idpool.ID of the key is present in the map of keys.
+// if it isn't present, returns idpool.NoID
+func (lk *localKeys) lookupKey(key string) idpool.ID {
+	lk.RLock()
+	defer lk.RUnlock()
+
+	if k, ok := lk.keys[key]; ok {
+		return k.val
+	}
+
+	return idpool.NoID
 }
 
 // lookupID returns the key for a given ID or an empty string
