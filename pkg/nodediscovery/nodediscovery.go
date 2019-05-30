@@ -93,6 +93,8 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 			AuxiliaryPrefixes:       auxPrefixes,
 			EnableIPSec:             option.Config.EnableIPSec,
 			EncryptNode:             option.Config.EncryptNode,
+			IPv4PodSubnets:          option.Config.IPv4PodSubnets,
+			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
 		},
 		LocalNode: node.Node{
 			Source: node.FromLocalNode,

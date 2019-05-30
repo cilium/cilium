@@ -15,6 +15,8 @@
 package datapath
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -94,6 +96,16 @@ type LocalNodeConfiguration struct {
 
 	// EncryptNode enables encrypting NodeIP traffic requries EnableIPSec
 	EncryptNode bool
+
+	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
+	// these are then used when encryption is enabled to configure the node
+	// for encryption over these subnets at node initialization.
+	IPv4PodSubnets []*net.IPNet
+
+	// IPv6PodSubnets is a list of IPv6 subnets that pod IPs are assigned from
+	// these are then used when encryption is enabled to configure the node
+	// for encryption over these subnets at node initialization.
+	IPv6PodSubnets []*net.IPNet
 }
 
 // NodeHandler handles node related events such as addition, update or deletion
