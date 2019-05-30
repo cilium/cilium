@@ -29,13 +29,13 @@ var errors = map[uint8]string{
 	2:   "Invalid packet",
 	3:   "Interface",
 	4:   "Interface Decrypted",
-	130: "Invalid source mac",
-	131: "Invalid destination mac",
+	130: "Invalid source mac",      // Unused
+	131: "Invalid destination mac", // Unused
 	132: "Invalid source ip",
 	133: "Policy denied (L3)",
 	134: "Invalid packet",
 	135: "CT: Truncated or invalid header",
-	136: "CT: Missing TCP ACK flag",
+	136: "CT: Missing TCP ACK flag", // Unused
 	137: "CT: Unknown L4 protocol",
 	138: "CT: Can't create entry from packet", // Unused
 	139: "Unsupported L3 protocol",
@@ -51,17 +51,17 @@ var errors = map[uint8]string{
 	149: "Invalid Geneve option",           // Unused
 	150: "Unknown L3 target address",
 	151: "Stale or unroutable IP",
-	152: "No matching local container found",
+	152: "No matching local container found", // Unused
 	153: "Error while correcting L3 checksum",
 	154: "Error while correcting L4 checksum",
 	155: "CT: Map insertion failed",
 	156: "Invalid IPv6 extension header",
 	157: "IP fragmentation not supported",
 	158: "Service backend not found",
-	159: "Policy denied (L4)",
+	159: "Policy denied (L4)", // Unused
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
 	161: "Failed to insert into proxymap", // Unused
-	162: "Policy denied (CIDR)",
+	162: "Policy denied (CIDR)",           // Unused
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
 	165: "No configuration available to perform policy decision",
