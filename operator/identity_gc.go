@@ -31,10 +31,14 @@ func startIdentityGC() {
 	log.Infof("Starting security identity garbage collector with %s interval...", identityGCInterval)
 	a := allocator.NewAllocatorForGC(cache.IdentitiesPath)
 
+	keysToDelete := map[string]uint64{}
 	go func() {
 		for {
-			if err := a.RunGC(); err != nil {
+			keysToDelete2, err := a.RunGC(keysToDelete)
+			if err != nil {
 				log.WithError(err).Warning("Unable to run security identity garbage collector")
+			} else {
+				keysToDelete = keysToDelete2
 			}
 
 			<-time.After(identityGCInterval)

@@ -165,7 +165,13 @@ func (s *AllocatorSuite) TestGC(c *C) {
 
 	allocator.Release(context.Background(), shortKey)
 
-	allocator.RunGC()
+	keysToDelete := map[string]uint64{}
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 1)
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 0)
 
 	// wait for cache to be updated via delete notification
 	c.Assert(testutils.WaitUntil(func() bool { return allocator.mainCache.getByID(shortID) == nil }, 5*time.Second), IsNil)
@@ -252,8 +258,11 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
 	}
 
+	keysToDelete := map[string]uint64{}
 	// running the GC should not evict any entries
-	allocator.RunGC()
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 0)
 
 	v, err := kvstore.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
@@ -270,7 +279,12 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	allocator.RunGC()
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, int(maxID))
+	keysToDelete, err = allocator.RunGC(keysToDelete)
+	c.Assert(err, IsNil)
+	c.Assert(len(keysToDelete), Equals, 0)
 
 	v, err = kvstore.ListPrefix(allocator.idPrefix)
 	c.Assert(err, IsNil)
