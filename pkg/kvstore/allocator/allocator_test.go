@@ -290,21 +290,14 @@ func testGetNoCache(c *C, maxID idpool.ID, testName string, suffix string) {
 	c.Assert(err, IsNil)
 	c.Assert(observedID, Equals, idpool.NoID)
 
-	// Limitation: If we now insert the key for the short labels because
-	// it's not found, then we will have two keys with the same "foo;/;"
-	// prefix. At that point it's not deterministic whether we will find
-	// the key or not, because GetNoCache() only checks the first key that
-	// matches a given prefix.
 	shortID, new, err := allocator.Allocate(context.Background(), shortKey)
 	c.Assert(err, IsNil)
 	c.Assert(shortID, Not(Equals), 0)
 	c.Assert(new, Equals, true)
 
-	// So, if we look this up, the only thing we can be sure of is that it
-	// must not find the longID. It will either be idpool.NoID or shortID.
 	observedID, err = allocator.GetNoCache(context.Background(), shortKey)
 	c.Assert(err, IsNil)
-	c.Assert(observedID, Not(Equals), longID)
+	c.Assert(observedID, Equals, shortID)
 }
 
 func (s *AllocatorSuite) TestprefixMatchesKey(c *C) {
