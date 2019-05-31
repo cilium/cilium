@@ -250,7 +250,15 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 	return client, nil
 }
 
-func (c *consulClient) LockPath(ctx context.Context, path string) (kvLocker, error) {
+type ConsulLocker struct {
+	*consulAPI.Lock
+}
+
+func (cl *ConsulLocker) Comparator() interface{} {
+	return nil
+}
+
+func (c *consulClient) LockPath(ctx context.Context, path string) (KVLocker, error) {
 	lockKey, err := c.LockOpts(&consulAPI.LockOptions{Key: getLockPath(path)})
 	if err != nil {
 		return nil, err
@@ -264,7 +272,7 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (kvLocker, err
 		case ch == nil && err == nil:
 			Trace("Acquiring lock timed out, retrying", nil, logrus.Fields{fieldKey: path, logfields.Attempt: retries})
 		default:
-			return lockKey, err
+			return &ConsulLocker{Lock: lockKey}, err
 		}
 
 		select {
@@ -441,7 +449,7 @@ func (c *consulClient) Set(key string, value []byte) error {
 }
 
 // DeleteLocked deletes a key if the client is still holding the given lock.
-func (c *consulClient) DeleteLocked(key string, lock kvLocker) error {
+func (c *consulClient) DeleteLocked(key string, lock KVLocker) error {
 	return c.Delete(key)
 }
 
@@ -454,7 +462,7 @@ func (c *consulClient) Delete(key string) error {
 }
 
 // GetLocked returns value of key if the client is still holding the given lock.
-func (c *consulClient) GetLocked(key string, lock kvLocker) ([]byte, error) {
+func (c *consulClient) GetLocked(key string, lock KVLocker) ([]byte, error) {
 	return c.Get(key)
 }
 
@@ -473,7 +481,7 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 }
 
 // GetPrefixLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-func (c *consulClient) GetPrefixLocked(ctx context.Context, prefix string, lock kvLocker) (string, []byte, error) {
+func (c *consulClient) GetPrefixLocked(ctx context.Context, prefix string, lock KVLocker) (string, []byte, error) {
 	return c.GetPrefix(ctx, prefix)
 }
 
@@ -495,7 +503,7 @@ func (c *consulClient) GetPrefix(ctx context.Context, prefix string) (string, []
 }
 
 // UpdateLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
-func (c *consulClient) UpdateLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) error {
+func (c *consulClient) UpdateLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
 	return c.Update(ctx, key, value, lease)
 }
 
@@ -516,7 +524,7 @@ func (c *consulClient) Update(ctx context.Context, key string, value []byte, lea
 }
 
 // UpdateIfDifferentLocked updates a key if the value is different and if the client is still holding the given lock.
-func (c *consulClient) UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+func (c *consulClient) UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error) {
 	return c.UpdateIfDifferent(ctx, key, value, lease)
 }
 
@@ -538,7 +546,7 @@ func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value 
 }
 
 // CreateOnlyLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
-func (c *consulClient) CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+func (c *consulClient) CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error) {
 	return c.CreateOnly(ctx, key, value, lease)
 }
 
@@ -604,7 +612,7 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 }
 
 // ListPrefixLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
-func (c *consulClient) ListPrefixLocked(prefix string, lock kvLocker) (KeyValuePairs, error) {
+func (c *consulClient) ListPrefixLocked(prefix string, lock KVLocker) (KeyValuePairs, error) {
 	return c.ListPrefix(prefix)
 }
 

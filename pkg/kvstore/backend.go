@@ -139,19 +139,19 @@ type BackendOperations interface {
 	Status() (string, error)
 
 	// LockPath locks the provided path
-	LockPath(ctx context.Context, path string) (kvLocker, error)
+	LockPath(ctx context.Context, path string) (KVLocker, error)
 
 	// Get returns value of key
 	Get(key string) ([]byte, error)
 
 	// GetLocked returns value of key if the client is still holding the given lock.
-	GetLocked(key string, lock kvLocker) ([]byte, error)
+	GetLocked(key string, lock KVLocker) ([]byte, error)
 
 	// GetPrefix returns the first key which matches the prefix and its value
 	GetPrefix(ctx context.Context, prefix string) (string, []byte, error)
 
 	// GetPrefixLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
-	GetPrefixLocked(ctx context.Context, prefix string, lock kvLocker) (string, []byte, error)
+	GetPrefixLocked(ctx context.Context, prefix string, lock KVLocker) (string, []byte, error)
 
 	// Set sets value of key
 	Set(key string, value []byte) error
@@ -160,7 +160,7 @@ type BackendOperations interface {
 	Delete(key string) error
 
 	// DeleteLocked deletes a key if the client is still holding the given lock.
-	DeleteLocked(key string, lock kvLocker) error
+	DeleteLocked(key string, lock KVLocker) error
 
 	DeletePrefix(path string) error
 
@@ -168,19 +168,19 @@ type BackendOperations interface {
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 
 	// UpdateLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
-	UpdateLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) error
+	UpdateLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error
 
 	// UpdateIfDifferent updates a key if the value is different
 	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 
 	// UpdateIfDifferentLocked updates a key if the value is different and if the client is still holding the given lock.
-	UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error)
+	UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error)
 
 	// CreateOnly atomically creates a key or fails if it already exists
 	CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 
 	// CreateOnlyLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
-	CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error)
+	CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error)
 
 	// CreateIfExists creates a key with the value only if key condKey exists
 	CreateIfExists(condKey, key string, value []byte, lease bool) error
@@ -189,7 +189,7 @@ type BackendOperations interface {
 	ListPrefix(prefix string) (KeyValuePairs, error)
 
 	// ListPrefixLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
-	ListPrefixLocked(prefix string, lock kvLocker) (KeyValuePairs, error)
+	ListPrefixLocked(prefix string, lock KVLocker) (KeyValuePairs, error)
 
 	// Watch starts watching for changes in a prefix. If list is true, the
 	// current keys matching the prefix will be listed and reported as new

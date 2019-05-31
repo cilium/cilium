@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,8 +41,11 @@ var (
 	staleLockTimeout = time.Duration(30) * time.Second
 )
 
-type kvLocker interface {
+type KVLocker interface {
 	Unlock() error
+	// Comparator returns an object that should be used by the KVStore to make
+	// sure if the lock is still valid for its client.
+	Comparator() interface{}
 }
 
 // getLockPath returns the lock path representation of the given path.
@@ -126,7 +129,7 @@ func (pl *pathLocks) unlock(path string, id uuid.UUID) {
 type Lock struct {
 	path   string
 	id     uuid.UUID
-	kvLock kvLocker
+	kvLock KVLocker
 }
 
 // LockPath locks the specified path. The key for the lock is not the path
@@ -169,4 +172,8 @@ func (l *Lock) Unlock() error {
 	Trace("Unlocked", nil, logrus.Fields{fieldKey: l.path})
 
 	return err
+}
+
+func (l *Lock) Comparator() interface{} {
+	return l.kvLock.Comparator()
 }
