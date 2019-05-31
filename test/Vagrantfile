@@ -93,6 +93,9 @@ Vagrant.configure("2") do |config|
             server.vm.network "private_network", type: "dhcp"
             server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
                 nfs: $NFS
+            # ensure SSH is never OOM killed
+            server.vm.provision :shell, 
+                :inline => "echo -17 > /proc/`cat /var/run/sshd.pid`/oom_adj"
             # Provision section
             server.vm.provision :shell,
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
