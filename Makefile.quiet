@@ -7,7 +7,7 @@ ifeq ($(V),0)
 	ECHO_CC=echo "  CC    $(RELATIVE_DIR)/$@"
 	ECHO_GEN=echo "  GEN   $(RELATIVE_DIR)/"
 	ECHO_GO=echo "  GO    $(RELATIVE_DIR)/$@"
-	ECHO_CHECK=echo "  CHECK$(RELATIVE_DIR)"
+	ECHO_CHECK=echo "  CHECK $(RELATIVE_DIR)"
 	ECHO_GINKGO=echo "  GINKG $(RELATIVE_DIR)"
 	ECHO_CLEAN=echo "  CLEAN $(RELATIVE_DIR)"
 	SPHINXOPTS+="-q"
