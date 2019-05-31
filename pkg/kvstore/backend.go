@@ -144,8 +144,14 @@ type BackendOperations interface {
 	// Get returns value of key
 	Get(key string) ([]byte, error)
 
+	// GetIfLocked returns value of key if the client is still holding the given lock.
+	GetIfLocked(key string, lock kvLocker) ([]byte, error)
+
 	// GetPrefix returns the first key which matches the prefix and its value
 	GetPrefix(ctx context.Context, prefix string) (string, []byte, error)
+
+	// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
+	GetPrefixIfLocked(ctx context.Context, prefix string, lock kvLocker) (string, []byte, error)
 
 	// Set sets value of key
 	Set(key string, value []byte) error
@@ -153,22 +159,37 @@ type BackendOperations interface {
 	// Delete deletes a key
 	Delete(key string) error
 
+	// DeleteIfLocked deletes a key if the client is still holding the given lock.
+	DeleteIfLocked(key string, lock kvLocker) error
+
 	DeletePrefix(path string) error
 
 	// Update atomically creates a key or fails if it already exists
 	Update(ctx context.Context, key string, value []byte, lease bool) error
 
+	// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+	UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) error
+
 	// UpdateIfDifferent updates a key if the value is different
 	UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error)
 
+	// UpdateIfDifferentIfLocked updates a key if the value is different and if the client is still holding the given lock.
+	UpdateIfDifferentIfLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error)
+
 	// CreateOnly atomically creates a key or fails if it already exists
 	CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error)
+
+	// CreateOnlyIfLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
+	CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error)
 
 	// CreateIfExists creates a key with the value only if key condKey exists
 	CreateIfExists(condKey, key string, value []byte, lease bool) error
 
 	// ListPrefix returns a list of keys matching the prefix
 	ListPrefix(prefix string) (KeyValuePairs, error)
+
+	// ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
+	ListPrefixIfLocked(prefix string, lock kvLocker) (KeyValuePairs, error)
 
 	// Watch starts watching for changes in a prefix. If list is true, the
 	// current keys matching the prefix will be listed and reported as new
