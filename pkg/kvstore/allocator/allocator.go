@@ -396,11 +396,11 @@ func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
 	return 0, "", 0
 }
 
-func (a *Allocator) createValueNodeKey(ctx context.Context, key string, newID idpool.ID) error {
+func (a *Allocator) createValueNodeKey(ctx context.Context, key string, newID idpool.ID, lock kvstore.KVLocker) error {
 	// add a new key /value/<key>/<node> to account for the reference
 	// The key is protected with a TTL/lease and will expire after LeaseTTL
 	valueKey := path.Join(a.valuePrefix, key, a.suffix)
-	if _, err := kvstore.UpdateIfDifferent(ctx, valueKey, []byte(newID.String()), true); err != nil {
+	if _, err := kvstore.UpdateIfDifferentLocked(ctx, valueKey, []byte(newID.String()), true, lock); err != nil {
 		return fmt.Errorf("unable to create value-node key '%s': %s", valueKey, err)
 	}
 
@@ -439,7 +439,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	// fetch first key that matches /value/<key> while ignoring the
 	// node suffix
-	value, err := a.Get(ctx, key)
+	value, err := a.GetLocked(ctx, key, lock)
 	if err != nil {
 		return 0, false, err
 	}
@@ -457,7 +457,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		if value != 0 {
 			// re-create master key
 			keyPath := path.Join(a.idPrefix, strconv.FormatUint(uint64(value), 10))
-			success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
+			success, err := kvstore.CreateOnlyLocked(ctx, keyPath, []byte(k), false, lock)
 			if err != nil || !success {
 				return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
 			}
@@ -469,7 +469,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		}
 	}
 	if value != 0 {
-		if err = a.createValueNodeKey(ctx, k, value); err != nil {
+		if err = a.createValueNodeKey(ctx, k, value, lock); err != nil {
 			a.localKeys.release(k)
 			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
 		}
@@ -506,7 +506,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	// create /id/<ID> and fail if it already exists
 	keyPath := path.Join(a.idPrefix, strID)
-	success, err := kvstore.CreateOnly(ctx, keyPath, []byte(k), false)
+	success, err := kvstore.CreateOnlyLocked(ctx, keyPath, []byte(k), false, lock)
 	if err != nil || !success {
 		// Creation failed. Another agent most likely beat us to allocating this
 		// ID, retry.
@@ -517,7 +517,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	// Notify pool that leased ID is now in-use.
 	a.idPool.Use(unmaskedID)
 
-	if err = a.createValueNodeKey(ctx, k, id); err != nil {
+	if err = a.createValueNodeKey(ctx, k, id, lock); err != nil {
 		// We will leak the master key here as the key has already been
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
@@ -598,6 +598,16 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	return 0, false, err
 }
 
+// GetLocked returns the ID which is allocated to a key. Returns an ID of NoID if no ID
+// has been allocated to this key yet.
+func (a *Allocator) GetLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
+		return id, nil
+	}
+
+	return a.GetNoCacheLocked(ctx, key, lock)
+}
+
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
 func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
@@ -612,6 +622,42 @@ func prefixMatchesKey(prefix, key string) bool {
 	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
 	lastSlash := strings.LastIndex(key, "/")
 	return len(prefix) == lastSlash
+}
+
+// GetNoCacheLocked returns the ID which is allocated to a key in the kvstore
+func (a *Allocator) GetNoCacheLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
+	// ListPrefixLocked() will return all keys matching the prefix, the prefix
+	// can cover multiple different keys, example:
+	//
+	// key1 := label1;label2;
+	// key2 := label1;label2;label3;
+	//
+	// In order to retrieve the correct key, the position of the last '/'
+	// is signficant, e.g.
+	//
+	// prefix := cilium/state/identities/v1/value/label;foo;
+	//
+	// key1 := cilium/state/identities/v1/value/label;foo;/172.0.124.60
+	// key2 := cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
+	//
+	// Only key1 should match
+	prefix := path.Join(a.valuePrefix, key.GetKey())
+	pairs, err := kvstore.ListPrefixLocked(prefix, lock)
+	kvstore.Trace("ListPrefixLocked", err, logrus.Fields{fieldPrefix: prefix, "entries": len(pairs)})
+	if err != nil {
+		return 0, err
+	}
+
+	for k, v := range pairs {
+		if prefixMatchesKey(prefix, k) {
+			id, err := strconv.ParseUint(string(v.Data), 10, 64)
+			if err == nil {
+				return idpool.ID(id), nil
+			}
+		}
+	}
+
+	return idpool.NoID, nil
 }
 
 // GetNoCache returns the ID which is allocated to a key in the kvstore
@@ -693,6 +739,8 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 		valueKey := path.Join(a.valuePrefix, k, a.suffix)
 		log.WithField(fieldKey, key).Info("Released last local use of key, invoking global release")
 
+		// does not need to be deleted with a lock as its protected by the
+		// a.slaveKeysMutex
 		if err := kvstore.Delete(valueKey); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{fieldKey: key}).Warning("Ignoring node specific ID")
 		}
@@ -731,7 +779,7 @@ func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint
 
 		// fetch list of all /value/<key> keys
 		valueKeyPrefix := path.Join(a.valuePrefix, string(v.Data))
-		pairs, err := kvstore.ListPrefix(valueKeyPrefix)
+		pairs, err := kvstore.ListPrefixLocked(valueKeyPrefix, lock)
 		if err != nil {
 			log.WithError(err).WithField(fieldPrefix, valueKeyPrefix).Warning("allocator garbage collector was unable to list keys")
 			lock.Unlock()
@@ -754,7 +802,7 @@ func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint
 			})
 			// Only delete if this key was previously marked as to be deleted
 			if modRev, ok := staleKeysPrevRound[key]; ok && modRev == v.ModRevision {
-				if err := kvstore.Delete(key); err != nil {
+				if err := kvstore.DeleteLocked(key, lock); err != nil {
 					scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
 				} else {
 					scopedLog.Info("Deleted unused allocator master key")
