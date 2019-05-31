@@ -14,6 +14,12 @@ include ./Makefile.bpf
 ifeq ("$(PKG_BUILD)","")
 all: $(BPF) $(TARGET) $(SUBDIRS)
 
+build_all:
+	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
+	$(MAKE) all BUILD_PERMUTATIONS=1
+
+BUILD_PERMUTATIONS ?= ""
+
 $(BPF_SIMPLE): %.o: %.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
@@ -41,10 +47,12 @@ MAX_LB_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 -DLB_L3 -DLB_L4
 
 bpf_lb.ll: bpf_lb.c $(LIB)
 	$(QUIET) set -e; \
-	$(foreach OPTS,$(LB_OPTIONS), \
-		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
-		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(LB_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
@@ -54,10 +62,12 @@ bpf_lb.o: bpf_lb.ll
 
 bpf_sock.ll: bpf_sock.c $(LIB)
 	$(QUIET) set -e; \
-	$(foreach OPTS,$(LB_OPTIONS), \
-		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
-		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(LB_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
@@ -76,10 +86,12 @@ MAX_OVERLAY_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6 #-DENABLE_IPSEC (from node_con
 
 bpf_overlay.ll: bpf_overlay.c $(LIB)
 	$(QUIET) set -e; \
-	$(foreach OPTS,$(OVERLAY_OPTIONS), \
-		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
-		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(OVERLAY_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
@@ -110,10 +122,12 @@ MAX_LXC_OPTIONS = -DENABLE_IPV4 -DENABLE_IPV6
 
 bpf_lxc.ll: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \
-	$(foreach OPTS,$(LXC_OPTIONS), \
-		$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
-		${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-		${LLC} ${LLC_FLAGS} -o /dev/null $@; )
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(LXC_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_LXC_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
