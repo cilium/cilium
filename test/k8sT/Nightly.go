@@ -448,3 +448,25 @@ var _ = Describe("NightlyExamples", func() {
 		})
 	})
 })
+
+var _ = Describe("NightlySonobuoy", func() {
+	var kubectl *helpers.Kubectl
+
+	BeforeAll(func() {
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		ExpectCiliumReady(kubectl)
+	})
+
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+			"cilium service list",
+			"cilium endpoint list")
+	})
+
+	Context("Run sonobuoy", func() {
+		It("Run sonobuoy", func() {
+			res := kubectl.ExecSonobuoy()
+			res.ExpectSuccess("Sonobuoy conformance tests failed")
+		})
+	})
+})
