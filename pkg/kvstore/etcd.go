@@ -781,6 +781,11 @@ func (e *etcdClient) Status() (string, error) {
 	return e.latestStatusSnapshot, Hint(e.latestErrorStatus)
 }
 
+// GetIfLocked returns value of key if the client is still holding the given lock.
+func (e *etcdClient) GetIfLocked(key string, lock kvLocker) ([]byte, error) {
+	return e.Get(key)
+}
+
 // Get returns value of key
 func (e *etcdClient) Get(key string) ([]byte, error) {
 	duration := spanstat.Start()
@@ -795,6 +800,11 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 		return nil, nil
 	}
 	return getR.Kvs[0].Value, nil
+}
+
+// GetPrefixIfLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
+func (e *etcdClient) GetPrefixIfLocked(ctx context.Context, prefix string, lock kvLocker) (string, []byte, error) {
+	return e.GetPrefix(ctx, prefix)
 }
 
 // GetPrefix returns the first key which matches the prefix and its value
@@ -822,6 +832,11 @@ func (e *etcdClient) Set(key string, value []byte) error {
 	return Hint(err)
 }
 
+// DeleteIfLocked deletes a key if the client is still holding the given lock.
+func (e *etcdClient) DeleteIfLocked(key string, lock kvLocker) error {
+	return e.Delete(key)
+}
+
 // Delete deletes a key
 func (e *etcdClient) Delete(key string) error {
 	duration := spanstat.Start()
@@ -839,6 +854,11 @@ func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseI
 
 	op := client.OpPut(key, string(value))
 	return &op
+}
+
+// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) error {
+	return e.Update(ctx, key, value, lease)
 }
 
 // Update creates or updates a key
@@ -866,6 +886,12 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 	return Hint(err)
 }
 
+// UpdateIfDifferentIfLocked updates a key if the value is different and if the client is still holding the given lock.
+func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+	return e.UpdateIfDifferent(ctx, key, value, lease)
+}
+
+// UpdateIfDifferent updates a key if the value is different
 func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	select {
 	case <-e.firstSession:
@@ -895,6 +921,11 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 	}
 
 	return false, nil
+}
+
+// CreateOnlyIfLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
+func (e *etcdClient) CreateOnlyIfLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+	return e.CreateOnly(ctx, key, value, lease)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
@@ -961,6 +992,11 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 //
 //	return nil
 //}
+
+// ListPrefixIfLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
+func (e *etcdClient) ListPrefixIfLocked(prefix string, lock kvLocker) (KeyValuePairs, error) {
+	return e.ListPrefix(prefix)
+}
 
 // ListPrefix returns a map of matching keys
 func (e *etcdClient) ListPrefix(prefix string) (KeyValuePairs, error) {
