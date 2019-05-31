@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -60,11 +61,20 @@ type crdBackend struct {
 func (c *crdBackend) DeleteAllKeys() {
 }
 
+func toK8sLabels(old map[string]string) map[string]string {
+	fixup := make(map[string]string, len(old))
+	for k, v := range old {
+		k = strings.ReplaceAll(k, ":", "_")
+		fixup[k] = v
+	}
+	return fixup
+}
+
 func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
 	identity := &v2.CiliumIdentity{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   id.String(),
-			Labels: key.GetAsMap(),
+			Labels: toK8sLabels(key.GetAsMap()),
 		},
 		Status: v2.IdentityStatus{
 			Nodes: map[string]metav1.Time{
@@ -179,7 +189,7 @@ func (c *crdLock) Unlock() error {
 }
 
 func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *types.Identity {
-	labels := key.GetAsMap()
+	labels := toK8sLabels(key.GetAsMap())
 
 	if c.Store == nil {
 		return nil
