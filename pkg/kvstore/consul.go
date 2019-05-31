@@ -440,12 +440,22 @@ func (c *consulClient) Set(key string, value []byte) error {
 	return err
 }
 
+// DeleteLocked deletes a key if the client is still holding the given lock.
+func (c *consulClient) DeleteLocked(key string, lock kvLocker) error {
+	return c.Delete(key)
+}
+
 // Delete deletes a key
 func (c *consulClient) Delete(key string) error {
 	duration := spanstat.Start()
 	_, err := c.KV().Delete(key, nil)
 	increaseMetric(key, metricDelete, "Delete", duration.EndError(err).Total(), err)
 	return err
+}
+
+// GetLocked returns value of key if the client is still holding the given lock.
+func (c *consulClient) GetLocked(key string, lock kvLocker) ([]byte, error) {
+	return c.Get(key)
 }
 
 // Get returns value of key
@@ -460,6 +470,11 @@ func (c *consulClient) Get(key string) ([]byte, error) {
 		return nil, nil
 	}
 	return pair.Value, nil
+}
+
+// GetPrefixLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
+func (c *consulClient) GetPrefixLocked(ctx context.Context, prefix string, lock kvLocker) (string, []byte, error) {
+	return c.GetPrefix(ctx, prefix)
 }
 
 // GetPrefix returns the first key which matches the prefix and its value
@@ -479,6 +494,11 @@ func (c *consulClient) GetPrefix(ctx context.Context, prefix string) (string, []
 	return pairs[0].Key, pairs[0].Value, nil
 }
 
+// UpdateLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+func (c *consulClient) UpdateLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) error {
+	return c.Update(ctx, key, value, lease)
+}
+
 // Update creates or updates a key with the value
 func (c *consulClient) Update(ctx context.Context, key string, value []byte, lease bool) error {
 	k := &consulAPI.KVPair{Key: key, Value: value}
@@ -495,6 +515,12 @@ func (c *consulClient) Update(ctx context.Context, key string, value []byte, lea
 	return err
 }
 
+// UpdateIfDifferentLocked updates a key if the value is different and if the client is still holding the given lock.
+func (c *consulClient) UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+	return c.UpdateIfDifferent(ctx, key, value, lease)
+}
+
+// UpdateIfDifferent updates a key if the value is different
 func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	duration := spanstat.Start()
 	getR, _, err := c.KV().Get(key, nil)
@@ -509,6 +535,11 @@ func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value 
 	}
 
 	return true, c.Update(ctx, key, value, lease)
+}
+
+// CreateOnlyLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
+func (c *consulClient) CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+	return c.CreateOnly(ctx, key, value, lease)
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
@@ -570,6 +601,11 @@ func (c *consulClient) CreateIfExists(condKey, key string, value []byte, lease b
 	err := c.createIfExists(condKey, key, value, lease)
 	increaseMetric(key, metricSet, "CreateIfExists", duration.EndError(err).Total(), err)
 	return err
+}
+
+// ListPrefixLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
+func (c *consulClient) ListPrefixLocked(prefix string, lock kvLocker) (KeyValuePairs, error) {
+	return c.ListPrefix(prefix)
 }
 
 // ListPrefix returns a map of matching keys

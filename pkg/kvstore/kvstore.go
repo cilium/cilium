@@ -54,10 +54,24 @@ func Get(key string) ([]byte, error) {
 	return v, err
 }
 
+// GetLocked returns value of key if the client is still holding the given lock.
+func GetLocked(key string, lock kvLocker) ([]byte, error) {
+	v, err := Client().GetLocked(key, lock)
+	Trace("GetLocked", err, logrus.Fields{fieldKey: key, fieldValue: string(v)})
+	return v, err
+}
+
 // GetPrefix returns the first key which matches the prefix and its value.
 func GetPrefix(ctx context.Context, prefix string) (k string, v []byte, err error) {
 	k, v, err = Client().GetPrefix(ctx, prefix)
 	Trace("GetPrefix", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(v)})
+	return
+}
+
+// GetPrefixLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
+func GetPrefixLocked(ctx context.Context, prefix string, lock kvLocker) (k string, v []byte, err error) {
+	k, v, err = Client().GetPrefixLocked(ctx, prefix, lock)
+	Trace("GetPrefixLocked", err, logrus.Fields{fieldPrefix: prefix, fieldKey: k, fieldValue: string(v)})
 	return
 }
 
@@ -68,10 +82,28 @@ func ListPrefix(prefix string) (KeyValuePairs, error) {
 	return v, err
 }
 
+// ListPrefixLocked  returns a list of keys matching the prefix only if the client is still holding the given lock.
+func ListPrefixLocked(prefix string, lock kvLocker) (KeyValuePairs, error) {
+	v, err := Client().ListPrefixLocked(prefix, lock)
+	Trace("ListPrefixLocked", err, logrus.Fields{fieldPrefix: prefix, fieldNumEntries: len(v)})
+	return v, err
+}
+
 // CreateOnly atomically creates a key or fails if it already exists
 func CreateOnly(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	success, err := Client().CreateOnly(ctx, key, value, lease)
 	Trace("CreateOnly", err, logrus.Fields{
+		fieldKey: key, fieldValue: string(value),
+		fieldAttachLease: lease,
+		"success":        success,
+	})
+	return success, err
+}
+
+// CreateOnlyLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
+func CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+	success, err := Client().CreateOnlyLocked(ctx, key, value, lease, lock)
+	Trace("CreateOnlyLocked", err, logrus.Fields{
 		fieldKey: key, fieldValue: string(value),
 		fieldAttachLease: lease,
 		"success":        success,
@@ -89,7 +121,19 @@ func Update(ctx context.Context, key string, value []byte, lease bool) error {
 // UpdateIfDifferent updates a key if the value is different
 func UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
 	recreated, err := Client().UpdateIfDifferent(ctx, key, value, lease)
-	Trace("Update", err, logrus.Fields{
+	Trace("UpdateIfDifferent", err, logrus.Fields{
+		fieldKey:         key,
+		fieldValue:       string(value),
+		fieldAttachLease: lease,
+		"recreated":      recreated,
+	})
+	return recreated, err
+}
+
+// UpdateIfDifferentLocked updates a key if the value is different and if the client is still holding the given lock.
+func UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock kvLocker) (bool, error) {
+	recreated, err := Client().UpdateIfDifferentLocked(ctx, key, value, lease, lock)
+	Trace("UpdateIfDifferentLocked", err, logrus.Fields{
 		fieldKey:         key,
 		fieldValue:       string(value),
 		fieldAttachLease: lease,
@@ -116,6 +160,13 @@ func Set(key string, value []byte) error {
 func Delete(key string) error {
 	err := Client().Delete(key)
 	Trace("Delete", err, logrus.Fields{fieldKey: key})
+	return err
+}
+
+// DeleteLocked deletes a key if the client is still holding the given lock.
+func DeleteLocked(key string, lock kvLocker) error {
+	err := Client().DeleteLocked(key, lock)
+	Trace("DeleteLocked", err, logrus.Fields{fieldKey: key})
 	return err
 }
 
