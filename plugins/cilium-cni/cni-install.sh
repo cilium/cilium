@@ -96,6 +96,7 @@ EOF
 "portmap")
 	cat > ${CNI_CONF_NAME} <<EOF
 {
+  "cniVersion": "0.3.1",
   "name": "portmap",
   "plugins": [
     {
@@ -114,6 +115,7 @@ EOF
 "aws-cni")
 	cat > ${CNI_CONF_NAME} <<EOF
 {
+  "cniVersion": "0.3.1",
   "name": "aws-cni",
   "plugins": [
     {
@@ -138,6 +140,7 @@ EOF
 *)
 	cat > ${CNI_CONF_NAME} <<EOF
 {
+  "cniVersion": "0.3.1",
   "name": "cilium",
   "type": "cilium-cni"
 }
