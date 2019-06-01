@@ -149,7 +149,6 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	changed := revision > currentRevision
 	if changed {
 		cip.setPolicy(selPolicy)
-		currentPolicy.Detach()
 	}
 	return changed, nil
 }
@@ -176,7 +175,7 @@ func (cache *PolicyCache) Lookup(identity *identityPkg.Identity) SelectorPolicy 
 // UpdatePolicy resolves the policy for the security identity of the specified
 // endpoint and caches it for future use.
 //
-// The caller must provide threadsafety for iteration over the provided policy
+// The caller must provide threadsafety for iteration over the policy
 // repository.
 func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
 	_, err := cache.updateSelectorPolicy(identity)
@@ -207,8 +206,13 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 }
 
 // setPolicy updates the reference to the SelectorPolicy that is cached.
+// Calls Detach() on the old policy, if any.
 func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
-	atomic.StorePointer(&cip.policy, unsafe.Pointer(policy))
+	oldPolicy := (*selectorPolicy)(atomic.SwapPointer(&cip.policy, unsafe.Pointer(policy)))
+	if oldPolicy != nil {
+		// Release the references the previous policy holds on the selector cache.
+		oldPolicy.Detach()
+	}
 }
 
 // Consume returns the EndpointPolicy that defines connectivity policy to
