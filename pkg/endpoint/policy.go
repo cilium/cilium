@@ -147,10 +147,6 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 		return nil
 	}
 
-	// Update fields within endpoint based off known identities, and whether
-	// policy needs to be enforced for either ingress or egress.
-	e.prevIdentityCacheRevision = prevIdentityCacheRevision
-
 	stats.policyCalculation.Start()
 	if e.selectorPolicy == nil {
 		// Upon initial insertion or restore, there's currently no good
@@ -175,6 +171,10 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	stats.policyCalculation.End(true)
 
 	e.desiredPolicy = calculatedPolicy
+
+	// Set the revision of the identity cache at which the policy computation started
+	// now that we know the policy computation was successful.
+	e.prevIdentityCacheRevision = prevIdentityCacheRevision
 
 	if e.forcePolicyCompute {
 		forceRegeneration = true     // Options were changed by the caller.
