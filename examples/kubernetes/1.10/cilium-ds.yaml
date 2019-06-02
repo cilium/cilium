@@ -51,12 +51,6 @@ spec:
               key: flannel-master-device
               name: cilium-config
               optional: true
-        - name: CILIUM_CNI_CHAINING_MODE
-          valueFrom:
-            configMapKeyRef:
-              key: cni-chaining-mode
-              name: cilium-config
-              optional: true
         - name: CILIUM_FLANNEL_UNINSTALL_ON_EXIT
           valueFrom:
             configMapKeyRef:
