@@ -873,11 +873,18 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 		return false, fmt.Errorf("update cancelled via context: %s", ctx.Err())
 	}
 
-	existingValue, err := e.Get(key)
+	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
+	getR, err := e.client.Get(ctx, key)
+	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
-	if err == nil {
-		// Value already exists, do not update
-		if bytes.Equal(existingValue, value) {
+	if err == nil && getR.Count != 0 {
+		e.RWMutex.RLock()
+		leaseID := e.session.Lease()
+		e.RWMutex.RUnlock()
+		// if lease is different and value is not equal then update.
+		if getR.Kvs[0].Lease == int64(leaseID) &&
+			bytes.Equal(getR.Kvs[0].Value, value) {
 			return false, nil
 		}
 	}
