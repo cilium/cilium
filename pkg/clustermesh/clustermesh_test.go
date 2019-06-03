@@ -27,10 +27,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
+
+	k8s_cache "k8s.io/client-go/tools/cache"
 
 	. "gopkg.in/check.v1"
 )
@@ -109,7 +112,9 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	defer kvstore.Close()
 
 	identity.InitWellKnownIdentities()
-	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
+	// FIXME: in daemon identityStore seems to be nil
+	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
+	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{}, k8s.CiliumClient(), identityStore)
 	defer cache.Close()
 
 	dir, err := ioutil.TempDir("", "multicluster")

@@ -20,15 +20,17 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 
 	. "gopkg.in/check.v1"
+	k8s_cache "k8s.io/client-go/tools/cache"
 )
 
 func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
@@ -219,7 +221,9 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(newDummyOwner())
+	// FIXME: in daemon identityStore seems to be nil
+	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
+	InitIdentityAllocator(newDummyOwner(), identityStore)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -235,7 +239,9 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(owner)
+	// FIXME: in daemon identityStore seems to be nil
+	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
+	InitIdentityAllocator(owner, k8s.CiliumClient(), identityStore)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -318,7 +324,9 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(owner)
+	// FIXME: in daemon identityStore seems to be nil
+	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
+	InitIdentityAllocator(owner, k8s.CiliumClient(), identityStore)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 

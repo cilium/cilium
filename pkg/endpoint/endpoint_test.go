@@ -25,13 +25,16 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	. "gopkg.in/check.v1"
+	k8s_cache "k8s.io/client-go/tools/cache"
 )
 
 var (
@@ -58,7 +61,9 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
-	cache.InitIdentityAllocator(&testIdentityAllocator{})
+	// FIXME: in daemon identityStore seems to be nil
+	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
+	cache.InitIdentityAllocator(&testIdentityAllocator{}, k8s.CiliumClient(), identityStore)
 	s.repo = policy.NewPolicyRepository()
 }
 
