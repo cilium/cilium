@@ -21,6 +21,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"reflect"
 	"time"
 	"unsafe"
 
@@ -263,7 +264,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 		entry := value.(*CtEntry)
 
 		switch obj := key.(type) {
-		case *tuple.TupleKey6Global:
+		case *CtKey6Global:
 			currentKey6Global := obj
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
@@ -282,7 +283,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			default:
 				stats.aliveEntries++
 			}
-		case *tuple.TupleKey6:
+		case *CtKey6:
 			currentKey6 := obj
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
@@ -301,6 +302,8 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			default:
 				stats.aliveEntries++
 			}
+		default:
+			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
 		}
 	}
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
@@ -334,7 +337,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 		entry := value.(*CtEntry)
 
 		switch obj := key.(type) {
-		case *tuple.TupleKey4Global:
+		case *CtKey4Global:
 			currentKey4Global := obj
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
@@ -353,7 +356,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			default:
 				stats.aliveEntries++
 			}
-		case *tuple.TupleKey4:
+		case *CtKey4:
 			currentKey4 := obj
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
@@ -372,6 +375,8 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			default:
 				stats.aliveEntries++
 			}
+		default:
+			log.Warningf("Encountered unknown type while scanning conntrack table: %v", reflect.TypeOf(key))
 		}
 	}
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
