@@ -71,6 +71,7 @@ func (e *AllocatorConsulSuite) TearDownTest(c *C) {
 	kvstore.Close()
 }
 
+//FIXME: this should be named better, it implements pkg/allocator.Backend
 type TestType string
 
 func (t TestType) GetKey() string              { return string(t) }
@@ -85,6 +86,11 @@ func (t TestType) PutKeyFromMap(m map[string]string) allocator.AllocatorKey {
 	}
 
 	panic("empty map")
+}
+
+//FIXME: figure out what this is supposed to do
+func (c TestType) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
+	return nil
 }
 
 func randomTestName() string {
@@ -113,7 +119,10 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 func (s *AllocatorSuite) TestGC(c *C) {
 	allocatorName := randomTestName()
 	maxID := idpool.ID(256 + c.N)
-	allocator, err := NewAllocator(allocatorName, TestType(""), WithMax(maxID), WithSuffix("a"), WithoutGC())
+	// FIXME: Did this previousy use allocatorName := randomTestName() ? so TestType(randomeTestName())
+	backend, err := NewKVStoreBackend(allocatorName, "a", TestType(""))
+	c.Assert(err, IsNil)
+	allocator, err := allocator.NewAllocator(TestType(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 	defer allocator.DeleteAllKeys()
@@ -142,7 +151,14 @@ func (s *AllocatorSuite) TestGC(c *C) {
 	c.Assert(len(keysToDelete), Equals, 0)
 
 	// wait for cache to be updated via delete notification
-	c.Assert(testutils.WaitUntil(func() bool { return allocator.mainCache.getByID(shortID) == nil }, 5*time.Second), IsNil)
+	c.Assert(testutils.WaitUntil(func() bool {
+		key, err := allocator.GetByID(shortID)
+		if err != nil {
+			c.Error(err)
+			return false
+		}
+		return key == nil
+	}, 5*time.Second), IsNil)
 
 	key, err := allocator.GetByID(shortID)
 	c.Assert(err, IsNil)
@@ -202,9 +218,9 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		a.Release(context.Background(), TestType(fmt.Sprintf("key%04d", i)))
 	}
 
-	keysToDelete := map[string]uint64{}
+	staleKeysPreviousRound := map[string]uint64{}
 	// running the GC should not evict any entries
-	err = a.RunGC()
+	staleKeysPreviousRound, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
 	v, err := kvstore.ListPrefix(path.Join(allocatorName, "id"))
@@ -217,9 +233,9 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	err = a.RunGC(keysToDelete)
+	staleKeysPreviousRound, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
-	err = a.RunGC(keysToDelete)
+	_, err = a.RunGC(staleKeysPreviousRound)
 	c.Assert(err, IsNil)
 
 	v, err = kvstore.ListPrefix(path.Join(allocatorName, "id"))
@@ -248,9 +264,11 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 	c.Assert(backend.keyToID(path.Join(allocatorName, "id", "10"), false), Equals, idpool.ID(10))
 }
 
-func testGetNoCache(c *C, maxID idpool.ID, testName string, suffix string) {
-	allocator, err := NewAllocator(testName, TestType(""), WithMax(maxID),
-		WithSuffix(suffix), WithoutGC())
+func testGetNoCache(c *C, maxID idpool.ID, suffix string) {
+	allocatorName := randomTestName()
+	backend, err := NewKVStoreBackend(allocatorName, "a", TestType(""))
+	c.Assert(err, IsNil)
+	allocator, err := allocator.NewAllocator(TestType(""), backend, allocator.WithMax(maxID), allocator.WithoutGC())
 	c.Assert(err, IsNil)
 	c.Assert(allocator, Not(IsNil))
 
@@ -323,7 +341,7 @@ func (s *AllocatorSuite) TestprefixMatchesKey(c *C) {
 }
 
 func (s *AllocatorSuite) TestGetNoCache(c *C) {
-	testGetNoCache(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
+	testGetNoCache(c, idpool.ID(256), "a") // enable use of local cache
 }
 
 func (s *AllocatorSuite) TestRemoteCache(c *C) {

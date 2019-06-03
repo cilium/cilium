@@ -34,6 +34,7 @@ import (
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8s_cache "k8s.io/client-go/tools/cache"
 )
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
@@ -63,7 +64,9 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName)
 	s.svcCache = k8s.NewServiceCache()
 	identity.InitWellKnownIdentities()
-	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
+	// FIXME: in daemon identityStore seems to be nil
+	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
+	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{}, k8s.CiliumClient(), identityStore)
 	dir, err := ioutil.TempDir("", "multicluster")
 	s.testDir = dir
 	c.Assert(err, IsNil)

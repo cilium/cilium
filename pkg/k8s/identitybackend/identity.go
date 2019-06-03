@@ -44,7 +44,7 @@ var (
 )
 
 func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
-	return &crdBackend{c}, nil
+	return &crdBackend{CRDBackendConfiguration: c}, nil
 }
 
 type CRDBackendConfiguration struct {

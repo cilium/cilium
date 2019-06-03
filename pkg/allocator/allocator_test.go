@@ -152,8 +152,8 @@ func (d *dummyBackend) ListAndWatch(handler CacheMutations, stopChan chan struct
 	<-stopChan
 }
 
-func (d *dummyBackend) RunGC() error {
-	return nil
+func (d *dummyBackend) RunGC(map[string]uint64) (map[string]uint64, error) {
+	return nil, nil
 }
 
 func (d *dummyBackend) Status() (string, error) {
@@ -299,7 +299,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should not evict any entries
-	allocator.RunGC()
+	allocator.RunGC(nil)
 
 	// release final reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
@@ -312,7 +312,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	allocator.RunGC()
+	allocator.RunGC(nil)
 
 	allocator.DeleteAllKeys()
 	allocator.Delete()
