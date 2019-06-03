@@ -496,11 +496,14 @@ func (c *consulClient) Update(ctx context.Context, key string, value []byte, lea
 }
 
 func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value []byte, lease bool) (bool, error) {
-	existingValue, err := c.Get(key)
+	duration := spanstat.Start()
+	getR, _, err := c.KV().Get(key, nil)
+	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
-	if err == nil {
-		// Value already exists, do not update
-		if bytes.Equal(existingValue, value) {
+	if err == nil && getR != nil {
+		// if lease is different and value is not equal then update.
+		if getR.Session == c.lease &&
+			bytes.Equal(getR.Value, value) {
 			return false, nil
 		}
 	}
