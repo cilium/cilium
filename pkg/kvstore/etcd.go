@@ -878,18 +878,23 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 	getR, err := e.client.Get(ctx, key)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
-	if err == nil && getR.Count != 0 {
+	if err != nil || getR.Count == 0 {
+		return true, e.Update(ctx, key, value, lease)
+	}
+	if lease {
 		e.RWMutex.RLock()
 		leaseID := e.session.Lease()
 		e.RWMutex.RUnlock()
-		// if lease is different and value is not equal then update.
-		if getR.Kvs[0].Lease == int64(leaseID) &&
-			bytes.Equal(getR.Kvs[0].Value, value) {
-			return false, nil
+		if getR.Kvs[0].Lease != int64(leaseID) {
+			return true, e.Update(ctx, key, value, lease)
 		}
 	}
+	// if value is not equal then update.
+	if !bytes.Equal(getR.Kvs[0].Value, value) {
+		return true, e.Update(ctx, key, value, lease)
+	}
 
-	return true, e.Update(ctx, key, value, lease)
+	return false, nil
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
