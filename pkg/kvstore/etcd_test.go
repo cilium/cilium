@@ -17,6 +17,7 @@
 package kvstore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,8 +25,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/cilium/cilium/pkg/checker"
+
 	etcdAPI "github.com/coreos/etcd/clientv3"
-	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
 )
 
@@ -262,5 +264,1237 @@ endpoints:
 	for i, tt := range tests {
 		got := IsEtcdOperator(tt.args.backend, tt.args.opts, tt.args.k8sNamespace)
 		c.Assert(got, Equals, tt.want, Commentf("Test %d", i))
+	}
+}
+
+type EtcdLockedSuite struct {
+	etcdClient *etcdAPI.Client
+}
+
+var _ = Suite(&EtcdLockedSuite{})
+
+func (e *EtcdLockedSuite) SetUpSuite(c *C) {
+	SetupDummy("etcd")
+
+	// setup client
+	cfg := etcdAPI.Config{}
+	cfg.Endpoints = []string{etcdDummyAddress}
+	cfg.DialTimeout = 0
+	cli, err := etcdAPI.New(cfg)
+	c.Assert(err, IsNil)
+	e.etcdClient = cli
+}
+
+func (e *EtcdLockedSuite) TearDownSuite(c *C) {
+	err := e.etcdClient.Close()
+	c.Assert(err, IsNil)
+	Close()
+}
+
+func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key  string
+		lock KVLocker
+	}
+	type wanted struct {
+		err   error
+		value []byte
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "getting locked path",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:   nil,
+					value: []byte("bar"),
+				}
+			},
+			cleanup: func(args args) error {
+				_, err := e.etcdClient.Delete(context.Background(), args.key)
+				if err != nil {
+					return err
+				}
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "getting locked path with no value",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:   nil,
+					value: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "getting locked path where lock was lost",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:   ErrLockLeaseExpired,
+					value: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				_, err := e.etcdClient.Delete(context.Background(), args.key)
+				return err
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		value, err := Client().GetIfLocked(args.key, args.lock)
+		c.Assert(err, Equals, want.err)
+		c.Assert(value, checker.DeepEquals, want.value)
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (e *EtcdLockedSuite) TestGetPrefixIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key  string
+		lock KVLocker
+	}
+	type wanted struct {
+		err   error
+		key   string
+		value []byte
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "getting locked prefix path",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:   nil,
+					key:   randomPath + "foo",
+					value: []byte("bar"),
+				}
+			},
+			cleanup: func(args args) error {
+				_, err := e.etcdClient.Delete(context.Background(), args.key)
+				if err != nil {
+					return err
+				}
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "getting locked prefix path with no value",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:   nil,
+					value: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "getting locked prefix path where lock was lost",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:   ErrLockLeaseExpired,
+					value: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				_, err := e.etcdClient.Delete(context.Background(), args.key)
+				return err
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		k, value, err := Client().GetPrefixIfLocked(context.Background(), args.key, args.lock)
+		c.Assert(err, Equals, want.err)
+		c.Assert(k, Equals, want.key)
+		c.Assert(value, checker.DeepEquals, want.value)
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (e *EtcdLockedSuite) TestDeleteIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key  string
+		lock KVLocker
+	}
+	type wanted struct {
+		err error
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "deleting locked path",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually deleted
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(0))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "deleting locked path with no value",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually deleted (this should not matter
+				// as the key was never in the kvstore but still)
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(0))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "deleting locked path where lock was lost",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// If the lock was lost it means the value still exists
+				value, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(value.Count, Equals, int64(1))
+				c.Assert(value.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+				return nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		err := Client().DeleteIfLocked(args.key, args.lock)
+		c.Assert(err, Equals, want.err)
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (e *EtcdLockedSuite) TestUpdateIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key      string
+		lock     KVLocker
+		newValue []byte
+		lease    bool
+	}
+	type wanted struct {
+		err error
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "update locked path without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path with no value without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// a key that was updated with no value will create a new value
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path where lock was lost without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+				return nil
+			},
+		},
+		{
+			name: "update locked path with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path with no value with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// a key that was updated with no value will create a new value
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path where lock was lost with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:   key,
+					lock:  kvlocker,
+					lease: true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+				return nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		err := Client().UpdateIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
+		c.Assert(err, Equals, want.err)
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (e *EtcdLockedSuite) TestUpdateIfDifferentIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key      string
+		lock     KVLocker
+		newValue []byte
+		lease    bool
+	}
+	type wanted struct {
+		err     error
+		updated bool
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "update locked path without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:     nil,
+					updated: true,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path without lease and with same value",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("bar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path with no value without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:     nil,
+					updated: true,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// a key that was updated with no value will create a new value
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path where lock was lost without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					newValue: []byte("baz"),
+					lock:     kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				return nil
+			},
+		},
+		{
+			name: "update locked path with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:     nil,
+					updated: true,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path with no value with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:     nil,
+					updated: true,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// a key that was updated with no value will create a new value
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path with lease and with same value",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				created, err := Client().CreateOnly(context.Background(), key, []byte("bar"), true)
+				c.Assert(err, IsNil)
+				c.Assert(created, Equals, true)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("bar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "update locked path where lock was lost with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:   key,
+					lock:  kvlocker,
+					lease: true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually updated
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+				return nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		updated, err := Client().UpdateIfDifferentIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
+		c.Assert(err, Equals, want.err)
+		c.Assert(updated, Equals, want.updated)
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (e *EtcdLockedSuite) TestCreateOnlyIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key      string
+		lock     KVLocker
+		newValue []byte
+		lease    bool
+	}
+	type wanted struct {
+		err     error
+		created bool
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "create only locked path without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:     nil,
+					created: true,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually created
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "create only locked path with an existing value without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// the key should not have been created and therefore the old
+				// value is still there
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "create only locked path where lock was lost without lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("bar"),
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was not created
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(0))
+				return nil
+			},
+		},
+		{
+			name: "create only locked path with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err:     nil,
+					created: true,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was actually created
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("newbar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "create only locked path with an existing value with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("newbar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// the key should not have been created and therefore the old
+				// value is still there
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(1))
+				c.Assert(gr.Kvs[0].Value, checker.DeepEquals, []byte("bar"))
+
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "create only locked path where lock was lost with lease",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Delete(context.Background(), key)
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:      key,
+					lock:     kvlocker,
+					newValue: []byte("bar"),
+					lease:    true,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				key := randomPath + "foo"
+				// verify that key was not created
+				gr, err := e.etcdClient.Get(context.Background(), key)
+				c.Assert(err, IsNil)
+				c.Assert(gr.Count, Equals, int64(0))
+				return nil
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		created, err := Client().CreateOnlyIfLocked(context.Background(), args.key, args.newValue, args.lease, args.lock)
+		c.Assert(err, Equals, want.err)
+		c.Assert(created, Equals, want.created)
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
+	}
+}
+
+func (e *EtcdLockedSuite) TestListPrefixIfLocked(c *C) {
+	randomPath := c.MkDir()
+	type args struct {
+		key  string
+		lock KVLocker
+	}
+	type wanted struct {
+		err     error
+		kvPairs KeyValuePairs
+	}
+	tests := []struct {
+		name        string
+		setupArgs   func() args
+		setupWanted func() wanted
+		cleanup     func(args args) error
+	}{
+		{
+			name: "list prefix locked",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key+"1", "bar1")
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				key := randomPath + "foo"
+				return wanted{
+					err: nil,
+					kvPairs: KeyValuePairs{
+						key: Value{
+							Data: []byte("bar"),
+						},
+						key + "1": Value{
+							Data: []byte("bar1"),
+						},
+					},
+				}
+			},
+			cleanup: func(args args) error {
+				_, err := e.etcdClient.Delete(context.Background(), args.key, etcdAPI.WithPrefix())
+				if err != nil {
+					return err
+				}
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "list prefix locked with no values",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Delete(context.Background(), key, etcdAPI.WithPrefix())
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: nil,
+				}
+			},
+			cleanup: func(args args) error {
+				return args.lock.Unlock()
+			},
+		},
+		{
+			name: "list prefix locked where lock was lost",
+			setupArgs: func() args {
+				key := randomPath + "foo"
+				kvlocker, err := Client().LockPath(context.Background(), "locks/"+key+"/.lock")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key, "bar")
+				c.Assert(err, IsNil)
+				_, err = e.etcdClient.Put(context.Background(), key+"1", "bar1")
+				c.Assert(err, IsNil)
+				err = kvlocker.Unlock()
+				c.Assert(err, IsNil)
+
+				return args{
+					key:  key,
+					lock: kvlocker,
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					err: ErrLockLeaseExpired,
+				}
+			},
+			cleanup: func(args args) error {
+				_, err := e.etcdClient.Delete(context.Background(), args.key)
+				return err
+			},
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		args := tt.setupArgs()
+		want := tt.setupWanted()
+		kvPairs, err := Client().ListPrefixIfLocked(args.key, args.lock)
+		c.Assert(err, Equals, want.err)
+		for k, v := range kvPairs {
+			// We don't compare revision of the value because we can't predict
+			// its value.
+			v1, ok := want.kvPairs[k]
+			c.Assert(ok, Equals, true)
+			c.Assert(v.Data, checker.DeepEquals, v1.Data)
+		}
+		err = tt.cleanup(args)
+		c.Assert(err, IsNil)
 	}
 }
