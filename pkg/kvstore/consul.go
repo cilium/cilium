@@ -500,15 +500,20 @@ func (c *consulClient) UpdateIfDifferent(ctx context.Context, key string, value 
 	getR, _, err := c.KV().Get(key, nil)
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 	// On error, attempt update blindly
-	if err == nil && getR != nil {
-		// if lease is different and value is not equal then update.
-		if getR.Session == c.lease &&
-			bytes.Equal(getR.Value, value) {
-			return false, nil
-		}
+	if err != nil || getR == nil {
+		return true, c.Update(ctx, key, value, lease)
 	}
 
-	return true, c.Update(ctx, key, value, lease)
+	if lease && getR.Session != c.lease {
+		return true, c.Update(ctx, key, value, lease)
+	}
+
+	// if lease is different and value is not equal then update.
+	if !bytes.Equal(getR.Value, value) {
+		return true, c.Update(ctx, key, value, lease)
+	}
+
+	return false, nil
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
