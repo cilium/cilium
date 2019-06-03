@@ -19,8 +19,11 @@ import (
 )
 
 var (
-	// LeaseTTL is the time-to-live ofthe lease
+	// LeaseTTL is the time-to-live of the lease
 	LeaseTTL = 15 * time.Minute // 15 minutes
+
+	// LockLeaseTTL is the time-to-live of the lease dedicated for locks
+	LockLeaseTTL = 25 * time.Second
 
 	// KeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL
