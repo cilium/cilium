@@ -43,7 +43,7 @@ func initClient(module backendModule, opts *ExtraOptions) error {
 
 	go func() {
 		err, isErr := <-errChan
-		if isErr {
+		if isErr && err != nil {
 			log.WithError(err).Fatalf("Unable to connect to kvstore")
 		}
 		deleteLegacyPrefixes()
