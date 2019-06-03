@@ -17,6 +17,7 @@ package kvstore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -49,6 +50,12 @@ const (
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
+)
+
+var (
+	// ErrLockLeaseExpired is an error whenever the lease of the lock does not
+	// exist or it was expired.
+	ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
 )
 
 func init() {
@@ -787,7 +794,25 @@ func (e *etcdClient) Status() (string, error) {
 
 // GetLocked returns value of key if the client is still holding the given lock.
 func (e *etcdClient) GetLocked(key string, lock KVLocker) ([]byte, error) {
-	return e.Get(key)
+	duration := spanstat.Start()
+	e.limiter.Wait(ctx.TODO())
+	opGet := client.OpGet(key)
+	cmp := lock.Comparator().(client.Cmp)
+	txnReply, err := e.client.Txn(context.Background()).If(cmp).Then(opGet).Commit()
+	if err == nil && !txnReply.Succeeded {
+		err = ErrLockLeaseExpired
+	}
+	increaseMetric(key, metricRead, "GetLocked", duration.EndError(err).Total(), err)
+	if err != nil {
+		return nil, Hint(err)
+	}
+
+	getR := txnReply.Responses[0].GetResponseRange()
+	// RangeResponse
+	if getR.Count == 0 {
+		return nil, nil
+	}
+	return getR.Kvs[0].Value, nil
 }
 
 // Get returns value of key
@@ -808,7 +833,24 @@ func (e *etcdClient) Get(key string) ([]byte, error) {
 
 // GetPrefixLocked returns the first key which matches the prefix and its value if the client is still holding the given lock.
 func (e *etcdClient) GetPrefixLocked(ctx context.Context, prefix string, lock KVLocker) (string, []byte, error) {
-	return e.GetPrefix(ctx, prefix)
+	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
+	opGet := client.OpGet(prefix, client.WithPrefix(), client.WithLimit(1))
+	cmp := lock.Comparator().(client.Cmp)
+	txnReply, err := e.client.Txn(ctx).If(cmp).Then(opGet).Commit()
+	if err == nil && !txnReply.Succeeded {
+		err = ErrLockLeaseExpired
+	}
+	increaseMetric(prefix, metricRead, "GetPrefixLocked", duration.EndError(err).Total(), err)
+	if err != nil {
+		return "", nil, Hint(err)
+	}
+	getR := txnReply.Responses[0].GetResponseRange()
+
+	if getR.Count == 0 {
+		return "", nil, nil
+	}
+	return string(getR.Kvs[0].Key), getR.Kvs[0].Value, nil
 }
 
 // GetPrefix returns the first key which matches the prefix and its value
@@ -838,7 +880,15 @@ func (e *etcdClient) Set(key string, value []byte) error {
 
 // DeleteLocked deletes a key if the client is still holding the given lock.
 func (e *etcdClient) DeleteLocked(key string, lock KVLocker) error {
-	return e.Delete(key)
+	duration := spanstat.Start()
+	opDel := client.OpDelete(key)
+	cmp := lock.Comparator().(client.Cmp)
+	txnReply, err := e.client.Txn(context.Background()).If(cmp).Then(opDel).Commit()
+	if err == nil && !txnReply.Succeeded {
+		err = ErrLockLeaseExpired
+	}
+	increaseMetric(key, metricDelete, "DeleteLocked", duration.EndError(err).Total(), err)
+	return Hint(err)
 }
 
 // Delete deletes a key
@@ -862,7 +912,35 @@ func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseI
 
 // UpdateLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
 func (e *etcdClient) UpdateLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
-	return e.Update(ctx, key, value, lease)
+	select {
+	case <-e.firstSession:
+	case <-ctx.Done():
+		return fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	}
+
+	var (
+		txnReply *client.TxnResponse
+		err      error
+	)
+
+	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
+	if lease {
+		leaseID := e.GetLeaseID()
+		opPut := client.OpPut(key, string(value), client.WithLease(leaseID))
+		cmp := lock.Comparator().(client.Cmp)
+		txnReply, err = e.client.Txn(context.Background()).If(cmp).Then(opPut).Commit()
+		e.checkSession(err, leaseID)
+	} else {
+		opPut := client.OpPut(key, string(value))
+		cmp := lock.Comparator().(client.Cmp)
+		txnReply, err = e.client.Txn(context.Background()).If(cmp).Then(opPut).Commit()
+	}
+	if err == nil && !txnReply.Succeeded {
+		err = ErrLockLeaseExpired
+	}
+	increaseMetric(key, metricSet, "UpdateLocked", duration.EndError(err).Total(), err)
+	return Hint(err)
 }
 
 // Update creates or updates a key
@@ -892,7 +970,46 @@ func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease
 
 // UpdateIfDifferentLocked updates a key if the value is different and if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfDifferentLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error) {
-	return e.UpdateIfDifferent(ctx, key, value, lease)
+	select {
+	case <-e.firstSession:
+	case <-ctx.Done():
+		return false, fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	}
+	duration := spanstat.Start()
+	e.limiter.Wait(ctx)
+	cnds := lock.Comparator().(client.Cmp)
+	txnresp, err := e.client.Txn(ctx).If(cnds).Then(client.OpGet(key)).Commit()
+
+	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
+
+	if !txnresp.Succeeded {
+		return false, ErrLockLeaseExpired
+	}
+
+	// On error, attempt update blindly
+	if err != nil {
+		return true, e.UpdateLocked(ctx, key, value, lease, lock)
+	}
+
+	getR := txnresp.Responses[0].GetResponseRange()
+	if getR.Count == 0 {
+		return true, e.UpdateLocked(ctx, key, value, lease, lock)
+	}
+
+	if lease {
+		e.RWMutex.RLock()
+		leaseID := e.session.Lease()
+		e.RWMutex.RUnlock()
+		if getR.Kvs[0].Lease != int64(leaseID) {
+			return true, e.UpdateLocked(ctx, key, value, lease, lock)
+		}
+	}
+	// if value is not equal then update.
+	if !bytes.Equal(getR.Kvs[0].Value, value) {
+		return true, e.UpdateLocked(ctx, key, value, lease, lock)
+	}
+
+	return false, nil
 }
 
 // UpdateIfDifferent updates a key if the value is different
@@ -929,7 +1046,56 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 
 // CreateOnlyLocked atomically creates a key if the client is still holding the given lock or fails if it already exists
 func (e *etcdClient) CreateOnlyLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) (bool, error) {
-	return e.CreateOnly(ctx, key, value, lease)
+	duration := spanstat.Start()
+	var leaseID client.LeaseID
+	if lease {
+		leaseID = e.GetLeaseID()
+	}
+	req := e.createOpPut(key, value, leaseID)
+	cnds := []client.Cmp{
+		client.Compare(client.Version(key), "=", 0),
+		lock.Comparator().(client.Cmp),
+	}
+
+	// We need to do a get in the else of the txn to detect if the lock is still
+	// valid or not.
+	opGets := []client.Op{
+		client.OpGet(key),
+	}
+
+	e.limiter.Wait(ctx)
+	txnresp, err := e.client.Txn(ctx).If(cnds...).Then(*req).Else(opGets...).Commit()
+	increaseMetric(key, metricSet, "CreateOnlyLocked", duration.EndError(err).Total(), err)
+	if err != nil {
+		e.checkSession(err, leaseID)
+		return false, Hint(err)
+	}
+
+	// The txn can failed for the following reasons:
+	//  - Key version is not zero;
+	//  - Lock does not exist or is expired.
+	// For both of those cases, the key that we are comparing might or not
+	// exist, so we have:
+	//  A - Key does not exist and lock does not exist => ErrLockLeaseExpired
+	//  B - Key does not exist and lock exist => txn should succeed
+	//  C - Key does exist, version is == 0 and lock does not exist => ErrLockLeaseExpired
+	//  D - Key does exist, version is != 0 and lock does not exist => ErrLockLeaseExpired
+	//  E - Key does exist, version is == 0 and lock does exist => txn should succeed
+	//  F - Key does exist, version is != 0 and lock does exist => txn fails but returned is nil!
+
+	if !txnresp.Succeeded {
+		// case F
+		if len(txnresp.Responses[0].GetResponseRange().Kvs) != 0 &&
+			txnresp.Responses[0].GetResponseRange().Kvs[0].Version != 0 {
+			return false, nil
+		}
+
+		// case A, C and D
+		return false, ErrLockLeaseExpired
+	}
+
+	// case B and E
+	return true, nil
 }
 
 // CreateOnly creates a key with the value and will fail if the key already exists
@@ -999,7 +1165,30 @@ func (e *etcdClient) CreateIfExists(condKey, key string, value []byte, lease boo
 
 // ListPrefixLocked returns a list of keys matching the prefix only if the client is still holding the given lock.
 func (e *etcdClient) ListPrefixLocked(prefix string, lock KVLocker) (KeyValuePairs, error) {
-	return e.ListPrefix(prefix)
+	duration := spanstat.Start()
+	e.limiter.Wait(ctx.TODO())
+	opGet := client.OpGet(prefix, client.WithPrefix())
+	cmp := lock.Comparator().(client.Cmp)
+	txnReply, err := e.client.Txn(context.Background()).If(cmp).Then(opGet).Commit()
+	if err == nil && !txnReply.Succeeded {
+		err = ErrLockLeaseExpired
+	}
+	increaseMetric(prefix, metricRead, "ListPrefixLocked", duration.EndError(err).Total(), err)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	getR := txnReply.Responses[0].GetResponseRange()
+
+	pairs := KeyValuePairs(make(map[string]Value, getR.Count))
+	for i := int64(0); i < getR.Count; i++ {
+		pairs[string(getR.Kvs[i].Key)] = Value{
+			Data:        getR.Kvs[i].Value,
+			ModRevision: uint64(getR.Kvs[i].ModRevision),
+		}
+
+	}
+
+	return pairs, nil
 }
 
 // ListPrefix returns a map of matching keys
