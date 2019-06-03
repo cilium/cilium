@@ -1189,24 +1189,60 @@ func (kub *Kubectl) WaitForCEPIdentity(ns, podName string) error {
 	return WithContext(ctx, body, 1*time.Second)
 }
 
+// NewFailedRes initializes a CmdRes indicating that cmd failed. This is helpful
+// in the case where running a session via SSH gets stuck (for whatever reason),
+// and no actual CmdRes is returned from that execution.
+func NewFailedRes(cmd string) *CmdRes {
+	stdout := new(Buffer)
+	stderr := new(Buffer)
+	var wg sync.WaitGroup
+	return &CmdRes{
+		cmd:      cmd,
+		stdout:   stdout,
+		stderr:   stderr,
+		success:  false,
+		exitcode: -1,
+		wg:       &wg,
+		err:      fmt.Errorf("command %q timed out running", cmd),
+	}
+}
+
 // CiliumExecContext runs cmd in the specified Cilium pod with the given context.
 func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd string) *CmdRes {
+
 	limitTimes := 5
-	execute := func() *CmdRes {
-		command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
-		return kub.ExecContext(ctx, command)
+	command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, pod, cmd)
+
+	resChan := make(chan *CmdRes, 1)
+	asyncFunc := func(ch chan *CmdRes) {
+		resChan <- kub.ExecContext(ctx, command)
 	}
+
+	done := time.After(HelperTimeout)
+
 	var res *CmdRes
-	// Sometimes Kubectl returns 126 exit code, It use to happen in Nightly
-	// tests when a lot of exec are in place (Cgroups issue). The upstream
-	// changes did not fix the isse, and we need to make this workaround to
-	// avoid Kubectl issue.
-	// https://github.com/openshift/origin/issues/16246
+
 	for i := 0; i < limitTimes; i++ {
-		res = execute()
-		if res.GetExitCode() != 126 {
-			break
+		go asyncFunc(resChan)
+		select {
+		case res = <-resChan:
+			// Sometimes Kubectl returns 126 exit code, which used to happen in
+			// Nightly tests when a lot of executions are occurring. This error
+			// is related to cgroups. See the following link for more detail:
+			// https://github.com/openshift/origin/issues/16246
+			if res.GetExitCode() != 126 {
+				return res
+			}
+		// This may be overkill, but we have had a lot of issues with closing
+		// SSH sessions in the past - we want to not block on the asynchronous
+		// function being executed blocking forever in case the context provided
+		// to this function is not properly instantiated (e.g., without ever
+		// being canceled, etc.)
+		case <-done:
+			log.Errorf("command stopped running after %s minutes", HelperTimeout)
+			return NewFailedRes(command)
 		}
+		// Provide some time before the next execution
 		time.Sleep(200 * time.Millisecond)
 	}
 	return res
