@@ -283,6 +283,23 @@ Changes that may require action
     change only applies to the default ConfigMap. Existing deployments will
     need to change the setting in the ConfigMap explicitly.
 
+  * Any new Cilium deployment on Kubernetes using the default ConfigMap will no
+    longer fetch the container runtime specific labels when an endpoint is
+    created and solely rely on the pod, namespace and ServiceAccount labels.
+    Previously, Cilium also scraped labels from the container runtime which we
+    are also pod labels and prefixed those with ``container:``. We have seen
+    less and less use of container runtime specific labels by users so it is no
+    longer justified for every deployment to pay the cost of interacting with
+    the container runtime by default. Any new deployment wishing to apply
+    policy based on container runtime labels, must change the ConfigMap option
+    ``container-runtime`` to ``auto`` or specify the container runtime to use.
+
+    Existing deployments will continue to interact with the container runtime
+    to fetch labels which are known to the runtime but not known to Kubernetes
+    as pod labels. If you are not using container runtime labels, consider
+    disabling it to reduce resource consumption on each by setting the option
+    ``container-runtime`` to ``none`` in the ConfigMap.
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
