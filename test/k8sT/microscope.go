@@ -40,6 +40,7 @@ var _ = Describe("K8sMicroscope", func() {
 
 	AfterAll(func() {
 		ExpectAllPodsTerminated(kubectl)
+		kubectl.CloseSSHClient()
 	})
 
 	It("Runs microscope", func() {

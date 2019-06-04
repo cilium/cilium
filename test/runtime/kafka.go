@@ -140,6 +140,8 @@ var _ = Describe("RuntimeKafka", func() {
 		status := vm.ExecCilium(fmt.Sprintf("config %s=false",
 			helpers.OptionConntrackLocal))
 		status.ExpectSuccess()
+
+		vm.CloseSSHClient()
 	})
 
 	JustBeforeEach(func() {
