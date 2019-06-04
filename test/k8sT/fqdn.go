@@ -76,6 +76,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		_ = kubectl.Delete(bindManifest)
 		_ = kubectl.Delete(demoManifest)
 		ExpectAllPodsTerminated(kubectl)
+		kubectl.CloseSSHClient()
 	})
 
 	JustBeforeEach(func() {
