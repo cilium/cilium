@@ -157,6 +157,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("DirectRouting", func() {
 		It("Check connectivity with automatic direct nodes routes", func() {
+			// FIXME: @ray, @jrajahalme, @nebril
+			Skip("Skipping test because it is currently braking the SSH connectivity between Ginkgo and the VM running the test")
 			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
