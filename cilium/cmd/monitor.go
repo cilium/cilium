@@ -175,10 +175,30 @@ func getMonitorParser(conn net.Conn, version listener.Version) (parser eventPars
 	}
 }
 
+func endpointExist(endpoint format.Uint16Flags) bool {
+	eps, err := client.EndpointList()
+	if err != nil {
+		Fatalf("cannot get endpoint list: %s\n", err)
+	}
+	for _, ep := range eps {
+		if printer.FromSource.Has(uint16(ep.ID)) {
+			return true
+		}
+	}
+	return false
+}
+
 func runMonitor(args []string) {
 	if len(args) > 0 {
 		fmt.Println("Error: arguments not recognized")
 		os.Exit(1)
+	}
+
+	if len(printer.FromSource) > 0 && !endpointExist(printer.FromSource) {
+		Fatalf("Endpoint %d doesn't exist\n", printer.FromSource[0])
+	}
+	if len(printer.ToDst) > 0 && !endpointExist(printer.ToDst) {
+		Fatalf("Endpoint %d doesn't exist\n", printer.ToDst[0])
 	}
 
 	setVerbosity()

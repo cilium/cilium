@@ -82,11 +82,11 @@ func NewMonitorFormatter(verbosity Verbosity) *MonitorFormatter {
 func (m *MonitorFormatter) match(messageType int, src uint16, dst uint16) bool {
 	if len(m.EventTypes) > 0 && !m.EventTypes.Contains(messageType) {
 		return false
-	} else if len(m.FromSource) > 0 && !m.FromSource.has(src) {
+	} else if len(m.FromSource) > 0 && !m.FromSource.Has(src) {
 		return false
-	} else if len(m.ToDst) > 0 && !m.ToDst.has(dst) {
+	} else if len(m.ToDst) > 0 && !m.ToDst.Has(dst) {
 		return false
-	} else if len(m.Related) > 0 && !m.Related.has(src) && !m.Related.has(dst) {
+	} else if len(m.Related) > 0 && !m.Related.Has(src) && !m.Related.Has(dst) {
 		return false
 	}
 
