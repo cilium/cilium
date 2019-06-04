@@ -73,6 +73,12 @@ spec:
               key: cni-chaining-mode
               name: cilium-config
               optional: true
+        - name: CILIUM_CUSTOM_CNI_CONF
+          valueFrom:
+            configMapKeyRef:
+              key: custom-cni-conf
+              name: cilium-config
+              optional: true
         image: docker.io/cilium/cilium:__CILIUM_VERSION__
         imagePullPolicy: Always
         lifecycle:
