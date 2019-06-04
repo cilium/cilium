@@ -109,6 +109,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}
 
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
+			Skip("Disabled, test is unstable")
+
 			switch helpers.GetCurrentIntegration() {
 			case helpers.CIIntegrationFlannel:
 				Skip(fmt.Sprintf(
