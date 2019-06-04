@@ -80,6 +80,10 @@ var _ = Describe("K8sServicesTest", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
+	AfterAll(func() {
+		kubectl.CloseSSHClient()
+	})
+
 	testHTTPRequest := func(url string) {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, testDSClient)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
