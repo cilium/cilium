@@ -23,7 +23,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/kevinburke/ssh_config"
@@ -253,34 +252,11 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	if err != nil {
 		return err
 	}
-	defer session.Close()
 
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		log.Errorf("Could not get stdin %s", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		select {
-		case <-ctx.Done():
-			_, err := stdin.Write([]byte{3})
-			if err != nil {
-				log.Errorf("write ^C error: %s", err)
-			}
-			err = session.Wait()
-			if err != nil {
-				log.Errorf("wait error: %s", err)
-			}
-			if err = session.Signal(ssh.SIGHUP); err != nil {
-				log.Errorf("failed to kill command: %s", err)
-			}
-			if err = session.Close(); err != nil {
-				log.Errorf("failed to close session: %s", err)
-			}
+	defer func() {
+		if closeErr := session.Close(); closeErr != nil {
+			log.WithError(closeErr).Error("failed to close session")
 		}
-		wg.Done()
 	}()
 
 	running, err := runCommand(session, cmd)
@@ -289,8 +265,10 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	}
 	select {
 	case <-ctx.Done():
-		// Wait until the ssh session is stopped
-		wg.Wait()
+		log.Warning("sending SIGHUP to session due to canceled context")
+		if err = session.Signal(ssh.SIGHUP); err != nil {
+			log.Errorf("failed to kill command when context is canceled: %s", err)
+		}
 		return ctx.Err()
 	default:
 		return err
