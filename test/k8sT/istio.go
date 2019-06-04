@@ -117,6 +117,8 @@ var _ = Describe("K8sIstioTest", func() {
 		_ = kubectl.NamespaceDelete(istioSystemNamespace)
 
 		kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
+
+		kubectl.CloseSSHClient()
 	})
 
 	JustBeforeEach(func() {

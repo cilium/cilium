@@ -47,6 +47,10 @@ var _ = Describe("K8sHealthTest", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
+	AfterAll(func() {
+		kubectl.CloseSSHClient()
+	})
+
 	getCilium := func(node string) (pod, ip string) {
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, node)
 		Expect(err).Should(BeNil())

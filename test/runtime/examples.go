@@ -42,6 +42,10 @@ var _ = Describe("RuntimePolicyValidationTests", func() {
 		vm.ReportFailed()
 	})
 
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
 	It("Validates Example Policies", func() {
 		By("Validating Demos")
 

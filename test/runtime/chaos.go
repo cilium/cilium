@@ -48,6 +48,7 @@ var _ = Describe("RuntimeChaos", func() {
 		vm.ContainerRm(helpers.Client)
 		vm.ContainerRm(helpers.Server)
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+		vm.CloseSSHClient()
 	})
 
 	AfterEach(func() {

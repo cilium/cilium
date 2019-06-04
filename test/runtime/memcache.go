@@ -111,6 +111,7 @@ var _ = Describe("RuntimeMemcache", func() {
 
 	AfterAll(func() {
 		containers("delete")
+		vm.CloseSSHClient()
 	})
 
 	JustAfterEach(func() {

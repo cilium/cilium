@@ -36,6 +36,7 @@ var _ = Describe("RuntimePrivilegedUnitTests", func() {
 	AfterAll(func() {
 		err := vm.RestartCilium()
 		Expect(err).Should(BeNil(), "Failed to restart Cilium")
+		vm.CloseSSHClient()
 	})
 
 	It("Run Tests", func() {

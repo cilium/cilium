@@ -85,6 +85,10 @@ var _ = Describe("K8sDemosTest", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
+	AfterAll(func() {
+		kubectl.CloseSSHClient()
+	})
+
 	It("Tests Star Wars Demo", func() {
 
 		allianceLabel := "org=alliance"

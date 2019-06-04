@@ -65,6 +65,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	AfterAll(func() {
 		deleteAll()
 		ExpectAllPodsTerminated(kubectl)
+		kubectl.CloseSSHClient()
 	})
 
 	AfterFailed(func() {
@@ -339,6 +340,10 @@ var _ = Describe("NightlyExamples", func() {
 		kubectl.Delete(l7Policy)
 
 		ExpectAllPodsTerminated(kubectl)
+	})
+
+	AfterAll(func() {
+		kubectl.CloseSSHClient()
 	})
 
 	Context("Upgrade test", func() {

@@ -28,6 +28,10 @@ var _ = Describe("RuntimeConnectivityTest", func() {
 		monitorStop = vm.MonitorStart()
 	})
 
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
 	removeContainer := func(containerName string) {
 		By("removing container %s", containerName)
 		res := vm.ContainerRm(containerName)
@@ -313,6 +317,10 @@ var _ = Describe("RuntimeConntrackTest", func() {
 		ExpectCiliumReady(vm)
 
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
+	})
+
+	AfterAll(func() {
+		vm.CloseSSHClient()
 	})
 
 	clientServerConnectivity := func() {
