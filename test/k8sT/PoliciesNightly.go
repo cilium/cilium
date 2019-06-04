@@ -52,6 +52,7 @@ var _ = Describe("NightlyPolicies", func() {
 			helpers.KubectlCmd, helpers.DefaultNamespace))
 		err := kubectl.WaitCleanAllTerminatingPods(timeout)
 		Expect(err).To(BeNil(), "Cannot clean pods during timeout")
+		kubectl.CloseSSHClient()
 	})
 
 	Context("PolicyEnforcement default", func() {

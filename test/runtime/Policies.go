@@ -75,6 +75,7 @@ var _ = Describe("RuntimePolicyEnforcement", func() {
 
 	AfterAll(func() {
 		vm.ContainerRm(appContainerName)
+		vm.CloseSSHClient()
 	})
 
 	BeforeEach(func() {
@@ -298,6 +299,7 @@ var _ = Describe("RuntimePolicies", func() {
 	AfterAll(func() {
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
+		vm.CloseSSHClient()
 	})
 
 	pingRequests := []string{ping, ping6}

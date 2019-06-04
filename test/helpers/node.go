@@ -58,6 +58,17 @@ func (s *SSHMeta) String() string {
 
 }
 
+// CloseSSHClient closes all of the connections made by the SSH Client for this
+// SSHMeta.
+func (s *SSHMeta) CloseSSHClient() {
+	if s.sshClient == nil || s.sshClient.client == nil {
+		log.Error("SSH client is nil; cannot close")
+	}
+	if err := s.sshClient.client.Close(); err != nil {
+		log.WithError(err).Error("error closing SSH client")
+	}
+}
+
 // GetVagrantSSHMeta returns a SSHMeta initialized based on the provided
 // SSH-config target.
 func GetVagrantSSHMeta(vmName string) *SSHMeta {
