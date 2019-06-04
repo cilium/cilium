@@ -57,6 +57,7 @@ var runtimeConnectivityTest = func(datapathMode string) func() {
 				vm.SetUpCilium()
 				vm.Exec("sudo systemctl restart cilium-docker")
 			}
+			vm.CloseSSHClient()
 		})
 
 		removeContainer := func(containerName string) {
@@ -375,6 +376,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 				vm.SetUpCilium()
 				vm.Exec("sudo systemctl restart cilium-docker")
 			}
+			vm.CloseSSHClient()
 		})
 
 		clientServerConnectivity := func() {

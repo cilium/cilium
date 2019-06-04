@@ -46,6 +46,10 @@ var _ = Describe("RuntimeCLI", func() {
 		vm.ReportFailed()
 	})
 
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
 	Context("Identity CLI testing", func() {
 
 		var (

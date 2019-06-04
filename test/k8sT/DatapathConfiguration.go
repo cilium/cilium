@@ -65,6 +65,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			"cilium endpoint list")
 	})
 
+	AfterAll(func() {
+		kubectl.CloseSSHClient()
+	})
+
 	JustAfterEach(func() {
 		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
