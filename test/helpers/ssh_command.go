@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/kevinburke/ssh_config"
+	"github.com/onsi/ginkgo"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -290,6 +291,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	select {
 	case <-ctx.Done():
 		// Wait until the ssh session is stopped
+		ginkgo.By("Waiting for SSH session to be stopped")
 		wg.Wait()
 		return ctx.Err()
 	default:
