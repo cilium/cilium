@@ -135,12 +135,18 @@ func (s *SSHMeta) ExecuteContext(ctx context.Context, cmd string, stdout io.Writ
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	err := s.sshClient.RunCommandContext(ctx, command)
+
+	ch := make(chan error, 1)
+
+	go func(errChan chan error) {
+		errChan <- s.sshClient.RunCommandContext(ctx, command)
+	}(ch)
+
 	select {
+	case err := <-ch:
+		return err
 	case <-ctx.Done():
 		return ctx.Err()
-	default:
-		return err
 	}
 }
 
