@@ -70,6 +70,10 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementDefault)
 	})
 
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
 	Context("With Sample Containers", func() {
 
 		BeforeAll(func() {

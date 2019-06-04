@@ -106,6 +106,10 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 		PerfLogWriter.Reset()
 	}, 500)
 
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
 	createContainers := func() {
 		By("create Client container")
 		vm.ContainerCreate(helpers.Client, constants.NetperfImage, helpers.CiliumDockerNetwork, "-l id.client")

@@ -64,6 +64,10 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		vm.ReportFailed("cilium status")
 	})
 
+	AfterAll(func() {
+		vm.CloseSSHClient()
+	})
+
 	It("Consul KVStore", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

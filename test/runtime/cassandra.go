@@ -115,6 +115,7 @@ var _ = Describe("RuntimeCassandra", func() {
 
 	AfterAll(func() {
 		containers("delete")
+		vm.CloseSSHClient()
 	})
 
 	JustAfterEach(func() {
