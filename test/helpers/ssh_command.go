@@ -213,24 +213,17 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 	}
 	session.RequestPty("xterm-256color", 80, 80, modes)
 
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		log.Errorf("Could not get stdin: %s", err)
-	}
-
 	go func() {
 		select {
 		case <-ctx.Done():
-			_, err := stdin.Write([]byte{3})
-			if err != nil {
-				log.Errorf("write ^C error: %s", err)
-			}
-			err = session.Wait()
-			if err != nil {
-				log.Errorf("wait error: %s", err)
+			if err = session.Signal(ssh.SIGINT); err != nil {
+				log.Errorf("failed to kill command: %s", err)
 			}
 			if err = session.Signal(ssh.SIGHUP); err != nil {
 				log.Errorf("failed to kill command: %s", err)
+			}
+			if err = session.Wait(); err != nil {
+				log.Errorf("wait error: %s", err)
 			}
 			if err = session.Close(); err != nil {
 				log.Errorf("failed to close session: %s", err)
@@ -255,26 +248,19 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 	}
 	defer session.Close()
 
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		log.Errorf("Could not get stdin %s", err)
-	}
-
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		select {
 		case <-ctx.Done():
-			_, err := stdin.Write([]byte{3})
-			if err != nil {
-				log.Errorf("write ^C error: %s", err)
-			}
-			err = session.Wait()
-			if err != nil {
-				log.Errorf("wait error: %s", err)
+			if err = session.Signal(ssh.SIGINT); err != nil {
+				log.Errorf("failed to kill command: %s", err)
 			}
 			if err = session.Signal(ssh.SIGHUP); err != nil {
 				log.Errorf("failed to kill command: %s", err)
+			}
+			if err = session.Wait(); err != nil {
+				log.Errorf("wait error: %s", err)
 			}
 			if err = session.Close(); err != nil {
 				log.Errorf("failed to close session: %s", err)
