@@ -684,7 +684,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	Context("GuestBook Examples", func() {
 		var (
-			deployment                = "guestbook_deployment.json"
+			deployment                = "guestbook_deployment.yaml"
 			groupLabel                = "zgroup=guestbook"
 			redisPolicy               = "guestbook-policy-redis.json"
 			redisPolicyName           = "guestbook-policy-redis"
