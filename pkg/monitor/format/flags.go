@@ -51,7 +51,8 @@ func (i *Uint16Flags) Type() string {
 	return "[]uint16"
 }
 
-func (i *Uint16Flags) has(value uint16) bool {
+// Has returns true of value exist
+func (i *Uint16Flags) Has(value uint16) bool {
 	for _, v := range *i {
 		if v == value {
 			return true

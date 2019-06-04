@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
@@ -175,12 +176,73 @@ func getMonitorParser(conn net.Conn, version listener.Version) (parser eventPars
 	}
 }
 
+func endpointsExist(endpoints format.Uint16Flags, existingEndpoints []*models.Endpoint) bool {
+
+	endpointsFound := format.Uint16Flags{}
+	for _, ep := range existingEndpoints {
+		if endpoints.Has(uint16(ep.ID)) {
+			endpointsFound = append(endpointsFound, uint16(ep.ID))
+		}
+	}
+
+	if len(endpointsFound) < len(endpoints) {
+		for _, endpoint := range endpoints {
+			if !endpointsFound.Has(endpoint) {
+				fmt.Fprintf(os.Stderr, "endpoint %d not found\n", endpoint)
+			}
+		}
+	}
+
+	if len(endpointsFound) == 0 {
+		return false
+	}
+
+	return true
+}
+
+func validateEndpointsFilters() {
+	if !(len(printer.FromSource) > 0) ||
+		!(len(printer.ToDst) > 0) ||
+		!(len(printer.Related) > 0) {
+		return
+	}
+
+	existingEndpoints, err := client.EndpointList()
+	if err != nil {
+		Fatalf("cannot get endpoint list: %s\n", err)
+	}
+
+	validFilter := false
+	if len(printer.FromSource) > 0 {
+		if endpointsExist(printer.FromSource, existingEndpoints) {
+			validFilter = true
+		}
+	}
+	if len(printer.ToDst) > 0 {
+		if endpointsExist(printer.ToDst, existingEndpoints) {
+			validFilter = true
+		}
+	}
+
+	if len(printer.Related) > 0 {
+		if endpointsExist(printer.Related, existingEndpoints) {
+			validFilter = true
+		}
+	}
+
+	// exit if all filters are not not found
+	if !validFilter {
+		os.Exit(1)
+	}
+}
+
 func runMonitor(args []string) {
 	if len(args) > 0 {
 		fmt.Println("Error: arguments not recognized")
 		os.Exit(1)
 	}
 
+	validateEndpointsFilters()
 	setVerbosity()
 	setupSigHandler()
 	if resp, err := client.Daemon.GetHealthz(nil); err == nil {
