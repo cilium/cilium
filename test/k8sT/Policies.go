@@ -68,6 +68,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	AfterAll(func() {
 		ExpectAllPodsTerminated(kubectl)
+		kubectl.CloseSSHClient()
 	})
 
 	JustBeforeEach(func() {

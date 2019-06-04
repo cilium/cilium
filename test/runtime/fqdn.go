@@ -270,6 +270,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		vm.SampleContainersActions(helpers.Delete, "")
 		vm.ContainerRm(bindContainerName)
 		vm.Exec(fmt.Sprintf("docker network rm  %s", worldNetwork))
+		vm.CloseSSHClient()
 	})
 
 	JustBeforeEach(func() {
