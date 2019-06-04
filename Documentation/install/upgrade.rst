@@ -268,6 +268,26 @@ Annotations:
 1.5 Upgrade Notes
 -----------------
 
+Regression warning
+~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+   Cilium versions 1.5.0 and 1.5.1 contain two serious regressions, do not use
+   either version.
+
+   * The load-balancing layer contained a defect which could result in
+     incorrect routing decisions being made as well as reverse NAT not being
+     performed correctly.
+
+   * A bug in the handling of kvstore keys resulted in the lease of kvstore
+     keys to not be updated correctly after a restart of the agent. This would
+     result in the deletion of all keys subject to the lease about 15-30
+     minutes after the agent was last restarted. The majority of kvstore keys
+     would get re-created immediately by the owning agent to recover. However,
+     ipcache entries which would remain lost for about 5 minutes until a
+     periodic synchronization kicked in or until pods were restarted.
+
 Upgrading from >=1.4.0 to 1.5.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
