@@ -37,6 +37,7 @@ var _ = Describe("RuntimeLB", func() {
 
 	AfterAll(func() {
 		vm.ServiceDelAll().ExpectSuccess()
+		vm.CloseSSHClient()
 	})
 
 	JustBeforeEach(func() {

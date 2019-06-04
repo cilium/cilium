@@ -49,6 +49,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 	AfterAll(func() {
 		ExpectAllPodsTerminated(kubectl)
+		kubectl.CloseSSHClient()
 	})
 
 	Context("Connectivity demo application", func() {
