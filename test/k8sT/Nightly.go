@@ -326,12 +326,9 @@ var _ = Describe("NightlyExamples", func() {
 	var kubectl *helpers.Kubectl
 	var demoPath string
 	var l3Policy, l7Policy string
-	var apps []string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		apps = []string{helpers.App1, helpers.App2, helpers.App3}
 
 		demoPath = helpers.ManifestGet("demo.yaml")
 		l3Policy = helpers.ManifestGet("l3-l4-policy.yaml")
