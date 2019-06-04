@@ -9,7 +9,6 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
-        NETNEXT=setIfLabel("ci/net-next", "true", "false")
     }
 
     options {
@@ -21,7 +20,7 @@ pipeline {
     stages {
         stage('Checkout') {
             options {
-                timeout(time: 10, unit: 'MINUTES')
+                timeout(time: 20, unit: 'MINUTES')
             }
 
             steps {
@@ -50,7 +49,7 @@ pipeline {
                always {
                    sh "cd ${TESTDIR}; make clean-jenkins-precheck || true"
                }
-               failure {
+               unsuccessful {
                    script {
                        if  (!currentBuild.displayName.contains('fail')) {
                            currentBuild.displayName = 'precheck fail\n' + currentBuild.displayName
@@ -59,9 +58,23 @@ pipeline {
                }
             }
         }
+        stage('Preload vagrant boxes') {
+            steps {
+                sh '/usr/local/bin/add_vagrant_box ${WORKSPACE}/${PROJ_PATH}/vagrant_box_defaults.rb'
+            }
+            post {
+                unsuccessful {
+                    script {
+                        if  (!currentBuild.displayName.contains('fail')) {
+                            currentBuild.displayName = 'preload vagrant boxes fail' + currentBuild.displayName
+                        }
+                    }
+                }
+            }
+        }
         stage ("Copy code and boot vms"){
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 45, unit: 'MINUTES')
             }
 
             environment {
@@ -81,7 +94,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; vagrant up runtime --provision'
                     }
                     post {
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'runtime vm provisioning fail\n' + currentBuild.displayName
@@ -95,7 +108,6 @@ pipeline {
                         TESTED_SUITE="k8s-1.8"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -103,7 +115,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant up k8s1-1.8 k8s2-1.8 --provision'
                     }
                     post {
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.8 vm provisioning fail\n' + currentBuild.displayName
@@ -124,7 +136,7 @@ pipeline {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant up k8s1-1.12 k8s2-1.12 --provision'
                     }
                     post {
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.12 vm provisioning fail\n' + currentBuild.displayName
@@ -162,7 +174,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
                             sh 'cd ${TESTDIR}; vagrant destroy -f || true'
                         }
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'Runtime tests fail\n' + currentBuild.displayName
@@ -176,7 +188,6 @@ pipeline {
                         TESTED_SUITE="k8s-1.8"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
                     }
                     steps {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
@@ -189,10 +200,10 @@ pipeline {
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.8 vagrant destroy -f || true'
                         }
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.8-fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.8 fail\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -215,7 +226,7 @@ pipeline {
                             sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true'
                         }
-                        failure {
+                        unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
                                     currentBuild.displayName = 'K8s 1.12 fail\n' + currentBuild.displayName

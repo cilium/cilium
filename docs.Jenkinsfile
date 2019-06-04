@@ -39,7 +39,7 @@ pipeline {
     stages {
         stage('Docs') {
             options {
-                timeout(time: 10, unit: 'MINUTES')
+                timeout(time: 20, unit: 'MINUTES')
             }
             steps {
                 Status("PENDING", "${env.JOB_NAME}")
