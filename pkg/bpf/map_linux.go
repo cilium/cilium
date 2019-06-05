@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -37,8 +38,13 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+)
+
+const (
+	allKeyStr = "ALL"
 )
 
 type MapKey interface {
@@ -88,6 +94,111 @@ type cacheEntry struct {
 	LastError     error
 }
 
+type historyEntry struct {
+	Timestamp time.Time
+	Key       MapKey
+	// AllKeys denotes whether Action was performed on all map entries.
+	AllKeys bool
+	Value   MapValue
+	Action  DesiredAction
+	Err     error
+}
+
+// HistoryManager is an utility which stores history of operations on the BPF
+// map.
+type HistoryManager struct {
+	i       int
+	entries []*historyEntry
+	mutex   lock.RWMutex
+}
+
+func newHistoryManager() *HistoryManager {
+	entries := make([]*historyEntry, option.Config.MapHistoryMaxEntries)
+	return &HistoryManager{
+		entries: entries,
+		mutex:   lock.RWMutex{},
+	}
+}
+
+// addEntryMeta adds the historyEntry. It should be never used directly, but
+// only by the other HistoryManager methods.
+func (hm *HistoryManager) addEntryMeta(key MapKey, allKeys bool, value MapValue,
+	action DesiredAction, err error) {
+	entry := &historyEntry{
+		Timestamp: time.Now(),
+		Key:       key,
+		AllKeys:   allKeys,
+		Value:     value,
+		Action:    action,
+		Err:       err,
+	}
+
+	hm.mutex.Lock()
+	defer hm.mutex.Unlock()
+
+	hm.entries[hm.i] = entry
+	hm.i++
+	// Start from the beginning when the limit is exceeded.
+	if hm.i >= option.Config.MapHistoryMaxEntries {
+		hm.i = 0
+	}
+}
+
+// addEntry adds the historyEntry for the given key, with defined value and
+// action.
+func (hm *HistoryManager) addEntry(key MapKey, value MapValue,
+	action DesiredAction, err error) {
+	hm.addEntryMeta(key, false, value, action, err)
+}
+
+// addDeleteEntry adds the historyEntry about deleting the given key.
+func (hm *HistoryManager) addDeleteEntry(key MapKey, err error) {
+	hm.addEntryMeta(key, false, nil, Delete, err)
+}
+
+// addDeleteAllEntry adds the history entry about deleting all keys in the map.
+func (hm *HistoryManager) addDeleteAllEntry(err error) {
+	hm.addEntryMeta(nil, true, nil, Delete, err)
+}
+
+// GetModel returns a BPF map history in the representation served via the API
+func (hm *HistoryManager) GetModel() *models.BPFMapHistory {
+	hm.mutex.RLock()
+	defer hm.mutex.RUnlock()
+
+	sortedEntries := make([]*historyEntry, 0, len(hm.entries))
+	for _, entry := range hm.entries {
+		if entry != nil {
+			sortedEntries = append(sortedEntries, entry)
+		}
+	}
+	sort.Slice(sortedEntries, func(i, j int) bool {
+		return sortedEntries[i].Timestamp.Before(sortedEntries[j].Timestamp)
+	})
+
+	entries := make([]*models.BPFMapHistoryEntry, 0, len(sortedEntries))
+	for _, entry := range sortedEntries {
+		var keyStr, errMsg string
+		if entry.AllKeys {
+			keyStr = allKeyStr
+		} else {
+			keyStr = entry.Key.String()
+		}
+		if entry.Err != nil {
+			errMsg = entry.Err.Error()
+		}
+		log.Infof("lmao %s - %s", keyStr, entry.Value.String())
+		entries = append(entries, &models.BPFMapHistoryEntry{
+			Timestamp: strfmt.DateTime(entry.Timestamp),
+			Key:       keyStr,
+			Value:     entry.Value.String(),
+			Action:    entry.Action.String(),
+			Error:     errMsg,
+		})
+	}
+	return &models.BPFMapHistory{Entries: entries}
+}
+
 type Map struct {
 	MapInfo
 	fd   int
@@ -118,7 +229,8 @@ type Map struct {
 	// DumpParser is a function for parsing keys and values from BPF maps
 	dumpParser DumpParser
 
-	cache map[string]*cacheEntry
+	cache   map[string]*cacheEntry
+	History *HistoryManager
 
 	// errorResolverLastScheduled is the timestamp when the error resolver
 	// was last scheduled
@@ -479,6 +591,10 @@ func (m *Map) Open() error {
 	m.openLock.Lock()
 	defer m.openLock.Unlock()
 
+	if option.Config.MapHistory {
+		m.History = newHistoryManager()
+	}
+
 	if m.fd != 0 {
 		return nil
 	}
@@ -765,14 +881,18 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	defer m.lock.Unlock()
 
 	defer func() {
-		if m.cache == nil {
-			return
-		}
-
 		desiredAction := OK
 		if err != nil {
 			desiredAction = Insert
 			m.scheduleErrorResolver()
+		}
+
+		if m.History != nil {
+			m.History.addEntry(key, value, desiredAction, err)
+		}
+
+		if m.cache == nil {
+			return
 		}
 
 		m.cache[key.String()] = &cacheEntry{
@@ -851,6 +971,9 @@ func (m *Map) DeleteWithErrno(key MapKey) (error, syscall.Errno) {
 
 func (m *Map) Delete(key MapKey) error {
 	err, _ := m.DeleteWithErrno(key)
+	if m.History != nil {
+		m.History.addDeleteEntry(key, err)
+	}
 	return err
 }
 
@@ -863,6 +986,8 @@ func (m *Map) scopedLogger() *logrus.Entry {
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
 func (m *Map) DeleteAll() error {
+	var err error
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -881,7 +1006,7 @@ func (m *Map) DeleteAll() error {
 		}
 	}
 
-	if err := m.Open(); err != nil {
+	if err = m.Open(); err != nil {
 		return err
 	}
 
@@ -889,7 +1014,7 @@ func (m *Map) DeleteAll() error {
 	mv := m.MapValue.DeepCopyMapValue()
 
 	for {
-		err := GetNextKey(
+		err = GetNextKey(
 			m.fd,
 			unsafe.Pointer(&key[0]),
 			unsafe.Pointer(&nextKey[0]),
@@ -913,6 +1038,10 @@ func (m *Map) DeleteAll() error {
 		}
 
 		copy(key, nextKey)
+	}
+
+	if m.History != nil {
+		m.History.addDeleteAllEntry(err)
 	}
 
 	return nil
