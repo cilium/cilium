@@ -21,4 +21,7 @@ data:
   # If you want to run cilium in debug mode change this value to true
   debug: "true"
 
-  ct-global-max-entries-tcp: "524288"
+  enable-ipv4: "true"
+  enable-ipv6: "true"
+  preallocate-bpf-maps: "true"
+  enable-legacy-services: "true"
