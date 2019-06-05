@@ -236,4 +236,6 @@ const (
 	// MonitorBufferPages is the default number of pages to use for the
 	// ring buffer interacting with the kernel
 	MonitorBufferPages = 64
+
+	NodeDeleteDelay = 30 * time.Second
 )
