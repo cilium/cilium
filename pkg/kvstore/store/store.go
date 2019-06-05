@@ -230,9 +230,9 @@ func (s *SharedStore) onUpdate(k Key) {
 	}
 }
 
-// Close stops participation with a shared store. This stops the controller
-// started by JoinSharedStore().
-func (s *SharedStore) Close() {
+// Release frees all resources own by the store but leaves all keys in the
+// kvstore intact
+func (s *SharedStore) Release() {
 	// Wait for all write operations to complete and then block all further
 	// operations
 	s.mutex.Lock()
@@ -243,6 +243,13 @@ func (s *SharedStore) Close() {
 	}
 
 	controllers.RemoveController(s.controllerName)
+}
+
+// Close stops participation with a shared store and removes all keys owned by
+// this node in the kvstore. This stops the controller started by
+// JoinSharedStore().
+func (s *SharedStore) Close() {
+	s.Release()
 
 	for name, key := range s.localKeys {
 		if err := s.backend.Delete(s.keyPath(key)); err != nil {

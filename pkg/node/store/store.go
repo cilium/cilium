@@ -161,7 +161,7 @@ func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
 	}
 
 	if err = store.UpdateLocalKeySync(n); err != nil {
-		store.Close()
+		store.Release()
 		return err
 	}
 
