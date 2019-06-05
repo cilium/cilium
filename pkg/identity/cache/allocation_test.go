@@ -18,19 +18,28 @@ package cache
 
 import (
 	"context"
+	goerrors "errors"
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/k8s"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/version"
 
 	. "gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	k8s_cache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func (s *IdentityCacheTestSuite) TestAllocateIdentityReserved(c *C) {
@@ -220,10 +229,11 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 }
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
+	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
 	// FIXME: in daemon identityStore seems to be nil
 	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
-	InitIdentityAllocator(newDummyOwner(), identityStore)
+	InitIdentityAllocator(owner, CiliumClient(), identityStore)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -241,7 +251,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	identity.InitWellKnownIdentities()
 	// FIXME: in daemon identityStore seems to be nil
 	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
-	InitIdentityAllocator(owner, k8s.CiliumClient(), identityStore)
+	InitIdentityAllocator(owner, CiliumClient(), identityStore)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -326,7 +336,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	identity.InitWellKnownIdentities()
 	// FIXME: in daemon identityStore seems to be nil
 	identityStore := k8s_cache.NewStore(k8s_cache.DeletionHandlingMetaNamespaceKeyFunc)
-	InitIdentityAllocator(owner, k8s.CiliumClient(), identityStore)
+	InitIdentityAllocator(owner, CiliumClient(), identityStore)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -381,4 +391,128 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 
 	IdentityAllocator.DeleteAllKeys()
 	c.Assert(owner.WaitUntilID(id.ID), Not(Equals), 0)
+}
+
+// ****** FML ********
+
+var (
+	// ErrNilNode is returned when the Kubernetes API server has returned a nil node
+	ErrNilNode = goerrors.New("API server returned nil node")
+
+	// k8sCli is the default client.
+	k8sCli kubernetes.Interface
+
+	// k8sCiliumCli is the default Cilium client.
+	k8sCiliumCli clientset.Interface
+)
+
+// CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
+func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+	userAgent := fmt.Sprintf("Cilium %s", version.Version)
+
+	// If the endpoint and the kubeCfgPath are empty then we can try getting
+	// the rest.Config from the InClusterConfig
+	if endpoint == "" && kubeCfgPath == "" {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+		config.UserAgent = userAgent
+		return config, nil
+	}
+
+	if kubeCfgPath != "" {
+		config, err := clientcmd.BuildConfigFromFlags("", kubeCfgPath)
+		if err != nil {
+			return nil, err
+		}
+		config.UserAgent = userAgent
+		return config, nil
+	}
+
+	config := &rest.Config{Host: endpoint, UserAgent: userAgent}
+	err := rest.SetKubernetesDefaults(config)
+
+	return config, err
+}
+
+// CreateConfig creates a client configuration based on the configured API
+// server and Kubeconfig path
+func CreateConfig() (*rest.Config, error) {
+	//return createConfig(GetAPIServer(), GetKubeconfigPath())
+	return createConfig("", "")
+}
+
+// CreateClient creates a new client to access the Kubernetes API
+func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
+	cs, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	stop := make(chan struct{})
+	timeout := time.NewTimer(time.Minute)
+	defer timeout.Stop()
+	wait.Until(func() {
+		// FIXME: Use config.String() when we rebase to latest go-client
+		log.WithField("host", config.Host).Info("Establishing connection to apiserver")
+		err = isConnReady(cs)
+		if err == nil {
+			close(stop)
+			return
+		}
+		select {
+		case <-timeout.C:
+			log.WithError(err).WithField(logfields.IPAddr, config.Host).Error("Unable to contact k8s api-server")
+			close(stop)
+		default:
+		}
+	}, 5*time.Second, stop)
+	if err == nil {
+		log.Info("Connected to apiserver")
+	}
+	return cs, err
+}
+
+// isConnReady returns the err for the controller-manager status
+func isConnReady(c *kubernetes.Clientset) error {
+	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
+	return err
+}
+
+func createDefaultClient() error {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+
+	createdK8sClient, err := CreateClient(restConfig)
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	k8sCli = createdK8sClient
+
+	return nil
+}
+
+// CiliumClient returns the default Cilium Kubernetes client.
+func CiliumClient() clientset.Interface {
+	return k8sCiliumCli
+}
+
+func createDefaultCiliumClient() error {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+
+	createdCiliumK8sClient, err := clientset.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	k8sCiliumCli = createdCiliumK8sClient
+
+	return nil
 }
