@@ -37,8 +37,14 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+)
+
+const (
+	maxHistoryEntries = 50
+	allKeyStr         = "ALL"
 )
 
 type MapKey interface {
@@ -88,6 +94,94 @@ type cacheEntry struct {
 	LastError     error
 }
 
+type historyEntry struct {
+	Timestamp time.Time
+	Key       MapKey
+	AllKeys   bool
+	Value     MapValue
+	Action    DesiredAction
+	Err       error
+}
+
+// HistoryManager is an utility which stores history of operations on the BPF
+// map.
+type HistoryManager struct {
+	i       int
+	entries []*historyEntry
+	mutex   lock.RWMutex
+}
+
+func newHistoryManager() *HistoryManager {
+	entries := make([]*historyEntry, 0, maxHistoryEntries)
+	return &HistoryManager{
+		entries: entries,
+		mutex:   lock.RWMutex{},
+	}
+}
+
+func (hm *HistoryManager) addEntry(key MapKey, value MapValue,
+	action DesiredAction, err error) {
+	entry := &historyEntry{
+		Timestamp: time.Now(),
+		Key:       key,
+		Value:     value,
+		Action:    action,
+		Err:       err,
+	}
+
+	hm.mutex.Lock()
+	defer hm.mutex.Unlock()
+
+	// It max amount of entries is exceeded, get the subslice without the
+	// first element and then append the new entry.
+	if hm.i >= maxHistoryEntries {
+		hm.entries = hm.entries[1:maxHistoryEntries]
+		hm.entries = append(hm.entries, entry)
+		return
+	}
+	hm.i++
+	hm.entries = append(hm.entries, entry)
+}
+
+func (hm *HistoryManager) addDeleteAllEntry(err error) {
+	entry := &historyEntry{
+		Timestamp: time.Now(),
+		AllKeys:   true,
+		Action:    Delete,
+		Err:       err,
+	}
+
+	hm.mutex.Lock()
+	defer hm.mutex.Unlock()
+	hm.entries = append(hm.entries, entry)
+}
+
+// GetModel returns a BPF map history in the representation served via the API
+func (hm *HistoryManager) GetModel() *models.BPFMapHistory {
+	hm.mutex.RLock()
+	defer hm.mutex.RUnlock()
+	entries := make([]*models.BPFMapHistoryEntry, 0, len(hm.entries))
+	for _, entry := range hm.entries {
+		var keyStr, errMsg string
+		if entry.AllKeys {
+			keyStr = allKeyStr
+		} else {
+			keyStr = entry.Key.String()
+		}
+		if entry.Err != nil {
+			errMsg = entry.Err.Error()
+		}
+		entries = append(entries, &models.BPFMapHistoryEntry{
+			Timestamp: strfmt.DateTime(entry.Timestamp),
+			Key:       keyStr,
+			Value:     entry.Value.String(),
+			Action:    entry.Action.String(),
+			Error:     errMsg,
+		})
+	}
+	return &models.BPFMapHistory{Entries: entries}
+}
+
 type Map struct {
 	MapInfo
 	fd   int
@@ -118,7 +212,8 @@ type Map struct {
 	// DumpParser is a function for parsing keys and values from BPF maps
 	dumpParser DumpParser
 
-	cache map[string]*cacheEntry
+	cache   map[string]*cacheEntry
+	History *HistoryManager
 
 	// errorResolverLastScheduled is the timestamp when the error resolver
 	// was last scheduled
@@ -146,6 +241,7 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue M
 		},
 		name:       path.Base(name),
 		dumpParser: dumpParser,
+		History:    newHistoryManager(),
 	}
 	return m
 }
@@ -765,14 +861,16 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	defer m.lock.Unlock()
 
 	defer func() {
-		if m.cache == nil {
-			return
-		}
-
 		desiredAction := OK
 		if err != nil {
 			desiredAction = Insert
 			m.scheduleErrorResolver()
+		}
+
+		m.History.addEntry(key, value, desiredAction, err)
+
+		if m.cache == nil {
+			return
 		}
 
 		m.cache[key.String()] = &cacheEntry{
@@ -863,6 +961,8 @@ func (m *Map) scopedLogger() *logrus.Entry {
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
 func (m *Map) DeleteAll() error {
+	var err error
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -881,7 +981,7 @@ func (m *Map) DeleteAll() error {
 		}
 	}
 
-	if err := m.Open(); err != nil {
+	if err = m.Open(); err != nil {
 		return err
 	}
 
@@ -889,7 +989,7 @@ func (m *Map) DeleteAll() error {
 	mv := m.MapValue.DeepCopyMapValue()
 
 	for {
-		err := GetNextKey(
+		err = GetNextKey(
 			m.fd,
 			unsafe.Pointer(&key[0]),
 			unsafe.Pointer(&nextKey[0]),
@@ -914,6 +1014,8 @@ func (m *Map) DeleteAll() error {
 
 		copy(key, nextKey)
 	}
+
+	m.History.addDeleteAllEntry(err)
 
 	return nil
 }
