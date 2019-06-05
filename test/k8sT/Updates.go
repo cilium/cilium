@@ -311,7 +311,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Removing Cilium pre-flight check DaemonSet")
 		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
 
-		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+		cmPatch := helpers.CiliumConfigMapPatch
+		// To avoid breaking the established connections to the "migrate-svc" Service
+		if helpers.RunsOnlyLegacySVC(oldVersion) {
+			cmPatch = helpers.CiliumConfigMapWithEnabledLegacySVCPatch
+		}
+
+		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, cmPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
 		By("Installing Cilium-Operator")
