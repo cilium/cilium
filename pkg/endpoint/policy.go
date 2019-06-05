@@ -474,6 +474,10 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 				regenResult := result.(*EndpointRegenerationResult)
 				regenError = regenResult.err
 				buildSuccess = regenError == nil
+
+				if regenError != nil {
+					e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
+				}
 			} else {
 				// This may be unnecessary(?) since 'closing' of the results
 				// channel means that event has been cancelled?
