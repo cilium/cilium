@@ -205,4 +205,9 @@ const (
 	// mirroring it into the kvstore for reduced overhead in large
 	// clusters.
 	K8sEventHandover = false
+
+	// NodeDeleteDelay is the delay before an unreliable node delete is
+	// handled. During this delay, the node can re-appear and the delete
+	// event is ignored.
+	NodeDeleteDelay = 30 * time.Second
 )
