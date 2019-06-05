@@ -346,6 +346,14 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	entry.mutex.Unlock()
 }
 
+// Exists returns true if a node with the name exists
+func (m *Manager) Exists(id node.Identity) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	_, ok := m.nodes[id]
+	return ok
+}
+
 // GetNodes returns a copy of all of the nodes as a map from Identity to Node.
 func (m *Manager) GetNodes() map[node.Identity]node.Node {
 	m.mutex.RLock()
