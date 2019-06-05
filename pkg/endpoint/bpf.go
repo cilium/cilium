@@ -76,7 +76,7 @@ func (e *Endpoint) BPFIpvlanMapPath() string {
 // strings describing the configuration of the datapath.
 //
 // For configuration of actual datapath behavior, see WriteEndpointConfig().
-func (e *Endpoint) writeInformationalComments(w io.Writer, owner Owner) error {
+func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	fw := bufio.NewWriter(w)
 
 	fmt.Fprint(fw, "/*\n")
@@ -140,7 +140,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 	}
 	defer f.Close()
 
-	if err = e.writeInformationalComments(f, owner); err != nil {
+	if err = e.writeInformationalComments(f); err != nil {
 		return err
 	}
 	return owner.Datapath().WriteEndpointConfig(f, e)
