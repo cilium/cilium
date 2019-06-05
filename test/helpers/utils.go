@@ -445,3 +445,14 @@ func failIfContainsBadLogMsg(logs string) {
 func RunsOnNetNext() bool {
 	return os.Getenv("NETNEXT") == "true"
 }
+
+// RunsOnlyLegacySVC returns true if the given ciliumVersion supports only legacy
+// services.
+func RunsOnlyLegacySVC(ciliumVersion string) bool {
+	vsn, err := go_version.NewVersion(ciliumVersion)
+	vsn = go_version.Must(vsn, err)
+	// Legacy-only services are pre-v1.5
+	constraint := versioncheck.MustCompile("< 1.5")
+
+	return constraint.Check(vsn)
+}
