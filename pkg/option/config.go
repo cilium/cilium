@@ -1009,7 +1009,7 @@ var (
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
-		AllowICMPFragNeeded:			defaults.AllowICMPFragNeeded
+		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 	}
 )
 

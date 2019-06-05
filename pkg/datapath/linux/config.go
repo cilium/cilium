@@ -179,6 +179,10 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
+	if option.Config.AllowICMPFragNeeded {
+		fmt.Fprintf(fw, "#define ALLOW_ICMP_FRAG_NEEDED 1\n")
+	}
+
 	return fw.Flush()
 }
 
