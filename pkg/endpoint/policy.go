@@ -253,7 +253,11 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 		logfields.Reason:    context.Reason,
 	}).Debug("Regenerating endpoint")
 
-	defer e.updateRegenerationStatistics(context, retErr)
+	defer func() {
+		// This has to be within a func(), not deferred directly, so that the
+		// value of retErr is passed in from when regenerate returns.
+		e.updateRegenerationStatistics(context, retErr)
+	}()
 
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
