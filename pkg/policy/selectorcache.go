@@ -267,11 +267,11 @@ func (s *selectorManager) IsWildcard() bool {
 // must be holding selectorcache mutex
 func (s *fqdnSelector) NotifyAdded() {
 	// Make the user (FQDN subsystem) aware of this selector.
-	if s.user == nil {
+	if s.dnsProxy == nil {
 		return
 	}
 
-	if ids, exists := s.user.StartManagerFQDNSelector(s.selector); !exists {
+	if ids, exists := s.dnsProxy.StartManagerFQDNSelector(s.selector); !exists {
 		for _, id := range ids {
 			s.cachedSelections[id] = struct{}{}
 		}
@@ -280,8 +280,8 @@ func (s *fqdnSelector) NotifyAdded() {
 }
 
 func (s *fqdnSelector) NotifyRemoved() {
-	if s.user != nil {
-		s.user.StopManagerFQDNSelector(s.selector)
+	if s.dnsProxy != nil {
+		s.dnsProxy.StopManagerFQDNSelector(s.selector)
 	}
 }
 
@@ -361,7 +361,7 @@ func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) 
 type fqdnSelector struct {
 	selectorManager
 	selector api.FQDNSelector
-	user     identityPopulator
+	dnsProxy identityPopulator
 }
 
 type identityPopulator interface {
@@ -519,7 +519,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
-		user:     sc.pop,
+		dnsProxy: sc.pop,
 	}
 
 	// Add the initial user
