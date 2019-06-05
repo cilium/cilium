@@ -68,6 +68,7 @@ bpf_sock.o: bpf_sock.ll
 
 # The following option combinations are compile tested
 LXC_OPTIONS = \
+	 -DALLOW_ICMP_FRAG_NEEDED \
 	 -DSKIP_DEBUG \
 	 -DHAVE_LPM_MAP_TYPE \
 	 -DHAVE_LRU_MAP_TYPE \
