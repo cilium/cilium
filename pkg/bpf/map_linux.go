@@ -37,8 +37,13 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
+)
+
+const (
+	maxHistoryEntries = 50
 )
 
 type MapKey interface {
@@ -88,6 +93,56 @@ type cacheEntry struct {
 	LastError     error
 }
 
+type historyEntry struct {
+	Timestamp time.Time
+	Key       MapKey
+	Value     MapValue
+	Action    DesiredAction
+	Err       error
+}
+
+type HistoryManager struct {
+	i       int
+	entries []*historyEntry
+}
+
+func (hm *HistoryManager) addEntry(key MapKey, value MapValue,
+	action DesiredAction, err error) {
+	entry := &historyEntry{
+		Timestamp: time.Now(),
+		Key:       key,
+		Value:     value,
+		Action:    action,
+		Err:       err,
+	}
+	// It max amount of entries is exceeded, get the subslice without the
+	// first element and then append the new entry.
+	if hm.i >= maxHistoryEntries {
+		hm.entries = hm.entries[1:maxHistoryEntries]
+		hm.entries = append(hm.entries, entry)
+		return
+	}
+	hm.i++
+	hm.entries = append(hm.entries, entry)
+}
+
+func (hm *HistoryManager) addDeleteEntry(key MapKey, err error) {
+	hm.addEntry(key, nil, Delete, err)
+}
+
+func (hm *HistoryManager) GetModel() *models.BPFMapHistory {
+	entries := make([]*models.BPFMapHistoryEntry, 0, len(hm.entries))
+	for _, entry := range hm.entries {
+		entries = append(entries, &models.BPFMapHistoryEntry{
+			Timestamp: strfmt.DateTime(entry.Timestamp),
+			Key:       entry.Key.String(),
+			Value:     entry.Value.String(),
+			Error:     entry.Err.Error(),
+		})
+	}
+	return &models.BPFMapHistory{Entries: entries}
+}
+
 type Map struct {
 	MapInfo
 	fd   int
@@ -118,7 +173,8 @@ type Map struct {
 	// DumpParser is a function for parsing keys and values from BPF maps
 	dumpParser DumpParser
 
-	cache map[string]*cacheEntry
+	cache   map[string]*cacheEntry
+	History *HistoryManager
 
 	// errorResolverLastScheduled is the timestamp when the error resolver
 	// was last scheduled
@@ -496,6 +552,7 @@ func (m *Map) Open() error {
 
 	m.fd = fd
 	m.MapType = GetMapType(m.MapType)
+	m.History = &HistoryManager{}
 	return nil
 }
 
@@ -765,14 +822,16 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	defer m.lock.Unlock()
 
 	defer func() {
-		if m.cache == nil {
-			return
-		}
-
 		desiredAction := OK
 		if err != nil {
 			desiredAction = Insert
 			m.scheduleErrorResolver()
+		}
+
+		m.History.addEntry(key, value, desiredAction, err)
+
+		if m.cache == nil {
+			return
 		}
 
 		m.cache[key.String()] = &cacheEntry{
@@ -863,6 +922,8 @@ func (m *Map) scopedLogger() *logrus.Entry {
 // entries. Note that if entries are added while the taversal is in progress,
 // such entries may survive the deletion process.
 func (m *Map) DeleteAll() error {
+	var err error
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -881,7 +942,7 @@ func (m *Map) DeleteAll() error {
 		}
 	}
 
-	if err := m.Open(); err != nil {
+	if err = m.Open(); err != nil {
 		return err
 	}
 
@@ -889,7 +950,7 @@ func (m *Map) DeleteAll() error {
 	mv := m.MapValue.DeepCopyMapValue()
 
 	for {
-		err := GetNextKey(
+		err = GetNextKey(
 			m.fd,
 			unsafe.Pointer(&key[0]),
 			unsafe.Pointer(&nextKey[0]),
@@ -907,6 +968,8 @@ func (m *Map) DeleteAll() error {
 		} else {
 			log.WithError(err2).Warningf("Unable to correlate iteration key %v with cache entry. Inconsistent cache.", nextKey)
 		}
+
+		defer m.History.addDeleteEntry(mk, err)
 
 		if err != nil {
 			return err
