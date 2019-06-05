@@ -240,4 +240,9 @@ const (
 	// MonitorBufferPages is the default number of pages to use for the
 	// ring buffer interacting with the kernel
 	MonitorBufferPages = 64
+
+	// NodeDeleteDelay is the delay before an unreliable node delete is
+	// handled. During this delay, the node can re-appear and the delete
+	// event is ignored.
+	NodeDeleteDelay = 30 * time.Second
 )

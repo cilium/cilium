@@ -16,11 +16,15 @@ package store
 
 import (
 	"path"
+	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -37,6 +41,8 @@ var (
 		n := node.Node{}
 		return &n
 	}
+
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "node-store")
 )
 
 // NodeObserver implements the store.Observer interface and delegates update
@@ -94,16 +100,27 @@ func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*node.Node); ok {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = node.FromKVStore
-		o.manager.NodeDeleted(*nodeCopy)
 
-		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
-		if ciliumIPv4 != nil {
-			ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), ipcache.FromKVStore)
-		}
-		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
-		if ciliumIPv6 != nil {
-			ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), ipcache.FromKVStore)
-		}
+		go func() {
+			time.Sleep(defaults.NodeDeleteDelay)
+
+			if o.manager.Exists(nodeCopy.Identity()) {
+				log.Warningf("Received node delete event for node %s which re-appeared within %s",
+					nodeCopy.Name, defaults.NodeDeleteDelay)
+				return
+			}
+
+			o.manager.NodeDeleted(*nodeCopy)
+
+			ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
+			if ciliumIPv4 != nil {
+				ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), ipcache.FromKVStore)
+			}
+			ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
+			if ciliumIPv6 != nil {
+				ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), ipcache.FromKVStore)
+			}
+		}()
 	}
 }
 
@@ -124,6 +141,9 @@ type NodeManager interface {
 
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n node.Node)
+
+	// Exists is called to verify if a node exists
+	Exists(id node.Identity) bool
 }
 
 // RegisterNode registers the local node in the cluster
