@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/datapath/rlimit"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -593,6 +594,10 @@ func (d *Daemon) compileBase() error {
 func (d *Daemon) initMaps() error {
 	if option.Config.DryMode {
 		return nil
+	}
+
+	if err := rlimit.Configure(); err != nil {
+		log.WithError(err).Fatal("Unable to set memory resource limits")
 	}
 
 	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {

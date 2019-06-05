@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/rlimit"
 	"github.com/cilium/cilium/pkg/elf"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -64,8 +65,10 @@ func (s *LoaderTestSuite) SetUpSuite(c *C) {
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	})
 
+	err := rlimit.Configure()
+	c.Assert(err, IsNil)
 	sourceFile := filepath.Join(bpfDir, endpointProg)
-	err := os.Symlink(sourceFile, endpointProg)
+	err = os.Symlink(sourceFile, endpointProg)
 	c.Assert(err, IsNil)
 }
 

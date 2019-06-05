@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/rlimit"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -42,6 +43,8 @@ var _ = Suite(&EPPolicyMapTestSuite{})
 func (e *EPPolicyMapTestSuite) SetUpTest(c *C) {
 	MapName = "unit_test_ep_to_policy"
 	innerMapName = "unit_test_ep_policy_inner_map"
+	err := rlimit.Configure()
+	c.Assert(err, IsNil)
 }
 
 func (e *EPPolicyMapTestSuite) TearDownTest(c *C) {

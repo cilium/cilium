@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/rlimit"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -42,6 +43,8 @@ var (
 )
 
 func (s *DatapathSuite) SetUpTest(c *C) {
+	err := rlimit.Configure()
+	c.Assert(err, IsNil)
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4(ipv4DummyAddr)
 	node.SetIPv4Loopback(ipv4DummyAddr)

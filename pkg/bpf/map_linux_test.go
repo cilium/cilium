@@ -25,6 +25,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/datapath/rlimit"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -68,6 +69,9 @@ var (
 
 func runTests(m *testing.M) (int, error) {
 	CheckOrMountFS("")
+	if err := rlimit.Configure(); err != nil {
+		return 1, fmt.Errorf("Failed to configure rlimit")
+	}
 
 	_, err := testMap.OpenOrCreate()
 	if err != nil {
