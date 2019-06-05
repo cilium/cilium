@@ -595,6 +595,10 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
+	if err := bpf.ConfigureResourceLimits(); err != nil {
+		log.WithError(err).Fatal("Unable to set memory resource limits")
+	}
+
 	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
 		return err
 	}

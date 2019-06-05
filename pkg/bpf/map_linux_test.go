@@ -68,6 +68,9 @@ var (
 
 func runTests(m *testing.M) (int, error) {
 	CheckOrMountFS("")
+	if err := ConfigureResourceLimits(); err != nil {
+		return 1, fmt.Errorf("Failed to configure rlimit")
+	}
 
 	_, err := testMap.OpenOrCreate()
 	if err != nil {

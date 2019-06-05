@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/elf"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -64,8 +65,10 @@ func (s *LoaderTestSuite) SetUpSuite(c *C) {
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	})
 
+	err := bpf.ConfigureResourceLimits()
+	c.Assert(err, IsNil)
 	sourceFile := filepath.Join(bpfDir, endpointProg)
-	err := os.Symlink(sourceFile, endpointProg)
+	err = os.Symlink(sourceFile, endpointProg)
 	c.Assert(err, IsNil)
 }
 
