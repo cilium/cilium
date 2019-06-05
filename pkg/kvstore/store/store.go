@@ -335,25 +335,18 @@ func (s *SharedStore) UpdateLocalKey(key LocalKey) {
 // and adds it to the list of local keys to be synchronized if the initial
 // synchronous synchronization was successful
 func (s *SharedStore) UpdateLocalKeySync(key LocalKey) error {
-	s.UpdateLocalKey(key)
-
-	if err := s.syncLocalKey(key); err != nil {
-		s.DeleteLocalKey(key)
-		return err
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	err := s.syncLocalKey(key)
+	if err == nil {
+		s.localKeys[key.GetKeyName()] = key.DeepKeyCopy()
 	}
-
-	return nil
+	return err
 }
 
 // UpdateKeySync synchronously synchronizes a key with the kvstore.
 func (s *SharedStore) UpdateKeySync(key LocalKey) error {
-	err := s.syncLocalKey(key)
-	if err != nil {
-		s.DeleteLocalKey(key)
-		return err
-	}
-
-	return err
+	return s.syncLocalKey(key)
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
