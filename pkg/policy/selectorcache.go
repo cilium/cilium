@@ -271,12 +271,11 @@ func (s *fqdnSelector) NotifyAdded() {
 		return
 	}
 
-	if ids, exists := s.dnsProxy.StartManagerFQDNSelector(s.selector); !exists {
-		for _, id := range ids {
-			s.cachedSelections[id] = struct{}{}
-		}
-		s.updateSelections()
+	ids, _ := s.dnsProxy.StartManagerFQDNSelector(s.selector)
+	for _, id := range ids {
+		s.cachedSelections[id] = struct{}{}
 	}
+	s.updateSelections()
 }
 
 func (s *fqdnSelector) NotifyRemoved() {
