@@ -42,6 +42,8 @@ var _ = Suite(&EPPolicyMapTestSuite{})
 func (e *EPPolicyMapTestSuite) SetUpTest(c *C) {
 	MapName = "unit_test_ep_to_policy"
 	innerMapName = "unit_test_ep_policy_inner_map"
+	err := bpf.ConfigureResourceLimits()
+	c.Assert(err, IsNil)
 }
 
 func (e *EPPolicyMapTestSuite) TearDownTest(c *C) {

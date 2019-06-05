@@ -22,6 +22,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/node"
@@ -42,6 +43,8 @@ var (
 )
 
 func (s *DatapathSuite) SetUpTest(c *C) {
+	err := bpf.ConfigureResourceLimits()
+	c.Assert(err, IsNil)
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4(ipv4DummyAddr)
 	node.SetIPv4Loopback(ipv4DummyAddr)

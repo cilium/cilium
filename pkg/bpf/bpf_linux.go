@@ -21,7 +21,6 @@ import "C"
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -429,21 +428,8 @@ func OpenOrCreateMap(path string, mapType int, keySize, valueSize, maxEntries, f
 	redo := false
 	isNewMap := false
 
-	rl := unix.Rlimit{
-		Cur: math.MaxUint64,
-		Max: math.MaxUint64,
-	}
-
-	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &rl)
-	if err != nil {
-		if os.IsPermission(err) {
-			log.Error("Unable to set RLimits, insufficient permissions")
-		}
-		return 0, isNewMap, fmt.Errorf("Unable to increase rlimit: %s", err)
-	}
-
 recreate:
-	if _, err = os.Stat(path); os.IsNotExist(err) || redo {
+	if _, err := os.Stat(path); os.IsNotExist(err) || redo {
 		mapDir := filepath.Dir(path)
 		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
 			if err = os.MkdirAll(mapDir, 0755); err != nil {
@@ -487,7 +473,7 @@ recreate:
 		return fd, isNewMap, nil
 	}
 
-	fd, err = ObjGet(path)
+	fd, err := ObjGet(path)
 	if err == nil {
 		redo = objCheck(
 			fd,

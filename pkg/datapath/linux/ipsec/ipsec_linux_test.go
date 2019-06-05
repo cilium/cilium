@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,10 @@ import (
 	"os"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/cilium/cilium/pkg/bpf"
 
 	"github.com/vishvananda/netlink"
+	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -40,6 +41,11 @@ var (
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
 )
+
+func (p *IPSecSuitePrivileged) SetUpTest(c *C) {
+	err := bpf.ConfigureResourceLimits()
+	c.Assert(err, IsNil)
+}
 
 func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
 	_, _, err := LoadIPSecKeysFile(path)
