@@ -745,15 +745,8 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 }
 
 func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt bool) route.Route {
-	var nexthop net.IP
 	var tbl int
 	var dev string
-
-	if ip.IP.To4() != nil {
-		nexthop = n.nodeAddressing.IPv4().PrimaryExternal()
-	} else {
-		nexthop = n.nodeAddressing.IPv6().PrimaryExternal()
-	}
 
 	if dflt {
 		dev = n.datapathConfig.HostDevice
@@ -763,10 +756,9 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 	}
 
 	return route.Route{
-		Nexthop: &nexthop,
-		Device:  dev,
-		Prefix:  *ip,
-		Table:   tbl,
+		Device: dev,
+		Prefix: *ip,
+		Table:  tbl,
 	}
 }
 
