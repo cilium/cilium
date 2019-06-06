@@ -2,6 +2,32 @@
 NEWS
 ******
 
+v1.5.3
+======
+
+::
+
+    André Martins (3):
+          Jenkinsfile: backport all Jenkinsfile from master
+          pkg/kvstore: do not always UpdateIfDifferent with and without lease
+          test/provision: bump k8s 1.12 to 1.12.9
+    
+    Ian Vernon (2):
+          test: provide context which will be cancled to `CiliumExecContext`
+          test: do not spawn goroutines to wait for canceled context in `RunCommandContext`
+    
+    Joe Stringer (2):
+          daemon: Refactor individual endpoint restore
+          daemon: Don't log endpoint restore if IP alloc fails
+    
+    Maciej Kwiek (1):
+          Don't overwrite minRequired in WaitforNPods
+    
+    Thomas Graf (3):
+          node: Delay handling of node delete events received via kvstore
+          kvstore/store: Do not remove local key on sync failure
+          node/store: Do not delete node key in kvstore on node registration failure
+    
 v1.5.2
 ======
 
