@@ -323,7 +323,7 @@ pass_to_stack:
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
-	if (encrypt_key) {
+	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key(skb, encrypt_key);
 		set_identity(skb, SECLABEL);
 	}
@@ -616,7 +616,7 @@ pass_to_stack:
 			  reason, monitor);
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
-	if (encrypt_key) {
+	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key(skb, encrypt_key);
 		set_identity(skb, SECLABEL);
 	}
