@@ -41,6 +41,16 @@ source ${PROVISIONSRC}/helpers.bash
 sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
+# Install serial ttyS0 server
+cat <<EOF > /etc/systemd/system/serial-getty@ttyS0.service
+[Service]
+ExecStart=
+ExecStart=/sbin/agetty --autologin root -8 --keep-baud 115200,38400,9600 ttyS0 \$TERM
+EOF
+
+systemctl daemon-reload
+sudo service serial-getty@ttyS0 start
+
 # TODO: Check if the k8s version is the same
 if [[ -f  "/etc/provision_finished" ]]; then
     sudo dpkg -l | grep kubelet

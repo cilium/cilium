@@ -73,6 +73,9 @@ Vagrant.configure("2") do |config|
                 vb.default_nic_type = "virtio"
                 # Prevent VirtualBox from interfering with host audio stack
                 vb.customize ["modifyvm", :id, "--audio", "none"]
+                # Use serial ports if the VM is no longer accessible via SSH
+                vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
+                vb.customize ["modifyvm", :id, "--uartmode1", "server", "k8s#{i}-#{$K8S_VERSION}-ttyS0.sock"]
             end
 
             server.vm.box =  "#{$SERVER_BOX}"
