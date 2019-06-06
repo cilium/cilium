@@ -849,6 +849,8 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 			} else {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
+
+			ipcache.IPIdentityCache.Delete(hostIP, ipcache.FromAgentLocal)
 		}
 	}
 
