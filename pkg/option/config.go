@@ -480,6 +480,10 @@ const (
 
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes = "enable-endpoint-routes"
+
+	// ExcludeLocalAddress excludes certain addresses to be recognized as a
+	// local address
+	ExcludeLocalAddress = "exclude-local-address"
 )
 
 // FQDNS variables
@@ -975,6 +979,10 @@ type DaemonConfig struct {
 	// Cilium relevant information. This can be used to pass per node
 	// configuration to Cilium.
 	ReadCNIConfiguration string
+
+	// excludeLocalAddresses excludes certain addresses to be recognized as
+	// a local address
+	excludeLocalAddresses []*net.IPNet
 }
 
 var (
@@ -1004,6 +1012,18 @@ var (
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 	}
 )
+
+// IsExcludedLocalAddress returns true if the specified IP matches one of the
+// excluded local IP ranges
+func (c *DaemonConfig) IsExcludedLocalAddress(ip net.IP) bool {
+	for _, ipnet := range c.excludeLocalAddresses {
+		if ipnet.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // IsLBEnabled returns true if LB should be enabled
 func (c *DaemonConfig) IsLBEnabled() bool {
@@ -1208,6 +1228,19 @@ func ReplaceDeprecatedFields(m map[string]interface{}) {
 	}
 }
 
+func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
+	for _, ipString := range s {
+		_, ipnet, err := net.ParseCIDR(ipString)
+		if err != nil {
+			return fmt.Errorf("Unable to parse excluded local address %s: %s", ipString, err)
+		}
+
+		c.excludeLocalAddresses = append(c.excludeLocalAddresses, ipnet)
+	}
+
+	return nil
+}
+
 // Populate sets all options with the values from viper
 func (c *DaemonConfig) Populate() {
 	c.AccessLog = viper.GetString(AccessLog)
@@ -1373,6 +1406,10 @@ func (c *DaemonConfig) Populate() {
 	metricsSlice := common.MapStringStructToSlice(defaultMetrics)
 	c.MetricsConfig, collectors = metrics.CreateConfiguration(metricsSlice)
 	metrics.MustRegister(collectors...)
+
+	if err := c.parseExcludedLocalAddresses(viper.GetStringSlice(ExcludeLocalAddress)); err != nil {
+		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
+	}
 
 	// Hidden options
 	c.ConfigFile = viper.GetString(ConfigFile)

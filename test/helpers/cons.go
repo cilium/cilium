@@ -193,6 +193,9 @@ const (
 	// for simulating external IPv6 connectivity.
 	FakeIPv6WorldAddress = "fdff::ff"
 
+	// DockerBridgeIP is the IP on the docker0 bridge
+	DockerBridgeIP = "172.17.0.1"
+
 	// Logs messages that should not be in the cilium logs.
 	panicMessage      = "panic:"
 	deadLockHeader    = "POTENTIAL DEADLOCK:"       // from github.com/sasha-s/go-deadlock/deadlock.go:header

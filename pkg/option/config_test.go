@@ -19,6 +19,7 @@ package option
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -236,4 +237,16 @@ func (s *OptionSuite) TestBindEnv(c *C) {
 	c.Assert(viper.GetString(optName2), Equals, "legacy")
 
 	viper.Reset()
+}
+
+func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
+	d := &DaemonConfig{}
+	err := d.parseExcludedLocalAddresses([]string{"1.1.1.1/32", "3.3.3.0/24", "f00d::1/128"})
+	c.Assert(err, IsNil)
+
+	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("1.1.1.1")), Equals, true)
+	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("1.1.1.2")), Equals, false)
+	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("3.3.3.1")), Equals, true)
+	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::1")), Equals, true)
+	c.Assert(d.IsExcludedLocalAddress(net.ParseIP("f00d::2")), Equals, false)
 }
