@@ -1215,7 +1215,7 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 // CiliumExec runs cmd in the specified Cilium pod.
 // Deprecated: use CiliumExecContext instead
 func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 	return kub.CiliumExecContext(ctx, pod, cmd)
 }

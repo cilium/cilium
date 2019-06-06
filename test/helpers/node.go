@@ -160,7 +160,7 @@ type ExecOptions struct {
 func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	// Bound all command executions to be at most the timeout used by the CI
 	// so that commands do not block forever.
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 	return s.ExecContext(ctx, cmd, options...)
 }
