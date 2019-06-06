@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
@@ -109,7 +108,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.IPv6.String(), e.IPv4.String(),
-		e.GetIdentity(), path.Base(e.PolicyMapPathLocked()),
+		e.GetIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
 		e.NodeMAC)
 
 	fw.WriteString("/*\n")
