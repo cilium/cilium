@@ -726,7 +726,7 @@ func (d *Daemon) init() error {
 				DoFunc: func(ctx context.Context) error {
 					return d.syncEndpointsAndHostIPs()
 				},
-				RunInterval: 5 * time.Second,
+				RunInterval: time.Minute,
 			})
 	}
 
