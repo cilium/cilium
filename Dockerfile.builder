@@ -46,7 +46,8 @@ RUN apt-get update \
 		zlib1g-dev \
 	&& apt-get clean \
 	&& rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-  && update-alternatives --install /usr/bin/clang clang /usr/bin/clang-7 100
+	&& update-alternatives --install /usr/bin/clang clang /usr/bin/clang-7 100 \
+	&& update-alternatives --install /usr/bin/llc llc /usr/bin/llc-7 100
 
 #
 # Install Go
