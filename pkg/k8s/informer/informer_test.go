@@ -17,22 +17,12 @@
 package informer
 
 import (
-	"encoding/json"
-	"os"
-	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/k8s"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 )
 
 func Test(t *testing.T) {
@@ -44,13 +34,13 @@ type K8sIntegrationSuite struct{}
 var _ = Suite(&K8sIntegrationSuite{})
 
 func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
-	if os.Getenv("INTEGRATION") != "" {
-		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig")
-		} else {
-			k8s.Configure("", k8sConfigPath)
-		}
-	}
+	//if os.Getenv("INTEGRATION") != "" {
+	//	if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
+	//		k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig")
+	//	} else {
+	//		k8s.Configure("", k8sConfigPath)
+	//	}
+	//}
 }
 
 var nodeSampleJSON = `{
@@ -429,110 +419,110 @@ var nodeSampleJSON = `{
 }
 `
 
-func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c *C) {
-	n := v1.Node{}
-	err := json.Unmarshal([]byte(nodeSampleJSON), &n)
-	n.ResourceVersion = "1"
-	c.Assert(err, IsNil)
-	w := watch.NewFakeWithChanSize(nCycles, false)
-	wg := sync.WaitGroup{}
-
-	lw := &cache.ListWatch{
-		ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
-			return &v1.NodeList{
-				Items: []v1.Node{n},
-			}, nil
-		},
-		WatchFunc: func(_ metav1.ListOptions) (watch.Interface, error) {
-			return w, nil
-		},
-	}
-
-	if newInformer {
-		_, controller := NewInformer(
-			lw,
-			&v1.Node{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := k8s.CopyObjToV1Node(oldObj); oldK8sNP != nil {
-						if newK8sNP := k8s.CopyObjToV1Node(newObj); newK8sNP != nil {
-							if k8s.EqualV1Node(oldK8sNP, newK8sNP) {
-								return
-							}
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					k8sNP := k8s.CopyObjToV1Node(obj)
-					if k8sNP == nil {
-						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-						if !ok {
-							return
-						}
-						// Delete was not observed by the watcher but is
-						// removed from kube-apiserver. This is the last
-						// known state and the object no longer exists.
-						k8sNP = k8s.CopyObjToV1Node(deletedObj.Obj)
-						if k8sNP == nil {
-							return
-						}
-					}
-					wg.Done()
-				},
-			},
-			k8s.ConvertToNode,
-		)
-		go controller.Run(wait.NeverStop)
-	} else {
-		_, controller := cache.NewInformer(
-			lw,
-			&v1.Node{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := OldCopyObjToV1Node(oldObj); oldK8sNP != nil {
-						if newK8sNP := OldCopyObjToV1Node(newObj); newK8sNP != nil {
-							if OldEqualV1Node(oldK8sNP, newK8sNP) {
-								return
-							}
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					k8sNP := OldCopyObjToV1Node(obj)
-					if k8sNP == nil {
-						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-						if !ok {
-							return
-						}
-						// Delete was not observed by the watcher but is
-						// removed from kube-apiserver. This is the last
-						// known state and the object no longer exists.
-						k8sNP = OldCopyObjToV1Node(deletedObj.Obj)
-						if k8sNP == nil {
-							return
-						}
-					}
-					wg.Done()
-				},
-			},
-		)
-		go controller.Run(wait.NeverStop)
-	}
-
-	wg.Add(1)
-	c.ResetTimer()
-	for i := 2; i <= nCycles; i++ {
-		n.ResourceVersion = strconv.Itoa(i)
-		w.Action(watch.Modified, &n)
-	}
-	w.Action(watch.Deleted, &n)
-	wg.Wait()
-	c.StopTimer()
-}
+//func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c *C) {
+//	n := v1.Node{}
+//	err := json.Unmarshal([]byte(nodeSampleJSON), &n)
+//	n.ResourceVersion = "1"
+//	c.Assert(err, IsNil)
+//	w := watch.NewFakeWithChanSize(nCycles, false)
+//	wg := sync.WaitGroup{}
+//
+//	lw := &cache.ListWatch{
+//		ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
+//			return &v1.NodeList{
+//				Items: []v1.Node{n},
+//			}, nil
+//		},
+//		WatchFunc: func(_ metav1.ListOptions) (watch.Interface, error) {
+//			return w, nil
+//		},
+//	}
+//
+//	if newInformer {
+//		_, controller := NewInformer(
+//			lw,
+//			&v1.Node{},
+//			0,
+//			cache.ResourceEventHandlerFuncs{
+//				AddFunc: func(obj interface{}) {},
+//				UpdateFunc: func(oldObj, newObj interface{}) {
+//					if oldK8sNP := k8s.CopyObjToV1Node(oldObj); oldK8sNP != nil {
+//						if newK8sNP := k8s.CopyObjToV1Node(newObj); newK8sNP != nil {
+//							if k8s.EqualV1Node(oldK8sNP, newK8sNP) {
+//								return
+//							}
+//						}
+//					}
+//				},
+//				DeleteFunc: func(obj interface{}) {
+//					k8sNP := k8s.CopyObjToV1Node(obj)
+//					if k8sNP == nil {
+//						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+//						if !ok {
+//							return
+//						}
+//						// Delete was not observed by the watcher but is
+//						// removed from kube-apiserver. This is the last
+//						// known state and the object no longer exists.
+//						k8sNP = k8s.CopyObjToV1Node(deletedObj.Obj)
+//						if k8sNP == nil {
+//							return
+//						}
+//					}
+//					wg.Done()
+//				},
+//			},
+//			k8s.ConvertToNode,
+//		)
+//		go controller.Run(wait.NeverStop)
+//	} else {
+//		_, controller := cache.NewInformer(
+//			lw,
+//			&v1.Node{},
+//			0,
+//			cache.ResourceEventHandlerFuncs{
+//				AddFunc: func(obj interface{}) {},
+//				UpdateFunc: func(oldObj, newObj interface{}) {
+//					if oldK8sNP := OldCopyObjToV1Node(oldObj); oldK8sNP != nil {
+//						if newK8sNP := OldCopyObjToV1Node(newObj); newK8sNP != nil {
+//							if OldEqualV1Node(oldK8sNP, newK8sNP) {
+//								return
+//							}
+//						}
+//					}
+//				},
+//				DeleteFunc: func(obj interface{}) {
+//					k8sNP := OldCopyObjToV1Node(obj)
+//					if k8sNP == nil {
+//						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+//						if !ok {
+//							return
+//						}
+//						// Delete was not observed by the watcher but is
+//						// removed from kube-apiserver. This is the last
+//						// known state and the object no longer exists.
+//						k8sNP = OldCopyObjToV1Node(deletedObj.Obj)
+//						if k8sNP == nil {
+//							return
+//						}
+//					}
+//					wg.Done()
+//				},
+//			},
+//		)
+//		go controller.Run(wait.NeverStop)
+//	}
+//
+//	wg.Add(1)
+//	c.ResetTimer()
+//	for i := 2; i <= nCycles; i++ {
+//		n.ResourceVersion = strconv.Itoa(i)
+//		w.Action(watch.Modified, &n)
+//	}
+//	w.Action(watch.Deleted, &n)
+//	wg.Wait()
+//	c.StopTimer()
+//}
 
 func OldEqualV1Node(node1, node2 *v1.Node) bool {
 	// The only information we care about the node is it's annotations, in
@@ -549,20 +539,20 @@ func OldCopyObjToV1Node(obj interface{}) *v1.Node {
 	return node.DeepCopy()
 }
 
-func (k *K8sIntegrationSuite) Benchmark_Informer(c *C) {
-	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
-	if err != nil {
-		nCycles = c.N
-	}
+//func (k *K8sIntegrationSuite) Benchmark_Informer(c *C) {
+//	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
+//	if err != nil {
+//		nCycles = c.N
+//	}
+//
+//	k.benchmarkInformer(nCycles, true, c)
+//}
 
-	k.benchmarkInformer(nCycles, true, c)
-}
-
-func (k *K8sIntegrationSuite) Benchmark_K8sInformer(c *C) {
-	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
-	if err != nil {
-		nCycles = c.N
-	}
-
-	k.benchmarkInformer(nCycles, false, c)
-}
+//func (k *K8sIntegrationSuite) Benchmark_K8sInformer(c *C) {
+//	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
+//	if err != nil {
+//		nCycles = c.N
+//	}
+//
+//	k.benchmarkInformer(nCycles, false, c)
+//}
