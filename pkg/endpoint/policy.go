@@ -404,16 +404,10 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	stats.SendMetrics()
 
 	fields := logrus.Fields{
-		"waitingForLock":         stats.waitingForLock.Total(),
-		"waitingForCTClean":      stats.waitingForCTClean.Total(),
-		"policyCalculation":      stats.policyCalculation.Total(),
-		"proxyConfiguration":     stats.proxyConfiguration.Total(),
-		"proxyPolicyCalculation": stats.proxyPolicyCalculation.Total(),
-		"proxyWaitForAck":        stats.proxyWaitForAck.Total(),
-		"mapSync":                stats.mapSync.Total(),
-		"prepareBuild":           stats.prepareBuild.Total(),
-		logfields.BuildDuration:  stats.totalTime.Total(),
-		logfields.Reason:         context.Reason,
+		logfields.Reason: context.Reason,
+	}
+	for field, stat := range stats.GetMap() {
+		fields[field] = stat.Total()
 	}
 	for field, stat := range stats.datapathRealization.GetMap() {
 		fields[field] = stat.Total()
