@@ -45,4 +45,11 @@ func (s *fakeTestSuite) TestNewDatapath(c *check.C) {
 	c.Assert(dp.LocalNodeAddressing().IPv6().Router(), check.Not(check.IsNil))
 	c.Assert(dp.LocalNodeAddressing().IPv4().Router(), check.Not(check.IsNil))
 	c.Assert(dp.LocalNodeAddressing().IPv4().AllocationCIDR(), check.Not(check.IsNil))
+
+	list, err := dp.LocalNodeAddressing().IPv4().LocalAddresses()
+	c.Assert(len(list), check.Not(check.Equals), 0)
+	c.Assert(err, check.IsNil)
+	list, err = dp.LocalNodeAddressing().IPv6().LocalAddresses()
+	c.Assert(len(list), check.Not(check.Equals), 0)
+	c.Assert(err, check.IsNil)
 }

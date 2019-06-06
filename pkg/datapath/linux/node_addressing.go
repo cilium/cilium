@@ -20,10 +20,36 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/node"
+
+	"github.com/vishvananda/netlink"
 )
 
 // FIXME: This currently maps to the code in pkg/node/node_address.go. That
 // code should really move into this package.
+
+func listLocalAddresses(family int) ([]net.IP, error) {
+	addrs, err := netlink.AddrList(nil, family)
+	if err != nil {
+		return nil, err
+	}
+
+	var addresses []net.IP
+
+	for _, addr := range addrs {
+		if addr.Scope == int(netlink.SCOPE_LINK) {
+			continue
+		}
+
+		switch addr.IP.String() {
+		case "127.0.0.1", "::1":
+			continue
+		}
+
+		addresses = append(addresses, addr.IP)
+	}
+
+	return addresses, nil
+}
 
 type addressFamilyIPv4 struct{}
 
@@ -39,6 +65,10 @@ func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
 	return node.GetIPv4AllocRange()
 }
 
+func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
+	return listLocalAddresses(netlink.FAMILY_V4)
+}
+
 type addressFamilyIPv6 struct{}
 
 func (a *addressFamilyIPv6) Router() net.IP {
@@ -51,6 +81,10 @@ func (a *addressFamilyIPv6) PrimaryExternal() net.IP {
 
 func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
 	return node.GetIPv6AllocRange()
+}
+
+func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
+	return listLocalAddresses(netlink.FAMILY_V6)
 }
 
 type linuxNodeAddressing struct {
