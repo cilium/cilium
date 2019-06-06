@@ -241,8 +241,6 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 		}
 
 		if err == nil {
-			runtimeRunning = true
-
 			// Container may exist but is not in running state
 			return cont.State.Running
 		}
