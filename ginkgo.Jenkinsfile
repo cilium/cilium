@@ -158,7 +158,6 @@ pipeline {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
-            failFast true
             parallel {
                 stage('BDD-Test-PR-runtime') {
                     environment {
