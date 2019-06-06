@@ -59,11 +59,21 @@ func NewNodeAddressing() datapath.NodeAddressing {
 			router:          net.ParseIP("1.1.1.2"),
 			primaryExternal: net.ParseIP("1.1.1.1"),
 			allocCIDR:       cidr.MustParseCIDR("1.1.1.0/24"),
+			localAddresses: []net.IP{
+				net.ParseIP("2.2.2.2"),
+				net.ParseIP("3.3.3.3"),
+				net.ParseIP("4.4.4.4"),
+			},
 		},
 		ipv6: addressFamily{
 			router:          net.ParseIP("cafe::2"),
 			primaryExternal: net.ParseIP("cafe::1"),
 			allocCIDR:       cidr.MustParseCIDR("cafe::/96"),
+			localAddresses: []net.IP{
+				net.ParseIP("f00d::1"),
+				net.ParseIP("f00d::2"),
+				net.ParseIP("f00d::3"),
+			},
 		},
 	}
 }
@@ -72,6 +82,7 @@ type addressFamily struct {
 	router          net.IP
 	primaryExternal net.IP
 	allocCIDR       *cidr.CIDR
+	localAddresses  []net.IP
 }
 
 func (a *addressFamily) Router() net.IP {
@@ -84,6 +95,10 @@ func (a *addressFamily) PrimaryExternal() net.IP {
 
 func (a *addressFamily) AllocationCIDR() *cidr.CIDR {
 	return a.allocCIDR
+}
+
+func (a *addressFamily) LocalAddresses() ([]net.IP, error) {
+	return a.localAddresses, nil
 }
 
 func (n *fakeNodeAddressing) IPv6() datapath.NodeAddressingFamily {
