@@ -980,6 +980,10 @@ func (s *SSHMeta) SetUpCilium() error {
 // SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
 // returns an error if any of the operations needed to start Cilium fail.
 func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
+	ciliumOpts += " --exclude-local-address=" + DockerBridgeIP + "/32"
+	ciliumOpts += " --exclude-local-address=" + FakeIPv4WorldAddress + "/32"
+	ciliumOpts += " --exclude-local-address=" + FakeIPv6WorldAddress + "/128"
+
 	systemdTemplate := `
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s

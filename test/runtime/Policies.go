@@ -1355,7 +1355,7 @@ var _ = Describe("RuntimePolicies", func() {
 			Expect(err).NotTo(HaveOccurred(), "Error occurred while finding docker bridge IP")
 			Expect(obj).To(HaveLen(1), "Unexpectedly found more than one IPAM config element for docker bridge")
 			otherHostIP = obj[0].Interface().(string)
-			Expect(otherHostIP).Should(MatchRegexp("^[.:0-9a-f][.:0-9a-f]*$"), "docker bridge IP is in unexpected format")
+			Expect(otherHostIP).To(Equal(helpers.DockerBridgeIP), "Please adjust value of DockerBridgeIP")
 			By("Using %q for world CIDR IP", otherHostIP)
 		})
 

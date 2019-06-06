@@ -626,29 +626,11 @@ func (d *Daemon) initMaps() error {
 	}
 
 	// Set up the list of IPCache listeners in the daemon, to be
-	// used by syncLXCMap().
+	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
 	ipcache.IPIdentityCache.SetListeners([]ipcache.IPIdentityMappingListener{
 		bpfIPCache.NewListener(d),
 	})
-
-	// Insert local host entries to bpf maps
-	if err := d.syncLXCMap(); err != nil {
-		return err
-	}
-
-	// Start the controller for periodic sync
-	// The purpose of the controller is to ensure that the host entries are
-	// reinserted to the bpf maps if they are ever removed from them.
-	// TODO: Determine if we can get rid of this when we have more rigorous
-	//       desired/realized state implementation for the bpf maps.
-	controller.NewManager().UpdateController("lxcmap-bpf-host-sync",
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) error {
-				return d.syncLXCMap()
-			},
-			RunInterval: 5 * time.Second,
-		})
 
 	// Start the controller for periodic sync of the metrics map with
 	// the prometheus server.
@@ -731,6 +713,21 @@ func (d *Daemon) init() error {
 		if err := d.compileBase(); err != nil {
 			return err
 		}
+
+		if err := d.syncEndpointsAndHostIPs(); err != nil {
+			return err
+		}
+
+		// Start the controller for periodic sync. The purpose of the
+		// controller is to ensure that endpoints and host IPs entries are
+		// reinserted to the bpf maps if they are ever removed from them.
+		controller.NewManager().UpdateController("sync-endpoints-and-host-ips",
+			controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
+					return d.syncEndpointsAndHostIPs()
+				},
+				RunInterval: 5 * time.Second,
+			})
 	}
 
 	return nil
@@ -755,28 +752,27 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 // syncLXCMap adds local host enties to bpf lxcmap, as well as
 // ipcache, if needed, and also notifies the daemon and network policy
 // hosts cache if changes were made.
-func (d *Daemon) syncLXCMap() error {
-	// TODO: Update addresses first, in case node addressing has changed.
-	// TODO: Once these start changing on runtime, figure out the locking strategy.
+func (d *Daemon) syncEndpointsAndHostIPs() error {
 	specialIdentities := []identity.IPIdentityPair{}
 
 	if option.Config.EnableIPv4 {
-		ip := node.GetInternalIPv4()
-		if len(ip) > 0 {
-			specialIdentities = append(specialIdentities,
-				identity.IPIdentityPair{
-					IP: ip,
-					ID: identity.ReservedIdentityHost,
-				})
+		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
+		if err != nil {
+			log.WithError(err).Warning("Unable to list local IPv4 addresses")
 		}
 
-		ip = node.GetExternalIPv4()
-		if len(ip) > 0 {
-			specialIdentities = append(specialIdentities,
-				identity.IPIdentityPair{
-					IP: ip,
-					ID: identity.ReservedIdentityHost,
-				})
+		for _, ip := range addrs {
+			if option.Config.IsExcludedLocalAddress(ip) {
+				continue
+			}
+
+			if len(ip) > 0 {
+				specialIdentities = append(specialIdentities,
+					identity.IPIdentityPair{
+						IP: ip,
+						ID: identity.ReservedIdentityHost,
+					})
+			}
 		}
 
 		specialIdentities = append(specialIdentities,
@@ -788,22 +784,24 @@ func (d *Daemon) syncLXCMap() error {
 	}
 
 	if option.Config.EnableIPv6 {
-		ip := node.GetIPv6()
-		if len(ip) > 0 {
-			specialIdentities = append(specialIdentities,
-				identity.IPIdentityPair{
-					IP: ip,
-					ID: identity.ReservedIdentityHost,
-				})
+		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
+		if err != nil {
+			log.WithError(err).Warning("Unable to list local IPv4 addresses")
 		}
 
-		ip = node.GetIPv6Router()
-		if len(ip) > 0 {
-			specialIdentities = append(specialIdentities,
-				identity.IPIdentityPair{
-					IP: ip,
-					ID: identity.ReservedIdentityHost,
-				})
+		addrs = append(addrs, node.GetIPv6Router())
+		for _, ip := range addrs {
+			if option.Config.IsExcludedLocalAddress(ip) {
+				continue
+			}
+
+			if len(ip) > 0 {
+				specialIdentities = append(specialIdentities,
+					identity.IPIdentityPair{
+						IP: ip,
+						ID: identity.ReservedIdentityHost,
+					})
+			}
 		}
 
 		specialIdentities = append(specialIdentities,

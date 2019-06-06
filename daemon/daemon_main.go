@@ -454,6 +454,9 @@ func init() {
 	flags.String(option.EndpointInterfaceNamePrefix, defaults.EndpointInterfaceNamePrefix, "Prefix of interface name shared by all endpoints")
 	option.BindEnv(option.EndpointInterfaceNamePrefix)
 
+	flags.StringSlice(option.ExcludeLocalAddress, []string{}, "Exclude CIDR from being recognized as local address")
+	option.BindEnv(option.ExcludeLocalAddress)
+
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
