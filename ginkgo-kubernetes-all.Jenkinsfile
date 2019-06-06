@@ -259,7 +259,6 @@ pipeline {
             options {
                 timeout(time: 100, unit: 'MINUTES')
             }
-            failFast true
             parallel {
                 stage('BDD-Test-k8s-1.11') {
                     environment {
@@ -357,7 +356,6 @@ pipeline {
             options {
                 timeout(time: 100, unit: 'MINUTES')
             }
-            failFast true
             parallel {
                 stage('BDD-Test-k8s-1.13') {
                     environment {
