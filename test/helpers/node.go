@@ -158,10 +158,9 @@ type ExecOptions struct {
 
 // Exec returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
-	// Since we have no timeout, ensure that the context given to ExecContext
-	// eventually cancels in case something is blocked on ctx.Done() (something
-	// is).
-	ctx, cancel := context.WithCancel(context.TODO())
+	// Bound all command executions to be at most the timeout used by the CI
+	// so that commands do not block forever.
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
 	defer cancel()
 	return s.ExecContext(ctx, cmd, options...)
 }
