@@ -244,6 +244,7 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 #endif
 
 #ifdef CONNTRACK_ACCOUNTING
+		// TODO(brb) check not only dir but also tuple->flags
 		/* FIXME: This is slow, per-cpu counters? */
 		if (dir == CT_INGRESS) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
@@ -577,9 +578,28 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Lookup entry in forward direction */
 	if (dir != CT_SERVICE) {
+		cilium_dbg_capture(skb, DBG_CAPTURE_FROM_LB, 66);
 		ipv4_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
+		cilium_dbg3(skb, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
+		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
+		cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
+		// TODO(brb) document this hack
+		if (ret == CT_NEW && dir == CT_INGRESS) {
+			int ret2;
+			struct ct_state new_ct_state = {};
+			tuple->flags = TUPLE_F_OUT;
+
+			ret2 = __ct_lookup(map, skb, tuple, action, dir, &new_ct_state,
+					   is_tcp, tcp_flags, monitor);
+			if (ret2 != CT_NEW && new_ct_state.rev_nat_index != 0) {
+				ct_state->rev_nat_index = new_ct_state.rev_nat_index;
+			}
+
+			tuple->flags = TUPLE_F_IN;
+		}
+
 	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);
@@ -808,6 +828,11 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 #endif
 
 	cilium_dbg3(skb, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
+	cilium_dbg3(skb, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
+			      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
+	cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
+	cilium_dbg3(skb, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
+
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map, tuple, &entry, 0) < 0)

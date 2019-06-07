@@ -176,8 +176,10 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6 %s\n", nat.MapNameSnat6Global)
 			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6_SIZE %d\n", nat.MaxEntries)
 		}
-		ctmap.WriteBPFMacros(fw, nil)
 	}
+
+	// TODO(brb) Write only if SNAT || NodePort is enabled
+	ctmap.WriteBPFMacros(fw, nil)
 
 	return fw.Flush()
 }

@@ -473,13 +473,16 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ]; then
 
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
-		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+        # TODO(brb) optionally enable nodeport
+		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP} -DLB_L4 -DENABLE_NODEPORT"
 		if [ "$MASQ" = "true" ]; then
 			SECTION="masq-pre"
 		else
 			SECTION="from-netdev"
 		fi
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o $SECTION $CALLS_MAP
+        # TODO(brb) remove the egress debug section
+		bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "debug-ingress" $CALLS_MAP "no_qdisc_reset"
 		if [ "$MASQ" = "true" ]; then
 			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o masq $CALLS_MAP "no_qdisc_reset"
 		fi

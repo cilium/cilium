@@ -48,6 +48,7 @@
 #include "lib/drop.h"
 #include "lib/encap.h"
 #include "lib/nat.h"
+#include "lib/lb.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
 static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
@@ -239,6 +240,76 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
+#ifdef ENABLE_IPV4
+#ifdef ENABLE_NODEPORT
+static inline int nodeport_lb4(struct __sk_buff *skb)
+{
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int ret,  l3_off = ETH_HLEN, l4_off;
+	struct csum_offset csum_off = {};
+	struct lb4_service_v2 *svc;
+	struct lb4_key_v2 key = {};
+	struct ct_state ct_state_new = {};
+	struct ct_state ct_state = {};
+	__u32 monitor = 0;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+
+	ret = lb4_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			goto skip_service_lookup;
+		else
+			return ret;
+	}
+
+	ct_state_new.orig_dport = key.dport;
+
+	if ((svc = lb4_lookup_service_v2(skb, &key)) != NULL) {
+		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
+				&key, &tuple, svc, &ct_state_new, ip4->saddr);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+skip_service_lookup:
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	switch (ret) {
+	case CT_NEW:
+		ct_state_new.src_sec_id = SECLABEL;
+		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
+				 &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+		break;
+
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	return TC_ACT_OK;
+}
+#endif /* ENABLE_NODEPORT */
+#endif /* ENABLE_IPV4 */
+
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
@@ -248,6 +319,14 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	struct iphdr *ip4;
 	int l4_off;
 	__u32 secctx;
+
+#ifdef ENABLE_IPV4
+#ifdef ENABLE_NODEPORT
+	if (nodeport_lb4(skb) < 0) {
+		return DROP_INVALID;
+	}
+#endif
+#endif
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -481,6 +560,13 @@ int from_netdev(struct __sk_buff *skb)
 		return TC_ACT_OK;
 
 	return do_netdev(skb, proto);
+}
+
+__section("debug-ingress")
+int debug_ingress(struct __sk_buff *skb)
+{
+	cilium_dbg_capture(skb, DBG_CAPTURE_FROM_LB, 42);
+	return TC_ACT_OK;
 }
 
 __section("masq")

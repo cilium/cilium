@@ -995,6 +995,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
+		// TODO(brb) comment why we set rev_nat_index here (for rev DNAT
+		// translation)
+		ct_state_new.rev_nat_index = ct_state.rev_nat_index;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
