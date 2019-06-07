@@ -483,7 +483,10 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 	e.getLogger().WithField(fieldRegenLevel, datapathRegenCtxt.regenerationLevel).Debug("Preparing to compile BPF")
 
 	if datapathRegenCtxt.regenerationLevel > RegenerateWithoutDatapath {
-		closeChan := loadinfo.LogPeriodicSystemLoad(log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf, time.Second)
+		debugFunc := log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		loadinfo.LogPeriodicSystemLoad(ctx, debugFunc, time.Second)
 
 		// Compile and install BPF programs for this endpoint
 		if datapathRegenCtxt.regenerationLevel == RegenerateWithDatapathRebuild {
@@ -506,7 +509,6 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
 			}
 		}
-		close(closeChan)
 
 		if err != nil {
 			return compilationExecuted, err
