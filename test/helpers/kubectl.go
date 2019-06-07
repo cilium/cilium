@@ -311,10 +311,9 @@ func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error
 
 	cmd := fmt.Sprintf("%s -n %s get pods -l %s %s", KubectlCmd, namespace, label, filter)
 
-	// Since we have no timeout, ensure that the context given to ExecuteContext
-	// eventually cancels in case something is blocked on ctx.Done() (something
-	// is).
-	ctx, cancel := context.WithCancel(context.TODO())
+	// Taking more than 30 seconds to get pods means that something is wrong
+	// connecting to the node.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	err := kub.ExecuteContext(ctx, cmd, stdout, nil)
 
