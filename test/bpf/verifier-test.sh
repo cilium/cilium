@@ -19,6 +19,7 @@ set -eo pipefail
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
 TC_PROGS="bpf_hostdev_ingress bpf_ipsec bpf_lb bpf_lxc bpf_netdev bpf_network bpf_overlay"
+CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 XDP_PROGS="bpf_xdp"
 VERBOSE=false
 
@@ -57,6 +58,12 @@ function load_tc {
 	for p in ${TC_PROGS}; do
 		load_prog "tc filter replace" "ingress bpf da" ${DIR}/${p}
 		clean_maps
+	done
+}
+
+function load_cg {
+	for p in ${CG_PROGS}; do
+		echo "=> Skipping ${DIR}/${p}.c."
 	done
 }
 
@@ -107,6 +114,7 @@ function main {
 	tc qdisc replace dev ${DEV} clsact
 
 	load_tc
+	load_cg
 	load_xdp
 }
 
