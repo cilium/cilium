@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2018 Authors of Cilium
+# Copyright 2018-2019 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ set -e
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
 TC_PROGS="bpf_lb bpf_lxc bpf_netdev bpf_overlay"
+XDP_PROGS="bpf_xdp"
 VERBOSE=false
 
 function clean_maps {
@@ -52,42 +53,61 @@ function load_prog {
 	done
 }
 
-if [ $(id -u) -ne 0 ]; then
-	echo "Must be run as root" 1>&2
-	exit 1
-fi
+function load_tc {
+	for p in ${TC_PROGS}; do
+		load_prog "tc filter replace" "ingress bpf da" ${DIR}/${p}
+		clean_maps
+	done
+}
 
-if ps cax | grep cilium-agent; then
-	echo "WARNING: This test will conflict with running cilium instances." 1>&2
-	echo "Shut down cilium before continuing." 1>&2
-	exit 1
-fi
+function load_xdp {
+	if ip link set help 2>&1 | grep -q xdpgeneric; then
+		ip link set dev ${DEV} xdpgeneric off
+		for p in ${XDP_PROGS}; do
+			load_prog "ip link set" "xdpgeneric" ${DIR}/${p}
+			clean_maps
+		done
+	else
+		echo "=> Skipping ${DIR}/bpf_xdp.c."
+		echo "Ensure you have linux >= 4.12 and recent iproute2 to test XDP." 1>&2
+	fi
+}
 
-# If first argument is "-v", always set verbose
-if [ $# -gt 0 ]; then
-	case "$1" in
-	-v|--verbose)
-		VERBOSE=true
-		;;
-	*)
-		echo "Unrecognized argument '$1'" 1>&2
+function handle_args {
+	if [ $(id -u) -ne 0 ]; then
+		echo "Must be run as root" 1>&2
 		exit 1
-		;;
-	esac
-fi
+	fi
 
-trap cleanup EXIT
-ip link add ${DEV} type dummy
-tc qdisc replace dev ${DEV} clsact
+	if ps cax | grep cilium-agent; then
+		echo "WARNING: This test will conflict with running cilium instances." 1>&2
+		echo "Shut down cilium before continuing." 1>&2
+		exit 1
+	fi
 
-for p in ${TC_PROGS}; do
-	load_prog "tc filter replace" "ingress bpf da" ${DIR}/${p}
-	clean_maps
-done
-if ip link set help 2>&1 | grep -q xdpgeneric; then
-	ip link set dev ${DEV} xdpgeneric off
-	load_prog "ip link set" "xdpgeneric" ${DIR}/bpf_xdp
-else
-	echo "=> Skipping ${DIR}/bpf_xdp.c."
-	echo "Ensure you have linux >= 4.12 and recent iproute2 to test XDP." 1>&2
-fi
+	# If first argument is "-v", always set verbose
+	if [ $# -gt 0 ]; then
+		case "$1" in
+		-v|--verbose)
+			VERBOSE=true
+			;;
+		*)
+			echo "Unrecognized argument '$1'" 1>&2
+			exit 1
+			;;
+		esac
+	fi
+}
+
+function main {
+	handle_args
+
+	trap cleanup EXIT
+	ip link add ${DEV} type dummy
+	tc qdisc replace dev ${DEV} clsact
+
+	load_tc
+	load_xdp
+}
+
+main "$@"
