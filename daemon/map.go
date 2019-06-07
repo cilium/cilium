@@ -54,3 +54,23 @@ func (h *getMap) Handle(params restapi.GetMapParams) middleware.Responder {
 
 	return restapi.NewGetMapOK().WithPayload(mapList)
 }
+
+type getMapHistory struct {
+	daemon *Daemon
+}
+
+func NewGetMapHistoryHandler(d *Daemon) restapi.GetMapNameHistoryHandler {
+	return &getMapHistory{daemon: d}
+}
+
+func (h *getMapHistory) Handle(params restapi.GetMapNameHistoryParams) middleware.Responder {
+	m := bpf.GetMap(params.Name)
+	if m == nil {
+		return restapi.NewGetMapNameHistoryNotFound()
+	}
+	if m.History == nil {
+		return restapi.NewGetMapNameHistoryNoContent()
+	}
+	mapHistory := m.History.GetModel()
+	return restapi.NewGetMapNameHistoryOK().WithPayload(mapHistory)
+}

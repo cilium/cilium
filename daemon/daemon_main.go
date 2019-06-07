@@ -1496,6 +1496,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	// /map
 	api.DaemonGetMapHandler = NewGetMapHandler(d)
 	api.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
+	api.DaemonGetMapNameHistoryHandler = NewGetMapHistoryHandler(d)
 
 	// metrics
 	api.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
