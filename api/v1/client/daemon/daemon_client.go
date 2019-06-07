@@ -173,6 +173,34 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 }
 
 /*
+GetMapNameHistory retrieves operations history of b p f map
+*/
+func (a *Client) GetMapNameHistory(params *GetMapNameHistoryParams) (*GetMapNameHistoryOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetMapNameHistoryParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetMapNameHistory",
+		Method:             "GET",
+		PathPattern:        "/map/{name}/history",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetMapNameHistoryReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetMapNameHistoryOK), nil
+
+}
+
+/*
 PatchConfig modifies daemon configuration
 
 Updates the daemon configuration by applying the provided

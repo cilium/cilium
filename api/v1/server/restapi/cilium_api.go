@@ -108,6 +108,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		DaemonGetMapNameHandler: daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetMapName has not yet been implemented")
 		}),
+		DaemonGetMapNameHistoryHandler: daemon.GetMapNameHistoryHandlerFunc(func(params daemon.GetMapNameHistoryParams) middleware.Responder {
+			return middleware.NotImplemented("operation DaemonGetMapNameHistory has not yet been implemented")
+		}),
 		MetricsGetMetricsHandler: metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
 			return middleware.NotImplemented("operation MetricsGetMetrics has not yet been implemented")
 		}),
@@ -232,6 +235,8 @@ type CiliumAPI struct {
 	DaemonGetMapHandler daemon.GetMapHandler
 	// DaemonGetMapNameHandler sets the operation handler for the get map name operation
 	DaemonGetMapNameHandler daemon.GetMapNameHandler
+	// DaemonGetMapNameHistoryHandler sets the operation handler for the get map name history operation
+	DaemonGetMapNameHistoryHandler daemon.GetMapNameHistoryHandler
 	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
@@ -411,6 +416,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.DaemonGetMapNameHandler == nil {
 		unregistered = append(unregistered, "daemon.GetMapNameHandler")
+	}
+
+	if o.DaemonGetMapNameHistoryHandler == nil {
+		unregistered = append(unregistered, "daemon.GetMapNameHistoryHandler")
 	}
 
 	if o.MetricsGetMetricsHandler == nil {
@@ -683,6 +692,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/map/{name}"] = daemon.NewGetMapName(o.context, o.DaemonGetMapNameHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/map/{name}/history"] = daemon.NewGetMapNameHistory(o.context, o.DaemonGetMapNameHistoryHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
