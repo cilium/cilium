@@ -304,16 +304,6 @@ type Endpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
-
-	///////////////////////
-	// DEPRECATED FIELDS //
-	///////////////////////
-
-	// DeprecatedOpts represents the mutable options for the endpoint, in
-	// the format understood by Cilium 1.1 or earlier.
-	//
-	// Deprecated: Use Options instead.
-	DeprecatedOpts deprecatedOptions `json:"Opts"`
 }
 
 // UpdateController updates the controller with the specified name with the
@@ -1031,7 +1021,6 @@ func (e *Endpoint) base64() (string, error) {
 		err       error
 	)
 
-	transformEndpointForDowngrade(e)
 	jsonBytes, err = json.Marshal(e)
 	if err != nil {
 		return "", err
