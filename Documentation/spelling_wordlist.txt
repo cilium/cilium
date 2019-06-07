@@ -2,6 +2,7 @@ addr
 admin
 Alemayhu
 allocators
+allocator
 alu
 ami
 analytics
@@ -158,6 +159,8 @@ elfutils
 endian
 endianness
 endpointSelector
+ENIs
+ENI
 enum
 etcd
 etcdClusters

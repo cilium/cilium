@@ -21,7 +21,7 @@ required to run a full Cilium deployment.
 
    overview
    terminology
-   ipam
+   ipam/index
    networking
    security
    failure_behavior

@@ -58,6 +58,7 @@ Advanced Networking
    ipvlan
    encryption
    kata-gce
+   ipam
 
 Operations
 ----------
