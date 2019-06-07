@@ -727,10 +727,10 @@ var _ = Describe("RuntimePolicies", func() {
 		app3Label := "id.app3"
 
 		logger.WithFields(logrus.Fields{
-			"IPv4_host":       helpers.IPv4Host,
+			"IPv4_host":       helpers.FakeIPv4WorldAddress,
 			"IPv4_other_host": ipv4OtherHost,
 			"IPv4_other_net":  ipv4OtherNet,
-			"IPv6_host":       helpers.IPv6Host}).
+			"IPv6_host":       helpers.FakeIPv6WorldAddress}).
 			Info("VM IP address configuration")
 
 		// If the pseudo host IPs have not been removed since the last run but
@@ -739,8 +739,8 @@ var _ = Describe("RuntimePolicies", func() {
 		// entries.
 		// Don't care about success or failure as the BPF endpoint may not even be
 		// present; this is best-effort.
-		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.IPv4Host))
-		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.IPv6Host))
+		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.FakeIPv4WorldAddress))
+		_ = vm.ExecCilium(fmt.Sprintf("bpf endpoint delete %s", helpers.FakeIPv6WorldAddress))
 
 		httpd1DockerNetworking, err := vm.ContainerInspectNet(helpers.Httpd1)
 		Expect(err).Should(BeNil(), fmt.Sprintf(
@@ -767,18 +767,18 @@ var _ = Describe("RuntimePolicies", func() {
 		// Delete the pseudo-host IPs that we added to localhost after test
 		// finishes. Don't care about success; this is best-effort.
 		cleanup = func() {
-			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/32", helpers.IPv4Host))
-			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/128", helpers.IPv6Host))
+			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress))
+			_ = vm.RemoveIPFromLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress))
 		}
 
 		By("Adding Pseudo-Host IPs to localhost")
-		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/32", helpers.IPv4Host)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.IPv4Host)
-		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/128", helpers.IPv6Host)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.IPv6Host)
+		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/32", helpers.FakeIPv4WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv4WorldAddress)
+		vm.AddIPToLoopbackDevice(fmt.Sprintf("%s/128", helpers.FakeIPv6WorldAddress)).ExpectSuccess("Unable to add %s to pseudo-host IP to localhost", helpers.FakeIPv6WorldAddress)
 
 		By("Pinging host IPv4 from httpd2 (should NOT work due to default-deny PolicyEnforcement mode)")
 
-		res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
-		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.IPv4Host, helpers.Httpd2)
+		res := vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.FakeIPv4WorldAddress))
+		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.FakeIPv4WorldAddress, helpers.Httpd2)
 
 		By("Importing L3 CIDR Policy for IPv4 Egress Allowing Egress to %q, %q from %q", ipv4OtherHost, ipv4OtherHost, httpd2Label)
 		script := fmt.Sprintf(`
@@ -795,13 +795,13 @@ var _ = Describe("RuntimePolicies", func() {
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.IPv4Host))
-		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.IPv4Host, helpers.Httpd2)
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping(helpers.FakeIPv4WorldAddress))
+		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.FakeIPv4WorldAddress, helpers.Httpd2)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		By("Pinging host IPv6 from httpd2 (should NOT work because we did not specify IPv6 CIDR of host as part of previously imported policy)")
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.IPv6Host))
-		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.IPv6Host, helpers.Httpd2)
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.FakeIPv6WorldAddress))
+		res.ExpectFail("Unexpected success pinging host (%s) from %s", helpers.FakeIPv6WorldAddress, helpers.Httpd2)
 
 		By("Importing L3 CIDR Policy for IPv6 Egress")
 		script = fmt.Sprintf(`
@@ -812,13 +812,13 @@ var _ = Describe("RuntimePolicies", func() {
 					"%s"
 				]
 			}]
-		}]`, httpd2Label, helpers.IPv6Host)
+		}]`, httpd2Label, helpers.FakeIPv6WorldAddress)
 		_, err = vm.PolicyRenderAndImport(script)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		By("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %q)", helpers.IPv6Host)
-		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.IPv6Host))
-		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.IPv6Host, helpers.Httpd2)
+		By("Pinging host IPv6 from httpd2 (should work because policy allows IPv6 CIDR %q)", helpers.FakeIPv6WorldAddress)
+		res = vm.ContainerExec(helpers.Httpd2, helpers.Ping6(helpers.FakeIPv6WorldAddress))
+		res.ExpectSuccess("Unexpected failure pinging host (%s) from %s", helpers.FakeIPv6WorldAddress, helpers.Httpd2)
 		vm.PolicyDelAll().ExpectSuccess("Unable to delete all policies")
 
 		// This test case checks that ping works even without explicit CIDR policies
