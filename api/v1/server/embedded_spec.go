@@ -831,6 +831,33 @@ func init() {
         }
       }
     },
+    "/map/{name}/history": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve operations history of BPF map",
+        "parameters": [
+          {
+            "$ref": "#/parameters/map-name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/BPFMapHistory"
+            }
+          },
+          "204": {
+            "description": "BPF map operations history disabled"
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
     "/metrics/": {
       "get": {
         "tags": [
@@ -1231,6 +1258,51 @@ func init() {
         "last-error": {
           "description": "Last error seen while performing desired action",
           "type": "string"
+        },
+        "value": {
+          "description": "Value of map entry",
+          "type": "string"
+        }
+      }
+    },
+    "BPFMapHistory": {
+      "description": "BPF map operations history",
+      "type": "object",
+      "properties": {
+        "entries": {
+          "description": "Array of BPF map operations history entries",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BPFMapHistoryEntry"
+          }
+        }
+      }
+    },
+    "BPFMapHistoryEntry": {
+      "description": "BPF map operations history entry",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Action which was performed",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "error": {
+          "description": "Error while performing action",
+          "type": "string"
+        },
+        "key": {
+          "description": "Key of map entry",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Timestamp of operation",
+          "type": "string",
+          "format": "date-time"
         },
         "value": {
           "description": "Value of map entry",
@@ -3764,6 +3836,37 @@ func init() {
         }
       }
     },
+    "/map/{name}/history": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve operations history of BPF map",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Name of map",
+            "name": "name",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/BPFMapHistory"
+            }
+          },
+          "204": {
+            "description": "BPF map operations history disabled"
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
     "/metrics/": {
       "get": {
         "tags": [
@@ -4199,6 +4302,51 @@ func init() {
         "last-error": {
           "description": "Last error seen while performing desired action",
           "type": "string"
+        },
+        "value": {
+          "description": "Value of map entry",
+          "type": "string"
+        }
+      }
+    },
+    "BPFMapHistory": {
+      "description": "BPF map operations history",
+      "type": "object",
+      "properties": {
+        "entries": {
+          "description": "Array of BPF map operations history entries",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BPFMapHistoryEntry"
+          }
+        }
+      }
+    },
+    "BPFMapHistoryEntry": {
+      "description": "BPF map operations history entry",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Action which was performed",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "error": {
+          "description": "Error while performing action",
+          "type": "string"
+        },
+        "key": {
+          "description": "Key of map entry",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Timestamp of operation",
+          "type": "string",
+          "format": "date-time"
         },
         "value": {
           "description": "Value of map entry",
