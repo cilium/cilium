@@ -17,7 +17,6 @@ package connector
 import (
 	"fmt"
 	"math"
-	"path/filepath"
 	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -275,10 +274,9 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 
 	log.WithField(logfields.Ipvlan, []string{lxcIfName}).Debug("Created ipvlan slave in L3 mode")
 
-	rpFilterPath := filepath.Join("/proc", "sys", "net", "ipv4", "conf", lxcIfName, "rp_filter")
-	err = WriteSysConfig(rpFilterPath, "0\n")
+	err = DisableRpFilter(lxcIfName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to disable %s: %s", rpFilterPath, err)
+		return nil, nil, err
 	}
 
 	link, err = netlink.LinkByName(lxcIfName)
