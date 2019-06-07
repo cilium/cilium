@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package loadinfo
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -40,9 +41,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadinfo")
 
 // LogFunc is the function to used to log the system load
 type LogFunc func(format string, args ...interface{})
-
-// CloseChan is the channel to close to stop periodic system load logging
-type CloseChan chan struct{}
 
 func toMB(total uint64) uint64 {
 	return total / 1024 / 1024
@@ -94,27 +92,26 @@ func LogCurrentSystemLoad(logFunc LogFunc) {
 }
 
 // LogPeriodicSystemLoad logs the system load in the interval specified until
-// the channel is closed
-func LogPeriodicSystemLoad(logFunc LogFunc, interval time.Duration) CloseChan {
-	closeChan := make(CloseChan)
+// the given ctx is canceled.
+func LogPeriodicSystemLoad(ctx context.Context, logFunc LogFunc, interval time.Duration) {
 	go func() {
+		LogCurrentSystemLoad(logFunc)
+
+		t := time.NewTimer(interval)
+		defer t.Stop()
 		for {
-			LogCurrentSystemLoad(logFunc)
-
 			select {
-			case <-closeChan:
+			case <-ctx.Done():
 				return
-			default:
+			case <-t.C:
+				LogCurrentSystemLoad(logFunc)
+				t.Reset(interval)
 			}
-
-			time.Sleep(interval)
 		}
 	}()
-
-	return closeChan
 }
 
 // StartBackgroundLogger starts background logging
 func StartBackgroundLogger() {
-	LogPeriodicSystemLoad(log.WithFields(logrus.Fields{"type": "background"}).Debugf, backgroundInterval)
+	LogPeriodicSystemLoad(context.Background(), log.WithFields(logrus.Fields{"type": "background"}).Debugf, backgroundInterval)
 }
