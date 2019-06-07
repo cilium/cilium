@@ -199,7 +199,7 @@ type Endpoint struct {
 	Options *option.IntOptions
 
 	// Status are the last n state transitions this endpoint went through
-	Status *EndpointStatus
+	Status *EndpointStatus `json:"-"`
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
