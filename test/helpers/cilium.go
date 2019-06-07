@@ -974,17 +974,18 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 // SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
 // returns an error if any of the operations needed to start Cilium fails.
 func (s *SSHMeta) SetUpCilium() error {
-	template := `
-PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
-INITSYSTEM=SYSTEMD`
-	return s.SetUpCiliumWithOptions(template)
+	return s.SetUpCiliumWithOptions("--tofqdns-enable-poller=true")
 }
 
 // SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
 // returns an error if any of the operations needed to start Cilium fail.
-func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
-	err := RenderTemplateToFile("cilium", template, os.ModePerm)
+func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
+	systemdTemplate := `
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s
+INITSYSTEM=SYSTEMD`
+
+	err := RenderTemplateToFile("cilium", fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -1002,22 +1003,12 @@ func (s *SSHMeta) SetUpCiliumWithOptions(template string) error {
 }
 
 func (s *SSHMeta) SetUpCiliumWithSockops() error {
-	var config = `
-+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-+CILIUM_OPTS=--sockops-enable --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load --tofqdns-enable-poller=true
-+INITSYSTEM=SYSTEMD`
-
-	return s.SetUpCiliumWithOptions(config)
+	return s.SetUpCiliumWithOptions("--sockops-enable --tofqdns-enable-poller=true")
 }
 
 // SetUpCiliumInIpvlanMode starts cilium-agent in the ipvlan mode
 func (s *SSHMeta) SetUpCiliumInIpvlanMode(ipvlanMasterDevice string) error {
-	var config = `
-PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load \
-	--tunnel=disabled --datapath-mode=ipvlan --ipvlan-master-device=` + ipvlanMasterDevice + `
-INITSYSTEM=SYSTEMD`
-	return s.SetUpCiliumWithOptions(config)
+	return s.SetUpCiliumWithOptions("--tunnel=disabled --datapath-mode=ipvlan --ipvlan-master-device=" + ipvlanMasterDevice)
 }
 
 // WaitUntilReady waits until the output of `cilium status` returns with code
