@@ -2196,6 +2196,56 @@ describe some of the differences for the BPF model:
     //  |  sector(4) |  pad (4)  | <= address aligned to 8
     //  |____________|___________|     with explicit PADDING.
 
+11. **Accessing packet data via invalidated references**
+
+  Some networking BPF helper functions such as ``bpf_skb_store_bytes`` might
+  change the size of a packet data. As verifier is not able to track such
+  changes, any a priori reference to the data will be invalidated by verifier.
+  Therefore, the reference needs to be updated before accessing the data to
+  avoid verifier rejecting a program.
+
+  To illustrate this, consider the following snippet:
+
+  ::
+
+    struct iphdr *ip4 = (struct iphdr *) skb->data + ETH_HLEN;
+
+    skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &new_saddr, 4, 0);
+
+    if (ip4->protocol == IPPROTO_TCP) {
+        // do something
+    }
+
+  Verifier will reject the snippet due to dereference of the invalidated
+  ``ip4->protocol``:
+
+  ::
+
+      R1=pkt_end(id=0,off=0,imm=0) R2=pkt(id=0,off=34,r=34,imm=0) R3=inv0
+      R6=ctx(id=0,off=0,imm=0) R7=inv(id=0,umax_value=4294967295,var_off=(0x0; 0xffffffff))
+      R8=inv4294967162 R9=pkt(id=0,off=0,r=34,imm=0) R10=fp0,call_-1
+      ...
+      18: (85) call bpf_skb_store_bytes#9
+      19: (7b) *(u64 *)(r10 -56) = r7
+      R0=inv(id=0) R6=ctx(id=0,off=0,imm=0) R7=inv(id=0,umax_value=2,var_off=(0x0; 0x3))
+      R8=inv4294967162 R9=inv(id=0) R10=fp0,call_-1 fp-48=mmmm???? fp-56=mmmmmmmm
+      21: (61) r1 = *(u32 *)(r9 +23)
+      R9 invalid mem access 'inv'
+
+  To fix this, the reference to ``ip4`` has to be updated:
+
+  ::
+
+    struct iphdr *ip4 = (struct iphdr *) skb->data + ETH_HLEN;
+
+    skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &new_saddr, 4, 0);
+
+    ip4 = (struct iphdr *) skb->data + ETH_HLEN;
+
+    if (ip4->protocol == IPPROTO_TCP) {
+        // do something
+    }
+
 iproute2
 --------
 
