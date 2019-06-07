@@ -680,6 +680,22 @@ paths:
             "$ref": "#/definitions/BPFMap"
         '404':
           description: Map not found
+  "/map/{name}/history":
+    get:
+      summary: Retrieve operations history of BPF map
+      tags:
+      - daemon
+      parameters:
+      - "$ref": "#/parameters/map-name"
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/BPFMapHistory"
+        '204':
+          description: BPF map operations history disabled
+        '404':
+          description: Map not found
 
   "/metrics/":
     get:
@@ -1977,6 +1993,39 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/BPFMapEntry"
+  BPFMapHistory:
+    description: BPF map operations history
+    type: object
+    properties:
+      entries:
+        description: Array of BPF map operations history entries
+        type: array
+        items:
+          "$ref": "#/definitions/BPFMapHistoryEntry"
+  BPFMapHistoryEntry:
+    description: BPF map operations history entry
+    type: object
+    properties:
+      timestamp:
+        description: Timestamp of operation
+        type: string
+        format: date-time
+      key:
+        description: Key of map entry
+        type: string
+      value:
+        description: Value of map entry
+        type: string
+      action:
+        description: Action which was performed
+        type: string
+        enum:
+        - ok
+        - insert
+        - delete
+      error:
+        description: Error while performing action
+        type: string
   BPFMapEntry:
     description: BPF map cache entry"
     type: object
