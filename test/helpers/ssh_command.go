@@ -280,6 +280,20 @@ func (client *SSHClient) newSession() (*ssh.Session, error) {
 	var err error
 
 	if client.client != nil {
+
+		// First check if we are still able to dial to the remote host with
+		// the client to which we have already connected. If we
+		// can't, return an error. If we can, then close the connection we have
+		// just created, as we already have a session to access.
+		connection, err = ssh.Dial(
+			"tcp",
+			fmt.Sprintf("%s:%d", client.Host, client.Port),
+			client.Config)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to dial to preexisting client: %s", err)
+		}
+		connection.Close()
 		connection = client.client
 	} else {
 		connection, err = ssh.Dial(
