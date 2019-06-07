@@ -867,12 +867,11 @@
   version = "1.0.3"
 
 [[projects]]
-  digest = "1:c6aca19413b13dc59c220ad7430329e2ec454cc310bc6d8de2c7e2b93c18a0f6"
+  digest = "1:863c7de4bedf8835fb24be7573f9524f6ce6c55e1b1ee4b944895837ad758a09"
   name = "github.com/modern-go/reflect2"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
-  version = "1.0.1"
+  revision = "v1.0.1"
 
 [[projects]]
   digest = "1:cdc5cfc04dd0b98f86433207fe6d9879757c46734441a08886acc11251c7ed4a"

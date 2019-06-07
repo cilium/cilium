@@ -561,6 +561,13 @@ required = [
   # main-usage = "pkg/k8s"
   # on-revision = ""
 
+[[override]]
+  name = "github.com/modern-go/reflect2"
+  revision = "v1.0.1"
+
+  # main-usage = "kubernetes"
+  # on-revision = "same revision set in the dependency list of k8s.io/kubernetes"
+
 [prune]
   non-go = true
   go-tests = true
