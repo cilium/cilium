@@ -16,7 +16,6 @@ package connector
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -82,10 +81,9 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux
 	// stack performs routing.
-	rpFilterPath := filepath.Join("/proc", "sys", "net", "ipv4", "conf", lxcIfName, "rp_filter")
-	err = WriteSysConfig(rpFilterPath, "0\n")
+	err = DisableRpFilter(lxcIfName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to disable %s: %s", rpFilterPath, err)
+		return nil, nil, err
 	}
 
 	peer, err := netlink.LinkByName(tmpIfName)

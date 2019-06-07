@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
@@ -92,6 +93,15 @@ func WriteSysConfig(fileName, value string) error {
 	err = f.Close()
 	if err != nil {
 		return fmt.Errorf("unable to close configuration file: %s", err)
+	}
+	return nil
+}
+
+// DisableRpFilter tries to disable rpfilter on specified interface
+func DisableRpFilter(ifName string) error {
+	rpFilterPath := filepath.Join("/proc", "sys", "net", "ipv4", "conf", ifName, "rp_filter")
+	if err := WriteSysConfig(rpFilterPath, "0\n"); err != nil {
+		return fmt.Errorf("unable to disable %s: %s", rpFilterPath, err)
 	}
 	return nil
 }
