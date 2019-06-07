@@ -17,6 +17,8 @@ package linux
 import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -42,6 +44,12 @@ func NewDatapath(config DatapathConfiguration) datapath.Datapath {
 	}
 
 	dp.node = NewNodeHandler(config, dp.nodeAddressing)
+
+	if config.EncryptInterface != "" {
+		if err := connector.DisableRpFilter(config.EncryptInterface); err != nil {
+			log.WithField(logfields.Interface, config.EncryptInterface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
+		}
+	}
 
 	return dp
 }
