@@ -154,13 +154,28 @@ func (s *SSHMeta) ExecWithSudo(cmd string, options ...ExecOptions) *CmdRes {
 // ExecOptions options to execute Exec and ExecWithContext
 type ExecOptions struct {
 	SkipLog bool
+	Timeout time.Duration
 }
 
 // Exec returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	// Bound all command executions to be at most the timeout used by the CI
 	// so that commands do not block forever.
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+
+	commandTimeout := HelperTimeout
+
+	if len(options) > 0 {
+		opts := options[0]
+		if opts.Timeout > 0 {
+			if opts.Timeout < 1*time.Second {
+				log.Errorf("Timeout too short (must be at least 1 second): %v", opts.Timeout)
+			} else if opts.Timeout > HelperTimeout {
+				log.Errorf("Timeout too long; can only be at most: %v", HelperTimeout)
+			}
+			commandTimeout = opts.Timeout
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 	return s.ExecContext(ctx, cmd, options...)
 }

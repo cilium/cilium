@@ -1462,6 +1462,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
 		return
 	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 
@@ -1477,12 +1478,17 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	if err != nil {
 		kub.logger.WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 	}
-	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
+	res := kub.Exec(fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd), ExecOptions{
+		Timeout: 10 * time.Second,
+	})
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	for _, pod := range pods {
 		for _, cmd := range commands {
-			res = kub.ExecPodCmd(namespace, pod, cmd, ExecOptions{SkipLog: true})
+			res = kub.ExecPodCmd(namespace, pod, cmd, ExecOptions{
+				SkipLog: true,
+				Timeout: 10 * time.Second,
+			})
 			ginkgoext.GinkgoPrint(res.GetDebugMessage())
 		}
 	}
