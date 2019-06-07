@@ -185,11 +185,13 @@ const (
 	// the test are saved.
 	CiliumTestLog = "cilium-test.log"
 
-	// IPv4Host is an IP which is used in some datapath tests for simulating external IPv4 connectivity.
-	IPv4Host = "192.168.254.254"
+	// FakeIPv4WorldAddress is an IP which is used in some datapath tests
+	// for simulating external IPv4 connectivity.
+	FakeIPv4WorldAddress = "192.168.254.254"
 
-	// IPv6Host is an IP which is used in some datapath tests for simulating external IPv6 connectivity.
-	IPv6Host = "fdff::ff"
+	// FakeIPv6WorldAddress is an IP which is used in some datapath tests
+	// for simulating external IPv6 connectivity.
+	FakeIPv6WorldAddress = "fdff::ff"
 
 	// Logs messages that should not be in the cilium logs.
 	panicMessage      = "panic:"
