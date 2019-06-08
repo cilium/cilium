@@ -214,6 +214,11 @@ var (
 	// time taken to fully deploy an endpoint.
 	PolicyImplementationDelay = NoOpObserverVec
 
+	// Identity
+
+	// IdentityCount is the number of identities currently in use on the node
+	IdentityCount = NoOpGauge
+
 	// Events
 
 	// EventTS*is the time in seconds since epoch that we last received an
@@ -370,6 +375,7 @@ type Configuration struct {
 	PolicyImportErrorsEnabled               bool
 	PolicyEndpointStatusEnabled             bool
 	PolicyImplementationDelayEnabled        bool
+	IdentityCountEnabled                    bool
 	EventTSK8sEnabled                       bool
 	EventTSContainerdEnabled                bool
 	EventTSAPIEnabled                       bool
@@ -420,6 +426,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_policy_import_errors":                                       {},
 		Namespace + "_policy_endpoint_enforcement_status":                         {},
 		Namespace + "_policy_implementation_delay":                                {},
+		Namespace + "_identity_count":                                             {},
 		Namespace + "_event_ts":                                                   {},
 		Namespace + "_proxy_redirects":                                            {},
 		Namespace + "_policy_l7_parse_errors_total":                               {},
@@ -587,6 +594,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, PolicyImplementationDelay)
 			c.PolicyImplementationDelayEnabled = true
+
+		case Namespace + "_identity_count":
+			IdentityCount = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "identity_count",
+				Help:      "Number of identities currently allocated",
+			})
+
+			collectors = append(collectors, IdentityCount)
+			c.IdentityCountEnabled = true
 
 		case Namespace + "_event_ts":
 			EventTSK8s = prometheus.NewGauge(prometheus.GaugeOpts{
