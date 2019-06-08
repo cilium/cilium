@@ -370,7 +370,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 	}
 }
 
-// deleteLocked removes removes the provided IP-to-security-identity mapping
+// deleteLocked removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
 func (ipc *IPCache) deleteLocked(ip string, source Source) {
 	scopedLog := log.WithFields(logrus.Fields{

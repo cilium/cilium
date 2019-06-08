@@ -101,6 +101,11 @@ Policy L7 (HTTP/Kafka)
 * ``policy_l7_denied_total``: Number of total L7 denied requests/responses due to policy
 * ``policy_l7_received_total``: Number of total L7 received requests/responses
 
+Identity
+--------
+
+* ``identity_count``: Number of identities currently allocated
+
 
 Events external to Cilium
 -------------------------

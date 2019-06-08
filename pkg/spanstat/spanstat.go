@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ func (s *SpanStat) SuccessTotal() time.Duration {
 	return s.successDuration
 }
 
-// FailureTotal returns the total duration of all successful spans measured
+// FailureTotal returns the total duration of all unsuccessful spans measured
 func (s *SpanStat) FailureTotal() time.Duration {
 	return s.failureDuration
 }

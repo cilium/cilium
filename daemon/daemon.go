@@ -682,7 +682,8 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, err
 	}
 
-	// Must be done before calling policy.NewPolicyRepostory() below.
+	identity.UpdateReservedIdentitiesMetrics()
+	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
 	d := Daemon{

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@ package identity
 import (
 	"errors"
 	"fmt"
-	"github.com/cilium/cilium/pkg/option"
 	"strconv"
 
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -123,6 +124,7 @@ func (w wellKnownIdentities) add(i NumericIdentity, lbls []string) {
 	}
 
 	ReservedIdentityCache[i] = identity
+	metrics.IdentityCount.Inc()
 }
 
 func (w wellKnownIdentities) LookupByLabels(lbls labels.Labels) *Identity {
@@ -283,6 +285,11 @@ var (
 	// reserved.
 	ErrNotUserIdentity = errors.New("not a user reserved identity")
 )
+
+// UpdateReservedIdentitiesMetrics updates identity metrics based on the reserved identities.
+func UpdateReservedIdentitiesMetrics() {
+	metrics.IdentityCount.Add(float64(len(reservedIdentities)))
+}
 
 // IsUserReservedIdentity returns true if the given NumericIdentity belongs
 // to the space reserved for users.

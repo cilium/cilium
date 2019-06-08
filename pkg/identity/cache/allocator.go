@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -179,11 +180,14 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 	// cached identities can be updated ASAP, rather than just
 	// relying on the kv-store update events.
 	defer func() {
-		if err == nil && owner != nil && allocated {
-			added := IdentityCache{
-				id.ID: id.LabelArray,
+		if err == nil && allocated {
+			metrics.IdentityCount.Inc()
+			if owner != nil {
+				added := IdentityCache{
+					id.ID: id.LabelArray,
+				}
+				owner.UpdateIdentities(added, nil)
 			}
-			owner.UpdateIdentities(added, nil)
 		}
 	}()
 	log.WithFields(logrus.Fields{
@@ -230,7 +234,13 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 // Release is the reverse operation of AllocateIdentity() and releases the
 // identity again. This function may result in kvstore operations.
 // After the last user has released the ID, the returned lastUse value is true.
-func Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Identity) (bool, error) {
+func Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Identity) (released bool, err error) {
+	defer func() {
+		if released {
+			metrics.IdentityCount.Dec()
+		}
+	}()
+
 	// Ignore reserved identities.
 	if id.IsReserved() {
 		return false, nil
