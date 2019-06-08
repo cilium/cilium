@@ -443,8 +443,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 		})
 		if err != nil {
 			scopedLog.WithError(err).Error("IPsec enable failed")
-		} else {
-			scopedLog.Debug("IPsec enabled")
 		}
 	}
 
