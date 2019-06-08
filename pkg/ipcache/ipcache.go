@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/sirupsen/logrus"
 )
@@ -346,6 +347,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 		}
 	}
 
+	metrics.IdentityCount.Set(float64(len(ipc.identityToIPCache)))
 	return true
 }
 
@@ -363,7 +365,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 	}
 }
 
-// deleteLocked removes removes the provided IP-to-security-identity mapping
+// deleteLocked removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
 func (ipc *IPCache) deleteLocked(ip string, source Source) {
 	scopedLog := log.WithFields(logrus.Fields{
@@ -455,6 +457,8 @@ func (ipc *IPCache) deleteLocked(ip string, source Source) {
 				oldIdentity, newIdentity.ID, encryptKey)
 		}
 	}
+
+	metrics.IdentityCount.Set(float64(len(ipc.identityToIPCache)))
 }
 
 // Delete removes the provided IP-to-security-identity mapping from the IPCache.
