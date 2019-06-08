@@ -67,6 +67,9 @@ with words you expected to see here.
    Pods
      https://kubernetes.io/docs/concepts/workloads/pods/pod/
 
+   Service
+     https://kubernetes.io/docs/concepts/services-networking/service/
+
    CustomResourceDefinition
      https://kubernetes.io/docs/concepts/api-extension/custom-resources/#customresourcedefinitions
 

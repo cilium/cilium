@@ -65,7 +65,7 @@ Download the Cilium deployment yaml:
 
       curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
 
-Edit ``cilium.yaml and add the following configuration to the ConfigMap:
+Edit ``cilium.yaml`` and add the following configuration to the ConfigMap:
 
 .. code:: bash
 
