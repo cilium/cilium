@@ -268,7 +268,7 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 			return
 		}
 
-		_, runErr := runCommand(session, cmd)
+		runErr := runCommand(session, cmd)
 		sessionErrChan <- runErr
 
 		if closeErr := session.Close(); closeErr != nil {

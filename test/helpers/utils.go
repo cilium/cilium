@@ -275,13 +275,22 @@ func CreateLogFile(filename string, data []byte) error {
 // Function needs a directory path where the files are going to be written and
 // a *SSHMeta instance to execute the commands
 func reportMap(path string, reportCmds map[string]string, node *SSHMeta) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reportMapContext(ctx, path, reportCmds, node)
+}
+
+// reportMap saves the output of the given commands to the specified filename.
+// Function needs a directory path where the files are going to be written and
+// a *SSHMeta instance to execute the commands
+func reportMapContext(ctx context.Context, path string, reportCmds map[string]string, node *SSHMeta) {
 	if node == nil {
 		log.Errorf("cannot execute reportMap due invalid node instance")
 		return
 	}
 
 	for cmd, logfile := range reportCmds {
-		res := node.Exec(cmd, ExecOptions{SkipLog: true})
+		res := node.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 		err := ioutil.WriteFile(
 			fmt.Sprintf("%s/%s", path, logfile),
 			res.CombineOutput().Bytes(),
