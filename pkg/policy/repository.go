@@ -651,6 +651,9 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy
 	}
 
+	// Make the calculated policy ready for incremental updates
+	calculatedPolicy.Attach()
+
 	return calculatedPolicy, nil
 }
 
