@@ -100,7 +100,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 		log.WithFields(logrus.Fields{
 			"fqdnSelectorString": selector,
 			"identitySlice":      identitySlice}).Debug("updating FQDN selector")
-		numIds := make([]identity.NumericIdentity, len(identitySlice))
+		numIds := make([]identity.NumericIdentity, 0, len(identitySlice))
 		for _, numId := range identitySlice {
 			// Nil check here? Hopefully not necessary...
 			numIds = append(numIds, numId.ID)
