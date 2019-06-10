@@ -699,26 +699,24 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		stats.prepareBuild.End(preCompilationError == nil)
 	}()
 
-	// Generate header file specific to this endpoint for use in compiling
-	// BPF programs for this endpoint.
-	if err = e.writeHeaderfile(nextDir, owner); err != nil {
-		return fmt.Errorf("unable to write header file: %s", err)
-	}
-
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
+	var changed bool
 	datapathRegenCtxt.bpfHeaderfilesHash, err = loader.EndpointHash(e)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		datapathRegenCtxt.bpfHeaderfilesHash = ""
-		datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRewrite
+		changed = true
 	} else {
-		changed := (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
-		if changed {
-			datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRewrite
-		}
+		changed = (datapathRegenCtxt.bpfHeaderfilesHash != e.bpfHeaderfileHash)
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
+	}
+	if changed {
+		datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRewrite
+		if err = e.writeHeaderfile(nextDir, owner); err != nil {
+			return fmt.Errorf("unable to write header file: %s", err)
+		}
 	}
 
 	// Cache endpoint information so that we can release the endpoint lock.
