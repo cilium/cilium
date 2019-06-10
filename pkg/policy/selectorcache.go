@@ -201,8 +201,9 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	return &SelectorCache{
-		idCache:   getIdentityCache(ids),
-		selectors: make(map[string]identitySelector),
+		idCache:         getIdentityCache(ids),
+		idCacheRevision: 1,
+		selectors:       make(map[string]identitySelector),
 	}
 }
 
