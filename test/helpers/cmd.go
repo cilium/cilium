@@ -317,6 +317,11 @@ func (res *CmdRes) GetErr(context string) error {
 	return &cmdError{fmt.Sprintf("%s output: %s", context, res.GetDebugMessage())}
 }
 
+// GetError returns the error for this CmdRes.
+func (res *CmdRes) GetError() error {
+	return res.err
+}
+
 // BeSuccesfulMatcher a new Ginkgo matcher for CmdRes struct
 type BeSuccesfulMatcher struct{}
 

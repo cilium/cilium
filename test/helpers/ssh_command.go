@@ -248,30 +248,62 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 		panic("nil context provided to RunCommandContext()")
 	}
 
-	session, err := client.newSession()
-	if err != nil {
-		return err
-	}
+	var (
+		session    *ssh.Session
+		err        error
+		sessionErr error
+	)
 
-	defer func() {
-		if closeErr := session.Close(); closeErr != nil {
-			log.WithError(closeErr).Error("failed to close session")
+	sessionErrChan := make(chan error, 1)
+
+	go func(errChan chan error) {
+		// This may block depending on the state of the setup tests are being
+		// ran against. As a result, these goroutines may leak, but the logic
+		// below will fail and propagate to the rest of the CI framework, which
+		// will error out anyway. It's better to leak in really bad cases since
+		// the CI will fail anyway. Unfortunately, the golang SSH library does
+		// not provide a way to propagate context through to creating sessions.
+
+		// Note that we are acting on the session variable declared outside of
+		// this anonymous function!
+		session, sessionErr = client.newSession()
+		if err != nil {
+			log.Infof("error creating session: %s", err)
+			errChan <- sessionErr
+			return
 		}
-	}()
 
-	running, err := runCommand(session, cmd)
-	if !running {
-		return err
-	}
+		defer func() {
+			if session != nil {
+				if closeErr := session.Close(); closeErr != nil {
+					log.WithError(closeErr).Error("failed to close session")
+				}
+			}
+		}()
+
+		running, runErr := runCommand(session, cmd)
+		if !running || runErr != nil {
+			errChan <- runErr
+			return
+		}
+
+		// No error has occurred, this indicates success.
+		errChan <- nil
+	}(sessionErrChan)
+
 	select {
+	case asyncErr := <-sessionErrChan:
+		return asyncErr
 	case <-ctx.Done():
-		log.Warning("sending SIGHUP to session due to canceled context")
-		if err = session.Signal(ssh.SIGHUP); err != nil {
-			log.Errorf("failed to kill command when context is canceled: %s", err)
+		if session != nil {
+			log.Warning("sending SIGHUP to session due to canceled context")
+			if err = session.Signal(ssh.SIGHUP); err != nil {
+				log.Errorf("failed to kill command when context is canceled: %s", err)
+			}
+		} else {
+			log.Error("timeout reached; no session was able to be created")
 		}
 		return ctx.Err()
-	default:
-		return err
 	}
 }
 
