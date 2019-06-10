@@ -126,7 +126,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Log(buffer)
 
-	filter, ok := (*l4IngressPolicy)["80/TCP"]
+	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
@@ -169,7 +169,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Log(buffer)
 
-	filter, ok = (*l4IngressPolicy)["80/TCP"]
+	filter, ok = l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
@@ -219,7 +219,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 
 	ingressState := traceState{}
-	res, err := rule1.resolveIngressPolicy(&ctx, &ingressState, NewL4Policy(0), nil, testSelectorCache)
+	res, err := rule1.resolveIngressPolicy(&ctx, &ingressState, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
@@ -230,8 +230,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	// allows all at L7, based on the first API rule imported above. We
 	// just set the expected set of L7 rules below to include this to match
 	// the current implementation.
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -245,9 +244,9 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
@@ -291,7 +290,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	c.Log(buffer)
 
-	filter, ok := (*l4IngressPolicy)["80/TCP"]
+	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(filter.Port, Equals, 80)
 	c.Assert(filter.Ingress, Equals, true)
@@ -339,8 +338,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 			},
 		}}
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -354,7 +352,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
@@ -362,17 +360,17 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	c.Log(buffer)
 
 	state := traceState{}
-	res, err := identicalHTTPRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := identicalHTTPRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = identicalHTTPRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = identicalHTTPRule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -420,8 +418,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["9092/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"9092/TCP": &L4Filter{
 		Port:            9092,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -435,20 +432,20 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := identicalKafkaRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := identicalKafkaRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = identicalKafkaRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = identicalKafkaRule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -499,7 +496,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Log(buffer)
 
 	state := traceState{}
-	res, err := conflictingParsersRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := conflictingParsersRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
@@ -543,7 +540,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = conflictingParsersRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = conflictingParsersRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
@@ -591,7 +588,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Assert(err, IsNil)
 
 	state = traceState{}
-	res, err = conflictingParsersIngressRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = conflictingParsersIngressRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
@@ -636,7 +633,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 	c.Assert(err, IsNil)
 
 	state = traceState{}
-	res, err = conflictingParsersEgressRule.resolveEgressPolicy(&ctxAToC, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = conflictingParsersEgressRule.resolveEgressPolicy(&ctxAToC, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Log(buffer)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
@@ -675,8 +672,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:             80,
 		Protocol:         api.ProtoTCP,
 		U8Proto:          6,
@@ -686,20 +682,20 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := shadowRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := shadowRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -734,8 +730,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected = NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port:             80,
 		Protocol:         api.ProtoTCP,
 		U8Proto:          6,
@@ -745,20 +740,20 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = shadowRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -806,8 +801,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -821,20 +815,20 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := shadowRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := shadowRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -876,8 +870,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected = NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -891,20 +884,20 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = shadowRule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = shadowRule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -959,8 +952,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -977,20 +969,20 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := case8Rule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := case8Rule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = case8Rule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1038,8 +1030,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected = NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected = L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -1056,20 +1047,20 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = case8Rule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = case8Rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = case8Rule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1121,12 +1112,12 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 	c.Log(buffer)
 
 	state := traceState{}
-	res, err := conflictingL7Rule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := conflictingL7Rule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = conflictingL7Rule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1172,12 +1163,12 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = conflictingL7Rule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, Not(IsNil))
 	c.Assert(res, IsNil)
 
 	state = traceState{}
-	res, err = conflictingL7Rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = conflictingL7Rule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1226,8 +1217,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -1243,13 +1233,13 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
@@ -1261,7 +1251,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = selectDifferentEndpointsRestrictL7.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = selectDifferentEndpointsRestrictL7.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1299,8 +1289,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:             80,
 		Protocol:         api.ProtoTCP,
 		U8Proto:          6,
@@ -1309,13 +1298,13 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil, nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
@@ -1327,7 +1316,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 	c.Log(buffer)
 
 	state = traceState{}
-	res, err = selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = selectDifferentEndpointsAllowAllL7.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -1372,8 +1361,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
 	ctxToA.Logging = logging.NewLogBackend(buffer, "", 0)
 
-	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
@@ -1388,14 +1376,14 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := rule.resolveIngressPolicy(&ctxToA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := rule.resolveIngressPolicy(&ctxToA, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Log(buffer)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)
@@ -1407,7 +1395,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	ctxToC.Logging = logging.NewLogBackend(buffer, "", 0)
 
 	state = traceState{}
-	res, err = rule.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err = rule.resolveIngressPolicy(toFoo, &state, L4PolicyMap{}, nil, testSelectorCache)
 	c.Log(buffer)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
@@ -1432,8 +1420,7 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 	ctxFromA.Logging = logging.NewLogBackend(buffer, "", 0)
 	c.Log(buffer)
 
-	expected := NewL4Policy(0)
-	expected.Egress["0/ANY"] = &L4Filter{
+	expected := L4PolicyMap{"0/ANY": &L4Filter{
 		Port:             0,
 		Protocol:         api.ProtoAny,
 		U8Proto:          0,
@@ -1443,14 +1430,14 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 		Ingress:          false,
 		allowsAllAtL3:    true,
 		DerivedFromRules: labels.LabelArrayList{nil},
-	}
+	}}
 
 	state := traceState{}
-	res, err := allowWorldRule.resolveEgressPolicy(&ctxFromA, &state, NewL4Policy(0), nil, testSelectorCache)
+	res, err := allowWorldRule.resolveEgressPolicy(&ctxFromA, &state, L4PolicyMap{}, nil, testSelectorCache)
 
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 0)
 	res.Detach(testSelectorCache)

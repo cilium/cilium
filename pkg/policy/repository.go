@@ -183,14 +183,14 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 // Caller must release resources by calling Detach() on the returned map!
 //
 // Note: Only used for policy tracing
-func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
+func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 
 	result, err := p.rules.resolveL4IngressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.Ingress, nil
+	return result, nil
 }
 
 // ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
@@ -203,14 +203,14 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (*L4PolicyMap, e
 // Caller must release resources by calling Detach() on the returned map!
 //
 // NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (*L4PolicyMap, error) {
+func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, error) {
 	result, err := p.rules.resolveL4EgressPolicy(ctx, p.GetRevision(), p.GetSelectorCache())
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.Egress, nil
+	return result, nil
 }
 
 // AllowsIngressRLocked evaluates the policy repository for the provided search
@@ -235,7 +235,7 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 	}
 
 	verdict := api.Denied
-	if err == nil && len(*ingressPolicy) > 0 {
+	if err == nil && len(ingressPolicy) > 0 {
 		verdict = ingressPolicy.IngressCoversContext(ctx)
 	}
 
@@ -268,7 +268,7 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 		log.WithError(err).Warn("Evaluation error while resolving L4 egress policy")
 	}
 	verdict := api.Denied
-	if err == nil && len(*egressPolicy) > 0 {
+	if err == nil && len(egressPolicy) > 0 {
 		verdict = egressPolicy.EgressCoversContext(ctx)
 	}
 
@@ -633,7 +633,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		}
 
 		calculatedPolicy.CIDRPolicy.Ingress = newCIDRIngressPolicy.Ingress
-		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy.Ingress
+		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy
 	}
 
 	if egressEnabled {
@@ -648,7 +648,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		}
 
 		calculatedPolicy.CIDRPolicy.Egress = newCIDREgressPolicy.Egress
-		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy.Egress
+		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy
 	}
 
 	return calculatedPolicy, nil

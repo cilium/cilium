@@ -718,7 +718,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL7, labelsL3},
 		},
 	}
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -861,7 +861,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4, labelsKafka, labelsL4},
 		},
 	}
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -927,7 +927,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1015,7 +1015,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	if !c.Check((*policy), checker.Equals, expectedPolicy) {
+	if !c.Check(policy, checker.Equals, expectedPolicy) {
 		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policy.Detach(repo.GetSelectorCache())
@@ -1148,7 +1148,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4},
 		},
 	}
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1291,7 +1291,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsKafka, labelsL3},
 		},
 	}
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1373,9 +1373,9 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(len(*policy), Equals, 3)
+	c.Assert(len(policy), Equals, 3)
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	c.Assert(len((*policy)["80/TCP"].CachedSelectors), Equals, 2)
+	c.Assert(len(policy["80/TCP"].CachedSelectors), Equals, 2)
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
@@ -1427,7 +1427,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 		},
 	}
 
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1509,9 +1509,9 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 
 	policy, err := repo.ResolveL4EgressPolicy(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(len(*policy), Equals, 3)
+	c.Assert(len(policy), Equals, 3)
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	c.Assert(len((*policy)["80/TCP"].CachedSelectors), Equals, 2)
+	c.Assert(len(policy["80/TCP"].CachedSelectors), Equals, 2)
 	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
 	c.Assert(cachedSelectorWorld, Not(IsNil))
 
@@ -1563,7 +1563,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 		},
 	}
 
-	c.Assert((*policy), checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1678,7 +1678,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		DerivedFromRules: []labels.LabelArray{nil, nil, nil, nil},
 	}
 
-	if equal, err := checker.Equal(*l4IngressPolicy, expected.Ingress); !equal {
+	if equal, err := checker.Equal(l4IngressPolicy, expected.Ingress); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1689,8 +1689,8 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected = NewL4Policy(repo.GetRevision())
 	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
 	c.Assert(err, IsNil)
-	c.Assert(len(*l4IngressPolicy), Equals, 0)
-	c.Assert(*l4IngressPolicy, checker.Equals, expected.Ingress)
+	c.Assert(len(l4IngressPolicy), Equals, 0)
+	c.Assert(l4IngressPolicy, checker.Equals, expected.Ingress)
 	l4IngressPolicy.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
