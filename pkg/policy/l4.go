@@ -457,11 +457,11 @@ type L4Policy struct {
 	Revision uint64
 }
 
-func NewL4Policy() *L4Policy {
+func NewL4Policy(revision uint64) *L4Policy {
 	return &L4Policy{
 		Ingress:  L4PolicyMap{},
 		Egress:   L4PolicyMap{},
-		Revision: 0,
+		Revision: revision,
 	}
 }
 
