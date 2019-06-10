@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 
 	"github.com/sirupsen/logrus"
@@ -926,7 +927,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) error {
 	return nil
 }
 
-func (e *Endpoint) e.addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry) error {
+func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry) error {
 	// Convert from policy.Key to policymap.Key
 	policyKeyToPolicyMapKey := policymap.PolicyKey{
 		Identity:         keyToAdd.Identity,
@@ -940,9 +941,45 @@ func (e *Endpoint) e.addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntr
 		e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
 		return err
 	}
-	
+
 	// Operation was successful, add to realized state.
 	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+
+	return nil
+}
+
+func (e *Endpoint) proxyID(key policy.Key) string {
+	return policy.ProxyID(e.ID, key.TrafficDirection == trafficdirection.Ingress.Uint8(), u8proto.U8proto(key.Nexthdr).String(), key.DestPort)
+}
+
+func (e *Endpoint) applyPolicyMapChanges() error {
+	errors := []error{}
+
+	adds, deletes := e.realizedPolicy.PolicyMapChanges.GetMapChanges()
+
+	e.getLogger().Debugf("applyPolicyMapChanges: adds: %v, deletes: %v", adds, deletes)
+
+	for keyToAdd, entry := range adds {
+		// Keep the existing proxy port, if any
+		entry.ProxyPort = e.realizedRedirects[e.proxyID(keyToAdd)]
+		err := e.addPolicyKey(keyToAdd, entry)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	for keyToDelete := range deletes {
+		err := e.deletePolicyKey(keyToDelete)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("updating desired PolicyMap state failed: %s", errors)
+	} else if len(adds)+len(deletes) > 0 {
+		e.getLogger().Infof("Applied policy updates due to added identities: %v, deleted identities: %v", adds, deletes)
+	}
 
 	return nil
 }
@@ -953,7 +990,8 @@ func (e *Endpoint) e.addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntr
 func (e *Endpoint) syncPolicyMapDelta() error {
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
-		return nil
+		// Still may have changes due to added/deleted identities.
+		return e.applyPolicyMapChanges()
 	}
 
 	errors := []error{}
