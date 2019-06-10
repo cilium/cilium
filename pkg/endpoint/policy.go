@@ -136,7 +136,7 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	// Recompute policy for this endpoint only if not already done for this revision.
 	// Must recompute if labels have changed.
 	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		e.prevIdentityCacheRevision == prevIdentityCacheRevision {
+		e.prevIdentityCacheRevision >= prevIdentityCacheRevision {
 
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
