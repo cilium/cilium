@@ -218,12 +218,12 @@ func (b *LBMapTestSuite) TestGetBackends(c *C) {
 }
 
 func (b *LBMapTestSuite) TestBackendAddrID(c *C) {
-	b4, err := NewBackend4Value(net.ParseIP("1.1.1.1"), 80, u8proto.All)
+	b4, err := NewBackend4Value(net.ParseIP("1.1.1.1"), 80, u8proto.ANY)
 	c.Assert(err, IsNil)
 	v4 := NewService4Value(0, net.ParseIP("1.1.1.1"), 80, 0, 0)
 	c.Assert(b4.BackendAddrID(), Equals, v4.BackendAddrID())
 
-	b6, err := NewBackend6Value(net.ParseIP("f00d::0:0"), 80, u8proto.All)
+	b6, err := NewBackend6Value(net.ParseIP("f00d::0:0"), 80, u8proto.ANY)
 	c.Assert(err, IsNil)
 	v6 := NewService6Value(0, net.ParseIP("f00d::0:0"), 80, 0, 0)
 	c.Assert(b6.BackendAddrID(), Equals, v6.BackendAddrID())
