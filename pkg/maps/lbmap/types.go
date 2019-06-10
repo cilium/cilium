@@ -521,16 +521,16 @@ func serviceKeynValuenBackendValue2FEnBE(svcKey ServiceKeyV2, svcValue ServiceVa
 func l3n4Addr2ServiceKeyV2(l3n4Addr loadbalancer.L3n4AddrID) ServiceKeyV2 {
 	log.WithField(logfields.L3n4AddrID, l3n4Addr).Debug("converting L3n4Addr to ServiceKeyV2")
 	if l3n4Addr.IsIPv6() {
-		return NewService6KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0)
+		return NewService6KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.ANY, 0)
 	}
 
-	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.All, 0)
+	return NewService4KeyV2(l3n4Addr.IP, l3n4Addr.Port, u8proto.ANY, 0)
 }
 
 func lbBackEnd2Backend(be loadbalancer.LBBackEnd) (Backend, error) {
 	if be.IsIPv6() {
-		return NewBackend6(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.All)
+		return NewBackend6(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.ANY)
 	}
 
-	return NewBackend4(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.All)
+	return NewBackend4(loadbalancer.BackendID(be.ID), be.IP, be.Port, u8proto.ANY)
 }
