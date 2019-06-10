@@ -597,7 +597,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
 		SelectorCache:        p.GetSelectorCache(),
-		L4Policy:             NewL4Policy(),
+		L4Policy:             NewL4Policy(p.GetRevision()),
 		CIDRPolicy:           NewCIDRPolicy(),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
