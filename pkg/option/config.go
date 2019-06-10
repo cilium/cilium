@@ -563,6 +563,12 @@ const (
 	// Cilium relevant information. This can be used to pass per node
 	// configuration to Cilium.
 	ReadCNIConfiguration = "read-cni-conf"
+
+	// WriteCNIConfigurationWhenReady writes the CNI configuration to the
+	// specified location once the agent is ready to serve requests. This
+	// allows to keep a Kubernetes node NotReady until Cilium is up and
+	// running and able to schedule endpoints.
+	WriteCNIConfigurationWhenReady = "write-cni-conf-when-ready"
 )
 
 // GetTunnelModes returns the list of all tunnel modes
@@ -991,6 +997,12 @@ type DaemonConfig struct {
 	// configuration to Cilium.
 	ReadCNIConfiguration string
 
+	// WriteCNIConfigurationWhenReady writes the CNI configuration to the
+	// specified location once the agent is ready to serve requests. This
+	// allows to keep a Kubernetes node NotReady until Cilium is up and
+	// running and able to schedule endpoints.
+	WriteCNIConfigurationWhenReady string
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
@@ -1170,6 +1182,10 @@ func (c *DaemonConfig) Validate() error {
 	if c.PolicyMapMaxEntries > policyMapMax {
 		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
 			c.PolicyMapMaxEntries, policyMapMax)
+	}
+
+	if c.WriteCNIConfigurationWhenReady != "" && c.ReadCNIConfiguration == "" {
+		return fmt.Errorf("%s must be set when using %s", ReadCNIConfiguration, WriteCNIConfigurationWhenReady)
 	}
 
 	return nil
@@ -1364,6 +1380,7 @@ func (c *DaemonConfig) Populate() {
 	c.Tunnel = viper.GetString(TunnelName)
 	c.Version = viper.GetString(Version)
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
+	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
