@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -198,5 +199,21 @@ func (d *Daemon) compileBase() error {
 	log.Info("Setting sysctl net.ipv4.conf.all.rp_filter=0")
 	log.Info("Setting sysctl net.ipv6.conf.all.disable_ipv6=0")
 
+	return nil
+}
+
+func (d *Daemon) createNodeConfigHeaderfile() error {
+	nodeConfigPath := option.Config.GetNodeConfigPath()
+	f, err := os.Create(nodeConfigPath)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to create node configuration file")
+		return err
+	}
+	defer f.Close()
+
+	if err = d.datapath.WriteNodeConfig(f, &d.nodeDiscovery.LocalConfig); err != nil {
+		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to write node configuration file")
+		return err
+	}
 	return nil
 }
