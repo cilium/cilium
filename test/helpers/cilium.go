@@ -177,50 +177,6 @@ func (s *SSHMeta) EndpointStatusLog(id string) *models.EndpointStatusLog {
 	return &epStatusLog
 }
 
-// WaitEndpointRegenerated attempts up until MaxRetries are exceeded for the
-// endpoint with the specified ID to be in "ready" state. Returns false if
-// no such endpoint corresponds to the given id or if MaxRetries are exceeded.
-func (s *SSHMeta) WaitEndpointRegenerated(id string) bool {
-	logger := s.logger.WithFields(logrus.Fields{
-		"functionName": "WaitEndpointRegenerated",
-		"id":           id,
-	})
-
-	counter := 0
-	desiredState := models.EndpointStateReady
-
-	endpoint := s.EndpointGet(id)
-	if endpoint == nil {
-		return false
-	}
-
-	epState := endpoint.Status.State
-
-	// Consider an endpoint with reserved identity 5 (reserved:init) as not ready.
-	for ; (epState != desiredState || endpoint.Status.Identity.ID == 5) && counter < MaxRetries; counter++ {
-
-		logger.WithFields(logrus.Fields{
-			"endpointState": epState,
-		}).Info("endpoint not ready")
-
-		logger.Infof("still within retry limit for waiting for endpoint to be in %s state; sleeping and checking again", desiredState)
-		Sleep(1)
-
-		endpoint = s.EndpointGet(id)
-		if endpoint == nil {
-			return false
-		}
-		epState = endpoint.Status.State
-	}
-
-	if counter > MaxRetries {
-		logger.Infof("%d retries have been exceeded for waiting for endpoint to be %s", MaxRetries, desiredState)
-		return false
-	}
-
-	return true
-}
-
 // WaitEndpointsDeleted waits up until timeout reached for all endpoints to be
 // deleted. Returns true if all endpoints have been deleted before HelperTimeout
 // is exceeded, false otherwise.
