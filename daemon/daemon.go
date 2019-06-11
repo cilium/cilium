@@ -314,23 +314,6 @@ func (d *Daemon) DebugEnabled() bool {
 	return option.Config.Opts.IsEnabled(option.Debug)
 }
 
-func (d *Daemon) writeNetdevHeader(dir string) error {
-	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
-	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
-
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
-	}
-	defer f.Close()
-
-	if err := d.datapath.WriteNetdevConfig(f, d); err != nil {
-		return err
-	}
-	return nil
-}
-
 // GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
 // by CIDR policies.
 func (d *Daemon) GetCIDRPrefixLengths() (s6, s4 []int) {
