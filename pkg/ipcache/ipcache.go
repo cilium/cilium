@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -240,11 +241,14 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 // hostIP is the location of the given IP. It is optional (may be nil) and is
 // propagated to the listeners.
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity Identity) bool {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:   ip,
-		logfields.Identity: newIdentity,
-		logfields.Key:      hostKey,
-	})
+	scopedLog := log
+	if option.Config.Debug {
+		scopedLog = log.WithFields(logrus.Fields{
+			logfields.IPAddr:   ip,
+			logfields.Identity: newIdentity,
+			logfields.Key:      hostKey,
+		})
+	}
 
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
@@ -314,7 +318,11 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 			}
 		}
 	} else {
-		scopedLog.Error("Attempt to upsert invalid IP into ipcache layer")
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr:   ip,
+			logfields.Identity: newIdentity,
+			logfields.Key:      hostKey,
+		}).Error("Attempt to upsert invalid IP into ipcache layer")
 		return false
 	}
 
