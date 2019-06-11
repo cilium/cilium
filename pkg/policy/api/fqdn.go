@@ -80,7 +80,7 @@ func (s *FQDNSelector) sanitize() error {
 
 // ToRegex converts the given FQDNSelector to its corresponding regular
 // expression.
-func (s *FQDNSelector) ToRegex() *regexp.Regexp {
+func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
 	var preparedMatch string
 	if s.MatchName != "" {
 		preparedMatch = strings.ToLower(dns.Fqdn(s.MatchName))
@@ -88,8 +88,8 @@ func (s *FQDNSelector) ToRegex() *regexp.Regexp {
 		preparedMatch = matchpattern.Sanitize(s.MatchPattern)
 	}
 
-	regex, _ := matchpattern.Validate(preparedMatch)
-	return regex
+	regex, err := matchpattern.Validate(preparedMatch)
+	return regex, err
 
 }
 

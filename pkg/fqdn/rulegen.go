@@ -92,11 +92,16 @@ func (gen *RuleGen) StartManagerFQDNSelector(selector api.FQDNSelector) (identit
 		gen.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
 	}
 
-	gen.allSelectors[selector] = selector.ToRegex()
+	// This error should never occur since the FQDNSelector has already been
+	// validated, but account for it for good measure.
+	regex, err := selector.ToRegex()
+	if err != nil {
+		log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
+	}
+
+	gen.allSelectors[selector] = regex
 	_, _, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, gen.cache)
 	gen.Mutex.Unlock()
-
-	var err error
 
 	// Used to track identities which are allocated in calls to
 	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
