@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -78,11 +79,15 @@ func NewListener(d datapath) *BPFListener {
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
 	oldHostIP, newHostIP net.IP, oldID *identity.NumericIdentity, newID identity.NumericIdentity, encryptKey uint8) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       cidr,
-		logfields.Identity:     newID,
-		logfields.Modification: modType,
-	})
+
+	scopedLog := log
+	if option.Config.Debug {
+		scopedLog = log.WithFields(logrus.Fields{
+			logfields.IPAddr:       cidr,
+			logfields.Identity:     newID,
+			logfields.Modification: modType,
+		})
+	}
 
 	scopedLog.Debug("Daemon notified of IP-Identity cache state change")
 
@@ -113,15 +118,23 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 		}
 		err := l.bpfMap.Update(&key, &value)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String(),
-				"value": value.String()}).
-				Warning("unable to update bpf map")
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				"key":                  key.String(),
+				"value":                value.String(),
+				logfields.IPAddr:       cidr,
+				logfields.Identity:     newID,
+				logfields.Modification: modType,
+			}).Warning("unable to update bpf map")
 		}
 	case ipcache.Delete:
 		err := l.bpfMap.Delete(&key)
 		if err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{"key": key.String()}).
-				Warning("unable to delete from bpf map")
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				"key":                  key.String(),
+				logfields.IPAddr:       cidr,
+				logfields.Identity:     newID,
+				logfields.Modification: modType,
+			}).Warning("unable to delete from bpf map")
 		}
 	default:
 		scopedLog.Warning("cache modification type not supported")
