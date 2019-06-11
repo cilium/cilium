@@ -158,25 +158,6 @@ func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, exp
 	return err
 }
 
-// EndpointStatusLog returns the status log API model for the specified endpoint.
-// Returns nil if no endpoint corresponds to the provided ID.
-func (s *SSHMeta) EndpointStatusLog(id string) *models.EndpointStatusLog {
-	if id == "" {
-		return nil
-	}
-
-	var epStatusLog models.EndpointStatusLog
-
-	endpointLogCmd := fmt.Sprintf("endpoint log %s", id)
-	res := s.ExecCilium(endpointLogCmd)
-	err := res.Unmarshal(&epStatusLog)
-	if err != nil {
-		s.logger.WithFields(logrus.Fields{"endpointID": id}).WithError(err).Errorf("unable to get endpoint status log")
-		return nil
-	}
-	return &epStatusLog
-}
-
 // WaitEndpointsDeleted waits up until timeout reached for all endpoints to be
 // deleted. Returns true if all endpoints have been deleted before HelperTimeout
 // is exceeded, false otherwise.
