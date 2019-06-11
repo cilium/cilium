@@ -523,7 +523,6 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 
 	// Add the initial user
 	newFQDNSel.users[user] = struct{}{}
-	newFQDNSel.updateSelections()
 
 	newFQDNSel.NotifyAdded()
 
