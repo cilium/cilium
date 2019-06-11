@@ -111,17 +111,26 @@ type TimeoutConfig struct {
 	Timeout time.Duration // Limit for how long to spend in the command
 }
 
+// Validate ensuires that the parameters for the TimeoutConfig are reasonable
+// for running in tests.
+func (c *TimeoutConfig) Validate() error {
+	if c.Timeout < 10*time.Second {
+		return fmt.Errorf("Timeout too short (must be at least 10 seconds): %v", c.Timeout)
+	}
+	if c.Ticker == 0 {
+		c.Ticker = 5 * time.Second
+	} else if c.Ticker < time.Second {
+		return fmt.Errorf("Timeout config Ticker interval too short (must be at least 1 second): %v", c.Ticker)
+	}
+	return nil
+}
+
 // WithTimeout executes body using the time interval specified in config until
 // the timeout in config is reached. Returns an error if the timeout is
 // exceeded for body to execute successfully.
 func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
-	if config.Timeout < 10*time.Second {
-		return fmt.Errorf("Timeout too short (must be at least 10 seconds): %v", config.Timeout)
-	}
-	if config.Ticker == 0 {
-		config.Ticker = 5 * time.Second
-	} else if config.Ticker < time.Second {
-		return fmt.Errorf("Timeout config Ticker interval too short (must be at least 1 second): %v", config.Ticker)
+	if err := config.Validate(); err != nil {
+		return err
 	}
 
 	bodyChan := make(chan bool, 1)
