@@ -146,13 +146,7 @@ func (s *SSHMeta) ExecuteContext(ctx context.Context, cmd string, stdout io.Writ
 		Stdout: stdout,
 		Stderr: stderr,
 	}
-	err := s.sshClient.RunCommandContext(ctx, command)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		return err
-	}
+	return s.sshClient.RunCommandContext(ctx, command)
 }
 
 // ExecWithSudo returns the result of executing the provided cmd via SSH using
