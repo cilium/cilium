@@ -298,3 +298,20 @@ func (d *Daemon) writePreFilterHeader(dir string) error {
 	d.preFilter.WriteConfig(fw)
 	return fw.Flush()
 }
+
+func (d *Daemon) writeNetdevHeader(dir string) error {
+	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
+	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
+
+	f, err := os.Create(headerPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+
+	}
+	defer f.Close()
+
+	if err := d.datapath.WriteNetdevConfig(f, d); err != nil {
+		return err
+	}
+	return nil
+}
