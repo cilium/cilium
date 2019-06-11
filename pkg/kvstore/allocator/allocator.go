@@ -16,21 +16,17 @@ package allocator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/backoff"
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
 )
@@ -88,6 +84,12 @@ func locklessCapability() bool {
 	return kvstore.GetCapabilities()&required == required
 }
 
+func prefixMatchesKey(prefix, key string) bool {
+	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
+	lastSlash := strings.LastIndex(key, "/")
+	return len(prefix) == lastSlash
+}
+
 func NewKVStoreBackend(basePath, suffix string, typ allocator.AllocatorKey) (*kvstoreBackend, error) {
 	if kvstore.Client() == nil {
 		return nil, fmt.Errorf("kvstore client not configured")
@@ -104,22 +106,11 @@ func NewKVStoreBackend(basePath, suffix string, typ allocator.AllocatorKey) (*kv
 	}, nil
 }
 
-// WaitForInitialSync waits until the initial sync is complete
-func (a *Allocator) WaitForInitialSync(ctx context.Context) error {
-	select {
-	case <-a.initialListDone:
-	case <-ctx.Done():
-		return fmt.Errorf("identity sync with kvstore was cancelled: %s", ctx.Err())
-	}
-
-	return nil
-}
-
 // lockPath locks a key in the scope of an allocator
 // FIXME: rename to Lock to match Backend interface?
 // FIXME: deleted?
 func (k *kvstoreBackend) lockPath(ctx context.Context, key string) (*kvstore.Lock, error) {
-	suffix := strings.TrimPrefix(key, a.basePrefix)
+	suffix := strings.TrimPrefix(key, k.basePrefix)
 	return kvstore.LockPath(ctx, path.Join(k.lockPrefix, suffix))
 }
 
@@ -139,9 +130,10 @@ func (k *kvstoreBackend) AllocateID(ctx context.Context, id idpool.ID, key alloc
 	return nil
 }
 
-func (k *kvstoreBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
+//FIXME: switched lock kvstore.KVLocker to allocator.Lock
+func (k *kvstoreBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock allocator.Lock) error {
 	keyString := key.GetKey()
-	if err := k.createValueNodeKey(ctx, keyString, id); err != nil {
+	if err := k.createValueNodeKey(ctx, keyString, id, lock); err != nil {
 		return fmt.Errorf("unable to create slave key '%s': %s", keyString, err)
 	}
 	return nil
@@ -196,7 +188,8 @@ func (k *kvstoreBackend) Get(ctx context.Context, key allocator.AllocatorKey) (i
 // GetNoCacheIfLocked returns the ID which is allocated to a key in the kvstore
 // if the client is still holding the given lock.
 //FIXME: this stays with kvstoreBackend, since it does things with it. Should it be renamed? GetIfLocked?
-func (k *kvstoreBackend) GetNoCacheIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
+// FIXME: switch lock kvstore.KVLocker to allocator.Lock
+func (k *kvstoreBackend) GetNoCacheIfLocked(ctx context.Context, key allocator.AllocatorKey, lock allocator.Lock) (idpool.ID, error) {
 	// ListPrefixIfLocked() will return all keys matching the prefix, the prefix
 	// can cover multiple different keys, example:
 	//
@@ -233,7 +226,7 @@ func (k *kvstoreBackend) GetNoCacheIfLocked(ctx context.Context, key AllocatorKe
 
 //FIXME: Is this still being used? Should it be renamed? Get?
 // GetNoCache returns the ID which is allocated to a key in the kvstore
-func (k *kvstoreBackend) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
+func (k *kvstoreBackend) GetNoCache(ctx context.Context, key allocator.AllocatorKey) (idpool.ID, error) {
 	// ListPrefix() will return all keys matching the prefix, the prefix
 	// can cover multiple different keys, example:
 	//
@@ -280,6 +273,7 @@ func (k *kvstoreBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
 }
 
 //FIXME: This was used in allocator.syncLocalKeys, but is now a backend.Update. Is that the same?
+//FIXME: return an error?
 func (k *kvstoreBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) {
 	var (
 		err       error
@@ -314,15 +308,14 @@ func (k *kvstoreBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, rel
 	}
 }
 
-// Release releases the use of an ID associated with the provided key. After
-// the last user has released the ID, the key is removed in the KVstore and
-// the returned lastUse value is true.
+// Release releases the use of an ID associated with the provided key.
 // This expects to be guarded by allocator.Allocator.slaveKeys when called
 // via the allocator.Backend interface
 //FIXME: removed section used by Allocator.Release
+//FIXME: removed doc reference to lastUse
 func (k *kvstoreBackend) Release(ctx context.Context, key allocator.AllocatorKey) (err error) {
 	log.WithField(fieldKey, key).Info("Releasing key")
-	valueKey := path.Join(k.valuePrefix, k.GetKey(), k.suffix)
+	valueKey := path.Join(k.valuePrefix, key.GetKey(), k.suffix)
 	log.WithField(fieldKey, key).Info("Released last local use of key, invoking global release")
 
 	// does not need to be deleted with a lock as its protected by the
@@ -357,7 +350,7 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 		// FIXME: Add DeleteOnZeroCount support
 		// }
 
-		lock, err := a.lockPath(context.Background(), key)
+		lock, err := k.lockPath(context.Background(), key)
 		if err != nil {
 			log.WithError(err).WithField(fieldKey, key).Warning("allocator garbage collector was unable to lock key")
 			continue

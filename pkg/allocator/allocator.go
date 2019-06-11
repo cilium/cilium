@@ -205,19 +205,18 @@ type Backend interface {
 	//FIXME: missing KVLocker parameter?
 	//FIXME: lockedAllocate calls CreateOnlyIfLocked on master, these may have to be always ifLocked. That would need a bool return too
 	AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) error
-	AcquireReference(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	AcquireReference(ctx context.Context, id idpool.ID, key AllocatorKey, lock Lock) error
 
 	//FIXME: missing but it might be lockPath
 	Lock(ctx context.Context, key AllocatorKey) (Lock, error)
 
-	//FIXME: missing
+	//FIXME: return errors?
 	UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing bool)
 
 	Get(ctx context.Context, key AllocatorKey) (idpool.ID, error)
 	GetByID(id idpool.ID) (AllocatorKey, error)
 
-	//FIXME: added lastUse
-	Release(ctx context.Context, key AllocatorKey) (lastUse bool, err error)
+	Release(ctx context.Context, key AllocatorKey) (err error)
 
 	//FIXME: missing. Have WatchRemoveKVstore
 	ListAndWatch(handler CacheMutations, stopChan chan struct{})
@@ -233,8 +232,9 @@ type Backend interface {
 	GetNoCacheIfLocked(ctx context.Context, key AllocatorKey, lock Lock) (idpool.ID, error)
 
 	// Do these belong on Allocator instead?
-	GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error)             //FIXME: to Get
-	GetIfLocked(ctx context.Context, key AllocatorKey, lock Lock) (idpool.ID, error) //FIXME: to GetIfLocked
+	// FIXME: commented out to make crdBackend compile. Oddly, consul/etcdBackend didn't complain
+	//GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID, error) //FIXME: to Get
+	//GetIfLocked(ctx context.Context, key AllocatorKey, lock Lock) (idpool.ID, error) //FIXME: to GetIfLocked
 }
 
 // NewAllocator creates a new Allocator. Any type can be used as key as long as
@@ -273,10 +273,6 @@ func NewAllocator(typ AllocatorKey, backend Backend, opts ...AllocatorOption) (*
 
 	//FIXME: orginial now as kvstore.Client a.mainCache = newCache(kvstore.Client(), a.idPrefix)
 	a.mainCache = newCache(a)
-
-	//FIXME: this was commented out in tgraf's
-	// invalid prefixes are only deleted from the main cache
-	a.mainCache.deleteInvalidPrefixes = true
 
 	if a.suffix == "<nil>" {
 		return nil, errors.New("allocator suffix is <nil> and unlikely unique")
@@ -463,11 +459,13 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		value = a.localKeys.lookupKey(k)
 		if value != 0 {
 			// re-create master key
-			keyPath := path.Join(a.idPrefix, strconv.FormatUint(uint64(value), 10))
-			success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, []byte(k), false, lock)
-			if err != nil || !success {
-				return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
-			}
+			//keyPath := path.Join(a.idPrefix, strconv.FormatUint(uint64(value), 10))
+			//success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, []byte(k), false, lock)
+			//if err != nil || !success {
+			//	return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
+			//}
+			// FIXME: is this right? Might need error returns to return the error here
+			a.backend.UpdateKey(value, key, true)
 		}
 	} else {
 		_, err := a.localKeys.allocate(k, key, value) // Why do we pass k and key? k := key.GetKey()
@@ -479,7 +477,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	if value != 0 {
 		//FIXME: on master this is if err = a.createValueNodeKey(ctx, k, value, lock); err != nil {
 		// Do we need to pass k in to AcquireReference? No? k := key.GetKey()
-		if err = a.backend.AcquireReference(ctx, value, key); err != nil {
+		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
 			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
 		}
@@ -555,11 +553,11 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	a.idPool.Use(unmaskedID)
 
 	// FIXME: missing a lock param from master
-	if err = a.backend.AcquireReference(ctx, id, key); err != nil {
+	if err = a.backend.AcquireReference(ctx, id, key, lock); err != nil {
 		// We will leak the master key here as the key has already been
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
-		a.localKeys.release(k) //FIXME: master also has a.idPool.Release(unmaskedID) but that is a bug
+		releaseKeyAndID()
 		return 0, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
 	}
 
@@ -638,12 +636,6 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	return 0, false, err
 }
 
-func prefixMatchesKey(prefix, key string) bool {
-	// cilium/state/identities/v1/value/label;foo;bar;/172.0.124.60
-	lastSlash := strings.LastIndex(key, "/")
-	return len(prefix) == lastSlash
-}
-
 // GetIfLocked returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet if the client is still holding the given
 // lock.
@@ -653,7 +645,7 @@ func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvst
 		return id, nil
 	}
 
-	return a.GetNoCacheIfLocked(ctx, key, lock)
+	return a.backend.GetNoCacheIfLocked(ctx, key, lock)
 }
 
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID

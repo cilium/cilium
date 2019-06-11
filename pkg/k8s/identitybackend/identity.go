@@ -94,7 +94,8 @@ type JSONPatch struct {
 	Value interface{} `json:"value"`
 }
 
-func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) error {
+// FIXME: added lock param, make it do something
+func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock allocator.Lock) error {
 	identity := c.get(ctx, key)
 	if identity == nil {
 		return fmt.Errorf("identity does not exist")
@@ -172,7 +173,8 @@ func (c *crdBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uin
 
 func (c *crdBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) {
 	if !reliablyMissing {
-		if err := c.AcquireReference(context.TODO(), id, key); err == nil {
+		//FIXME: lock param is nil
+		if err := c.AcquireReference(context.TODO(), id, key, nil); err == nil {
 			return
 		}
 	}
@@ -185,6 +187,10 @@ func (c *crdBackend) Lock(ctx context.Context, key allocator.AllocatorKey) (allo
 type crdLock struct{}
 
 func (c *crdLock) Unlock() error {
+	return nil
+}
+
+func (c *crdLock) Comparator() interface{} {
 	return nil
 }
 
@@ -224,6 +230,11 @@ func (c *crdBackend) Get(ctx context.Context, key allocator.AllocatorKey) (idpoo
 	return idpool.ID(id), nil
 }
 
+//FIXME: Added to the Allocator.Backend interface from master. Do something with lock
+func (c *crdBackend) GetNoCacheIfLocked(ctx context.Context, key allocator.AllocatorKey, lock allocator.Lock) (idpool.ID, error) {
+	return c.Get(ctx, key)
+}
+
 // GetByID returns the key associated with an ID. Returns nil if no key is
 // associated with the ID.
 func (c *crdBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
@@ -255,7 +266,7 @@ func (c *crdBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
 	return c.KeyType.PutKeyFromMap(identity.Labels), nil
 }
 
-func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) error {
+func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (err error) {
 	identity := c.get(ctx, key)
 	if identity == nil {
 		return fmt.Errorf("unable to release identity %s: identity does not exist", key)
@@ -269,7 +280,6 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) er
 
 	capabilities := k8sversion.Capabilities()
 
-	var err error
 	identityOps := c.Client.CiliumV2().CiliumIdentities("default")
 	if capabilities.Patch {
 		var patch []byte
@@ -294,6 +304,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) er
 		return nil
 	}
 
+	//FIXME: Why do we delete here? We do it unconditionally above
 	delete(identityCopy.Status.Nodes, c.NodeName)
 
 	if capabilities.UpdateStatus {

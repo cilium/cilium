@@ -75,7 +75,8 @@ func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key Allocat
 	return nil
 }
 
-func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+//FIXME: added lock, does it need to do anything?
+func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key AllocatorKey, lock Lock) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
@@ -96,6 +97,10 @@ func (d *dummyLock) Unlock() error {
 	return nil
 }
 
+func (d *dummyLock) Comparator() interface{} {
+	return nil
+}
+
 func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (Lock, error) {
 	return &dummyLock{}, nil
 }
@@ -104,6 +109,11 @@ func (d *dummyBackend) UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.identities[id] = key
+}
+
+//FIXME: Added to match "new" interface. Does it need to do anything different for tests?
+func (c *dummyBackend) GetNoCacheIfLocked(ctx context.Context, key AllocatorKey, lock Lock) (idpool.ID, error) {
+	return c.Get(ctx, key)
 }
 
 func (d *dummyBackend) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
