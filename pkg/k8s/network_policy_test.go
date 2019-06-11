@@ -1423,11 +1423,11 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 	}
 
 	expectedCIDRs = []api.CIDR{"11.96.0.0/12", "11.255.255.254/32"}
-	for k, v := range rules[0].Egress[0].ToCIDRSet[1].ExceptCIDRs {
+	for k, v := range rules[0].Egress[1].ToCIDRSet[0].ExceptCIDRs {
 		c.Assert(v, Equals, expectedCIDRs[k])
 	}
 
-	c.Assert(len(rules[0].Egress), Equals, 1)
+	c.Assert(len(rules[0].Egress), Equals, 2)
 
 }
 
