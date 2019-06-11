@@ -699,18 +699,6 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter
 }
 
-func deleteHostDevice() {
-	link, err := netlink.LinkByName(option.Config.HostDevice)
-	if err != nil {
-		log.WithError(err).Warningf("Unable to lookup host device %s. No old cilium_host interface exists", option.Config.HostDevice)
-		return
-	}
-
-	if err := netlink.LinkDel(link); err != nil {
-		log.WithError(err).Errorf("Unable to delete host device %s to change allocation CIDR", option.Config.HostDevice)
-	}
-}
-
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.daemonInit.Start()
