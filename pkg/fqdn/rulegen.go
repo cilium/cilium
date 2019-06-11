@@ -205,7 +205,7 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
 func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
-	// Lock needed...?
+	gen.Mutex.Lock()
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
 		for fqdnSel, fqdnRegEx := range gen.allSelectors {
@@ -215,11 +215,12 @@ func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
 		}
 	}
 
-	namesMissingIPs, selectorIPMapping := gen.GenerateSelectorUpdates(affectedFQDNSels)
+	_, namesMissingIPs, selectorIPMapping := mapSelectorsToIPs(affectedFQDNSels, gen.cache)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
+	gen.Mutex.Unlock()
 
 	// emit the new rules
 	return gen.config.
