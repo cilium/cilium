@@ -15,20 +15,16 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/completion"
