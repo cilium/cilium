@@ -173,7 +173,7 @@ type SelectorCache struct {
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
 
-	pop identityPopulator
+	idPopulator identityPopulator
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -209,7 +209,7 @@ func NewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 }
 
 func (sc *SelectorCache) SetIdentityPopulator(pop identityPopulator) {
-	sc.pop = pop
+	sc.idPopulator = pop
 }
 
 var (
@@ -518,7 +518,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
-		dnsProxy: sc.pop,
+		dnsProxy: sc.idPopulator,
 	}
 
 	// Add the initial user
