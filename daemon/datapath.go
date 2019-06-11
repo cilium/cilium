@@ -229,3 +229,20 @@ func deleteHostDevice() {
 		log.WithError(err).Errorf("Unable to delete host device %s to change allocation CIDR", option.Config.HostDevice)
 	}
 }
+
+// listFilterIfs returns a map of interfaces based on the given filter.
+// The filter should take a link and, if found, return the index of that
+// interface, if not found return -1.
+func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) {
+	ifs, err := netlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+	vethLXCIdxs := map[int]netlink.Link{}
+	for _, intf := range ifs {
+		if idx := filter(intf); idx != -1 {
+			vethLXCIdxs[idx] = intf
+		}
+	}
+	return vethLXCIdxs, nil
+}

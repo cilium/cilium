@@ -1060,23 +1060,6 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d.policy.BumpRevision() // force policy recalculation
 }
 
-// listFilterIfs returns a map of interfaces based on the given filter.
-// The filter should take a link and, if found, return the index of that
-// interface, if not found return -1.
-func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) {
-	ifs, err := netlink.LinkList()
-	if err != nil {
-		return nil, err
-	}
-	vethLXCIdxs := map[int]netlink.Link{}
-	for _, intf := range ifs {
-		if idx := filter(intf); idx != -1 {
-			vethLXCIdxs[idx] = intf
-		}
-	}
-	return vethLXCIdxs, nil
-}
-
 // clearCiliumVeths checks all veths created by cilium and removes all that
 // are considered a leftover from failed attempts to connect the container.
 func (d *Daemon) clearCiliumVeths() error {
