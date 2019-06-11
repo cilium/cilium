@@ -135,14 +135,10 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 	namespace := k8sUtils.ExtractNamespace(&np.ObjectMeta)
 
 	for _, iRule := range np.Spec.Ingress {
-		ingress := api.IngressRule{}
-
-		if iRule.Ports != nil && len(iRule.Ports) > 0 {
-			ingress.ToPorts = parsePorts(iRule.Ports)
-		}
-
+		fromRules := []api.IngressRule{}
 		if iRule.From != nil && len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
+				ingress := api.IngressRule{}
 				endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
 
 				if endpointSelector != nil {
@@ -156,6 +152,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 				if rule.IPBlock != nil {
 					ingress.FromCIDRSet = append(ingress.FromCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
+
+				fromRules = append(fromRules, ingress)
 			}
 		} else {
 			// Based on NetworkPolicyIngressRule docs:
@@ -165,17 +163,29 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			all := api.NewESFromLabels(
 				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
 			)
+			ingress := api.IngressRule{}
 			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
+
+			fromRules = append(fromRules, ingress)
 		}
 
-		ingresses = append(ingresses, ingress)
+		// We apply the ports to all rules generated from the From section
+		if iRule.Ports != nil && len(iRule.Ports) > 0 {
+			toPorts := parsePorts(iRule.Ports)
+			for i := range fromRules {
+				fromRules[i].ToPorts = toPorts
+			}
+		}
+
+		ingresses = append(ingresses, fromRules...)
 	}
 
 	for _, eRule := range np.Spec.Egress {
-		egress := api.EgressRule{}
+		toRules := []api.EgressRule{}
 
 		if eRule.To != nil && len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
+				egress := api.EgressRule{}
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
 					endpointSelector := parseNetworkPolicyPeer(namespace, &rule)
 
@@ -188,29 +198,32 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 				if rule.IPBlock != nil {
 					egress.ToCIDRSet = append(egress.ToCIDRSet, ipBlockToCIDRRule(rule.IPBlock))
 				}
+
+				toRules = append(toRules, egress)
 			}
 		} else {
-			// []To is wildcard
-			all := api.NewESFromLabels(
-				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
-			)
-			egress.ToEndpoints = append(egress.ToEndpoints, all)
-		}
-
-		if eRule.Ports != nil && len(eRule.Ports) > 0 {
-			egress.ToPorts = parsePorts(eRule.Ports)
-		} else if eRule.To == nil || len(eRule.To) == 0 {
 			// Based on NetworkPolicyEgressRule docs:
-			//   From []NetworkPolicyPeer
+			//   To []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
-			//   sources (traffic not restricted by source).
+			//   destinations (traffic not restricted by destination)
 			all := api.NewESFromLabels(
 				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
 			)
+			egress := api.EgressRule{}
 			egress.ToEndpoints = append(egress.ToEndpoints, all)
+
+			toRules = append(toRules, egress)
 		}
 
-		egresses = append(egresses, egress)
+		// We apply the ports to all rules generated from the To section
+		if eRule.Ports != nil && len(eRule.Ports) > 0 {
+			toPorts := parsePorts(eRule.Ports)
+			for i := range toRules {
+				toRules[i].ToPorts = toPorts
+			}
+		}
+
+		egresses = append(egresses, toRules...)
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
