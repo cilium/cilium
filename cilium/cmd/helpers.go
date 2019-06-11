@@ -121,7 +121,7 @@ func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
 // Search 'result' for strings with escaped JSON inside, and expand the JSON.
 func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 	reStringWithJSON := regexp.MustCompile(`"[^"\\{]*{.*[^\\]"`)
-	reJSON := regexp.MustCompile(`{.*}`)
+	reJSON := regexp.MustCompile(`{(.|\n)*}`)
 	for {
 		var (
 			loc    []int
@@ -153,17 +153,13 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 			return bytes.Buffer{}, fmt.Errorf("Failed to Unquote string: %s\n%s", err.Error(), string(quotedBytes))
 		}
 
-		// Find the JSON within the quoted string.
+		// Find the JSON within the unquoted string.
 		nestedStart := 0
 		nestedEnd := 0
-		if locs := reJSON.FindAllStringIndex(unquoted, -1); locs != nil {
-			// The last match is the longest one.
-			last := len(locs) - 1
-			nestedStart = locs[last][0]
-			nestedEnd = locs[last][1]
-		} else if reJSON.Match(quotedBytes) {
-			// The entire string is JSON
-			nestedEnd = len(unquoted)
+		// Find the left-most match
+		if loc = reJSON.FindStringIndex(unquoted); loc != nil {
+			nestedStart = loc[0]
+			nestedEnd = loc[1]
 		}
 
 		// Decode the nested JSON
@@ -172,7 +168,7 @@ func expandNestedJSON(result bytes.Buffer) (bytes.Buffer, error) {
 			m := make(map[string]interface{})
 			nested := bytes.NewBufferString(unquoted[nestedStart:nestedEnd])
 			if err := json.NewDecoder(nested).Decode(&m); err != nil {
-				return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %s", err.Error())
+				return bytes.Buffer{}, fmt.Errorf("Failed to decode nested JSON: %s (\n%s\n)", err.Error(), unquoted[nestedStart:nestedEnd])
 			}
 			decodedBytes, err := json.MarshalIndent(m, indent, "  ")
 			if err != nil {
