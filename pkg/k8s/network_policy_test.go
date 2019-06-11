@@ -219,6 +219,146 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(repo.AllowsIngressRLocked(&ctx), Not(Equals), api.Allowed)
 }
 
+func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
+
+	// Rule with multiple selectors in egress and ingress
+	ex1 := []byte(`{
+"kind":"NetworkPolicy",
+"apiVersion":"extensions/networkingv1",
+"metadata":{
+  "name":"ingress-multiple-selectors"
+},
+"spec":{
+  "podSelector":{
+    "matchLabels":{
+      "role":"backend"
+    }
+  },
+  "egress":[
+    {
+      "ports":[
+        {
+          "protocol":"TCP",
+          "port":5432
+        }
+      ],
+      "to":[
+        {
+          "podSelector":{
+            "matchLabels":{
+              "app":"db1"
+            }
+          }
+        },
+        {
+          "podSelector":{
+            "matchLabels":{
+              "app":"db2"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ingress":[
+    {
+      "from":[
+        {
+          "podSelector":{
+            "matchLabels":{
+              "role":"frontend"
+            }
+          },
+          "namespaceSelector":{
+            "matchLabels":{
+              "project":"myproject"
+            }
+          }
+        },
+        {
+          "podSelector":{
+            "matchLabels":{
+              "app":"inventory"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+}`)
+
+	np := networkingv1.NetworkPolicy{}
+	err := json.Unmarshal(ex1, &np)
+	c.Assert(err, IsNil)
+
+	rules, err := ParseNetworkPolicy(&np)
+	c.Assert(err, IsNil)
+	c.Assert(len(rules), Equals, 1)
+
+	repo := policy.NewPolicyRepository()
+	repo.AddList(rules)
+
+	endpointLabels := labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("role", "backend", labels.LabelSourceK8s),
+	}
+
+	// Ingress context
+	ctx := policy.SearchContext{
+		From: labels.LabelArray{
+			labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		},
+		To:    endpointLabels,
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	// should be DENIED because ctx.From is missing the namespace selector
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Denied)
+
+	ctx.From = labels.LabelArray{
+		labels.NewLabel("role", "frontend", labels.LabelSourceK8s),
+		labels.NewLabel(policy.JoinPath(k8sConst.PodNamespaceMetaLabels, "project"), "myproject", labels.LabelSourceK8s),
+	}
+
+	// should be ALLOWED with the namespace label properly set
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+
+	ctx.From = labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("app", "inventory", labels.LabelSourceK8s),
+	}
+
+	// should be ALLOWED since all rules in From must match
+	c.Assert(repo.AllowsIngressRLocked(&ctx), Equals, api.Allowed)
+
+	// Egress context
+	ctx = policy.SearchContext{
+		From: endpointLabels,
+		To: labels.LabelArray{
+			labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+			labels.NewLabel("app", "db1", labels.LabelSourceK8s),
+		},
+		Trace: policy.TRACE_VERBOSE,
+	}
+
+	// should be DENIED because DPorts are missing in context
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Denied)
+
+	ctx.DPorts = []*models.Port{{Port: 5432, Protocol: models.PortProtocolTCP}}
+
+	// should be ALLOWED with DPorts set correctly
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+
+	ctx.To = labels.LabelArray{
+		labels.NewLabel(k8sConst.PodNamespaceLabel, v1.NamespaceDefault, labels.LabelSourceK8s),
+		labels.NewLabel("app", "db2", labels.LabelSourceK8s),
+	}
+
+	// should be ALLOWED for db2 as well
+	c.Assert(repo.AllowsEgressRLocked(&ctx), Equals, api.Allowed)
+}
+
 func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 
 	// Ingress with neither pod nor namespace selector set.
