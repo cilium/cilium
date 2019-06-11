@@ -337,25 +337,6 @@ func (d *Daemon) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return d.prefixLengths.ToBPFData()
 }
 
-// Must be called with option.Config.EnablePolicyMU locked.
-func (d *Daemon) writePreFilterHeader(dir string) error {
-	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
-	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
-	}
-	defer f.Close()
-	fw := bufio.NewWriter(f)
-	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP device: %s\n", option.Config.DevicePreFilter)
-	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
-	fmt.Fprint(fw, " */\n\n")
-	d.preFilter.WriteConfig(fw)
-	return fw.Flush()
-}
-
 // GetOptions returns the datapath configuration options of the daemon.
 func (d *Daemon) GetOptions() *option.IntOptions {
 	return option.Config.Opts

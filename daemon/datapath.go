@@ -15,12 +15,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -32,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/vishvananda/netlink"
 )
 
 func (d *Daemon) compileBase() error {
@@ -275,4 +278,23 @@ func (d *Daemon) clearCiliumVeths() error {
 		}
 	}
 	return nil
+}
+
+// Must be called with option.Config.EnablePolicyMU locked.
+func (d *Daemon) writePreFilterHeader(dir string) error {
+	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
+	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
+	f, err := os.Create(headerPath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+
+	}
+	defer f.Close()
+	fw := bufio.NewWriter(f)
+	fmt.Fprint(fw, "/*\n")
+	fmt.Fprintf(fw, " * XDP device: %s\n", option.Config.DevicePreFilter)
+	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.ModePreFilter)
+	fmt.Fprint(fw, " */\n\n")
+	d.preFilter.WriteConfig(fw)
+	return fw.Flush()
 }
