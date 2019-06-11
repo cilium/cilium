@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -204,6 +205,8 @@ func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher 
 // function returns when IPIdentityWatcher.Close() is called. The watcher will
 // automatically restart as required.
 func (iw *IPIdentityWatcher) Watch() {
+
+	var scopedLog *logrus.Entry
 restart:
 	watcher := iw.backend.ListAndWatch("endpointIPWatcher", IPIdentitiesPath, 512)
 
@@ -217,8 +220,10 @@ restart:
 				goto restart
 			}
 
-			scopedLog := log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
-			scopedLog.Debug("Received event")
+			if option.Config.Debug {
+				scopedLog = log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
+				scopedLog.Debug("Received event")
+			}
 
 			// Synchronize local caching of endpoint IP to ipIDPair mapping with
 			// operation key-value store has informed us about.
@@ -251,7 +256,8 @@ restart:
 				var ipIDPair identity.IPIdentityPair
 				err := json.Unmarshal(event.Value, &ipIDPair)
 				if err != nil {
-					scopedLog.WithError(err).Errorf("Not adding entry to ip cache; error unmarshaling data from key-value store")
+					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
+						WithError(err).Error("Not adding entry to ip cache; error unmarshaling data from key-value store")
 					continue
 				}
 				ip := ipIDPair.PrefixString()
@@ -270,7 +276,8 @@ restart:
 				// need to convert kvstore key to IP.
 				ipnet, isHost, err := keyToIPNet(event.Key)
 				if err != nil {
-					scopedLog.WithError(err).Error("Error parsing IP from key")
+					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
+						WithError(err).Error("Error parsing IP from key")
 					continue
 				}
 				var ip string
