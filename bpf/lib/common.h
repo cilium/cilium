@@ -396,6 +396,8 @@ enum {
 	NAT46,
 };
 
+#define ENABLE_NODEPORT 1
+
 #ifndef NODEPORT_PORT_MIN
 # define NODEPORT_PORT_MIN	30000
 #endif
