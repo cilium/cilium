@@ -240,7 +240,6 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
-#ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT
 static inline int nodeport_lb4(struct __sk_buff *skb)
 {
@@ -265,23 +264,26 @@ static inline int nodeport_lb4(struct __sk_buff *skb)
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	ret = lb4_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
-	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4)
-			goto skip_service_lookup;
-		else
-			return ret;
-	}
+	/* Punt to regular BPF data path for a few cases below until we are
+	 * sure that we deal with an actual nodeport service.
+	 */
+	if (IS_ERR(ret))
+		return 0;
+	if (!(key->dport >= bpf_htons(NODEPORT_PORT_MIN) &&
+	      key->dport <= bpf_htons(NODEPORT_PORT_MAX)))
+		return 0;
+
+	svc = lb4_lookup_service_v2(skb, &key);
+	if (!svc)
+		return 0;
 
 	ct_state_new.orig_dport = key.dport;
 
-	if ((svc = lb4_lookup_service_v2(skb, &key)) != NULL) {
-		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
-				&key, &tuple, svc, &ct_state_new, ip4->saddr);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
+			&key, &tuple, svc, &ct_state_new, ip4->saddr);
+	if (IS_ERR(ret))
+		return ret;
 
-skip_service_lookup:
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
@@ -308,7 +310,6 @@ skip_service_lookup:
 	return TC_ACT_OK;
 }
 #endif /* ENABLE_NODEPORT */
-#endif /* ENABLE_IPV4 */
 
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
@@ -317,17 +318,14 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	struct endpoint_info *ep;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int l4_off;
+	int l4_off, err;
 	__u32 secctx;
 
-#ifdef ENABLE_IPV4
 #ifdef ENABLE_NODEPORT
-	if (nodeport_lb4(skb) < 0) {
-		return DROP_INVALID;
-	}
+	err = nodeport_lb4(skb);
+	if (IS_ERR(err))
+		return err;
 #endif
-#endif
-
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
@@ -360,7 +358,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	}
 
 	secctx = finalize_sec_ctx(secctx, src_identity);
-#ifdef FROM_HOST
+#ifdef FROM_HOST && !ENABLE_NODEPORT
 	if (1) {
 		int ret;
 
