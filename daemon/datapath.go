@@ -246,3 +246,33 @@ func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) 
 	}
 	return vethLXCIdxs, nil
 }
+
+// clearCiliumVeths checks all veths created by cilium and removes all that
+// are considered a leftover from failed attempts to connect the container.
+func (d *Daemon) clearCiliumVeths() error {
+	log.Info("Removing stale endpoint interfaces")
+
+	leftVeths, err := listFilterIfs(func(intf netlink.Link) int {
+		// Filter by veth and return the index of the interface.
+		if intf.Type() == "veth" {
+			return intf.Attrs().Index
+		}
+		return -1
+	})
+
+	if err != nil {
+		return fmt.Errorf("unable to retrieve host network interfaces: %s", err)
+	}
+
+	for _, v := range leftVeths {
+		peerIndex := v.Attrs().ParentIndex
+		parentVeth, found := leftVeths[peerIndex]
+		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") {
+			err := netlink.LinkDel(v)
+			if err != nil {
+				log.WithError(err).Warningf("Unable to delete stale veth device %s", v.Attrs().Name)
+			}
+		}
+	}
+	return nil
+}
