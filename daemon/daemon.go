@@ -520,8 +520,6 @@ func (d *Daemon) compileBase() error {
 
 		args[initArgMode] = mode
 		args[initArgDevice] = option.Config.Device
-
-		args = append(args, option.Config.Device)
 	} else {
 		if option.Config.IsLBEnabled() && strings.ToLower(option.Config.Tunnel) != "disabled" {
 			//FIXME: allow LBMode in tunnel
