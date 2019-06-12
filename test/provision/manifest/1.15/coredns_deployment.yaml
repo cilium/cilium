@@ -1,3 +1,5 @@
+# File source
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.15/cluster/addons/dns/coredns/coredns.yaml.base
 # __MACHINE_GENERATED_WARNING__
 
 apiVersion: v1
