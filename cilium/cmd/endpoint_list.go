@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/endpoint"
 
 	"github.com/spf13/cobra"
 )
@@ -128,7 +127,7 @@ func listEndpoints() {
 }
 
 func printEndpointList(w *tabwriter.Writer, eps []*models.Endpoint) {
-	endpoint.OrderEndpointModelAsc(eps)
+	sort.Slice(eps, func(i, j int) bool { return eps[i].ID < eps[j].ID })
 
 	const (
 		labelsIDTitle      = "IDENTITY"

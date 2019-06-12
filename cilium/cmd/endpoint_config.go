@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"os"
 
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -50,8 +49,10 @@ func init() {
 	command.AddJSONOutput(endpointConfigCmd)
 }
 
+var endpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
+
 func listEndpointOptions() {
-	for k, s := range endpoint.EndpointMutableOptionLibrary {
+	for k, s := range endpointMutableOptionLibrary {
 		fmt.Printf("%-24s %s\n", k, s.Description)
 	}
 }
@@ -80,7 +81,7 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 	// modify the configuration we fetched directly since we don't need it
 	modifiedOptsCfg := cfg.Realized
 	for k := range opts {
-		name, value, err := option.ParseOption(opts[k], &endpoint.EndpointMutableOptionLibrary)
+		name, value, err := option.ParseOption(opts[k], &endpointMutableOptionLibrary)
 		if err != nil {
 			Fatalf("Cannot parse option %s: %s", opts[k], err)
 		}
