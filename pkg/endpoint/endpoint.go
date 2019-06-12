@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
 	"github.com/cilium/cilium/pkg/option"
@@ -191,10 +190,6 @@ type Endpoint struct {
 	// previous policy computation
 	prevIdentityCacheRevision uint64
 
-	// PolicyMap is the policy related state of the datapath including
-	// reference to all policy related BPF
-	PolicyMap *policymap.PolicyMap `json:"-"`
-
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 
@@ -298,6 +293,10 @@ type Endpoint struct {
 	realizedPolicy *policy.EndpointPolicy
 
 	EventQueue *eventqueue.EventQueue `json:"-"`
+
+	// DatapathPolicyImpl is the policy related state of the datapath for this
+	// endpoint.
+	DatapathPolicyImpl DatapathPolicy `json:"-"`
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
@@ -1326,9 +1325,9 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		e.removeOldRedirects(owner, nil, proxyWaitGroup)
 	}
 
-	if e.PolicyMap != nil {
-		if err := e.PolicyMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyMap.String(), err))
+	if e.DatapathPolicyImpl != nil && e.DatapathPolicyImpl.IsInit() {
+		if err := e.DatapathPolicyImpl.Close(); err != nil {
+			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.DatapathPolicyImpl.String(), err))
 		}
 	}
 

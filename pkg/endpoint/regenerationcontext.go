@@ -111,7 +111,7 @@ type regenerationContext struct {
 // datapath (BPF, proxy, etc.).
 type datapathRegenerationContext struct {
 	bpfHeaderfilesHash string
-	epInfoCache        *epInfoCache
+	epInfoCache        *EpInfoCache
 	proxyWaitGroup     *completion.WaitGroup
 	ctCleaned          chan struct{}
 	completionCtx      context.Context

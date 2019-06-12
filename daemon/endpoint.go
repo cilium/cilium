@@ -25,6 +25,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath/policy"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -178,6 +179,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
+	ep.DatapathPolicyImpl = &policy.PolicyMapImplementer{}
 
 	oldEp := endpointmanager.LookupCiliumID(ep.ID)
 	if oldEp != nil {
@@ -404,6 +406,8 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}
 
+	newEp.DatapathPolicyImpl = &policy.PolicyMapImplementer{}
+
 	// Log invalid state transitions, but do not error out for backwards
 	// compatibility.
 	if !validPatchTransitionState(epTemplate.State) {
@@ -591,6 +595,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 	if !option.Config.DryMode {
 		if errs2 := lxcmap.DeleteElement(ep); errs2 != nil {
 			errs = append(errs, errs2...)
+		}
+
+		if ep.DatapathPolicyImpl == nil {
+			ep.DatapathPolicyImpl = &policy.PolicyMapImplementer{}
+			ep.DatapathPolicyImpl.AddID(ep.ID)
 		}
 
 		if errs2 := ep.DeleteMapsLocked(); errs2 != nil {
