@@ -54,7 +54,7 @@ func (in *CiliumEndpoint) DeepCopyObject() runtime.Object {
 func (in *CiliumEndpointList) DeepCopyInto(out *CiliumEndpointList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]CiliumEndpoint, len(*in))
@@ -130,7 +130,7 @@ func (in *CiliumNetworkPolicy) DeepCopyObject() runtime.Object {
 func (in *CiliumNetworkPolicyList) DeepCopyInto(out *CiliumNetworkPolicyList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]CiliumNetworkPolicy, len(*in))
