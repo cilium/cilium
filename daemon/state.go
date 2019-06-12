@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	policy2 "github.com/cilium/cilium/pkg/datapath/policy"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -182,6 +183,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.SetDesiredIngressPolicyEnabledLocked(alwaysEnforce)
 			ep.SetDesiredEgressPolicyEnabledLocked(alwaysEnforce)
 		}
+
+		ep.DatapathPolicyImpl = &policy2.PolicyMapImplementer{}
 
 		ep.Unlock()
 

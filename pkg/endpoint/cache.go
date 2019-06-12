@@ -27,11 +27,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// epInfoCache describes the set of lxcmap entries necessary to describe an Endpoint
+// EpInfoCache describes the set of lxcmap entries necessary to describe an Endpoint
 // in the BPF maps. It is generated while holding the Endpoint lock, then used
 // after releasing that lock to push the entries into the datapath.
 // Functions below implement the EndpointFrontend interface with this cached information.
-type epInfoCache struct {
+type EpInfoCache struct {
 	// revision is used by the endpoint regeneration code to determine
 	// whether this cache is out-of-date wrt the underlying endpoint.
 	revision uint64
@@ -69,10 +69,10 @@ type epInfoCache struct {
 }
 
 // Must be called when endpoint is still locked.
-func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
+func (e *Endpoint) createEpInfoCache(epdir string) *EpInfoCache {
 	cidr6, cidr4 := e.GetCIDRPrefixLengths()
 
-	ep := &epInfoCache{
+	ep := &EpInfoCache{
 		revision: e.nextPolicyRevision,
 		keys:     e.GetBPFKeys(),
 
@@ -108,98 +108,98 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 
 // InterfaceName returns the name of the link-layer interface used for
 // communicating with the endpoint.
-func (ep *epInfoCache) InterfaceName() string {
+func (ep *EpInfoCache) InterfaceName() string {
 	return ep.ifName
 }
 
 // MapPath returns tail call map path
-func (ep *epInfoCache) MapPath() string {
+func (ep *EpInfoCache) MapPath() string {
 	return ep.endpoint.BPFIpvlanMapPath()
 }
 
 // GetID returns the endpoint's ID.
-func (ep *epInfoCache) GetID() uint64 {
+func (ep *EpInfoCache) GetID() uint64 {
 	return ep.id
 }
 
 // StringID returns the endpoint's ID in a string.
-func (ep *epInfoCache) StringID() string {
+func (ep *EpInfoCache) StringID() string {
 	return fmt.Sprintf("%d", ep.id)
 }
 
 // GetIdentity returns the security identity of the endpoint.
-func (ep *epInfoCache) GetIdentity() identity.NumericIdentity {
+func (ep *EpInfoCache) GetIdentity() identity.NumericIdentity {
 	return ep.identity
 }
 
 // Logger returns the logger for the endpoint that is being cached.
-func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
+func (ep *EpInfoCache) Logger(subsystem string) *logrus.Entry {
 	return ep.endpoint.Logger(subsystem)
 }
 
 // HasIpvlanDataPath returns whether the endpoint's datapath is implemented via ipvlan.
-func (ep *epInfoCache) HasIpvlanDataPath() bool {
+func (ep *EpInfoCache) HasIpvlanDataPath() bool {
 	return ep.ipvlan
 }
 
 // IPv4Address returns the cached IPv4 address for the endpoint.
-func (ep *epInfoCache) IPv4Address() addressing.CiliumIPv4 {
+func (ep *EpInfoCache) IPv4Address() addressing.CiliumIPv4 {
 	return ep.ipv4
 }
 
 // IPv6Address returns the cached IPv6 address for the endpoint.
-func (ep *epInfoCache) IPv6Address() addressing.CiliumIPv6 {
+func (ep *EpInfoCache) IPv6Address() addressing.CiliumIPv6 {
 	return ep.ipv6
 }
 
 // StateDir returns the directory for the endpoint's (next) state.
-func (ep *epInfoCache) StateDir() string    { return ep.epdir }
-func (ep *epInfoCache) GetNodeMAC() mac.MAC { return ep.mac }
+func (ep *EpInfoCache) StateDir() string    { return ep.epdir }
+func (ep *EpInfoCache) GetNodeMAC() mac.MAC { return ep.mac }
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
-func (ep *epInfoCache) GetBPFKeys() []*lxcmap.EndpointKey {
+func (ep *EpInfoCache) GetBPFKeys() []*lxcmap.EndpointKey {
 	return ep.keys
 }
 
 // GetBPFValue returns the value which should represent this endpoint in the
 // BPF endpoints map
 // Must only be called if init() succeeded.
-func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
+func (ep *EpInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return ep.value, nil
 }
 
-func (ep *epInfoCache) ConntrackLocalLocked() bool {
+func (ep *EpInfoCache) ConntrackLocalLocked() bool {
 	return ep.conntrackLocal
 }
 
-func (ep *epInfoCache) GetCIDRPrefixLengths() ([]int, []int) {
+func (ep *EpInfoCache) GetCIDRPrefixLengths() ([]int, []int) {
 	return ep.cidr6PrefixLengths, ep.cidr4PrefixLengths
 }
 
-func (ep *epInfoCache) GetOptions() *option.IntOptions {
+func (ep *EpInfoCache) GetOptions() *option.IntOptions {
 	return ep.options
 }
 
 // RequireARPPassthrough returns true if the datapath must implement ARP
 // passthrough for this endpoint
-func (ep *epInfoCache) RequireARPPassthrough() bool {
+func (ep *EpInfoCache) RequireARPPassthrough() bool {
 	return ep.requireARPPassthrough
 }
 
 // RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
 // "to-container" to be attached at egress on the host facing veth pair
-func (ep *epInfoCache) RequireEgressProg() bool {
+func (ep *EpInfoCache) RequireEgressProg() bool {
 	return ep.requireEgressProg
 }
 
 // RequireRouting returns true if the endpoint requires BPF routing to be
 // enabled, when disabled, routing is delegated to Linux routing
-func (ep *epInfoCache) RequireRouting() bool {
+func (ep *EpInfoCache) RequireRouting() bool {
 	return ep.requireRouting
 }
 
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route
-func (ep *epInfoCache) RequireEndpointRoute() bool {
+func (ep *EpInfoCache) RequireEndpointRoute() bool {
 	return ep.requireEndpointRoute
 }
