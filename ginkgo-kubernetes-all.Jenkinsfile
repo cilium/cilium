@@ -228,9 +228,9 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms 1.15') {
+                stage('Boot vms 1.14') {
                     environment {
-                        TESTED_SUITE="1.15"
+                        TESTED_SUITE="1.14"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
@@ -243,7 +243,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8S 1.15 vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8S 1.14 vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -251,7 +251,7 @@ pipeline {
                 }
             }
         }
-        stage('BDD-Test-k8s-1.13-and-1.15') {
+        stage('BDD-Test-k8s-1.13-and-1.14') {
             environment {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
             }
@@ -285,9 +285,9 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-k8s-1.15') {
+                stage('BDD-Test-k8s-1.14') {
                     environment {
-                        TESTED_SUITE="1.15"
+                        TESTED_SUITE="1.14"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
@@ -305,7 +305,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.15 tests fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.14 tests fail\n' + currentBuild.displayName
                                 }
                             }
                         }
