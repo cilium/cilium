@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/cilium/cilium/common/addressing"
@@ -229,12 +230,12 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	eps := e.ReadEPsFromDirNames(ds.d, tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
-	e.OrderEndpointAsc(epsWanted)
+	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
 	var restoredEPs []*e.Endpoint
 	for _, ep := range eps {
 		restoredEPs = append(restoredEPs, ep)
 	}
-	e.OrderEndpointAsc(restoredEPs)
+	sort.Slice(restoredEPs, func(i, j int) bool { return restoredEPs[i].ID < restoredEPs[j].ID })
 
 	c.Assert(len(restoredEPs), Equals, len(epsWanted))
 	for i, restoredEP := range restoredEPs {
