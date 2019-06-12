@@ -74,9 +74,7 @@ func K8sErrorHandler(e error) {
 	// that used ThirdPartyResource to define CiliumNetworkPolicy.
 	case strings.Contains(errstr, "Failed to list *v2.CiliumNetworkPolicy: the server could not find the requested resource"):
 		if k8sErrorUpdateCheckUnmuteTime(errstr, now) {
-			log.WithError(e).Error("Conflicting TPR and CRD resources")
-			log.Warn("Detected conflicting TPR and CRD, please migrate all ThirdPartyResource to CustomResourceDefinition! More info: https://cilium.link/migrate-tpr")
-			log.Warn("Due to conflicting TPR and CRD rules, CiliumNetworkPolicy enforcement can't be guaranteed!")
+			log.WithError(e).Error("No Cilium Network Policy CRD defined in the cluster, please set `--skip-crd-creation=false` to avoid seeing this error.")
 		}
 
 	// fromCIDR and toCIDR used to expect an "ip" subfield (so, they were a YAML
