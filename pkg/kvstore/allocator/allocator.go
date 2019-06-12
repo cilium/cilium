@@ -345,21 +345,9 @@ func (k *kvstoreBackend) RunGC(staleKeysPrevRound map[string]uint64) (map[string
 	return staleKeys, nil
 }
 
-//FIXME: inline this with unique logs instead?
-func invalidKey(key, prefix string, deleteInvalid bool) {
-	log.WithFields(logrus.Fields{fieldKey: key, fieldPrefix: prefix}).Warning("Found invalid key outside of prefix")
-
-	if deleteInvalid {
-		kvstore.Delete(key)
-	}
-}
-
-//FIXME: This actually deletes keys, but is called keyToID :/
-//FIXME: return an error here, do the delete in invalidKey in the caller
-func (k *kvstoreBackend) keyToID(key string, deleteInvalid bool) idpool.ID {
+func (k *kvstoreBackend) keyToID(key string) (id idpool.ID, err error) {
 	if !strings.HasPrefix(key, k.idPrefix) {
-		invalidKey(key, k.idPrefix, deleteInvalid)
-		return idpool.NoID
+		return idpool.NoID, fmt.Errorf("Found invalid key \"%s\" outside of prefix \"%s\"", key, k.idPrefix)
 	}
 
 	suffix := strings.TrimPrefix(key, k.idPrefix)
@@ -367,13 +355,12 @@ func (k *kvstoreBackend) keyToID(key string, deleteInvalid bool) idpool.ID {
 		suffix = suffix[1:]
 	}
 
-	id, err := strconv.ParseUint(suffix, 10, 64)
+	idParsed, err := strconv.ParseUint(suffix, 10, 64)
 	if err != nil {
-		invalidKey(key, k.idPrefix, deleteInvalid)
-		return idpool.NoID
+		return idpool.NoID, fmt.Errorf("Cannot parse key suffix \"%s\"", suffix)
 	}
 
-	return idpool.ID(id)
+	return idpool.ID(idParsed), nil
 }
 
 func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan chan struct{}) {
@@ -390,8 +377,16 @@ func (k *kvstoreBackend) ListAndWatch(handler allocator.CacheMutations, stopChan
 				continue
 			}
 
-			id := k.keyToID(event.Key, k.deleteInvalidPrefixes)
-			if id != 0 {
+			id, err := k.keyToID(event.Key)
+			switch {
+			case err != nil:
+				log.WithError(err).Warning("Invalid key")
+
+				if k.deleteInvalidPrefixes {
+					kvstore.Delete(event.Key)
+				}
+
+			case id != 0:
 				var key allocator.AllocatorKey
 
 				if len(event.Value) > 0 {

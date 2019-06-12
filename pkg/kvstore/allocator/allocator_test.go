@@ -254,9 +254,21 @@ func (s *AllocatorSuite) TestKeyToID(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(a, Not(IsNil))
 
-	c.Assert(backend.keyToID(path.Join(allocatorName, "invalid"), false), Equals, idpool.NoID)
-	c.Assert(backend.keyToID(path.Join(allocatorName, "id", "invalid"), false), Equals, idpool.NoID)
-	c.Assert(backend.keyToID(path.Join(allocatorName, "id", "10"), false), Equals, idpool.ID(10))
+	// An error is returned because the path is outside the prefix
+	id, err := backend.keyToID(path.Join(allocatorName, "invalid"))
+	c.Assert(err, Not(IsNil))
+	c.Assert(id, Equals, idpool.NoID)
+
+	// No error is returned because the path is in the prefix but no id matches
+	// so the return is idpool.NoID
+	id, err = backend.keyToID(path.Join(allocatorName, "id", "invalid"))
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, idpool.NoID)
+
+	// A valid lookup that finds an ID
+	id, err = backend.keyToID(path.Join(allocatorName, "id", "10"))
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, Equals, idpool.ID(10))
 }
 
 func testGetNoCache(c *C, maxID idpool.ID, suffix string) {
