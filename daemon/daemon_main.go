@@ -615,6 +615,9 @@ func init() {
 	flags.String(option.LB, "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
 	option.BindEnv(option.LB)
 
+	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
+	option.BindEnv(option.EnableNodePort)
+
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 
@@ -1122,6 +1125,10 @@ func initEnv(cmd *cobra.Command) {
 			log.WithField(logfields.Device, option.Config.Device).
 				Fatal("BPF masquerade needs external facing device specified")
 		}
+	}
+
+	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
+		log.Fatal("BPF NodePort needs external facing device specified")
 	}
 
 	// If device has been specified, use it to derive better default
