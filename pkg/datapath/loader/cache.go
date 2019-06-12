@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/lock"
@@ -234,9 +235,9 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 		}
 	}
 
-	cfg.stats.bpfCompilation.Start()
+	cfg.stats.BpfCompilation.Start()
 	err = compileTemplate(ctx, templatePath)
-	cfg.stats.bpfCompilation.End(err == nil)
+	cfg.stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return &os.PathError{
 			Op:   "failed to compile template program",
@@ -247,7 +248,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 
 	log.WithFields(logrus.Fields{
 		logfields.Path:               objectPath,
-		logfields.BPFCompilationTime: cfg.stats.bpfCompilation.Total(),
+		logfields.BPFCompilationTime: cfg.stats.BpfCompilation.Total(),
 	}).Info("Compiled new BPF template")
 
 	o.insert(hash, objectPath)
@@ -262,7 +263,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 //
 // Returns the path to the compiled template datapath object and whether the
 // object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *SpanStat) (path string, compiled bool, err error) {
+func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) (path string, compiled bool, err error) {
 	var hash string
 	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
 	if err != nil {
@@ -271,10 +272,10 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 
 	// Capture the time spent waiting for the template to compile.
 	if stats != nil {
-		stats.bpfWaitForELF.Start()
+		stats.BpfWaitForELF.Start()
 		defer func() {
 			// Wrap to ensure that "err" is compared upon return.
-			stats.bpfWaitForELF.End(err == nil)
+			stats.BpfWaitForELF.End(err == nil)
 		}()
 	}
 

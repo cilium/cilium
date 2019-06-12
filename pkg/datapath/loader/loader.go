@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/logging"
@@ -136,18 +137,18 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 	return nil
 }
 
-func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *SpanStat) error {
+func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
 	debug := option.Config.BPFCompilationDebug
-	stats.bpfCompilation.Start()
+	stats.BpfCompilation.Start()
 	err := compileDatapath(ctx, dirs, debug, ep.Logger(Subsystem))
-	stats.bpfCompilation.End(err == nil)
+	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return err
 	}
 
-	stats.bpfLoadProg.Start()
+	stats.BpfLoadProg.Start()
 	err = reloadDatapath(ctx, ep, dirs)
-	stats.bpfLoadProg.End(err == nil)
+	stats.BpfLoadProg.End(err == nil)
 	return err
 }
 
@@ -155,7 +156,7 @@ func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats
 // and loads it onto the interface associated with the endpoint.
 //
 // Expects the caller to have created the directory at the path ep.StateDir().
-func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func CompileAndLoad(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	if ep == nil {
 		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
 	}
@@ -182,7 +183,7 @@ func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func CompileOrLoad(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	templatePath, _, err := templateCache.fetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
@@ -218,28 +219,28 @@ func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 		}
 	}
 
-	stats.bpfWriteELF.Start()
+	stats.BpfWriteELF.Start()
 	dstPath := path.Join(ep.StateDir(), endpointObj)
 	opts, strings := ELFSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
-		stats.bpfWriteELF.End(err == nil)
+		stats.BpfWriteELF.End(err == nil)
 		return err
 	}
-	stats.bpfWriteELF.End(err == nil)
+	stats.BpfWriteELF.End(err == nil)
 
 	return ReloadDatapath(ctx, ep, stats)
 }
 
-func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err error) {
+func ReloadDatapath(ctx context.Context, ep endpoint, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
-	stats.bpfLoadProg.Start()
+	stats.BpfLoadProg.Start()
 	err = reloadDatapath(ctx, ep, &dirs)
-	stats.bpfLoadProg.End(err == nil)
+	stats.BpfLoadProg.End(err == nil)
 	return err
 }
 

@@ -34,6 +34,7 @@ import (
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/loader/wrapper"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -763,6 +764,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.WithError(err).Error("Error while opening/creating BPF maps")
 		return nil, nil, err
 	}
+
+	// Inject loader dependency into endpoint.
+	endpoint.Loader = &wrapper.LoaderWrapper{}
 
 	// Read the service IDs of existing services from the BPF map and
 	// reserve them. This must be done *before* connecting to the

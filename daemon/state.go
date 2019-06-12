@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/loader/wrapper"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -184,6 +185,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			ep.SetDesiredEgressPolicyEnabledLocked(alwaysEnforce)
 		}
 
+		injectDatapathFields(ep)
+
 		ep.Unlock()
 
 		ep.SkipStateClean()
@@ -214,6 +217,12 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	}
 
 	return state, nil
+}
+
+func injectDatapathFields(e *endpoint.Endpoint) {
+	e.DatapathPolicyImpl = &policy2.PolicyMapImplementer{}
+	e.DatapathLoaderImpl = &wrapper.LoaderWrapper{}
+
 }
 
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (restoreComplete chan struct{}) {

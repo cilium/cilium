@@ -180,6 +180,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
+	injectDatapathFields(ep)
 
 	oldEp := endpointmanager.LookupCiliumID(ep.ID)
 	if oldEp != nil {
