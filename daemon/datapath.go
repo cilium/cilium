@@ -158,6 +158,10 @@ func (d *Daemon) compileBase() error {
 		}
 	}
 
+	if option.Config.EnableNodePort {
+		args[initArgNodePort] = "true"
+	}
+
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ExecTimeout)
 	defer cancel()
