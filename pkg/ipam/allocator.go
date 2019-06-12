@@ -122,6 +122,8 @@ func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner s
 
 // AllocateNextFamily allocates the next IP of the requested address family
 func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (ip net.IP, err error) {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
 	switch family {
 	case IPv6:
 		ip, err = ipam.allocateNextFamily(family, ipam.IPv6Allocator, owner)
