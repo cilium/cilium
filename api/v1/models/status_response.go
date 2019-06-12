@@ -21,6 +21,12 @@ type StatusResponse struct {
 	// Status of Cilium daemon
 	Cilium *Status `json:"cilium,omitempty"`
 
+	// When supported by the API, this client ID should be used by the
+	// client when making another request to the server.
+	// See for example "/cluster/nodes".
+	//
+	ClientID int64 `json:"client-id,omitempty"`
+
 	// Status of cluster
 	Cluster *ClusterStatus `json:"cluster,omitempty"`
 

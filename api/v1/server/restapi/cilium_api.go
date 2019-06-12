@@ -60,6 +60,9 @@ func NewCiliumAPI(spec *loads.Document) *CiliumAPI {
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation ServiceDeleteServiceID has not yet been implemented")
 		}),
+		DaemonGetClusterNodesHandler: daemon.GetClusterNodesHandlerFunc(func(params daemon.GetClusterNodesParams) middleware.Responder {
+			return middleware.NotImplemented("operation DaemonGetClusterNodes has not yet been implemented")
+		}),
 		DaemonGetConfigHandler: daemon.GetConfigHandlerFunc(func(params daemon.GetConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation DaemonGetConfig has not yet been implemented")
 		}),
@@ -200,6 +203,8 @@ type CiliumAPI struct {
 	PolicyDeletePolicyHandler policy.DeletePolicyHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
+	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
+	DaemonGetClusterNodesHandler daemon.GetClusterNodesHandler
 	// DaemonGetConfigHandler sets the operation handler for the get config operation
 	DaemonGetConfigHandler daemon.GetConfigHandler
 	// DaemonGetDebuginfoHandler sets the operation handler for the get debuginfo operation
@@ -347,6 +352,10 @@ func (o *CiliumAPI) Validate() error {
 
 	if o.ServiceDeleteServiceIDHandler == nil {
 		unregistered = append(unregistered, "service.DeleteServiceIDHandler")
+	}
+
+	if o.DaemonGetClusterNodesHandler == nil {
+		unregistered = append(unregistered, "daemon.GetClusterNodesHandler")
 	}
 
 	if o.DaemonGetConfigHandler == nil {
@@ -603,6 +612,11 @@ func (o *CiliumAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/service/{id}"] = service.NewDeleteServiceID(o.context, o.ServiceDeleteServiceIDHandler)
+
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/cluster/nodes"] = daemon.NewGetClusterNodes(o.context, o.DaemonGetClusterNodesHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
