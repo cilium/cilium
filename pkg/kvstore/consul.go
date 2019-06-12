@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	consulAPI "github.com/hashicorp/consul/api"
@@ -213,7 +214,7 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 	}
 
 	entry := &consulAPI.SessionEntry{
-		TTL:      fmt.Sprintf("%ds", int(LeaseTTL.Seconds())),
+		TTL:      fmt.Sprintf("%ds", int(option.Config.KVstoreLeaseTTL.Seconds())),
 		Behavior: consulAPI.SessionBehaviorDelete,
 	}
 
@@ -243,7 +244,7 @@ func newConsulClient(config *consulAPI.Config, opts *ExtraOptions) (BackendOpera
 				}
 				return err
 			},
-			RunInterval: KeepAliveInterval,
+			RunInterval: option.Config.KVstoreKeepAliveInterval,
 		},
 	)
 

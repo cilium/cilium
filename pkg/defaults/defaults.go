@@ -245,4 +245,11 @@ const (
 	// handled. During this delay, the node can re-appear and the delete
 	// event is ignored.
 	NodeDeleteDelay = 30 * time.Second
+
+	// KVstoreLeaseTTL is the time-to-live of the kvstore lease.
+	KVstoreLeaseTTL = 15 * time.Minute
+
+	// KVstoreKeepAliveIntervalFactor is the factor to calculate the interval
+	// from KVstoreLeaseTTL in which KVstore lease is being renewed.
+	KVstoreKeepAliveIntervalFactor = 3
 )
