@@ -104,6 +104,7 @@ const (
 	initArgHostReachableServices
 	initArgCgroupRoot
 	initArgBpffsRoot
+	initArgNodePort
 	initArgMax
 )
 
