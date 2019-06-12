@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -66,7 +67,7 @@ var (
 // as allowing traffic to leak out with routable addresses.
 type templateCfg struct {
 	datapath.EndpointConfiguration
-	stats *SpanStat
+	stats *metrics.SpanStat
 }
 
 // GetID returns a uint64, but in practice on the datapath side it is
@@ -117,9 +118,9 @@ func (t *templateCfg) IPv6Address() addressing.CiliumIPv6 {
 // it inside a templateCfg which hides static data from callers that wish to
 // generate header files based on the configuration, substituting it for
 // template data.
-func wrap(cfg datapath.EndpointConfiguration, stats *SpanStat) *templateCfg {
+func wrap(cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) *templateCfg {
 	if stats == nil {
-		stats = &SpanStat{}
+		stats = &metrics.SpanStat{}
 	}
 	return &templateCfg{
 		EndpointConfiguration: cfg,

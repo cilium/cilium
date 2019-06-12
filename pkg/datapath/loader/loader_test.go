@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/elf"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -165,7 +166,7 @@ func getDirs(tmpDir string) *directoryInfo {
 func (s *LoaderTestSuite) TestCompileAndLoad(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
-	stats := &SpanStat{}
+	stats := &metrics.SpanStat{}
 
 	err := compileAndLoad(ctx, &ep, dirInfo, stats)
 	c.Assert(err, IsNil)
@@ -206,7 +207,7 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 
 	timeout := time.Now().Add(contextTimeout)
 	var err error
-	stats := &SpanStat{}
+	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
 		err = compileAndLoad(ctx, &ep, dirInfo, stats)
 	}
@@ -229,7 +230,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 
 // BenchmarkCompileAndLoad benchmarks the entire compilation + loading process.
 func BenchmarkCompileAndLoad(b *testing.B) {
-	stats := &SpanStat{}
+	stats := &metrics.SpanStat{}
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
