@@ -25,6 +25,34 @@ type Client struct {
 }
 
 /*
+GetClusterNodes gets nodes information stored in the cilium agent
+*/
+func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetClusterNodesParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetClusterNodes",
+		Method:             "GET",
+		PathPattern:        "/cluster/nodes",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetClusterNodesReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*GetClusterNodesOK), nil
+
+}
+
+/*
 GetConfig gets configuration of cilium daemon
 
 Returns the configuration of the Cilium daemon.

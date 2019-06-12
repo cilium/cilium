@@ -12,6 +12,25 @@ produces:
 consumes:
 - application/json
 paths:
+  "/cluster/nodes":
+    get:
+      summary: Get nodes information stored in the cilium-agent
+      tags:
+      - daemon
+      parameters:
+      - name: client-id
+        description: |
+          Client UUID should be used when the client wants to request
+          a diff of nodes added and / or removed since the last time
+          that client has made a request.
+        in: header
+        required: false
+        type: integer
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/ClusterNodeStatus"
   "/healthz":
     get:
       summary: Get health of Cilium daemon
@@ -1310,6 +1329,16 @@ definitions:
   Address:
     description: IP address
     type: string
+  ClusterNodesResponse:
+    properties:
+      self:
+        description: Name of local node (if available)
+        type: string
+      nodes:
+        description: List of known nodes
+        type: array
+        items:
+          "$ref": "#/definitions/NodeElement"
   Identity:
     description: Security identity
     type: object
@@ -1451,6 +1480,12 @@ definitions:
           description: Timestamp when the probe was started
           type: string
           format: date-time
+      client-id:
+        description: |
+          When supported by the API, this client ID should be used by the
+          client when making another request to the server.
+          See for example "/cluster/nodes".
+        type: integer
 
   Status:
     description: Status of an individual component
@@ -1521,6 +1556,25 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/NodeElement"
+  ClusterNodeStatus:
+    description: Status of cluster
+    properties:
+      self:
+        description: Name of local node (if available)
+        type: string
+      nodes-added:
+        description: List of known nodes
+        type: array
+        items:
+          "$ref": "#/definitions/NodeElement"
+      nodes-removed:
+        description: List of known nodes
+        type: array
+        items:
+          "$ref": "#/definitions/NodeElement"
+      client-id:
+        description: ID that should be used by the client to receive a diff from the previous request
+        type: integer
   MonitorStatus:
     description: Status of the node monitor
     properties:
