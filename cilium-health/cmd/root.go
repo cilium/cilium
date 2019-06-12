@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/pidfile"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -75,11 +74,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	flags := rootCmd.PersistentFlags()
-	flags.StringP("admin", "", string(serverPkg.AdminOptionUnix), "Expose resources over 'unix' socket, 'any' socket")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.BoolP("daemon", "d", false, "Run as a daemon")
-	flags.BoolP("passive", "p", false, "Only respond to HTTP health checks")
-	flags.StringP("pidfile", "", "", "Write the PID to the specified file")
 	flags.StringP("host", "H", "", "URI to cilium-health server API")
 	flags.StringP("cilium", "c", "", "URI to Cilium server API")
 	flags.UintP("interval", "i", 60, "Interval (in seconds) for periodic connectivity probes")
@@ -90,19 +86,6 @@ func init() {
 
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
-}
-
-func getAdminOption() serverPkg.AdminOption {
-	userOpt := strings.ToLower(viper.GetString("admin"))
-	for _, opt := range serverPkg.AdminOptions {
-		if opt == serverPkg.AdminOption(userOpt) {
-			return opt
-		}
-	}
-
-	Fatalf("Invalid admin option \"%s\" (must be one of %s)",
-		strings.ToLower(viper.GetString("admin")), serverPkg.AdminOptions)
-	return serverPkg.AdminOption("")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -121,8 +104,6 @@ func initConfig() {
 		config := serverPkg.Config{
 			CiliumURI:     viper.GetString("cilium"),
 			Debug:         viper.GetBool("debug"),
-			Passive:       viper.GetBool("passive"),
-			Admin:         getAdminOption(),
 			ProbeInterval: time.Duration(viper.GetInt("interval")) * time.Second,
 			ProbeDeadline: time.Second,
 		}
@@ -140,15 +121,6 @@ func initConfig() {
 
 func runServer() {
 	common.RequireRootPrivilege(targetName)
-
-	// Write the pidfile (if specified)
-	if path := viper.GetString("pidfile"); path != "" {
-		if err := pidfile.Write(path); err != nil {
-			log.WithError(err).WithField(
-				logfields.Path, path,
-			).Fatal("Failed to write pidfile")
-		}
-	}
 
 	// Open socket for using gops to get stacktraces of the daemon.
 	if err := gops.Listen(gops.Options{}); err != nil {
