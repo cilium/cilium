@@ -640,4 +640,12 @@ static inline int redirect_peer(int ifindex, uint32_t flags)
 #endif /* ENABLE_HOST_REDIRECT */
 }
 
+#ifndef AF_INET
+#define AF_INET 2	/* Internet IP Protocol */
+#endif
+
+#ifndef AF_INET6
+#define AF_INET6 10	/* Internet IPv6 Protocol */
+#endif
+
 #endif
