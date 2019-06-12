@@ -14,20 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package features
+package v1
 
 import (
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// TODO: this file should ideally live in k8s.io/cloud-provider-gcp, but it is
-// temporarily placed here to remove dependencies to k8s.io/kubernetes in the
-// in-tree GCE cloud provider. Move this to k8s.io/cloud-provider-gcp as soon
-// as it's ready to be used
-const (
-	// owner: @verult
-	// GA: v1.13
-	//
-	// Enables the regional PD feature on GCE.
-	GCERegionalPersistentDisk utilfeature.Feature = "GCERegionalPersistentDisk"
-)
+func (in *TableRow) DeepCopy() *TableRow {
+	if in == nil {
+		return nil
+	}
+
+	out := new(TableRow)
+
+	if in.Cells != nil {
+		out.Cells = make([]interface{}, len(in.Cells))
+		for i := range in.Cells {
+			out.Cells[i] = runtime.DeepCopyJSONValue(in.Cells[i])
+		}
+	}
+
+	if in.Conditions != nil {
+		out.Conditions = make([]TableRowCondition, len(in.Conditions))
+		for i := range in.Conditions {
+			in.Conditions[i].DeepCopyInto(&out.Conditions[i])
+		}
+	}
+
+	in.Object.DeepCopyInto(&out.Object)
+	return out
+}

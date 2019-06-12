@@ -1442,7 +1442,7 @@
   version = "v2.2.1"
 
 [[projects]]
-  digest = "1:a937ed4322409fa22924f02124fd0727c19662f73cf15406646d19bdce972df2"
+  digest = "1:759855d98a898d7d6a091b89b9c85c03d6efd673c44e15561d716543f4e88f31"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1beta1",
@@ -1483,10 +1483,10 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.3"
+  revision = "kubernetes-1.15.0"
 
 [[projects]]
-  digest = "1:47ddb5be73e959bd73931c04911cd05e3f45d7f7c978a45eb817e1fb85e21da4"
+  digest = "1:2c1e111c1b0793e7b2e3bfe64743ce68c02035d30fd7bf540edfbd7b9ae318e0"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
@@ -1497,10 +1497,10 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.3"
+  revision = "kubernetes-1.15.0"
 
 [[projects]]
-  digest = "1:062b06c1ccb71c956f40a8627cc93dba1dc7713a21876572ccd0e314c5362884"
+  digest = "1:81e06243f0372a0dd83e81fdca810b2128321e578f494f00b150d500fe504abb"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/errors",
@@ -1548,20 +1548,20 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.3"
+  revision = "kubernetes-1.15.0"
 
 [[projects]]
-  digest = "1:fe60b6d8b8208ecb0e70e97963fef38ce27443c6934ec00a37f80a3f9372f42b"
+  digest = "1:2e3f244d6f43f038d3fa4450be13ca29574df19f32f64f358a75c24770d5f002"
   name = "k8s.io/apiserver"
   packages = [
     "pkg/features",
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.14.3"
+  revision = "kubernetes-1.15.0"
 
 [[projects]]
-  digest = "1:f5f9a937cb820170631d81c17da1092d00195bc83c00f830e3a4e0e670e7a857"
+  digest = "1:de42297763aabde3e66c7880eec6c5338344d1aa94cf96be7614fa9ea7ad9c4e"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -1669,19 +1669,11 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "ca2568102b5586386bac5b40eb9a31e67a7e93ea"
+  revision = "6012d37cafac5dc528678379b70efd4290cb4ca5"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
-  branch = "master"
-  digest = "1:0b0a9bd556672d681837dab08c6b33d37c7f45f1916d9bbe8feca78e08383db3"
-  name = "k8s.io/cloud-provider"
-  packages = ["features"]
-  pruneopts = "NUT"
-  revision = "c76aa0a348b5ae804635f81a4732e1b3b095003d"
-
-[[projects]]
-  digest = "1:2d821667dbd520a7ef31bdc923543f197ba30021b4317fd8871618ada52f23b0"
+  digest = "1:f41480fd8c5f54b13326ee0f2ee398d5734789b790dbc4db57f9b08a0d63139a"
   name = "k8s.io/code-generator"
   packages = [
     "cmd/client-gen",
@@ -1696,10 +1688,25 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.14.3"
+  revision = "kubernetes-1.15.0"
 
 [[projects]]
-  digest = "1:da31d8be5af84b69ef83b212d833d8e10930cd9e8a876780a20099ea306c4c13"
+  branch = "master"
+  digest = "1:661387e3ba412767f773c327c3752e05f13b280677661d77de30345e598ddc01"
+  name = "k8s.io/component-base"
+  packages = ["featuregate"]
+  pruneopts = "NUT"
+  revision = "4ec51977545472652ffe99d8f6ca92c55f018f31"
+
+[[projects]]
+  digest = "1:6ab908b738c8935c785ff7562d574ce3ed8559301610906ff3c4c5ca88db863d"
+  name = "k8s.io/cri-api"
+  packages = ["pkg/apis/runtime/v1alpha2"]
+  pruneopts = "NUT"
+  revision = "kubernetes-1.15.0"
+
+[[projects]]
+  digest = "1:61024ed77a53ac618effed55043bf6a9afbdeb64136bd6a5b0c992d4c0363766"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -1712,14 +1719,14 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "51747d6e00da1fc578d5a333a93bb2abcbce7a95"
+  revision = "f8a0810f38afb8478882b3835a615aebfda39afa"
 
 [[projects]]
-  digest = "1:894fd68c1b1c5f36f9d6223ee929c355afdc35cdcb3111b09768effdc0ff2736"
+  digest = "1:90dac8d69edf2e941129e41e989f5d0085ea1de22d16988a7ddef01a66c8d45b"
   name = "k8s.io/klog"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "8e90cee79f823779174776412c13478955131846"
+  revision = "v0.3.1"
 
 [[projects]]
   branch = "master"
@@ -1730,28 +1737,28 @@
   revision = "c01ed926f1243ac17a23a66f67da7fbdb2e2e298"
 
 [[projects]]
-  digest = "1:9eb2609da2d09beb6e2095e893a5523365cd3e770a541b3504ad9af99931f967"
+  digest = "1:0ed05a6588de154fb16f7892110354966ee206e28cca93b621d679d1d3eba028"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
     "pkg/apis/scheduling",
     "pkg/features",
-    "pkg/kubelet/apis/cri/runtime/v1alpha2",
     "pkg/kubelet/types",
     "pkg/kubelet/util",
     "pkg/registry/core/service/allocator",
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.14.3"
+  revision = "v1.15.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:14e8a3b53e6d8cb5f44783056b71bb2ca1ac7e333939cc97f3e50b579c920845"
+  digest = "1:5011e453320ffdc30c5a06516f4de57df6e1c094b2923a1c7e699ea3f4364bc9"
   name = "k8s.io/utils"
   packages = [
     "buffer",
     "integer",
+    "pointer",
     "trace",
   ]
   pruneopts = "NUT"
@@ -1911,11 +1918,11 @@
     "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/jsonpath",
     "k8s.io/code-generator/cmd/client-gen",
+    "k8s.io/cri-api/pkg/apis/runtime/v1alpha2",
     "k8s.io/gengo/examples/deepcopy-gen/generators",
     "k8s.io/gengo/examples/defaulter-gen/generators",
     "k8s.io/klog",
     "k8s.io/kubernetes/pkg/apis/core",
-    "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2",
     "k8s.io/kubernetes/pkg/kubelet/types",
     "k8s.io/kubernetes/pkg/kubelet/util",
     "k8s.io/kubernetes/pkg/registry/core/service/ipallocator",
