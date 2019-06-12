@@ -33,7 +33,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/loader/config"
+	metrics2 "github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/loader/wrapper"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -68,6 +71,7 @@ const (
 
 var (
 	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
+	Loader                       DatapathLoader
 )
 
 const (
@@ -297,6 +301,10 @@ type Endpoint struct {
 
 	EventQueue *eventqueue.EventQueue `json:"-"`
 
+	// DatapathLoaderImpl is responsible for the compilation / reloading of the
+	// datapath for this endpoint.
+	DatapathLoaderImpl DatapathLoader `json:"-"`
+
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
 	// plugin which performed the plumbing will enable certain datapath
@@ -420,6 +428,7 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 		desiredPolicy: policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 	}
 	ep.realizedPolicy = ep.desiredPolicy
+	ep.DatapathLoaderImpl = &dummyDatapathLoaderImpl{}
 
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
@@ -427,6 +436,36 @@ func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *En
 	ep.EventQueue.Run()
 
 	return ep
+}
+
+type dummyDatapathLoaderImpl struct {
+}
+
+func (d *dummyDatapathLoaderImpl) CallsMapPath(id uint16) string {
+	return fmt.Sprintf("/tmp/%d", id)
+}
+
+func (d *dummyDatapathLoaderImpl) CompileAndLoad(ctx context.Context, ep config.EndpointConfig, stats *metrics2.SpanStat) error {
+	return nil
+}
+
+func (d *dummyDatapathLoaderImpl) CompileOrLoad(ctx context.Context, ep config.EndpointConfig, stats *metrics2.SpanStat) error {
+	return nil
+}
+
+func (d *dummyDatapathLoaderImpl) ReloadDatapath(ctx context.Context, ep config.EndpointConfig, stats *metrics2.SpanStat) error {
+	return nil
+}
+
+func (d *dummyDatapathLoaderImpl) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+	return "12345", nil
+}
+
+func (d *dummyDatapathLoaderImpl) DeleteDatapath(ctx context.Context, ifName, direction string) error {
+	return nil
+}
+
+func (d *dummyDatapathLoaderImpl) Unload(ep config.EndpointConfig) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -1079,6 +1118,7 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
+	ep.DatapathLoaderImpl = &wrapper.LoaderWrapper{}
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -1323,7 +1363,7 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	errors := []error{}
 
 	if !option.Config.DryMode {
-		loader.Unload(e.createEpInfoCache(""))
+		e.DatapathLoaderImpl.Unload(e.createEpInfoCache(""))
 	}
 
 	e.owner.RemoveFromEndpointQueue(uint64(e.ID))

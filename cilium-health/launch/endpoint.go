@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/loader/wrapper"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
@@ -299,6 +300,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
+	ep.DatapathLoaderImpl = &wrapper.LoaderWrapper{}
 
 	// Wait until the cilium-health endpoint is running before setting up routes
 	deadline := time.Now().Add(1 * time.Minute)

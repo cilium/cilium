@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -59,7 +58,7 @@ func (e *Endpoint) PolicyMapPathLocked() string {
 
 // CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) CallsMapPathLocked() string {
-	return bpf.LocalMapPath(loader.CallsMapName, e.ID)
+	return e.DatapathLoaderImpl.CallsMapPath(e.ID)
 }
 
 // BPFConfigMapPath returns the path to the BPF config map of endpoint.
@@ -487,11 +486,11 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 
 		// Compile and install BPF programs for this endpoint
 		if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRebuild {
-			err = loader.CompileAndLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+			err = e.DatapathLoaderImpl.CompileAndLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			e.getLogger().WithError(err).Info("Regenerated endpoint BPF program")
 			compilationExecuted = true
 		} else if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRewrite {
-			err = loader.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+			err = e.DatapathLoaderImpl.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
 			} else {
@@ -499,7 +498,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			}
 			compilationExecuted = true
 		} else { // RegenerateWithDatapathLoad
-			err = loader.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+			err = e.DatapathLoaderImpl.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Reloaded endpoint BPF program")
 			} else {
@@ -700,7 +699,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// Avoid BPF program compilation and installation if the headerfile for the endpoint
 	// or the node have not changed.
 	var changed bool
-	datapathRegenCtxt.bpfHeaderfilesHash, err = loader.EndpointHash(e)
+	datapathRegenCtxt.bpfHeaderfilesHash, err = e.DatapathLoaderImpl.EndpointHash(e)
 	if err != nil {
 		e.getLogger().WithError(err).Warn("Unable to hash header file")
 		datapathRegenCtxt.bpfHeaderfilesHash = ""
@@ -800,7 +799,7 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 // veth interface.
 func (e *Endpoint) DeleteBPFProgramLocked() error {
 	e.getLogger().Debug("deleting bpf program from endpoint")
-	return loader.DeleteDatapath(context.TODO(), e.IfName, "ingress")
+	return e.DatapathLoaderImpl.DeleteDatapath(context.TODO(), e.IfName, "ingress")
 }
 
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's

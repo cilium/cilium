@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package loader
+package metrics
 
 import (
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -21,18 +21,18 @@ import (
 // SpanStat is a statistics structure for storing metrics related to datapath
 // load operations.
 type SpanStat struct {
-	bpfCompilation spanstat.SpanStat
-	bpfWaitForELF  spanstat.SpanStat
-	bpfWriteELF    spanstat.SpanStat
-	bpfLoadProg    spanstat.SpanStat
+	BpfCompilation spanstat.SpanStat
+	BpfWaitForELF  spanstat.SpanStat
+	BpfWriteELF    spanstat.SpanStat
+	BpfLoadProg    spanstat.SpanStat
 }
 
 // GetMap returns a map of statistic names to stats
 func (s *SpanStat) GetMap() map[string]*spanstat.SpanStat {
 	return map[string]*spanstat.SpanStat{
-		"bpfCompilation": &s.bpfCompilation,
-		"bpfWaitForELF":  &s.bpfWaitForELF,
-		"bpfWriteELF":    &s.bpfWriteELF,
-		"bpfLoadProg":    &s.bpfLoadProg,
+		"bpfCompilation": &s.BpfCompilation,
+		"bpfWaitForELF":  &s.BpfWaitForELF,
+		"bpfWriteELF":    &s.BpfWriteELF,
+		"bpfLoadProg":    &s.BpfLoadProg,
 	}
 }
