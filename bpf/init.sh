@@ -30,6 +30,7 @@ ENCRYPT_DEV=${12}
 HOSTLB=${13}
 CGROUP_ROOT=${14}
 BPFFS_ROOT=${15}
+NODE_PORT=${16}
 
 ID_HOST=1
 ID_WORLD=2
@@ -413,6 +414,12 @@ case "${MODE}" in
 		sed -i '/^#.*CILIUM_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 		CILIUM_IDX=$(cat /sys/class/net/${HOST_DEV1}/ifindex)
 		echo "#define CILIUM_IFINDEX $CILIUM_IDX" >> $RUNDIR/globals/node_config.h
+
+		if [ "$NODE_PORT" = "true" ]; then
+			sed -i '/^#.*NATIVE_DEV_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
+			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
+			echo "#define NATIVE_DEV_IFINDEX $NATIVE_DEV_IDX" >> $RUNDIR/globals/node_config.h
+		fi
 esac
 
 # Address management
@@ -482,14 +489,13 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ]; then
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 		COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
-		if [ "$MASQ" = "true" ]; then
-			SECTION="masq-pre"
-		else
-			SECTION="from-netdev"
+		if [ "$NODE_PORT" = "true" ]; then
+			COPTS="${COPTS} -DLB_L3 -DLB_L4"
 		fi
-		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o $SECTION $CALLS_MAP
-		if [ "$MASQ" = "true" ]; then
-			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o masq $CALLS_MAP "no_qdisc_reset"
+
+		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
+		if [ "$MASQ" = "true" ] || [ "$NODE_PORT" = "true" ]; then
+		    bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP "no_qdisc_reset"
 		fi
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
