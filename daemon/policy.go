@@ -62,7 +62,7 @@ func (d *Daemon) policyUpdateTrigger(reasons []string) {
 // identities.
 func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	if force {
-		log.Debugf("Artifically increasing policy revision to enforce policy recalculation")
+		log.Debugf("Artificially increasing policy revision to enforce policy recalculation")
 		d.policy.BumpRevision()
 	}
 
