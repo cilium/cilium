@@ -48,6 +48,7 @@
 #include "lib/drop.h"
 #include "lib/encap.h"
 #include "lib/nat.h"
+#include "lib/lb.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
 static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
@@ -243,6 +244,133 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
+#ifdef ENABLE_NODEPORT
+static inline int nodeport_lb4(struct __sk_buff *skb)
+{
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int ret,  l3_off = ETH_HLEN, l4_off;
+	struct csum_offset csum_off = {};
+	struct lb4_service_v2 *svc;
+	struct lb4_key_v2 key = {};
+	struct ct_state ct_state_new = {};
+	struct ct_state ct_state = {};
+	__u32 monitor = 0;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+
+	ret = lb4_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			return TC_ACT_OK;
+		else
+			return ret;
+	}
+
+	ct_state_new.orig_dport = key.dport;
+
+	if ((svc = lb4_lookup_service_v2(skb, &key)) != NULL) {
+		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
+				&key, &tuple, svc, &ct_state_new, ip4->saddr);
+		if (IS_ERR(ret))
+			return ret;
+	} else {
+		return TC_ACT_OK;
+	}
+
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	switch (ret) {
+	case CT_NEW:
+		ct_state_new.src_sec_id = SECLABEL;
+		ct_state_new.node_port = 1;
+		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
+				 &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+		break;
+
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	return TC_ACT_OK;
+}
+
+int rev_nodeport_lb4(struct __sk_buff *skb)
+{
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct csum_offset csum_off = {};
+	int ret, ret2, l3_off = ETH_HLEN, l4_off;
+	struct ct_state ct_state = {};
+	struct bpf_fib_lookup fib_params = {};
+	__u32 monitor = 0;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, skb, l4_off, CT_INGRESS, &ct_state,
+			 &monitor);
+
+	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+		ret2 = lb4_rev_nat(skb, l3_off, l4_off, &csum_off,
+				   &ct_state, &tuple,
+				   REV_NAT_F_TUPLE_SADDR);
+		if (IS_ERR(ret2))
+			return ret2;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		fib_params.family = AF_INET;
+		fib_params.ifindex = NATIVE_DEV_IFINDEX;
+
+		fib_params.ipv4_src = ip4->saddr;
+		fib_params.ipv4_dst = ip4->daddr;
+
+		int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
+				    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (rc != 0) {
+			// TODO(brb) log cilium monitor err
+			return DROP_NO_FIB;
+		}
+		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+			return DROP_WRITE_ERROR;
+		}
+		if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+			return DROP_WRITE_ERROR;
+		}
+	}
+
+	return TC_ACT_OK;
+}
+#endif /* ENABLE_NODEPORT */
+
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
@@ -252,6 +380,12 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	struct iphdr *ip4;
 	int l4_off;
 	__u32 secctx;
+
+#ifdef ENABLE_NODEPORT
+	if (nodeport_lb4(skb) < 0) {
+		return DROP_INVALID;
+	}
+#endif
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -543,48 +677,49 @@ __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
 	__u16 proto;
+	int ret;
 
 	if (!validate_ethertype(skb, &proto))
 		/* Pass unknown traffic to the stack */
 		return TC_ACT_OK;
+
+#ifdef ENABLE_MASQUERADE
+	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
+	ret = snat_process(skb, BPF_PKT_DIR);
+	if (ret != TC_ACT_OK) {
+		return ret;
+	}
+	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
+#endif /* ENABLE_MASQUERADE */
 
 	return do_netdev(skb, proto);
 }
 
-__section("masq")
-int do_masq(struct __sk_buff *skb)
+__section("to-netdev")
+int to_netdev(struct __sk_buff *skb)
 {
 	__u16 proto;
-	int ret;
+	int ret = TC_ACT_OK;
 
 	if (!validate_ethertype(skb, &proto))
 		/* Pass unknown traffic to the stack */
 		return TC_ACT_OK;
 
+#ifdef ENABLE_NODEPORT
+	ret = rev_nodeport_lb4(skb);
+	if (ret != TC_ACT_OK) {
+		return ret;
+	}
+#endif /* ENABLE_NODEPORT */
+
+#ifdef ENABLE_MASQUERADE
 	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
 	ret = snat_process(skb, BPF_PKT_DIR);
 	if (!ret)
 		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
-	return ret;
-}
+#endif /* ENABLE_MASQUERADE */
 
-__section("masq-pre")
-int do_masq_pre(struct __sk_buff *skb)
-{
-	__u16 proto;
-	int ret;
-
-	if (!validate_ethertype(skb, &proto))
-		/* Pass unknown traffic to the stack */
-		return TC_ACT_OK;
-
-	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
-	ret = snat_process(skb, BPF_PKT_DIR);
-	if (!ret) {
-		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
-		ret = do_netdev(skb, proto);
-	}
-	return ret;
+	return  ret;
 }
 
 __section("masq-post")

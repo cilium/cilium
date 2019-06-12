@@ -284,6 +284,7 @@ enum {
 #define DROP_UNSUPPORTED_L2		-166
 #define DROP_NAT_NO_MAPPING	-167
 #define DROP_NAT_UNSUPP_PROTO	-168
+#define DROP_NO_FIB		-169
 
 /* Cilium metrics reason for forwarding packet.
  * If reason > REASON_DECRYPT then this is a drop reason and value corresponds
