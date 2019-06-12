@@ -30,8 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/health/probeclient"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -49,6 +49,7 @@ import (
 const (
 	ciliumHealth = "cilium-health"
 	netNSName    = "cilium-health"
+	binaryName   = "cilium-health-probe"
 )
 
 var (
@@ -107,17 +108,15 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	return err
 }
 
-// Client wraps a client to a specific cilium-health endpoint instance, to
-// provide convenience methods such as PingEndpoint().
+// Client wraps a probe client
 type Client struct {
-	*healthPkg.Client
+	*probeclient.Client
 }
 
 // PingEndpoint attempts to make an API ping request to the local cilium-health
 // endpoint, and returns whether this was successful.
 func (c *Client) PingEndpoint() error {
-	_, err := c.Restapi.GetHello(nil)
-	return err
+	return c.Client.GetHello()
 }
 
 // KillEndpoint attempts to kill any existing cilium-health endpoint if it
@@ -220,9 +219,9 @@ func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Nod
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
-	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
+	healthArgs := fmt.Sprintf("--pidfile %s", pidfile)
 	args := []string{info.ContainerName, hostIfaceName, epIfaceName,
-		ip6Address, ip4Address, ciliumHealth, healthArgs}
+		ip6Address, ip4Address, binaryName, healthArgs}
 	if option.Config.DatapathMode == option.DatapathModeIpvlan {
 		// Do not initialize netns (i.e. create and move the slave to it), as
 		// otherwise qdisc of the slave will get reset
@@ -278,7 +277,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Nod
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
-	client, err := healthPkg.NewClient("tcp://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
+	client, err := probeclient.NewClient("http://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
 	if err != nil {
 		return nil, fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}

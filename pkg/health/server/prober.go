@@ -22,8 +22,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/health/probeclient"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -237,11 +237,11 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 		"path":             PortToPaths[port],
 	})
 
-	client, err := client.NewClient(host)
+	client, err := probeclient.NewClient(host)
 	if err == nil {
 		scopedLog.Debug("Greeting host")
 		start := time.Now()
-		_, err = client.Restapi.GetHello(nil)
+		err = client.GetHello()
 		rtt := time.Since(start)
 		if err == nil {
 			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
