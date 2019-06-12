@@ -8,7 +8,7 @@ include ../Makefile.defs
 
 
 TARGET=cilium-agent
-LINKS=cilium-node-monitor cilium
+LINKS=cilium-node-monitor
 SOURCES := $(shell find ../api ../common ../daemon ../pkg . \( -name '*.go'  ! -name '*_test.go' \))
 $(TARGET): $(SOURCES) check-bindata
 	@$(ECHO_GO)
