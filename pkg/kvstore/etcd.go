@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	client "github.com/coreos/etcd/clientv3"
@@ -427,7 +428,7 @@ func (e *etcdClient) renewSession() error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
-	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(LeaseTTL.Seconds())))
+	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
 	if err != nil {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd session: %s", err)
@@ -498,7 +499,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 
 	// create session in parallel as this is a blocking operation
 	go func() {
-		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(LeaseTTL.Seconds())))
+		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
 		if err != nil {
 			errorChan <- err
 			close(errorChan)

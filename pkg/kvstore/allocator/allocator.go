@@ -65,7 +65,7 @@ const (
 //   key must be considered to be in use in the allocation space.
 //
 //   Slave keys are protected by a lease and will automatically get removed
-//   after ~ kstore.LeaseTTL if the node does not renew in time.
+//   after ~ option.Config.KVstoreLeaseTTL if the node does not renew in time.
 //
 // Master key:
 //    - basePath/id/1001 => key1

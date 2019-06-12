@@ -94,6 +94,7 @@ cilium-agent [flags]
       --keep-bpf-templates                         Do not restore BPF template files from binary
       --keep-config                                When restoring state, keeps containers' configuration in place
       --kvstore string                             Key-value store type
+      --kvstore-lease-ttl duration                 Time-to-live for the KVstore lease. (default 15m0s)
       --kvstore-opt map                            Key-value store options (default map[])
       --kvstore-periodic-sync duration             Periodic KVstore synchronization interval (default 5m0s)
       --label-prefix-file string                   Valid label prefixes file path

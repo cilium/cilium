@@ -584,6 +584,9 @@ func init() {
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)
 
+	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
+	option.BindEnv(option.KVstoreLeaseTTL)
+
 	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
 	option.BindEnv(option.KVstorePeriodicSync)
 

@@ -431,6 +431,9 @@ const (
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
+	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
+	KVstoreLeaseTTL = "kvstore-lease-ttl"
+
 	// KVstorePeriodicSync is the time interval in which periodic
 	// synchronization with the kvstore occurs
 	KVstorePeriodicSync = "kvstore-periodic-sync"
@@ -923,6 +926,14 @@ type DaemonConfig struct {
 	// health endpoints
 	EnableHealthChecking bool
 
+	// KVstoreKeepAliveInterval is the interval in which the lease is being
+	// renewed. This must be set to a value lesser than the LeaseTTL ideally
+	// by a factor of 3.
+	KVstoreKeepAliveInterval time.Duration
+
+	// KVstoreLeaseTTL is the time-to-live for kvstore lease.
+	KVstoreLeaseTTL time.Duration
+
 	// KVstorePeriodicSync is the time interval in which periodic
 	// synchronization with the kvstore occurs
 	KVstorePeriodicSync time.Duration
@@ -1343,6 +1354,8 @@ func (c *DaemonConfig) Populate() {
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)
+	c.KVstoreLeaseTTL = viper.GetDuration(KVstoreLeaseTTL)
+	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = viper.GetDuration(KVstorePeriodicSync)
 	c.LabelPrefixFile = viper.GetString(LabelPrefixFile)
 	c.Labels = viper.GetStringSlice(Labels)
