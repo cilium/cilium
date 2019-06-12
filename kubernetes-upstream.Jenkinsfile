@@ -35,7 +35,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         MEMORY = "5120"
-        K8S_VERSION="1.14"
+        K8S_VERSION="1.15"
         SERVER_BOX = "cilium/ubuntu"
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
