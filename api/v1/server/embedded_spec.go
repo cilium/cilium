@@ -32,6 +32,30 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cluster/nodes": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Get nodes information stored in the cilium-agent",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Client UUID should be used when the client wants to request\na diff of nodes added and / or removed since the last time\nthat client has made a request.\n",
+            "name": "client-id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ClusterNodeStatus"
+            }
+          }
+        }
+      }
+    },
     "/config": {
       "get": {
         "description": "Returns the configuration of the Cilium daemon.\n",
@@ -1306,6 +1330,48 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "ClusterNodeStatus": {
+      "description": "Status of cluster",
+      "properties": {
+        "client-id": {
+          "description": "ID that should be used by the client to receive a diff from the previous request",
+          "type": "integer"
+        },
+        "nodes-added": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "nodes-removed": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
+        }
+      }
+    },
+    "ClusterNodesResponse": {
+      "properties": {
+        "nodes": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
         }
       }
     },
@@ -2668,6 +2734,10 @@ func init() {
           "description": "Status of Cilium daemon",
           "$ref": "#/definitions/Status"
         },
+        "client-id": {
+          "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
+          "type": "integer"
+        },
         "cluster": {
           "description": "Status of cluster",
           "$ref": "#/definitions/ClusterStatus"
@@ -2899,6 +2969,30 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cluster/nodes": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Get nodes information stored in the cilium-agent",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "Client UUID should be used when the client wants to request\na diff of nodes added and / or removed since the last time\nthat client has made a request.\n",
+            "name": "client-id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ClusterNodeStatus"
+            }
+          }
+        }
+      }
+    },
     "/config": {
       "get": {
         "description": "Returns the configuration of the Cilium daemon.\n",
@@ -4316,6 +4410,48 @@ func init() {
         }
       }
     },
+    "ClusterNodeStatus": {
+      "description": "Status of cluster",
+      "properties": {
+        "client-id": {
+          "description": "ID that should be used by the client to receive a diff from the previous request",
+          "type": "integer"
+        },
+        "nodes-added": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "nodes-removed": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
+        }
+      }
+    },
+    "ClusterNodesResponse": {
+      "properties": {
+        "nodes": {
+          "description": "List of known nodes",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NodeElement"
+          }
+        },
+        "self": {
+          "description": "Name of local node (if available)",
+          "type": "string"
+        }
+      }
+    },
     "ClusterStatus": {
       "description": "Status of cluster",
       "properties": {
@@ -5674,6 +5810,10 @@ func init() {
         "cilium": {
           "description": "Status of Cilium daemon",
           "$ref": "#/definitions/Status"
+        },
+        "client-id": {
+          "description": "When supported by the API, this client ID should be used by the\nclient when making another request to the server.\nSee for example \"/cluster/nodes\".\n",
+          "type": "integer"
         },
         "cluster": {
           "description": "Status of cluster",
