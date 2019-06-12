@@ -21,7 +21,6 @@ cilium-health ping [flags]
 ### Options inherited from parent commands
 
 ```
-      --admin string         Expose resources over 'unix' socket, 'any' socket (default "unix")
   -c, --cilium string        URI to Cilium server API
   -d, --daemon               Run as a daemon
   -D, --debug                Enable debug messages
@@ -29,8 +28,6 @@ cilium-health ping [flags]
   -i, --interval uint        Interval (in seconds) for periodic connectivity probes (default 60)
       --log-driver strings   Logging endpoints to use for example syslog
       --log-opt map          Log driver options for cilium-health (default map[])
-  -p, --passive              Only respond to HTTP health checks
-      --pidfile string       Write the PID to the specified file
 ```
 
 ### SEE ALSO
