@@ -11,9 +11,6 @@ subjects:
 - kind: ServiceAccount
   name: cilium
   namespace: kube-system
-- apiGroup: rbac.authorization.k8s.io
-  kind: Group
-  name: system:nodes
 ---
 apiVersion: __RBAC_API_VERSION__
 kind: ClusterRole
