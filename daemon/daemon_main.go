@@ -1421,6 +1421,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	// /healthz/
 	api.DaemonGetHealthzHandler = NewGetHealthzHandler(d)
 
+	// /cluster/nodes
+	api.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(d)
+
 	// /config/
 	api.DaemonGetConfigHandler = NewGetConfigHandler(d)
 	api.DaemonPatchConfigHandler = NewPatchConfigHandler(d)
