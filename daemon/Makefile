@@ -23,7 +23,7 @@ GO_BINDATA := $(QUIET) go-bindata -prefix ../ -mode 0640 -modtime 1450269211 \
 all: $(TARGET) links
 
 links:
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(link);)
+	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(link) || cp $(TARGET) $(link);)
 
 clean:
 	@$(ECHO_CLEAN)
@@ -37,14 +37,14 @@ install:
 	groupadd -f cilium
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
+	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link) || cp $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
 
 else
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
+	$(foreach link,$(LINKS), ln -f -s $(TARGET) $(DESTDIR)$(BINDIR)/$(link) || cp $(TARGET) $(DESTDIR)$(BINDIR)/$(link);)
 
 endif
 
