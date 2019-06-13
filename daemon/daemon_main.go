@@ -1127,6 +1127,12 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	if option.Config.EnableNodePort {
+		// We enable host reachable services in order to allow
+		// access to node port services from the host.
+		option.Config.EnableHostReachableServices = true
+	}
+
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
 		log.Fatal("BPF NodePort needs external facing device specified")
 	}
