@@ -74,7 +74,7 @@ nextIdentity:
 func runIdentityGC() {
 	for {
 		identityGCIteration()
-		time.Sleep(k8sIdentityGCInterval)
+		time.Sleep(identityGCInterval)
 	}
 }
 
