@@ -65,8 +65,8 @@ var _ = Describe("K8sHealthTest", func() {
 	}
 
 	checkIP := func(pod, ip string) {
-		jsonpath := fmt.Sprintf("{.cluster.nodes[*].primary-address.*}")
-		ciliumCmd := fmt.Sprintf("cilium status -o jsonpath='%s'", jsonpath)
+		jsonpath := fmt.Sprintf("{.nodes[*].host.primary-address.ip}")
+		ciliumCmd := fmt.Sprintf("cilium-health status -o jsonpath='%s'", jsonpath)
 
 		err := kubectl.CiliumExecUntilMatch(pod, ciliumCmd, ip)
 		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Never saw cilium-health ip %s in pod %s", ip, pod)

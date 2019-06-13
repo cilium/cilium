@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,13 +33,13 @@ var nodeListCmd = &cobra.Command{
 	Aliases: []string{"ls"},
 	Short:   "List nodes",
 	Run: func(cmd *cobra.Command, args []string) {
-		resp, err := client.Daemon.GetHealthz(nil)
+		resp, err := client.Daemon.GetClusterNodes(nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", pkg.Hint(err))
 			os.Exit(1)
 		}
 
-		cluster := resp.Payload.Cluster
+		cluster := resp.Payload.NodesAdded
 		if cluster == nil {
 			return
 		}
@@ -61,10 +61,10 @@ func init() {
 	command.AddJSONOutput(nodeListCmd)
 }
 
-func formatStatusResponse(w io.Writer, cluster *models.ClusterStatus) {
+func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 	nodesOutput := []string{"Name\tIPv4 Address\tEndpoint CIDR\tIPv6 Address\tEndpoint CIDR\n"}
 
-	for _, node := range cluster.Nodes {
+	for _, node := range nodes {
 		ipv4, ipv4Range, ipv6, ipv6Range := "", "", "", ""
 		if node.PrimaryAddress != nil {
 			if node.PrimaryAddress.IPV4 != nil {
