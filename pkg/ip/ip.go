@@ -727,8 +727,7 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 
 	returnIPs := ips[:0] // len==0 but cap==cap(ips)
 	for readIdx, ip := range ips {
-		if len(returnIPs) == 0 ||
-			!bytes.Equal(returnIPs[len(returnIPs)-1], ips[readIdx]) {
+		if len(returnIPs) == 0 || !returnIPs[len(returnIPs)-1].Equal(ips[readIdx]) {
 			returnIPs = append(returnIPs, ip)
 		}
 	}

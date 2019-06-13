@@ -1164,11 +1164,11 @@ func (c *DaemonConfig) Validate() error {
 	policyMapMin := (1 << 8)
 	policyMapMax := (1 << 16)
 	if c.PolicyMapMaxEntries < policyMapMin {
-		return fmt.Errorf("Specified PolicyMap max entries %d must exceed minimum %d",
+		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
 			c.PolicyMapMaxEntries, policyMapMin)
 	}
 	if c.PolicyMapMaxEntries > policyMapMax {
-		return fmt.Errorf("Specified PolicyMap max entries %d must not exceed maximum %d",
+		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
 			c.PolicyMapMaxEntries, policyMapMax)
 	}
 
@@ -1254,7 +1254,7 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 	for _, ipString := range s {
 		_, ipnet, err := net.ParseCIDR(ipString)
 		if err != nil {
-			return fmt.Errorf("Unable to parse excluded local address %s: %s", ipString, err)
+			return fmt.Errorf("unable to parse excluded local address %s: %s", ipString, err)
 		}
 
 		c.excludeLocalAddresses = append(c.excludeLocalAddresses, ipnet)

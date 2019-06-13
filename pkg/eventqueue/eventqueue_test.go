@@ -175,7 +175,7 @@ func (s *EventQueueSuite) TestDrain(c *C) {
 	close(nh2.Channel)
 
 	// Event was drained, so it should have been cancelled.
-	ok := <-rcvChan
+	_, ok := <-rcvChan
 	c.Assert(ok, Equals, false)
 	c.Assert(ev3.WasCancelled(), Equals, true)
 

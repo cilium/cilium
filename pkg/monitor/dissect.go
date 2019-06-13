@@ -23,9 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"strconv"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"strconv"
 )
 
 type parserCache struct {
@@ -144,7 +145,7 @@ func GetConnectionSummary(data []byte) string {
 		var s string
 
 		if proto == "esp" {
-			s = fmt.Sprintf("%s", proto)
+			s = proto
 		} else {
 			s = fmt.Sprintf("%s -> %s %s",
 				net.JoinHostPort(srcIP.String(), srcPort),

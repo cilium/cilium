@@ -52,6 +52,7 @@ const (
 	MapTypeCPUMap
 	MapTypeXSKMap
 	MapTypeSockHash
+
 	// MapTypeMaximum is the maximum supported known map type.
 	MapTypeMaximum
 
@@ -120,7 +121,7 @@ func (t MapType) String() string {
 }
 
 func (t MapType) allowsPreallocation() bool {
-	return t == MapTypeLPMTrie
+	return t != MapTypeLPMTrie
 }
 
 func (t MapType) requiresPreallocation() bool {

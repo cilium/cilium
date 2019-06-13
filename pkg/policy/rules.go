@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

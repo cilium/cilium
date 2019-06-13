@@ -113,7 +113,7 @@ func check(name string, toCheck []reflect.Type, structs map[string]structInfo) e
 	for _, g := range toCheck {
 		c, found := structs[name]
 		if !found {
-			return fmt.Errorf("not found C struct %s", name)
+			return fmt.Errorf("could not find C struct %s", name)
 		}
 
 		if c.size != int64(g.Size()) {

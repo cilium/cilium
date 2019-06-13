@@ -25,18 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	identity2 "github.com/cilium/cilium/pkg/identity"
-	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	logging "github.com/op/go-logging"
-
 	. "gopkg.in/check.v1"
-)
-
-var (
-	localClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, option.Config.ClusterName)
-	otherClusterLabel = fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "non-local")
 )
 
 func (ds *PolicyTestSuite) TestL4Policy(c *C) {
@@ -248,7 +241,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 
-	res2, err = rule2.resolveEgressPolicy(fromFoo, &egressState, NewL4Policy(), nil, testSelectorCache)
+	_, err = rule2.resolveEgressPolicy(fromFoo, &egressState, NewL4Policy(), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 

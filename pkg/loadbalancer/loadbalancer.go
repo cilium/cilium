@@ -481,9 +481,7 @@ func (svcs SVCMap) AddFEnBE(fe *L3n4AddrID, be *LBBackEnd, beIndex int) *LBSVC {
 		var bes []LBBackEnd
 		if len(lbsvc.BES) < beIndex {
 			bes = make([]LBBackEnd, beIndex)
-			for i, lbsvcBE := range lbsvc.BES {
-				bes[i] = lbsvcBE
-			}
+			copy(bes, lbsvc.BES)
 			lbsvc.BES = bes
 		}
 		if beIndex == 0 {
