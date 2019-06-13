@@ -198,10 +198,10 @@ func (m *Manager) backgroundSync() {
 		syncInterval := m.backgroundSyncInterval()
 		log.WithField("syncInterval", syncInterval.String()).Debug("Performing regular background work")
 
-		// get a copy of the nodes to avoid locking the entire manager
+		// get a copy of the node identities to avoid locking the entire manager
 		// throughout the process of running the datapath validation.
-		nodes := m.GetNodes()
-		for nodeIdentity := range nodes {
+		nodes := m.GetNodeIdentities()
+		for _, nodeIdentity := range nodes {
 			// Retrieve latest node information in case any event
 			// changed the node since the call to GetNodes()
 			m.mutex.RLock()
@@ -352,6 +352,20 @@ func (m *Manager) Exists(id node.Identity) bool {
 	defer m.mutex.RUnlock()
 	_, ok := m.nodes[id]
 	return ok
+}
+
+// GetNodeIdentities returns a list of all node identities store in node
+// manager.
+func (m *Manager) GetNodeIdentities() []node.Identity {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	nodes := make([]node.Identity, 0, len(m.nodes))
+	for nodeIdentity := range m.nodes {
+		nodes = append(nodes, nodeIdentity)
+	}
+
+	return nodes
 }
 
 // GetNodes returns a copy of all of the nodes as a map from Identity to Node.
