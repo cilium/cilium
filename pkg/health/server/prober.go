@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -162,10 +162,13 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, proto st
 }
 
 // markIPsLocked marks all nodes in the prober for deletion.
-func (p *prober) markIPsLocked() {
-	for ip, node := range p.nodes {
-		node.deletionMark = true
-		p.nodes[ip] = node
+func (p *prober) markIPsLocked(deletedNodes nodeMap) {
+	for ip := range deletedNodes {
+		node, ok := p.nodes[ip]
+		if ok {
+			node.deletionMark = true
+			p.nodes[ip] = node
+		}
 	}
 }
 
@@ -188,19 +191,19 @@ func (p *prober) sweepIPsLocked() {
 }
 
 // setNodes sets the list of nodes for the prober, and updates the pinger to
-// start sending pings to all of the nodes.
-// setNodes will steal references to nodes referenced from 'nodes', so the
+// start sending pings to all nodes added.
+// 'removed' nodes will be removed from the pinger to stop sending pings to
+// those removed nodes.
+// setNodes will steal references to nodes referenced from 'added', so the
 // caller should not modify them after a call to setNodes.
-func (p *prober) setNodes(nodes nodeMap) {
+func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 	p.Lock()
 	defer p.Unlock()
 
-	// Mark all nodes for deletion, insert nodes that should not be deleted
-	// then at the end of the function, sweep all nodes that remain as
-	// "to be deleted".
-	p.markIPsLocked()
+	// Mark nodes that were removed for deletion.
+	p.markIPsLocked(removed)
 
-	for _, n := range nodes {
+	for _, n := range added {
 		for elem, primary := range n.Addresses() {
 			_, addr := resolveIP(&n, elem, "icmp", primary)
 
@@ -384,7 +387,7 @@ func newProber(s *Server, nodes nodeMap) *prober {
 	}
 	prober.MaxRTT = s.ProbeDeadline
 
-	prober.setNodes(nodes)
+	prober.setNodes(nodes, nil)
 	prober.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
 		prober.Lock()
 		defer prober.Unlock()
