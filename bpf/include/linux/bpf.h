@@ -11,6 +11,9 @@
 #include <linux/type_mapper.h>
 #include <linux/bpf_common.h>
 
+/* Define BIT() here to avoid pulling in more headers */
+#define BIT(nr) (1UL << (nr))
+
 /* Extended instruction set based on top of classic BPF */
 
 /* instruction classes */
