@@ -517,7 +517,10 @@ func (d *Daemon) startStatusCollector() {
 		{
 			Name: "cluster",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				return d.getNodeStatus(), nil
+				clusterStatus := &models.ClusterStatus{
+					Self: d.nodeDiscovery.LocalNode.Fullname(),
+				}
+				return clusterStatus, nil
 			},
 			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()
