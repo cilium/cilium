@@ -89,7 +89,7 @@ func (s *IDSuite) TestReuse(c *C) {
 	c.Assert(Reuse(uint16(5)), IsNil)
 	idsReturned[uint16(5)] = struct{}{}
 
-	// allocate only avaiable id 6
+	// allocate only available id 6
 	c.Assert(Allocate(), Equals, uint16(6))
 }
 

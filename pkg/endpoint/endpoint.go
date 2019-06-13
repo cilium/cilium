@@ -1179,7 +1179,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 
 	// CurrentStatus will be not OK when we have an uncleared error in BPF,
 	// policy or Other. We should keep trying to regenerate in the hopes of
-	// suceeding.
+	// succeeding.
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
 	regenCtx := &ExternalRegenerationMetadata{
@@ -2183,7 +2183,7 @@ func (e *Endpoint) InsertEvent() {
 // IsDisconnecting returns true if the endpoint is being disconnected or
 // already disconnected
 //
-// This function must be called after re-aquiring the endpoint mutex to verify
+// This function must be called after re-acquiring the endpoint mutex to verify
 // that the endpoint has not been removed in the meantime.
 //
 // endpoint.mutex must be held in read mode at least

@@ -635,7 +635,7 @@ func (a *Allocator) GetNoCacheIfLocked(ctx context.Context, key AllocatorKey, lo
 	// key2 := label1;label2;label3;
 	//
 	// In order to retrieve the correct key, the position of the last '/'
-	// is signficant, e.g.
+	// is significant, e.g.
 	//
 	// prefix := cilium/state/identities/v1/value/label;foo;
 	//
@@ -671,7 +671,7 @@ func (a *Allocator) GetNoCache(ctx context.Context, key AllocatorKey) (idpool.ID
 	// key2 := label1;label2;label3;
 	//
 	// In order to retrieve the correct key, the position of the last '/'
-	// is signficant, e.g.
+	// is significant, e.g.
 	//
 	// prefix := cilium/state/identities/v1/value/label;foo;
 	//

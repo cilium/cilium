@@ -71,7 +71,7 @@ func mapKey(dstPort uint16, ingress bool, eID uint16) uint64 {
 
 // kafkaRedirect implements the RedirectImplementation interface
 // This extends the Redirect with Kafka specific state.
-// 'listener' is shared accross multiple kafkaRedirects
+// 'listener' is shared across multiple kafkaRedirects
 // 'redirect' is unique for this kafkaRedirect
 type kafkaRedirect struct {
 	listener             *kafkaListener

@@ -42,7 +42,7 @@ func (k EncryptKey) String() string {
 	return fmt.Sprintf("%d", k.key)
 }
 
-// String pretty print the encyrption key index.
+// String pretty print the encryption key index.
 func (v EncryptValue) String() string {
 	return fmt.Sprintf("%d", v.encryptKeyID)
 }

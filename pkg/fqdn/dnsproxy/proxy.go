@@ -125,7 +125,7 @@ type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, server
 
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
-	ProcessingTime spanstat.SpanStat // This is going to happend on the end of the second callback.
+	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.
 	// Error is a enum of [timeout, allow, denied, proxyerr].
 	UpstreamTime spanstat.SpanStat
 	Success      bool
@@ -215,7 +215,7 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 
 	// Bind the DNS forwarding clients on UDP and TCP
 	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
-	// retries into the previous lookup, supressing them.
+	// retries into the previous lookup, suppressing them.
 	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 
@@ -375,7 +375,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.Success = true
 
 	scopedLog.Debug("Responding to original DNS query")
-	// restore the ID to the one in the inital request so it matches what the requester expects.
+	// restore the ID to the one in the initial request so it matches what the requester expects.
 	response.Id = requestID
 	err = w.WriteMsg(response)
 	if err != nil {

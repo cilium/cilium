@@ -182,7 +182,7 @@ func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route 
 
 	// Known issue: scope for IPv6 routes is not propagated correctly. If
 	// we set the scope here, lookup() will be unable to identify the route
-	// again and we will continously re-add the route
+	// again and we will continuously re-add the route
 	if routerNet.IP.To4() != nil {
 		rt.Scope = netlink.SCOPE_LINK
 	}

@@ -22,7 +22,7 @@ import (
 
 var (
 	// LastInteraction is the time at which the last apiserver interaction
-	// occured
+	// occurred
 	LastInteraction eventTimestamper
 )
 

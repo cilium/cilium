@@ -360,7 +360,7 @@ func (c *DNSCache) Lookup(name string) (ips []net.IP) {
 	return c.lookupByTime(time.Now(), name)
 }
 
-// lookupByTime takes a timestamp for expiration comparisions, and is only
+// lookupByTime takes a timestamp for expiration comparisons, and is only
 // intended for testing.
 func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []net.IP) {
 	entries, found := c.forward[name]
@@ -377,7 +377,7 @@ func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches map[string][]net.I
 	return c.lookupByRegexpByTime(time.Now(), re)
 }
 
-// lookupByRegexpByTime takes a timestamp for expiration comparisions, and is
+// lookupByRegexpByTime takes a timestamp for expiration comparisons, and is
 // only intended for testing.
 func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (matches map[string][]net.IP) {
 	matches = make(map[string][]net.IP)
@@ -405,7 +405,7 @@ func (c *DNSCache) LookupIP(ip net.IP) (names []string) {
 	return c.lookupIPByTime(time.Now(), ip)
 }
 
-// lookupIPByTime takes a timestamp for expiration comparisions, and is
+// lookupIPByTime takes a timestamp for expiration comparisons, and is
 // only intended for testing.
 func (c *DNSCache) lookupIPByTime(now time.Time, ip net.IP) (names []string) {
 	ipKey := ip.String()
@@ -480,7 +480,7 @@ func (c *DNSCache) upsertReverse(ip string, entry *cacheEntry) {
 }
 
 // removeReverse removes the reference between ip and the name stored in entry.
-// When no more refrences from ip to any name exist, the map entry is deleted
+// When no more references from ip to any name exist, the map entry is deleted
 // outright.
 // It is assumed that entry includes ip.
 // This needs a write lock

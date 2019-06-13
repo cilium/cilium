@@ -114,7 +114,7 @@ type CachedSelectionUser interface {
 // In both of the above cases the set of existing identitySelectors is
 // write locked.
 //
-// To minimize the upkeep the identity selectors are shared accross
+// To minimize the upkeep the identity selectors are shared across
 // all IdentityPolicies, so that only one copy exists for each
 // identitySelector. Users of the SelectorCache take care of creating
 // identitySelectors as needed by identity policies. The set of

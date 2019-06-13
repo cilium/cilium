@@ -77,7 +77,7 @@ type Configuration struct {
 	// Similar to StandardMTU, this is a singleton for the process.
 	tunnelMTU int
 
-	// encryptMTU is the MTU used for configuratin a encryption route
+	// encryptMTU is the MTU used for configurations a encryption route
 	// without tunneling. If tunneling is enabled the tunnelMTU is used
 	// which will include additional encryption overhead if needed.
 	encryptMTU int
@@ -105,7 +105,7 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, m
 
 	if encryptEnabled {
 		// Add the difference between the default and the actual key sizes here
-		// to account for users specifing non-default auth key lengths.
+		// to account for users specifying non-default auth key lengths.
 		encryptOverhead = EncryptionIPsecOverhead + (authKeySize - EncryptionDefaultAuthKeyLength)
 	}
 

@@ -89,7 +89,7 @@ func (s *TriggerTestSuite) TestMinInterval(c *C) {
 }
 
 // TestLongTrigger tests that a trigger that takes a second is only invoked
-// once even though triggers are occuring in the background
+// once even though triggers are occurring in the background
 func (s *TriggerTestSuite) TestLongTrigger(c *C) {
 	var (
 		mutex     lock.Mutex

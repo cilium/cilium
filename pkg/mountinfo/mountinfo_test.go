@@ -630,7 +630,7 @@ func (s *MountInfoTestSuite) TestIsMountFSPrivate(c *C) {
 
 // TestIsMountFS tests the public funcion IsMountFS which gets mountinfo from
 // /proc/self/mountinfo. We cannot expect every system and machine to have any
-// predictible mounts. The only thing which can be checked is whether there is
+// predictable mounts. The only thing which can be checked is whether there is
 // no error returned by mountinfo parser.
 func (s *MountInfoTestSuite) TestIsMountFS(c *C) {
 	_, _, err := IsMountFS(FilesystemTypeBPFFS, "/sys/fs/bpf")
