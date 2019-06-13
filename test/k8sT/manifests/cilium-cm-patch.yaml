@@ -25,3 +25,4 @@ data:
   enable-ipv6: "true"
   preallocate-bpf-maps: "true"
   enable-legacy-services: "false"
+  kvstore-lease-ttl: "30s"
