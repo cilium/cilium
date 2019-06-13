@@ -445,7 +445,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 				return DROP_CSUM_L3;
 #endif
 			bpf_clear_cb(skb);
-#if ENCRYPT_NODE
+#ifdef ENCRYPT_NODE
 			return redirect(ENCRYPT_IFACE, 0);
 #else
 			return TC_ACT_OK;
