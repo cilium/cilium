@@ -261,7 +261,7 @@ func (m *Manager) NodeSoftUpdated(n node.Node) {
 
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
-// the node. If an update or addition has occured, NodeUpdate() of the datapath
+// the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
 func (m *Manager) NodeUpdated(n node.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)

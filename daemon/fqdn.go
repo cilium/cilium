@@ -172,7 +172,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			}
 
 			//Before doing the loop the DNS names to clean will be removed from
-			//cfg.Cache, to make sure that data is persistant across cache.
+			//cfg.Cache, to make sure that data is persistent across cache.
 			cfg.Cache.ForceExpireByNames(time.Now(), namesToClean)
 
 			// A second loop is needed to update the global cache from the
@@ -219,7 +219,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	}
 
 	// Do not start the proxy in dry mode. The proxy would not get any traffic in the
-	// dry mode anyway, and some of the socket operations require privileges not availabe
+	// dry mode anyway, and some of the socket operations require privileges not available
 	// in all unit tests.
 	if option.Config.DryMode {
 		return nil

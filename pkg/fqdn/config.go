@@ -50,7 +50,7 @@ type Config struct {
 	// sets of IPs.
 	UpdateSelectors func(selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) error
 
-	// PollerResponseNotify is used when the poller recieves DNS data in response
+	// PollerResponseNotify is used when the poller receives DNS data in response
 	// to a successful poll.
 	// Note: This function doesn't do much, as the poller is still wired to
 	// RuleGen directly right now.

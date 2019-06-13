@@ -42,7 +42,7 @@ type Identity struct {
 	// 10.0.0.0/7
 	// 10.0.0.0/6
 	// [...]
-	// reserverd:world
+	// reserved:world
 	//
 	// The CIDRLabel field will only contain 10.0.0.0/8
 	CIDRLabel labels.Labels `json:"-"`

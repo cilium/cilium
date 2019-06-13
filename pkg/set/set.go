@@ -19,13 +19,13 @@ package set
 // input slices.
 func SliceSubsetOf(sub, main []string) (bool, []string) {
 	var diff []string
-	occurences := make(map[string]int, len(main))
+	occurrences := make(map[string]int, len(main))
 	result := true
 	for _, element := range main {
-		occurences[element]++
+		occurrences[element]++
 	}
 	for _, element := range sub {
-		if count, ok := occurences[element]; !ok {
+		if count, ok := occurrences[element]; !ok {
 			// Element was not found in the main slice.
 			result = false
 			diff = append(diff, element)
@@ -34,7 +34,7 @@ func SliceSubsetOf(sub, main []string) (bool, []string) {
 			// has more duplicates.
 			result = false
 		} else {
-			occurences[element]--
+			occurrences[element]--
 		}
 	}
 	return result, diff

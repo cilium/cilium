@@ -110,7 +110,7 @@ func openMonitorSock() (conn net.Conn, version listener.Version, err error) {
 }
 
 // consumeMonitorEvents handles and prints events on a monitor connection. It
-// calls getMonitorParsed to construct a monitor-version appropraite parser.
+// calls getMonitorParsed to construct a monitor-version appropriate parser.
 // It closes conn on return, and returns on error, including io.EOF
 func consumeMonitorEvents(conn net.Conn, version listener.Version) error {
 	defer conn.Close()

@@ -222,7 +222,7 @@ func getMapName(mapname string, ipv4 bool, proto u8proto.U8proto) string {
 
 // Lookup opens a conntrack map if necessary, and does a lookup on it with a key constructed from
 // the parameters
-// 'epname' is a 5-digit represenation of the endpoint ID if local maps
+// 'epname' is a 5-digit representation of the endpoint ID if local maps
 // are to be used, or "global" if global maps should be used.
 func Lookup(epname string, remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (*CtEntry, error) {
 	isGlobal := epname == "global"

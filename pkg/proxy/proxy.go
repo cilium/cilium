@@ -74,7 +74,7 @@ type ProxyPort struct {
 	// is removed.
 	configured bool
 	// rulesPort congains the proxy port value configured to the datapath rules and
-	// is non-zero when a proxy has been succesfully created and the
+	// is non-zero when a proxy has been successfully created and the
 	// datapath rules have been created.
 	rulesPort uint16
 }

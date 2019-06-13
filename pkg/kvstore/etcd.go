@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	// EtcdBackendName is the backend name fo etcd
+	// EtcdBackendName is the backend name for etcd
 	EtcdBackendName = "etcd"
 
 	addrOption       = "etcd.address"

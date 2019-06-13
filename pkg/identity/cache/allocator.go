@@ -210,7 +210,7 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 	}
 
 	// This will block until the kvstore can be accessed and all identities
-	// were succesfully synced
+	// were successfully synced
 	WaitForInitialIdentities(ctx)
 
 	if IdentityAllocator == nil {
@@ -259,7 +259,7 @@ func Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Ide
 	}
 
 	// This will block until the kvstore can be accessed and all identities
-	// were succesfully synced
+	// were successfully synced
 	WaitForInitialIdentities(ctx)
 
 	if IdentityAllocator == nil {

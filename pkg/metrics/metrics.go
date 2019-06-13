@@ -209,7 +209,7 @@ var (
 
 	// PolicyImplementationDelay is a distribution of times taken from adding a
 	// policy (and incrementing the policy revision) to seeing it in the datapath
-	// per Endpoint. This reflects the actual delay percieved by traffic flowing
+	// per Endpoint. This reflects the actual delay perceived by traffic flowing
 	// through the datapath. The longest times will roughly correlate with the
 	// time taken to fully deploy an endpoint.
 	PolicyImplementationDelay = NoOpObserverVec

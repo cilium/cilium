@@ -765,7 +765,7 @@ func (s *CassandraSuite) TestCassandraUseQuery(c *C) {
 	conn := s.ins.CheckNewConnectionOK(c, "cassandra", true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "cp1")
 
 	// note: the second insert command intentionally does not include a keyspace, so that it will only
-	// be allowed if we properly propogate the keyspace from the previous use command
+	// be allowed if we properly propagate the keyspace from the previous use command
 	queries := []string{"USE db5", "INSERT INTO t1 (f1, f2, f3) values ('dan', now(), 'Cilium!')"}
 
 	queryMsgBase := []byte{

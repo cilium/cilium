@@ -50,7 +50,7 @@ type endpointManager interface {
 	removeMapPath(path string)
 }
 
-// realEPManager provides an implementatino of endpointManager that is backed
+// realEPManager provides an implementation of endpointManager that is backed
 // by the endpointmanager and policymap packages, and when removeMapPath is
 // invoked, it cleans up paths on the actual filesystem.
 type realEPManager struct{}

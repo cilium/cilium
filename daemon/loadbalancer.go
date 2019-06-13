@@ -857,13 +857,13 @@ func restoreServices() {
 
 	svcMapV2, _, errors := lbmap.DumpServiceMapsToUserspaceV2()
 	for _, err := range errors {
-		log.WithError(err).Warning("Error occured while dumping service v2 table from datapath")
+		log.WithError(err).Warning("Error occurred while dumping service v2 table from datapath")
 	}
 	svcMap := svcMapV2
 	if option.Config.EnableLegacyServices {
 		svcMap, _, errors = lbmap.DumpServiceMapsToUserspace()
 		for _, err := range errors {
-			log.WithError(err).Warning("Error occured while dumping service table from datapath")
+			log.WithError(err).Warning("Error occurred while dumping service table from datapath")
 		}
 	}
 

@@ -286,7 +286,7 @@ func (d *Daemon) startStatusCollector() {
 				if failures > 0 {
 					// While failing, we want an initial
 					// quick retry with exponential backoff
-					// to avoid continous load on the
+					// to avoid continuous load on the
 					// apiserver
 					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, false, failures)
 				}
@@ -296,7 +296,7 @@ func (d *Daemon) startStatusCollector() {
 				// automatically translate to an apiserver
 				// interaction as any regular apiserver
 				// interaction is also used as an indication of
-				// successfull connectivity so we can continue
+				// successful connectivity so we can continue
 				// to be fairly aggressive.
 				//
 				// 1     |    7s
