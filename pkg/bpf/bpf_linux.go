@@ -252,9 +252,9 @@ type bpfAttrObjOp struct {
 
 // ObjPin stores the map's fd in pathname.
 func ObjPin(fd int, pathname string) error {
-	pathStr := []byte(pathname)
+	pathStr := syscall.StringBytePtr(pathname)
 	uba := bpfAttrObjOp{
-		pathname: uint64(uintptr(unsafe.Pointer(&pathStr[0]))),
+		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 		fd:       uint32(fd),
 	}
 
@@ -281,9 +281,9 @@ func ObjPin(fd int, pathname string) error {
 
 // ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
-	pathStr := []byte(pathname)
+	pathStr := syscall.StringBytePtr(pathname)
 	uba := bpfAttrObjOp{
-		pathname: uint64(uintptr(unsafe.Pointer(&pathStr[0]))),
+		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
 	}
 
 	var duration *spanstat.SpanStat
