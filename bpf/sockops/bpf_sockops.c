@@ -34,14 +34,6 @@
 #include "../lib/events.h"
 #include "../lib/policy.h"
 
-#ifndef AF_INET
-#define AF_INET 2
-#endif
-
-#ifndef AF_INET6
-#define AF_INET6 10
-#endif
-
 #include "bpf_sockops.h"
 
 static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)

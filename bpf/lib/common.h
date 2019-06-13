@@ -32,6 +32,14 @@
 // #endif
 #define NEEDS_TIMEOUT 1
 
+#ifndef AF_INET
+#define AF_INET 2
+#endif
+
+#ifndef AF_INET6
+#define AF_INET6 10
+#endif
+
 #ifndef EVENT_SOURCE
 #define EVENT_SOURCE 0
 #endif

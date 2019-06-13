@@ -404,6 +404,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 			__u32 seclabel, tunnel_endpoint = 0;
 #ifdef IP_POOLS
 			__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
+			struct bpf_fib_lookup fib_params = {};
 			void *data, *data_end;
 			struct iphdr *iphdr;
 			__be32 sum;
@@ -443,6 +444,30 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 			if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
 			    0, sum, 0) < 0)
 				return DROP_CSUM_L3;
+
+#ifdef HAVE_FIB_LOOKUP
+			{
+			int err;
+
+			if (!revalidate_data(skb, &data, &data_end, &iphdr))
+				return DROP_INVALID;
+
+			fib_params.family = AF_INET;
+			fib_params.ifindex = ENCRYPT_IFACE;
+
+			fib_params.ipv4_src = iphdr->saddr;
+			fib_params.ipv4_dst = iphdr->daddr;
+
+			err = fib_lookup(skb, &fib_params, sizeof(fib_params),
+					    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+			if (err != 0)
+				return DROP_INVALID;
+			if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			}
+#endif
 #endif
 			bpf_clear_cb(skb);
 #ifdef ENCRYPT_NODE
