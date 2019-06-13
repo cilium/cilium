@@ -257,6 +257,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb)
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
 	__u32 monitor = 0;
+	__u16 service_port;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -274,6 +275,10 @@ static inline int nodeport_lb4(struct __sk_buff *skb)
 		else
 			return ret;
 	}
+
+	service_port = bpf_ntohs(key.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		return TC_ACT_OK;
 
 	ct_state_new.orig_dport = key.dport;
 
@@ -302,7 +307,6 @@ static inline int nodeport_lb4(struct __sk_buff *skb)
 		break;
 
 	case CT_ESTABLISHED:
-	case CT_RELATED:
 	case CT_REPLY:
 		break;
 
