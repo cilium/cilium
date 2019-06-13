@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,8 +67,11 @@ type Manager struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[node.Identity]*nodeEntry
 
-	// datapath is the interface responsible for this node manager
-	datapath datapath.NodeHandler
+	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
+	nodeHandlersMu lock.RWMutex
+	// nodeHandlers has a slice containing all node handlers subscribed to node
+	// events.
+	nodeHandlers map[datapath.NodeHandler]struct{}
 
 	// closeChan is closed when the manager is closed
 	closeChan chan struct{}
@@ -90,14 +93,45 @@ type Manager struct {
 	metricDatapathValidations prometheus.Counter
 }
 
-// NewManager returns a new node manager
-func NewManager(name string, datapath datapath.NodeHandler) (*Manager, error) {
-	m := &Manager{
-		name:      name,
-		nodes:     map[node.Identity]*nodeEntry{},
-		datapath:  datapath,
-		closeChan: make(chan struct{}),
+// Subscribe subscribes the given node handler to node events.
+func (m *Manager) Subscribe(nh datapath.NodeHandler) {
+	m.nodeHandlersMu.Lock()
+	m.nodeHandlers[nh] = struct{}{}
+	m.nodeHandlersMu.Unlock()
+	// Add all nodes already received by the manager.
+	for _, v := range m.nodes {
+		v.mutex.Lock()
+		nh.NodeAdd(v.node)
+		v.mutex.Unlock()
 	}
+}
+
+// Unsubscribe unsubscribes the given node handler with node events.
+func (m *Manager) Unsubscribe(nh datapath.NodeHandler) {
+	m.nodeHandlersMu.Lock()
+	delete(m.nodeHandlers, nh)
+	m.nodeHandlersMu.Unlock()
+}
+
+// Iter executes the given function in all subscribed node handlers.
+func (m *Manager) Iter(f func(nh datapath.NodeHandler)) {
+	m.nodeHandlersMu.RLock()
+	defer m.nodeHandlersMu.RUnlock()
+
+	for nh := range m.nodeHandlers {
+		f(nh)
+	}
+}
+
+// NewManager returns a new node manager
+func NewManager(name string, dp datapath.NodeHandler) (*Manager, error) {
+	m := &Manager{
+		name:         name,
+		nodes:        map[node.Identity]*nodeEntry{},
+		nodeHandlers: map[datapath.NodeHandler]struct{}{},
+		closeChan:    make(chan struct{}),
+	}
+	m.Subscribe(dp)
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
@@ -144,7 +178,9 @@ func (m *Manager) Close() {
 	// delete all nodes to clean up the datapath for each node
 	for _, n := range m.nodes {
 		n.mutex.Lock()
-		m.datapath.NodeDelete(n.node)
+		m.Iter(func(nh datapath.NodeHandler) {
+			nh.NodeDelete(n.node)
+		})
 		n.mutex.Unlock()
 	}
 }
@@ -213,7 +249,9 @@ func (m *Manager) backgroundSync() {
 
 			entry.mutex.Lock()
 			m.mutex.RUnlock()
-			m.datapath.NodeValidateImplementation(entry.node)
+			m.Iter(func(nh datapath.NodeHandler) {
+				nh.NodeValidateImplementation(entry.node)
+			})
 			entry.mutex.Unlock()
 
 			m.metricDatapathValidations.Inc()
@@ -286,7 +324,9 @@ func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 		oldNode := entry.node
 		entry.node = n
 		if dpUpdate {
-			m.datapath.NodeUpdate(oldNode, entry.node)
+			m.Iter(func(nh datapath.NodeHandler) {
+				nh.NodeUpdate(oldNode, entry.node)
+			})
 		}
 		entry.mutex.Unlock()
 	} else {
@@ -298,7 +338,9 @@ func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 		m.nodes[nodeIdentity] = entry
 		m.mutex.Unlock()
 		if dpUpdate {
-			m.datapath.NodeAdd(entry.node)
+			m.Iter(func(nh datapath.NodeHandler) {
+				nh.NodeAdd(entry.node)
+			})
 		}
 		entry.mutex.Unlock()
 	}
@@ -342,7 +384,9 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentity)
 	m.mutex.Unlock()
-	m.datapath.NodeDelete(n)
+	m.Iter(func(nh datapath.NodeHandler) {
+		nh.NodeDelete(n)
+	})
 	entry.mutex.Unlock()
 }
 
@@ -388,7 +432,9 @@ func (m *Manager) DeleteAllNodes() {
 	m.mutex.Lock()
 	for _, entry := range m.nodes {
 		entry.mutex.Lock()
-		m.datapath.NodeDelete(entry.node)
+		m.Iter(func(nh datapath.NodeHandler) {
+			nh.NodeDelete(entry.node)
+		})
 		entry.mutex.Unlock()
 	}
 	m.nodes = map[node.Identity]*nodeEntry{}
