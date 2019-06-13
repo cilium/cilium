@@ -9,7 +9,7 @@ DEPS := $(shell find ../pkg accesslog npds test . \( -name '*.go' ! -name '*_tes
 $(TARGET): $(DEPS)
 	@$(ECHO_GO)
 	$(QUIET)$(GO) build $(PROXYLIB_GOBUILD) -o $@.$(VERSION_MAJOR) -buildmode=c-shared
-	$(QUIET)ln -sf $@.$(VERSION_MAJOR) $@
+	$(QUIET)ln -sf $@.$(VERSION_MAJOR) $@ || cp $@.$(VERSION_MAJOR) $@
 
 all: $(TARGET)
 
