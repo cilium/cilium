@@ -122,10 +122,15 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	struct lb4_backend *backend;
 	struct lb4_service_v2 *svc;
 	struct lb4_key_v2 key = {
-		.address	= ctx->user_ip4,
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb4_service_v2 *slave_svc;
+	__u16 service_port;
+
+	/* For node port services, we do a wild-card lookup with IP of 0. */
+	service_port = bpf_ntohs(key.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		key.address = ctx->user_ip4;
 
 	svc = __lb4_lookup_service_v2(&key);
 	if (svc) {
@@ -161,12 +166,17 @@ __section("snd-sock4")
 int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 {
 	struct lb4_key_v2 lkey = {
-		.address	= ctx->user_ip4,
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb4_backend *backend;
 	struct lb4_service_v2 *svc;
 	struct lb4_service_v2 *slave_svc;
+	__u16 service_port;
+
+	/* For node port services, we do a wild-card lookup with IP of 0. */
+	service_port = bpf_ntohs(lkey.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		lkey.address = ctx->user_ip4;
 
 	svc = __lb4_lookup_service_v2(&lkey);
 	if (svc) {
@@ -299,8 +309,12 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service_v2 *slave_svc;
+	__u16 service_port;
 
-	ctx_get_v6_address(ctx, &key.address);
+	/* For node port services, we do a wild-card lookup with IP of 0. */
+	service_port = bpf_ntohs(key.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		ctx_get_v6_address(ctx, &key.address);
 
 	svc = __lb6_lookup_service_v2(&key);
 	if (svc) {
@@ -341,8 +355,12 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service_v2 *slave_svc;
+	__u16 service_port;
 
-	ctx_get_v6_address(ctx, &lkey.address);
+	/* For node port services, we do a wild-card lookup with IP of 0. */
+	service_port = bpf_ntohs(lkey.dport);
+	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+		ctx_get_v6_address(ctx, &lkey.address);
 
 	svc = __lb6_lookup_service_v2(&lkey);
 	if (svc) {
