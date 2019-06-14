@@ -65,14 +65,23 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		" *\n"+
 		" * External-IPv4: %s\n"+
 		" * External-IPv6: %s\n"+
+		" *\n"+
+		" * NodePort-SNAT-IPv4: %s\n"+
+		" * NodePort-SNAT-IPv6: %s\n"+
 		" */\n\n",
 		hostIP.String(), routerIP.String(),
 		node.GetInternalIPv4().String(),
 		node.GetExternalIPv4().String(),
-		node.GetIPv6().String())
+		node.GetIPv6().String(),
+		node.GetNodePortIPv4().String(),
+		node.GetNodePortIPv6().String())
 
 	if option.Config.EnableIPv6 {
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
+		if option.Config.EnableNodePort {
+			ipv6NP := node.GetNodePortIPv6()
+			fw.WriteString(defineIPv6("IPV6_NODEPORT", ipv6NP))
+		}
 	}
 
 	if option.Config.EnableIPv4 {
@@ -82,6 +91,10 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
 		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
+		if option.Config.EnableNodePort {
+			ipv4NP := node.GetNodePortIPv4()
+			fmt.Fprintf(fw, "#define IPV4_NODEPORT %#x\n", byteorder.HostSliceToNetwork(ipv4NP, reflect.Uint32).(uint32))
+		}
 	}
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
@@ -169,23 +182,30 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	if option.Config.IsPodSubnetsDefined() {
 		fmt.Fprintf(fw, "#define IP_POOLS 1\n")
 	}
-	if !option.Config.InstallIptRules && option.Config.Masquerade {
-		fmt.Fprintf(fw, "#define ENABLE_MASQUERADE 1\n")
-		fmt.Fprintf(fw, "#define SNAT_MAPPING_MIN_PORT %d\n", nat.MinPortSnatDefault)
-		fmt.Fprintf(fw, "#define SNAT_MAPPING_MAX_PORT %d\n", nat.MaxPortSnatDefault)
+	haveMasquerade := !option.Config.InstallIptRules && option.Config.Masquerade
+	if haveMasquerade || option.Config.EnableNodePort {
 		fmt.Fprintf(fw, "#define SNAT_COLLISION_RETRIES %d\n", nat.CollisionRetriesDefault)
 		fmt.Fprintf(fw, "#define SNAT_DETERMINISTIC_RETRIES %d\n", nat.DeterministicRetriesDefault)
-		// SNAT_DIRECTION is defined by init.sh
 		if option.Config.EnableIPv4 {
-			ipv4Addr := node.GetExternalIPv4()
-			fmt.Fprintf(fw, "#define SNAT_IPV4_EXTERNAL %#x\n", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
 			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV4 %s\n", nat.MapNameSnat4Global)
 			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV4_SIZE %d\n", nat.MaxEntries)
 		}
 		if option.Config.EnableIPv6 {
-			fw.WriteString(defineIPv6("SNAT_IPV6_EXTERNAL", hostIP))
 			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6 %s\n", nat.MapNameSnat6Global)
 			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6_SIZE %d\n", nat.MaxEntries)
+		}
+	}
+	if haveMasquerade {
+		fmt.Fprintf(fw, "#define ENABLE_MASQUERADE 1\n")
+		fmt.Fprintf(fw, "#define SNAT_MAPPING_MIN_PORT %d\n", nat.MinPortSnatDefault)
+		fmt.Fprintf(fw, "#define SNAT_MAPPING_MAX_PORT %d\n", nat.MaxPortSnatDefault)
+		// SNAT_DIRECTION is defined by init.sh
+		if option.Config.EnableIPv4 {
+			ipv4Addr := node.GetExternalIPv4()
+			fmt.Fprintf(fw, "#define SNAT_IPV4_EXTERNAL %#x\n", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
+		}
+		if option.Config.EnableIPv6 {
+			fw.WriteString(defineIPv6("SNAT_IPV6_EXTERNAL", hostIP))
 		}
 	}
 
