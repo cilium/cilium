@@ -370,6 +370,28 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 				{"unspec:foo", uint64(fooIdentity.ID), 80, 6},
 			},
 		},
+		{
+			name: "World shadows CIDR ingress",
+			args: []args{
+				{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress},
+				{uint32(identity.LocalIdentityFlag), 0, 0, trafficdirection.Ingress},
+			},
+			ingressResult: []apiResult{
+				{"reserved:world", uint64(identity.ReservedIdentityWorld), 0, 0},
+			},
+			egressResult: nil,
+		},
+		{
+			name: "World shadows CIDR egress",
+			args: []args{
+				{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Egress},
+				{uint32(identity.LocalIdentityFlag), 0, 0, trafficdirection.Egress},
+			},
+			ingressResult: nil,
+			egressResult: []apiResult{
+				{"reserved:world", uint64(identity.ReservedIdentityWorld), 0, 0},
+			},
+		},
 	}
 
 	for _, tt := range tests {
