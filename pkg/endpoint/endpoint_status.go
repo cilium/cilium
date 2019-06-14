@@ -25,6 +25,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 func getEndpointStatusControllers(status *models.EndpointStatus) (controllers cilium_v2.ControllerList) {
@@ -189,6 +190,25 @@ func populateResponseWithPolicyKey(policy *cilium_v2.EndpointPolicy, policyKey *
 	}
 }
 
+// desiredPolicyAllowsAll returns whether allow-all policies are in place for
+// ingress and egress in the specified policy.
+//
+// Returing true for either return value indicates all traffic is allowed.
+func desiredPolicyAllowsAll(desired *policy.EndpointPolicy) (ingress, egress bool) {
+	key := policy.Key{}
+
+	key.TrafficDirection = trafficdirection.Ingress.Uint8()
+	if _, ok := desired.PolicyMapState[key]; ok || !desired.IngressPolicyEnabled {
+		ingress = true
+	}
+	key.TrafficDirection = trafficdirection.Egress.Uint8()
+	if _, ok := desired.PolicyMapState[key]; ok || !desired.EgressPolicyEnabled {
+		egress = true
+	}
+
+	return ingress, egress
+}
+
 // getEndpointPolicy returns an API representation of the policy that the
 // received Endpoint intends to apply.
 func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
@@ -202,16 +222,29 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 			},
 		}
 
-		for policyKey := range e.desiredPolicy.PolicyMapState {
-			// Skip listing identities if enforcement is disabled in direction
-			switch {
-			case policyKey.IsIngress() && !e.desiredPolicy.IngressPolicyEnabled:
-				continue
-			case policyKey.IsEgress() && !e.desiredPolicy.EgressPolicyEnabled:
-				continue
-			}
+		// Handle allow-all cases
+		allowsAllIngress, allowsAllEgress := desiredPolicyAllowsAll(e.desiredPolicy)
+		if allowsAllIngress {
+			policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{{}}
+		}
+		if allowsAllEgress {
+			policy.Egress.Allowed = cilium_v2.AllowedIdentityList{{}}
+		}
 
-			populateResponseWithPolicyKey(policy, &policyKey)
+		// If either ingress or egress policy is enabled, go through
+		// the desired policy to populate the values.
+		if !allowsAllIngress || !allowsAllEgress {
+			for policyKey := range e.desiredPolicy.PolicyMapState {
+				// Skip listing identities if enforcement is disabled in direction
+				switch {
+				case policyKey.IsIngress() && allowsAllIngress:
+					continue
+				case policyKey.IsEgress() && allowsAllEgress:
+					continue
+				}
+
+				populateResponseWithPolicyKey(policy, &policyKey)
+			}
 		}
 
 		if policy.Ingress.Allowed != nil {
