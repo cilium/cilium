@@ -282,6 +282,42 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 		ingressResult []apiResult
 	}{
 		{
+			name: "Deny all",
+		},
+		{
+			name: "Allow world ingress",
+			args: []args{
+				{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress},
+			},
+			ingressResult: []apiResult{
+				{"reserved:world", uint64(identity.ReservedIdentityWorld), 0, 0},
+			},
+			egressResult: nil,
+		},
+		{
+			name: "Allow world egress",
+			args: []args{
+				{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Egress},
+			},
+			ingressResult: nil,
+			egressResult: []apiResult{
+				{"reserved:world", uint64(identity.ReservedIdentityWorld), 0, 0},
+			},
+		},
+		{
+			name: "Allow world both directions",
+			args: []args{
+				{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress},
+				{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Egress},
+			},
+			ingressResult: []apiResult{
+				{"reserved:world", uint64(identity.ReservedIdentityWorld), 0, 0},
+			},
+			egressResult: []apiResult{
+				{"reserved:world", uint64(identity.ReservedIdentityWorld), 0, 0},
+			},
+		},
+		{
 			name: "Ingress mix of L3, L4, L3-dependent L4",
 			args: []args{
 				{uint32(fooIdentity.ID), 0, 0, trafficdirection.Ingress},  // L3-only map state
@@ -294,6 +330,20 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 				{"unspec:foo", uint64(fooIdentity.ID), 80, 6},
 			},
 			egressResult: nil,
+		},
+		{
+			name: "Egress mix of L3, L4, L3-dependent L4",
+			args: []args{
+				{uint32(fooIdentity.ID), 0, 0, trafficdirection.Egress},  // L3-only map state
+				{0, 80, 6, trafficdirection.Egress},                      // L4-only map state
+				{uint32(fooIdentity.ID), 80, 6, trafficdirection.Egress}, // L3-dependent L4 map state
+			},
+			ingressResult: nil,
+			egressResult: []apiResult{
+				{"unspec:foo", uint64(fooIdentity.ID), 0, 0},
+				{"", 0, 80, 6},
+				{"unspec:foo", uint64(fooIdentity.ID), 80, 6},
+			},
 		},
 	}
 
