@@ -190,12 +190,15 @@ func populateResponseWithPolicyKey(policy *cilium_v2.EndpointPolicy, policyKey *
 	}
 }
 
-// desiredPolicyAllowsAll returns whether allow-all policies are in place for
-// ingress and egress in the specified policy.
+// desiredPolicyAllowsIdentity returns whether the specified policy allows
+// ingress and egress traffic for the specified numeric security identity.
+// If the 'secID' is zero, it will check if all traffic is allowed.
 //
 // Returing true for either return value indicates all traffic is allowed.
-func desiredPolicyAllowsAll(desired *policy.EndpointPolicy) (ingress, egress bool) {
-	key := policy.Key{}
+func desiredPolicyAllowsIdentity(desired *policy.EndpointPolicy, identity identity.NumericIdentity) (ingress, egress bool) {
+	key := policy.Key{
+		Identity: uint32(identity),
+	}
 
 	key.TrafficDirection = trafficdirection.Ingress.Uint8()
 	if _, ok := desired.PolicyMapState[key]; ok || !desired.IngressPolicyEnabled {
@@ -223,7 +226,7 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 		}
 
 		// Handle allow-all cases
-		allowsAllIngress, allowsAllEgress := desiredPolicyAllowsAll(e.desiredPolicy)
+		allowsAllIngress, allowsAllEgress := desiredPolicyAllowsIdentity(e.desiredPolicy, identity.IdentityUnknown)
 		if allowsAllIngress {
 			policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{{}}
 		}
@@ -234,13 +237,21 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 		// If either ingress or egress policy is enabled, go through
 		// the desired policy to populate the values.
 		if !allowsAllIngress || !allowsAllEgress {
+			allowsWorldIngress, allowsWorldEgress := desiredPolicyAllowsIdentity(e.desiredPolicy, identity.ReservedIdentityWorld)
+
 			for policyKey := range e.desiredPolicy.PolicyMapState {
-				// Skip listing identities if enforcement is disabled in direction
+				// Skip listing identities if enforcement is disabled in direction,
+				// or if the identity corresponds to a CIDR identity and the world is allowed.
+				id := identity.NumericIdentity(policyKey.Identity)
 				switch {
-				case policyKey.IsIngress() && allowsAllIngress:
-					continue
-				case policyKey.IsEgress() && allowsAllEgress:
-					continue
+				case policyKey.IsIngress():
+					if allowsAllIngress || (id.HasLocalScope() && allowsWorldIngress) {
+						continue
+					}
+				case policyKey.IsEgress():
+					if allowsAllEgress || (id.HasLocalScope() && allowsWorldEgress) {
+						continue
+					}
 				}
 
 				populateResponseWithPolicyKey(policy, &policyKey)
