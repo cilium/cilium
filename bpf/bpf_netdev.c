@@ -234,6 +234,13 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 }
 #endif /* ENABLE_IPV6 */
 
+static inline void __inline__ tc_index_clear_nodeport(struct __sk_buff *skb)
+{
+#ifdef ENABLE_NODEPORT
+	skb->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
+#endif
+}
+
 #ifdef ENABLE_IPV4
 static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
 {
@@ -244,8 +251,71 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
+#define CB_SRC_IDENTITY 0
+
 #ifdef ENABLE_NODEPORT
-static inline int nodeport_lb4(struct __sk_buff *skb)
+static inline bool __inline__ tc_index_skip_nodeport(struct __sk_buff *skb)
+{
+	volatile __u32 tc_index = skb->tc_index;
+	tc_index_clear_nodeport(skb);
+	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT) int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
+{
+	struct bpf_fib_lookup fib_params = {};
+	struct ipv4_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.addr = IPV4_NODEPORT,
+		.force_range = true,
+	};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	int ret, dir = skb->cb[CB_NAT];
+
+	ret = snat_v4_process(skb, dir, &target);
+	if (IS_ERR(ret)) {
+		/* In case of no mapping, recircle back to main path. SNAT is very
+		 * expensive in terms of instructions (since we don't have BPF to
+		 * BPF calls as we use tail calls) and complexity, hence this is
+		 * done inside a tail call here.
+		 */
+		if (dir == NAT_DIR_INGRESS) {
+			skb->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
+			ret = DROP_MISSED_TAIL_CALL;
+		}
+		return ret;
+	}
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	fib_params.family = AF_INET;
+	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+
+	fib_params.ipv4_src = ip4->saddr;
+	fib_params.ipv4_dst = ip4->daddr;
+
+	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
+			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (ret != 0)
+		return DROP_NO_FIB;
+
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	return redirect(fib_params.ifindex, 0);
+}
+
+/* Main node-port entry point for host-external ingressing node-port traffic
+ * which handles the case of: i) backend is local EP, ii) backend is remote EP,
+ * iii) reply from remote backend EP.
+ */
+static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -277,8 +347,17 @@ static inline int nodeport_lb4(struct __sk_buff *skb)
 	}
 
 	service_port = bpf_ntohs(key.dport);
-	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
+	if (service_port < NODEPORT_PORT_MIN ||
+	    service_port > NODEPORT_PORT_MAX) {
+		if (service_port >= NODEPORT_PORT_MIN_NAT &&
+		    service_port <= NODEPORT_PORT_MAX_NAT) {
+			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+			skb->cb[CB_SRC_IDENTITY] = src_identity;
+			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+			return DROP_MISSED_TAIL_CALL;
+		}
 		return TC_ACT_OK;
+	}
 
 	ct_state_new.orig_dport = key.dport;
 
@@ -314,10 +393,23 @@ static inline int nodeport_lb4(struct __sk_buff *skb)
 		return DROP_UNKNOWN_CT;
 	}
 
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	if (!lookup_ip4_endpoint(ip4)) {
+		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
+		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
+	}
+
 	return TC_ACT_OK;
 }
 
-int rev_nodeport_lb4(struct __sk_buff *skb)
+/* Reverse NAT handling of node-port traffic for the case where the backend
+ * was a local EP. Replies from remote EPs would ingress into nodeport_lb4()
+ * instead.
+ */
+static inline int local_rev_nodeport_lb4(struct __sk_buff *skb)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -385,14 +477,19 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	int l4_off;
 	__u32 secctx;
 
-#ifdef ENABLE_NODEPORT
-	if (nodeport_lb4(skb) < 0) {
-		return DROP_INVALID;
-	}
-#endif
-
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+#ifdef ENABLE_NODEPORT
+	if (!tc_index_skip_nodeport(skb) &&
+	    nodeport_lb4(skb, src_identity) < 0) {
+		return DROP_INVALID;
+	}
+
+	/* Verifier workaround: modified ctx access. */
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+#endif
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	secctx = derive_ipv4_sec_ctx(skb, ip4);
@@ -512,8 +609,6 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 #endif
 }
 
-#define CB_SRC_IDENTITY 0
-
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4(struct __sk_buff *skb)
 {
 	__u32 proxy_identity = skb->cb[CB_SRC_IDENTITY];
@@ -617,6 +712,7 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 	}
 #endif
 	bpf_clear_cb(skb);
+	tc_index_clear_nodeport(skb);
 
 #ifdef FROM_HOST
 	if (1) {
@@ -710,7 +806,7 @@ int to_netdev(struct __sk_buff *skb)
 		return TC_ACT_OK;
 
 #ifdef ENABLE_NODEPORT
-	ret = rev_nodeport_lb4(skb);
+	ret = local_rev_nodeport_lb4(skb);
 	if (ret != TC_ACT_OK) {
 		return ret;
 	}

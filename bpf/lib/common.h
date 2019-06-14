@@ -73,7 +73,8 @@
 #define CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY	12
 #define CILIUM_CALL_IPV4_TO_ENDPOINT		13
 #define CILIUM_CALL_IPV6_TO_ENDPOINT		14
-#define CILIUM_CALL_SIZE			15
+#define CILIUM_CALL_IPV4_NODEPORT_NAT		15
+#define CILIUM_CALL_SIZE			16
 
 typedef __u64 mac_t;
 
@@ -397,6 +398,7 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
  *   bpf_host -> bpf_lxc
  */
 #define TC_INDEX_F_SKIP_PROXY		1
+#define TC_INDEX_F_SKIP_NODEPORT	2
 
 /* skb->cb[] usage: */
 enum {
@@ -404,6 +406,7 @@ enum {
 	CB_IFINDEX,
 	CB_POLICY,
 	CB_NAT46_STATE,
+#define CB_NAT		CB_NAT46_STATE	/* Alias, non-overlapping */
 	CB_CT_STATE,
 };
 
@@ -420,6 +423,13 @@ enum {
 #endif
 #ifndef NODEPORT_PORT_MAX
 # define NODEPORT_PORT_MAX	32767
+#endif
+
+#ifndef NODEPORT_PORT_MIN_NAT
+# define NODEPORT_PORT_MIN_NAT	(NODEPORT_PORT_MAX + 1)
+#endif
+#ifndef NODEPORT_PORT_MAX_NAT
+# define NODEPORT_PORT_MAX_NAT	34000
 #endif
 
 #define TUPLE_F_OUT		0	/* Outgoing flow */
