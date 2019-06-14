@@ -24,6 +24,7 @@ import (
 	identitycache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 func getEndpointStatusControllers(status *models.EndpointStatus) (controllers cilium_v2.ControllerList) {
@@ -136,6 +137,60 @@ func getEndpointNetworking(status *models.EndpointStatus) (networking *cilium_v2
 	return
 }
 
+// updateLabels inserts the labels correnspoding to the specified identity into
+// the AllowedIdentityTuple.
+func updateLabels(allowedIdentityTuple *cilium_v2.AllowedIdentityTuple, secID identity.NumericIdentity) {
+	// IdentityUnknown denotes that this is an L4-only BPF
+	// allow, so it applies to all identities. In this case
+	// we should skip resolving the labels, because the
+	// value 0 does not denote an allow for the "unknown"
+	// identity, but instead an allow of all identities for
+	// that port.
+	if secID != identity.IdentityUnknown {
+		identity := identitycache.LookupIdentityByID(secID)
+		if identity != nil {
+			var l labels.Labels
+			if identity.CIDRLabel != nil {
+				l = identity.CIDRLabel
+			} else {
+				l = identity.Labels
+			}
+
+			allowedIdentityTuple.IdentityLabels = l.StringMap()
+		}
+	}
+}
+
+// populateResponseWithPolicyKey inserts an AllowedIdentityTuple element into 'policy'
+// which corresponds to the specified 'desiredPolicy'.
+func populateResponseWithPolicyKey(policy *cilium_v2.EndpointPolicy, policyKey *policy.Key) {
+	allowedIdentityTuple := cilium_v2.AllowedIdentityTuple{
+		DestPort: policyKey.DestPort,
+		Protocol: policyKey.Nexthdr,
+		Identity: uint64(policyKey.Identity),
+	}
+
+	secID := identity.NumericIdentity(policyKey.Identity)
+	updateLabels(&allowedIdentityTuple, secID)
+
+	switch {
+	case policyKey.IsIngress():
+		if policy.Ingress.Allowed == nil {
+			policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
+		} else {
+			policy.Ingress.Allowed = append(policy.Ingress.Allowed, allowedIdentityTuple)
+		}
+	case policyKey.IsEgress():
+		if policy.Egress.Allowed == nil {
+			policy.Egress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
+		} else {
+			policy.Egress.Allowed = append(policy.Egress.Allowed, allowedIdentityTuple)
+		}
+	}
+}
+
+// getEndpointPolicy returns an API representation of the policy that the
+// received Endpoint intends to apply.
 func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 	if e.desiredPolicy != nil {
 		policy = &cilium_v2.EndpointPolicy{
@@ -148,12 +203,6 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 		}
 
 		for policyKey := range e.desiredPolicy.PolicyMapState {
-			allowedIdentityTuple := cilium_v2.AllowedIdentityTuple{
-				DestPort: policyKey.DestPort,
-				Protocol: policyKey.Nexthdr,
-				Identity: uint64(policyKey.Identity),
-			}
-
 			// Skip listing identities if enforcement is disabled in direction
 			switch {
 			case policyKey.IsIngress() && !e.desiredPolicy.IngressPolicyEnabled:
@@ -162,47 +211,12 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 				continue
 			}
 
-			// IdentityUnknown denotes that this is an L4-only BPF
-			// allow, so it applies to all identities. In this case
-			// we should skip resolving the labels, because the
-			// value 0 does not denote an allow for the "unknown"
-			// identity, but instead an allow of all identities for
-			// that port.
-			secID := identity.NumericIdentity(policyKey.Identity)
-			if secID != identity.IdentityUnknown {
-				identity := identitycache.LookupIdentityByID(secID)
-				if identity != nil {
-					var l labels.Labels
-					if identity.CIDRLabel != nil {
-						l = identity.CIDRLabel
-					} else {
-						l = identity.Labels
-					}
-
-					allowedIdentityTuple.IdentityLabels = l.StringMap()
-				}
-			}
-
-			switch {
-			case policyKey.IsIngress():
-				if policy.Ingress.Allowed == nil {
-					policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
-				} else {
-					policy.Ingress.Allowed = append(policy.Ingress.Allowed, allowedIdentityTuple)
-				}
-			case policyKey.IsEgress():
-				if policy.Egress.Allowed == nil {
-					policy.Egress.Allowed = cilium_v2.AllowedIdentityList{allowedIdentityTuple}
-				} else {
-					policy.Egress.Allowed = append(policy.Egress.Allowed, allowedIdentityTuple)
-				}
-			}
+			populateResponseWithPolicyKey(policy, &policyKey)
 		}
 
 		if policy.Ingress.Allowed != nil {
 			policy.Ingress.Allowed.Sort()
 		}
-
 		if policy.Egress.Allowed != nil {
 			policy.Egress.Allowed.Sort()
 		}
