@@ -40,10 +40,6 @@ const (
 	// MonitorTraceNotification represents the TraceNotification configuration
 	// value for the Cilium monitor
 	MonitorTraceNotification = "TraceNotification"
-
-	// MonitorDebug represents the Debug configuration  value for
-	// the Cilium monitor
-	MonitorDebug = "Debug"
 )
 
 var _ = Describe("RuntimeMonitorTest", func() {
@@ -89,8 +85,8 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		})
 
 		monitorConfig := func() {
-			res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true %s=true",
-				MonitorDebug, MonitorDropNotification, MonitorTraceNotification))
+			res := vm.ExecCilium(fmt.Sprintf("config %s=true %s=true",
+				MonitorDropNotification, MonitorTraceNotification))
 			ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(), "cannot update monitor config")
 		}
 
@@ -283,12 +279,10 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		})
 
 		It("checks container ids match monitor output", func() {
-			res := vm.ExecCilium(fmt.Sprintf("config %s=true", MonitorDebug))
-			res.ExpectSuccess()
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res = vm.ExecInBackground(ctx, "cilium monitor -v")
+			res := vm.ExecInBackground(ctx, "cilium monitor -v")
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.Httpd1, helpers.Ping(helpers.App1))
