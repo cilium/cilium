@@ -256,8 +256,8 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	})
 	// Policy not enabled; allow all.
 	apiPolicy := e.getEndpointPolicy()
-	c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, cilium_v2.AllowedIdentityList(nil))
-	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, cilium_v2.AllowedIdentityList(nil))
+	c.Assert(apiPolicy.Ingress.Allowed, checker.DeepEquals, allowAllIdentityList)
+	c.Assert(apiPolicy.Egress.Allowed, checker.DeepEquals, allowAllIdentityList)
 
 	fooLbls := labels.Labels{"": labels.ParseLabel("foo")}
 	fooIdentity, _, err := cache.AllocateIdentity(context.Background(), nil, fooLbls)
@@ -283,6 +283,31 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	}{
 		{
 			name: "Deny all",
+		},
+		{
+			name: "Allow all ingress",
+			args: []args{
+				{0, 0, 0, trafficdirection.Ingress},
+			},
+			ingressResult: []apiResult{{}},
+			egressResult:  nil,
+		},
+		{
+			name: "Allow all egress",
+			args: []args{
+				{0, 0, 0, trafficdirection.Egress},
+			},
+			ingressResult: nil,
+			egressResult:  []apiResult{{}},
+		},
+		{
+			name: "Allow all both directions",
+			args: []args{
+				{0, 0, 0, trafficdirection.Ingress},
+				{0, 0, 0, trafficdirection.Egress},
+			},
+			ingressResult: []apiResult{{}},
+			egressResult:  []apiResult{{}},
 		},
 		{
 			name: "Allow world ingress",
