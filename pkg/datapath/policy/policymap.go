@@ -118,7 +118,7 @@ func (p *PolicyMapImplementer) SyncDelta(realized policy.MapState, desired polic
 
 			err := p.DeleteKey(keyToDelete)
 			if err != nil {
-				log.WithError(err).WithField("map", p.policymap.String()).Error("Failed to delete PolicyMap key %s", policyKeyToPolicyMapKey.String())
+				log.WithError(err).WithField("map", p.policymap.String()).Errorf("Failed to delete PolicyMap key %s", policyKeyToPolicyMapKey.String())
 				errors = append(errors, err)
 			} else {
 				// Operation was successful, remove from realized state.

@@ -420,6 +420,7 @@ func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *End
 		desiredPolicy: policy.NewEndpointPolicy(repo),
 	}
 	ep.realizedPolicy = ep.desiredPolicy
+	ep.DatapathPolicyImpl = &dummyDatapathPolicyImpl{id: ID}
 
 	ep.SetDefaultOpts(option.Config.Opts)
 	ep.UpdateLogger(nil)
@@ -427,6 +428,62 @@ func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *End
 	ep.EventQueue.Run()
 
 	return ep
+}
+
+type dummyDatapathPolicyImpl struct {
+	id uint16
+}
+
+func (d *dummyDatapathPolicyImpl) DeleteKey(policy.Key) error {
+	return nil
+}
+
+func (d *dummyDatapathPolicyImpl) AllowKey(policy.Key, policy.MapStateEntry) error {
+	return nil
+}
+
+func (d *dummyDatapathPolicyImpl) SyncDelta(realized policy.MapState, desired policy.MapState) error {
+	return nil
+}
+
+func (d *dummyDatapathPolicyImpl) SyncFull(realized policy.MapState, desired policy.MapState) error {
+	return nil
+}
+
+func (d *dummyDatapathPolicyImpl) Close() error {
+	return nil
+}
+
+func (d *dummyDatapathPolicyImpl) DeleteAll() error {
+	return nil
+}
+
+func (d *dummyDatapathPolicyImpl) OpenOrCreate(id uint16) (bool, error) {
+	return true, nil
+}
+
+func (d *dummyDatapathPolicyImpl) String() string {
+	return fmt.Sprintf("%d", d.id)
+}
+
+func (d *dummyDatapathPolicyImpl) Path() string {
+	return fmt.Sprintf("/tmp/%d", d.id)
+}
+
+func (d *dummyDatapathPolicyImpl) GetFd() int {
+	return int(d.id)
+}
+
+func (d *dummyDatapathPolicyImpl) IsInit() bool {
+	return false
+}
+
+func (d *dummyDatapathPolicyImpl) AddID(id uint16) {
+	return
+}
+
+func (d *dummyDatapathPolicyImpl) RemoveGlobalMapping(id uint32) error {
+	panic("implement me")
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
