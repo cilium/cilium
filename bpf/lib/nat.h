@@ -104,7 +104,13 @@ struct ipv4_nat_entry {
 	};
 };
 
-#if defined ENABLE_IPV4 && defined ENABLE_MASQUERADE
+struct ipv4_nat_target {
+	const __be32 addr;
+	const __u16 min_port; /* host endianess */
+	const __u16 max_port; /* host endianess */
+};
+
+#ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv4_ct_tuple),
@@ -188,7 +194,8 @@ static __always_inline void snat_v4_delete_tuples(struct ipv4_ct_tuple *otuple)
 
 static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 					       struct ipv4_ct_tuple *otuple,
-					       struct ipv4_nat_entry *ostate)
+					       struct ipv4_nat_entry *ostate,
+					       const struct ipv4_nat_target *target)
 {
 	struct ipv4_nat_entry rstate;
 	struct ipv4_ct_tuple rtuple;
@@ -201,13 +208,13 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 	rstate.to_daddr = otuple->saddr;
 	rstate.to_dport = otuple->sport;
 
-	ostate->to_saddr = SNAT_IPV4_EXTERNAL;
+	ostate->to_saddr = target->addr;
 	ostate->to_sport = otuple->sport;
 
 	snat_v4_swap_tuple(otuple, &rtuple);
-	rtuple.daddr = SNAT_IPV4_EXTERNAL;
+	rtuple.daddr = target->addr;
 
-	if (otuple->saddr == SNAT_IPV4_EXTERNAL) {
+	if (otuple->saddr == target->addr) {
 		ostate->common.host_local = 1;
 		rstate.common.host_local = ostate->common.host_local;
 	}
@@ -227,8 +234,8 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 			port = __snat_hash(rtuple.dport);
 		else
 			port = get_prandom_u32();
-		port = __snat_clamp_port_range(SNAT_MAPPING_MIN_PORT,
-					       SNAT_MAPPING_MAX_PORT, port);
+		port = __snat_clamp_port_range(target->min_port,
+					       target->max_port, port);
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
@@ -238,7 +245,8 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 static __always_inline int snat_v4_track_local(struct __sk_buff *skb,
 					       struct ipv4_ct_tuple *tuple,
 					       struct ipv4_nat_entry *state,
-					       int dir, __u32 off)
+					       int dir, __u32 off,
+					       const struct ipv4_nat_target *target)
 {
 	struct ct_state ct_state;
 	struct ipv4_ct_tuple tmp;
@@ -249,7 +257,7 @@ static __always_inline int snat_v4_track_local(struct __sk_buff *skb,
 	if (state && state->common.host_local) {
 		needs_ct = true;
 	} else if (!state && dir == NAT_DIR_EGRESS) {
-		if (tuple->saddr == SNAT_IPV4_EXTERNAL)
+		if (tuple->saddr == target->addr)
 			needs_ct = true;
 	}
 	if (!needs_ct)
@@ -278,22 +286,23 @@ static __always_inline int snat_v4_handle_mapping(struct __sk_buff *skb,
 						  struct ipv4_ct_tuple *tuple,
 						  struct ipv4_nat_entry **state,
 						  struct ipv4_nat_entry *tmp,
-						  int dir, __u32 off)
+						  int dir, __u32 off,
+						  const struct ipv4_nat_target *target)
 {
 	int ret;
 
 	*state = snat_v4_lookup(tuple);
-	ret = snat_v4_track_local(skb, tuple, *state, dir, off);
+	ret = snat_v4_track_local(skb, tuple, *state, dir, off, target);
 	if (ret < 0)
 		return ret;
 	else if (*state)
 		return NAT_CONTINUE_XLATE;
 	else if (dir == NAT_DIR_INGRESS)
 		return tuple->nexthdr != IPPROTO_ICMP &&
-		       bpf_ntohs(tuple->dport) < SNAT_MAPPING_MIN_PORT ?
+		       bpf_ntohs(tuple->dport) < target->min_port ?
 		       NAT_PUNT_TO_STACK : DROP_NAT_NO_MAPPING;
 	else
-		return snat_v4_new_mapping(skb, tuple, (*state = tmp));
+		return snat_v4_new_mapping(skb, tuple, (*state = tmp), target);
 }
 
 static __always_inline int snat_v4_rewrite_egress(struct __sk_buff *skb,
@@ -404,7 +413,8 @@ static __always_inline int snat_v4_rewrite_ingress(struct __sk_buff *skb,
 	return 0;
 }
 
-static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir)
+static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
+					   const struct ipv4_nat_target *target)
 {
 	struct ipv4_nat_entry *state, tmp;
 	struct ipv4_ct_tuple tuple = {};
@@ -454,7 +464,7 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir)
 		return DROP_NAT_UNSUPP_PROTO;
 	};
 
-	ret = snat_v4_handle_mapping(skb, &tuple, &state, &tmp, dir, off);
+	ret = snat_v4_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
 		return TC_ACT_OK;
 	if (ret < 0)
@@ -465,7 +475,8 @@ static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir)
 	       snat_v4_rewrite_ingress(skb, &tuple, state, off);
 }
 #else
-static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir)
+static __always_inline int snat_v4_process(struct __sk_buff *skb, int dir,
+					   const struct ipv4_nat_target *target)
 {
 	return TC_ACT_OK;
 }
@@ -489,7 +500,13 @@ struct ipv6_nat_entry {
 	};
 };
 
-#if defined ENABLE_IPV6 && defined ENABLE_MASQUERADE
+struct ipv6_nat_target {
+	union v6addr addr;
+	const __u16 min_port; /* host endianess */
+	const __u16 max_port; /* host endianess */
+};
+
+#ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
 	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv6_ct_tuple),
@@ -574,7 +591,8 @@ static __always_inline void snat_v6_delete_tuples(struct ipv6_ct_tuple *otuple)
 
 static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 					       struct ipv6_ct_tuple *otuple,
-					       struct ipv6_nat_entry *ostate)
+					       struct ipv6_nat_entry *ostate,
+					       const struct ipv6_nat_target *target)
 {
 	struct ipv6_nat_entry rstate;
 	struct ipv6_ct_tuple rtuple;
@@ -587,11 +605,11 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 	rstate.to_daddr = otuple->saddr;
 	rstate.to_dport = otuple->sport;
 
-	BPF_V6(ostate->to_saddr, SNAT_IPV6_EXTERNAL);
+	ostate->to_saddr = target->addr;
 	ostate->to_sport = otuple->sport;
 
 	snat_v6_swap_tuple(otuple, &rtuple);
-	BPF_V6(rtuple.daddr, SNAT_IPV6_EXTERNAL);
+	rtuple.daddr = target->addr;
 
 	if (!ipv6_addrcmp(&otuple->saddr, &rtuple.daddr)) {
 		ostate->common.host_local = 1;
@@ -613,8 +631,8 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 			port = __snat_hash(rtuple.dport);
 		else
 			port = get_prandom_u32();
-		port = __snat_clamp_port_range(SNAT_MAPPING_MIN_PORT,
-					       SNAT_MAPPING_MAX_PORT, port);
+		port = __snat_clamp_port_range(target->min_port,
+					       target->max_port, port);
 		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
@@ -624,9 +642,9 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 static __always_inline int snat_v6_track_local(struct __sk_buff *skb,
 					       struct ipv6_ct_tuple *tuple,
 					       struct ipv6_nat_entry *state,
-					       int dir, __u32 off)
+					       int dir, __u32 off,
+					       const struct ipv6_nat_target *target)
 {
-	union v6addr addr_external;
 	struct ct_state ct_state;
 	struct ipv6_ct_tuple tmp;
 	bool needs_ct = false;
@@ -636,8 +654,7 @@ static __always_inline int snat_v6_track_local(struct __sk_buff *skb,
 	if (state && state->common.host_local) {
 		needs_ct = true;
 	} else if (!state && dir == NAT_DIR_EGRESS) {
-		BPF_V6(addr_external, SNAT_IPV6_EXTERNAL);
-		if (!ipv6_addrcmp(&tuple->saddr, &addr_external))
+		if (!ipv6_addrcmp(&tuple->saddr, (void *)&target->addr))
 			needs_ct = true;
 	}
 	if (!needs_ct)
@@ -666,22 +683,23 @@ static __always_inline int snat_v6_handle_mapping(struct __sk_buff *skb,
 						  struct ipv6_ct_tuple *tuple,
 						  struct ipv6_nat_entry **state,
 						  struct ipv6_nat_entry *tmp,
-						  int dir, __u32 off)
+						  int dir, __u32 off,
+						  const struct ipv6_nat_target *target)
 {
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
-	ret = snat_v6_track_local(skb, tuple, *state, dir, off);
+	ret = snat_v6_track_local(skb, tuple, *state, dir, off, target);
 	if (ret < 0)
 		return ret;
 	else if (*state)
 		return NAT_CONTINUE_XLATE;
 	else if (dir == NAT_DIR_INGRESS)
 		return tuple->nexthdr != IPPROTO_ICMPV6 &&
-		       bpf_ntohs(tuple->dport) < SNAT_MAPPING_MIN_PORT ?
+		       bpf_ntohs(tuple->dport) < target->min_port ?
 		       NAT_PUNT_TO_STACK : DROP_NAT_NO_MAPPING;
 	else
-		return snat_v6_new_mapping(skb, tuple, (*state = tmp));
+		return snat_v6_new_mapping(skb, tuple, (*state = tmp), target);
 }
 
 static __always_inline int snat_v6_rewrite_egress(struct __sk_buff *skb,
@@ -780,7 +798,8 @@ static __always_inline int snat_v6_rewrite_ingress(struct __sk_buff *skb,
 	return 0;
 }
 
-static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir)
+static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
+					   const struct ipv6_nat_target *target)
 {
 	struct ipv6_nat_entry *state, tmp;
 	struct ipv6_ct_tuple tuple = {};
@@ -839,7 +858,7 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir)
 		return DROP_NAT_UNSUPP_PROTO;
 	};
 
-	ret = snat_v6_handle_mapping(skb, &tuple, &state, &tmp, dir, off);
+	ret = snat_v6_handle_mapping(skb, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
 		return TC_ACT_OK;
 	if (ret < 0)
@@ -850,7 +869,8 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir)
 	       snat_v6_rewrite_ingress(skb, &tuple, state, off);
 }
 #else
-static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir)
+static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
+					   const struct ipv6_nat_target *target)
 {
 	return TC_ACT_OK;
 }
@@ -899,9 +919,28 @@ static __always_inline int snat_process(struct __sk_buff *skb, int dir)
 	int ret = TC_ACT_OK;
 
 #ifdef ENABLE_MASQUERADE
-	ret = skb->protocol == bpf_htons(ETH_P_IP)   ? snat_v4_process(skb, dir) :
-	      skb->protocol == bpf_htons(ETH_P_IPV6) ? snat_v6_process(skb, dir) :
-	      TC_ACT_OK;
+	switch (skb->protocol) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP): {
+		struct ipv4_nat_target target = {
+			.min_port = SNAT_MAPPING_MIN_PORT,
+			.max_port = SNAT_MAPPING_MAX_PORT,
+			.addr  = SNAT_IPV4_EXTERNAL,
+		};
+		ret = snat_v4_process(skb, dir, &target);
+		break; }
+#endif
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6): {
+		struct ipv6_nat_target target = {
+			.min_port = SNAT_MAPPING_MIN_PORT,
+			.max_port = SNAT_MAPPING_MAX_PORT,
+		};
+		BPF_V6(target.addr, SNAT_IPV6_EXTERNAL);
+		ret = snat_v6_process(skb, dir, &target);
+		break; }
+#endif
+	}
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, dir);
 #endif
