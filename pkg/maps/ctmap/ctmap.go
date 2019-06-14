@@ -241,7 +241,7 @@ func NewMap(mapName string, mapType MapType) *Map {
 func purgeCtEntry6(m *Map, key tuple.TupleKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key)
+		//natMap.DeleteMapping(key)
 	}
 	return err
 }
@@ -314,7 +314,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 func purgeCtEntry4(m *Map, key tuple.TupleKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key)
+		//natMap.DeleteMapping(key)
 	}
 	return err
 }
