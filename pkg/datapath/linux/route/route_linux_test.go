@@ -41,22 +41,24 @@ func parseIP(ip string) *net.IP {
 }
 
 func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
+	rt := Route{Table: 400}
+
 	// delete route in case it exists from a previous failed run
-	deleteNexthopRoute(link, routerNet)
+	deleteNexthopRoute(rt, link, routerNet)
 
 	// defer cleanup in case of failure
-	defer deleteNexthopRoute(link, routerNet)
+	defer deleteNexthopRoute(rt, link, routerNet)
 
-	replaced, err := replaceNexthopRoute(link, routerNet)
+	replaced, err := replaceNexthopRoute(rt, link, routerNet)
 	c.Assert(err, IsNil)
 	c.Assert(replaced, Equals, true)
 
 	// We expect routes to always be replaced
-	replaced, err = replaceNexthopRoute(link, routerNet)
+	replaced, err = replaceNexthopRoute(rt, link, routerNet)
 	c.Assert(err, IsNil)
 	c.Assert(replaced, Equals, true)
 
-	err = deleteNexthopRoute(link, routerNet)
+	err = deleteNexthopRoute(rt, link, routerNet)
 	c.Assert(err, IsNil)
 }
 
