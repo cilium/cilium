@@ -21,7 +21,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/vishvananda/netlink"
@@ -172,12 +171,13 @@ func lookup(route *netlink.Route) *netlink.Route {
 	return nil
 }
 
-func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route {
+func createNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) *netlink.Route {
 	// This is the L2 route which makes router IP available behind the
 	// interface.
 	rt := &netlink.Route{
 		LinkIndex: link.Attrs().Index,
 		Dst:       routerNet,
+		Table:     route.Table,
 	}
 
 	// Known issue: scope for IPv6 routes is not propagated correctly. If
@@ -193,9 +193,9 @@ func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route 
 // replaceNexthopRoute verifies that the L2 route for the router IP which is
 // used as nexthop for all node routes is properly installed. If unavailable or
 // incorrect, it will be replaced with the proper L2 route.
-func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) (bool, error) {
-	route := createNexthopRoute(link, routerNet)
-	if err := netlink.RouteReplace(route); err != nil {
+func replaceNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) (bool, error) {
+	rt := createNexthopRoute(route, link, routerNet)
+	if err := netlink.RouteReplace(rt); err != nil {
 		return false, fmt.Errorf("unable to add L2 nexthop route: %s", err)
 	}
 
@@ -203,9 +203,9 @@ func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) (bool, error) 
 }
 
 // deleteNexthopRoute deletes
-func deleteNexthopRoute(link netlink.Link, routerNet *net.IPNet) error {
-	route := createNexthopRoute(link, routerNet)
-	if err := netlink.RouteDel(route); err != nil {
+func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) error {
+	rt := createNexthopRoute(route, link, routerNet)
+	if err := netlink.RouteDel(rt); err != nil {
 		return fmt.Errorf("unable to delete L2 nexthop route: %s", err)
 	}
 
@@ -245,7 +245,7 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 
 	routerNet := route.getNexthopAsIPNet()
 	if routerNet != nil {
-		if _, err := replaceNexthopRoute(link, routerNet); err != nil {
+		if _, err := replaceNexthopRoute(route, link, routerNet); err != nil {
 			return false, fmt.Errorf("unable to add nexthop route: %s", err)
 		}
 
@@ -279,7 +279,7 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 
 	if err != nil {
 		if nexthopRouteCreated {
-			deleteNexthopRoute(link, routerNet)
+			deleteNexthopRoute(route, link, routerNet)
 		}
 		return false, err
 	}
@@ -315,13 +315,38 @@ func Delete(route Route) error {
 	return nil
 }
 
-func lookupRule(fwmark, table, family int) (bool, error) {
+type Rule struct {
+	Priority int
+	Mark     int
+	Mask     int
+	From     *net.IPNet
+	To       *net.IPNet
+	Table    int
+}
+
+func lookupRule(spec Rule, family int) (bool, error) {
 	rules, err := netlink.RuleList(family)
 	if err != nil {
 		return false, err
 	}
 	for _, r := range rules {
-		if r.Mark == fwmark && r.Table == table {
+		if spec.Priority != 0 && spec.Priority != r.Priority {
+			continue
+		}
+
+		if spec.From != nil && (r.Src == nil || r.Src.String() != spec.From.String()) {
+			continue
+		}
+
+		if spec.To != nil && (r.Dst == nil || r.Dst.String() != spec.To.String()) {
+			continue
+		}
+
+		if spec.Mark != 0 && r.Mark != spec.Mark {
+			continue
+		}
+
+		if r.Table == spec.Table {
 			return true, nil
 		}
 	}
@@ -330,55 +355,64 @@ func lookupRule(fwmark, table, family int) (bool, error) {
 
 // ReplaceRule add or replace rule in the routing table using a mark to indicate
 // table. Used with BPF datapath to set mark and direct packets to route table.
-func ReplaceRule(fwmark int, table int) error {
-	exists, err := lookupRule(fwmark, table, netlink.FAMILY_V4)
+func ReplaceRule(spec Rule) error {
+	exists, err := lookupRule(spec, netlink.FAMILY_V4)
 	if err != nil {
 		return err
 	}
 	if exists == true {
 		return nil
 	}
-	return replaceRule(fwmark, table, netlink.FAMILY_V4)
+	return replaceRule(spec, netlink.FAMILY_V4)
 }
 
 // ReplaceRuleIPv6 add or replace IPv6 rule in the routing table using a mark to
 // indicate table.
-func ReplaceRuleIPv6(fwmark, table int) error {
-	exists, err := lookupRule(fwmark, table, netlink.FAMILY_V6)
+func ReplaceRuleIPv6(spec Rule) error {
+	exists, err := lookupRule(spec, netlink.FAMILY_V6)
 	if err != nil {
 		return err
 	}
 	if exists == true {
 		return nil
 	}
-	return replaceRule(fwmark, table, netlink.FAMILY_V6)
+	return replaceRule(spec, netlink.FAMILY_V6)
 }
 
-func replaceRule(fwmark, table, family int) error {
+func replaceRule(spec Rule, family int) error {
 	rule := netlink.NewRule()
-	rule.Mark = fwmark
-	rule.Mask = linux_defaults.RouteMarkMask
-	rule.Table = table
+	rule.Mark = spec.Mark
+	rule.Mask = spec.Mask
+	rule.Table = spec.Table
 	rule.Family = family
-	rule.Priority = 1
+	rule.Priority = spec.Priority
+	rule.Src = spec.From
+	rule.Dst = spec.To
 	return netlink.RuleAdd(rule)
 }
 
 // DeleteRule delete a mark based rule from the routing table.
-func DeleteRule(fwmark int, table int) error {
+func DeleteRule(spec Rule) error {
 	rule := netlink.NewRule()
-	rule.Mark = fwmark
-	rule.Mask = linux_defaults.RouteMarkMask
-	rule.Table = table
+	rule.Mark = spec.Mark
+	rule.Mask = spec.Mask
+	rule.Table = spec.Table
+	rule.Priority = spec.Priority
+	rule.Src = spec.From
+	rule.Dst = spec.To
 	rule.Family = netlink.FAMILY_V4
 	return netlink.RuleDel(rule)
 }
 
 // DeleteRuleIPv6 delete a mark based IPv6 rule from the routing table.
-func DeleteRuleIPv6(fwmark int, table int) error {
+func DeleteRuleIPv6(spec Rule) error {
 	rule := netlink.NewRule()
-	rule.Mark = fwmark
-	rule.Table = table
+	rule.Mark = spec.Mark
+	rule.Mask = spec.Mask
+	rule.Table = spec.Table
+	rule.Priority = spec.Priority
+	rule.Src = spec.From
+	rule.Dst = spec.To
 	rule.Family = netlink.FAMILY_V6
 	return netlink.RuleDel(rule)
 }
