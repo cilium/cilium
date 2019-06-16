@@ -239,16 +239,23 @@ var (
 	// ProxyRedirects is the number of redirects labelled by protocol
 	ProxyRedirects = NoOpGaugeVec
 
+	// ProxyPolicyL7Total is a count of all l7 requests handled by proxy
+	ProxyPolicyL7Total = NoOpCounterVec
+
 	// ProxyParseErrors is a count of failed parse errors on proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
 	ProxyParseErrors = NoOpCounter
 
 	// ProxyForwarded is a count of all forwarded requests by proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
 	ProxyForwarded = NoOpCounter
 
 	// ProxyDenied is a count of all denied requests by policy by the proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
 	ProxyDenied = NoOpCounter
 
 	// ProxyReceived is a count of all received requests by the proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
 	ProxyReceived = NoOpCounter
 
 	// ProxyUpstreamTime is how long the upstream server took to reply labeled
@@ -380,6 +387,7 @@ type Configuration struct {
 	EventTSContainerdEnabled                bool
 	EventTSAPIEnabled                       bool
 	ProxyRedirectsEnabled                   bool
+	ProxyPolicyL7Enabled                    bool
 	ProxyParseErrorsEnabled                 bool
 	ProxyForwardedEnabled                   bool
 	ProxyDeniedEnabled                      bool
@@ -429,6 +437,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_identity_count":                                             {},
 		Namespace + "_event_ts":                                                   {},
 		Namespace + "_proxy_redirects":                                            {},
+		Namespace + "_policy_l7_total":                                            {},
 		Namespace + "_policy_l7_parse_errors_total":                               {},
 		Namespace + "_policy_l7_forwarded_total":                                  {},
 		Namespace + "_policy_l7_denied_total":                                     {},
@@ -645,6 +654,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, ProxyRedirects)
 			c.ProxyRedirectsEnabled = true
+
+		case Namespace + "_policy_l7_total":
+			ProxyPolicyL7Total = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Name:      "policy_l7_total",
+				Help:      "Number of total proxy requests handled",
+			}, []string{"rule"})
+
+			collectors = append(collectors, ProxyPolicyL7Total)
+			c.ProxyPolicyL7Enabled = true
 
 		case Namespace + "_policy_l7_parse_errors_total":
 			ProxyParseErrors = prometheus.NewCounter(prometheus.CounterOpts{

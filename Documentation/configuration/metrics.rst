@@ -100,6 +100,7 @@ Policy L7 (HTTP/Kafka)
 * ``policy_l7_forwarded_total``: Number of total L7 forwarded requests/responses
 * ``policy_l7_denied_total``: Number of total L7 denied requests/responses due to policy
 * ``policy_l7_received_total``: Number of total L7 received requests/responses
+* ``policy_l7_total``: Number of total L7 requests/responses, tagged by received/parse_errors/forwarded/denied
 
 Identity
 --------
