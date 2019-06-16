@@ -1744,17 +1744,21 @@ func (e *Endpoint) UpdateProxyStatistics(l7Protocol string, port uint16, ingress
 
 	stats.Received++
 	metrics.ProxyReceived.Inc()
+	metrics.ProxyPolicyL7Total.WithLabelValues("received").Inc()
 
 	switch verdict {
 	case accesslog.VerdictForwarded:
 		stats.Forwarded++
 		metrics.ProxyForwarded.Inc()
+		metrics.ProxyPolicyL7Total.WithLabelValues("forwarded").Inc()
 	case accesslog.VerdictDenied:
 		stats.Denied++
 		metrics.ProxyDenied.Inc()
+		metrics.ProxyPolicyL7Total.WithLabelValues("denied").Inc()
 	case accesslog.VerdictError:
 		stats.Error++
 		metrics.ProxyParseErrors.Inc()
+		metrics.ProxyPolicyL7Total.WithLabelValues("parse_errors").Inc()
 	}
 }
 
