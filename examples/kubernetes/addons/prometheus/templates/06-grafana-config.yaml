@@ -4224,21 +4224,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_policy_l7_denied_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_total{rule=\"denied\", kubernetes_pod_name=~\"$pod\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "denied",
               "refId": "A"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_forwarded_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_total{rule=\"forwarded\", kubernetes_pod_name=~\"$pod\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "forwarded",
               "refId": "B"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_received_total{kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_total{rule=\"received\", kubernetes_pod_name=~\"$pod\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "received",
@@ -4376,7 +4376,7 @@ data:
           "aliasColors": {
             "Max per node processingTime": "#e24d42",
             "Max per node upstreamTime": "#58140c",
-            "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})": "#bf1b00",
+            "avg(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"cilium.*\"})": "#bf1b00",
             "parse errors": "#bf1b00"
           },
           "bars": true,
@@ -4421,7 +4421,7 @@ data:
               "yaxis": 2
             },
             {
-              "alias": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})",
+              "alias": "avg(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"cilium.*\"})",
               "yaxis": 2
             },
             {
@@ -4442,7 +4442,7 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "avg(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"$pod\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "parse errors",
@@ -4758,7 +4758,7 @@ data:
               "refId": "B"
             },
             {
-              "expr": "max(rate(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod)",
+              "expr": "max(rate(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"$pod\"}[1m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "parse errors",
