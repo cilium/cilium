@@ -555,7 +555,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 	if n.nodeConfig.EnableIPv6 && newNode.IPv6AllocCIDR != nil {
 		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
 		if newNode.IsLocal() {
-			n.replaceHostRules()
 			n.replaceNodeIPSecInRoute(new6Net)
 			ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true)
 			if ciliumInternalIPv6 != nil {
