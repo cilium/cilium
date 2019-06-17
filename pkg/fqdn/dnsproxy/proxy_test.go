@@ -89,7 +89,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 			ep := endpoint.NewEndpointWithState(s.repo, 123, endpoint.StateReady)
 			return ep, nil
 		},
-		func(lookupTime time.Time, ep *endpoint.Endpoint, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error {
+		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error {
 			return nil
 		})
 	c.Assert(err, IsNil, Commentf("error starting DNS Proxy"))
