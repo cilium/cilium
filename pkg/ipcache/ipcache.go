@@ -15,6 +15,7 @@
 package ipcache
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -69,12 +70,16 @@ type IPKeyPair struct {
 	Key uint8
 }
 
+// parallelReaders number of expected readers that will access this map in
+// parallel.
+const parallelReaders = 100
+
 // IPCache is a collection of mappings:
 // - mapping of endpoint IP or CIDR to security identities of all endpoints
 //   which are part of the same cluster, and vice-versa
 // - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
-	mutex             lock.RWMutex
+	mutex             *lock.SemaphoredMutex
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 	ipToHostIPCache   map[string]IPKeyPair
@@ -98,6 +103,7 @@ type Implementation interface {
 // identity (and vice-versa) initialized.
 func NewIPCache() *IPCache {
 	return &IPCache{
+		mutex:             lock.NewSemaphoredMutex(parallelReaders),
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
@@ -133,13 +139,20 @@ func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
 	ipc.mutex.Unlock()
 }
 
-// AddListenerLocked adds a listener for this IPCache.
+// AddListener adds a listener for this IPCache.
 func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
-	ipc.mutex.Lock()
+	// We need to acquire the semaphore with a weight of lockWeight because we
+	// are modifying the ipc.listeners
+	ipc.mutex.Acquire(context.Background(), parallelReaders)
 	ipc.listeners = append(ipc.listeners, listener)
+	// We will release the semaphore with a weight of rLock, *and not lockWeight*
+	// because want to prevent a race across an Upsert or Delete. By doing this
+	// we are sure no other writers are performing any operation while we are
+	// still reading.
+	ipc.mutex.Release(parallelReaders - 1)
+	defer ipc.mutex.Release(1)
 	// Initialize new listener with the current mappings
 	ipc.DumpToListenerLocked(listener)
-	ipc.mutex.Unlock()
 }
 
 func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int, isIPv6 bool) error {
