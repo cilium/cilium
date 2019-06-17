@@ -507,6 +507,10 @@ const (
 
 	// IPAMENI is the value to select the AWS ENI IPAM plugin for option.IPAM
 	IPAMENI = "eni"
+
+	// AutoCreateCiliumNodeResource enables automatic creation of a
+	// CiliumNode resource for the local node
+	AutoCreateCiliumNodeResource = "auto-create-ciliumnode-resource"
 )
 
 // FQDNS variables
@@ -1027,6 +1031,10 @@ type DaemonConfig struct {
 
 	// IPAM is the IPAM method to use
 	IPAM string
+
+	// AutoCreateCiliumNodeResource enables automatic creation of a
+	// CiliumNode resource for the local node
+	AutoCreateCiliumNodeResource bool
 }
 
 var (
@@ -1055,6 +1063,7 @@ var (
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		IPAM:                         IPAMHostScope,
+		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 	}
 )
 
@@ -1301,6 +1310,7 @@ func (c *DaemonConfig) Populate() {
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
+	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
