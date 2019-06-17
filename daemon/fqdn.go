@@ -337,9 +337,9 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 // - Report the verdict in a monitor event and emit proxy metrics
 // - Insert the DNS data into the cache when msg is a DNS response and we
 //   can lookup the endpoint related to it
-// epAddr and serverAddr should match the original request, where epAddr is
+// epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
+func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string
@@ -412,7 +412,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, ser
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
 		logger.LogTags.Addressing(logger.AddressingInfo{
-			SrcIPPort:   ep.String(),
+			SrcIPPort:   epIPPort,
 			DstIPPort:   serverAddr,
 			SrcIdentity: ep.GetIdentity().Uint32(),
 		}),
