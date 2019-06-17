@@ -802,7 +802,7 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 		dev = n.datapathConfig.HostDevice
 	} else {
 		tbl = linux_defaults.RouteTableIPSec
-		dev = n.datapathConfig.HostDevice //n.datapathConfig.EncryptInterface
+		dev = n.datapathConfig.HostDevice
 	}
 
 	return route.Route{
