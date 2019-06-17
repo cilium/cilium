@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/metadata"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -224,6 +225,21 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 	return store
 }
 
+func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
+	if len(node.Status.ENI.ENIs) > 0 {
+		// A node belongs to a single VPC so we can pick the first ENI
+		// in the list and derive the VPC CIDR from it.
+		for _, eni := range node.Status.ENI.ENIs {
+			c, err := cidr.ParseCIDR(eni.VPC.PrimaryCIDR)
+			if err == nil {
+				result = c
+			}
+			return
+		}
+	}
+	return
+}
+
 // hasMinimumIPsAvailable returns true if the required number of IPs is
 // available
 func (n *nodeStore) hasMinimumIPsAvailable() (minimumReached bool, required, numAvailable int) {
@@ -250,7 +266,16 @@ func (n *nodeStore) hasMinimumIPsAvailable() (minimumReached bool, required, num
 		if len(n.ownNode.Spec.IPAM.Available) >= required {
 			minimumReached = true
 		}
+
+		if option.Config.IPAM == option.IPAMENI {
+			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
+				option.Config.SetIPv4NativeRoutingCIDR(vpcCIDR)
+			} else {
+				minimumReached = false
+			}
+		}
 	}
+
 	return
 }
 
