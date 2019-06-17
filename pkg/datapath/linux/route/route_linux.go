@@ -172,12 +172,13 @@ func lookup(route *netlink.Route) *netlink.Route {
 	return nil
 }
 
-func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route {
+func createNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) *netlink.Route {
 	// This is the L2 route which makes router IP available behind the
 	// interface.
 	rt := &netlink.Route{
 		LinkIndex: link.Attrs().Index,
 		Dst:       routerNet,
+		Table:     route.Table,
 	}
 
 	// Known issue: scope for IPv6 routes is not propagated correctly. If
@@ -193,9 +194,8 @@ func createNexthopRoute(link netlink.Link, routerNet *net.IPNet) *netlink.Route 
 // replaceNexthopRoute verifies that the L2 route for the router IP which is
 // used as nexthop for all node routes is properly installed. If unavailable or
 // incorrect, it will be replaced with the proper L2 route.
-func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) (bool, error) {
-	route := createNexthopRoute(link, routerNet)
-	if err := netlink.RouteReplace(route); err != nil {
+func replaceNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) (bool, error) {
+	if err := netlink.RouteReplace(createNexthopRoute(route, link, routerNet)); err != nil {
 		return false, fmt.Errorf("unable to add L2 nexthop route: %s", err)
 	}
 
@@ -203,9 +203,8 @@ func replaceNexthopRoute(link netlink.Link, routerNet *net.IPNet) (bool, error) 
 }
 
 // deleteNexthopRoute deletes
-func deleteNexthopRoute(link netlink.Link, routerNet *net.IPNet) error {
-	route := createNexthopRoute(link, routerNet)
-	if err := netlink.RouteDel(route); err != nil {
+func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) error {
+	if err := netlink.RouteDel(createNexthopRoute(route, link, routerNet)); err != nil {
 		return fmt.Errorf("unable to delete L2 nexthop route: %s", err)
 	}
 
@@ -245,7 +244,7 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 
 	routerNet := route.getNexthopAsIPNet()
 	if routerNet != nil {
-		if _, err := replaceNexthopRoute(link, routerNet); err != nil {
+		if _, err := replaceNexthopRoute(route, link, routerNet); err != nil {
 			return false, fmt.Errorf("unable to add nexthop route: %s", err)
 		}
 
@@ -279,7 +278,7 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 
 	if err != nil {
 		if nexthopRouteCreated {
-			deleteNexthopRoute(link, routerNet)
+			deleteNexthopRoute(route, link, routerNet)
 		}
 		return false, err
 	}
