@@ -503,8 +503,8 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 
 	if n.nodeConfig.EnableIPv6 && n.nodeConfig.EncryptNode {
 		internalIPv6 := n.nodeAddressing.IPv6().PrimaryExternal()
-		internalMask := net.CIDRMask(128, 128)
-		ipsecLocal := &net.IPNet{IP: internalIPv6, Mask: internalMask}
+		exactMask := net.CIDRMask(128, 128)
+		ipsecLocal := &net.IPNet{IP: internalIPv6, Mask: exactMask}
 		if newNode.IsLocal() {
 			ipsecIPv6Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
 			n.replaceNodeIPSecInRoute(ipsecLocal)
@@ -512,7 +512,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 			upsertIPsecLog(err, "EncryptNode local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
 		} else {
 			if remoteIPv6 := newNode.GetNodeIP(true); remoteIPv6 != nil {
-				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: internalMask}
+				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
