@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 )
 
 // NatEntry4 represents an IPv4 entry in the NAT table.
@@ -48,10 +48,10 @@ func (n *NatEntry4) String() string {
 }
 
 // Dump dumps NAT entry to string.
-func (n *NatEntry4) Dump(key tuple.TupleKey, start uint64) string {
+func (n *NatEntry4) Dump(key ctmap.CtKey, start uint64) string {
 	var which string
 
-	if key.GetFlags()&tuple.TUPLE_F_IN != 0 {
+	if key.GetFlags()&ctmap.TUPLE_F_IN != 0 {
 		which = "DST"
 	} else {
 		which = "SRC"

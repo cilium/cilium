@@ -57,6 +57,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -666,8 +667,28 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
+	natGlobalMaps := nat.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	var global4Map, global6Map ctmap.NatMap
+	if option.Config.EnableIPv4 {
+		global4Map = natGlobalMaps[0]
+	}
+	if option.Config.EnableIPv6 {
+		global6Map = natGlobalMaps[1]
+	}
 
-	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
+	// SNAT also only works if the CT map is global so all local maps will be nil
+	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
+		map[ctmap.MapType]ctmap.NatMap{
+			ctmap.MapTypeIPv4TCPLocal:  nil,
+			ctmap.MapTypeIPv6TCPLocal:  nil,
+			ctmap.MapTypeIPv4TCPGlobal: global4Map,
+			ctmap.MapTypeIPv6TCPGlobal: global6Map,
+			ctmap.MapTypeIPv4AnyLocal:  nil,
+			ctmap.MapTypeIPv6AnyLocal:  nil,
+			ctmap.MapTypeIPv4AnyGlobal: global4Map,
+			ctmap.MapTypeIPv6AnyGlobal: global6Map,
+		},
+	)
 	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
 
 	authKeySize, err := setupIPSec()

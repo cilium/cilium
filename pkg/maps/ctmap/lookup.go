@@ -20,82 +20,8 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-// CtKey4 is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey4 struct {
-	tuple.TupleKey4
-}
-
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
-
-// ToNetwork converts CtKey4 ports to network byte order.
-func (k *CtKey4) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
-}
-
-// CtKey4Global is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey4Global struct {
-	tuple.TupleKey4Global
-}
-
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
-
-// ToNetwork converts CtKey4Global ports to network byte order.
-func (k *CtKey4Global) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
-}
-
-// CtKey6 is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey6 struct {
-	tuple.TupleKey6
-}
-
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
-
-// ToNetwork converts CtKey6 ports to network byte order.
-func (k *CtKey6) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
-}
-
-// CtKey6Global is needed to provide CtEntry type to Lookup values
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey6Global struct {
-	tuple.TupleKey6Global
-}
-
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
-
-// ToNetwork converts CtKey6Global ports to network byte order.
-func (k *CtKey6Global) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
-}
 
 func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
 	ip, port, err := net.SplitHostPort(remoteAddr)
@@ -131,13 +57,11 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 	if sIP.To4() != nil {
 		if isGlobal {
 			key := &CtKey4Global{
-				TupleKey4Global: tuple.TupleKey4Global{
-					TupleKey4: tuple.TupleKey4{
-						SourcePort: uint16(sport),
-						DestPort:   uint16(dport),
-						NextHeader: proto,
-						Flags:      TUPLE_F_OUT,
-					},
+				CtKey4: CtKey4{
+					SourcePort: uint16(sport),
+					DestPort:   uint16(dport),
+					NextHeader: proto,
+					Flags:      TUPLE_F_OUT,
 				},
 			}
 			// CTmap has the addresses in the reverse order w.r.t. the original direction
@@ -150,12 +74,10 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 		}
 
 		key := &CtKey4{
-			TupleKey4: tuple.TupleKey4{
-				SourcePort: uint16(sport),
-				DestPort:   uint16(dport),
-				NextHeader: proto,
-				Flags:      TUPLE_F_OUT,
-			},
+			SourcePort: uint16(sport),
+			DestPort:   uint16(dport),
+			NextHeader: proto,
+			Flags:      TUPLE_F_OUT,
 		}
 		// CTmap has the addresses in the reverse order w.r.t. the original direction
 		copy(key.SourceAddr[:], dIP.To4())
@@ -168,13 +90,11 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 
 	if isGlobal {
 		key := &CtKey6Global{
-			TupleKey6Global: tuple.TupleKey6Global{
-				TupleKey6: tuple.TupleKey6{
-					SourcePort: uint16(sport),
-					DestPort:   uint16(dport),
-					NextHeader: proto,
-					Flags:      TUPLE_F_OUT,
-				},
+			CtKey6: CtKey6{
+				SourcePort: uint16(sport),
+				DestPort:   uint16(dport),
+				NextHeader: proto,
+				Flags:      TUPLE_F_OUT,
 			},
 		}
 		// CTmap has the addresses in the reverse order w.r.t. the original direction
@@ -187,12 +107,10 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 	}
 
 	key := &CtKey6{
-		TupleKey6: tuple.TupleKey6{
-			SourcePort: uint16(sport),
-			DestPort:   uint16(dport),
-			NextHeader: proto,
-			Flags:      TUPLE_F_OUT,
-		},
+		SourcePort: uint16(sport),
+		DestPort:   uint16(dport),
+		NextHeader: proto,
+		Flags:      TUPLE_F_OUT,
 	}
 	// CTmap has the addresses in the reverse order w.r.t. the original direction
 	copy(key.SourceAddr[:], dIP.To16())
