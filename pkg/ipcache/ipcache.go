@@ -74,7 +74,7 @@ type IPKeyPair struct {
 //   which are part of the same cluster, and vice-versa
 // - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
-	mutex             lock.RWMutex
+	mutex             lock.SemaphoredMutex
 	ipToIdentityCache map[string]Identity
 	identityToIPCache map[identity.NumericIdentity]map[string]struct{}
 	ipToHostIPCache   map[string]IPKeyPair
@@ -98,6 +98,7 @@ type Implementation interface {
 // identity (and vice-versa) initialized.
 func NewIPCache() *IPCache {
 	return &IPCache{
+		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
 		ipToHostIPCache:   map[string]IPKeyPair{},
@@ -133,13 +134,20 @@ func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
 	ipc.mutex.Unlock()
 }
 
-// AddListenerLocked adds a listener for this IPCache.
+// AddListener adds a listener for this IPCache.
 func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
+	// We need to acquire the semaphored mutex as we Write Lock as we are
+	// modifying the listeners slice.
 	ipc.mutex.Lock()
 	ipc.listeners = append(ipc.listeners, listener)
+	// We will release the semaphore mutex with UnlockToRLock, *and not Unlock*
+	// because want to prevent a race across an Upsert or Delete. By doing this
+	// we are sure no other writers are performing any operation while we are
+	// still reading.
+	ipc.mutex.UnlockToRLock()
+	defer ipc.mutex.RUnlock()
 	// Initialize new listener with the current mappings
 	ipc.DumpToListenerLocked(listener)
-	ipc.mutex.Unlock()
 }
 
 func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int, isIPv6 bool) error {
