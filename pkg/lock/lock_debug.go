@@ -1,6 +1,4 @@
-// +build lockdebug
-
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// +build lockdebug
 
 package lock
 
@@ -75,7 +75,7 @@ func (i *internalRWMutex) UnlockIgnoreTime() {
 }
 
 func (i *internalRWMutex) RLock() {
-	i.RWMutex.Lock()
+	i.RWMutex.RLock()
 	i.t = time.Now()
 }
 
@@ -83,11 +83,11 @@ func (i *internalRWMutex) RUnlock() {
 	if sec := time.Since(i.t).Seconds(); sec >= selfishThresholdSec {
 		printStackTo(sec, debug.Stack(), os.Stderr)
 	}
-	i.RWMutex.Unlock()
+	i.RWMutex.RUnlock()
 }
 
 func (i *internalRWMutex) RUnlockIgnoreTime() {
-	i.RWMutex.Unlock()
+	i.RWMutex.RUnlock()
 }
 
 type internalMutex struct {
