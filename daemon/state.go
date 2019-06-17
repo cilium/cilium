@@ -243,6 +243,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RLockAlive(); err != nil {
 				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
+				epRegenerated <- false
 				return
 			}
 			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
@@ -254,6 +255,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
 				epRegenerated <- false
+				return
 			}
 
 			// Wait for initial identities and ipcache from the
@@ -267,6 +269,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 
 			if err := ep.LockAlive(); err != nil {
 				scopedLog.Warn("Endpoint to restore has been deleted")
+				epRegenerated <- false
 				return
 			}
 
