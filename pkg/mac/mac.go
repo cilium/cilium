@@ -16,6 +16,7 @@ package mac
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -91,4 +92,17 @@ func (m *MAC) UnmarshalJSON(data []byte) error {
 	hex.Decode(macByte, macStr)
 	*m = MAC{macByte[0], macByte[1], macByte[2], macByte[3], macByte[4], macByte[5]}
 	return nil
+}
+
+// GenerateRandMAC generates a random unicast and locally administered MAC address.
+func GenerateRandMAC() (MAC, error) {
+	buf := make([]byte, 6)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, fmt.Errorf("Unable to retrieve 6 rnd bytes: %s", err)
+	}
+
+	// Set locally administered addresses bit and reset multicast bit
+	buf[0] = (buf[0] | 0x02) & 0xfe
+
+	return MAC(buf), nil
 }
