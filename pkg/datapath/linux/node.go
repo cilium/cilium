@@ -552,25 +552,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 		}
 	}
 
-	if n.nodeConfig.EnableIPv4 && n.nodeConfig.EncryptNode {
-		internalIPv4 := n.nodeAddressing.IPv4().PrimaryExternal()
-		exactMask := net.IPv4Mask(255, 255, 255, 255)
-		ipsecLocal := &net.IPNet{IP: internalIPv4, Mask: exactMask}
-		if newNode.IsLocal() {
-			ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
-			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, ipsec.IPSecDirIn)
-			upsertIPsecLog(err, "local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
-		} else {
-			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
-				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
-				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
-				upsertIPsecLog(err, "IPv4", ipsecLocal, ipsecRemote, spi)
-			}
-		}
-	}
-
 	if n.nodeConfig.EnableIPv6 && newNode.IPv6AllocCIDR != nil {
 		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
 		if newNode.IsLocal() {
@@ -593,26 +574,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
 			}
 		}
 	}
-
-	if n.nodeConfig.EnableIPv6 && n.nodeConfig.EncryptNode {
-		internalIPv6 := n.nodeAddressing.IPv6().PrimaryExternal()
-		internalMask := net.CIDRMask(64, 128)
-		ipsecLocal := &net.IPNet{IP: internalIPv6, Mask: internalMask}
-		if newNode.IsLocal() {
-			ipsecIPv6Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
-			n.replaceNodeIPSecInRoute(ipsecLocal)
-			spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, ipsec.IPSecDirIn)
-			upsertIPsecLog(err, "local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
-		} else {
-			if remoteIPv6 := newNode.GetNodeIP(false); remoteIPv6 != nil {
-				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: internalMask}
-				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
-				upsertIPsecLog(err, "IPv6", ipsecLocal, ipsecRemote, spi)
-			}
-		}
-	}
-
 }
 
 func (n *linuxNodeHandler) subnetEncryption() bool {
