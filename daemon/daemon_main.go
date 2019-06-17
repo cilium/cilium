@@ -579,6 +579,7 @@ func init() {
 	option.BindEnv(option.KVStore)
 
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
+	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(option.KVstoreLeaseTTL)
 
 	flags.Duration(option.KVstorePeriodicSync, defaults.KVstorePeriodicSync, "Periodic KVstore synchronization interval")
