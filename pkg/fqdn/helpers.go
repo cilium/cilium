@@ -116,6 +116,8 @@ func injectToCIDRSetRules(rule *api.Rule, cache *DNSCache, reMap *regexpmap.Rege
 			// empty to clean old entries in case of TTL expires.
 			egressRule.ToCIDRSet = api.IPsToCIDRRules(ip.KeepUniqueIPs(allIPs))
 		}
+		// NOTE: This calling site should go away soon
+		egressRule.SetAggregatedSelectors()
 	}
 
 	for dnsName := range missing {

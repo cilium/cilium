@@ -120,13 +120,13 @@ func GenerateNumIdentities(numIdentities int) {
 func GenerateNumRules(numRules int) api.Rules {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
-	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.
-	ingRule := api.IngressRule{
-		FromEndpoints: []api.EndpointSelector{barSelector},
-		/*FromRequires:  []api.EndpointSelector{barSelector},
+	egRule := api.EgressRule{
+		ToCIDR: []api.CIDR{api.CIDR("10.2.3.0/24"), api.CIDR("ff02::/64")},
+		/*ToRequires:  []api.EndpointSelector{barSelector},
 		ToPorts: []api.PortRule{
 			{
 				Ports: []api.PortProtocol{
@@ -144,7 +144,7 @@ func GenerateNumRules(numRules int) api.Rules {
 
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
-			Ingress:          []api.IngressRule{ingRule},
+			Egress:           []api.EgressRule{egRule},
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -167,6 +167,7 @@ func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
 	for i := 0; i < c.N; i++ {
 		ip, _ := repo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{})
+		ip.Detach()
 	}
 }
 
