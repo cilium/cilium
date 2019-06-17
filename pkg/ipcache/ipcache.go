@@ -137,9 +137,11 @@ func (ipc *IPCache) SetListeners(listeners []IPIdentityMappingListener) {
 func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 	ipc.mutex.Lock()
 	ipc.listeners = append(ipc.listeners, listener)
+	ipc.mutex.Unlock()
+	ipc.mutex.RLock()
 	// Initialize new listener with the current mappings
 	ipc.DumpToListenerLocked(listener)
-	ipc.mutex.Unlock()
+	ipc.mutex.RUnlock()
 }
 
 func checkPrefixLengthsAgainstMap(impl Implementation, prefixes []*net.IPNet, existingPrefixes map[int]int, isIPv6 bool) error {
