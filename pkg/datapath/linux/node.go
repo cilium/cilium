@@ -495,7 +495,7 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 			if remoteIPv4 := newNode.GetNodeIP(false); remoteIPv4 != nil {
 				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
+				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOutNode)
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
 		}

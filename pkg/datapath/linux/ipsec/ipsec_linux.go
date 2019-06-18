@@ -39,9 +39,10 @@ import (
 type IPSecDir string
 
 const (
-	IPSecDirIn   IPSecDir = "IPSEC_IN"
-	IPSecDirOut  IPSecDir = "IPSEC_OUT"
-	IPSecDirBoth IPSecDir = "IPSEC_BOTH"
+	IPSecDirIn      IPSecDir = "IPSEC_IN"
+	IPSecDirOut     IPSecDir = "IPSEC_OUT"
+	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
+	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
 )
 
 type ipSecKey struct {
@@ -154,9 +155,15 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
 	spiWide = uint32(key.Spi)
 
 	policy := ipSecNewPolicy()
-	policy.Dir = netlink.XFRM_DIR_OUT
-	policy.Src = src
+	if dir == IPSecDirOutNode {
+		wildcardIP := net.ParseIP("0.0.0.0")
+		wildcardMask := net.IPv4Mask(0, 0, 0, 0)
+		policy.Src = &net.IPNet{IP: wildcardIP, Mask: wildcardMask}
+	} else {
+		policy.Src = src
+	}
 	policy.Dst = dst
+	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = &netlink.XfrmMark{
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
@@ -291,7 +298,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 			}
 		}
 
-		if dir == IPSecDirOut || dir == IPSecDirBoth {
+		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
 			if spi, err = ipSecReplaceState(remote.IP, local.IP); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace remote state: %s", err)
