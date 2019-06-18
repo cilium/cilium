@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/client"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -202,20 +201,7 @@ func (f *GenericVethChainer) ImplementsDelete() bool {
 func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext) (err error) {
 	id := endpointid.NewID(endpointid.ContainerIdPrefix, pluginCtx.Args.ContainerID)
 	if err := pluginCtx.Client.EndpointDelete(id); err != nil {
-		// EndpointDelete returns an error in the following scenarios:
-		// DeleteEndpointIDInvalid: Invalid delete parameters, no need to retry
-		// DeleteEndpointIDNotFound: No need to retry
-		// DeleteEndpointIDErrors: Errors encountered while deleting,
-		//                         the endpoint is always deleted though, no
-		//                         need to retry
-		// ClientError: Various reasons, type will be ClientError and
-		//              Recoverable() will return true if error can be
-		//              retried
-		if clientError, ok := err.(client.ClientError); ok {
-			if clientError.Recoverable() {
-				return err
-			}
-		}
+		log.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 	return nil
 }

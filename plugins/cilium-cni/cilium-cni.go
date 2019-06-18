@@ -558,15 +558,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		// DeleteEndpointIDErrors: Errors encountered while deleting,
 		//                         the endpoint is always deleted though, no
 		//                         need to retry
-		// ClientError: Various reasons, type will be ClientError and
-		//              Recoverable() will return true if error can be
-		//              retried
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
-		if clientError, ok := err.(client.ClientError); ok {
-			if clientError.Recoverable() {
-				return err
-			}
-		}
 	}
 
 	netNs, err := ns.GetNS(args.Netns)
