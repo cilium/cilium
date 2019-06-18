@@ -306,7 +306,7 @@ func (kub *Kubectl) GetAllPods(ctx context.Context, options ...ExecOptions) ([]v
 // in the specified namespace, along with an error if the pod names cannot be
 // retrieved.
 func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error) {
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
 	defer cancel()
 	return kub.GetPodNamesContext(ctx, namespace, label)
 }
