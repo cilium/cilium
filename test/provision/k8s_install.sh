@@ -257,7 +257,8 @@ sudo systemctl restart $MOUNT_SYSTEMD
 sudo rm -rfv /var/lib/kubelet
 
 # Allow iptables forwarding so kube-dns can function.
-sudo iptables --policy FORWARD ACCEPT
+sudo iptables -P FORWARD ACCEPT
+sudo ip6tables -P FORWARD ACCEPT
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
