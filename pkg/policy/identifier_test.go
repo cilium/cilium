@@ -67,7 +67,7 @@ func (ds *PolicyTestSuite) TestForEach(c *C) {
 		d0: {},
 		d1: {},
 	})
-	epSet.ForEach(&wg, func(e Endpoint) {
+	epSet.ForEachGo(&wg, func(e Endpoint) {
 		e.PolicyRevisionBumpEvent(100)
 	})
 
