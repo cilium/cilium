@@ -135,6 +135,27 @@ func (action *BpfAction) Attrs() *ActionAttrs {
 	return &action.ActionAttrs
 }
 
+type ConnmarkAction struct {
+	ActionAttrs
+	Zone uint16
+}
+
+func (action *ConnmarkAction) Type() string {
+	return "connmark"
+}
+
+func (action *ConnmarkAction) Attrs() *ActionAttrs {
+	return &action.ActionAttrs
+}
+
+func NewConnmarkAction() *ConnmarkAction {
+	return &ConnmarkAction{
+		ActionAttrs: ActionAttrs{
+			Action: TC_ACT_PIPE,
+		},
+	}
+}
+
 type MirredAct uint8
 
 func (a MirredAct) String() string {
