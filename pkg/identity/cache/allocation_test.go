@@ -111,7 +111,7 @@ func (d dummyOwner) GetNodeSuffix() string {
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(dummyOwner{})
+	<-InitIdentityAllocator(dummyOwner{})
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -126,7 +126,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(dummyOwner{})
+	<-InitIdentityAllocator(dummyOwner{})
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -189,7 +189,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocationr(c *C) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(dummyOwner{})
+	<-InitIdentityAllocator(dummyOwner{})
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
