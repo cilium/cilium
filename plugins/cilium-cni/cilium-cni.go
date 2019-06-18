@@ -529,7 +529,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		// this error can be recovered from
-		return fmt.Errorf("unable to connect to Cilium daemon: %s", err)
+		logger.WithError(err).Warningf("unable to connect to Cilium daemon")
 	}
 
 	if chainAction := chainingapi.Lookup(n.Name); chainAction != nil {
@@ -544,7 +544,9 @@ func cmdDel(args *skel.CmdArgs) error {
 		)
 
 		if chainAction.ImplementsDelete() {
-			return chainAction.Delete(context.TODO(), ctx)
+			if err := chainAction.Delete(context.TODO(), ctx); err != nil {
+				logger.WithError(err).Warningf("unable to call DEL in chaned plugin(s)")
+			}
 		}
 	} else {
 		logger.Warnf("Unknown CNI chaining configuration name '%s'", n.Name)
@@ -562,11 +564,6 @@ func cmdDel(args *skel.CmdArgs) error {
 		//              Recoverable() will return true if error can be
 		//              retried
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
-		if clientError, ok := err.(client.ClientError); ok {
-			if clientError.Recoverable() {
-				return err
-			}
-		}
 	}
 
 	netNs, err := ns.GetNS(args.Netns)
