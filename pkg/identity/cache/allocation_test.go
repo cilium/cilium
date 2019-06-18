@@ -219,7 +219,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(newDummyOwner())
+	<-InitIdentityAllocator(newDummyOwner())
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -235,7 +235,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(owner)
+	<-InitIdentityAllocator(owner)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -318,7 +318,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
-	InitIdentityAllocator(owner)
+	<-InitIdentityAllocator(owner)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
