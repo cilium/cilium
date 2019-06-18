@@ -16,10 +16,12 @@ package connector
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 
@@ -59,15 +61,39 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
 func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, *netlink.Link, error) {
+	var (
+		epHostMAC, epLXCMAC mac.MAC
+		err                 error
+	)
+	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
+	// by default (controlled by MACAddressPolicy). As setting happens
+	// asynchronously after a device has been created, ep.Mac and ep.HostMac
+	// can become stale which has a serious consequence - the kernel will drop
+	// any packet sent to/from the endpoint. However, we can trick systemd by
+	// explicitly setting MAC addrs for both veth ends. This sets
+	// addr_assign_type for NET_ADDR_SET which prevents systemd from changing
+	// the addrs.
+	epHostMAC, err = mac.GenerateRandMAC()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
+	}
+	epLXCMAC, err = mac.GenerateRandMAC()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
+	}
+
 	veth := &netlink.Veth{
-		LinkAttrs: netlink.LinkAttrs{Name: lxcIfName},
-		PeerName:  tmpIfName,
+		LinkAttrs: netlink.LinkAttrs{
+			Name:         lxcIfName,
+			HardwareAddr: net.HardwareAddr(epHostMAC),
+		},
+		PeerName:         tmpIfName,
+		PeerHardwareAddr: net.HardwareAddr(epLXCMAC),
 	}
 
 	if err := netlink.LinkAdd(veth); err != nil {
 		return nil, nil, fmt.Errorf("unable to create veth pair: %s", err)
 	}
-	var err error
 	defer func() {
 		if err != nil {
 			if err = netlink.LinkDel(veth); err != nil {
