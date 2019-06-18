@@ -39,11 +39,12 @@ function annotate_section_names {
 	    -e "s/\(section '2\/11'\)/\1 (tail_call IPV4_TO_LXC_POLICY_ONLY)/" \
 	    -e "s/\(section '2\/12'\)/\1 (tail_call IPV6_TO_LXC_POLICY_ONLY)/" \
 	    -e "s/\(section '2\/13'\)/\1 (tail_call IPV4_TO_ENDPOINT)/" \
-	    -e "s/\(section '2\/14'\)/\1 (tail_call IPV6_TO_ENDPOINT)/"
-	    -e "s/\(section '2\/15'\)/\1 (tail_call IPV4_NODEPORT_NAT)/"
+	    -e "s/\(section '2\/14'\)/\1 (tail_call IPV6_TO_ENDPOINT)/" \
+	    -e "s/\(section '2\/15'\)/\1 (tail_call IPV4_NODEPORT_NAT)/" \
+	    -e "s/\(section '2\/16'\)/\1 (tail_call IPV6_NODEPORT_NAT)/"
 }
 
-if ! grep -q "CILIUM_CALL_SIZE.*16" "$BPFDIR/lib/common.h" ; then
+if ! grep -q "CILIUM_CALL_SIZE.*17" "$BPFDIR/lib/common.h" ; then
 	echo "This script is out of date compared to CILIUM_CALL_SIZE." 1>&2
 	exit 1
 fi
