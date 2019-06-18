@@ -99,8 +99,9 @@ func (e *EndpointSet) Insert(ep Endpoint) {
 }
 
 // Len returns the number of elements in the EndpointSet.
-func (e *EndpointSet) Len() int {
+func (e *EndpointSet) Len() (nElem int) {
 	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-	return len(e.endpoints)
+	nElem = len(e.endpoints)
+	e.mutex.RUnlock()
+	return
 }
