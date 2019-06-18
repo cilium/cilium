@@ -310,9 +310,10 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int l4_off, int dir,
 					struct ct_state *ct_state, __u32 *monitor)
 {
-	int ret = CT_NEW, action = ACTION_UNSPEC;
+	int ret = CT_NEW, ret2 = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
+	struct ct_state ct_state_tmp = {};
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -424,6 +425,26 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		ipv6_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
+
+#ifndef QUIET_CT
+		cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
+			    (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
+		cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
+#endif
+
+		/* The additional lookup is required to determine the node_port
+		 * flag value. The flag is set in the endpoint -> client
+		 * TUPLE_F_OUT entry which is created by bpf_netdev on its
+		 * ingress hook. */
+		if (ret == CT_NEW && dir == CT_INGRESS) {
+			tuple->flags = TUPLE_F_OUT;
+			ret2 = __ct_lookup(map, skb, tuple, action, dir, &ct_state_tmp,
+					   is_tcp, tcp_flags, monitor);
+			tuple->flags = TUPLE_F_IN;
+			if (ret2 == CT_ESTABLISHED && ct_state_tmp.node_port == 1) {
+				ct_state->node_port = 1;
+			}
+		}
 	}
 
 #ifdef ENABLE_NAT46
@@ -685,8 +706,10 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 		entry.rx_bytes = ct_state->backend_id;
 	}
 
-	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.lb_loopback = ct_state->loopback;
+	entry.node_port = ct_state->node_port;
+
+	entry.rev_nat_index = ct_state->rev_nat_index;
 	entry.slave = ct_state->slave;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
