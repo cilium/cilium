@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -1155,6 +1157,10 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		native.PutUint16(b, uint16(link.VlanId))
 		data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 		data.AddRtAttr(nl.IFLA_VLAN_ID, b)
+
+		if link.VlanProtocol != VLAN_PROTOCOL_UNKNOWN {
+			data.AddRtAttr(nl.IFLA_VLAN_PROTOCOL, htons(uint16(link.VlanProtocol)))
+		}
 	case *Veth:
 		data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 		peer := data.AddRtAttr(nl.VETH_INFO_PEER, nil)
@@ -1166,7 +1172,9 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		if base.MTU > 0 {
 			peer.AddRtAttr(unix.IFLA_MTU, nl.Uint32Attr(uint32(base.MTU)))
 		}
-
+		if link.PeerHardwareAddr != nil {
+			peer.AddRtAttr(unix.IFLA_ADDRESS, []byte(link.PeerHardwareAddr))
+		}
 	case *Vxlan:
 		addVxlanAttrs(link, linkInfo)
 	case *Bond:
@@ -1455,6 +1463,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						link = &GTP{}
 					case "xfrm":
 						link = &Xfrmi{}
+					case "tun":
+						link = &Tuntap{}
 					default:
 						link = &GenericLink{LinkType: linkType}
 					}
@@ -1498,6 +1508,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 						parseGTPData(link, data)
 					case "xfrm":
 						parseXfrmiData(link, data)
+					case "tun":
+						parseTuntapData(link, data)
 					}
 				}
 			}
@@ -1561,6 +1573,10 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 				return nil, err
 			}
 			base.Vfs = vfs
+		case unix.IFLA_NUM_TX_QUEUES:
+			base.NumTxQueues = int(native.Uint32(attr.Value[0:4]))
+		case unix.IFLA_NUM_RX_QUEUES:
+			base.NumRxQueues = int(native.Uint32(attr.Value[0:4]))
 		}
 	}
 
@@ -1576,7 +1592,55 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 	}
 	*link.Attrs() = base
 
+	// If the tuntap attributes are not updated by netlink due to
+	// an older driver, use sysfs
+	if link != nil && linkType == "tun" {
+		tuntap := link.(*Tuntap)
+
+		if tuntap.Mode == 0 {
+			ifname := tuntap.Attrs().Name
+			if flags, err := readSysPropAsInt64(ifname, "tun_flags"); err == nil {
+
+				if flags&unix.IFF_TUN != 0 {
+					tuntap.Mode = unix.IFF_TUN
+				} else if flags&unix.IFF_TAP != 0 {
+					tuntap.Mode = unix.IFF_TAP
+				}
+
+				tuntap.NonPersist = false
+				if flags&unix.IFF_PERSIST == 0 {
+					tuntap.NonPersist = true
+				}
+			}
+
+			// The sysfs interface for owner/group returns -1 for root user, instead of returning 0.
+			// So explicitly check for negative value, before assigning the owner uid/gid.
+			if owner, err := readSysPropAsInt64(ifname, "owner"); err == nil && owner > 0 {
+				tuntap.Owner = uint32(owner)
+			}
+
+			if group, err := readSysPropAsInt64(ifname, "group"); err == nil && group > 0 {
+				tuntap.Group = uint32(group)
+			}
+		}
+	}
+
 	return link, nil
+}
+
+func readSysPropAsInt64(ifname, prop string) (int64, error) {
+	fname := fmt.Sprintf("/sys/class/net/%s/%s", ifname, prop)
+	contents, err := ioutil.ReadFile(fname)
+	if err != nil {
+		return 0, err
+	}
+
+	num, err := strconv.ParseInt(strings.TrimSpace(string(contents)), 0, 64)
+	if err == nil {
+		return num, nil
+	}
+
+	return 0, err
 }
 
 // LinkList gets a list of link devices.
@@ -1830,6 +1894,8 @@ func parseVlanData(link Link, data []syscall.NetlinkRouteAttr) {
 		switch datum.Attr.Type {
 		case nl.IFLA_VLAN_ID:
 			vlan.VlanId = int(native.Uint16(datum.Value[0:2]))
+		case nl.IFLA_VLAN_PROTOCOL:
+			vlan.VlanProtocol = VlanProtocol(int(ntohs(datum.Value[0:2])))
 		}
 	}
 }
@@ -2579,4 +2645,23 @@ func VethPeerIndex(link *Veth) (int, error) {
 		return -1, fmt.Errorf("SIOCETHTOOL request for %q failed, errno=%v", link.Attrs().Name, errno)
 	}
 	return int(stats.data[0]), nil
+}
+
+func parseTuntapData(link Link, data []syscall.NetlinkRouteAttr) {
+	tuntap := link.(*Tuntap)
+	for _, datum := range data {
+		switch datum.Attr.Type {
+		case nl.IFLA_TUN_OWNER:
+			tuntap.Owner = native.Uint32(datum.Value)
+		case nl.IFLA_TUN_GROUP:
+			tuntap.Group = native.Uint32(datum.Value)
+		case nl.IFLA_TUN_TYPE:
+			tuntap.Mode = TuntapMode(uint8(datum.Value[0]))
+		case nl.IFLA_TUN_PERSIST:
+			tuntap.NonPersist = false
+			if uint8(datum.Value[0]) == 0 {
+				tuntap.NonPersist = true
+			}
+		}
+	}
 }
