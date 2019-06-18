@@ -51,14 +51,14 @@ func SetNetNsIdByPid(pid, nsid int) error {
 	return pkgHandle.SetNetNsIdByPid(pid, nsid)
 }
 
-// GetNetNsIdByPid looks up the network namespace ID for a given fd.
+// GetNetNsIdByFd looks up the network namespace ID for a given fd.
 // fd must be an open file descriptor to a namespace file.
 // Returns -1 if the namespace does not have an ID set.
 func (h *Handle) GetNetNsIdByFd(fd int) (int, error) {
 	return h.getNetNsId(NETNSA_FD, uint32(fd))
 }
 
-// GetNetNsIdByPid looks up the network namespace ID for a given fd.
+// GetNetNsIdByFd looks up the network namespace ID for a given fd.
 // fd must be an open file descriptor to a namespace file.
 // Returns -1 if the namespace does not have an ID set.
 func GetNetNsIdByFd(fd int) (int, error) {
