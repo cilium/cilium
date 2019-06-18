@@ -83,12 +83,12 @@ func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 		}: {},
 	})
 
-	idSet := NewIDSet()
-	rulez.UpdateRulesEndpointsCaches(epSet, idSet, &wg)
+	epsToRegen := NewEndpointSet(nil)
+	rulez.UpdateRulesEndpointsCaches(epSet, epsToRegen, &wg)
 	wg.Wait()
 
 	c.Assert(epSet.Len(), Equals, 0)
-	c.Assert(idSet.IDs, HasLen, 1)
+	c.Assert(epsToRegen.Len(), Equals, 1)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {

@@ -207,10 +207,10 @@ func (rules ruleSlice) resolveCIDRPolicy(ctx *SearchContext) *CIDRPolicy {
 // updateEndpointsCaches iterates over a given list of rules to update the cache
 // within the rule which determines whether or not the given identity is
 // selected by that rule. If a rule in the list does select said identity, it is
-// added to epIDSet. Note that epIDSet can be shared across goroutines!
+// added to epSet. Note that epSet can be shared across goroutines!
 // Returns whether the endpoint was selected by one of the rules, or if the
 // endpoint is nil.
-func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) (bool, error) {
+func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epSet *EndpointSet) (bool, error) {
 	if ep == nil {
 		return false, fmt.Errorf("cannot update caches in rules because endpoint is nil")
 	}
@@ -227,11 +227,9 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epIDSet *IDSet) (bool,
 
 	for _, r := range rules {
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {
-			epIDSet.Mutex.Lock()
-			epIDSet.IDs[id] = struct{}{}
-			epIDSet.Mutex.Unlock()
+			epSet.Insert(ep)
 
-			// If epIDSet is updated, we can exit since updating it again if
+			// If epSet is updated, we can exit since updating it again if
 			// another rule selects the Endpoint is a no-op.
 			return true, nil
 		}
