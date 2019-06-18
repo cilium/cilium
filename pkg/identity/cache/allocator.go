@@ -100,29 +100,44 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 
 	log.Info("Initializing identity allocator")
 
-	minID := idpool.ID(identity.MinimalAllocationIdentity)
-	maxID := idpool.ID(identity.MaximumAllocationIdentity)
+	// Local identity cache can be created synchronously since it doesn't
+	// reply upon any external resources (e.g., external kvstore).
 	events := make(allocator.AllocatorEventChan, 1024)
-
-	// It is important to start listening for events before calling
-	// NewAllocator() as it will emit events while filling the
-	// initial cache
-	watcher.watch(owner, events)
-
-	a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
-		allocator.WithMax(maxID), allocator.WithMin(minID),
-		allocator.WithSuffix(owner.GetNodeSuffix()),
-		allocator.WithEvents(events),
-		allocator.WithMasterKeyProtection(),
-		allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
-	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize identity allocator")
-	}
-
-	IdentityAllocator = a
-	close(identityAllocatorInitialized)
 	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
 
+	// Asynchronously set up the global identity allocator since it connects
+	// to the kvstore.
+	go func(evs allocator.AllocatorEventChan) {
+		setupMutex.Lock()
+		defer setupMutex.Unlock()
+		minID := idpool.ID(identity.MinimalAllocationIdentity)
+		maxID := idpool.ID(identity.MaximumAllocationIdentity)
+
+		// It is important to start listening for events before calling
+		// NewAllocator() as it will emit events while filling the
+		// initial cache
+		watcher.watch(owner, evs)
+
+		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
+			allocator.WithMax(maxID), allocator.WithMin(minID),
+			allocator.WithSuffix(owner.GetNodeSuffix()),
+			allocator.WithEvents(evs),
+			allocator.WithMasterKeyProtection(),
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize identity allocator")
+		}
+
+		IdentityAllocator = a
+		close(identityAllocatorInitialized)
+	}(events)
+}
+
+// InitIdentityAllocatorAndWait initializes the identity allocator and waits for
+// it to finish being initialized.
+func InitIdentityAllocatorAndWait(owner IdentityAllocatorOwner) {
+	go InitIdentityAllocator(owner)
+	<-identityAllocatorInitialized
 }
 
 // Close closes the identity allocator and allows to call

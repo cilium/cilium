@@ -109,7 +109,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	defer kvstore.Close()
 
 	identity.InitWellKnownIdentities()
-	cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
+	cache.InitIdentityAllocatorAndWait(&identityAllocatorOwnerMock{})
 	defer cache.Close()
 
 	dir, err := ioutil.TempDir("", "multicluster")

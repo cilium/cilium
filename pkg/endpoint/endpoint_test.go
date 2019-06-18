@@ -58,7 +58,7 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
-	cache.InitIdentityAllocator(&testIdentityAllocator{})
+	cache.InitIdentityAllocatorAndWait(&testIdentityAllocator{})
 	s.repo = policy.NewPolicyRepository()
 }
 
