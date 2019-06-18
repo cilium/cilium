@@ -412,6 +412,16 @@ func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 			}
 			toTcGen(action.Attrs(), &mirred.TcGen)
 			aopts.AddRtAttr(nl.TCA_MIRRED_PARMS, mirred.Serialize())
+		case *ConnmarkAction:
+			table := attr.AddRtAttr(tabIndex, nil)
+			tabIndex++
+			table.AddRtAttr(nl.TCA_ACT_KIND, nl.ZeroTerminated("connmark"))
+			aopts := table.AddRtAttr(nl.TCA_ACT_OPTIONS, nil)
+			connmark := nl.TcConnmark{
+				Zone: action.Zone,
+			}
+			toTcGen(action.Attrs(), &connmark.TcGen)
+			aopts.AddRtAttr(nl.TCA_CONNMARK_PARMS, connmark.Serialize())
 		case *BpfAction:
 			table := attr.AddRtAttr(tabIndex, nil)
 			tabIndex++
@@ -455,6 +465,8 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 					action = &MirredAction{}
 				case "bpf":
 					action = &BpfAction{}
+				case "connmark":
+					action = &ConnmarkAction{}
 				case "gact":
 					action = &GenericAction{}
 				default:
@@ -471,8 +483,8 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 						switch adatum.Attr.Type {
 						case nl.TCA_MIRRED_PARMS:
 							mirred := *nl.DeserializeTcMirred(adatum.Value)
-							toAttrs(&mirred.TcGen, action.Attrs())
 							action.(*MirredAction).ActionAttrs = ActionAttrs{}
+							toAttrs(&mirred.TcGen, action.Attrs())
 							action.(*MirredAction).Ifindex = int(mirred.Ifindex)
 							action.(*MirredAction).MirredAction = MirredAct(mirred.Eaction)
 						}
@@ -485,6 +497,14 @@ func parseActions(tables []syscall.NetlinkRouteAttr) ([]Action, error) {
 							action.(*BpfAction).Fd = int(native.Uint32(adatum.Value[0:4]))
 						case nl.TCA_ACT_BPF_NAME:
 							action.(*BpfAction).Name = string(adatum.Value[:len(adatum.Value)-1])
+						}
+					case "connmark":
+						switch adatum.Attr.Type {
+						case nl.TCA_CONNMARK_PARMS:
+							connmark := *nl.DeserializeTcConnmark(adatum.Value)
+							action.(*ConnmarkAction).ActionAttrs = ActionAttrs{}
+							toAttrs(&connmark.TcGen, action.Attrs())
+							action.(*ConnmarkAction).Zone = connmark.Zone
 						}
 					case "gact":
 						switch adatum.Attr.Type {

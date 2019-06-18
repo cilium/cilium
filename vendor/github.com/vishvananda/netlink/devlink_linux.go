@@ -3,6 +3,7 @@ package netlink
 import (
 	"syscall"
 
+	"fmt"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 )
@@ -40,6 +41,16 @@ func parseDevLinkDeviceList(msgs [][]byte) ([]*DevlinkDevice, error) {
 		devices = append(devices, dev)
 	}
 	return devices, nil
+}
+
+func eswitchStringToMode(modeName string) (uint16, error) {
+	if modeName == "legacy" {
+		return nl.DEVLINK_ESWITCH_MODE_LEGACY, nil
+	} else if modeName == "switchdev" {
+		return nl.DEVLINK_ESWITCH_MODE_SWITCHDEV, nil
+	} else {
+		return 0xffff, fmt.Errorf("invalid switchdev mode")
+	}
 }
 
 func parseEswitchMode(mode uint16) string {
@@ -164,4 +175,98 @@ func (h *Handle) DevLinkGetDeviceList() ([]*DevlinkDevice, error) {
 // otherwise returns an error code.
 func DevLinkGetDeviceList() ([]*DevlinkDevice, error) {
 	return pkgHandle.DevLinkGetDeviceList()
+}
+
+func parseDevlinkDevice(msgs [][]byte) (*DevlinkDevice, error) {
+	m := msgs[0]
+	attrs, err := nl.ParseRouteAttr(m[nl.SizeofGenlmsg:])
+	if err != nil {
+		return nil, err
+	}
+	dev := &DevlinkDevice{}
+	if err = dev.parseAttributes(attrs); err != nil {
+		return nil, err
+	}
+	return dev, nil
+}
+
+func (h *Handle) createCmdReq(cmd uint8, bus string, device string) (*GenlFamily, *nl.NetlinkRequest, error) {
+	f, err := h.GenlFamilyGet(nl.GENL_DEVLINK_NAME)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	msg := &nl.Genlmsg{
+		Command: cmd,
+		Version: nl.GENL_DEVLINK_VERSION,
+	}
+	req := h.newNetlinkRequest(int(f.ID),
+		unix.NLM_F_REQUEST|unix.NLM_F_ACK)
+	req.AddData(msg)
+
+	b := make([]byte, len(bus)+1)
+	copy(b, bus)
+	data := nl.NewRtAttr(nl.DEVLINK_ATTR_BUS_NAME, b)
+	req.AddData(data)
+
+	b = make([]byte, len(device)+1)
+	copy(b, device)
+	data = nl.NewRtAttr(nl.DEVLINK_ATTR_DEV_NAME, b)
+	req.AddData(data)
+
+	return f, req, nil
+}
+
+// DevlinkGetDeviceByName provides a pointer to devlink device and nil error,
+// otherwise returns an error code.
+func (h *Handle) DevLinkGetDeviceByName(Bus string, Device string) (*DevlinkDevice, error) {
+	f, req, err := h.createCmdReq(nl.DEVLINK_CMD_GET, Bus, Device)
+	if err != nil {
+		return nil, err
+	}
+
+	respmsg, err := req.Execute(unix.NETLINK_GENERIC, 0)
+	if err != nil {
+		return nil, err
+	}
+	dev, err := parseDevlinkDevice(respmsg)
+	if err == nil {
+		h.getEswitchAttrs(f, dev)
+	}
+	return dev, err
+}
+
+// DevlinkGetDeviceByName provides a pointer to devlink device and nil error,
+// otherwise returns an error code.
+func DevLinkGetDeviceByName(Bus string, Device string) (*DevlinkDevice, error) {
+	return pkgHandle.DevLinkGetDeviceByName(Bus, Device)
+}
+
+// DevLinkSetEswitchMode sets eswitch mode if able to set successfully or
+// returns an error code.
+// Equivalent to: `devlink dev eswitch set $dev mode switchdev`
+// Equivalent to: `devlink dev eswitch set $dev mode legacy`
+func (h *Handle) DevLinkSetEswitchMode(Dev *DevlinkDevice, NewMode string) error {
+	mode, err := eswitchStringToMode(NewMode)
+	if err != nil {
+		return err
+	}
+
+	_, req, err := h.createCmdReq(nl.DEVLINK_CMD_ESWITCH_SET, Dev.BusName, Dev.DeviceName)
+	if err != nil {
+		return err
+	}
+
+	req.AddData(nl.NewRtAttr(nl.DEVLINK_ATTR_ESWITCH_MODE, nl.Uint16Attr(mode)))
+
+	_, err = req.Execute(unix.NETLINK_GENERIC, 0)
+	return err
+}
+
+// DevLinkSetEswitchMode sets eswitch mode if able to set successfully or
+// returns an error code.
+// Equivalent to: `devlink dev eswitch set $dev mode switchdev`
+// Equivalent to: `devlink dev eswitch set $dev mode legacy`
+func DevLinkSetEswitchMode(Dev *DevlinkDevice, NewMode string) error {
+	return pkgHandle.DevLinkSetEswitchMode(Dev, NewMode)
 }

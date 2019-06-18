@@ -11,6 +11,7 @@ const (
 const (
 	DEVLINK_CMD_GET         = 1
 	DEVLINK_CMD_ESWITCH_GET = 29
+	DEVLINK_CMD_ESWITCH_SET = 30
 )
 
 const (
