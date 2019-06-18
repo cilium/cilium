@@ -218,8 +218,8 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint, epSet *EndpointSet) (b
 	if err := ep.RLockAlive(); err != nil {
 		return false, fmt.Errorf("cannot update caches in rules for endpoint %d because it is being deleted: %s", id, err)
 	}
-	defer ep.RUnlock()
 	securityIdentity := ep.GetSecurityIdentity()
+	ep.RUnlock()
 
 	if securityIdentity == nil {
 		return false, fmt.Errorf("cannot update caches in rules for endpoint %d because it has a nil identity", id)
