@@ -55,11 +55,15 @@ type EndpointSet struct {
 	endpoints map[Endpoint]struct{}
 }
 
-// NewEndpointSet returns an EndpointSet with the Endpoints map allocated with
-// the specified capacity.
-func NewEndpointSet(capacity int) *EndpointSet {
+// NewEndpointSet returns an EndpointSet with the given Endpoints map
+func NewEndpointSet(m map[Endpoint]struct{}) *EndpointSet {
+	if m != nil {
+		return &EndpointSet{
+			endpoints: m,
+		}
+	}
 	return &EndpointSet{
-		endpoints: make(map[Endpoint]struct{}, capacity),
+		endpoints: map[Endpoint]struct{}{},
 	}
 }
 
