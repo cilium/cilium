@@ -432,18 +432,17 @@ type PolicyReactionEvent struct {
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (r *PolicyReactionEvent) Handle(res chan interface{}) {
-	r.d.ReactToRuleUpdates(r.wg, r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
+	// Wait until we have calculated which endpoints need to be selected
+	// across multiple goroutines.
+	r.wg.Wait()
+	r.d.ReactToRuleUpdates(r.epsToBumpRevision, r.endpointsToRegen, r.newRev)
 }
 
-// ReactToRuleUpdates waits until wg is complete to do the following
+// ReactToRuleUpdates does the following:
 // * regenerate all endpoints in epsToRegen
 // * bump the policy revision of all endpoints not in epsToRegen, but which are
 //   in allEps, to revision rev.
-func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, epsToBumpRevision *policy.EndpointSet, epsToRegen *policy.IDSet, rev uint64) {
-	// Wait until we have calculated which endpoints need to be selected
-	// across multiple goroutines.
-	wg.Wait()
-
+func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision *policy.EndpointSet, epsToRegen *policy.IDSet, rev uint64) {
 	var enqueueWaitGroup sync.WaitGroup
 
 	// Bump revision of endpoints which don't need to be regenerated.
