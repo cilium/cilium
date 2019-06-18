@@ -22,11 +22,12 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
 
 // WorkloadOwner is the interface that the owner of workloads must implement.
 type WorkloadOwner interface {
-	endpoint.Owner
+	regeneration.Owner
 
 	// DeleteEndpoint is called when the underlying workload has died
 	DeleteEndpoint(id string) (int, error)

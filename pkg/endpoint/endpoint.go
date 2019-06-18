@@ -1162,7 +1162,7 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered. Note that the
 // LabelConfiguration in the EndpointConfigurationSpec is *not* consumed here.
-func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) error {
+func (e *Endpoint) Update(owner regeneration.Owner, cfg *models.EndpointConfigurationSpec) error {
 	om, err := EndpointMutableOptionLibrary.ValidateConfigurationMap(cfg.Options)
 	if err != nil {
 		return UpdateValidationError{err.Error()}
@@ -1312,7 +1312,7 @@ type DeleteConfig struct {
 // endpoints which failed to be restored. Any cleanup routine of LeaveLocked()
 // which depends on kvstore connectivity must be protected by a flag in
 // DeleteConfig and the restore logic must opt-out of it.
-func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
+func (e *Endpoint) LeaveLocked(owner regeneration.Owner, proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
 	loader.Unload(e.createEpInfoCache(""))
@@ -1370,7 +1370,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
-func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
+func (e *Endpoint) RegenerateWait(owner regeneration.Owner, reason string) error {
 	if !<-e.Regenerate(owner, &regeneration.ExternalRegenerationMetadata{Reason: reason}) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
@@ -1786,7 +1786,7 @@ func (e *Endpoint) getIDandLabels() string {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLabels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(owner regeneration.Owner, addLabels, delLabels pkgLabels.Labels) error {
 	if err := e.LockAlive(); err != nil {
 		return err
 	}
@@ -1829,7 +1829,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(ctx context.Context, owner Owner, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, owner regeneration.Owner, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -1862,7 +1862,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeRev int, blocking bool) {
+func (e *Endpoint) runLabelsResolver(ctx context.Context, owner regeneration.Owner, myChangeRev int, blocking bool) {
 	if err := e.RLockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -1912,7 +1912,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeR
 	)
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myChangeRev int) error {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration.Owner, myChangeRev int) error {
 	if err := e.RLockAlive(); err != nil {
 		return ErrNotAlive
 	}
@@ -2198,7 +2198,7 @@ func (e *Endpoint) PinDatapathMap() error {
 	return err
 }
 
-func (e *Endpoint) syncEndpointHeaderFile(owner Owner, reasons []string) {
+func (e *Endpoint) syncEndpointHeaderFile(owner regeneration.Owner, reasons []string) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
@@ -2217,7 +2217,7 @@ func (e *Endpoint) syncEndpointHeaderFile(owner Owner, reasons []string) {
 
 // SyncEndpointHeaderFile it bumps the current DNS History information for the
 // endpoint in the lxc_config.h file.
-func (e *Endpoint) SyncEndpointHeaderFile(owner Owner) error {
+func (e *Endpoint) SyncEndpointHeaderFile(owner regeneration.Owner) error {
 	if err := e.LockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return
 		return nil

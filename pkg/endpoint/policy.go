@@ -63,7 +63,7 @@ func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
 
 // Note that this function assumes that endpoint policy has already been generated!
 // must be called with endpoint.Mutex held for reading
-func (e *Endpoint) updateNetworkPolicy(owner Owner, proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
+func (e *Endpoint) updateNetworkPolicy(owner regeneration.Owner, proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no identity has been computed for this
 	// endpoint.
 	// This breaks a circular dependency between configuring NetworkPolicies in
@@ -93,7 +93,7 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 }
 
 // regeneratePolicy computes the policy for the given endpoint based off of the
-// rules in Owner's policy repository.
+// rules in regeneration.Owner's policy repository.
 //
 // Policy generation may fail, and in that case we exit before actually changing
 // the policy in any way, so that the last policy remains fully in effect if the
@@ -106,7 +106,7 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
+func (e *Endpoint) regeneratePolicy(owner regeneration.Owner) (retErr error) {
 	var forceRegeneration bool
 
 	// No point in calculating policy if endpoint does not have an identity yet.
@@ -226,7 +226,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(owner regeneration.Owner, context *regenerationContext) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -414,7 +414,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+func (e *Endpoint) Regenerate(owner regeneration.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
 	var (
@@ -473,7 +473,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *regeneration.ExternalR
 	return done
 }
 
-func (e *Endpoint) notifyEndpointRegeneration(owner Owner, err error) {
+func (e *Endpoint) notifyEndpointRegeneration(owner regeneration.Owner, err error) {
 	repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
 	if reprerr != nil {
 		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")

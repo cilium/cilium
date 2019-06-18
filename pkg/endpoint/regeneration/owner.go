@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpoint
+package regeneration
 
 import (
 	"context"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -33,19 +35,19 @@ type Owner interface {
 	GetPolicyRepository() *policy.Repository
 
 	// UpdateProxyRedirect must update the redirect configuration of an endpoint in the proxy
-	UpdateProxyRedirect(e *Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	UpdateProxyRedirect(e EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
 
 	// RemoveProxyRedirect must remove the redirect installed by UpdateProxyRedirect
-	RemoveProxyRedirect(e *Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+	RemoveProxyRedirect(e EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
 
 	// UpdateNetworkPolicy adds or updates a network policy in the set
 	// published to L7 proxies.
-	UpdateNetworkPolicy(e *Endpoint, policy *policy.L4Policy,
+	UpdateNetworkPolicy(e EndpointUpdater, policy *policy.L4Policy,
 		proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.
-	RemoveNetworkPolicy(e *Endpoint)
+	RemoveNetworkPolicy(e EndpointInfoSource)
 
 	// QueueEndpointBuild puts the given endpoint in the processing queue
 	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
@@ -68,4 +70,36 @@ type Owner interface {
 
 	// UpdateIdentities propagates identity updates to selectors
 	UpdateIdentities(added, deleted cache.IdentityCache)
+}
+
+// EndpointInfoSource returns information about an endpoint being proxied.
+// The read lock must be held when calling any method.
+type EndpointInfoSource interface {
+	UnconditionalRLock()
+	RUnlock()
+	GetID() uint64
+	GetIPv4Address() string
+	GetIPv6Address() string
+	GetIdentity() identity.NumericIdentity
+	GetLabels() []string
+	GetLabelsSHA() string
+	HasSidecarProxy() bool
+	ConntrackName() string
+	GetIngressPolicyEnabledLocked() bool
+	GetEgressPolicyEnabledLocked() bool
+	ProxyID(l4 *policy.L4Filter) string
+}
+
+// EndpointUpdater returns information about an endpoint being proxied and
+// is called back to update the endpoint when proxy events occur.
+// This is a subset of `Endpoint`.
+type EndpointUpdater interface {
+	EndpointInfoSource
+	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
+	// has applied a policy.
+	OnProxyPolicyUpdate(policyRevision uint64)
+
+	// UpdateProxyStatistics updates the Endpoint's proxy statistics to account
+	// for a new observed flow with the given characteristics.
+	UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
 }
