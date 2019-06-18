@@ -203,6 +203,10 @@ ct_recreate6:
 	case CT_REPLY:
 		policy_mark_skip(skb);
 
+#ifdef ENABLE_NODEPORT
+		if (ct_state.node_port)
+			return redirect(NATIVE_DEV_IFINDEX, 0);
+#endif
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,
 					  ct_state.rev_nat_index, tuple, 0);
@@ -811,6 +815,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
+		ct_state_new.node_port = ct_state.node_port;
 		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
