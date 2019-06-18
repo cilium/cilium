@@ -21,20 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
-// IDSet is a wrapper type around a set of unsigned 16-bit integers, with
-// a mutex for protecting access.
-type IDSet struct {
-	Mutex lock.RWMutex
-	IDs   map[uint16]struct{}
-}
-
-// NewIDSet returns a new instance of an IDSet.
-func NewIDSet() *IDSet {
-	return &IDSet{
-		IDs: map[uint16]struct{}{},
-	}
-}
-
 // Endpoint refers to any structure which has the following properties:
 // * a node-local ID stored as a uint16
 // * a security identity
@@ -67,10 +53,10 @@ func NewEndpointSet(m map[Endpoint]struct{}) *EndpointSet {
 	}
 }
 
-// ForEach runs epFunc asynchronously for all endpoints in the EndpointSet. It
-// signals to the provided WaitGroup when epFunc has been executed for each
-// endpoint.
-func (e *EndpointSet) ForEach(wg *sync.WaitGroup, epFunc func(epp Endpoint)) {
+// ForEachGo runs epFunc asynchronously inside a go routine for each endpoint in
+// the EndpointSet. It signals to the provided WaitGroup when epFunc has been
+// executed for each endpoint.
+func (e *EndpointSet) ForEachGo(wg *sync.WaitGroup, epFunc func(epp Endpoint)) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 

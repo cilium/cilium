@@ -379,14 +379,14 @@ func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 // the endpoints, it is added to the provided IDSet, and removed from the
 // provided EndpointSet. The provided WaitGroup is signaled for a given endpoint
 // when it is finished being processed.
-func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision *EndpointSet, endpointsToRegenerate *IDSet, policySelectionWG *sync.WaitGroup) {
+func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegenerate *EndpointSet, policySelectionWG *sync.WaitGroup) {
 	// No need to check whether endpoints need to be regenerated here since we
 	// will unconditionally regenerate all endpoints later.
 	if !option.Config.SelectiveRegeneration {
 		return
 	}
 
-	endpointsToBumpRevision.ForEach(policySelectionWG, func(epp Endpoint) {
+	endpointsToBumpRevision.ForEachGo(policySelectionWG, func(epp Endpoint) {
 		endpointSelected, err := r.updateEndpointsCaches(epp, endpointsToRegenerate)
 
 		// If we could not evaluate the rules against the current endpoint, or

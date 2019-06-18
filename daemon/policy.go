@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -312,7 +313,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	// revision.
 	endpointsToBumpRevision := policy.NewEndpointSet(allEndpoints)
 
-	endpointsToRegen := policy.NewIDSet()
+	endpointsToRegen := policy.NewEndpointSet(nil)
 
 	if opts != nil {
 		if opts.Replace {
@@ -420,7 +421,7 @@ type PolicyReactionEvent struct {
 	d                 *Daemon
 	wg                *sync.WaitGroup
 	epsToBumpRevision *policy.EndpointSet
-	endpointsToRegen  *policy.IDSet
+	endpointsToRegen  *policy.EndpointSet
 	newRev            uint64
 }
 
@@ -436,23 +437,32 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 // * regenerate all endpoints in epsToRegen
 // * bump the policy revision of all endpoints not in epsToRegen, but which are
 //   in allEps, to revision rev.
-func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision *policy.EndpointSet, epsToRegen *policy.IDSet, rev uint64) {
+func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64) {
 	var enqueueWaitGroup sync.WaitGroup
 
 	// Bump revision of endpoints which don't need to be regenerated.
-	epsToBumpRevision.ForEach(&enqueueWaitGroup, func(epp policy.Endpoint) {
+	epsToBumpRevision.ForEachGo(&enqueueWaitGroup, func(epp policy.Endpoint) {
 		if epp == nil {
 			return
 		}
 		epp.PolicyRevisionBumpEvent(rev)
 	})
 
-	epsToRegen.Mutex.RLock()
 	// Regenerate all other endpoints.
-	endpointRegen := endpointmanager.RegenerateEndpointSet(d, &regeneration.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs)
-	epsToRegen.Mutex.RUnlock()
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{Reason: "policy rules added"}
+	epsToRegen.ForEachGo(&enqueueWaitGroup, func(ep policy.Endpoint) {
+		if ep != nil {
+			switch e := ep.(type) {
+			case *endpoint.Endpoint:
+				// Do not wait for the returned channel as we want this to be
+				// ASync
+				e.RegenerateIfAlive(d, regenMetadata)
+			default:
+				log.Errorf("BUG: endpoint not type of *endpoint.Endpoint, received '%s' instead", e)
+			}
+		}
+	})
 
-	endpointRegen.Wait()
 	enqueueWaitGroup.Wait()
 }
 
@@ -534,7 +544,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	// revision bumped.
 	epsToBumpRevision := policy.NewEndpointSet(allEndpoints)
 
-	endpointsToRegen := policy.NewIDSet()
+	endpointsToRegen := policy.NewEndpointSet(nil)
 
 	deletedRules, rev, deleted := d.policy.DeleteByLabelsLocked(labels)
 	deletedRules.UpdateRulesEndpointsCaches(epsToBumpRevision, endpointsToRegen, &policySelectionWG)
