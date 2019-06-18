@@ -89,8 +89,9 @@ type IdentityAllocatorOwner interface {
 // InitIdentityAllocator creates the the identity allocator. Only the
 // first invocation of this function will have an effect.  Caller must
 // have initialized well known identities before calling this (by
-// calling identity.InitWellKnownIdentities()).
-func InitIdentityAllocator(owner IdentityAllocatorOwner) {
+// calling identity.InitWellKnownIdentities()). Returns a channel which is
+// closed when initialization of the allocator is completed.
+func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
 
@@ -100,29 +101,40 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) {
 
 	log.Info("Initializing identity allocator")
 
+	// Local identity cache can be created synchronously since it doesn't
+	// rely upon any external resources (e.g., external kvstore).
+	events := make(allocator.AllocatorEventChan, 1024)
+	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
+
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
-	events := make(allocator.AllocatorEventChan, 1024)
 
 	// It is important to start listening for events before calling
 	// NewAllocator() as it will emit events while filling the
 	// initial cache
 	watcher.watch(owner, events)
 
-	a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
-		allocator.WithMax(maxID), allocator.WithMin(minID),
-		allocator.WithSuffix(owner.GetNodeSuffix()),
-		allocator.WithEvents(events),
-		allocator.WithMasterKeyProtection(),
-		allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
-	if err != nil {
-		log.WithError(err).Fatal("Unable to initialize identity allocator")
-	}
+	// Asynchronously set up the global identity allocator since it connects
+	// to the kvstore.
+	go func(owner IdentityAllocatorOwner, evs allocator.AllocatorEventChan, minID, maxID idpool.ID) {
+		setupMutex.Lock()
+		defer setupMutex.Unlock()
 
-	IdentityAllocator = a
-	close(identityAllocatorInitialized)
-	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
+		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
+			allocator.WithMax(maxID), allocator.WithMin(minID),
+			allocator.WithSuffix(owner.GetNodeSuffix()),
+			allocator.WithEvents(evs),
+			allocator.WithMasterKeyProtection(),
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize identity allocator")
+		}
 
+		IdentityAllocator = a
+		close(identityAllocatorInitialized)
+	}(owner, events, minID, maxID)
+
+	return identityAllocatorInitialized
 }
 
 // Close closes the identity allocator and allows to call

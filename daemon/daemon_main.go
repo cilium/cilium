@@ -1294,9 +1294,6 @@ func runDaemon() {
 	// We need to set up etcd in parallel so we will initialize the k8s
 	// subsystem as well in parallel so caches will start to be synchronized
 	// with k8s.
-	// This is required because CNP with CIDRs rely on the allocator which
-	// itself relies on the kvstore to be setup and the caches will not be
-	// synced unless we setup the kvstore at the same time.
 	k8sCachesSynced := d.initK8sSubsystem()
 	d.initKVStore()
 
