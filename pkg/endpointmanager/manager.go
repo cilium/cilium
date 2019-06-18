@@ -461,6 +461,18 @@ func GetEndpoints() []*endpoint.Endpoint {
 	return eps
 }
 
+// GetPolicyEndpoints returns a map of all endpoints present in endpoint
+// manager as policy.Endpoint interface set for the map key.
+func GetPolicyEndpoints() map[policy.Endpoint]struct{} {
+	mutex.RLock()
+	eps := make(map[policy.Endpoint]struct{}, len(endpoints))
+	for _, ep := range endpoints {
+		eps[ep] = struct{}{}
+	}
+	mutex.RUnlock()
+	return eps
+}
+
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
