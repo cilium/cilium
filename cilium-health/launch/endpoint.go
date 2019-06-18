@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthPkg "github.com/cilium/cilium/pkg/health/client"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
@@ -192,7 +193,7 @@ func CleanupEndpoint() {
 //
 // CleanupEndpoint() must be called before calling LaunchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Node, mtuConfig mtu.Configuration) (*Client, error) {
+func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node.Node, mtuConfig mtu.Configuration) (*Client, error) {
 	var (
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{

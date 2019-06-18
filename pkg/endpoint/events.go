@@ -15,12 +15,13 @@
 package endpoint
 
 import (
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 )
 
 // EndpointRegenerationEvent contains all fields necessary to regenerate an endpoint.
 type EndpointRegenerationEvent struct {
-	owner        Owner
+	owner        regeneration.Owner
 	regenContext *regenerationContext
 	ep           *Endpoint
 }

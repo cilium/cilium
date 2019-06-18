@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -183,7 +182,7 @@ func (d *Daemon) Datapath() datapath.Datapath {
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
@@ -198,13 +197,13 @@ func (d *Daemon) UpdateProxyRedirect(e *endpoint.Endpoint, l4 *policy.L4Filter, 
 
 // RemoveProxyRedirect removes a previously installed proxy redirect for an
 // endpoint
-func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (d *Daemon) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return nil, nil, nil
 	}
 
 	log.WithFields(logrus.Fields{
-		logfields.EndpointID: e.ID,
+		logfields.EndpointID: e.GetID(),
 		logfields.L4PolicyID: id,
 	}).Debug("Removing redirect to endpoint")
 	return d.l7Proxy.RemoveRedirect(id, proxyWaitGroup)
@@ -212,7 +211,7 @@ func (d *Daemon) RemoveProxyRedirect(e *endpoint.Endpoint, id string, proxyWaitG
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
-func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Policy,
+func (d *Daemon) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
 	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled"), nil
@@ -224,7 +223,7 @@ func (d *Daemon) UpdateNetworkPolicy(e *endpoint.Endpoint, policy *policy.L4Poli
 
 // RemoveNetworkPolicy removes a network policy from the set published to
 // L7 proxies.
-func (d *Daemon) RemoveNetworkPolicy(e *endpoint.Endpoint) {
+func (d *Daemon) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {
 	if d.l7Proxy == nil {
 		return
 	}
