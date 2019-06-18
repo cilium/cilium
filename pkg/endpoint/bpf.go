@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -482,7 +483,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 
 	e.getLogger().WithField(fieldRegenLevel, datapathRegenCtxt.regenerationLevel).Debug("Preparing to compile BPF")
 
-	if datapathRegenCtxt.regenerationLevel > RegenerateWithoutDatapath {
+	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
 		if e.Options.IsEnabled(option.Debug) {
 			debugFunc := log.WithFields(logrus.Fields{logfields.EndpointID: e.StringID()}).Debugf
 			ctx, cancel := context.WithCancel(regenContext.parentContext)
@@ -491,11 +492,11 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 		}
 
 		// Compile and install BPF programs for this endpoint
-		if datapathRegenCtxt.regenerationLevel == RegenerateWithDatapathRebuild {
+		if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRebuild {
 			err = loader.CompileAndLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			e.getLogger().WithError(err).Info("Regenerated endpoint BPF program")
 			compilationExecuted = true
-		} else if datapathRegenCtxt.regenerationLevel == RegenerateWithDatapathRewrite {
+		} else if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRewrite {
 			err = loader.CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
@@ -713,14 +714,14 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
 	if changed {
-		datapathRegenCtxt.regenerationLevel = RegenerateWithDatapathRewrite
+		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapathRewrite
 		if err = e.writeHeaderfile(nextDir, owner); err != nil {
 			return fmt.Errorf("unable to write header file: %s", err)
 		}
 	}
 
 	// Cache endpoint information so that we can release the endpoint lock.
-	if datapathRegenCtxt.regenerationLevel >= RegenerateWithDatapathRewrite {
+	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapathRewrite {
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)
 	} else {
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)

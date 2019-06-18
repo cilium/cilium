@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
@@ -290,7 +291,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// is executed; if we waited for regeneration to be complete, including
 		// proxy configuration, this code would effectively deadlock addition
 		// of endpoints.
-		ep.Regenerate(d, &endpoint.ExternalRegenerationMetadata{
+		ep.Regenerate(d, &regeneration.ExternalRegenerationMetadata{
 			Reason:        "Initial build on endpoint creation",
 			ParentContext: ctx,
 		})
