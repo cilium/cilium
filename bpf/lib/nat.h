@@ -508,6 +508,7 @@ struct ipv6_nat_target {
 	union v6addr addr;
 	const __u16 min_port; /* host endianess */
 	const __u16 max_port; /* host endianess */
+	const bool force_range;
 };
 
 #ifdef ENABLE_IPV6
@@ -622,6 +623,8 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
+		if (target->force_range && retries == 0)
+			goto select_port;
 		if (!snat_v6_lookup(&rtuple)) {
 			ostate->common.created = bpf_ktime_get_nsec();
 			rstate.common.created = ostate->common.created;
@@ -630,6 +633,7 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 			if (!ret)
 				return 0;
 		}
+select_port:
 		if (NAT_MAP_TYPE == BPF_MAP_TYPE_LRU_HASH &&
 		    retries < SNAT_DETERMINISTIC_RETRIES)
 			port = __snat_hash(rtuple.dport);

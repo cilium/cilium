@@ -203,6 +203,11 @@ ct_recreate6:
 	case CT_REPLY:
 		policy_mark_skip(skb);
 
+#ifdef ENABLE_NODEPORT
+		/* See comment in handle_ipv4_from_lxc(). */
+		if (ct_state.node_port)
+			return redirect(NATIVE_DEV_IFINDEX, 0);
+#endif
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,
 					  ct_state.rev_nat_index, tuple, 0);
@@ -512,6 +517,10 @@ ct_recreate4:
 		policy_mark_skip(skb);
 
 #ifdef ENABLE_NODEPORT
+		/* This handles reply traffic for the case where the nodeport EP
+		 * is local to the node. We'll redirect to bpf_netdev egress to
+		 * perform the reverse DNAT.
+		 */
 		if (ct_state.node_port) {
 			return redirect(NATIVE_DEV_IFINDEX, 0);
 		}
@@ -811,6 +820,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
+		ct_state_new.node_port = ct_state.node_port;
 		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;

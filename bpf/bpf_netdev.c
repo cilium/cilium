@@ -50,6 +50,8 @@
 #include "lib/nat.h"
 #include "lib/lb.h"
 
+#define CB_SRC_IDENTITY 0
+
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
 static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
 {
@@ -66,6 +68,13 @@ static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity
 }
 #endif
 
+static inline void tc_index_clear_nodeport(struct __sk_buff *skb)
+{
+#ifdef ENABLE_NODEPORT
+	skb->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
+#endif
+}
+
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 {
@@ -79,6 +88,15 @@ static inline __u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity)
 #endif /* ENABLE_SECCTX_FROM_IPCACHE */
 	return secctx;
 }
+
+#ifdef ENABLE_NODEPORT
+static inline bool __inline__ tc_index_skip_nodeport(struct __sk_buff *skb)
+{
+	volatile __u32 tc_index = skb->tc_index;
+	tc_index_clear_nodeport(skb);
+	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
+}
+#endif /* ENABLE_NODEPORT */
 #endif
 
 #ifdef ENABLE_IPV6
@@ -98,6 +116,215 @@ static inline __u32 derive_sec_ctx(struct __sk_buff *skb, const union v6addr *no
 #endif
 }
 
+#ifdef ENABLE_NODEPORT
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT) int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
+{
+	struct bpf_fib_lookup fib_params = {};
+	struct ipv6_nat_target target = {
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MAX_NAT,
+		.force_range = true,
+	};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int ret, dir = skb->cb[CB_NAT];
+
+	BPF_V6(target.addr, IPV6_NODEPORT);
+
+	ret = snat_v6_process(skb, dir, &target);
+	if (IS_ERR(ret)) {
+		/* In case of no mapping, recircle back to main path. SNAT is very
+		 * expensive in terms of instructions (since we don't have BPF to
+		 * BPF calls as we use tail calls) and complexity, hence this is
+		 * done inside a tail call here.
+		 */
+		if (dir == NAT_DIR_INGRESS) {
+			skb->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
+			ret = DROP_MISSED_TAIL_CALL;
+		}
+		return ret;
+	}
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	fib_params.family = AF_INET6;
+	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+
+	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
+
+	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
+			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (ret != 0)
+		return DROP_NO_FIB;
+
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	return redirect(fib_params.ifindex, 0);
+}
+
+/* See nodeport_lb4(). */
+static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
+{
+	int ret, l3_off = ETH_HLEN, l4_off, hdrlen;
+	struct ipv6_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct csum_offset csum_off = {};
+	struct lb6_service_v2 *svc;
+	struct lb6_key_v2 key = {};
+	struct ct_state ct_state_new = {};
+	struct ct_state ct_state = {};
+	__u32 monitor = 0;
+	__u16 service_port;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+
+	hdrlen = ipv6_hdrlen(skb, l3_off, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = l3_off + hdrlen;
+
+	ret = lb6_extract_key_v2(skb, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	if (IS_ERR(ret)) {
+		if (ret == DROP_UNKNOWN_L4)
+			return TC_ACT_OK;
+		else
+			return ret;
+	}
+
+	service_port = bpf_ntohs(key.dport);
+	if (service_port < NODEPORT_PORT_MIN ||
+	    service_port > NODEPORT_PORT_MAX) {
+		if (service_port >= NODEPORT_PORT_MIN_NAT &&
+		    service_port <= NODEPORT_PORT_MAX_NAT) {
+			skb->cb[CB_NAT] = NAT_DIR_INGRESS;
+			skb->cb[CB_SRC_IDENTITY] = src_identity;
+			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+			return DROP_MISSED_TAIL_CALL;
+		}
+		return TC_ACT_OK;
+	}
+
+	ct_state_new.orig_dport = key.dport;
+
+	if ((svc = lb6_lookup_service_v2(skb, &key)) != NULL) {
+		ret = lb6_local(get_ct_map6(&tuple), skb, l3_off, l4_off,
+				&csum_off, &key, &tuple, svc, &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+	} else {
+		return TC_ACT_OK;
+	}
+
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	switch (ret) {
+	case CT_NEW:
+		ct_state_new.src_sec_id = SECLABEL;
+		ct_state_new.node_port = 1;
+		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_EGRESS,
+				 &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+		break;
+
+	case CT_ESTABLISHED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	if (!lookup_ip6_endpoint(ip6)) {
+		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
+		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
+	}
+
+	return TC_ACT_OK;
+}
+
+/* See local_rev_nodeport_lb4(). */
+static inline int local_rev_nodeport_lb6(struct __sk_buff *skb)
+{
+	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
+	struct ipv6_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct csum_offset csum_off = {};
+	struct ct_state ct_state = {};
+	struct bpf_fib_lookup fib_params = {};
+	__u32 monitor = 0;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+
+	hdrlen = ipv6_hdrlen(skb, l3_off, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	l4_off = l3_off + hdrlen;
+	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, skb, l4_off, CT_INGRESS, &ct_state,
+			 &monitor);
+
+	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+		ret2 = lb6_rev_nat(skb, l4_off, &csum_off, ct_state.rev_nat_index,
+				   &tuple, REV_NAT_F_TUPLE_SADDR);
+		if (IS_ERR(ret2))
+			return ret2;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		fib_params.family = AF_INET6;
+		fib_params.ifindex = NATIVE_DEV_IFINDEX;
+
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, &tuple.saddr);
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, &tuple.daddr);
+
+		int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
+				    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (rc != 0) {
+			// TODO(brb) log cilium monitor err
+			return DROP_NO_FIB;
+		}
+		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+			return DROP_WRITE_ERROR;
+		}
+		if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+			return DROP_WRITE_ERROR;
+		}
+	}
+
+	return TC_ACT_OK;
+}
+#endif
+
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 {
 	struct remote_endpoint_info *info = NULL;
@@ -112,6 +339,17 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+#ifdef ENABLE_NODEPORT
+	if (!tc_index_skip_nodeport(skb) &&
+	    nodeport_lb6(skb, src_identity) < 0) {
+		return DROP_INVALID;
+	}
+
+	/* Verifier workaround: modified ctx access. */
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+#endif
 
 	nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(skb, l3_off, &nexthdr);
@@ -232,14 +470,20 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 #endif
 	return TC_ACT_OK;
 }
-#endif /* ENABLE_IPV6 */
 
-static inline void __inline__ tc_index_clear_nodeport(struct __sk_buff *skb)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
 {
-#ifdef ENABLE_NODEPORT
-	skb->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
-#endif
+	__u32 proxy_identity = skb->cb[CB_SRC_IDENTITY];
+	int ret;
+
+	skb->cb[CB_SRC_IDENTITY] = 0;
+	ret = handle_ipv6(skb, proxy_identity);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, proxy_identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	return ret;
 }
+#endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
 static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4)
@@ -251,16 +495,7 @@ static inline __u32 derive_ipv4_sec_ctx(struct __sk_buff *skb, struct iphdr *ip4
 #endif
 }
 
-#define CB_SRC_IDENTITY 0
-
 #ifdef ENABLE_NODEPORT
-static inline bool __inline__ tc_index_skip_nodeport(struct __sk_buff *skb)
-{
-	volatile __u32 tc_index = skb->tc_index;
-	tc_index_clear_nodeport(skb);
-	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
-}
-
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT) int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 {
 	struct bpf_fib_lookup fib_params = {};
@@ -741,14 +976,11 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		/* This is considered the fast path, no tail call */
-		ret = handle_ipv6(skb, identity);
-
-		/* We should only be seeing an error here for packets which have
-		 * been targetting an endpoint managed by us. */
-		if (IS_ERR(ret))
-			return send_drop_notify_error(skb, identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
-		break;
+		skb->cb[CB_SRC_IDENTITY] = identity;
+		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
+		/* See comment below for IPv4. */
+		return send_drop_notify_error(skb, identity, DROP_MISSED_TAIL_CALL,
+					      TC_ACT_OK, METRIC_INGRESS);
 #endif
 
 #ifdef ENABLE_IPV4
@@ -762,7 +994,6 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 		 * this notification is unlikely to succeed. */
 		return send_drop_notify_error(skb, identity, DROP_MISSED_TAIL_CALL,
 		                              TC_ACT_OK, METRIC_INGRESS);
-
 #endif
 
 	default:
@@ -799,14 +1030,28 @@ __section("to-netdev")
 int to_netdev(struct __sk_buff *skb)
 {
 	__u16 proto;
-	int ret = TC_ACT_OK;
+	int ret;
 
 	if (!validate_ethertype(skb, &proto))
 		/* Pass unknown traffic to the stack */
 		return TC_ACT_OK;
 
 #ifdef ENABLE_NODEPORT
-	ret = local_rev_nodeport_lb4(skb);
+	switch (proto) {
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = local_rev_nodeport_lb4(skb);
+		break;
+# endif
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = local_rev_nodeport_lb6(skb);
+		break;
+# endif
+	default:
+		ret = TC_ACT_OK;
+		break;
+	}
 	if (ret != TC_ACT_OK) {
 		return ret;
 	}
