@@ -443,22 +443,6 @@ func (e *Endpoint) RegenerateIfAlive(owner regeneration.Owner, regenMetadata *re
 	return ch
 }
 
-// RegenerateASync regenerates the endpoint asynchronously and signalizes the given waitGroup
-// once the endpoint regeneration is completed.
-func (e *Endpoint) RegenerateASync(owner regeneration.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) {
-	if err := e.LockAlive(); err != nil {
-		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		regen := e.SetStateLocked(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		e.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			e.Regenerate(owner, regenMetadata)
-		}
-	}
-}
-
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
