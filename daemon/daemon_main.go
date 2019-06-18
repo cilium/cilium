@@ -769,6 +769,9 @@ func init() {
 	flags.Bool(option.SkipCRDCreation, false, "Skip Kubernetes Custom Resource Definitions creations")
 	option.BindEnv(option.SkipCRDCreation)
 
+	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
+	option.BindEnv(option.WriteCNIConfigurationWhenReady)
+
 	viper.BindPFlags(flags)
 }
 
@@ -1371,6 +1374,18 @@ func runDaemon() {
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
+
+	if option.Config.WriteCNIConfigurationWhenReady != "" {
+		input, err := ioutil.ReadFile(option.Config.ReadCNIConfiguration)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to read CNI configuration file")
+		}
+
+		err = ioutil.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644)
+		if err != nil {
+			log.WithError(err).Fatalf("Unable to write CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
+		}
+	}
 
 	errs := make(chan error, 1)
 

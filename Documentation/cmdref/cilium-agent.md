@@ -135,5 +135,6 @@ cilium-agent [flags]
       --trace-payloadlen int                       Length of payload to capture when tracing (default 128)
   -t, --tunnel string                              Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
       --version                                    Print version information
+      --write-cni-conf-when-ready string           Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
 
