@@ -41,7 +41,7 @@ const (
 	ciliumPostMangleChain = "CILIUM_POST_mangle"
 	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
 	ciliumPreRawChain     = "CILIUM_PRE_raw"
-	ciliumForwardChain    = "CILIUM_FORWARD"
+	ciliumForwardChain    = "CILIUM_FORWARD" // Obsoleted, left to force removal of old rules
 	feederDescription     = "cilium-feeder:"
 	xfrmDescription       = "cilium-xfrm-notrack:"
 )
@@ -489,35 +489,6 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 			"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + ifName,
 			"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
-			return err
-		}
-
-		// kube-proxy does not change the default policy of the FORWARD chain
-		// which means that while packets to services are properly DNAT'ed,
-		// they are later dropped in the FORWARD chain. The issue has been
-		// resolved in #52569 and will be fixed in k8s >= 1.8. The following is
-		// a workaround for earlier Kubernetes versions.
-		//
-		// Accept all packets in FORWARD chain that are going to ifName.
-		// It is safe to ignore the destination IP here as the pre-requisite
-		// for a packet being routed to ifName is that a route exists
-		// which is only installed for known node IP CIDR ranges.
-		if err := runProg("iptables", []string{
-			"-A", ciliumForwardChain,
-			"-o", ifName,
-			"-m", "comment", "--comment", "cilium: any->cluster on " + ifName + " forward accept",
-			"-j", "ACCEPT"}, false); err != nil {
-			return err
-		}
-
-		// Accept all packets in the FORWARD chain that are coming from the
-		// ifName interface with a source IP in the local node
-		// allocation range.
-		if err := runProg("iptables", []string{
-			"-A", ciliumForwardChain,
-			"-s", node.GetIPv4AllocRange().String(),
-			"-m", "comment", "--comment", "cilium: cluster->any forward accept",
-			"-j", "ACCEPT"}, false); err != nil {
 			return err
 		}
 
