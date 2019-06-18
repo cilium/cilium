@@ -285,7 +285,7 @@ type Fq struct {
 
 func (fq *Fq) String() string {
 	return fmt.Sprintf(
-		"{PacketLimit: %v, FlowPacketLimit: %v, Quantum: %v, InitalQuantum: %v, Pacing: %v, FlowDefaultRate: %v, FlowMaxRate: %v, Buckets: %v, FlowRefillDelay: %v,  LowRateTreshold: %v}",
+		"{PacketLimit: %v, FlowPacketLimit: %v, Quantum: %v, InitialQuantum: %v, Pacing: %v, FlowDefaultRate: %v, FlowMaxRate: %v, Buckets: %v, FlowRefillDelay: %v,  LowRateThreshold: %v}",
 		fq.PacketLimit, fq.FlowPacketLimit, fq.Quantum, fq.InitialQuantum, fq.Pacing, fq.FlowDefaultRate, fq.FlowMaxRate, fq.Buckets, fq.FlowRefillDelay, fq.LowRateThreshold,
 	)
 }
