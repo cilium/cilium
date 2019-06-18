@@ -404,47 +404,13 @@ func RegenerateAllEndpoints(owner regeneration.Owner, regenMetadata *regeneratio
 
 	log.Infof("regenerating all endpoints due to %s", regenMetadata.Reason)
 	for _, ep := range eps {
-		go regenerateEndpointBlocking(owner, ep, regenMetadata, &wg)
+		go func(ep *endpoint.Endpoint) {
+			<-ep.RegenerateIfAlive(owner, regenMetadata)
+			wg.Done()
+		}(ep)
 	}
 
 	return &wg
-}
-
-func regenerateEndpointBlocking(owner regeneration.Owner, ep *endpoint.Endpoint, regenMetadata *regeneration.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
-	if err := ep.LockAlive(); err != nil {
-		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		var regen bool
-		state := ep.GetStateLocked()
-		switch state {
-		case endpoint.StateRestoring, endpoint.StateWaitingToRegenerate:
-			ep.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
-			regen = false
-		default:
-			regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		}
-		ep.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			<-ep.Regenerate(owner, regenMetadata)
-		}
-	}
-	wg.Done()
-}
-
-func regenerateEndpointNonBlocking(owner regeneration.Owner, ep *endpoint.Endpoint, regenMetadata *regeneration.ExternalRegenerationMetadata) {
-	if err := ep.LockAlive(); err != nil {
-		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		ep.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			ep.Regenerate(owner, regenMetadata)
-		}
-	}
 }
 
 // RegenerateEndpointSetSignalWhenEnqueued regenerates the endpoints represented
@@ -461,10 +427,10 @@ func RegenerateEndpointSetSignalWhenEnqueued(owner regeneration.Owner, regenMeta
 			continue
 		}
 		wg.Add(1)
-		go func() {
-			regenerateEndpointNonBlocking(owner, ep, regenMetadata)
+		go func(ep *endpoint.Endpoint) {
+			ep.RegenerateASync(owner, regenMetadata)
 			wg.Done()
-		}()
+		}(ep)
 	}
 }
 
