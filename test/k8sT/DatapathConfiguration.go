@@ -15,6 +15,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -38,7 +39,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 
-		waitToDeleteCilium(kubectl, logger)
+		Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
 	})
 
 	BeforeEach(func() {
@@ -56,7 +57,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		// incomplete teardown.
 		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-		waitToDeleteCilium(kubectl, logger)
+		Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
 	})
 
 	AfterFailed(func() {
@@ -213,15 +214,31 @@ func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
 	return res.WasSuccessful()
 }
 
-func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) {
+func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
+	var (
+		pods []string
+		err  error
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), helpers.HelperTimeout)
+	defer cancel()
+
 	status := 1
 	for status > 0 {
-		pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
+		default:
+		}
+
+		pods, err = kubectl.GetCiliumPodsContext(ctx, helpers.KubeSystemNamespace)
 		status := len(pods)
 		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
 		if status == 0 {
-			return
+			return nil
 		}
 		time.Sleep(1 * time.Second)
 	}
+	return nil
 }
