@@ -306,17 +306,11 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := endpointmanager.GetEndpoints()
+	allEndpoints := endpointmanager.GetPolicyEndpoints()
 
 	// Start with all endpoints to be in set for which we need to bump their
 	// revision.
-	endpointsToBumpRevision := policy.NewEndpointSet(len(allEndpoints))
-
-	// Need to explicitly convert endpoints to policy.Endpoint.
-	// See: https://github.com/golang/go/wiki/InterfaceSlice
-	for i := range allEndpoints {
-		endpointsToBumpRevision.Insert(allEndpoints[i])
-	}
+	endpointsToBumpRevision := policy.NewEndpointSet(allEndpoints)
 
 	endpointsToRegen := policy.NewIDSet()
 
@@ -535,14 +529,10 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := endpointmanager.GetEndpoints()
-	epsToBumpRevision := policy.NewEndpointSet(len(allEndpoints))
-
+	allEndpoints := endpointmanager.GetPolicyEndpoints()
 	// Initially keep all endpoints in set of endpoints which need to have
 	// revision bumped.
-	for i := range allEndpoints {
-		epsToBumpRevision.Insert(allEndpoints[i])
-	}
+	epsToBumpRevision := policy.NewEndpointSet(allEndpoints)
 
 	endpointsToRegen := policy.NewIDSet()
 

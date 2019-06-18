@@ -76,12 +76,13 @@ func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	repo.selectorCache = testSelectorCache
 	rulez, _ := repo.AddList(GenerateNumRules(1000))
 
-	epSet := NewEndpointSet(5)
-
-	epSet.Insert(&dummyEndpoint{
-		ID:               9001,
-		SecurityIdentity: fooIdentity,
+	epSet := NewEndpointSet(map[Endpoint]struct{}{
+		&dummyEndpoint{
+			ID:               9001,
+			SecurityIdentity: fooIdentity,
+		}: {},
 	})
+
 	idSet := NewIDSet()
 	rulez.UpdateRulesEndpointsCaches(epSet, idSet, &wg)
 	wg.Wait()
