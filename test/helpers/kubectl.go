@@ -306,7 +306,7 @@ func (kub *Kubectl) GetAllPods(ctx context.Context, options ...ExecOptions) ([]v
 // in the specified namespace, along with an error if the pod names cannot be
 // retrieved.
 func (kub *Kubectl) GetPodNames(namespace string, label string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return kub.GetPodNamesContext(ctx, namespace, label)
 }
@@ -322,9 +322,9 @@ func (kub *Kubectl) GetPodNamesContext(ctx context.Context, namespace string, la
 
 	// Taking more than 30 seconds to get pods means that something is wrong
 	// connecting to the node.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	podNamesCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	err := kub.ExecuteContext(ctx, cmd, stdout, nil)
+	err := kub.ExecuteContext(podNamesCtx, cmd, stdout, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf(
