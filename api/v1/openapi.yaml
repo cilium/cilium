@@ -1615,6 +1615,9 @@ definitions:
       ipam-mode:
         description: Configured IPAM mode
         type: string
+      masquerade:
+        description: Status of masquerading feature
+        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
