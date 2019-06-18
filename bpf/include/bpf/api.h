@@ -175,6 +175,7 @@ static int BPF_FUNC(skb_change_proto, struct __sk_buff *skb, uint32_t proto,
 		    uint32_t flags);
 static int BPF_FUNC(skb_change_tail, struct __sk_buff *skb, uint32_t nlen,
 		    uint32_t flags);
+static int BPF_FUNC(skb_pull_data, struct __sk_buff *skb, uint32_t len);
 
 /* Packet vlan encap/decap */
 static int BPF_FUNC(skb_vlan_push, struct __sk_buff *skb, uint16_t proto,
