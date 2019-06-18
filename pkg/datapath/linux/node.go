@@ -638,8 +638,11 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
 		n.enableIPsec(newNode)
-		n.encryptNode(newNode)
 		newKey = newNode.EncryptionKey
+	}
+
+	if n.nodeConfig.EnableIPSec {
+		n.encryptNode(newNode)
 	}
 
 	if newNode.IsLocal() {
@@ -649,7 +652,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		}
 		if n.subnetEncryption() {
 			n.enableSubnetIPsec(n.nodeConfig.IPv4PodSubnets, n.nodeConfig.IPv6PodSubnets)
-			n.encryptNode(newNode)
 		}
 		return nil
 	}
