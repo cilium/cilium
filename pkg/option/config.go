@@ -1160,6 +1160,12 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("Specified PolicyMap max entries %d must not exceed maximum %d",
 			c.PolicyMapMaxEntries, policyMapMax)
 	}
+	// Validate that the KVStore Lease TTL value lies between a particular range.
+	if c.KVstoreLeaseTTL > defaults.KVstoreLeaseMaxTTL || c.KVstoreLeaseTTL < defaults.LockLeaseTTL {
+		return fmt.Errorf("KVstoreLeaseTTL does not lie in required range(%ds, %ds)",
+			int64(defaults.LockLeaseTTL.Seconds()),
+			int64(defaults.KVstoreLeaseMaxTTL.Seconds()))
+	}
 
 	return nil
 }
