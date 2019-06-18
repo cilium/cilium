@@ -67,8 +67,8 @@ func NewEndpointSet(capacity int) *EndpointSet {
 // signals to the provided WaitGroup when epFunc has been executed for each
 // endpoint.
 func (e *EndpointSet) ForEach(wg *sync.WaitGroup, epFunc func(epp Endpoint)) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
 
 	wg.Add(len(e.endpoints))
 
