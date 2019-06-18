@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -360,7 +361,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				epRegenerated <- false
 				return
 			}
-			regenerationMetadata := &endpoint.ExternalRegenerationMetadata{
+			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason: "syncing state to host",
 			}
 			if buildSuccess := <-ep.Regenerate(d, regenerationMetadata); !buildSuccess {

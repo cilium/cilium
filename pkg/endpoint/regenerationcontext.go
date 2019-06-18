@@ -18,71 +18,9 @@ import (
 	"context"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/revert"
 )
-
-// DatapathRegenerationLevel determines what is expected of the datapath when
-// a regeneration event is processed.
-type DatapathRegenerationLevel int
-
-const (
-	// RegenerateWithoutDatapath indicates that datapath rebuild or reload
-	// is not required to implement this regeneration.
-	RegenerateWithoutDatapath DatapathRegenerationLevel = iota
-	// RegenerateWithDatapathLoad indicates that the datapath must be
-	// reloaded but not recompiled to implement this regeneration.
-	RegenerateWithDatapathLoad
-	// RegenerateWithDatapathRewrite indicates that the datapath must be
-	// recompiled and reloaded to implement this regeneration.
-	RegenerateWithDatapathRewrite
-	// RegenerateWithDatapathRebuild indicates that the datapath must be
-	// fully recompiled and reloaded without using any cached templates.
-	RegenerateWithDatapathRebuild
-)
-
-// String converts a DatapathRegenerationLevel into a human-readable string.
-func (r DatapathRegenerationLevel) String() string {
-	switch r {
-	case RegenerateWithoutDatapath:
-		return "no-rebuild"
-	case RegenerateWithDatapathLoad:
-		return "reload"
-	case RegenerateWithDatapathRewrite:
-		return "rewrite+load"
-	case RegenerateWithDatapathRebuild:
-		return "compile+load"
-	default:
-		break
-	}
-	return "BUG: Unknown DatapathRegenerationLevel"
-}
-
-func (e *ExternalRegenerationMetadata) toRegenerationContext(ctx context.Context, c context.CancelFunc) *regenerationContext {
-
-	return &regenerationContext{
-		Reason: e.Reason,
-		datapathRegenerationContext: &datapathRegenerationContext{
-			regenerationLevel: e.RegenerationLevel,
-			ctCleaned:         make(chan struct{}),
-		},
-		parentContext: ctx,
-		cancelFunc:    c,
-	}
-}
-
-// ExternalRegenerationMetadata contains any information about a regeneration that
-// the endpoint subsystem should be made aware of for a given endpoint.
-type ExternalRegenerationMetadata struct {
-	// Reason provides context to source for the regeneration, which is
-	// used to generate useful log messages.
-	Reason string
-
-	// RegenerationLevel forces datapath regeneration according to the
-	// levels defined in the DatapathRegenerationLevel description.
-	RegenerationLevel DatapathRegenerationLevel
-
-	ParentContext context.Context
-}
 
 // RegenerationContext provides context to regenerate() calls to determine
 // the caller, and which specific aspects to regeneration are necessary to
@@ -107,6 +45,18 @@ type regenerationContext struct {
 	cancelFunc context.CancelFunc
 }
 
+func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc, e *regeneration.ExternalRegenerationMetadata) *regenerationContext {
+	return &regenerationContext{
+		Reason: e.Reason,
+		datapathRegenerationContext: &datapathRegenerationContext{
+			regenerationLevel: e.RegenerationLevel,
+			ctCleaned:         make(chan struct{}),
+		},
+		parentContext: ctx,
+		cancelFunc:    c,
+	}
+}
+
 // datapathRegenerationContext contains information related to regenerating the
 // datapath (BPF, proxy, etc.).
 type datapathRegenerationContext struct {
@@ -118,7 +68,7 @@ type datapathRegenerationContext struct {
 	completionCancel   context.CancelFunc
 	currentDir         string
 	nextDir            string
-	regenerationLevel  DatapathRegenerationLevel
+	regenerationLevel  regeneration.DatapathRegenerationLevel
 
 	finalizeList revert.FinalizeList
 	revertStack  revert.RevertStack
