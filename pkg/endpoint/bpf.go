@@ -128,7 +128,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	return fw.Flush()
 }
 
-func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
+func (e *Endpoint) writeHeaderfile(prefix string, owner regeneration.Owner) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Path: headerPath,
@@ -150,7 +150,7 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner Owner) error {
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil, nil
 	}
@@ -253,7 +253,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner Owner, m policy.L4PolicyMap, des
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (e *Endpoint) addNewRedirects(owner regeneration.Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	desiredRedirects = make(map[string]bool)
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
@@ -288,7 +288,7 @@ func (e *Endpoint) addNewRedirects(owner Owner, m *policy.L4Policy, proxyWaitGro
 }
 
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) removeOldRedirects(owner regeneration.Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil
 	}
@@ -366,7 +366,7 @@ func (e *Endpoint) removeOldRedirects(owner Owner, desiredRedirects map[string]b
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
+func (e *Endpoint) regenerateBPF(owner regeneration.Owner, regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -528,7 +528,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 // runPreCompilationSteps runs all of the regeneration steps that are necessary
 // right before compiling the BPF for the given endpoint.
 // The endpoint mutex must not be held.
-func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regenerationContext) (preCompilationError error) {
+func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext *regenerationContext) (preCompilationError error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 

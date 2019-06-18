@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
@@ -34,6 +35,9 @@ type EndpointInfoSource interface {
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
 	ConntrackName() string
+	GetIngressPolicyEnabledLocked() bool
+	GetEgressPolicyEnabledLocked() bool
+	ProxyID(l4 *policy.L4Filter) string
 }
 
 // getEndpointInfo returns a consistent snapshot of the given source.

@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	e "github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
@@ -145,12 +146,12 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return nil
 	}
 
-	ds.OnUpdateNetworkPolicy = func(e *e.Endpoint, policy *policy.L4Policy,
+	ds.OnUpdateNetworkPolicy = func(e regeneration.EndpointUpdater, policy *policy.L4Policy,
 		proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 		return nil, nil
 	}
 
-	ds.OnRemoveNetworkPolicy = func(e *e.Endpoint) {}
+	ds.OnRemoveNetworkPolicy = func(e regeneration.EndpointInfoSource) {}
 
 	// Since all owner's funcs are implemented we can regenerate every endpoint.
 	epsNames := []string{}

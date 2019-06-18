@@ -20,13 +20,14 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/sirupsen/logrus"
 )
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(owner Owner, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 	possibleEPs := map[uint16]*Endpoint{}
 	for _, epDirName := range eptsDirNames {
 		epDir := filepath.Join(basePath, epDirName)
