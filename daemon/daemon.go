@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1005,9 +1006,9 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
 
-	regenRequest := &endpoint.ExternalRegenerationMetadata{
+	regenRequest := &regeneration.ExternalRegenerationMetadata{
 		Reason:            reason,
-		RegenerationLevel: endpoint.RegenerateWithDatapathLoad,
+		RegenerationLevel: regeneration.RegenerateWithDatapathLoad,
 	}
 	return endpointmanager.RegenerateAllEndpoints(d, regenRequest), nil
 }

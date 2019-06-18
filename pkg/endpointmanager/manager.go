@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -395,7 +396,7 @@ func updateReferences(ep *endpoint.Endpoint) {
 // list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata) *sync.WaitGroup {
+func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -409,7 +410,7 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 	return &wg
 }
 
-func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
+func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *regeneration.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
@@ -432,7 +433,7 @@ func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, reg
 	wg.Done()
 }
 
-func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata) {
+func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *regeneration.ExternalRegenerationMetadata) {
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
@@ -449,7 +450,7 @@ func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, 
 // RegenerateEndpointSetSignalWhenEnqueued regenerates the endpoints represented
 // by endpointIDs. It signals to the provided WaitGroup when all of the endpoints
 // in said set have had regenerations queued up.
-func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
+func RegenerateEndpointSetSignalWhenEnqueued(owner endpoint.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
 
 	for endpointID := range endpointIDs {
 		ep := endpoints[endpointID]

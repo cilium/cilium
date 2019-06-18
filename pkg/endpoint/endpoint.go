@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -1178,20 +1179,20 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	// succeeding.
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
-	regenCtx := &ExternalRegenerationMetadata{
+	regenCtx := &regeneration.ExternalRegenerationMetadata{
 		Reason: "endpoint was updated via API",
 	}
 
 	// If configuration options are provided, we only regenerate if necessary.
 	// Otherwise always regenerate.
 	if cfg.Options == nil {
-		regenCtx.RegenerationLevel = RegenerateWithDatapathRebuild
+		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRebuild
 		regenCtx.Reason = "endpoint was manually regenerated via API"
 	} else if e.updateAndOverrideEndpointOptions(om) || e.Status.CurrentStatus() != OK {
-		regenCtx.RegenerationLevel = RegenerateWithDatapathRewrite
+		regenCtx.RegenerationLevel = regeneration.RegenerateWithDatapathRewrite
 	}
 
-	if regenCtx.RegenerationLevel > RegenerateWithoutDatapath {
+	if regenCtx.RegenerationLevel > regeneration.RegenerateWithoutDatapath {
 		e.getLogger().Debug("need to regenerate endpoint; checking state before" +
 			" attempting to regenerate")
 
@@ -1370,7 +1371,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
 func (e *Endpoint) RegenerateWait(owner Owner, reason string) error {
-	if !<-e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: reason}) {
+	if !<-e.Regenerate(owner, &regeneration.ExternalRegenerationMetadata{Reason: reason}) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -2046,7 +2047,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: "updated security labels"})
+		e.Regenerate(owner, &regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
 	}
 
 	return nil

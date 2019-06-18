@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -51,7 +51,7 @@ func (d *Daemon) policyUpdateTrigger(reasons []string) {
 	log.Debugf("Regenerating all endpoints")
 	reason := strings.Join(reasons, ", ")
 
-	regenerationMetadata := &endpoint.ExternalRegenerationMetadata{Reason: reason}
+	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{Reason: reason}
 	endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
 }
 
@@ -456,7 +456,7 @@ func (d *Daemon) ReactToRuleUpdates(wg *sync.WaitGroup, epsToBumpRevision *polic
 
 	epsToRegen.Mutex.RLock()
 	// Regenerate all other endpoints.
-	endpointmanager.RegenerateEndpointSetSignalWhenEnqueued(d, &endpoint.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs, &enqueueWaitGroup)
+	endpointmanager.RegenerateEndpointSetSignalWhenEnqueued(d, &regeneration.ExternalRegenerationMetadata{Reason: "policy rules added"}, epsToRegen.IDs, &enqueueWaitGroup)
 	epsToRegen.Mutex.RUnlock()
 
 	enqueueWaitGroup.Wait()

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -413,7 +414,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMetadata) <-chan bool {
+func (e *Endpoint) Regenerate(owner Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
 	var (
@@ -427,7 +428,7 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 		ctx, cFunc = context.WithCancel(context.Background())
 	}
 
-	regenContext := regenMetadata.toRegenerationContext(ctx, cFunc)
+	regenContext := ParseExternalRegenerationMetadata(ctx, cFunc, regenMetadata)
 
 	epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
 		owner:        owner,

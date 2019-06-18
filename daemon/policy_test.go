@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -56,7 +57,7 @@ var (
 
 	testEndpointID = uint16(1)
 
-	regenerationMetadata = &endpoint.ExternalRegenerationMetadata{
+	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
 		Reason: "test",
 	}
 
