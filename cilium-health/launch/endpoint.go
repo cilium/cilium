@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -107,6 +108,42 @@ func configureHealthRouting(netns, dev string, addressing *models.NodeAddressing
 	return err
 }
 
+func configureHealthInterface(netNS ns.NetNS, ifName string, ip4Addr, ip6Addr *net.IPNet) error {
+	return netNS.Do(func(_ ns.NetNS) error {
+		link, err := netlink.LinkByName(ifName)
+		if err != nil {
+			return err
+		}
+
+		if ip6Addr != nil {
+			if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip6Addr}); err != nil {
+				return err
+			}
+		}
+
+		if ip4Addr != nil {
+			if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip4Addr}); err != nil {
+				return err
+			}
+		}
+
+		if err = netlink.LinkSetUp(link); err != nil {
+			return err
+		}
+
+		lo, err := netlink.LinkByName("lo")
+		if err != nil {
+			return err
+		}
+
+		if err = netlink.LinkSetUp(lo); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 // Client wraps a client to a specific cilium-health endpoint instance, to
 // provide convenience methods such as PingEndpoint().
 type Client struct {
@@ -142,18 +179,10 @@ func KillEndpoint() {
 // This is expected to be called after the process is killed and the endpoint
 // is removed from the endpointmanager.
 func CleanupEndpoint() {
-	// In the case of ipvlan, the ipvlan slave device is removed by removal
-	// of the endpoint netns in "cleanup" of spawn_netns.sh
-	if option.Config.DatapathMode == option.DatapathModeVeth {
-		scopedLog := log.WithField(logfields.Veth, vethName)
-		if link, err := netlink.LinkByName(vethName); err == nil {
-			err = netlink.LinkDel(link)
-			if err != nil {
-				scopedLog.WithError(err).Warning("Couldn't delete cilium-health device")
-			}
-		} else {
-			scopedLog.WithError(err).Debug("Didn't find existing device")
-		}
+	// By removing the network namespace, we also remove any associated
+	// veth pairs and ipvlan slaves
+	if err := netns.RemoveNetNSWithName(netNSName); err != nil {
+		log.WithError(err).Debug("Unable to remove cilium-health namespace")
 	}
 }
 
@@ -171,38 +200,39 @@ func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Nod
 			State:         models.EndpointStateWaitingForIdentity,
 			Addressing:    &models.AddressPair{},
 		}
-		ip4Address, ip6Address string
 		healthIP               net.IP
-		hostIfaceName          string
+		ip4Address, ip6Address *net.IPNet
 	)
 
 	if n.IPv4HealthIP != nil {
 		healthIP = n.IPv4HealthIP
 		info.Addressing.IPV4 = healthIP.String()
-		ip4WithMask := net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
-		ip4Address = ip4WithMask.String()
+		ip4Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
 	}
 
 	if n.IPv6HealthIP != nil {
 		healthIP = n.IPv6HealthIP
 		info.Addressing.IPV6 = healthIP.String()
-		ip6WithMask := net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
-		ip6Address = ip6WithMask.String()
+		ip6Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
+	}
+
+	netNS, err := netns.ReplaceNetNSWithName(netNSName)
+	if err != nil {
+		return nil, err
 	}
 
 	switch option.Config.DatapathMode {
 	case option.DatapathModeVeth:
-		if _, _, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), info); err != nil {
+		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), info)
+		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
 		}
-		hostIfaceName = vethName
 
-	case option.DatapathModeIpvlan:
-		netNS, err := netns.ReplaceNetNSWithName(netNSName)
-		if err != nil {
-			return nil, err
+		if err = netlink.LinkSetNsFd(*epLink, int(netNS.Fd())); err != nil {
+			return nil, fmt.Errorf("failed to move device %q to health namespace: %s", epIfaceName, err)
 		}
 
+	case option.DatapathModeIpvlan:
 		mapFD, err := connector.CreateAndSetupIpvlanSlave("",
 			epIfaceName, netNS, mtuConfig.GetDeviceMTU(),
 			option.Config.Ipvlan.MasterDeviceIndex,
@@ -216,22 +246,18 @@ func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Nod
 		}
 		defer unix.Close(mapFD)
 
-		hostIfaceName = option.Config.Device
+	}
+
+	if err = configureHealthInterface(netNS, epIfaceName, ip4Address, ip6Address); err != nil {
+		return nil, fmt.Errorf("failed configure health interface %q: %s", epIfaceName, err)
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
-	healthArgs := fmt.Sprintf("-d --admin=unix --passive --pidfile %s", pidfile)
-	args := []string{info.ContainerName, hostIfaceName, epIfaceName,
-		ip6Address, ip4Address, ciliumHealth, healthArgs}
-	if option.Config.DatapathMode == option.DatapathModeIpvlan {
-		// Do not initialize netns (i.e. create and move the slave to it), as
-		// otherwise qdisc of the slave will get reset
-		args = append(args, "--skip-netns-init")
-	}
-	prog := filepath.Join(option.Config.BpfDir, "spawn_netns.sh")
+	prog := "ip"
+	args := []string{"netns", "exec", netNSName, ciliumHealth, "-d", "--admin=unix", "--passive", "--pidfile", pidfile}
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
-	log.Infof("Spawning health endpoint with arguments %#v", args)
+	log.Infof("Spawning health endpoint with command %q %q", prog, args)
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
