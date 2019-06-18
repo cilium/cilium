@@ -45,6 +45,7 @@ var (
 	ignoredELFPrefixes = []string{
 		"2/",                   // Calls within the endpoint
 		"HOST_IP",              // Global
+		"IPV6_NODEPORT",        // Global
 		"ROUTER_IP",            // Global
 		"SNAT_IPV6_EXTERNAL",   // Global
 		"cilium_ct",            // All CT maps, including local
