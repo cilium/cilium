@@ -455,7 +455,7 @@ func (e *etcdClient) renewLockSession() error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
-	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(LockLeaseTTL.Seconds())))
+	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
 	if err != nil {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd lock session: %s", err)
@@ -505,7 +505,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 			close(errorChan)
 			return
 		}
-		lockSession, err := concurrency.NewSession(c, concurrency.WithTTL(int(LockLeaseTTL.Seconds())))
+		lockSession, err := concurrency.NewSession(c, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
 		if err != nil {
 			errorChan <- err
 			close(errorChan)

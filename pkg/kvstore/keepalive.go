@@ -19,9 +19,6 @@ import (
 )
 
 var (
-	// LockLeaseTTL is the time-to-live of the lease dedicated for locks
-	LockLeaseTTL = 25 * time.Second
-
 	// RetryInterval is the interval in which retries occur in the case of
 	// errors in communication with the KVstore. This should be set to a
 	// small value to account for temporary errors while communicating with
