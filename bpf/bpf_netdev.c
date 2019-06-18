@@ -143,11 +143,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT) int tail_nodepor
 			ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;
 		}
-		return ret;
+		goto drop_err;
 	}
 
-	if (!revalidate_data(skb, &data, &data_end, &ip6))
-		return DROP_INVALID;
+	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	fib_params.family = AF_INET6;
 	fib_params.ifindex = NATIVE_DEV_IFINDEX;
@@ -157,15 +159,25 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT) int tail_nodepor
 
 	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0)
-		return DROP_NO_FIB;
+	if (ret != 0) {
+		ret = DROP_NO_FIB;
+		goto drop_err;
+	}
 
-	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
-		return DROP_WRITE_ERROR;
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
 
 	return redirect(fib_params.ifindex, 0);
+drop_err:
+	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,
+				      dir == NAT_DIR_INGRESS ?
+				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
 /* See nodeport_lb4(). */
@@ -309,16 +321,13 @@ static inline int local_rev_nodeport_lb6(struct __sk_buff *skb)
 
 		int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
 				    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		if (rc != 0) {
-			// TODO(brb) log cilium monitor err
+		if (rc != 0)
 			return DROP_NO_FIB;
-		}
-		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+
+		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
 			return DROP_WRITE_ERROR;
-		}
-		if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+		if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
-		}
 	}
 
 	return TC_ACT_OK;
@@ -521,11 +530,13 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT) int tail_nodepor
 			ep_tail_call(skb, CILIUM_CALL_IPV4_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;
 		}
-		return ret;
+		goto drop_err;
 	}
 
-	if (!revalidate_data(skb, &data, &data_end, &ip4))
-		return DROP_INVALID;
+	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
 
 	fib_params.family = AF_INET;
 	fib_params.ifindex = NATIVE_DEV_IFINDEX;
@@ -535,15 +546,25 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT) int tail_nodepor
 
 	ret = fib_lookup(skb, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0)
-		return DROP_NO_FIB;
+	if (ret != 0) {
+		ret = DROP_NO_FIB;
+		goto drop_err;
+	}
 
-	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
-		return DROP_WRITE_ERROR;
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
 
 	return redirect(fib_params.ifindex, 0);
+drop_err:
+	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,
+				      dir == NAT_DIR_INGRESS ?
+				      METRIC_INGRESS : METRIC_EGRESS);
 }
 
 /* Main node-port entry point for host-external ingressing node-port traffic
@@ -686,16 +707,13 @@ static inline int local_rev_nodeport_lb4(struct __sk_buff *skb)
 
 		int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
 				    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		if (rc != 0) {
-			// TODO(brb) log cilium monitor err
+		if (rc != 0)
 			return DROP_NO_FIB;
-		}
-		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
+
+		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
 			return DROP_WRITE_ERROR;
-		}
-		if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
+		if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
-		}
 	}
 
 	return TC_ACT_OK;
@@ -1052,9 +1070,8 @@ int to_netdev(struct __sk_buff *skb)
 		ret = TC_ACT_OK;
 		break;
 	}
-	if (ret != TC_ACT_OK) {
-		return ret;
-	}
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_MASQUERADE
@@ -1064,7 +1081,7 @@ int to_netdev(struct __sk_buff *skb)
 		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
 #endif /* ENABLE_MASQUERADE */
 
-	return  ret;
+	return ret;
 }
 
 __section("masq-post")
