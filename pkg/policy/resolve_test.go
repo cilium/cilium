@@ -217,6 +217,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
+				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
@@ -306,6 +307,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: &L4Policy{
+				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
