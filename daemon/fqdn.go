@@ -124,7 +124,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
 		return
 	}
-	d.TriggerPolicyUpdates(true, "updated identities for FQDNs")
+	d.TriggerPolicyUpdates(false, "updated identities for FQDNs")
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
