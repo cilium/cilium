@@ -97,7 +97,8 @@ function setup_veth_pair()
 	# This avoids problems with changing MAC addresses.
  	if [ "$(ip link show $NAME1 type veth | cut -d ' ' -f 2)" != "${NAME1}@${NAME2}:" ] ; then
 		ip link del $NAME1 2> /dev/null || true
-		ip link add $NAME1 type veth peer name $NAME2
+		ip link add name $NAME1 address $(rnd_mac_addr) type veth \
+            peer name $NAME2 address $(rnd_mac_addr)
 	fi
 
 	setup_dev $NAME1
@@ -226,6 +227,13 @@ function setup_proxy_rules()
 function mac2array()
 {
 	echo "{0x${1//:/,0x}}"
+}
+
+function rnd_mac_addr()
+{
+    local lower=$(od /dev/urandom -N5 -t x1 -An | sed 's/ /:/g')
+    local upper=$(( 0x$(od /dev/urandom -N1 -t x1 -An | cut -d' ' -f2) & 0xfe | 0x02 ))
+    printf '%02x%s' $upper $lower
 }
 
 function bpf_compile()
@@ -443,7 +451,7 @@ fi
 if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	ENCAP_DEV="cilium_${MODE}"
 	ip link show $ENCAP_DEV || {
-		ip link add $ENCAP_DEV type $MODE external || encap_fail
+		ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $MODE external || encap_fail
 	}
 
 	setup_dev $ENCAP_DEV
