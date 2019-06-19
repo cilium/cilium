@@ -148,12 +148,40 @@ type EgressRule struct {
 	//     - 'sg-XXXXXXXXXXXXX'
 	// +optional
 	ToGroups []ToGroups `json:"toGroups,omitempty"`
+
+	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
+	aggregatedSelectors EndpointSelectorSlice
+}
+
+// SetAggregatedSelectors creates a single slice containing all of the following
+// fields within the EgressRule, converted to EndpointSelector, to be stored
+// within the EgressRule for easy lookup while performing policy evaluation
+// for the rule:
+// * ToEntities
+// * ToCIDR
+// * ToCIDRSet
+// * ToFQDNs
+//
+// ToEndpoints is not aggregated due to requirement folding in
+// GetDestinationEndpointSelectorsWithRequirements()
+func (e *EgressRule) SetAggregatedSelectors() {
+	res := make(EndpointSelectorSlice, 0, len(e.ToEntities)+len(e.ToCIDR)+len(e.ToCIDRSet)+len(e.ToFQDNs))
+	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
+	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
+	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
+	// Goroutines can race setting this, but they will all compute
+	// the same result, so it does not matter.
+	e.aggregatedSelectors = res
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	res := make(EndpointSelectorSlice, 0, len(e.ToCIDR)+len(e.ToFQDNs)+len(e.ToCIDRSet)+len(e.ToEndpoints)+len(e.ToEntities))
+	if e.aggregatedSelectors == nil {
+		e.SetAggregatedSelectors()
+	}
+	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors))
 
 	if len(requirements) > 0 && len(e.ToEndpoints) > 0 {
 		for idx := range e.ToEndpoints {
@@ -165,12 +193,7 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 	} else {
 		res = append(res, e.ToEndpoints...)
 	}
-	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)
-	res = append(res, e.ToCIDRSet.GetAsEndpointSelectors()...)
-	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
-
-	return res
+	return append(res, e.aggregatedSelectors...)
 }
 
 // IsLabelBased returns true whether the L3 destination endpoints are selected
@@ -207,5 +230,6 @@ func (e *EgressRule) CreateDerivative() (*EgressRule, error) {
 		newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
 	}
 	newRule.ToGroups = nil
+	e.SetAggregatedSelectors()
 	return newRule, nil
 }
