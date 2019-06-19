@@ -1069,6 +1069,7 @@ func (e *Endpoint) syncPolicyMap() error {
 
 		// If key that is in policy map is not in desired state, just remove it.
 		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
+			e.getLogger().WithField(logfields.BPFMapKey, entry.Key.String()).Debug("syncPolicyMap removing a bpf policy entry not in the desired state")
 			err := e.deletePolicyKey(keyToDelete)
 			if err != nil {
 				errors = append(errors, err)
