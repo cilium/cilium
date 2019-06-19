@@ -106,6 +106,7 @@ pipeline {
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.10 vagrant destroy -f || true'
             sh 'cd ${TESTDIR}/test/; K8S_VERSION=1.13 vagrant destroy -f || true'
             cleanWs()
+            sh '/usr/local/bin/cleanup || true'
         }
         success {
             Status("SUCCESS", "$JOB_BASE_NAME")
