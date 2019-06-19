@@ -118,7 +118,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
 
@@ -224,7 +224,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(res.Egress, Not(IsNil))
 
 	c.Assert(len(res.Ingress), Equals, 1)
-	c.Assert(*res, checker.Equals, *expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 0)
 

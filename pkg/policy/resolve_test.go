@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	. "gopkg.in/check.v1"
 )
 
@@ -86,7 +87,7 @@ func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 	wg.Wait()
 
 	c.Assert(epSet.Len(), Equals, 0)
-	c.Assert(len(idSet.IDs), Equals, 1)
+	c.Assert(idSet.IDs, HasLen, 1)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
@@ -249,6 +250,9 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 		PolicyMapState: policy.PolicyMapState,
 	}
 
+	// Have to remove circular reference before testing to avoid an infinite loop
+	policy.selectorPolicy.Detach()
+
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
@@ -341,5 +345,233 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 		PolicyMapState: policy.PolicyMapState,
 	}
 
+	// Have to remove circular reference before testing to avoid an infinite loop
+	policy.selectorPolicy.Detach()
+
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
+}
+
+func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
+
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+
+	repo := NewPolicyRepository()
+	repo.selectorCache = testSelectorCache
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, _, err := repo.Add(rule1, []Endpoint{})
+	c.Assert(err, IsNil)
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	c.Assert(err, IsNil)
+	policy := selPolicy.DistillPolicy(DummyOwner{})
+
+	expectedEndpointPolicy := EndpointPolicy{
+		selectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
+			L4Policy: &L4Policy{
+				Revision: repo.GetRevision(),
+				Ingress: L4PolicyMap{
+					"80/TCP": {
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						CachedSelectors: CachedSelectorSlice{
+							wildcardCachedSelector,
+						},
+						allowsAllAtL3:    true,
+						L7Parser:         ParserTypeNone,
+						Ingress:          true,
+						L7RulesPerEp:     L7DataMap{},
+						DerivedFromRules: labels.LabelArrayList{nil},
+					},
+				},
+				Egress: L4PolicyMap{},
+			},
+			CIDRPolicy:           policy.CIDRPolicy,
+			IngressPolicyEnabled: true,
+			EgressPolicyEnabled:  false,
+		},
+		PolicyOwner: DummyOwner{},
+		PolicyMapState: MapState{
+			{TrafficDirection: trafficdirection.Egress.Uint8()}: {},
+			{DestPort: 80, Nexthdr: 6}:                          {},
+		},
+	}
+
+	// Add new identity to test accumulation of PolicyMapChanges
+	added1 := cache.IdentityCache{
+		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1"),
+	}
+	testSelectorCache.UpdateIdentities(added1, nil)
+	c.Assert(policy.PolicyMapChanges.adds, HasLen, 0)
+	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 0)
+
+	// Have to remove circular reference before testing to avoid an infinite loop
+	policy.selectorPolicy.Detach()
+
+	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
+}
+
+func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+
+	repo := NewPolicyRepository()
+	repo.selectorCache = testSelectorCache
+
+	lblTest := labels.ParseLabel("id=resolve_test_1")
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Ingress: []api.IngressRule{
+			{
+				FromEntities: []api.Entity{api.EntityWorld},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{},
+				}},
+			},
+			{
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(lblTest),
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+					Rules: &api.L7Rules{},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, _, err := repo.Add(rule1, []Endpoint{})
+	c.Assert(err, IsNil)
+
+	repo.Mutex.RLock()
+	defer repo.Mutex.RUnlock()
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	c.Assert(err, IsNil)
+	policy := selPolicy.DistillPolicy(DummyOwner{})
+
+	// Add new identity to test accumulation of PolicyMapChanges
+	added1 := cache.IdentityCache{
+		identity.NumericIdentity(192): labels.ParseSelectLabelArray("id=resolve_test_1", "num=1"),
+		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
+	}
+	testSelectorCache.UpdateIdentities(added1, nil)
+	c.Assert(policy.PolicyMapChanges.adds, HasLen, 3)
+	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 0)
+
+	deleted1 := cache.IdentityCache{
+		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
+	}
+	testSelectorCache.UpdateIdentities(nil, deleted1)
+	c.Assert(policy.PolicyMapChanges.adds, HasLen, 2)
+	c.Assert(policy.PolicyMapChanges.deletes, HasLen, 1)
+
+	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
+	c.Assert(cachedSelectorWorld, Not(IsNil))
+
+	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
+	c.Assert(cachedSelectorTest, Not(IsNil))
+
+	expectedEndpointPolicy := EndpointPolicy{
+		selectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
+			L4Policy: &L4Policy{
+				Revision: repo.GetRevision(),
+				Ingress: L4PolicyMap{
+					"80/TCP": {
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						CachedSelectors: CachedSelectorSlice{
+							cachedSelectorWorld,
+							cachedSelectorTest,
+						},
+						allowsAllAtL3:    false,
+						L7Parser:         ParserTypeNone,
+						Ingress:          true,
+						L7RulesPerEp:     L7DataMap{},
+						DerivedFromRules: labels.LabelArrayList{nil, nil},
+					},
+				},
+				Egress: L4PolicyMap{},
+			},
+			CIDRPolicy:           policy.CIDRPolicy,
+			IngressPolicyEnabled: true,
+			EgressPolicyEnabled:  false,
+		},
+		PolicyOwner: DummyOwner{},
+		PolicyMapState: MapState{
+			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          {},
+			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: {},
+		},
+		PolicyMapChanges: MapChanges{
+			adds: MapState{
+				{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
+				{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
+			},
+			deletes: MapState{
+				{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
+			},
+		},
+	}
+
+	// Have to remove circular reference before testing for Equality to avoid an infinite loop
+	policy.selectorPolicy.Detach()
+	// Verify that cached selector is not found after Detach().
+	// Note that this depends on the other tests NOT using the same selector concurrently!
+	cachedSelectorTest = testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
+	c.Assert(cachedSelectorTest, IsNil)
+
+	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
+
+	adds, deletes := policy.PolicyMapChanges.ConsumeMapChanges()
+	// maps on the policy got cleared
+	c.Assert(policy.PolicyMapChanges.adds, IsNil)
+	c.Assert(policy.PolicyMapChanges.deletes, IsNil)
+
+	c.Assert(adds, checker.Equals, MapState{
+		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
+		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
+	})
+	c.Assert(deletes, checker.Equals, MapState{
+		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
+	})
 }
