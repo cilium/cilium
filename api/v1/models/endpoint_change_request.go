@@ -68,10 +68,6 @@ type EndpointChangeRequest struct {
 	// Whether policy enforcement is enabled or not
 	PolicyEnabled bool `json:"policy-enabled,omitempty"`
 
-	// Current state of endpoint
-	// Required: true
-	State EndpointState `json:"state"`
-
 	// Whether to build an endpoint synchronously
 	//
 	SyncBuildEndpoint bool `json:"sync-build-endpoint,omitempty"`
@@ -90,10 +86,6 @@ func (m *EndpointChangeRequest) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateLabels(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateState(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -148,18 +140,6 @@ func (m *EndpointChangeRequest) validateLabels(formats strfmt.Registry) error {
 	if err := m.Labels.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("labels")
-		}
-		return err
-	}
-
-	return nil
-}
-
-func (m *EndpointChangeRequest) validateState(formats strfmt.Registry) error {
-
-	if err := m.State.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("state")
 		}
 		return err
 	}

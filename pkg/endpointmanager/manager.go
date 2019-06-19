@@ -231,7 +231,7 @@ func releaseID(ep *endpoint.Endpoint) {
 		// While endpoint is disconnecting, ID is already available in ID cache.
 		//
 		// Avoid irritating warning messages.
-		state := ep.GetStateLocked()
+		state := ep.StateLocked()
 		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
 			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 		}
@@ -413,21 +413,13 @@ func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, reg
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		var regen bool
-		state := ep.GetStateLocked()
-		switch state {
-		case endpoint.StateRestoring, endpoint.StateWaitingToRegenerate:
-			ep.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
-			regen = false
-		default:
-			regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		}
-		ep.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			<-ep.Regenerate(owner, regenMetadata)
-		}
+		return
+	}
+	state := ep.StateLocked()
+	ep.Unlock()
+
+	if state == endpoint.StateRestoring && ep.ReadyToBuild() {
+		<-ep.Regenerate(owner, regenMetadata)
 	}
 	wg.Done()
 }
@@ -436,13 +428,12 @@ func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, 
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		ep.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			ep.Regenerate(owner, regenMetadata)
-		}
+		return
+	}
+	ep.Unlock()
+
+	if ep.ReadyToBuild() {
+		ep.Regenerate(owner, regenMetadata)
 	}
 }
 

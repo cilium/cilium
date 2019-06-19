@@ -244,6 +244,9 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 	var compilationExecuted bool
 	var err error
 
+	e.setBuilding(true)
+	defer e.setBuilding(false)
+
 	context.Stats = regenerationStatistics{}
 	stats := &context.Stats
 	metrics.EndpointCountRegenerating.Inc()
@@ -269,19 +272,6 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 	if err != nil {
 		return err
 	}
-
-	// When building the initial drop policy in waiting-for-identity state
-	// the state remains unchanged
-	//
-	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
-	if e.GetStateLocked() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
-		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
-		e.Unlock()
-
-		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
-	}
-
 	e.Unlock()
 
 	stats.prepareBuild.Start()
@@ -324,12 +314,6 @@ func (e *Endpoint) regenerate(owner Owner, context *regenerationContext) (retErr
 		// have been moved to a new permanent location. If the build failed,
 		// the temporary directory will still exist and we will reomve it.
 		e.removeDirectory(tmpDir)
-
-		// Set to Ready, but only if no other changes are pending.
-		// State will remain as waiting-to-regenerate if further
-		// changes are needed. There should be an another regenerate
-		// queued for taking care of it.
-		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
 		e.Unlock()
 	}()
 
@@ -449,6 +433,10 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 		ep:           e,
 	})
 
+	e.UnconditionalLock()
+	e.state.buildsQueued++
+	e.Unlock()
+
 	// This may block if the Endpoint's EventQueue is full. This has to be done
 	// synchronously as some callers depend on the fact that the event is
 	// synchronously enqueued.
@@ -464,6 +452,10 @@ func (e *Endpoint) Regenerate(owner Owner, regenMetadata *ExternalRegenerationMe
 
 		select {
 		case result, ok := <-resChan:
+			e.UnconditionalLock()
+			e.state.buildsQueued--
+			e.Unlock()
+
 			if ok {
 				regenResult := result.(*EndpointRegenerationResult)
 				regenError = regenResult.err
@@ -586,11 +578,6 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 
 	// Clear selectorPolicy. It will be determined at next regeneration.
 	e.selectorPolicy = nil
-
-	// Sets endpoint state to ready if was waiting for identity
-	if e.GetStateLocked() == StateWaitingForIdentity {
-		e.SetStateLocked(StateReady, "Set identity for this endpoint")
-	}
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.

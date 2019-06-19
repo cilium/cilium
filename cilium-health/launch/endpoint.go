@@ -168,7 +168,6 @@ func LaunchAsEndpoint(baseCtx context.Context, owner endpoint.Owner, n *node.Nod
 		cmd  = launcher.Launcher{}
 		info = &models.EndpointChangeRequest{
 			ContainerName: ciliumHealth,
-			State:         models.EndpointStateWaitingForIdentity,
 			Addressing:    &models.AddressPair{},
 		}
 		ip4Address, ip6Address string

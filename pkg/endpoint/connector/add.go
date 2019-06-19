@@ -185,7 +185,6 @@ func DeriveEndpointFrom(hostDevice, containerID string, pid int) (*models.Endpoi
 			// IPV6: ip6.String(),
 		},
 		ContainerID: containerID,
-		State:       models.EndpointStateWaitingForIdentity,
 	}
 	err = GetVethInfo(hostDevice, parentIdx, lxcMAC, epModel)
 	if err != nil {

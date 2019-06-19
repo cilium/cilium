@@ -19,7 +19,7 @@ import "fmt"
 // LockAlive returns error if endpoint was removed, locks underlying mutex otherwise
 func (e *Endpoint) LockAlive() error {
 	e.mutex.Lock()
-	if e.IsDisconnecting() {
+	if e.isDisconnectingLocked() {
 		e.mutex.Unlock()
 		return fmt.Errorf("lock failed: endpoint is in the process of being removed")
 	}
@@ -34,7 +34,7 @@ func (e *Endpoint) Unlock() {
 // RLockAlive returns error if endpoint was removed, read locks underlying mutex otherwise
 func (e *Endpoint) RLockAlive() error {
 	e.mutex.RLock()
-	if e.IsDisconnecting() {
+	if e.isDisconnectingLocked() {
 		e.mutex.RUnlock()
 		return ErrNotAlive
 	}
@@ -47,7 +47,6 @@ func (e *Endpoint) RUnlock() {
 }
 
 // UnconditionalLock should be used only for locking endpoint for
-// - setting its state to StateDisconnected
 // - handling regular Lock errors
 // - reporting endpoint status (like in LogStatus method)
 // Use Lock in all other cases
