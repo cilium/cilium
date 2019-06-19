@@ -170,6 +170,22 @@ func (s *SSHMeta) Exec(cmd string, options ...ExecOptions) *CmdRes {
 	return s.ExecContext(ctx, cmd, options...)
 }
 
+// ExecShort runs command with the provided options. It will take up to
+// ShortCommandTimeout seconds to run the command before it times out.
+func (s *SSHMeta) ExecShort(cmd string, options ...ExecOptions) *CmdRes {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	return s.ExecContext(ctx, cmd, options...)
+}
+
+// ExecContextShort is a wrapper around ExecContext which creates a child
+// context with a timeout of ShortCommandTimeout.
+func (s *SSHMeta) ExecContextShort(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {
+	shortCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
+	defer cancel()
+	return s.ExecContext(shortCtx, cmd, options...)
+}
+
 // ExecContext returns the results of executing the provided cmd via SSH.
 func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {
 	var ops ExecOptions
