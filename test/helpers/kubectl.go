@@ -1256,25 +1256,6 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
-// CiliumExecAll runs cmd in all cilium instances
-func (kub *Kubectl) CiliumExecAll(cmd string) error {
-	pods, err := kub.GetCiliumPods(KubeSystemNamespace)
-	if err != nil {
-		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
-	}
-	if len(pods) == 0 {
-		return fmt.Errorf("No cilium pods available")
-	}
-
-	for _, pod := range pods {
-		res := kub.CiliumExec(pod, cmd)
-		if !res.WasSuccessful() {
-			return fmt.Errorf("Command failed on %s: %s", pod, res.CombineOutput())
-		}
-	}
-	return nil
-}
-
 // WaitForCiliumInitContainerToFinish waits for all Cilium init containers to
 // finish
 func (kub *Kubectl) WaitForCiliumInitContainerToFinish() error {
