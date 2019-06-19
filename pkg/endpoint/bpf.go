@@ -914,7 +914,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) error {
 
 	err := e.PolicyMap.DeleteKey(policymapKey)
 	if err != nil {
-		e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", policymapKey.String())
+		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
 		return err
 	}
 
@@ -935,7 +935,10 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 
 	err := e.PolicyMap.AllowKey(policymapKey, entry.ProxyPort)
 	if err != nil {
-		e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policymapKey.String(), entry.ProxyPort)
+		e.getLogger().WithError(err).WithFields(logrus.Fields{
+			logfields.BPFMapKey: policymapKey,
+			logfields.Port:      entry.ProxyPort,
+		}).Error("Failed to add PolicyMap key")
 		return err
 	}
 

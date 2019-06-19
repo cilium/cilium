@@ -27,9 +27,11 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -154,8 +156,11 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 
 	if l4.AllowsAllAtL3() {
 		if l4.Port == 0 {
-			log.Debugf("ToKeys(%s): allow all", direction)
 			// Allow-all
+			log.WithFields(logrus.Fields{
+				logfields.TrafficDirection: direction,
+			}).Debug("ToKeys: allow all")
+
 			keyToAdd := Key{
 				DestPort:         0,
 				Nexthdr:          0,
@@ -164,7 +169,12 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 			keysToAdd = append(keysToAdd, keyToAdd)
 		} else {
 			// L4 allow
-			log.Debugf("ToKeys(%s): L4 allow all on %d/%d", direction, port, proto)
+			log.WithFields(logrus.Fields{
+				logfields.Port:             port,
+				logfields.Protocol:         proto,
+				logfields.TrafficDirection: direction,
+			}).Debug("ToKeys: L4 allow all")
+
 			keyToAdd := Key{
 				Identity: 0,
 				// NOTE: Port is in host byte-order!
@@ -181,7 +191,11 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 
 	for _, cs := range l4.CachedSelectors {
 		identities := cs.GetSelections()
-		log.Debugf("ToKeys(%s): Allowed remote IDs for selector %v: %v", direction, cs, identities)
+		log.WithFields(logrus.Fields{
+			logfields.TrafficDirection: direction,
+			logfields.EndpointSelector: cs,
+			logfields.PolicyID:         identities,
+		}).Debug("ToKeys: Allowed remote IDs")
 		for _, id := range identities {
 			srcID := id.Uint32()
 			keyToAdd := Key{
@@ -202,10 +216,10 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 // This call is made while holding selector cache lock, must beware of deadlocking!
 func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
-		"selector":   selector,
-		"selections": selections,
-		"added":      added,
-		"deleted":    deleted,
+		logfields.EndpointSelector: selector,
+		logfields.PolicyID:         selections,
+		logfields.AddedPolicyID:    added,
+		logfields.DeletedPolicyID:  deleted,
 	}).Debug("identities selected by L4Filter updated")
 
 	// Skip updates on filter that wildcards L3.
@@ -531,7 +545,7 @@ func NewL4Policy(revision uint64) *L4Policy {
 func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	l4.mutex.Lock()
 	if l4.users == nil {
-		log.Warningf("L4Filter: Skipping setting user on a stale policy")
+		log.Debug("L4Filter: Skipping setting user on a stale policy")
 	} else {
 		l4.users[user] = struct{}{}
 	}
