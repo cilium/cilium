@@ -91,6 +91,9 @@ func (s *CachedSelectorSlice) Insert(cs CachedSelector) bool {
 type CachedSelectionUser interface {
 	// IdentitySelectionUpdated implementations MUST NOT call back
 	// to selector cache while executing this function!
+	//
+	// The caller is responsible for making sure the same identity is not
+	// present in both 'added' and 'deleted'.
 	IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity)
 }
 
@@ -302,6 +305,9 @@ func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
 }
 
 // lock must be held
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
 func (s *selectorManager) notifyUsers(added, deleted []identity.NumericIdentity) {
 	for user := range s.users {
 		user.IdentitySelectionUpdated(s, s.GetSelections(), added, deleted)
@@ -457,6 +463,11 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 		idsAsMap[v] = struct{}{}
 	}
 
+	// Note that 'added' and 'deleted' are guaranteed to be
+	// disjoint, as one of them is left as nil, or an identity
+	// being in 'identities' is a precondition for an
+	// identity to be appended to 'added', while the inverse is
+	// true for 'deleted'.
 	var added, deleted []identity.NumericIdentity
 
 	/* TODO - the FQDN side should expose what was changed (IPs added, and removed)
@@ -510,7 +521,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 	// getting the CIDR identities which correspond to this FQDNSelector. This
 	// is the primary difference here between FQDNSelector and IdentitySelector.
 	fqdnSel.updateSelections()
-	fqdnSel.notifyUsers(added, deleted)
+	fqdnSel.notifyUsers(added, deleted) // disjoint sets, see the comment above
 }
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
@@ -670,6 +681,9 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 }
 
 // UpdateIdentities propagates identity updates to selectors
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
 func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
