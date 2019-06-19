@@ -565,15 +565,11 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 	// enqueued for this endpoint, this is a no-op.
 	ep.CloseBPFProgramChannel()
 
-	// Lock out any other writers to the endpoint
-	ep.UnconditionalLock()
-
-	// In case multiple delete requests have been enqueued, have all of
-	// them except the first return here. Ignore the request if the
-	// endpoint is already disconnected.
-	switch ep.GetStateLocked() {
-	case endpoint.StateDisconnecting, endpoint.StateDisconnected:
-		ep.Unlock()
+	// Lock out any other writers to the endpoint.  In case multiple delete
+	// requests have been enqueued, have all of them except the first
+	// return here. Ignore the request if the endpoint is already
+	// disconnected.
+	if err := ep.LockAlive(); err != nil {
 		ep.BuildMutex.Unlock()
 		return []error{}
 	}

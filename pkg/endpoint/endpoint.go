@@ -1794,12 +1794,6 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 		return err
 	}
 
-	switch e.GetStateLocked() {
-	case StateDisconnected, StateDisconnecting:
-		e.Unlock()
-		return nil
-	}
-
 	changed, err := e.OpLabels.ModifyIdentityLabels(addLabels, delLabels)
 	if err != nil {
 		e.Unlock()
@@ -1861,12 +1855,6 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, owner Owner, identityLabels
 }
 
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
-	// If in disconnected state, skip as well as this operation is no
-	// longer required.
-	if e.state == StateDisconnected {
-		return true
-	}
-
 	// Check if the endpoint has since received a new identity revision, if
 	// so, abort as a new resolution routine will have been started.
 	if myChangeRev != e.identityRevision {
