@@ -239,7 +239,6 @@ pipeline {
                 always {
                     archiveArtifacts artifacts: '*.zip'
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
-                    cleanWs()
                 }
             }
         }
@@ -247,6 +246,7 @@ pipeline {
 
     post {
         always {
+            cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }
     }
