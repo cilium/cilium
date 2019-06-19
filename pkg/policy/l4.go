@@ -228,7 +228,10 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 		return
 	}
 
-	// Push endpoint policy changes
+	// Push endpoint policy changes.
+	//
+	// `l4.policy` is set to nil when the filter is detached so
+	// that we could not push updates on a stale policy.
 	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
 	if l4Policy != nil {
 		direction := trafficdirection.Egress
@@ -236,8 +239,6 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 			direction = trafficdirection.Ingress
 		}
 		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction)
-	} else {
-		log.Debug("L4Filter: Skipping incremental updates on stale (detached) policy.")
 	}
 }
 
@@ -541,14 +542,24 @@ func NewL4Policy(revision uint64) *L4Policy {
 }
 
 // insertUser adds a user to the L4Policy so that incremental
-// updates of the L4Policy may be fowarded to the users of it.
+// updates of the L4Policy may be forwarded to the users of it.
 func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	l4.mutex.Lock()
-	if l4.users == nil {
-		log.Debug("L4Filter: Skipping setting user on a stale policy")
-	} else {
+
+	// 'users' is set to nil when the policy is detached. This
+	// happens to the old policy when it is being replaced with a
+	// new one, or when the last endpoint using this policy is
+	// removed.
+	// In the case of an policy update it is possible that an
+	// endpoint has started regeneration before the policy was
+	// updated, and that the policy was updated before the said
+	// endpoint reached this point. In this case the endpoint's
+	// policy is going to be recomputed soon after and we do
+	// nothing here.
+	if l4.users != nil {
 		l4.users[user] = struct{}{}
 	}
+
 	l4.mutex.Unlock()
 }
 
