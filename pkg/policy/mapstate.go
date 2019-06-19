@@ -16,6 +16,7 @@ package policy
 
 import (
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -99,4 +100,75 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 		}
 		keys[keyToAdd] = MapStateEntry{}
 	}
+}
+
+// MapChanges collects updates to the endpoint policy on the
+// granularity of individual mapstate key-value pairs for both adds
+// and deletes. 'mutex' must be held for any access.
+type MapChanges struct {
+	mutex   lock.Mutex
+	adds    MapState
+	deletes MapState
+}
+
+// AccumulateMapChanges accumulates the given changes to the
+// MapChanges, updating both maps for each add and delete, as
+// applicable.
+func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+	key := Key{
+		// The actual identity is set in the loops below
+		Identity: 0,
+		// NOTE: Port is in host byte-order!
+		DestPort:         port,
+		Nexthdr:          proto,
+		TrafficDirection: direction.Uint8(),
+	}
+	value := MapStateEntry{
+		ProxyPort: 0, // Will be updated by the caller when applicable
+	}
+
+	log.Debugf("MapChanges: AccumulateMapChanges(adds: %v, deletes: %v, port: %d, proto: %d, direction: %d)",
+		adds, deletes, port, proto, direction.Uint8())
+
+	mc.mutex.Lock()
+	if len(adds) > 0 {
+		if mc.adds == nil {
+			mc.adds = make(MapState)
+		}
+		for _, id := range adds {
+			key.Identity = id.Uint32()
+			mc.adds[key] = value
+			// Remove a potential previously deleted key
+			if mc.deletes != nil {
+				delete(mc.deletes, key)
+			}
+		}
+	}
+	if len(deletes) > 0 {
+		if mc.deletes == nil {
+			mc.deletes = make(MapState)
+		}
+		for _, id := range deletes {
+			key.Identity = id.Uint32()
+			mc.deletes[key] = value
+			// Remove a potential previously added key
+			if mc.adds != nil {
+				delete(mc.adds, key)
+			}
+		}
+	}
+	mc.mutex.Unlock()
+}
+
+// ConsumeMapChanges transfers the changes from MapChanges to the caller.
+// May return nil maps.
+func (mc *MapChanges) ConsumeMapChanges() (adds, deletes MapState) {
+	mc.mutex.Lock()
+	adds = mc.adds
+	mc.adds = nil
+	deletes = mc.deletes
+	mc.deletes = nil
+	mc.mutex.Unlock()
+	return adds, deletes
 }

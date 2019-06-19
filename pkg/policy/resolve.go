@@ -59,6 +59,9 @@ type EndpointPolicy struct {
 	// All fields within the Key and the proxy port must be in host byte-order.
 	PolicyMapState MapState
 
+	// PolicyMapChanges collects pending changes to the PolicyMapState
+	PolicyMapChanges MapChanges
+
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
 }
