@@ -45,9 +45,17 @@ type selectorPolicy struct {
 	EgressPolicyEnabled bool
 }
 
+func (p *selectorPolicy) Attach() {
+	if p.L4Policy != nil {
+		p.L4Policy.Attach()
+	}
+}
+
 // EndpointPolicy is a structure which contains the resolved policy across all
 // layers (L3, L4, and L7), distilled against a set of identities.
 type EndpointPolicy struct {
+	// Note that all Endpoints sharing the same identity will be
+	// referring to a shared selectorPolicy!
 	*selectorPolicy
 
 	// PolicyMapState contains the state of this policy as it relates to the
@@ -80,6 +88,14 @@ func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorP
 	}
 }
 
+// insertUser adds a user to the L4Policy so that incremental
+// updates of the L4Policy may be fowarded.
+func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
+	if p.L4Policy != nil {
+		p.L4Policy.insertUser(user)
+	}
+}
+
 // Detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
@@ -106,6 +122,21 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy 
 			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
 	}
 
+	// Register the new EndpointPolicy as a receiver of delta
+	// updates.  Any updates happening after this, but before
+	// computeDesiredL4PolicyMapEntires() call finishes may
+	// already be applied to the PolicyMapState, specifically:
+	//
+	// - PolicyMapChanges may contain an addition of an entry that
+	//   is already added to the PolicyMapState
+	//
+	// - PolicyMapChanges may congtain a deletion of an entry that
+	//   has already been deleted from PolicyMapState
+	p.insertUser(calculatedPolicy)
+
+	// Must come after the 'insertUser()' above to guarantee
+	// PolicyMapCanges will contain all changes that are applied
+	// after the computation of PolicyMapState has started.
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
 

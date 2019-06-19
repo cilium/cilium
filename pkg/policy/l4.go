@@ -20,10 +20,13 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -116,6 +119,9 @@ type L4Filter struct {
 	Ingress bool `json:"-"`
 	// The rule labels of this Filter
 	DerivedFromRules labels.LabelArrayList `json:"-"`
+
+	// This reference is circular, but it is cleaned up at Detach()
+	policy unsafe.Pointer // *L4Policy
 }
 
 // AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
@@ -148,6 +154,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 
 	if l4.AllowsAllAtL3() {
 		if l4.Port == 0 {
+			log.Debugf("ToKeys(%s): allow all", direction)
 			// Allow-all
 			keyToAdd := Key{
 				DestPort:         0,
@@ -157,6 +164,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 			keysToAdd = append(keysToAdd, keyToAdd)
 		} else {
 			// L4 allow
+			log.Debugf("ToKeys(%s): L4 allow all on %d/%d", direction, port, proto)
 			keyToAdd := Key{
 				Identity: 0,
 				// NOTE: Port is in host byte-order!
@@ -173,7 +181,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 
 	for _, cs := range l4.CachedSelectors {
 		identities := cs.GetSelections()
-		log.Debugf("ToKeys: Allowed remote IDs for selector %v: %v", cs, identities)
+		log.Debugf("ToKeys(%s): Allowed remote IDs for selector %v: %v", direction, cs, identities)
 		for _, id := range identities {
 			srcID := id.Uint32()
 			keyToAdd := Key{
@@ -191,6 +199,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 }
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
+// This call is made while holding selector cache lock, must beware of deadlocking!
 func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
 		"selector":   selector,
@@ -198,6 +207,24 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 		"added":      added,
 		"deleted":    deleted,
 	}).Debug("identities selected by L4Filter updated")
+
+	// Skip updates on filter that wildcards L3.
+	// This logic mirrors the one in ToKeys().
+	if l4.AllowsAllAtL3() && !l4.HasL3DependentL7Rules() {
+		return
+	}
+
+	// Push endpoint policy changes
+	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
+	if l4Policy != nil {
+		direction := trafficdirection.Egress
+		if l4.Ingress {
+			direction = trafficdirection.Ingress
+		}
+		l4Policy.AccumulateMapChanges(added, deleted, uint16(l4.Port), uint8(l4.U8Proto), direction)
+	} else {
+		log.Debug("L4Filter: Skipping incremental updates on stale (detached) policy.")
+	}
 }
 
 func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
@@ -308,6 +335,11 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 // the filter is left to be garbage collected.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	selectorCache.RemoveSelectors(l4.CachedSelectors, l4)
+	l4.attach(nil)
+}
+
+func (l4 *L4Filter) attach(l4Policy *L4Policy) {
+	atomic.StorePointer(&l4.policy, unsafe.Pointer(l4Policy))
 }
 
 // createL4IngressFilter creates a filter for L4 policy that applies to the
@@ -401,6 +433,13 @@ func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 	}
 }
 
+// Attach makes all the L4Filters to point back to the L4Policy that contains them.
+func (l4 L4PolicyMap) Attach(l4Policy *L4Policy) {
+	for _, f := range l4 {
+		f.attach(l4Policy)
+	}
+}
+
 // HasRedirect returns true if at least one L4 filter contains a port
 // redirection
 func (l4 L4PolicyMap) HasRedirect() bool {
@@ -470,6 +509,11 @@ type L4Policy struct {
 
 	// Revision is the repository revision used to generate this policy.
 	Revision uint64
+
+	// Endpoint policies using this L4Policy
+	// These are circular references, cleaned up in Detach()
+	mutex lock.RWMutex
+	users map[*EndpointPolicy]struct{}
 }
 
 // NewL4Policy creates a new L4Policy
@@ -478,7 +522,30 @@ func NewL4Policy(revision uint64) *L4Policy {
 		Ingress:  L4PolicyMap{},
 		Egress:   L4PolicyMap{},
 		Revision: revision,
+		users:    make(map[*EndpointPolicy]struct{}),
 	}
+}
+
+// insertUser adds a user to the L4Policy so that incremental
+// updates of the L4Policy may be fowarded to the users of it.
+func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+	l4.mutex.Lock()
+	if l4.users == nil {
+		log.Warningf("L4Filter: Skipping setting user on a stale policy")
+	} else {
+		l4.users[user] = struct{}{}
+	}
+	l4.mutex.Unlock()
+}
+
+// AccumulateMapChanges distributes the given changes to the registered users.
+func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+	l4.mutex.RLock()
+	for epPolicy := range l4.users {
+		epPolicy.PolicyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction)
+	}
+	l4.mutex.RUnlock()
 }
 
 // Detach makes the L4Policy ready for garbage collection, removing
@@ -488,6 +555,17 @@ func NewL4Policy(revision uint64) *L4Policy {
 func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
+
+	l4.mutex.Lock()
+	l4.users = nil
+	l4.mutex.Unlock()
+}
+
+// Attach makes all the L4Filters to point back to the L4Policy that contains them.
+// This is done before the L4Policy is exposed to concurrent access.
+func (l4 *L4Policy) Attach() {
+	l4.Ingress.Attach(l4)
+	l4.Egress.Attach(l4)
 }
 
 // IngressCoversContext checks if the receiver's ingress L4Policy contains
