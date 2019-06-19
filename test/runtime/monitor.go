@@ -245,7 +245,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			Expect(res.Output().String()).Should(ContainSubstring(filter))
 		})
 
-		It("multiple monitors", func() {
+		It("delivers the same information to multiple monitors", func() {
 			monitorConfig()
 
 			areEndpointsReady := vm.WaitEndpointsReady()
@@ -267,14 +267,44 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 			Expect(monitorRes[0].CountLines()).Should(BeNumerically(">", 2))
 
-			//Due to the ssh connection, sometimes the result has one line more in
-			//any output. So we check at least 5 lines are in the all outputs.
-			for i := 0; i < 5; i++ {
-				//ln: return a random number in the array len upper than 5 (First 5 lines)
-				ln := rand.Intn((len(monitorRes[0].ByLines())-1)-5) + 5
-				str := monitorRes[0].ByLines()[ln]
-				Expect(monitorRes[1].Output().String()).Should(ContainSubstring(str))
-				Expect(monitorRes[2].Output().String()).Should(ContainSubstring(str))
+			// Some monitor instances may see more data than others due to timing. We
+			// want to find a run of lines that matches between all monitor
+			// instances, ignoring earlier or later lines that may have not been seen
+			// by an instance. We find the shortest sample and check that those lines
+			// occur in all monitor responses.
+			var (
+				// shortestResult is the smallest set of monitor output lines, after we
+				// trim leading init lines.
+				shortestResult string
+
+				// Output lines from each monitor, trimmed to ignore init messages.
+				// The order matches monitorRes.
+				trimmedResults []string
+			)
+
+			// Trim the result lines to ignore startup/shutdown messages like
+			//    "level=info msg="Initializing dissection cache..." subsys=monitor"
+			//    "Received an interrupt, disconnecting from monitor..."
+			// and note the shortest
+			for _, result := range monitorRes {
+				lines := result.ByLines()
+				trimmedResult := make([]string, 0, len(lines))
+				for _, line := range lines {
+					if strings.HasPrefix(line, " <- endpoint") {
+						trimmedResult = append(trimmedResult, line)
+					}
+				}
+				trimmedResults = append(trimmedResults, strings.Join(trimmedResult, "\n"))
+
+				if len(trimmedResult) < len(shortestResult) {
+					shortestResult = strings.Join(trimmedResult, "\n")
+				}
+			}
+
+			// The shortest output must occur in whole within the other outputs
+			for _, trimmedResult := range trimmedResults {
+				Expect(strings.Contains(trimmedResult, shortestResult)).Should(Equal(true),
+					"Inconsistent monitor output between 2 monitor instances during the same time period\nExpected:\n%s\nFound:\n%s\n", shortestResult, trimmedResult)
 			}
 		})
 
