@@ -214,6 +214,9 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 
 // IdentitySelectionUpdated implements CachedSelectionUser interface
 // This call is made while holding selector cache lock, must beware of deadlocking!
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
 func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
 		logfields.EndpointSelector: selector,
@@ -564,6 +567,9 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 }
 
 // AccumulateMapChanges distributes the given changes to the registered users.
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
 	l4.mutex.RLock()
