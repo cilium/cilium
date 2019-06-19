@@ -75,6 +75,12 @@ const (
 	// PolicyID is the identifier of a L3, L4 or L7 Policy. Ideally the .NumericIdentity
 	PolicyID = "policyID"
 
+	// AddedPolicyID is the .NumericIdentity, or set or them
+	AddedPolicyID = "policyID.Added"
+
+	// DeletedPolicyID is the .NumericIdentity, or set or them
+	DeletedPolicyID = "policyID.Deleted"
+
 	// L3PolicyID is the identifier of a L3 Policy
 	L3PolicyID = "policyID.L3"
 

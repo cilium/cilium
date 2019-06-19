@@ -17,8 +17,11 @@ package policy
 import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -128,8 +131,13 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		ProxyPort: 0, // Will be updated by the caller when applicable
 	}
 
-	log.Debugf("MapChanges: AccumulateMapChanges(adds: %v, deletes: %v, port: %d, proto: %d, direction: %d)",
-		adds, deletes, port, proto, direction.Uint8())
+	log.WithFields(logrus.Fields{
+		logfields.AddedPolicyID:    adds,
+		logfields.DeletedPolicyID:  deletes,
+		logfields.Port:             port,
+		logfields.Protocol:         proto,
+		logfields.TrafficDirection: direction,
+	}).Debug("AccumulateMapChanges")
 
 	mc.mutex.Lock()
 	if len(adds) > 0 {
