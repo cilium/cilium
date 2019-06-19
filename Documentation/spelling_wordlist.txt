@@ -197,6 +197,7 @@ github
 Github
 githubusercontent
 glibc
+globals
 gluecon
 gobpf
 gocheck
@@ -286,6 +287,7 @@ jsgt
 jsle
 jslt
 json
+jsonpath
 JUnit
 kafka
 kallsyms
@@ -494,6 +496,7 @@ sa
 sandboxing
 scalability
 scalable
+scp
 seccomp
 sed
 selftest
@@ -546,6 +549,7 @@ Suricata
 Suricate
 svc
 sw
+sys
 syscall
 Syscall
 sysctl
