@@ -1861,12 +1861,6 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, owner Owner, identityLabels
 }
 
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
-	// If in disconnected state, skip as well as this operation is no
-	// longer required.
-	if e.state == StateDisconnected {
-		return true
-	}
-
 	// Check if the endpoint has since received a new identity revision, if
 	// so, abort as a new resolution routine will have been started.
 	if myChangeRev != e.identityRevision {
