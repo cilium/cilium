@@ -48,7 +48,7 @@ func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
 }
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 10, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 10)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id string
@@ -294,7 +294,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 2, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 2)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id uint16
@@ -361,7 +361,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 3, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 3)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id string
@@ -428,7 +428,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 4, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 4)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ip string
@@ -497,7 +497,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 5, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 5)
 	ep.UpdateLogger(nil)
 	type args struct {
 		podName string
@@ -565,7 +565,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 6, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 6)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ep *endpoint.Endpoint
@@ -645,7 +645,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestRemove(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 7, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 7)
 	ep.UpdateLogger(nil)
 	type args struct {
 	}
@@ -685,7 +685,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 1)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ep *endpoint.Endpoint
@@ -748,7 +748,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+	ep := endpoint.NewTestEndpoint(s.repo, 1)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ctx    context.Context
@@ -787,7 +787,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpoint(s.repo, 1)
 			},
 		},
 		{
@@ -813,7 +813,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpoint(s.repo, 1)
 			},
 		},
 		{
@@ -839,7 +839,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+				ep = endpoint.NewTestEndpoint(s.repo, 1)
 			},
 		},
 	}

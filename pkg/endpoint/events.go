@@ -54,6 +54,11 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 		regenContext.DoneFunc = doneFunc
 
 		err = ev.ep.regenerate(ev.owner, ev.regenContext)
+		if err == nil {
+			e.UnconditionalLock()
+			e.state.initialBuildSuccessful = true
+			e.Unlock()
+		}
 
 		doneFunc()
 		e.notifyEndpointRegeneration(owner, err)

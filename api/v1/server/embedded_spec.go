@@ -1599,9 +1599,6 @@ func init() {
     "EndpointChangeRequest": {
       "description": "Structure which contains the mutable elements of an Endpoint.\n",
       "type": "object",
-      "required": [
-        "state"
-      ],
       "properties": {
         "addressing": {
           "$ref": "#/definitions/AddressPair"
@@ -1668,10 +1665,6 @@ func init() {
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
-        },
-        "state": {
-          "description": "Current state of endpoint",
-          "$ref": "#/definitions/EndpointState"
         },
         "sync-build-endpoint": {
           "description": "Whether to build an endpoint synchronously\n",
@@ -1922,9 +1915,6 @@ func init() {
     "EndpointStatus": {
       "description": "The current state and configuration of the endpoint, its policy \u0026 datapath, and subcomponents",
       "type": "object",
-      "required": [
-        "state"
-      ],
       "properties": {
         "controllers": {
           "description": "Status of internal controllers attached to this endpoint",
@@ -4567,9 +4557,6 @@ func init() {
     "EndpointChangeRequest": {
       "description": "Structure which contains the mutable elements of an Endpoint.\n",
       "type": "object",
-      "required": [
-        "state"
-      ],
       "properties": {
         "addressing": {
           "$ref": "#/definitions/AddressPair"
@@ -4636,10 +4623,6 @@ func init() {
         "policy-enabled": {
           "description": "Whether policy enforcement is enabled or not",
           "type": "boolean"
-        },
-        "state": {
-          "description": "Current state of endpoint",
-          "$ref": "#/definitions/EndpointState"
         },
         "sync-build-endpoint": {
           "description": "Whether to build an endpoint synchronously\n",
@@ -4890,9 +4873,6 @@ func init() {
     "EndpointStatus": {
       "description": "The current state and configuration of the endpoint, its policy \u0026 datapath, and subcomponents",
       "type": "object",
-      "required": [
-        "state"
-      ],
       "properties": {
         "controllers": {
           "description": "Status of internal controllers attached to this endpoint",

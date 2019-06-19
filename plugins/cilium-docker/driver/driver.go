@@ -291,7 +291,6 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	endpoint := &models.EndpointChangeRequest{
 		SyncBuildEndpoint: true,
-		State:             models.EndpointStateWaitingForIdentity,
 		DockerEndpointID:  create.EndpointID,
 		DockerNetworkID:   create.NetworkID,
 		Addressing: &models.AddressPair{

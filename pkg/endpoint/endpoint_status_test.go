@@ -54,7 +54,6 @@ func newEndpoint(c *check.C, repo *policy.Repository, spec endpointGeneratorSpec
 			"k8s:io.kubernetes.pod.namespace=default",
 			"k8s:name=probe",
 		},
-		State: models.EndpointState("waiting-for-identity"),
 	})
 	c.Assert(err, check.IsNil)
 
