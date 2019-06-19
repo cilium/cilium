@@ -151,6 +151,15 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	return e
 }
 
+func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
+	e.UnconditionalLock()
+	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
+	e.Unlock()
+	c.Assert(ready, Equals, true)
+	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
+	c.Assert(buildSuccess, Equals, true)
+}
+
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	rules := api.Rules{
 		{
@@ -534,6 +543,108 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(networkPolicies, HasLen, 2)
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
+
+	// Delete the endpoint.
+	e.UnconditionalLock()
+	e.LeaveLocked(ds.d, nil, endpoint.DeleteConfig{})
+	e.Unlock()
+
+	// Check that the policy has been removed from the xDS cache.
+	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
+	c.Assert(networkPolicies, HasLen, 0)
+}
+
+func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
+	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
+	qaBarSecLblsCtx, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaBarLbls)
+	c.Assert(err, Equals, nil)
+	defer cache.Release(context.Background(), ds.d, qaBarSecLblsCtx)
+
+	rules := api.Rules{
+		{
+			EndpointSelector: api.NewESFromLabels(lblBar),
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblJoe),
+						api.NewESFromLabels(lblPete),
+						api.NewESFromLabels(lblFoo),
+					},
+				},
+				{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblFoo),
+					},
+					ToPorts: []api.PortRule{
+						// Allow Port 80 GET /bar
+						CNPAllowGETbar,
+					},
+				},
+			},
+		},
+		{
+			EndpointSelector: api.NewESFromLabels(lblQA),
+			Ingress: []api.IngressRule{
+				{
+					FromRequires: []api.EndpointSelector{
+						api.NewESFromLabels(lblQA),
+					},
+				},
+			},
+		},
+		{
+			EndpointSelector: api.NewESFromLabels(lblProd),
+			Ingress: []api.IngressRule{
+				{
+					FromRequires: []api.EndpointSelector{
+						api.NewESFromLabels(lblProd),
+					},
+				},
+			},
+		},
+	}
+
+	ds.d.l7Proxy.RemoveAllNetworkPolicies()
+
+	_, err3 := ds.d.PolicyAdd(rules, nil)
+	c.Assert(err3, Equals, nil)
+
+	cleanup, err2 := prepareEndpointDirs()
+	c.Assert(err2, Equals, nil)
+	defer cleanup()
+
+	// Create the endpoint and generate its policy.
+	e := ds.prepareEndpoint(c, qaBarSecLblsCtx, true)
+
+	// Check that the policy has been updated in the xDS cache for the L7
+	// proxies.
+	networkPolicies := ds.getXDSNetworkPolicies(c, nil)
+	c.Assert(networkPolicies, HasLen, 2)
+	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
+	c.Assert(qaBarNetworkPolicy, Not(IsNil))
+
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies, HasLen, 0)
+
+	// Allocate identities needed for this test
+	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
+	qaFooID, _, err := cache.AllocateIdentity(context.Background(), ds.d, qaFooLbls)
+	c.Assert(err, Equals, nil)
+	defer cache.Release(context.Background(), ds.d, qaFooID)
+
+	// Regenerate endpoint
+	ds.regenerateEndpoint(c, e)
+
+	// Check that the policy has been updated in the xDS cache for the L7
+	// proxies.
+	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
+	c.Assert(networkPolicies, HasLen, 2)
+	qaBarNetworkPolicy = networkPolicies[QAIPv4Addr.String()]
+	c.Assert(qaBarNetworkPolicy, Not(IsNil))
+
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies, HasLen, 1)
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules, HasLen, 1)
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies, HasLen, 1)
+	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies[0], Equals, uint64(qaFooID.ID))
 
 	// Delete the endpoint.
 	e.UnconditionalLock()

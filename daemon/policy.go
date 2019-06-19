@@ -72,7 +72,7 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 // and also triggers policy updates.
 func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
 	d.policy.GetSelectorCache().UpdateIdentities(added, deleted)
-	d.TriggerPolicyUpdates(true, "one or more identities created or deleted")
+	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
 }
 
 type getPolicyResolve struct {
