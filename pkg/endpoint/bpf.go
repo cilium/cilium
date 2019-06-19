@@ -467,7 +467,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	// This must be done after allocating the new redirects, to update the
 	// policy map with the new proxy ports.
 	stats.mapSync.Start()
-	err = e.syncPolicyMapDelta()
+	err = e.syncPolicyMap()
 	stats.mapSync.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -639,7 +639,7 @@ func (e *Endpoint) runPreCompilationSteps(owner Owner, regenContext *regeneratio
 		// GH-3897 would fix this by creating a new map to do an atomic swap
 		// with the old one.
 		stats.mapSync.Start()
-		err := e.syncPolicyMapDelta()
+		err := e.syncPolicyMap()
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -948,10 +948,10 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 	return nil
 }
 
-// syncPolicyMapDelta updates the bpf policy map state based on the
+// syncPolicyMap updates the bpf policy map state based on the
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
-func (e *Endpoint) syncPolicyMapDelta() error {
+func (e *Endpoint) syncPolicyMap() error {
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
 		return nil
@@ -1006,7 +1006,7 @@ func (e *Endpoint) addPolicyMapDelta() error {
 	return nil
 }
 
-// syncPolicyMap attempts to synchronize the PolicyMap for this endpoint to
+// syncPolicyMapWithDump attempts to synchronize the PolicyMap for this endpoint to
 // contain the set of PolicyKeys represented by the endpoint's desiredMapState.
 // It checks the current contents of the endpoint's PolicyMap and deletes any
 // PolicyKeys that are not present in the endpoint's desiredMapState. It then
@@ -1015,7 +1015,7 @@ func (e *Endpoint) addPolicyMapDelta() error {
 // endpoint's realizedMapState field. Returns an error if the endpoint's BPF
 // PolicyMap is unable to be dumped, or any update operation to the map fails.
 // Must be called with e.Mutex locked.
-func (e *Endpoint) syncPolicyMap() error {
+func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	if e.realizedPolicy.PolicyMapState == nil {
 		e.realizedPolicy.PolicyMapState = make(policy.MapState)
@@ -1072,7 +1072,7 @@ func (e *Endpoint) syncPolicyMap() error {
 
 		// If key that is in policy map is not in desired state, just remove it.
 		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			e.getLogger().WithField(logfields.BPFMapKey, entry.Key.String()).Debug("syncPolicyMap removing a bpf policy entry not in the desired state")
+			e.getLogger().WithField(logfields.BPFMapKey, entry.Key.String()).Debug("syncPolicyMapWithDump removing a bpf policy entry not in the desired state")
 			err := e.deletePolicyKey(keyToDelete)
 			if err != nil {
 				errors = append(errors, err)
@@ -1101,7 +1101,7 @@ func (e *Endpoint) syncPolicyMapController() {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 				defer e.Unlock()
-				return e.syncPolicyMap()
+				return e.syncPolicyMapWithDump()
 			},
 			RunInterval: 1 * time.Minute,
 		},
