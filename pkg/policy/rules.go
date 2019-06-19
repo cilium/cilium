@@ -102,8 +102,8 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 	}
 }
 
-func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (*L4Policy, error) {
-	result := NewL4Policy(revision)
+func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (L4PolicyMap, error) {
+	result := L4PolicyMap{}
 
 	ctx.PolicyTrace("\n")
 	ctx.PolicyTrace("Resolving ingress policy for %+v\n", ctx.To)
@@ -139,14 +139,14 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 		}
 	}
 
-	matchedRules.wildcardL3L4Rules(true, result.Ingress, requirements, selectorCache)
+	matchedRules.wildcardL3L4Rules(true, result, requirements, selectorCache)
 
 	state.trace(len(rules), ctx)
 	return result, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (*L4Policy, error) {
-	result := NewL4Policy(revision)
+func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (L4PolicyMap, error) {
+	result := L4PolicyMap{}
 
 	ctx.PolicyTrace("\n")
 	ctx.PolicyTrace("Resolving egress policy for %+v\n", ctx.From)
@@ -183,7 +183,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 		}
 	}
 
-	matchedRules.wildcardL3L4Rules(false, result.Egress, requirements, selectorCache)
+	matchedRules.wildcardL3L4Rules(false, result, requirements, selectorCache)
 
 	state.trace(len(rules), ctx)
 	return result, nil

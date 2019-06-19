@@ -350,7 +350,7 @@ func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArr
 // other rules are stored in the specified slice of LabelSelectorRequirement.
 // These requirements are dynamically inserted into a copy of the receiver rule,
 // as requirements form conjunctions across all rules.
-func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) (*L4Policy, error) {
+func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, result L4PolicyMap, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) (L4PolicyMap, error) {
 	if !ctx.rulesSelect {
 		if !r.EndpointSelector.Matches(ctx.To) {
 			state.unSelectRule(ctx, ctx.To, r)
@@ -366,7 +366,7 @@ func (r *rule) resolveIngressPolicy(ctx *SearchContext, state *traceState, resul
 	}
 	for _, ingressRule := range r.Ingress {
 		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements)
-		cnt, err := mergeIngress(ctx, fromEndpoints, ingressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Ingress, selectorCache)
+		cnt, err := mergeIngress(ctx, fromEndpoints, ingressRule.ToPorts, r.Rule.Labels.DeepCopy(), result, selectorCache)
 		if err != nil {
 			return nil, err
 		}
@@ -585,7 +585,7 @@ func mergeEgressPortProto(ctx *SearchContext, endpoints api.EndpointSelectorSlic
 	return 1, nil
 }
 
-func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result *L4Policy, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) (*L4Policy, error) {
+func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result L4PolicyMap, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) (L4PolicyMap, error) {
 	if !ctx.rulesSelect {
 		if !r.EndpointSelector.Matches(ctx.From) {
 			state.unSelectRule(ctx, ctx.From, r)
@@ -601,7 +601,7 @@ func (r *rule) resolveEgressPolicy(ctx *SearchContext, state *traceState, result
 	}
 	for _, egressRule := range r.Egress {
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
-		cnt, err := mergeEgress(ctx, toEndpoints, egressRule.ToPorts, r.Rule.Labels.DeepCopy(), result.Egress, selectorCache, egressRule.ToFQDNs)
+		cnt, err := mergeEgress(ctx, toEndpoints, egressRule.ToPorts, r.Rule.Labels.DeepCopy(), result, selectorCache, egressRule.ToFQDNs)
 		if err != nil {
 			return nil, err
 		}

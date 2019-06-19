@@ -172,7 +172,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	ingressL4Policy, err := repo.ResolveL4IngressPolicy(&ctx)
 	c.Assert(ingressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(ingressL4Policy, checker.Equals, &policy.L4PolicyMap{
+	c.Assert(ingressL4Policy, checker.Equals, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			CachedSelectors: policy.CachedSelectorSlice{cachedEPSelector},
@@ -500,7 +500,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	egressL4Policy, err := repo.ResolveL4EgressPolicy(&ctx)
 	c.Assert(egressL4Policy, Not(IsNil))
 	c.Assert(err, IsNil)
-	c.Assert(egressL4Policy, checker.DeepEquals, &policy.L4PolicyMap{
+	c.Assert(egressL4Policy, checker.DeepEquals, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 			CachedSelectors: policy.CachedSelectorSlice{cachedEPSelector},
