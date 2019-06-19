@@ -60,9 +60,14 @@ var (
 	// IdentityAllocator is an allocator for security identities from the
 	// kvstore.
 	IdentityAllocator *allocator.Allocator
-	// identityAllocatorInitialized is closed whenever the identity allocator is
-	// initialized
-	identityAllocatorInitialized = make(chan struct{})
+
+	// globalIdentityAllocatorInitialized is closed whenever the global identity
+	// allocator is initialized.
+	globalIdentityAllocatorInitialized = make(chan struct{})
+
+	// localIdentityAllocatorInitialized is closed whenever the local identity
+	// allocator is initialized.
+	localIdentityAllocatorInitialized = make(chan struct{})
 
 	localIdentities *localIdentityCache
 
@@ -105,6 +110,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 	// rely upon any external resources (e.g., external kvstore).
 	events := make(allocator.AllocatorEventChan, 1024)
 	localIdentities = newLocalIdentityCache(1, 0xFFFFFF, events)
+	close(localIdentityAllocatorInitialized)
 
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
@@ -131,10 +137,10 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 		}
 
 		IdentityAllocator = a
-		close(identityAllocatorInitialized)
+		close(globalIdentityAllocatorInitialized)
 	}(owner, events, minID, maxID)
 
-	return identityAllocatorInitialized
+	return globalIdentityAllocatorInitialized
 }
 
 // Close closes the identity allocator and allows to call
@@ -144,7 +150,16 @@ func Close() {
 	defer setupMutex.Unlock()
 
 	select {
-	case <-identityAllocatorInitialized:
+	case <-globalIdentityAllocatorInitialized:
+		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
+	default:
+		if IdentityAllocator == nil {
+			log.Panic("Close() called without calling InitIdentityAllocator() first")
+		}
+	}
+
+	select {
+	case <-localIdentityAllocatorInitialized:
 		// This means the channel was closed and therefore the IdentityAllocator == nil will never be true
 	default:
 		if IdentityAllocator == nil {
@@ -155,20 +170,27 @@ func Close() {
 	IdentityAllocator.Delete()
 	watcher.stop()
 	IdentityAllocator = nil
-	identityAllocatorInitialized = make(chan struct{})
+	globalIdentityAllocatorInitialized = make(chan struct{})
+	localIdentityAllocatorInitialized = make(chan struct{})
 	localIdentities = nil
 }
 
-// WaitForInitialIdentities waits for the initial set of security identities to
-// have been received and populated into the allocator cache
-func WaitForInitialIdentities(ctx context.Context) error {
+// WaitForInitialGlobalIdentities waits for the initial set of global security
+// identities to have been received and populated into the allocator cache.
+func WaitForInitialGlobalIdentities(ctx context.Context) error {
 	select {
-	case <-identityAllocatorInitialized:
+	case <-globalIdentityAllocatorInitialized:
 	case <-ctx.Done():
-		return fmt.Errorf("initial identity sync was cancelled: %s", ctx.Err())
+		return fmt.Errorf("initial global identity sync was cancelled: %s", ctx.Err())
 	}
 
 	return IdentityAllocator.WaitForInitialSync(ctx)
+}
+
+// WaitForLocalIdentityAllocator waits for the local identity allocator to be
+// initialized.
+func WaitForLocalIdentityAllocator() {
+	<-localIdentityAllocatorInitialized
 }
 
 // IdentityAllocationIsLocal returns true if a call to AllocateIdentity with
@@ -223,7 +245,7 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 
 	// This will block until the kvstore can be accessed and all identities
 	// were successfully synced
-	WaitForInitialIdentities(ctx)
+	WaitForInitialGlobalIdentities(ctx)
 
 	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
@@ -272,7 +294,7 @@ func Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Ide
 
 	// This will block until the kvstore can be accessed and all identities
 	// were successfully synced
-	WaitForInitialIdentities(ctx)
+	WaitForInitialGlobalIdentities(ctx)
 
 	if IdentityAllocator == nil {
 		return false, fmt.Errorf("allocator not initialized")
@@ -310,6 +332,6 @@ func ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities 
 // WatchRemoteIdentities starts watching for identities in another kvstore and
 // syncs all identities to the local identity cache.
 func WatchRemoteIdentities(backend kvstore.BackendOperations) *allocator.RemoteCache {
-	<-identityAllocatorInitialized
+	<-globalIdentityAllocatorInitialized
 	return IdentityAllocator.WatchRemoteKVStore(backend, IdentitiesPath)
 }

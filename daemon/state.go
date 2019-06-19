@@ -281,7 +281,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// endpoints that don't have a fixed identity or are
 			// not well known.
 			if !identity.IsFixed() && !identity.IsWellKnown() {
-				cache.WaitForInitialIdentities(context.Background())
+				cache.WaitForInitialGlobalIdentities(context.Background())
 				ipcache.WaitForInitialSync()
 			}
 

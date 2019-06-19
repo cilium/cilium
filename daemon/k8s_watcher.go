@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	cache2 "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -295,6 +296,11 @@ func (d *Daemon) waitForCacheSync(resourceNames ...string) {
 // initK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
 func (d *Daemon) initK8sSubsystem() <-chan struct{} {
+	// We need to wait for the local identity allocator to be initialized before
+	// we sync CNPs from K8s, since those CNPs may contain CIDRs, the identities
+	// of which are created using local identity allocation.
+	cache2.WaitForLocalIdentityAllocator()
+
 	if err := d.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
 		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
 	}
