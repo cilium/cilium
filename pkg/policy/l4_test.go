@@ -28,34 +28,6 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (s *PolicyTestSuite) testDPortCoverage(c *C, policy L4Policy, covers func([]*models.Port) api.Decision) {
-
-	ports := []*models.Port{}
-	c.Assert(covers(ports), Equals, api.Denied)
-
-	// Policy should match all of the below ports.
-	ports = []*models.Port{
-		{
-			Port:     8080,
-			Protocol: models.PortProtocolTCP,
-		},
-	}
-	c.Assert(covers(ports), Equals, api.Allowed)
-
-	// Adding another port outside the policy will now be denied.
-	ports = append(ports, &models.Port{Port: 8080, Protocol: models.PortProtocolUDP})
-	c.Assert(covers(ports), Equals, api.Denied)
-
-	// Ports with protocol any should match the TCP policy above.
-	ports = []*models.Port{
-		{
-			Port:     8080,
-			Protocol: models.PortProtocolANY,
-		},
-	}
-	c.Assert(covers(ports), Equals, api.Allowed)
-}
-
 func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := api.PortRule{
