@@ -31,12 +31,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.1.3
-<https://github.com/istio/istio/releases/tag/1.1.2>`_:
+Download `Istio version 1.1.7
+<https://github.com/istio/istio/releases/tag/1.1.7>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.1.3
+   $ export ISTIO_VERSION=1.1.7
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -99,10 +99,6 @@ of Pilot, and disables unused services:
           --set egressgateway.enabled=false \
           > istio-cilium.yaml
 
-.. TODO: Set global.controlPlaneSecurityEnabled=true and
-   global.mtls.enabled=true when we stop seeing TLS connections getting
-   forcefully closed by sidecar proxies sporadically.
-
 Deploy Istio onto Kubernetes:
 
 ::
@@ -128,14 +124,14 @@ Check the progress of the deployment (every service should have an
 ::
 
     $ watch "kubectl get deployments -n istio-system"
-    NAME                       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    istio-citadel              1         1         1            1           1m
-    istio-galley               1         1         1            1           1m
-    istio-ingressgateway       1         1         1            1           1m
-    istio-pilot                1         1         1            1           1m
-    istio-policy               1         1         1            1           1m
-    istio-telemetry            1         1         1            1           1m
-    prometheus                 1         1         1            1           1m
+    NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+    istio-citadel          1/1     1            1           3m20s
+    istio-galley           1/1     1            1           3m20s
+    istio-ingressgateway   1/1     1            1           3m20s
+    istio-pilot            1/1     1            1           3m20s
+    istio-policy           1/1     1            1           3m20s
+    istio-telemetry        1/1     1            1           3m20s
+    prometheus             1/1     1            1           3m20s
 
 Once all Istio pods are ready, we are ready to install the demo
 application.
@@ -183,15 +179,15 @@ To deploy the application with manual sidecar injection, run:
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
           istioctl kube-inject -f - | \\
           kubectl create --validate=false -f - ; done
-    service "productpage" created
-    ciliumnetworkpolicy "productpage-v1" created
-    deployment "productpage-v1" created
-    service "details" created
-    ciliumnetworkpolicy "details-v1" created
-    deployment "details-v1" created
-    service "reviews" created
-    ciliumnetworkpolicy "reviews-v1" created
-    deployment "reviews-v1" created
+    service/productpage created
+    ciliumnetworkpolicy.cilium.io/productpage-v1 created
+    deployment.extensions/productpage-v1 created
+    service/details created
+    ciliumnetworkpolicy.cilium.io/details-v1 created
+    deployment.extensions/details-v1 created
+    service/reviews created
+    ciliumnetworkpolicy.cilium.io/reviews-v1 created
+    deployment.extensions/reviews-v1 created
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -199,18 +195,38 @@ Check the progress of the deployment (every service should have an
 ::
 
     $ watch "kubectl get deployments"
-    NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    details-v1       1         1         1            1           2m
-    productpage-v1   1         1         1            1           2m
-    reviews-v1       1         1         1            1           2m
+    NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+    details-v1       1/1     1            1           12s
+    productpage-v1   1/1     1            1           13s
+    reviews-v1       1/1     1            1           12s
 
 Once all the pods are available, verify that the application works by
 making a query from reviews pod to the productpage:
 
+.. note::
+
+   'sudo' here is needed to cause the curl connection to be forwarded
+   to the proxy. Without it the connection is considered as coming
+   from the proxy itself, causing the destination proxy to close the
+   connection on (missing) TLS handshake failure.
+
 ::
 
-    $ kubectl exec -it $(kubectl get pod -l app=reviews -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- curl productpage:9080/productpage | grep "<title>.*</title>"
+    $ kubectl exec -it $(kubectl get pod -l app=reviews -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- sudo curl productpage:9080/productpage | grep "<title>.*</title>"
         <title>Simple Bookstore App</title>
+
+.. only:: not (epub or latex or html)
+   Notes for Istio debugging:
+   - Set istio proxy to debug or trace mode:
+   $ kubectl exec -it $(kubectl get pod -l app=productpage -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- curl -XPOST http://127.0.0.1:15000/logging?level=debug
+   - Check that bpf is mounted:
+   $ kubectl exec -it $(kubectl get pod -l app=productpage -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- ls -la /sys/fs/bpf/tc/globals
+   - Upgrade cilium to a local image (after setting image pull policy to never):
+   $ export CILIUM_TAG=my-test-tag
+   $ docker save cilium/cilium:${CILIUM_TAG} -o cilium-${CILIUM_TAG}.tar
+   $ scp -i $(minikube ssh-key) cilium-${CILIUM_TAG}.tar docker@$(minikube ip):.
+   $ minikube ssh "docker image load -i cilium-${CILIUM_TAG}.tar"
+   $ kubectl -n kube-system set image daemonset/cilium cilium-agent=docker.io/cilium/cilium:${CILIUM_TAG}
 
 Create an Istio ingress gateway for the productpage service:
 
@@ -261,8 +277,8 @@ Apply this route rule:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1.yaml | \\
           kubectl apply -f -
-    virtualservice "reviews" created
-    destinationrule "reviews" created
+    virtualservice.networking.istio.io/reviews created
+    destinationrule.networking.istio.io/reviews created
 
 Deploy the ``ratings v1`` and ``reviews v2`` services:
 
@@ -272,11 +288,11 @@ Deploy the ``ratings v1`` and ``reviews v2`` services:
           curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
           istioctl kube-inject -f - | \\
           kubectl create --validate=false -f - ; done
-    service "ratings" created
-    ciliumnetworkpolicy "ratings-v1" created
-    deployment "ratings-v1" created
-    ciliumnetworkpolicy "reviews-v2" created   
-    deployment "reviews-v2" created
+    service/ratings created
+    ciliumnetworkpolicy.cilium.io/ratings-v1 created
+    deployment.extensions/ratings-v1 created
+    ciliumnetworkpolicy.cilium.io/reviews-v2 created
+    deployment.extensions/reviews-v2 created
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -284,12 +300,12 @@ Check the progress of the deployment (every service should have an
 ::
 
     $ watch "kubectl get deployments"
-    NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    details-v1       1         1         1            1           6m
-    productpage-v1   1         1         1            1           6m
-    ratings-v1       1         1         1            1           57s
-    reviews-v1       1         1         1            1           6m
-    reviews-v2       1         1         1            1           57s
+    NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+    details-v1       1/1     1            1           17m
+    productpage-v1   1/1     1            1           17m
+    ratings-v1       1/1     1            1           69s
+    reviews-v1       1/1     1            1           17m
+    reviews-v2       1/1     1            1           68s
 
 Check in your web browser that no stars are appearing in the Book
 Reviews, even after refreshing the page several times.  This indicates
@@ -311,14 +327,15 @@ running ``curl`` from within the pod:
 
 .. note::
 
-   It may take a minute for the error to appear.
+   All traffic from ``reviews v1`` to ``ratings`` is blocked, so the
+   connection attempt fails after the connection timeout.
 
 ::
 
     $ export POD_REVIEWS_V1=`kubectl get pods -l app=reviews,version=v1 -o jsonpath='{.items[0].metadata.name}'`
     $ kubectl exec ${POD_REVIEWS_V1} -c istio-proxy -ti -- curl --connect-timeout 5 --fail http://ratings:9080/ratings/0
-    curl: (22) The requested URL returned error: 503 Service Unavailable
-    command terminated with exit code 22
+    curl: (28) Connection timed out after 5001 milliseconds
+    command terminated with exit code 28
 
 Update the Istio route rule to send 50% of ``reviews`` traffic to
 ``v1`` and 50% to ``v2``:
@@ -330,12 +347,12 @@ Update the Istio route rule to send 50% of ``reviews`` traffic to
    :align: center
 
 Apply this route rule:
-		    
+
 .. parsed-literal::
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1-v2.yaml | \\
           kubectl apply -f -
-    virtualservice "reviews" configured
+    virtualservice.networking.istio.io/reviews configured
 
 Check in your web browser that stars are appearing in the Book Reviews
 roughly 50% of the time.  This may require refreshing the page for a
@@ -361,7 +378,7 @@ Apply this route rule:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v2.yaml | \\
           kubectl apply -f -
-    virtualservice "reviews" configured
+    virtualservice.networking.istio.io/reviews configured
 
 Refresh the product page in your web browser several times to verify
 that stars are now appearing in the Book Reviews on every page
@@ -423,7 +440,7 @@ deploy a Kafka broker:
 
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1-destrule.yaml | \\
           kubectl create -f -
-    destinationrule "kafka-disable-mtls" created
+    destinationrule.networking.istio.io/kafka-disable-mtls created
 
 .. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
@@ -433,9 +450,9 @@ deploy a Kafka broker:
 .. parsed-literal::
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml
-    service "kafka" created
-    ciliumnetworkpolicy "kafka-authaudit" created
-    statefulset "kafka-v1" created
+    service/kafka created
+    ciliumnetworkpolicy.cilium.io/kafka-authaudit created
+    statefulset.apps/kafka-v1 created
 
 Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
 ``READY`` count of ``1/1``:
@@ -464,14 +481,14 @@ CiliumNetworkPolicy and delete ``productpage v1``:
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
           istioctl kube-inject -f - | \\
           kubectl create --validate=false -f -
-    ciliumnetworkpolicy "productpage-v2" created
-    deployment "productpage-v2" created
+    ciliumnetworkpolicy.cilium.io/productpage-v2 created
+    deployment.extensions/productpage-v2 created
 
 .. parsed-literal::
 
     $ kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v1.yaml
-    ciliumnetworkpolicy "productpage-v1" deleted
-    deployment "productpage-v1" deleted
+    ciliumnetworkpolicy.cilium.io "productpage-v1" deleted
+    deployment.extensions "productpage-v1" deleted
 
 ``productpage v2`` implements an authorization audit logging.  On
 every user login or logout, it produces into Kafka topic ``authaudit``
@@ -492,7 +509,7 @@ this service:
     $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
           istioctl kube-inject -f - | \\
           kubectl apply --validate=false -f -
-    deployment "authaudit-logger-v1" created
+    deployment.extensions/authaudit-logger-v1 created
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -500,13 +517,13 @@ Check the progress of the deployment (every service should have an
 ::
 
     $ watch "kubectl get deployments"
-    NAME                  DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-    authaudit-logger-v1   1         1         1            1           20s
-    details-v1            1         1         1            1           22m
-    productpage-v2        1         1         1            1           4m
-    ratings-v1            1         1         1            1           19m
-    reviews-v1            1         1         1            1           22m
-    reviews-v2            1         1         1            1           19m
+    NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+    authaudit-logger-v1   1/1     1            1           41s
+    details-v1            1/1     1            1           37m
+    productpage-v2        1/1     1            1           4m47s
+    ratings-v1            1/1     1            1           20m
+    reviews-v1            1/1     1            1           37m
+    reviews-v2            1/1     1            1           20m
 
 Check that the product REST API is still accessible, and that Cilium
 now denies at Layer-7 any access to the reviews and ratings REST API:
