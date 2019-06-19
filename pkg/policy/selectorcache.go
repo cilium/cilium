@@ -167,8 +167,7 @@ type SelectorCache struct {
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
 	// UpdateIdentities() function.
-	idCache         scIdentityCache
-	idCacheRevision uint64
+	idCache scIdentityCache
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]identitySelector
@@ -705,8 +704,6 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 	}
 
 	if len(deleted)+len(added) > 0 {
-		sc.idCacheRevision++
-
 		// Iterate through all locally used identity selectors and
 		// update the cached numeric identities as required.
 		for _, sel := range sc.selectors {
@@ -737,16 +734,6 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache) {
 			}
 		}
 	}
-}
-
-// GetIDCacheRevision can be used to figure our if the selections
-// may have changed. Should not be used when identity updates are
-// properly propagated to the policy realization.
-func (sc *SelectorCache) GetIDCacheRevision() uint64 {
-	sc.mutex.Lock()
-	rev := sc.idCacheRevision
-	sc.mutex.Unlock()
-	return rev
 }
 
 // RemoveIdentitiesFQDNSelectors removes all identities from being mapped to the

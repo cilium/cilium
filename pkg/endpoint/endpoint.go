@@ -187,10 +187,6 @@ type Endpoint struct {
 	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
 	hasSidecarProxy bool
 
-	// prevIdentityCacheRevision is the revision of the identity cache used in the
-	// previous policy computation
-	prevIdentityCacheRevision uint64
-
 	// PolicyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
 	PolicyMap *policymap.PolicyMap `json:"-"`
@@ -2031,7 +2027,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 
 	readyToRegenerate := false
 
-	// Regeneration is olny triggered once the endpoint ID has been
+	// Regeneration is only triggered once the endpoint ID has been
 	// assigned. This ensures that on the initial creation, the endpoint is
 	// not generated until the endpoint ID has been assigned. If the
 	// identity is resolved before the endpoint ID is assigned, the

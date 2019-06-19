@@ -45,7 +45,7 @@ import (
 
 // ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
+	return policy.ProxyIDFromFilter(e.ID, l4)
 }
 
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
@@ -125,19 +125,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	defer repo.Mutex.RUnlock()
 	stats.waitingForPolicyRepository.End(true)
 
-	// Collect label arrays before policy computation, as this can fail.
-	// GH-1128 should allow optimizing this away, but currently we can't
-	// reliably know if the KV-store has changed or not, so we must scan
-	// through it each time.
-	stats.waitingForIdentityCache.Start()
-	prevIdentityCacheRevision := repo.GetSelectorCache().GetIDCacheRevision()
-	stats.waitingForIdentityCache.End(true)
-
 	// Recompute policy for this endpoint only if not already done for this revision.
-	// Must recompute if labels have changed.
-	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision &&
-		e.prevIdentityCacheRevision == prevIdentityCacheRevision {
-
+	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision {
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
@@ -170,11 +159,8 @@ func (e *Endpoint) regeneratePolicy(owner Owner) (retErr error) {
 	calculatedPolicy := e.selectorPolicy.Consume(e)
 	stats.policyCalculation.End(true)
 
+	// This marks the e.desiredPolicy different from the previously realized policy
 	e.desiredPolicy = calculatedPolicy
-
-	// Set the revision of the identity cache at which the policy computation started
-	// now that we know the policy computation was successful.
-	e.prevIdentityCacheRevision = prevIdentityCacheRevision
 
 	if e.forcePolicyCompute {
 		forceRegeneration = true     // Options were changed by the caller.
@@ -380,7 +366,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	e.realizedBPFConfig = e.desiredBPFConfig
 
-	// Set realized state to desired state fields.
+	// Set realized state to desired state.
 	e.realizedPolicy = e.desiredPolicy
 
 	// Mark the endpoint to be running the policy revision it was
