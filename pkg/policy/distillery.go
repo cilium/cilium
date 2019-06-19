@@ -108,8 +108,6 @@ func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
 //
 // Must be called with repo.Mutex held for reading.
 func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (bool, error) {
-	revision := cache.repo.GetRevision()
-
 	cache.Lock()
 	cip, ok := cache.policies[identity.ID]
 	cache.Unlock()
@@ -129,10 +127,8 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 	cip.Lock()
 	defer cip.Unlock()
 
-	currentPolicy := cip.getPolicy()
-
 	// Don't resolve policy if it was already done for this or later revision.
-	if revision <= currentPolicy.Revision {
+	if cip.getPolicy().Revision >= cache.repo.GetRevision() {
 		return false, nil
 	}
 
