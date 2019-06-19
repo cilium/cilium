@@ -357,10 +357,10 @@ func updateBackendsLocked(addedBackends map[loadbalancer.BackendID]ServiceValue)
 
 		if svcVal.IsIPv6() {
 			svc6Val := svcVal.(*Service6Value)
-			b, err = NewBackend6(backendID, svc6Val.Address.IP(), svc6Val.Port, u8proto.All)
+			b, err = NewBackend6(backendID, svc6Val.Address.IP(), svc6Val.Port, u8proto.ANY)
 		} else {
 			svc4Val := svcVal.(*Service4Value)
-			b, err = NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.All)
+			b, err = NewBackend4(backendID, svc4Val.Address.IP(), svc4Val.Port, u8proto.ANY)
 		}
 		if err != nil {
 			return err
@@ -436,10 +436,10 @@ func updateServiceV2Locked(fe ServiceKey, backends map[BackendAddrID]ServiceValu
 
 	if fe.IsIPv6() {
 		svc6Key := fe.(*Service6Key)
-		svcKeyV2 = NewService6KeyV2(svc6Key.Address.IP(), svc6Key.Port, u8proto.All, 0)
+		svcKeyV2 = NewService6KeyV2(svc6Key.Address.IP(), svc6Key.Port, u8proto.ANY, 0)
 	} else {
 		svc4Key := fe.(*Service4Key)
-		svcKeyV2 = NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.All, 0)
+		svcKeyV2 = NewService4KeyV2(svc4Key.Address.IP(), svc4Key.Port, u8proto.ANY, 0)
 	}
 
 	svcValV2, err := lookupServiceV2(svcKeyV2)
@@ -917,9 +917,9 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	log.WithField(logfields.ServiceName, svc).Debug("Deleting service")
 
 	if isIPv6 {
-		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
 	} else {
-		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
 	}
 
 	backendsToRemove, backendsCount, err := cache.removeServiceV2(svcKey)
@@ -978,9 +978,9 @@ func DeleteServiceCache(svc loadbalancer.L3n4AddrID) {
 func DeleteOrphanServiceV2AndRevNAT(svc loadbalancer.L3n4AddrID, delRevNAT bool) error {
 	var svcKey ServiceKeyV2
 	if !svc.IsIPv6() {
-		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+		svcKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
 	} else {
-		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, 0)
+		svcKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, 0)
 	}
 
 	svcKey.SetSlave(0)
@@ -1001,9 +1001,9 @@ func DeleteOrphanServiceV2AndRevNAT(svc loadbalancer.L3n4AddrID, delRevNAT bool)
 	for i := numBackends; i > 0; i-- {
 		var slaveKey ServiceKeyV2
 		if !svc.IsIPv6() {
-			slaveKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.All, i)
+			slaveKey = NewService4KeyV2(svc.IP, svc.Port, u8proto.ANY, i)
 		} else {
-			slaveKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.All, i)
+			slaveKey = NewService6KeyV2(svc.IP, svc.Port, u8proto.ANY, i)
 		}
 		log.WithFields(logrus.Fields{
 			"idx.backend": i,
