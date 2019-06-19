@@ -75,7 +75,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		wildcardCachedSelector: l7rules,
 	}
 
-	expected := NewL4Policy()
+	expected := NewL4Policy(0)
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3:   true,
@@ -108,11 +108,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	ingressState := traceState{}
 	egressState := traceState{}
-	res, err := rule1.resolveIngressPolicy(toBar, &ingressState, NewL4Policy(), nil, testSelectorCache)
+	res, err := rule1.resolveIngressPolicy(toBar, &ingressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
-	res2, err := rule1.resolveEgressPolicy(fromBar, &egressState, NewL4Policy(), nil, testSelectorCache)
+	res2, err := rule1.resolveEgressPolicy(fromBar, &egressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res2, Not(IsNil))
 
@@ -131,9 +131,9 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res, err = rule1.resolveIngressPolicy(toFoo, &ingressState, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule1.resolveIngressPolicy(toFoo, &ingressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
-	res2, err = rule1.resolveEgressPolicy(fromFoo, &ingressState, NewL4Policy(), nil, testSelectorCache)
+	res2, err = rule1.resolveEgressPolicy(fromFoo, &ingressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 
 	c.Assert(res, IsNil)
@@ -181,7 +181,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 	}
 
-	expected = NewL4Policy()
+	expected = NewL4Policy(0)
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
@@ -214,11 +214,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 
 	ingressState = traceState{}
 	egressState = traceState{}
-	res, err = rule2.resolveIngressPolicy(toBar, &ingressState, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule2.resolveIngressPolicy(toBar, &ingressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
-	res2, err = rule2.resolveEgressPolicy(fromBar, &egressState, NewL4Policy(), nil, testSelectorCache)
+	res2, err = rule2.resolveEgressPolicy(fromBar, &egressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res2, Not(IsNil))
 
@@ -237,11 +237,11 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res, err = rule2.resolveIngressPolicy(toFoo, &ingressState, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule2.resolveIngressPolicy(toFoo, &ingressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 
-	res2, err = rule2.resolveEgressPolicy(fromFoo, &egressState, NewL4Policy(), nil, testSelectorCache)
+	res2, err = rule2.resolveEgressPolicy(fromFoo, &egressState, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res2, IsNil)
 
@@ -281,7 +281,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	}
 
 	mergedES := CachedSelectorSlice{cachedFooSelector, cachedBazSelector}
-	expected := NewL4Policy()
+	expected := NewL4Policy(0)
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, CachedSelectors: mergedES,
 		L7Parser: ParserTypeNone, L7RulesPerEp: L7DataMap{}, Ingress: true,
@@ -289,7 +289,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveIngressPolicy(toBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err := rule1.resolveIngressPolicy(toBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -334,7 +334,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	}
 
 	mergedES := CachedSelectorSlice{cachedFooSelector, cachedBazSelector}
-	expected := NewL4Policy()
+	expected := NewL4Policy(0)
 	expected.Egress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6, CachedSelectors: mergedES,
 		L7Parser: ParserTypeNone, L7RulesPerEp: L7DataMap{}, Ingress: false,
@@ -342,7 +342,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(fromBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err := rule1.resolveEgressPolicy(fromBar, &state, NewL4Policy(0), nil, testSelectorCache)
 
 	c.Log(buffer)
 
@@ -402,7 +402,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		},
 	}
 
-	expected := NewL4Policy()
+	expected := NewL4Policy(0)
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port:            80,
 		Protocol:        api.ProtoTCP,
@@ -423,7 +423,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveIngressPolicy(toBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err := rule1.resolveIngressPolicy(toBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -433,7 +433,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule1.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule1.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -480,7 +480,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		cachedFooSelector:      l7rules,
 	}
 
-	expected = NewL4Policy()
+	expected = NewL4Policy(0)
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3:   true,
@@ -490,7 +490,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule2.resolveIngressPolicy(toBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule2.resolveIngressPolicy(toBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -500,14 +500,14 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule2.resolveIngressPolicy(toFoo, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule2.resolveIngressPolicy(toFoo, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveIngressPolicy(toBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule1.resolveIngressPolicy(toBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
@@ -566,7 +566,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		cachedFooSelector:      fooRules,
 		wildcardCachedSelector: barRules,
 	}
-	expected = NewL4Policy()
+	expected = NewL4Policy(0)
 
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
@@ -577,7 +577,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule3.resolveIngressPolicy(toBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule3.resolveIngressPolicy(toBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -635,7 +635,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		},
 	}
 
-	expected := NewL4Policy()
+	expected := NewL4Policy(0)
 	expected.Egress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3:   true,
@@ -654,7 +654,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(fromBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err := rule1.resolveEgressPolicy(fromBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -664,7 +664,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule1.resolveEgressPolicy(fromFoo, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule1.resolveEgressPolicy(fromFoo, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -710,7 +710,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		},
 	}
 
-	expected = NewL4Policy()
+	expected = NewL4Policy(0)
 	expected.Egress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3:   true,
@@ -729,7 +729,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule2.resolveEgressPolicy(fromBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule2.resolveEgressPolicy(fromBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -739,14 +739,14 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule2.resolveEgressPolicy(fromFoo, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule2.resolveEgressPolicy(fromFoo, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveEgressPolicy(fromBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule1.resolveEgressPolicy(fromBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	res.Detach(testSelectorCache)
@@ -798,7 +798,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		cachedFooSelector:      fooRules,
 		wildcardCachedSelector: barRules,
 	}
-	expected = NewL4Policy()
+	expected = NewL4Policy(0)
 	expected.Egress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		allowsAllAtL3:   true,
@@ -808,7 +808,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	state = traceState{}
-	res, err = rule3.resolveEgressPolicy(fromBar, &state, NewL4Policy(), nil, testSelectorCache)
+	res, err = rule3.resolveEgressPolicy(fromBar, &state, NewL4Policy(0), nil, testSelectorCache)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(*res, checker.Equals, *expected)
@@ -1277,7 +1277,7 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 
 	for _, test := range testCases {
-		finalPolicy := NewL4Policy()
+		finalPolicy := NewL4Policy(0)
 		for _, r := range test.rulesToApply {
 			apiRule := rules[r]
 			err := apiRule.Sanitize()
