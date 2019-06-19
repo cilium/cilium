@@ -903,6 +903,48 @@ func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 	return info, nil
 }
 
+func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key) error {
+	// Convert from policy.Key to policymap.Key
+	policymapKey := policymap.PolicyKey{
+		Identity:         keyToDelete.Identity,
+		DestPort:         keyToDelete.DestPort,
+		Nexthdr:          keyToDelete.Nexthdr,
+		TrafficDirection: keyToDelete.TrafficDirection,
+	}
+
+	err := e.PolicyMap.DeleteKey(policymapKey)
+	if err != nil {
+		e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", policymapKey.String())
+		return err
+	}
+
+	// Operation was successful, remove from realized state.
+	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
+
+	return nil
+}
+
+func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry) error {
+	// Convert from policy.Key to policymap.Key
+	policymapKey := policymap.PolicyKey{
+		Identity:         keyToAdd.Identity,
+		DestPort:         keyToAdd.DestPort,
+		Nexthdr:          keyToAdd.Nexthdr,
+		TrafficDirection: keyToAdd.TrafficDirection,
+	}
+
+	err := e.PolicyMap.AllowKey(policymapKey, entry.ProxyPort)
+	if err != nil {
+		e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policymapKey.String(), entry.ProxyPort)
+		return err
+	}
+
+	// Operation was successful, add to realized state.
+	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+
+	return nil
+}
+
 // syncPolicyMapDelta updates the bpf policy map state based on the
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
@@ -918,22 +960,9 @@ func (e *Endpoint) syncPolicyMapDelta() error {
 	for keyToDelete := range e.realizedPolicy.PolicyMapState {
 		// If key that is in realized state is not in desired state, just remove it.
 		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-
-			// Convert from policy.Key to policymap.Key
-			policyKeyToPolicyMapKey := policymap.PolicyKey{
-				Identity:         keyToDelete.Identity,
-				DestPort:         keyToDelete.DestPort,
-				Nexthdr:          keyToDelete.Nexthdr,
-				TrafficDirection: keyToDelete.TrafficDirection,
-			}
-
-			err := e.PolicyMap.DeleteKey(policyKeyToPolicyMapKey)
+			err := e.deletePolicyKey(keyToDelete)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", policyKeyToPolicyMapKey.String())
 				errors = append(errors, err)
-			} else {
-				// Operation was successful, remove from realized state.
-				delete(e.realizedPolicy.PolicyMapState, keyToDelete)
 			}
 		}
 	}
@@ -960,26 +989,9 @@ func (e *Endpoint) addPolicyMapDelta() error {
 
 	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
 		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || oldEntry != entry {
-
-			// Convert from policy.Key to policymap.Key
-			policyKeyToPolicyMapKey := policymap.PolicyKey{
-				Identity:         keyToAdd.Identity,
-				DestPort:         keyToAdd.DestPort,
-				Nexthdr:          keyToAdd.Nexthdr,
-				TrafficDirection: keyToAdd.TrafficDirection,
-			}
-
-			err := e.PolicyMap.AllowKey(policyKeyToPolicyMapKey, entry.ProxyPort)
+			err := e.addPolicyKey(keyToAdd, entry)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to add PolicyMap key %s %d", policyKeyToPolicyMapKey.String(), entry.ProxyPort)
 				errors = append(errors, err)
-			} else {
-				// Operation was successful, add to realized state.
-				// The realized policy (including the policy map state) will
-				// be replaced with the desired state, but only if everything
-				// is successful. If something fails, this ensures that the
-				// realized state reflects the state of the bpf map.
-				e.realizedPolicy.PolicyMapState[keyToAdd] = entry
 			}
 		}
 	}
@@ -1048,7 +1060,7 @@ func (e *Endpoint) syncPolicyMap() error {
 		keyHostOrder := entry.Key.ToHost()
 
 		// Convert from policymap.Key to policy.Key
-		policyMapKeyToPolicyKey := policy.Key{
+		keyToDelete := policy.Key{
 			Identity:         keyHostOrder.Identity,
 			DestPort:         keyHostOrder.DestPort,
 			Nexthdr:          keyHostOrder.Nexthdr,
@@ -1056,16 +1068,10 @@ func (e *Endpoint) syncPolicyMap() error {
 		}
 
 		// If key that is in policy map is not in desired state, just remove it.
-		if _, ok := e.desiredPolicy.PolicyMapState[policyMapKeyToPolicyKey]; !ok {
-			// Can pass key with host byte-order fields, as it will get
-			// converted to network byte-order.
-			err := e.PolicyMap.DeleteKey(keyHostOrder)
+		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
+			err := e.deletePolicyKey(keyToDelete)
 			if err != nil {
-				e.getLogger().WithError(err).Errorf("Failed to delete PolicyMap key %s", entry.Key.String())
 				errors = append(errors, err)
-			} else if e.realizedPolicy != e.desiredPolicy {
-				// Operation was successful, remove from realized state.
-				delete(e.realizedPolicy.PolicyMapState, policyMapKeyToPolicyKey)
 			}
 		}
 	}
