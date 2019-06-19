@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// This tests the Istio 1.1.2 integration, following the configuration
+// This tests the Istio 1.1.7 integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
 // Changes to the Getting Started Guide may require re-generating or copying
@@ -44,12 +44,12 @@ var _ = Describe("K8sIstioTest", func() {
 
 		// istioCRDYAMLPath is the file generated from istio-init during a
 		// step in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.1.2. In the GSG the file is directly piped to kubectl.
+		// Istio 1.1.7. In the GSG the file is directly piped to kubectl.
 		istioCRDYAMLPath = helpers.ManifestGet("istio-crds.yaml")
 
 		// istioYAMLPath is the istio-cilium.yaml file generated following the
 		// instructions in Documentation/gettingstarted/istio.rst to setup
-		// Istio 1.1.2. mTLS is enabled.
+		// Istio 1.1.7. mTLS is enabled.
 		istioYAMLPath = helpers.ManifestGet("istio-cilium.yaml")
 
 		// istioServiceNames is the subset of Istio services in the Istio
