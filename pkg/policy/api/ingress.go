@@ -108,12 +108,38 @@ type IngressRule struct {
 	//
 	// +optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
+
+	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
+	aggregatedSelectors EndpointSelectorSlice
+}
+
+// SetAggregatedSelectors creates a single slice containing all of the following
+// fields within the IngressRule, converted to EndpointSelector, to be stored
+// within the IngressRule for easy lookup while performing policy evaluation
+// for the rule:
+// * FromEntities
+// * FromCIDR
+// * FromCIDRSet
+//
+// FromEndpoints is not aggregated due to requirement folding in
+// GetSourceEndpointSelectorsWithRequirements()
+func (i *IngressRule) SetAggregatedSelectors() {
+	res := make(EndpointSelectorSlice, 0, len(i.FromEntities)+len(i.FromCIDR)+len(i.FromCIDRSet))
+	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
+	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
+	// Goroutines can race setting this, but they will all compute
+	// the same result, so it does not matter.
+	i.aggregatedSelectors = res
 }
 
 // GetSourceEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.FromEntities)+len(i.FromCIDRSet)+len(i.FromCIDR))
+	if i.aggregatedSelectors == nil {
+		i.SetAggregatedSelectors()
+	}
+	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.aggregatedSelectors))
 	if len(requirements) > 0 && len(i.FromEndpoints) > 0 {
 		for idx := range i.FromEndpoints {
 			sel := *i.FromEndpoints[idx].DeepCopy()
@@ -124,11 +150,8 @@ func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []
 	} else {
 		res = append(res, i.FromEndpoints...)
 	}
-	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)
-	res = append(res, i.FromCIDRSet.GetAsEndpointSelectors()...)
 
-	return res
+	return append(res, i.aggregatedSelectors...)
 }
 
 // IsLabelBased returns true whether the L3 source endpoints are selected based
