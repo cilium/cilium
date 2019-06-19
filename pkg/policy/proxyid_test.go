@@ -21,7 +21,7 @@ import (
 )
 
 func (s *PolicyTestSuite) TestProxyID(c *C) {
-	id := ProxyID(123, true, "TCP", uint16(8080))
+	id := proxyID(123, true, "TCP", uint16(8080))
 	endpointID, ingress, protocol, port, err := ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
