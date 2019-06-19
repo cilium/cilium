@@ -117,10 +117,22 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 		return false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
 	}
 
-	// Don't resolve policy if it was already done for this Identity.
+	// As long as UpdatePolicy() is triggered from endpoint
+	// regeneration, it's possible for two endpoints with the
+	// *same* identity to race to update the policy here. Such
+	// racing would lead to first of the endpoints using a
+	// selectorPolicy that is already detached from the selector
+	// cache, and thus not getting any incremental updates.
+	//
+	// Lock the 'cip' for the duration of the revision check and
+	// the possible policy update.
+	cip.Lock()
+	defer cip.Unlock()
+
 	currentPolicy := cip.getPolicy()
-	currentRevision := currentPolicy.Revision
-	if revision <= currentRevision {
+
+	// Don't resolve policy if it was already done for this or later revision.
+	if revision <= currentPolicy.Revision {
 		return false, nil
 	}
 
@@ -130,27 +142,9 @@ func (cache *PolicyCache) updateSelectorPolicy(identity *identityPkg.Identity) (
 		return false, err
 	}
 
-	// We don't cover the resolvePolicyLocked() call above with the cache
-	// Mutex because it's potentially expensive, and endpoints with
-	// different identities should be able to concurrently compute policy.
-	//
-	// However, as long as UpdatePolicy() is triggered from endpoint
-	// regeneration, it's possible for two endpoints with the *same*
-	// identity to race to the revision check above, both find that the
-	// policy is out-of-date, and resolve the policy then race down to
-	// here. Set the pointer to the latest revision in both cases.
-	//
-	// Note that because repo.Mutex is held, the two racing threads will be
-	// guaranteed to compute policy for the same revision of the policy.
-	// We could save some CPU by, for example, forcing resolution of policy
-	// for the same identity to block on a channel/lock, but this is
-	// skipped for now as there are upcoming changes to the cache update
-	// logic which would render such mechanisms obsolete.
-	changed := revision > currentRevision
-	if changed {
-		cip.setPolicy(selPolicy)
-	}
-	return changed, nil
+	cip.setPolicy(selPolicy)
+
+	return true, nil
 }
 
 // LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
@@ -186,6 +180,8 @@ func (cache *PolicyCache) UpdatePolicy(identity *identityPkg.Identity) error {
 // 'policy' field). It is always nested directly in the owning policyCache,
 // and is protected against concurrent writes via the policyCache mutex.
 type cachedSelectorPolicy struct {
+	lock.Mutex // lock is needed to synchronize parallel policy updates
+
 	identity *identityPkg.Identity
 	policy   unsafe.Pointer
 }
@@ -224,7 +220,5 @@ func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
 	// TODO: This currently computes the EndpointPolicy from SelectorPolicy
 	// on-demand, however in future the cip is intended to cache the
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
-	// Changing this requires shifting IdentityCache management
-	// responsibilities from the caller into this package.
 	return cip.getPolicy().DistillPolicy(owner)
 }
