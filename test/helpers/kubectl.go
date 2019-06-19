@@ -1905,7 +1905,6 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 	// Doing this withTimeout because the Status can be ready, but the other
 	// nodes cannot be show up yet, and the cilium-health can fail as a false positive.
 	var (
-		err                 error
 		lastError           string
 		consecutiveFailures int
 	)
@@ -1927,7 +1926,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 	}
 	timeoutErr := WithTimeout(body, "PreflightCheck failed", &TimeoutConfig{Timeout: HelperTimeout})
 	if timeoutErr != nil {
-		return fmt.Errorf("CiliumPreFlightCheck error: %s: %s", timeoutErr, err)
+		return fmt.Errorf("CiliumPreFlightCheck error: %s: Last polled error: %s", timeoutErr, lastError)
 	}
 	return nil
 }
