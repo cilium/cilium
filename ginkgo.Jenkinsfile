@@ -248,4 +248,10 @@ pipeline {
             }
         }
     }
+
+    post {
+        always {
+            sh '/usr/local/bin/cleanup || true'
+        }
+    }
 }

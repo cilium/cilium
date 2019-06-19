@@ -319,6 +319,7 @@ pipeline {
             archiveArtifacts artifacts: '*.zip'
             junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
             cleanWs()
+            sh '/usr/local/bin/cleanup || true'
         }
         success {
             Status("SUCCESS", "${env.JOB_NAME}")
