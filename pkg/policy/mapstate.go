@@ -117,6 +117,12 @@ type MapChanges struct {
 // AccumulateMapChanges accumulates the given changes to the
 // MapChanges, updating both maps for each add and delete, as
 // applicable.
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'adds' and 'deletes'.  Accross multiple calls we
+// maintain the adds and deletes within the MapChanges are disjoint in
+// cases where an identity is first added and then deleted, or first
+// deleted and then added.
 func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
 	key := Key{
@@ -131,13 +137,15 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		ProxyPort: 0, // Will be updated by the caller when applicable
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.AddedPolicyID:    adds,
-		logfields.DeletedPolicyID:  deletes,
-		logfields.Port:             port,
-		logfields.Protocol:         proto,
-		logfields.TrafficDirection: direction,
-	}).Debug("AccumulateMapChanges")
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.AddedPolicyID:    adds,
+			logfields.DeletedPolicyID:  deletes,
+			logfields.Port:             port,
+			logfields.Protocol:         proto,
+			logfields.TrafficDirection: direction,
+		}).Debug("AccumulateMapChanges")
+	}
 
 	mc.mutex.Lock()
 	if len(adds) > 0 {

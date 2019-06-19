@@ -103,6 +103,9 @@ type identityWatcher struct {
 	stopChan chan bool
 }
 
+// collectEvent records the 'event' as an added or deleted identity,
+// and makes sure that any identity is present in only one of the sets
+// (added or deleted).
 func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) bool {
 	id := identity.NumericIdentity(event.ID)
 	// Only create events have the key
@@ -188,7 +191,7 @@ func (w *identityWatcher) watch(owner IdentityAllocatorOwner, events allocator.A
 				}
 			}
 			// Issue collected updates
-			owner.UpdateIdentities(added, deleted)
+			owner.UpdateIdentities(added, deleted) // disjoint sets
 		}
 	}()
 }
