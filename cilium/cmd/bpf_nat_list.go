@@ -51,7 +51,7 @@ func dumpNat() {
 		}
 		if err != nil {
 			if err == os.ErrNotExist {
-				Fatalf("Unable to open %s: %s: please try using \"cilium bpf nat list\"", path, err)
+				fmt.Fprintf(os.Stderr, "Unable to open %s: %s: please try using \"cilium bpf nat list\"", path, err)
 			} else {
 				Fatalf("Unable to open %s: %s", path, err)
 			}
