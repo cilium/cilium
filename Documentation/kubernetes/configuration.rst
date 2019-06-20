@@ -318,6 +318,12 @@ If you want to use CRIO, use the following YAML instead:
 
 .. tabs::
 
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-crio.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::
