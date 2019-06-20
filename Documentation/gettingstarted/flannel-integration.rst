@@ -40,6 +40,12 @@ Download Cilium kubernetes descriptor for your Kubernetes version.
 
 
 .. tabs::
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::
