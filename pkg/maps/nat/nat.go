@@ -85,13 +85,13 @@ func NewMap(name string, v4 bool) *Map {
 	var mapValue bpf.MapValue
 
 	if v4 {
-		mapKey = &tuple.TupleKey4Global{}
-		sizeKey = int(unsafe.Sizeof(tuple.TupleKey4Global{}))
+		mapKey = &NatKey4{}
+		sizeKey = int(unsafe.Sizeof(NatKey4{}))
 		mapValue = &NatEntry4{}
 		sizeVal = int(unsafe.Sizeof(NatEntry4{}))
 	} else {
-		mapKey = &tuple.TupleKey6Global{}
-		sizeKey = int(unsafe.Sizeof(tuple.TupleKey6Global{}))
+		mapKey = &NatKey6{}
+		sizeKey = int(unsafe.Sizeof(NatKey6{}))
 		mapValue = &NatEntry6{}
 		sizeVal = int(unsafe.Sizeof(NatEntry6{}))
 	}
@@ -184,7 +184,9 @@ func (m *Map) Flush() int {
 }
 
 func deleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
-	key := *ctKey
+	key := NatKey4{
+		TupleKey4Global: *ctKey,
+	}
 	// Workaround #5848.
 	addr := key.SourceAddr
 	key.SourceAddr = key.DestAddr
@@ -206,7 +208,9 @@ func deleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 }
 
 func deleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
-	key := *ctKey
+	key := NatKey6{
+		TupleKey6Global: *ctKey,
+	}
 	// Workaround #5848.
 	addr := key.SourceAddr
 	key.SourceAddr = key.DestAddr
