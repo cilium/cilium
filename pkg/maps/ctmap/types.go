@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/tuple"
 )
 
 const (
@@ -102,6 +104,78 @@ func (m MapType) isTCP() bool {
 		return true
 	}
 	return false
+}
+
+// CtKey4 is needed to provide CtEntry type to Lookup values
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CtKey4 struct {
+	tuple.TupleKey4
+}
+
+// NewValue creates a new bpf.MapValue.
+func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
+
+// ToNetwork converts CtKey4 ports to network byte order.
+func (k *CtKey4) ToNetwork() tuple.TupleKey {
+	n := *k
+	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
+	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
+	return &n
+}
+
+// CtKey4Global is needed to provide CtEntry type to Lookup values
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CtKey4Global struct {
+	tuple.TupleKey4Global
+}
+
+// NewValue creates a new bpf.MapValue.
+func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
+
+// ToNetwork converts CtKey4Global ports to network byte order.
+func (k *CtKey4Global) ToNetwork() tuple.TupleKey {
+	n := *k
+	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
+	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
+	return &n
+}
+
+// CtKey6 is needed to provide CtEntry type to Lookup values
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CtKey6 struct {
+	tuple.TupleKey6
+}
+
+// NewValue creates a new bpf.MapValue.
+func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
+
+// ToNetwork converts CtKey6 ports to network byte order.
+func (k *CtKey6) ToNetwork() tuple.TupleKey {
+	n := *k
+	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
+	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
+	return &n
+}
+
+// CtKey6Global is needed to provide CtEntry type to Lookup values
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CtKey6Global struct {
+	tuple.TupleKey6Global
+}
+
+// NewValue creates a new bpf.MapValue.
+func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
+
+// ToNetwork converts CtKey6Global ports to network byte order.
+func (k *CtKey6Global) ToNetwork() tuple.TupleKey {
+	n := *k
+	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
+	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
+	return &n
 }
 
 // CtEntry represents an entry in the connection tracking table.
