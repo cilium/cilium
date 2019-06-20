@@ -53,6 +53,7 @@ pipeline {
                 sh 'rm -rf src; mkdir -p src/github.com/cilium'
                 sh 'ln -s $WORKSPACE src/github.com/cilium/cilium'
                 checkout scm
+                sh '/usr/local/bin/cleanup || true'
             }
         }
         stage('Preload vagrant boxes') {
@@ -120,6 +121,7 @@ pipeline {
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
             sh 'cd ${TEST_DIR}; ./post_build_agent.sh || true'
             cleanWs()
+            sh '/usr/local/bin/cleanup || true'
         }
         success {
             Status("SUCCESS", "$JOB_BASE_NAME")
