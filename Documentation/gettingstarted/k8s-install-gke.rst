@@ -92,6 +92,12 @@ Cilium including an etcd cluster managed by the cilium-etcd-operator.
 
 .. tabs::
 
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-with-node-init.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::
