@@ -62,6 +62,12 @@ avoids ErrImagePull errors during the rollout.
 
       $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight.yaml
 
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-pre-flight.yaml
+
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
@@ -186,6 +192,15 @@ Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-ds.yaml
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator-sa.yaml
       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator.yaml
+
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-rbac.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-ds.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-operator-sa.yaml
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-operator.yaml
 
 
 Below we will show examples of how Cilium should be upgraded using Kubernetes
@@ -356,6 +371,12 @@ Upgrading from >=1.4.0 to 1.5.y
         .. parsed-literal::
 
           $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight-with-rm-svc-v2.yaml
+
+      .. group-tab:: K8s 1.15
+
+        .. parsed-literal::
+
+          $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-pre-flight-with-rm-svc-v2.yaml
 
 
    See :ref:`pre_flight` for instructions how to run, validate and remove
@@ -672,9 +693,15 @@ Download the ConfigMap with the changes for |SCM_BRANCH|
 
       $ wget \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-cm.yaml
 
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      $ wget \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-cm.yaml
+
 Verify its contents:
 
-.. literalinclude:: ../../examples/kubernetes/1.13/cilium-cm.yaml
+.. literalinclude:: ../../examples/kubernetes/1.15/cilium-cm.yaml
 
 Add new options
 ~~~~~~~~~~~~~~~

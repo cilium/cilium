@@ -27,6 +27,12 @@ Enable Portmap Chaining in the ConfigMap
 1. If you have not deployed Cilium yet, download the Cilium deployment yaml:
 
 .. tabs::
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::

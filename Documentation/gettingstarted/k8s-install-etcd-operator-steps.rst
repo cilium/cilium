@@ -57,6 +57,12 @@ For Docker as container runtime:
 --------------------------------
 
 .. tabs::
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::
@@ -91,6 +97,12 @@ For CRI-O as container runtime:
 -------------------------------
 
 .. tabs::
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-crio.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::
@@ -125,6 +137,12 @@ For containerd as container runtime:
 ------------------------------------
 
 .. tabs::
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-containerd.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::

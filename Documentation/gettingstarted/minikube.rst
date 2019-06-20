@@ -48,6 +48,12 @@ Kubernetes CNI plugin.
 
 .. tabs::
 
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-minikube.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::

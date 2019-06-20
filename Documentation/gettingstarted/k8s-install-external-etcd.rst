@@ -32,6 +32,18 @@ configured in the ConfigMap. Download the base YAML for the version of
 Kubernetes you are using:
 
 .. tabs::
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      wget \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-external-etcd.yaml
+
+  .. group-tab:: K8s 1.14
+
+    .. parsed-literal::
+
+      wget \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-external-etcd.yaml
+
   .. group-tab:: K8s 1.13
 
     .. parsed-literal::
@@ -56,11 +68,6 @@ Kubernetes you are using:
 
       wget \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-external-etcd.yaml
 
-  .. group-tab:: K8s 1.9
-
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.9/cilium-external-etcd.yaml
 
 1. Open ``cilium-external-etcd.yaml`` and find the ``cilium-config`` ConfigMap
    and edit the ``endpoints:`` to include the list of all your etcd endpoints

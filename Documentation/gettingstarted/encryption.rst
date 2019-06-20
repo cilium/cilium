@@ -51,6 +51,12 @@ First step is to download the Cilium Kubernetes descriptor:
 
 .. tabs::
 
+  .. group-tab:: K8s 1.15
+
+    .. parsed-literal::
+
+      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-ds.yaml
+
   .. group-tab:: K8s 1.14
 
     .. parsed-literal::
