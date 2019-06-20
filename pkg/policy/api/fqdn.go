@@ -58,7 +58,7 @@ type FQDNSelector struct {
 }
 
 func (s *FQDNSelector) String() string {
-	return fmt.Sprintf("MatchName: %s, MatchPattern %s", s.MatchName, s.MatchPattern)
+	return fmt.Sprintf("MatchName: %s, MatchPattern: %s", s.MatchName, s.MatchPattern)
 }
 
 // sanitize for FQDNSelector is a little wonky. While we do more processing
@@ -80,7 +80,7 @@ func (s *FQDNSelector) sanitize() error {
 }
 
 // ToRegex converts the given FQDNSelector to its corresponding regular
-// expression. If the MatchName field is set in the selector, it  performs all
+// expression. If the MatchName field is set in the selector, it performs all
 // needed formatting to ensure that the field is a valid regular expression.
 func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
 	var preparedMatch string
