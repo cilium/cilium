@@ -111,7 +111,7 @@ struct ipv4_nat_target {
 	const bool force_range;
 };
 
-#ifdef ENABLE_IPV4
+#if defined ENABLE_IPV4 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV4 = {
 	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv4_ct_tuple),
@@ -511,7 +511,7 @@ struct ipv6_nat_target {
 	const bool force_range;
 };
 
-#ifdef ENABLE_IPV6
+#if defined ENABLE_IPV6 && (defined ENABLE_MASQUERADE || defined ENABLE_NODEPORT)
 struct bpf_elf_map __section_maps SNAT_MAPPING_IPV6 = {
 	.type		= NAT_MAP_TYPE,
 	.size_key	= sizeof(struct ipv6_ct_tuple),
