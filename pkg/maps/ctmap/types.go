@@ -15,6 +15,7 @@
 package ctmap
 
 import (
+	"bytes"
 	"fmt"
 	"unsafe"
 
@@ -106,6 +107,24 @@ func (m MapType) isTCP() bool {
 	return false
 }
 
+type CtKey interface {
+	bpf.MapKey
+
+	// ToNetwork converts fields to network byte order.
+	ToNetwork() CtKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() CtKey
+
+	// Dump contents of key to buffer. Returns true if successful.
+	Dump(buffer *bytes.Buffer, reverse bool) bool
+
+	// GetFlags flags containing the direction of the CtKey.
+	GetFlags() uint8
+
+	GetTupleKey() tuple.TupleKey
+}
+
 // CtKey4 is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -117,29 +136,163 @@ type CtKey4 struct {
 func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
 
 // ToNetwork converts CtKey4 ports to network byte order.
-func (k *CtKey4) ToNetwork() tuple.TupleKey {
+func (k *CtKey4) ToNetwork() CtKey {
 	n := *k
 	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
 	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
 	return &n
+}
+
+// ToHost converts CtKey ports to host byte order.
+func (k *CtKey4) ToHost() CtKey {
+	n := *k
+	n.SourcePort = byteorder.NetworkToHost(n.SourcePort).(uint16)
+	n.DestPort = byteorder.NetworkToHost(n.DestPort).(uint16)
+	return &n
+}
+
+// GetFlags returns the tuple's flags.
+func (k *CtKey4) GetFlags() uint8 {
+	return k.Flags
+}
+
+func (k *CtKey4) String() string {
+	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
+}
+
+// GetKeyPtr returns the unsafe.Pointer for k.
+func (k *CtKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// Dump writes the contents of key to buffer and returns true if the value for
+// next header in the key is nonzero.
+func (k *CtKey4) Dump(buffer *bytes.Buffer, reverse bool) bool {
+	var addrDest string
+
+	if k.NextHeader == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrDest = k.SourceAddr.IP().String()
+	} else {
+		addrDest = k.DestAddr.IP().String()
+	}
+
+	if k.Flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
+			k.NextHeader.String(), addrDest, k.SourcePort,
+			k.DestPort),
+		)
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
+			k.NextHeader.String(), addrDest, k.DestPort,
+			k.SourcePort),
+		)
+	}
+
+	if k.Flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
+	return true
+}
+
+func (k *CtKey4) GetTupleKey() tuple.TupleKey {
+	return &k.TupleKey4
 }
 
 // CtKey4Global is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CtKey4Global struct {
-	tuple.TupleKey4Global
+	CtKey4
 }
 
 // NewValue creates a new bpf.MapValue.
 func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
-// ToNetwork converts CtKey4Global ports to network byte order.
-func (k *CtKey4Global) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
+// ToNetwork converts ports to network byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey4Global type here into a local key type in the nested
+// CtKey4 field.
+func (k *CtKey4Global) ToNetwork() CtKey {
+	return &CtKey4Global{
+		CtKey4: *k.CtKey4.ToNetwork().(*CtKey4),
+	}
+}
+
+// ToHost converts ports to host byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey4Global type here into a local key type in the nested
+// CtKey field.
+func (k *CtKey4Global) ToHost() CtKey {
+	return &CtKey4Global{
+		CtKey4: *k.CtKey4.ToHost().(*CtKey4),
+	}
+}
+
+// GetFlags returns the tuple's flags.
+func (k *CtKey4Global) GetFlags() uint8 {
+	return k.Flags
+}
+
+func (k *CtKey4Global) String() string {
+	return fmt.Sprintf("%s:%d --> %s:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
+}
+
+// GetKeyPtr returns the unsafe.Pointer for k.
+func (k *CtKey4Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// Dump writes the contents of key to buffer and returns true if the
+// value for next header in the key is nonzero.
+func (k *CtKey4Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
+	var addrSource, addrDest string
+
+	if k.NextHeader == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrSource = k.DestAddr.IP().String()
+		addrDest = k.SourceAddr.IP().String()
+	} else {
+		addrSource = k.SourceAddr.IP().String()
+		addrDest = k.DestAddr.IP().String()
+	}
+
+	if k.Flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	}
+
+	if k.Flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
+	return true
+}
+
+func (k *CtKey4Global) GetTupleKey() tuple.TupleKey {
+	return &k.CtKey4.TupleKey4
 }
 
 // CtKey6 is needed to provide CtEntry type to Lookup values
@@ -153,29 +306,163 @@ type CtKey6 struct {
 func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
 
 // ToNetwork converts CtKey6 ports to network byte order.
-func (k *CtKey6) ToNetwork() tuple.TupleKey {
+func (k *CtKey6) ToNetwork() CtKey {
 	n := *k
 	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
 	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
 	return &n
+}
+
+// ToHost converts CtKey ports to host byte order.
+func (k *CtKey6) ToHost() CtKey {
+	n := *k
+	n.SourcePort = byteorder.NetworkToHost(n.SourcePort).(uint16)
+	n.DestPort = byteorder.NetworkToHost(n.DestPort).(uint16)
+	return &n
+}
+
+// GetFlags returns the tuple's flags.
+func (k *CtKey6) GetFlags() uint8 {
+	return k.Flags
+}
+
+func (k *CtKey6) String() string {
+	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
+}
+
+// GetKeyPtr returns the unsafe.Pointer for k.
+func (k *CtKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// Dump writes the contents of key to buffer and returns true if the value for
+// next header in the key is nonzero.
+func (k *CtKey6) Dump(buffer *bytes.Buffer, reverse bool) bool {
+	var addrDest string
+
+	if k.NextHeader == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrDest = k.SourceAddr.IP().String()
+	} else {
+		addrDest = k.DestAddr.IP().String()
+	}
+
+	if k.Flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
+			k.NextHeader.String(), addrDest, k.SourcePort,
+			k.DestPort),
+		)
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
+			k.NextHeader.String(), addrDest, k.DestPort,
+			k.SourcePort),
+		)
+	}
+
+	if k.Flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
+	return true
+}
+
+func (k *CtKey6) GetTupleKey() tuple.TupleKey {
+	return &k.TupleKey6
 }
 
 // CtKey6Global is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type CtKey6Global struct {
-	tuple.TupleKey6Global
+	CtKey6
 }
 
 // NewValue creates a new bpf.MapValue.
 func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
-// ToNetwork converts CtKey6Global ports to network byte order.
-func (k *CtKey6Global) ToNetwork() tuple.TupleKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork(n.SourcePort).(uint16)
-	n.DestPort = byteorder.HostToNetwork(n.DestPort).(uint16)
-	return &n
+// ToNetwork converts ports to network byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey6Global type here into a local key type in the nested
+// CtKey6 field.
+func (k *CtKey6Global) ToNetwork() CtKey {
+	return &CtKey6Global{
+		CtKey6: *k.CtKey6.ToNetwork().(*CtKey6),
+	}
+}
+
+// ToHost converts ports to host byte order.
+//
+// This is necessary to prevent callers from implicitly converting
+// the CtKey6Global type here into a local key type in the nested
+// CtKey field.
+func (k *CtKey6Global) ToHost() CtKey {
+	return &CtKey6Global{
+		CtKey6: *k.CtKey6.ToHost().(*CtKey6),
+	}
+}
+
+// GetFlags returns the tuple's flags.
+func (k *CtKey6Global) GetFlags() uint8 {
+	return k.Flags
+}
+
+func (k *CtKey6Global) String() string {
+	return fmt.Sprintf("[%s]:%d --> [%s]:%d, %d, %d", k.SourceAddr, k.SourcePort, k.DestAddr, k.DestPort, k.NextHeader, k.Flags)
+}
+
+// GetKeyPtr returns the unsafe.Pointer for k.
+func (k *CtKey6Global) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// Dump writes the contents of key to buffer and returns true if the
+// value for next header in the key is nonzero.
+func (k *CtKey6Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
+	var addrSource, addrDest string
+
+	if k.NextHeader == 0 {
+		return false
+	}
+
+	// Addresses swapped, see issue #5848
+	if reverse {
+		addrSource = k.DestAddr.IP().String()
+		addrDest = k.SourceAddr.IP().String()
+	} else {
+		addrSource = k.SourceAddr.IP().String()
+		addrDest = k.DestAddr.IP().String()
+	}
+
+	if k.Flags&TUPLE_F_IN != 0 {
+		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	} else {
+		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+			k.NextHeader.String(), addrSource, k.SourcePort,
+			addrDest, k.DestPort),
+		)
+	}
+
+	if k.Flags&TUPLE_F_RELATED != 0 {
+		buffer.WriteString("related ")
+	}
+
+	if k.Flags&TUPLE_F_SERVICE != 0 {
+		buffer.WriteString("service ")
+	}
+
+	return true
+}
+
+func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
+	return &k.CtKey6.TupleKey6
 }
 
 // CtEntry represents an entry in the connection tracking table.
