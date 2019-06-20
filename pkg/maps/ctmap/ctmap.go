@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/tuple"
 
 	"github.com/sirupsen/logrus"
 )
@@ -207,7 +206,7 @@ func (m *Map) DumpEntries() (string, error) {
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
 		// No need to deep copy as the values are used to create new strings
-		key := k.(tuple.TupleKey)
+		key := k.(CtKey)
 		if !key.ToHost().Dump(&buffer, true) {
 			return
 		}
@@ -238,10 +237,10 @@ func NewMap(mapName string, mapType MapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key tuple.TupleKey, natMap *nat.Map) error {
+func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key)
+		natMap.DeleteMapping(key.GetTupleKey())
 	}
 	return err
 }
@@ -311,10 +310,10 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key tuple.TupleKey, natMap *nat.Map) error {
+func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
-		natMap.DeleteMapping(key)
+		natMap.DeleteMapping(key.GetTupleKey())
 	}
 	return err
 }
