@@ -667,7 +667,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
-	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
+	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
+		option.Config.EnableIPv4, option.Config.EnableIPv6,
+	)
+
 	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
 
 	authKeySize, err := setupIPSec()
