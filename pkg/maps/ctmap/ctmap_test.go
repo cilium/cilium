@@ -40,7 +40,7 @@ func Test(t *testing.T) {
 }
 
 func (t *CTMapTestSuite) TestInit(c *C) {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault)
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true)
 	for mapType := MapType(0); mapType < MapTypeMax; mapType++ {
 		info := mapInfo[mapType]
 		if mapType.isIPv6() {

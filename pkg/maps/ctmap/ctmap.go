@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/tuple"
 
 	"github.com/sirupsen/logrus"
 )
@@ -91,6 +92,12 @@ const (
 	metricsDeleted = "deleted"
 )
 
+type NatMap interface {
+	Open() error
+	Close() error
+	DeleteMapping(key tuple.TupleKey) error
+}
+
 type mapAttributes struct {
 	mapKey     bpf.MapKey
 	keySize    int
@@ -99,10 +106,10 @@ type mapAttributes struct {
 	maxEntries int
 	parser     bpf.DumpParser
 	bpfDefine  string
-	natMap     *nat.Map
+	natMap     NatMap
 }
 
-func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat *nat.Map) {
+func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat NatMap) {
 	mapInfo[mapType] = mapAttributes{
 		bpfDefine: define,
 		mapKey:    mapKey,
@@ -119,47 +126,66 @@ func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
 // maps.
-func InitMapInfo(tcpMaxEntries, anyMaxEntries int) {
+func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 	mapInfo = make(map[MapType]mapAttributes)
-	natMaps := nat.GlobalMaps(true, true)
-	natV4 := natMaps[0]
-	natV6 := natMaps[1]
+
+	var global4Map, global6Map *nat.Map
+
+	natGlobalMaps := nat.GlobalMaps(v4, v6)
+	if v4 {
+		global4Map = natGlobalMaps[0]
+	}
+	if v6 {
+		global6Map = natGlobalMaps[1]
+	}
+
+	// SNAT also only works if the CT map is global so all local maps will be nil
+	natMaps := map[MapType]NatMap{
+		MapTypeIPv4TCPLocal:  nil,
+		MapTypeIPv6TCPLocal:  nil,
+		MapTypeIPv4TCPGlobal: global4Map,
+		MapTypeIPv6TCPGlobal: global6Map,
+		MapTypeIPv4AnyLocal:  nil,
+		MapTypeIPv6AnyLocal:  nil,
+		MapTypeIPv4AnyGlobal: global4Map,
+		MapTypeIPv6AnyGlobal: global6Map,
+	}
 
 	setupMapInfo(MapType(MapTypeIPv4TCPLocal), "CT_MAP_TCP4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
-		MapNumEntriesLocal, natV4)
+		MapNumEntriesLocal, natMaps[MapTypeIPv4TCPLocal])
 
 	setupMapInfo(MapType(MapTypeIPv6TCPLocal), "CT_MAP_TCP6",
 		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
-		MapNumEntriesLocal, natV6)
+		MapNumEntriesLocal, natMaps[MapTypeIPv6TCPLocal])
 
 	setupMapInfo(MapType(MapTypeIPv4TCPGlobal), "CT_MAP_TCP4",
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		tcpMaxEntries, natV4)
+		tcpMaxEntries, natMaps[MapTypeIPv4TCPGlobal])
 
 	setupMapInfo(MapType(MapTypeIPv6TCPGlobal), "CT_MAP_TCP6",
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		tcpMaxEntries, natV6)
+		tcpMaxEntries, natMaps[MapTypeIPv6TCPGlobal])
 
 	setupMapInfo(MapType(MapTypeIPv4AnyLocal), "CT_MAP_ANY4",
 		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
-		MapNumEntriesLocal, natV4)
+		MapNumEntriesLocal, natMaps[MapTypeIPv4AnyLocal])
 
 	setupMapInfo(MapType(MapTypeIPv6AnyLocal), "CT_MAP_ANY6",
 		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
-		MapNumEntriesLocal, natV6)
+		MapNumEntriesLocal, natMaps[MapTypeIPv6AnyLocal])
 
 	setupMapInfo(MapType(MapTypeIPv4AnyGlobal), "CT_MAP_ANY4",
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		anyMaxEntries, natV4)
+		anyMaxEntries, natMaps[MapTypeIPv4AnyGlobal])
 
 	setupMapInfo(MapType(MapTypeIPv6AnyGlobal), "CT_MAP_ANY6",
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		anyMaxEntries, natV6)
+		anyMaxEntries, natMaps[MapTypeIPv6AnyGlobal])
 }
 
 func init() {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault)
+	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true)
 }
 
 // CtEndpoint represents an endpoint for the functions required to manage
@@ -237,7 +263,7 @@ func NewMap(mapName string, mapType MapType) *Map {
 	return result
 }
 
-func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
+func purgeCtEntry6(m *Map, key CtKey, natMap NatMap) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
 		natMap.DeleteMapping(key.GetTupleKey())
@@ -310,7 +336,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
+func purgeCtEntry4(m *Map, key CtKey, natMap NatMap) error {
 	err := m.Delete(key)
 	if err == nil && natMap != nil {
 		natMap.DeleteMapping(key.GetTupleKey())
@@ -325,11 +351,12 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	stats := statStartGc(m)
 	defer stats.finish()
 
-	err := natMap.Open()
-	if err == nil {
-		defer natMap.Close()
-	} else {
-		natMap = nil
+	if natMap != nil {
+		if err := natMap.Open(); err == nil {
+			defer natMap.Close()
+		} else {
+			natMap = nil
+		}
 	}
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
