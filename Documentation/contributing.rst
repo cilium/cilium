@@ -663,6 +663,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.12
 * 1.13
 * 1.14
+* 1.15
 
 By default, the Vagrant VMs are provisioned with Kubernetes 1.13. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
@@ -1381,17 +1382,22 @@ Cilium-PR-Ginkgo-Tests-k8s
 Runs the Kubernetes e2e tests against all Kubernetes versions that are not
 currently not tested as part of each pull-request, but which Cilium still
 supports, as well as the the most-recently-released versions of Kubernetes that
-are not yet declared stable by Kubernetes upstream:
+that might not be declared stable by Kubernetes upstream:
 
-First stage (stable versions which Cilium still supports):
+First stage.
 
-    - 1.8
+    - 1.10
     - 1.11
 
 Second stage (other versions)
 
-    - 1.9
-    - 1.10
+    - 1.12
+    - 1.13
+
+Third stage
+
+    - 1.14
+    - beta versions (1.16-beta once it's out)
 
 Ginkgo-CI-Tests-Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^
