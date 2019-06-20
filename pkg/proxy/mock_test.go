@@ -40,7 +40,7 @@ func (m *proxyUpdaterMock) GetID() uint64                         { return m.id 
 func (m *proxyUpdaterMock) GetIPv4Address() string                { return m.ipv4 }
 func (m *proxyUpdaterMock) GetIPv6Address() string                { return m.ipv6 }
 func (m *proxyUpdaterMock) GetLabels() []string                   { return m.labels }
-func (m *proxyUpdaterMock) GetIdentity() identity.NumericIdentity { return m.identity }
+func (m *proxyUpdaterMock) GetIdentity() identity.NumericIdentity { return m.identity pkg/lock/semaphored_mutex_test.go}
 func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
