@@ -74,6 +74,15 @@ pipeline {
             steps {
                 sh 'cd ${TESTDIR}; vagrant up k8s1-${K8S_VERSION}'
                 sh 'cd ${TESTDIR}; vagrant up k8s2-${K8S_VERSION}'
+            }
+        }
+
+        stage('BDD-tests'){
+            options {
+                timeout(time: 45, unit: 'MINUTES')
+            }
+
+            steps {
                 sh 'cd ${TESTDIR}; vagrant ssh k8s1-${K8S_VERSION} -c "cd /home/vagrant/go/${PROJ_PATH}; ./test/kubernetes-test.sh"'
             }
         }
