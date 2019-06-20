@@ -68,6 +68,7 @@ func (ch *CiliumHealth) Run() {
 		ch.client, err = healthPkg.NewDefaultClient()
 		if err != nil {
 			log.WithError(err).Infof("Cannot establish connection to local %s instance", targetName)
+			ch.Launcher.Stop()
 			time.Sleep(connectRetryInterval)
 			continue
 		}

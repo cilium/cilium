@@ -66,11 +66,10 @@ func (launcher *Launcher) Run() error {
 	return nil
 }
 
-// Restart stops the launcher which will trigger a rerun.
-func (launcher *Launcher) Restart(args []string) {
+// Stop kills the current instance so it can be started again
+func (launcher *Launcher) Stop() {
 	launcher.Mutex.Lock()
 	defer launcher.Mutex.Unlock()
-	launcher.args = args
 
 	if launcher.process == nil {
 		return
