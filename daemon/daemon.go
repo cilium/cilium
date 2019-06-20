@@ -689,7 +689,9 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		}
 	}
 
-	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
+	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
+		option.Config.EnableIPv4, option.Config.EnableIPv6,
+	)
 	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
 
 	authKeySize, err := setupIPSec()
