@@ -39,6 +39,11 @@ type EndpointSelector struct {
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
 	requirements *k8sLbls.Requirements
+
+	// cachedString is the cached representation of the LabelSelector for this
+	// EndpointSelector. It is populated when EndpointSelectors are created
+	// via `NewESFromMatchRequirements`. It is immutable after its creation.
+	cachedLabelSelectorString string
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -54,6 +59,12 @@ func (n *EndpointSelector) LabelSelectorString() string {
 func (n EndpointSelector) String() string {
 	j, _ := n.MarshalJSON()
 	return string(j)
+}
+
+// CachedString returns the cached string representation of the LabelSelector
+// for this EndpointSelector.
+func (n EndpointSelector) CachedString() string {
+	return n.cachedLabelSelectorString
 }
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
@@ -79,6 +90,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		n.MatchExpressions = newMatchExpr
 	}
 	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
 	return nil
 }
 
@@ -197,8 +209,9 @@ func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.Lab
 		MatchExpressions: reqs,
 	}
 	return EndpointSelector{
-		LabelSelector: labelSelector,
-		requirements:  labelSelectorToRequirements(labelSelector),
+		LabelSelector:             labelSelector,
+		requirements:              labelSelectorToRequirements(labelSelector),
+		cachedLabelSelectorString: labelSelector.String(),
 	}
 }
 
@@ -270,6 +283,7 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 	}
 	n.MatchLabels[key] = value
 	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.

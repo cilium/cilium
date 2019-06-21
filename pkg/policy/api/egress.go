@@ -188,6 +188,9 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 			sel := *e.ToEndpoints[idx].DeepCopy()
 			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
 			sel.SyncRequirementsWithLabelSelector()
+			// Even though this string is deep copied, we need to override it
+			// because we are updating the contents of the MatchExpressions.
+			sel.cachedLabelSelectorString = sel.LabelSelector.String()
 			res = append(res, sel)
 		}
 	} else {
