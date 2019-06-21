@@ -245,4 +245,8 @@ const (
 	// handled. During this delay, the node can re-appear and the delete
 	// event is ignored.
 	NodeDeleteDelay = 30 * time.Second
+
+	// MapHistoryMaxEntries is the default limit of BPF map operations
+	// history entries.
+	MapHistoryMaxEntries = 50
 )
