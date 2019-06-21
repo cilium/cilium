@@ -495,6 +495,12 @@ const (
 	// assigned from. Used with CNI chaining where IPs are not directly managed
 	// by Cilium.
 	IPv6PodSubnets = "ipv6-pod-subnets"
+
+	// MapHistory enables BPF map operations history
+	MapHistory = "map-history"
+
+	// MapHistoryMaxEntries is the limit of BPF map operations history entries
+	MapHistoryMaxEntries = "map-history-max-entries"
 )
 
 // FQDNS variables
@@ -1012,6 +1018,12 @@ type DaemonConfig struct {
 
 	// IPv6PodSubnets available subnets to be assign IPv6 addresses to pods from
 	IPv6PodSubnets []*net.IPNet
+
+	// MapHistory enables BPF map operations history
+	MapHistory bool
+
+	// MapHistoryMaxEntries is the limit of BPF map operations history entries
+	MapHistoryMaxEntries int
 }
 
 var (
