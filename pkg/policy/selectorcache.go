@@ -578,7 +578,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
 // selector cache, returning nil if one can not be found.
 func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
-	key := selector.LabelSelector.String()
+	key := selector.CachedString()
 	sc.mutex.Lock()
 	idSel := sc.selectors[key]
 	sc.mutex.Unlock()
@@ -594,7 +594,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
 	// essentially two copies of the same selector.
-	key := selector.LabelSelector.String()
+	key := selector.CachedString()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	idSel, exists := sc.selectors[key]
