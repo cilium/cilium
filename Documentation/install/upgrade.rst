@@ -416,13 +416,13 @@ New ConfigMap Options
     Kubernetes event handling by listening for k8s events in the operator and
     mirroring it into the kvstore for reduced overhead in large clusters.
 
-  * ``enable-legacy-services``: enables legacy services (prior v1.5) to
-    prevent from terminating established connections to services when
-    upgrading Cilium from < v1.5 to v1.5. If enabled, the option needs
-    to stay enabled until a user is confident that they will not need to
-    downgrade to < v1.5 anymore. Disabling and then enabling the option is
-    not possible without breaking the established connections from `Pod`
-    to `Service`.
+  * ``enable-legacy-services``: enables legacy services (prior v1.5) to prevent
+    from terminating established connections to services when upgrading Cilium
+    from < v1.5 to v1.5. When the option is not disabled, legacy services are
+    enabled by default. Legacy services need to stay enabled until a user is
+    confident that they will not need to downgrade to < v1.5 anymore. Disabling
+    and then enabling legacy services is not possible without breaking the
+    established connections from `Pod` to `Service`.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
