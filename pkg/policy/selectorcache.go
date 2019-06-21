@@ -221,7 +221,7 @@ var (
 	// Empty slice of numeric identities used for all selectors that select nothing
 	emptySelection []identity.NumericIdentity
 	// wildcardSelectorKey is used to compare if a key is for a wildcard
-	wildcardSelectorKey = api.WildcardEndpointSelector.LabelSelector.String()
+	wildcardSelectorKey = api.WildcardEndpointSelector.CachedString()
 )
 
 type selectorManager struct {
@@ -385,7 +385,7 @@ type identityNotifier interface {
 
 type labelIdentitySelector struct {
 	selectorManager
-	selector   api.EndpointSelector
+	selector   *api.EndpointSelector
 	namespaces []string // allowed namespaces, or ""
 }
 
@@ -567,8 +567,8 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
 // selector cache, returning nil if one can not be found.
-func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
-	key := selector.LabelSelector.String()
+func (sc *SelectorCache) FindCachedIdentitySelector(selector *api.EndpointSelector) CachedSelector {
+	key := selector.CachedString()
 	sc.mutex.Lock()
 	idSel := sc.selectors[key]
 	sc.mutex.Unlock()
@@ -579,12 +579,12 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 // selector cache. If an identical EndpointSelector has already been
 // cached, the corresponding CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector *api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
 	// essentially two copies of the same selector.
-	key := selector.LabelSelector.String()
+	key := selector.CachedString()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	idSel, exists := sc.selectors[key]

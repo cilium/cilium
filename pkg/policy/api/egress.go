@@ -160,10 +160,11 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 			sel := *e.ToEndpoints[idx].DeepCopy()
 			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
 			sel.SyncRequirementsWithLabelSelector()
-			res = append(res, sel)
+			sel.cachedString = nil
+			res = append(res, &sel)
 		}
 	} else {
-		res = append(res, e.ToEndpoints...)
+		res = append(res, EndpointSelectorPointerSlice(e.ToEndpoints)...)
 	}
 	res = append(res, e.ToEntities.GetAsEndpointSelectors()...)
 	res = append(res, e.ToCIDR.GetAsEndpointSelectors()...)

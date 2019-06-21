@@ -119,10 +119,11 @@ func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []
 			sel := *i.FromEndpoints[idx].DeepCopy()
 			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
 			sel.SyncRequirementsWithLabelSelector()
-			res = append(res, sel)
+			sel.cachedString = nil
+			res = append(res, &sel)
 		}
 	} else {
-		res = append(res, i.FromEndpoints...)
+		res = append(res, EndpointSelectorPointerSlice(i.FromEndpoints)...)
 	}
 	res = append(res, i.FromEntities.GetAsEndpointSelectors()...)
 	res = append(res, i.FromCIDR.GetAsEndpointSelectors()...)

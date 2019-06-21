@@ -72,7 +72,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 	}
 
 	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+		eps := api.EndpointSelectorSlice{&selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.

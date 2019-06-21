@@ -36,25 +36,25 @@ var (
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
 	testSelectorCache      = NewSelectorCache(cache.GetIdentityCache())
 
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &api.WildcardEndpointSelector)
 
-	cachedSelectorA, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, endpointSelectorA)
-	cachedSelectorC, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, endpointSelectorC)
+	cachedSelectorA, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &endpointSelectorA)
+	cachedSelectorC, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &endpointSelectorC)
 	cachedSelectorHost, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, hostSelector)
 
 	fooSelector = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	barSelector = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 	bazSelector = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
-	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, fooSelector)
-	cachedBazSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, bazSelector)
+	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &fooSelector)
+	cachedBazSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &bazSelector)
 
 	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
-	cachedSelectorBar1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selBar1)
-	cachedSelectorBar2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selBar2)
+	cachedSelectorBar1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &selBar1)
+	cachedSelectorBar2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &selBar2)
 )
 
 // Tests in this file:
@@ -385,7 +385,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 			EndpointSelector: endpointSelectorA,
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "9092", Protocol: api.ProtoTCP},
@@ -398,7 +398,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 					}},
 				},
 				{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "9092", Protocol: api.ProtoTCP},
@@ -463,7 +463,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 			EndpointSelector: endpointSelectorA,
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
@@ -520,7 +520,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 					}},
 				},
 				{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},
@@ -564,7 +564,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 					}},
 				},
 				{
-					FromEndpoints: api.EndpointSelectorSlice{api.WildcardEndpointSelector},
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
 					ToPorts: []api.PortRule{{
 						Ports: []api.PortProtocol{
 							{Port: "80", Protocol: api.ProtoTCP},

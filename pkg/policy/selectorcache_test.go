@@ -64,7 +64,7 @@ func haveNid(nid identity.NumericIdentity, selections []identity.NumericIdentity
 	return false
 }
 
-func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
+func (csu *cachedSelectionUser) AddIdentitySelector(sel *api.EndpointSelector) CachedSelector {
 	notifications := csu.notifications
 	cached, added := csu.sc.AddIdentitySelector(csu, sel)
 	csu.c.Assert(cached, Not(Equals), nil)
@@ -141,7 +141,7 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(&testSelector)
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections()
@@ -151,14 +151,14 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
 	// Try add the same selector from the same user the second time
 	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
-	cached2 := user1.AddIdentitySelector(testSelector)
+	cached2 := user1.AddIdentitySelector(&testSelector)
 	c.Assert(cached2, Equals, cached)
 
 	// Add the same selector from a different user
 	testSelector = api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s),
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s))
 	user2 := newUser(c, "user2", sc)
-	cached3 := user2.AddIdentitySelector(testSelector)
+	cached3 := user2.AddIdentitySelector(&testSelector)
 
 	// Same old CachedSelector is returned, nothing new is cached
 	c.Assert(cached3, Equals, cached)
@@ -189,7 +189,7 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(&testSelector)
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections()
@@ -197,7 +197,7 @@ func (ds *SelectorCacheTestSuite) TestMultipleIdentitySelectors(c *C) {
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
 	// Add another selector from the same user
-	cached2 := user1.AddIdentitySelector(test2Selector)
+	cached2 := user1.AddIdentitySelector(&test2Selector)
 	c.Assert(cached2, Not(Equals), cached)
 
 	// Current selections contain the numeric identities of existing identities that match
@@ -224,7 +224,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	test2Selector := api.NewESFromLabels(labels.NewLabel("app", "test2", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(&testSelector)
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections()
@@ -232,7 +232,7 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdates(c *C) {
 	c.Assert(selections[0], Equals, identity.NumericIdentity(1234))
 
 	// Add another selector from the same user
-	cached2 := user1.AddIdentitySelector(test2Selector)
+	cached2 := user1.AddIdentitySelector(&test2Selector)
 	c.Assert(cached2, Not(Equals), cached)
 
 	// Current selections contain the numeric identities of existing identities that match
@@ -393,11 +393,11 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	testSelector := api.NewESFromLabels(labels.NewLabel("app", "test", labels.LabelSourceK8s))
 
 	user1 := newUser(c, "user1", sc)
-	cached := user1.AddIdentitySelector(testSelector)
+	cached := user1.AddIdentitySelector(&testSelector)
 
 	// Add same selector from a different user
 	user2 := newUser(c, "user2", sc)
-	cached2 := user2.AddIdentitySelector(testSelector)
+	cached2 := user2.AddIdentitySelector(&testSelector)
 	c.Assert(cached2, Equals, cached)
 
 	// Add some identities to the identity cache

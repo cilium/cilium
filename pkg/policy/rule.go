@@ -286,7 +286,7 @@ func mergeIngress(ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, t
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
 		if len(fromEndpoints) == 0 {
-			fromEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+			fromEndpoints = api.EndpointSelectorSlice{&api.WildcardEndpointSelector}
 		}
 
 		ctx.PolicyTrace("      Allows port %v\n", r.Ports)
@@ -513,7 +513,7 @@ func mergeEgress(ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, toPo
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
 		if len(toEndpoints) == 0 {
-			toEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
+			toEndpoints = api.EndpointSelectorSlice{&api.WildcardEndpointSelector}
 		}
 		ctx.PolicyTrace("      Allows port %v\n", r.Ports)
 		if r.Rules != nil && r.Rules.L7Proto != "" {

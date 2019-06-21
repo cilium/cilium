@@ -72,7 +72,7 @@ var (
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
 	testSelectorCache      = policy.NewSelectorCache(cache.IdentityCache{})
 
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &api.WildcardEndpointSelector)
 )
 
 // newTestBrokerConf returns BrokerConf with default configuration adjusted for

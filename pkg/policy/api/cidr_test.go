@@ -60,8 +60,8 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 	}
 
 	expectedSelectors := EndpointSelectorSlice{
-		esWorld,
-		v4World,
+		&esWorld,
+		&v4World,
 	}
 	result := cidrs.GetAsEndpointSelectors()
 	c.Assert(result.Matches(world), Equals, true)
@@ -71,8 +71,8 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 		"::/0",
 	}
 	expectedSelectors = EndpointSelectorSlice{
-		esWorld,
-		v6World,
+		&esWorld,
+		&v6World,
 	}
 	result = cidrs.GetAsEndpointSelectors()
 	c.Assert(result.Matches(world), Equals, true)
@@ -84,10 +84,10 @@ func (s *PolicyAPITestSuite) TestGetAsEndpointSelectors(c *C) {
 		"192.168.128.10/24",
 	}
 	expectedSelectors = EndpointSelectorSlice{
-		esWorld,
-		v4World,
-		v6World,
-		esOtherCIDR,
+		&esWorld,
+		&v4World,
+		&v6World,
+		&esOtherCIDR,
 	}
 	result = cidrs.GetAsEndpointSelectors()
 	c.Assert(result.Matches(world), Equals, true)

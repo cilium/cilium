@@ -47,20 +47,20 @@ const (
 )
 
 var (
-	endpointSelectorWorld = NewESFromLabels(labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved))
+	endpointSelectorWorld = NewESFromLabelsPtr(labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved))
 
-	endpointSelectorHost = NewESFromLabels(labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved))
+	endpointSelectorHost = NewESFromLabelsPtr(labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved))
 
-	endpointSelectorInit = NewESFromLabels(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
+	endpointSelectorInit = NewESFromLabelsPtr(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved))
 
-	EndpointSelectorNone = NewESFromLabels(labels.NewLabel(labels.IDNameNone, "", labels.LabelSourceReserved))
+	EndpointSelectorNone = NewESFromLabelsPtr(labels.NewLabel(labels.IDNameNone, "", labels.LabelSourceReserved))
 
-	endpointSelectorUnmanaged = NewESFromLabels(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
+	endpointSelectorUnmanaged = NewESFromLabelsPtr(labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved))
 
 	// EntitySelectorMapping maps special entity names that come in
 	// policies to selectors
 	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
-		EntityAll:   {WildcardEndpointSelector},
+		EntityAll:   {&WildcardEndpointSelector},
 		EntityWorld: {endpointSelectorWorld},
 		EntityHost:  {endpointSelectorHost},
 		EntityInit:  {endpointSelectorInit},
@@ -116,10 +116,11 @@ func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 
 // InitEntities is called to initialize the policy API layer
 func InitEntities(clusterName string) {
+	clusterES := NewESFromLabelsPtr(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s))
 	EntitySelectorMapping[EntityCluster] = EndpointSelectorSlice{
 		endpointSelectorHost,
 		endpointSelectorInit,
 		endpointSelectorUnmanaged,
-		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
+		clusterES,
 	}
 }

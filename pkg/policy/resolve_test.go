@@ -121,6 +121,8 @@ func GenerateNumRules(numRules int) api.Rules {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+	//barSelector.CachedString()
+	//fooSelector.CachedString()
 
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.
@@ -297,7 +299,8 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{})
 
-	cachedSelectorHost := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
+	hostSelector := api.ReservedEndpointSelectors[labels.IDNameHost]
+	cachedSelectorHost := testSelectorCache.FindCachedIdentitySelector(hostSelector)
 	c.Assert(cachedSelectorHost, Not(IsNil))
 
 	expectedEndpointPolicy := EndpointPolicy{

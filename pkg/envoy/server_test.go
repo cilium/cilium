@@ -125,30 +125,30 @@ var (
 
 	testSelectorCache = policy.NewSelectorCache(IdentityCache)
 
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &api.WildcardEndpointSelector)
 
 	EndpointSelector1 = api.NewESFromLabels(
 		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 	)
-	cachedSelector1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, EndpointSelector1)
+	cachedSelector1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &EndpointSelector1)
 
 	// EndpointSelector1 with FromRequires("k8s:version=v2") folded in
 	RequiresV2Selector1 = api.NewESFromLabels(
 		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 		labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 	)
-	cachedRequiresV2Selector1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, RequiresV2Selector1)
+	cachedRequiresV2Selector1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &RequiresV2Selector1)
 
 	EndpointSelector2 = api.NewESFromLabels(
 		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 	)
-	cachedSelector2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, EndpointSelector2)
+	cachedSelector2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &EndpointSelector2)
 
 	// Wildcard endpoint selector with FromRequires("k8s:version=v2") folded in
 	RequiresV2Selector = api.NewESFromLabels(
 		labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 	)
-	cachedRequiresV2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, RequiresV2Selector)
+	cachedRequiresV2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &RequiresV2Selector)
 )
 
 var L7Rules1 = api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}}

@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -39,6 +41,10 @@ type EndpointSelector struct {
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
 	requirements *k8sLbls.Requirements
+
+	// cachedString is the cached string representation of this EndpointSelector
+	// +k8s:deepcopy-gen=false
+	cachedString unsafe.Pointer
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -54,6 +60,17 @@ func (n *EndpointSelector) LabelSelectorString() string {
 func (n EndpointSelector) String() string {
 	j, _ := n.MarshalJSON()
 	return string(j)
+}
+
+// CachedString returns the cached string representation of the LabelSelector
+// within this EndpointSelector.
+func (n *EndpointSelector) CachedString() string {
+	if atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&n.cachedString))) == nil {
+		j := n.LabelSelector.String()
+		atomic.StorePointer(&n.cachedString, unsafe.Pointer(&j))
+		return j
+	}
+	return *(*string)(atomic.LoadPointer(&n.cachedString))
 }
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
@@ -185,6 +202,17 @@ func NewESFromLabels(lbls ...labels.Label) EndpointSelector {
 	return NewESFromMatchRequirements(ml, nil)
 }
 
+// NewESFromLabelsPtr creates a new endpoint selector from the given labels.
+func NewESFromLabelsPtr(lbls ...labels.Label) *EndpointSelector {
+	ml := map[string]string{}
+	for _, lbl := range lbls {
+		ml[lbl.GetExtendedKey()] = lbl.Value
+	}
+
+	esMatchReqs := NewESFromMatchRequirements(ml, nil)
+	return &esMatchReqs
+}
+
 // NewESFromMatchRequirements creates a new endpoint selector from the given
 // match specifications: An optional set of labels that must match, and
 // an optional slice of LabelSelectorRequirements.
@@ -213,9 +241,10 @@ func (n *EndpointSelector) SyncRequirementsWithLabelSelector() {
 
 // newReservedEndpointSelector returns a selector that matches on all
 // endpoints with the specified reserved label.
-func newReservedEndpointSelector(ID string) EndpointSelector {
+func newReservedEndpointSelector(ID string) *EndpointSelector {
 	reservedLabels := labels.NewLabel(ID, "", labels.LabelSourceReserved)
-	return NewESFromLabels(reservedLabels)
+	reservedES := NewESFromLabels(reservedLabels)
+	return &reservedES
 }
 
 var (
@@ -225,7 +254,7 @@ var (
 
 	// ReservedEndpointSelectors map reserved labels to EndpointSelectors
 	// that will match those endpoints.
-	ReservedEndpointSelectors = map[string]EndpointSelector{
+	ReservedEndpointSelectors = map[string]*EndpointSelector{
 		labels.IDNameHost:  newReservedEndpointSelector(labels.IDNameHost),
 		labels.IDNameWorld: newReservedEndpointSelector(labels.IDNameWorld),
 	}
@@ -337,7 +366,7 @@ func (n *EndpointSelector) sanitize() error {
 }
 
 // EndpointSelectorSlice is a slice of EndpointSelectors that can be sorted.
-type EndpointSelectorSlice []EndpointSelector
+type EndpointSelectorSlice []*EndpointSelector
 
 func (s EndpointSelectorSlice) Len() int      { return len(s) }
 func (s EndpointSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
@@ -371,4 +400,13 @@ func (s EndpointSelectorSlice) SelectsAllEndpoints() bool {
 		}
 	}
 	return false
+}
+
+func EndpointSelectorPointerSlice(sels []EndpointSelector) EndpointSelectorSlice {
+	selPtrs := make(EndpointSelectorSlice, 0, len(sels))
+
+	for i := range sels {
+		selPtrs = append(selPtrs, &sels[i])
+	}
+	return selPtrs
 }

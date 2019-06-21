@@ -912,7 +912,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, expectedSelector)
+	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &expectedSelector)
 
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": &L4Filter{
@@ -989,8 +989,8 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, expectedSelector)
-	expectedCachedSelector2, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, expectedSelector2)
+	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &expectedSelector)
+	expectedCachedSelector2, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, &expectedSelector2)
 
 	expectedPolicy := L4PolicyMap{
 		"0/ANY": &L4Filter{
@@ -1661,7 +1661,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
 	c.Assert(err, IsNil)
 
-	cachedSelectorApp2 := testSelectorCache.FindCachedIdentitySelector(selFromApp2)
+	cachedSelectorApp2 := testSelectorCache.FindCachedIdentitySelector(&selFromApp2)
 	c.Assert(cachedSelectorApp2, Not(IsNil))
 
 	expected := NewL4Policy()
@@ -1738,9 +1738,13 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	buffer := new(bytes.Buffer)
 	ctx.Logging = logging.NewLogBackend(buffer, "", 0)
 
+	fmt.Printf("repo rules before: %v\n", repo.rules)
+
 	repo.Mutex.RLock()
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
+
+	fmt.Printf("repo rules after: %v\n", repo.rules)
 
 	expectedOut := "Tracing " + ctx.String() + "\n" + trace
 	c.Assert(buffer.String(), checker.DeepEquals, expectedOut)
@@ -1751,9 +1755,13 @@ func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 	repo := NewPolicyRepository()
 	repo.selectorCache = testSelectorCache
 
+	option.Config.AllowLocalhost = option.AllowLocalhostAlways
+
 	// Add rules to allow foo=>bar
 	l3rule := buildRule("foo", "bar", "")
+	fmt.Printf("l3Rule before: %v\n", l3rule)
 	rules := api.Rules{&l3rule}
+	fmt.Printf("l3Rule after: %v\n", l3rule)
 	_, _ = repo.AddList(rules)
 
 	// foo=>bar is OK
@@ -1768,7 +1776,9 @@ Found allow rule
 Ingress verdict: allowed
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
+	fmt.Println("************************************************")
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
+	fmt.Println("************************************************")
 
 	// foo=>bar:80 is OK
 	ctx = buildSearchCtx("foo", "bar", 80)

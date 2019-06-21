@@ -81,7 +81,8 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		}
 		lbl, err := cidrpkg.IPStringToLabel(string(cidr))
 		if err == nil {
-			slice = append(slice, NewESFromLabels(lbl))
+			newES := NewESFromLabels(lbl)
+			slice = append(slice, &newES)
 		}
 		// TODO: Log the error?
 	}

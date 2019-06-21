@@ -16,6 +16,7 @@ package policy
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -227,6 +228,7 @@ func (p *Repository) AllowsIngressRLocked(ctx *SearchContext) api.Decision {
 		}}
 		ctx = &newCtx
 	}
+	fmt.Printf("AllowsIngressRLocked: ctx=%v\n", ctx)
 
 	ctx.PolicyTrace("Tracing %s", ctx.String())
 	ingressPolicy, err := p.ResolveL4IngressPolicy(ctx)

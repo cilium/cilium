@@ -50,7 +50,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 					// "fromEndpoints" may be empty here, which indicates that all L3 peers should
 					// be selected. If so, add the wildcard selector.
 					if len(fromEndpoints) == 0 {
-						fromEndpoints = append(fromEndpoints, api.WildcardEndpointSelector)
+						fromEndpoints = append(fromEndpoints, &api.WildcardEndpointSelector)
 					}
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule
@@ -84,7 +84,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 					// "toEndpoints" may be empty here, which indicates that all L3 peers should
 					// be selected. If so, add the wildcard selector.
 					if len(toEndpoints) == 0 {
-						toEndpoints = append(toEndpoints, api.WildcardEndpointSelector)
+						toEndpoints = append(toEndpoints, &api.WildcardEndpointSelector)
 					}
 					for _, toPort := range rule.ToPorts {
 						// L3/L4-only rule

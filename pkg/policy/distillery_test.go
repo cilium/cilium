@@ -486,19 +486,19 @@ func Test_AllowAll(t *testing.T) {
 
 	tests := []struct {
 		test     int
-		selector api.EndpointSelector
+		selector *api.EndpointSelector
 		rules    api.Rules
 		result   MapState
 	}{
 		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_}},
-		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_}},
+		{1, &api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_}},
 	}
 
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
-				rule := r.WithEndpointSelector(tt.selector)
+				rule := r.WithEndpointSelector(*tt.selector)
 				_, _ = repo.AddList(api.Rules{rule})
 			}
 		}

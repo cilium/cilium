@@ -200,7 +200,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 	}).Debug("identities selected by L4Filter updated")
 }
 
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
+func (l4 *L4Filter) cacheIdentitySelector(sel *api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
 	cs, added := selectorCache.AddIdentitySelector(l4, sel)
 	if added {
 		l4.CachedSelectors = append(l4.CachedSelectors, cs)
@@ -273,7 +273,7 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 	}
 
 	if peerEndpoints.SelectsAllEndpoints() {
-		l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
+		l4.cacheIdentitySelector(&api.WildcardEndpointSelector, selectorCache)
 		l4.allowsAllAtL3 = true
 	} else {
 		l4.CachedSelectors = make(CachedSelectorSlice, 0, len(peerEndpoints))

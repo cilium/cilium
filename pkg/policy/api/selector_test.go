@@ -37,14 +37,14 @@ func (s *PolicyAPITestSuite) TestSelectsAllEndpoints(c *C) {
 	selectorSlice := EndpointSelectorSlice{}
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, false)
 
-	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector}
+	selectorSlice = EndpointSelectorSlice{&WildcardEndpointSelector}
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
 
 	// Slice that contains wildcard and other selectors still selects all endpoints.
-	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector, NewESFromLabels(labels.ParseSelectLabel("bar"))}
+	selectorSlice = EndpointSelectorSlice{&WildcardEndpointSelector, NewESFromLabelsPtr(labels.ParseSelectLabel("bar"))}
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
 
-	selectorSlice = EndpointSelectorSlice{NewESFromLabels(labels.ParseSelectLabel("bar")), NewESFromLabels(labels.ParseSelectLabel("foo"))}
+	selectorSlice = EndpointSelectorSlice{NewESFromLabelsPtr(labels.ParseSelectLabel("bar")), NewESFromLabelsPtr(labels.ParseSelectLabel("foo"))}
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, false)
 }
 
