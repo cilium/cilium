@@ -772,6 +772,13 @@ func init() {
 	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
 	option.BindEnv(option.WriteCNIConfigurationWhenReady)
 
+	flags.Bool(option.MapHistory, true, "Enable BPF map operations history")
+	option.BindEnv(option.MapHistory)
+
+	flags.Int(option.MapHistoryMaxEntries, defaults.MapHistoryMaxEntries,
+		"limit of BPF map operations history entries")
+	option.BindEnv(option.MapHistoryMaxEntries)
+
 	viper.BindPFlags(flags)
 }
 
