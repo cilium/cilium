@@ -42,6 +42,7 @@ var protoNames = map[U8proto]string{
 
 var ProtoIDs = map[string]U8proto{
 	"all":    0,
+	"any":    0,
 	"icmp":   1,
 	"tcp":    6,
 	"udp":    17,
