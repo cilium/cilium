@@ -503,6 +503,12 @@ spec:
               key: cluster-id
               name: cilium-config
               optional: true
+        - name: CILIUM_IPAM
+          valueFrom:
+            configMapKeyRef:
+              key: ipam
+              name: cilium-config
+              optional: true
         - name: CILIUM_DISABLE_ENDPOINT_CRD
           valueFrom:
             configMapKeyRef:
