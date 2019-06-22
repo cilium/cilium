@@ -245,4 +245,8 @@ const (
 	// handled. During this delay, the node can re-appear and the delete
 	// event is ignored.
 	NodeDeleteDelay = 30 * time.Second
+
+	// ENIPreAllocation is the default value for
+	// CiliumNode.Spec.ENI.PreAllocate if no value is set
+	ENIPreAllocation = 8
 )
