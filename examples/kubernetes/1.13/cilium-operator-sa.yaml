@@ -49,6 +49,8 @@ rules:
   - ciliumnetworkpolicies/status
   - ciliumendpoints
   - ciliumendpoints/status
+  - ciliumnodes
+  - ciliumnodes/status
   verbs:
   - '*'
 ---
