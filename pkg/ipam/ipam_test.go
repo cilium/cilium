@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	. "gopkg.in/check.v1"
@@ -36,7 +37,7 @@ var _ = Suite(&IPAMSuite{})
 
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{})
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
@@ -58,8 +59,9 @@ func (s *IPAMSuite) TestLock(c *C) {
 	c.Assert(err, IsNil)
 
 	// Let's allocate the IP first so we can see the tests failing
-	err = ipam.IPv4Allocator.Allocate(epipv4.IP(), "test")
+	result, err := ipam.IPv4Allocator.Allocate(epipv4.IP(), "test")
 	c.Assert(err, IsNil)
+	c.Assert(result.IP, checker.DeepEquals, epipv4.IP())
 
 	err = ipam.IPv4Allocator.Release(epipv4.IP())
 	c.Assert(err, IsNil)
@@ -67,7 +69,7 @@ func (s *IPAMSuite) TestLock(c *C) {
 
 func (s *IPAMSuite) TestBlackList(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{})
 
 	// force copy of first possible IP in allocation range
 	ipv4 := net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())

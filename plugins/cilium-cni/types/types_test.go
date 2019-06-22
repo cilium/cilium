@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 	"gopkg.in/check.v1"
@@ -83,6 +84,86 @@ func (t *CNITypesSuite) TestReadCNIConf(c *check.C) {
 		MTU: 9000,
 	}
 	testConfRead(c, confFile2, &netConf2)
+}
+
+func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
+	confFile1 := `
+{
+  "cniVersion":"0.3.1",
+  "name":"cilium",
+  "plugins": [
+    {
+      "cniVersion":"0.3.1",
+      "type":"cilium-cni",
+      "eni": {
+        "pre-allocate": 5,
+        "first-interface-index":1,
+        "security-groups":[
+          "sg-xxx"
+        ],
+        "subnet-tags":{
+          "foo":"true"
+        }
+      }
+    }
+  ]
+}
+`
+	netConf1 := NetConf{
+		NetConf: cnitypes.NetConf{
+			CNIVersion: "0.3.1",
+			Type:       "cilium-cni",
+		},
+		ENI: ciliumv2.ENISpec{
+			PreAllocate:         5,
+			FirstInterfaceIndex: 1,
+			SecurityGroups:      []string{"sg-xxx"},
+			SubnetTags: map[string]string{
+				"foo": "true",
+			},
+		},
+	}
+	testConfRead(c, confFile1, &netConf1)
+}
+
+func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
+	confFile1 := `
+{
+  "name": "cilium",
+  "type": "cilium-cni",
+  "eni": {
+    "instance-type": "m4.xlarge",
+    "pre-allocate": 16,
+    "first-interface-index": 2,
+    "security-groups": [ "sg1", "sg2" ],
+    "subnet-tags": {
+      "key1": "val1",
+      "key2": "val2"
+    },
+    "vpc-id": "vpc-1",
+    "availability-zone": "us-west1"
+  }
+}
+`
+	netConf1 := NetConf{
+		NetConf: cnitypes.NetConf{
+			Name: "cilium",
+			Type: "cilium-cni",
+		},
+		ENI: ciliumv2.ENISpec{
+			InstanceType:        "m4.xlarge",
+			PreAllocate:         16,
+			FirstInterfaceIndex: 2,
+			SecurityGroups:      []string{"sg1", "sg2"},
+			SubnetTags: map[string]string{
+				"key1": "val1",
+				"key2": "val2",
+			},
+			VpcID:            "vpc-1",
+			AvailabilityZone: "us-west1",
+		},
+	}
+	testConfRead(c, confFile1, &netConf1)
 }
 
 func (t *CNITypesSuite) TestReadCNIConfError(c *check.C) {
