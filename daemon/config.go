@@ -51,7 +51,6 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 
 	// Serialize configuration updates to the daemon.
 	option.Config.ConfigPatchMutex.Lock()
-	defer option.Config.ConfigPatchMutex.Unlock()
 
 	// Track changes to daemon's configuration
 	var changes int
@@ -74,6 +73,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 		default:
 			msg := fmt.Errorf("Invalid option for PolicyEnforcement %s", enforcement)
 			log.Warn(msg)
+			option.Config.ConfigPatchMutex.Unlock()
 			return api.Error(PatchConfigFailureCode, msg)
 		}
 		log.Debug("finished configuring PolicyEnforcement for daemon")
@@ -82,6 +82,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	changes += option.Config.Opts.ApplyValidated(om, changedOption, d)
 
 	log.WithField("count", changes).Debug("Applied changes to daemon's configuration")
+	option.Config.ConfigPatchMutex.Unlock()
 
 	if changes > 0 {
 		// Only recompile if configuration has changed.
