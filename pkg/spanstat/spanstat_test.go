@@ -85,3 +85,8 @@ func (s *SpanStatTestSuite) TestSpanStat(c *C) {
 	c.Assert(span1.SuccessTotal(), Equals, time.Duration(0))
 	c.Assert(span1.FailureTotal(), Equals, time.Duration(0))
 }
+
+func (s *SpanStatTestSuite) TestSpanStatSeconds(c *C) {
+	span1 := Start()
+	c.Assert(span1.Seconds(), Not(Equals), float64(0))
+}
