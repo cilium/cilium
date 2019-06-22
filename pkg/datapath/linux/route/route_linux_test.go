@@ -125,35 +125,64 @@ func (p *RouteSuitePrivileged) TestReplaceRoute(c *C) {
 	testReplaceRoute(c, "f00d::a02:200:0:0/96", "f00d::a02:100:0:815b", false)
 }
 
-func testReplaceRule(c *C, mark, table int) {
+func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
+	rule := Rule{Mark: mark, From: from, To: to, Table: table}
+
 	// delete rule in case it exists from a previous failed run
-	DeleteRule(mark, table)
-	err := ReplaceRule(mark, table)
+	DeleteRule(rule)
+
+	rule.Priority = 1
+	err := ReplaceRule(rule)
 	c.Assert(err, IsNil)
-	exists, err := lookupRule(mark, table, netlink.FAMILY_V4)
+
+	exists, err := lookupRule(rule, netlink.FAMILY_V4)
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
-	err = DeleteRule(mark, table)
+
+	err = DeleteRule(rule)
 	c.Assert(err, IsNil)
-	exists, err = lookupRule(mark, table, netlink.FAMILY_V4)
+
+	exists, err = lookupRule(rule, netlink.FAMILY_V4)
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, false)
 }
 
-func testReplaceRuleIPv6(c *C, mark, table int) {
+func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
+	rule := Rule{Mark: mark, From: from, To: to, Table: table}
+
 	// delete rule in case it exists from a previous failed run
-	DeleteRuleIPv6(mark, table)
-	err := ReplaceRuleIPv6(mark, table)
+	DeleteRuleIPv6(rule)
+
+	rule.Priority = 1
+	err := ReplaceRuleIPv6(rule)
 	c.Assert(err, IsNil)
-	exists, err := lookupRule(mark, table, netlink.FAMILY_V6)
+
+	exists, err := lookupRule(rule, netlink.FAMILY_V6)
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
-	err = DeleteRuleIPv6(mark, table)
+
+	err = DeleteRuleIPv6(rule)
 	c.Assert(err, IsNil)
-	exists, err = lookupRule(mark, table, netlink.FAMILY_V6)
+
+	exists, err = lookupRule(rule, netlink.FAMILY_V6)
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, false)
 }
+
 func (p *RouteSuitePrivileged) TestReplaceRule(c *C) {
-	testReplaceRule(c, 0xf00, 123)
+	_, cidr1, err := net.ParseCIDR("10.10.0.0/16")
+	c.Assert(err, IsNil)
+	testReplaceRule(c, 0xf00, nil, nil, 123)
+	testReplaceRule(c, 0xf00, cidr1, nil, 124)
+	testReplaceRule(c, 0, nil, cidr1, 125)
+	testReplaceRule(c, 0, cidr1, cidr1, 126)
+}
+
+func (p *RouteSuitePrivileged) TestReplaceRule6(c *C) {
+	_, cidr1, err := net.ParseCIDR("beef::/48")
+	c.Assert(err, IsNil)
+	testReplaceRuleIPv6(c, 0xf00, nil, nil, 123)
+	testReplaceRuleIPv6(c, 0xf00, cidr1, nil, 124)
+	testReplaceRuleIPv6(c, 0, nil, cidr1, 125)
+	testReplaceRuleIPv6(c, 0, cidr1, cidr1, 126)
 }
