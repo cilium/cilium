@@ -1512,6 +1512,10 @@ func init() {
         "kvstoreConfiguration": {
           "$ref": "#/definitions/KVstoreConfiguration"
         },
+        "masquerade": {
+          "description": "Status of masquerading feature",
+          "type": "boolean"
+        },
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
@@ -4514,6 +4518,10 @@ func init() {
         },
         "kvstoreConfiguration": {
           "$ref": "#/definitions/KVstoreConfiguration"
+        },
+        "masquerade": {
+          "description": "Status of masquerading feature",
+          "type": "boolean"
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
