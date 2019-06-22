@@ -50,15 +50,18 @@ var (
 		},
 	}
 
-	k8sAPIServer        string
-	k8sKubeConfigPath   string
-	kvStore             string
-	kvStoreOpts         = make(map[string]string)
-	apiServerPort       uint16
-	shutdownSignal      = make(chan struct{})
-	synchronizeServices bool
-	enableCepGC         bool
-	synchronizeNodes    bool
+	k8sAPIServer           string
+	k8sKubeConfigPath      string
+	kvStore                string
+	kvStoreOpts            = make(map[string]string)
+	apiServerPort          uint16
+	shutdownSignal         = make(chan struct{})
+	synchronizeServices    bool
+	enableCepGC            bool
+	synchronizeNodes       bool
+	synchronizeCiliumNodes bool
+	enableMetrics          bool
+	metricsAddress         string
 
 	ciliumK8sClient clientset.Interface
 )
@@ -100,9 +103,13 @@ func init() {
 	flags.StringVar(&kvStore, "kvstore", "", "Key-value store type")
 	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
-
+	flags.String(option.IPAM, option.IPAMHostScope, "Backend to use for IPAM")
+	option.BindEnv(option.IPAM)
+	flags.BoolVar(&enableMetrics, "enable-metrics", false, "Enable Prometheus metrics")
+	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&synchronizeNodes, "synchronize-k8s-nodes", true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
+	flags.BoolVar(&synchronizeCiliumNodes, "synchronize-cilium-nodes", false, "Synchronize Cilium nodes")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
@@ -163,15 +170,8 @@ func runOperator(cmd *cobra.Command) {
 	log.Infof("Cilium Operator %s", version.Version)
 	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
 
-	if requiresKVstore() {
-		scopedLog := log.WithFields(logrus.Fields{
-			"kvstore": kvStore,
-			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
-		})
-		scopedLog.Info("Connecting to kvstore...")
-		if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
-			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
-		}
+	if enableMetrics {
+		registerMetrics()
 	}
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
@@ -184,6 +184,28 @@ func runOperator(cmd *cobra.Command) {
 	if !k8sversion.Capabilities().MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
+	}
+
+	enableENI := viper.GetString(option.IPAM) == option.IPAMENI
+	if enableENI {
+		if err := startENIAllocator(); err != nil {
+			log.WithError(err).Fatal("Unable to start ENI allocator")
+		}
+	}
+
+	if enableENI || synchronizeCiliumNodes {
+		startSynchronizingCiliumNodes()
+	}
+
+	if requiresKVstore() {
+		scopedLog := log.WithFields(logrus.Fields{
+			"kvstore": kvStore,
+			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
+		})
+		scopedLog.Info("Connecting to kvstore...")
+		if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
+			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
+		}
 	}
 
 	if synchronizeServices {
