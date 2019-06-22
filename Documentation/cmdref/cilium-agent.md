@@ -72,6 +72,7 @@ cilium-agent [flags]
       --http-retry-timeout uint                    Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --identity-change-grace-period duration      Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                     Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
+      --ipam string                                Backend to use for IPAM
       --ipsec-key-file string                      Path to IPSec key file
       --ipv4-cluster-cidr-mask-size int            Mask size for the cluster wide CIDR (default 8)
       --ipv4-node string                           IPv4 address of node (default "auto")
