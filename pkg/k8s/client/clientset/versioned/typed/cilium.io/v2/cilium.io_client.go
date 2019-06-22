@@ -26,6 +26,7 @@ type CiliumV2Interface interface {
 	RESTClient() rest.Interface
 	CiliumEndpointsGetter
 	CiliumNetworkPoliciesGetter
+	CiliumNodesGetter
 }
 
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
@@ -39,6 +40,10 @@ func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterfa
 
 func (c *CiliumV2Client) CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyInterface {
 	return newCiliumNetworkPolicies(c, namespace)
+}
+
+func (c *CiliumV2Client) CiliumNodes() CiliumNodeInterface {
+	return newCiliumNodes(c)
 }
 
 // NewForConfig creates a new CiliumV2Client for the given config.
