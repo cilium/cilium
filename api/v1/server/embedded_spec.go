@@ -1496,6 +1496,10 @@ func init() {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
         },
+        "ipam-mode": {
+          "description": "Configured IPAM mode",
+          "type": "string"
+        },
         "ipvlanConfiguration": {
           "$ref": "#/definitions/IpvlanConfiguration"
         },
@@ -2027,6 +2031,31 @@ func init() {
         }
       }
     },
+    "IPAMAddressResponse": {
+      "description": "IPAM configuration of an individual address family",
+      "type": "object",
+      "properties": {
+        "cidrs": {
+          "description": "List of CIDRs out of which IPs are allocated",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gateway": {
+          "description": "IP of gateway",
+          "type": "string"
+        },
+        "ip": {
+          "description": "Allocated IP for endpoint",
+          "type": "string"
+        },
+        "master-mac": {
+          "description": "MAC of master interface if address is a slave/secondary of a master interface",
+          "type": "string"
+        }
+      }
+    },
     "IPAMResponse": {
       "description": "IPAM configuration of an endpoint",
       "type": "object",
@@ -2040,6 +2069,12 @@ func init() {
         },
         "host-addressing": {
           "$ref": "#/definitions/NodeAddressing"
+        },
+        "ipv4": {
+          "$ref": "#/definitions/IPAMAddressResponse"
+        },
+        "ipv6": {
+          "$ref": "#/definitions/IPAMAddressResponse"
         }
       }
     },
@@ -4464,6 +4499,10 @@ func init() {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
         },
+        "ipam-mode": {
+          "description": "Configured IPAM mode",
+          "type": "string"
+        },
         "ipvlanConfiguration": {
           "$ref": "#/definitions/IpvlanConfiguration"
         },
@@ -4995,6 +5034,31 @@ func init() {
         }
       }
     },
+    "IPAMAddressResponse": {
+      "description": "IPAM configuration of an individual address family",
+      "type": "object",
+      "properties": {
+        "cidrs": {
+          "description": "List of CIDRs out of which IPs are allocated",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gateway": {
+          "description": "IP of gateway",
+          "type": "string"
+        },
+        "ip": {
+          "description": "Allocated IP for endpoint",
+          "type": "string"
+        },
+        "master-mac": {
+          "description": "MAC of master interface if address is a slave/secondary of a master interface",
+          "type": "string"
+        }
+      }
+    },
     "IPAMResponse": {
       "description": "IPAM configuration of an endpoint",
       "type": "object",
@@ -5008,6 +5072,12 @@ func init() {
         },
         "host-addressing": {
           "$ref": "#/definitions/NodeAddressing"
+        },
+        "ipv4": {
+          "$ref": "#/definitions/IPAMAddressResponse"
+        },
+        "ipv6": {
+          "$ref": "#/definitions/IPAMAddressResponse"
         }
       }
     },

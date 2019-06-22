@@ -1273,8 +1273,30 @@ definitions:
     properties:
       address:
         "$ref": "#/definitions/AddressPair"
+      ipv4:
+        "$ref": "#/definitions/IPAMAddressResponse"
+      ipv6:
+        "$ref": "#/definitions/IPAMAddressResponse"
       host-addressing:
         "$ref": "#/definitions/NodeAddressing"
+  IPAMAddressResponse:
+    description: IPAM configuration of an individual address family
+    type: object
+    properties:
+      ip:
+        description: Allocated IP for endpoint
+        type: string
+      gateway:
+        description: IP of gateway
+        type: string
+      cidrs:
+        description: List of CIDRs out of which IPs are allocated
+        type: array
+        items:
+          type: string
+      master-mac:
+        type: string
+        description: MAC of master interface if address is a slave/secondary of a master interface
   AddressPair:
     description: Addressing information of an endpoint
     type: object
@@ -1590,6 +1612,9 @@ definitions:
         "$ref": "#/definitions/DatapathMode"
       ipvlanConfiguration:
         "$ref": "#/definitions/IpvlanConfiguration"
+      ipam-mode:
+        description: Configured IPAM mode
+        type: string
   DatapathMode:
     description: Datapath mode
     type: string
