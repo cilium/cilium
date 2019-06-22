@@ -42,8 +42,8 @@ func getEPTemplate(c *C, d *Daemon) *models.EndpointChangeRequest {
 		ContainerName: "foo",
 		State:         models.EndpointStateWaitingForIdentity,
 		Addressing: &models.AddressPair{
-			IPV6: ip6.String(),
-			IPV4: ip4.String(),
+			IPV6: ip6.IP.String(),
+			IPV4: ip4.IP.String(),
 		},
 	}
 }
