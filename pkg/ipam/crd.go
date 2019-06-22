@@ -175,25 +175,37 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				var valid, equal bool
+				defer func() { owner.K8sEventReceived("CiliumNode", "create", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
+					valid = true
 					log.Debugf("New CiliumNode %+v", node)
 					store.updateLocalNodeResource(node)
+					owner.K8sEventProcessed("CiliumNode", "create", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				var valid, equal bool
+				defer func() { owner.K8sEventReceived("CiliumNode", "update", valid, equal) }()
 				if node, ok := newObj.(*ciliumv2.CiliumNode); ok {
+					valid = true
 					log.Debugf("Updated CiliumNode %+v", node)
 					store.updateLocalNodeResource(node)
+					owner.K8sEventProcessed("CiliumNode", "update", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				var valid, equal bool
+				defer func() { owner.K8sEventReceived("CiliumNode", "delete", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
+					valid = true
 					log.Debugf("Deleted CiliumNode %+v", node)
 					store.deleteLocalNodeResource()
+					owner.K8sEventProcessed("CiliumNode", "delete", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
