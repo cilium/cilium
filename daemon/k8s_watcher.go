@@ -58,7 +58,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -359,22 +358,6 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 	}
 	log.Info("Enabling k8s event listener")
 
-	restConfig, err := k8s.CreateConfig()
-	if err != nil {
-		return fmt.Errorf("Unable to create rest configuration: %s", err)
-	}
-
-	apiextensionsclientset, err := apiextensionsclient.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
-	}
-
-	if !option.Config.SkipCRDCreation {
-		err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
-		if err != nil {
-			return fmt.Errorf("Unable to create custom resource definition: %s", err)
-		}
-	}
 	d.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 
 	ciliumNPClient := k8s.CiliumClient()
