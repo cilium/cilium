@@ -470,6 +470,14 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		}
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
+
+		if conf.IPAMMode == option.IPAMENI {
+			err = eniAdd(ipConfig, ipam.IPV4, conf)
+			if err != nil {
+				err = fmt.Errorf("unable to setup ENI datapath: %s", err)
+				return
+			}
+		}
 	}
 
 	var macAddrStr string
@@ -506,6 +514,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	return cniTypes.PrintResult(res, n.CNIVersion)
 }
 
+// cmdDel is invoked on CNI DEL
+//
+// Note: ENI specific attributes do not need to be released as the ENIs and ENI
+// IPs can be reused and are not released until the node terminates.
 func cmdDel(args *skel.CmdArgs) error {
 	// Note about when to return errors: kubelet will retry the deletion
 	// for a long time. Therefore, only return an error for errors which
