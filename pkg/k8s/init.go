@@ -73,6 +73,7 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 		return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
 
 	}
+
 	nodeInterface := ConvertToNode(k8sNode)
 	if nodeInterface == nil {
 		// This will never happen and the GetNode on line 63 will be soon
