@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
+.. _install_metrics:
+
 ****************************
 Running Prometheus & Grafana
 ****************************
