@@ -709,23 +709,33 @@ func (n *linuxNodeHandler) updateOrRemoveClusterRoute(addressing datapath.NodeAd
 }
 
 func (n *linuxNodeHandler) replaceHostRules() error {
+	rule := route.Rule{
+		Priority: 1,
+		Mask:     linux_defaults.RouteMarkMask,
+		Table:    linux_defaults.RouteTableIPSec,
+	}
+
 	if n.nodeConfig.EnableIPv4 {
-		if err := route.ReplaceRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+		rule.Mark = linux_defaults.RouteMarkDecrypt
+		if err := route.ReplaceRule(rule); err != nil {
 			log.WithError(err).Error("Replace IPv4 route decrypt rule failed")
 			return err
 		}
-		if err := route.ReplaceRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+		rule.Mark = linux_defaults.RouteMarkEncrypt
+		if err := route.ReplaceRule(rule); err != nil {
 			log.WithError(err).Error("Replace IPv4 route encrypt rule failed")
 			return err
 		}
 	}
 
 	if n.nodeConfig.EnableIPv6 {
-		if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+		rule.Mark = linux_defaults.RouteMarkDecrypt
+		if err := route.ReplaceRuleIPv6(rule); err != nil {
 			log.WithError(err).Error("Replace IPv6 route decrypt rule failed")
 			return err
 		}
-		if err := route.ReplaceRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+		rule.Mark = linux_defaults.RouteMarkEncrypt
+		if err := route.ReplaceRuleIPv6(rule); err != nil {
 			log.WithError(err).Error("Replace IPv6 route ecrypt rule failed")
 			return err
 		}
@@ -735,22 +745,35 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 }
 
 func (n *linuxNodeHandler) removeEncryptRules() error {
-	if err := route.DeleteRule(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+	rule := route.Rule{
+		Priority: 1,
+		Mask:     linux_defaults.RouteMarkMask,
+		Table:    linux_defaults.RouteTableIPSec,
+	}
+
+	rule.Mark = linux_defaults.RouteMarkDecrypt
+	if err := route.DeleteRule(rule); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("Delete previous IPv4 decrypt rule failed: %s", err)
 		}
 	}
-	if err := route.DeleteRule(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+
+	rule.Mark = linux_defaults.RouteMarkEncrypt
+	if err := route.DeleteRule(rule); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("Delete previousa IPv4 encrypt rule failed: %s", err)
 		}
 	}
-	if err := route.DeleteRuleIPv6(linux_defaults.RouteMarkDecrypt, linux_defaults.RouteTableIPSec); err != nil {
+
+	rule.Mark = linux_defaults.RouteMarkDecrypt
+	if err := route.DeleteRuleIPv6(rule); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("Delete previous IPv6 decrypt rule failed: %s", err)
 		}
 	}
-	if err := route.DeleteRuleIPv6(linux_defaults.RouteMarkEncrypt, linux_defaults.RouteTableIPSec); err != nil {
+
+	rule.Mark = linux_defaults.RouteMarkEncrypt
+	if err := route.DeleteRuleIPv6(rule); err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("Delete previous IPv6 encrypt rule failed: %s", err)
 		}
