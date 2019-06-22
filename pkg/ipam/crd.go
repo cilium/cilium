@@ -139,17 +139,17 @@ func newNodeStore(nodeName string) *nodeStore {
 		log.WithField(fieldName, nodeName).Info("Successfully synchronized CiliumNode custom resource")
 	}
 
-	minimumIPs := 1
-	if option.Config.EnableHealthChecking {
-		minimumIPs++
-	}
-
 	for {
-		if store.hasMinimumIPsInPool(minimumIPs) {
+		minimumReached, required, numAvailable := store.hasMinimumIPsInPool()
+		if minimumReached {
 			break
 		}
 
-		log.WithField(fieldName, nodeName).Info("Waiting for initial IP to become available")
+		log.WithFields(logrus.Fields{
+			fieldName:   nodeName,
+			"required":  required,
+			"available": numAvailable,
+		}).Info("Waiting for IPs to become available in CRD-backed allocation pool")
 		time.Sleep(5 * time.Second)
 	}
 
@@ -159,19 +159,34 @@ func newNodeStore(nodeName string) *nodeStore {
 }
 
 // hasMinimumIPsInPool returns true if the required number of IPs is available
-// in the allocation pool
-func (n *nodeStore) hasMinimumIPsInPool(required int) bool {
+// in the allocation pool. It also returns the number of IPs required and
+// avalable.
+func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAvailable int) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
-	if n.ownNode != nil {
-		if n.ownNode.Spec.IPAM.Pool != nil {
-			if len(n.ownNode.Spec.IPAM.Pool) >= required {
-				return true
-			}
+	if n.ownNode == nil {
+		return
+	}
+
+	switch {
+	case n.ownNode.Spec.ENI.MinAllocate != 0:
+		required = n.ownNode.Spec.ENI.MinAllocate
+	case n.ownNode.Spec.ENI.PreAllocate != 0:
+		required = n.ownNode.Spec.ENI.PreAllocate
+	case option.Config.EnableHealthChecking:
+		required = 2
+	default:
+		required = 1
+	}
+
+	if n.ownNode.Spec.IPAM.Pool != nil {
+		numAvailable = len(n.ownNode.Spec.IPAM.Pool)
+		if len(n.ownNode.Spec.IPAM.Pool) >= required {
+			minimumReached = true
 		}
 	}
-	return false
+	return
 }
 
 // deleteLocalNodeResource is called when the CiliumNode resource representing
@@ -349,8 +364,50 @@ func newCRDAllocator(family Family) Allocator {
 	return allocator
 }
 
-func (a *crdAllocator) buildAllocationResult(ip net.IP) (result *AllocationResult, err error) {
+func deriveGatewayIP(eni ciliumv2.ENI) string {
+	subnetIP, _, err := net.ParseCIDR(eni.Subnet.CIDR)
+	if err != nil {
+		log.WithError(err).Warningf("Unable to parse AWS subnet CIDR %s", eni.Subnet.CIDR)
+		return ""
+	}
+
+	addr := subnetIP.To4()
+
+	// The gateway for a subnet and VPC is always x.x.x.1
+	// Ref: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
+	return net.IPv4(addr[0], addr[1], addr[2], addr[3]+1).String()
+}
+
+func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ciliumv2.AllocationIP) (result *AllocationResult, err error) {
 	result = &AllocationResult{IP: ip}
+
+	// In ENI mode, the Resource points to the ENI so we can derive the
+	// master interface and all CIDRs of the VPC
+	if option.Config.IPAM == option.IPAMENI {
+		a.store.mutex.RLock()
+		defer a.store.mutex.RUnlock()
+
+		if a.store.ownNode == nil {
+			return
+		}
+
+		for _, eni := range a.store.ownNode.Status.ENI.ENIs {
+			if eni.ID == ipInfo.Resource {
+				result.Master = eni.MAC
+				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
+				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
+				if eni.Subnet.CIDR != "" {
+					result.GatewayIP = deriveGatewayIP(eni)
+				}
+
+				return
+			}
+		}
+
+		result = nil
+		err = fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
+	}
+
 	return
 }
 
@@ -373,7 +430,7 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 
 	a.markAllocated(ip, owner, *ipInfo)
 
-	return a.buildAllocationResult(ip)
+	return a.buildAllocationResult(ip, ipInfo)
 }
 
 // Release will release the specified IP or return an error if the IP has not
@@ -415,7 +472,7 @@ func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
 
 	a.markAllocated(ip, owner, *ipInfo)
 
-	return a.buildAllocationResult(ip)
+	return a.buildAllocationResult(ip, ipInfo)
 }
 
 // totalPoolSize returns the total size of the allocation pool
