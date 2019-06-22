@@ -26,6 +26,8 @@ type Interface interface {
 	CiliumEndpoints() CiliumEndpointInformer
 	// CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
 	CiliumNetworkPolicies() CiliumNetworkPolicyInformer
+	// CiliumNodes returns a CiliumNodeInformer.
+	CiliumNodes() CiliumNodeInformer
 }
 
 type version struct {
@@ -47,4 +49,9 @@ func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 // CiliumNetworkPolicies returns a CiliumNetworkPolicyInformer.
 func (v *version) CiliumNetworkPolicies() CiliumNetworkPolicyInformer {
 	return &ciliumNetworkPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumNodes returns a CiliumNodeInformer.
+func (v *version) CiliumNodes() CiliumNodeInformer {
+	return &ciliumNodeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
