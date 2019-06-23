@@ -81,7 +81,7 @@ func (ds *DaemonSuite) endpointCreator(id uint16, secID identity.NumericIdentity
 	repo := ds.d.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := e.NewEndpointWithState(repo, id, e.StateReady)
+	ep := e.NewTestEndpoint(repo, id)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.DockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.DockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
@@ -164,11 +164,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		identitymanager.Add(ep.SecurityIdentity)
 		defer identitymanager.Remove(ep.SecurityIdentity)
 
-		ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 		ep.Unlock()
-		if ready {
-			<-ep.Regenerate(ds, regenerationMetadata)
-		}
+		<-ep.Regenerate(ds, regenerationMetadata)
 
 		switch ep.ID {
 		case 256, 257:
@@ -187,11 +184,8 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 				// Change endpoint a little bit so we know which endpoint is in
 				// "256_next_fail" and with one is in the "256" directory.
 				ep.SetNodeMACLocked(mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}))
-				ready := ep.SetStateLocked(e.StateWaitingToRegenerate, "test")
 				ep.Unlock()
-				if ready {
-					<-ep.Regenerate(ds, regenerationMetadata)
-				}
+				<-ep.Regenerate(ds, regenerationMetadata)
 				epsNames = append(epsNames, ep.DirectoryPath())
 			}
 		default:

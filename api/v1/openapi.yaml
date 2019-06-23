@@ -906,8 +906,6 @@ definitions:
     description: |
       Structure which contains the mutable elements of an Endpoint.
     type: object
-    required:
-      - state
     properties:
       id:
         description: Local endpoint ID
@@ -933,9 +931,6 @@ definitions:
       interface-index:
         description: Index of network device
         type: integer
-      state:
-        description: Current state of endpoint
-        "$ref": "#/definitions/EndpointState"
       mac:
         description: MAC address
         type: string
@@ -997,8 +992,6 @@ definitions:
   EndpointStatus:
     description: The current state and configuration of the endpoint, its policy & datapath, and subcomponents
     type: object
-    required:
-      - state
     properties:
       external-identifiers:
         description: Unique identifiers for this endpoint from outside cilium
@@ -1085,15 +1078,18 @@ definitions:
       timestamp:
         description: Timestamp when status change occurred
         type: string
-      code:
-        description: Code indicate type of status change
+      severity:
+        description: Indicates the severity of the log message
         type: string
         enum:
-         - ok
+         - info
+         - warning
          - failed
       message:
         description: Status message
         type: string
+      old-state:
+        "$ref": "#/definitions/EndpointState"
       state:
         "$ref": "#/definitions/EndpointState"
   EndpointPolicyStatus:

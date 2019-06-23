@@ -44,8 +44,7 @@ type EndpointStatus struct {
 	Realized *EndpointConfigurationSpec `json:"realized,omitempty"`
 
 	// Current state of endpoint
-	// Required: true
-	State EndpointState `json:"state"`
+	State EndpointState `json:"state,omitempty"`
 }
 
 // Validate validates this endpoint status
@@ -257,6 +256,10 @@ func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateState(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.State) { // not required
+		return nil
+	}
 
 	if err := m.State.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {

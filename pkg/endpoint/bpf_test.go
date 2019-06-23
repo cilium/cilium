@@ -29,7 +29,7 @@ import (
 )
 
 func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
-	e := NewEndpointWithState(s.repo, 100, StateCreating)
+	e := NewTestEndpoint(s.repo, 100)
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
@@ -40,7 +40,7 @@ type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
 	repo := policy.NewPolicyRepository()
-	e := NewEndpointWithState(repo, 100, StateCreating)
+	e := NewTestEndpoint(repo, 100)
 	dp := linux.NewDatapath(linux.DatapathConfiguration{})
 
 	targetComments := func(w io.Writer) error {

@@ -19,12 +19,15 @@ import (
 // swagger:model EndpointStatusChange
 type EndpointStatusChange struct {
 
-	// Code indicate type of status change
-	// Enum: [ok failed]
-	Code string `json:"code,omitempty"`
-
 	// Status message
 	Message string `json:"message,omitempty"`
+
+	// old state
+	OldState EndpointState `json:"old-state,omitempty"`
+
+	// Indicates the severity of the log message
+	// Enum: [info warning failed]
+	Severity string `json:"severity,omitempty"`
 
 	// state
 	State EndpointState `json:"state,omitempty"`
@@ -37,7 +40,11 @@ type EndpointStatusChange struct {
 func (m *EndpointStatusChange) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateCode(formats); err != nil {
+	if err := m.validateOldState(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSeverity(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -51,43 +58,62 @@ func (m *EndpointStatusChange) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var endpointStatusChangeTypeCodePropEnum []interface{}
+func (m *EndpointStatusChange) validateOldState(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.OldState) { // not required
+		return nil
+	}
+
+	if err := m.OldState.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("old-state")
+		}
+		return err
+	}
+
+	return nil
+}
+
+var endpointStatusChangeTypeSeverityPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["ok","failed"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["info","warning","failed"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
-		endpointStatusChangeTypeCodePropEnum = append(endpointStatusChangeTypeCodePropEnum, v)
+		endpointStatusChangeTypeSeverityPropEnum = append(endpointStatusChangeTypeSeverityPropEnum, v)
 	}
 }
 
 const (
 
-	// EndpointStatusChangeCodeOk captures enum value "ok"
-	EndpointStatusChangeCodeOk string = "ok"
+	// EndpointStatusChangeSeverityInfo captures enum value "info"
+	EndpointStatusChangeSeverityInfo string = "info"
 
-	// EndpointStatusChangeCodeFailed captures enum value "failed"
-	EndpointStatusChangeCodeFailed string = "failed"
+	// EndpointStatusChangeSeverityWarning captures enum value "warning"
+	EndpointStatusChangeSeverityWarning string = "warning"
+
+	// EndpointStatusChangeSeverityFailed captures enum value "failed"
+	EndpointStatusChangeSeverityFailed string = "failed"
 )
 
 // prop value enum
-func (m *EndpointStatusChange) validateCodeEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, endpointStatusChangeTypeCodePropEnum); err != nil {
+func (m *EndpointStatusChange) validateSeverityEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, endpointStatusChangeTypeSeverityPropEnum); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *EndpointStatusChange) validateCode(formats strfmt.Registry) error {
+func (m *EndpointStatusChange) validateSeverity(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.Code) { // not required
+	if swag.IsZero(m.Severity) { // not required
 		return nil
 	}
 
 	// value enum
-	if err := m.validateCodeEnum("code", "body", m.Code); err != nil {
+	if err := m.validateSeverityEnum("severity", "body", m.Severity); err != nil {
 		return err
 	}
 

@@ -77,17 +77,13 @@ func (e *Endpoint) getEndpointStatusLog() (log []*models.EndpointStatusChange) {
 			if i < len(s.Log) && s.Log[i] != nil {
 				l := &models.EndpointStatusChange{
 					Timestamp: s.Log[i].Timestamp.Format(time.RFC3339),
-					Code:      s.Log[i].Status.Code.String(),
+					Severity:  s.Log[i].Status.Severity.String(),
 					Message:   s.Log[i].Status.Msg,
 					State:     models.EndpointState(s.Log[i].Status.State),
 				}
 
-				if strings.ToLower(l.Code) != models.EndpointStatusChangeCodeOk {
-					if log == nil {
-						log = []*models.EndpointStatusChange{l}
-					} else {
-						log = append(log, l)
-					}
+				if strings.ToLower(l.Severity) != models.EndpointStatusChangeSeverityInfo {
+					log = append(log, l)
 
 					// Limit the number of endpoint log
 					// entries to keep the size of the

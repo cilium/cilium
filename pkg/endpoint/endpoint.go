@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -70,31 +69,6 @@ var (
 )
 
 const (
-	// StateCreating is used to set the endpoint is being created.
-	StateCreating = string(models.EndpointStateCreating)
-
-	// StateWaitingForIdentity is used to set if the endpoint is waiting
-	// for an identity from the KVStore.
-	StateWaitingForIdentity = string(models.EndpointStateWaitingForIdentity)
-
-	// StateReady specifies if the endpoint is ready to be used.
-	StateReady = string(models.EndpointStateReady)
-
-	// StateWaitingToRegenerate specifies when the endpoint needs to be regenerated, but regeneration has not started yet.
-	StateWaitingToRegenerate = string(models.EndpointStateWaitingToRegenerate)
-
-	// StateRegenerating specifies when the endpoint is being regenerated.
-	StateRegenerating = string(models.EndpointStateRegenerating)
-
-	// StateDisconnecting indicates that the endpoint is being disconnected
-	StateDisconnecting = string(models.EndpointStateDisconnecting)
-
-	// StateDisconnected is used to set the endpoint is disconnected.
-	StateDisconnected = string(models.EndpointStateDisconnected)
-
-	// StateRestoring is used to set the endpoint is being restored.
-	StateRestoring = string(models.EndpointStateRestoring)
-
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
 
@@ -159,8 +133,12 @@ type Endpoint struct {
 	OpLabels pkgLabels.OpLabels
 
 	// identityRevision is incremented each time the identity label
-	// information of the endpoint has changed
+	// information of the endpoint has changed. It represents the revision
+	// of the identity relevant labels.
 	identityRevision int
+
+	// realizedIdentityRevision is the latest identity revision resolved
+	realizedIdentityRevision int
 
 	// LXCMAC is the MAC address of the endpoint
 	//
@@ -205,8 +183,8 @@ type Endpoint struct {
 	// sure that restores when DNS policy is in there are correct
 	dnsHistoryTrigger *trigger.Trigger
 
-	// state is the state the endpoint is in. See SetStateLocked()
-	state string
+	// state is the state the endpoint is in
+	state state
 
 	// bpfHeaderfileHash is the hash of the last BPF headerfile that has been
 	// compiled and installed.
@@ -403,14 +381,13 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	return nil
 }
 
-// NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *Endpoint {
+// NewTestEndpoint creates a new endpoint useful for testing purposes
+func NewTestEndpoint(repo *policy.Repository, ID uint16) *Endpoint {
 	ep := &Endpoint{
 		ID:            ID,
 		OpLabels:      pkgLabels.NewOpLabels(),
 		Status:        NewEndpointStatus(),
 		DNSHistory:    fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		state:         state,
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
 		EventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
@@ -445,7 +422,6 @@ func NewEndpointFromChangeModel(repo *policy.Repository, base *models.EndpointCh
 		IfIndex:          int(base.InterfaceIndex),
 		OpLabels:         pkgLabels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
 		desiredPolicy:    policy.NewEndpointPolicy(repo),
@@ -494,7 +470,6 @@ func NewEndpointFromChangeModel(repo *policy.Repository, base *models.EndpointCh
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	ep.UpdateLogger(nil)
-	ep.SetStateLocked(string(base.State), "Endpoint creation")
 
 	return ep, nil
 }
@@ -504,11 +479,6 @@ func NewEndpointFromChangeModel(repo *policy.Repository, base *models.EndpointCh
 func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	if e == nil {
 		return nil
-	}
-
-	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
-		currentState = models.EndpointStateNotReady
 	}
 
 	// This returns the most recent log entry for this endpoint. It is backwards
@@ -570,76 +540,12 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			Policy:      e.GetPolicyModel(),
 			Log:         statusLog,
 			Controllers: controllerMdl,
-			State:       currentState, // TODO: Validate
+			State:       models.EndpointState(e.StateLocked()),
 			Health:      e.getHealthModel(),
 		},
 	}
 
 	return mdl
-}
-
-// GetHealthModel returns the endpoint's health object.
-//
-// Must be called with e.Mutex locked.
-func (e *Endpoint) getHealthModel() *models.EndpointHealth {
-	// Duplicated from GetModelRLocked.
-	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
-		currentState = models.EndpointStateNotReady
-	}
-
-	h := models.EndpointHealth{
-		Bpf:           models.EndpointHealthStatusDisabled,
-		Policy:        models.EndpointHealthStatusDisabled,
-		Connected:     false,
-		OverallHealth: models.EndpointHealthStatusDisabled,
-	}
-	switch currentState {
-	case models.EndpointStateRegenerating, models.EndpointStateWaitingToRegenerate, models.EndpointStateDisconnecting:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusPending,
-			Policy:        models.EndpointHealthStatusPending,
-			Connected:     true,
-			OverallHealth: models.EndpointHealthStatusPending,
-		}
-	case models.EndpointStateCreating:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusBootstrap,
-			Policy:        models.EndpointHealthStatusDisabled,
-			Connected:     true,
-			OverallHealth: models.EndpointHealthStatusDisabled,
-		}
-	case models.EndpointStateWaitingForIdentity:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusDisabled,
-			Policy:        models.EndpointHealthStatusBootstrap,
-			Connected:     true,
-			OverallHealth: models.EndpointHealthStatusDisabled,
-		}
-	case models.EndpointStateNotReady:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusWarning,
-			Policy:        models.EndpointHealthStatusWarning,
-			Connected:     true,
-			OverallHealth: models.EndpointHealthStatusWarning,
-		}
-	case models.EndpointStateDisconnected:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusDisabled,
-			Policy:        models.EndpointHealthStatusDisabled,
-			Connected:     false,
-			OverallHealth: models.EndpointHealthStatusDisabled,
-		}
-	case models.EndpointStateReady:
-		h = models.EndpointHealth{
-			Bpf:           models.EndpointHealthStatusOK,
-			Policy:        models.EndpointHealthStatusOK,
-			Connected:     true,
-			OverallHealth: models.EndpointHealthStatusOK,
-		}
-	}
-
-	return &h
 }
 
 // GetHealthModel returns the endpoint's health object.
@@ -1077,7 +983,7 @@ func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
 	// some use cases, status will be not nil and Cilium will eventually
 	// error/panic if CurrentStatus or Log are not initialized correctly.
 	// Reference issue GH-2477
-	if ep.Status == nil || ep.Status.CurrentStatuses == nil || ep.Status.Log == nil {
+	if ep.Status == nil || ep.Status.Log == nil {
 		ep.Status = NewEndpointStatus()
 	}
 
@@ -1087,49 +993,41 @@ func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
 		ep.SecurityIdentity.Sanitize()
 	}
 	ep.UpdateLogger(nil)
-
-	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
+	ep.markRestoredLocked()
 
 	return &ep, nil
 }
 
-func (e *Endpoint) LogStatus(typ StatusType, code StatusCode, msg string) {
+func (e *Endpoint) LogStatus(sev Severity, msg string, args ...interface{}) {
 	e.UnconditionalLock()
 	defer e.Unlock()
 	// FIXME GH2323 instead of a mutex we could use a channel to send the status
 	// log message to a single writer?
-	e.logStatusLocked(typ, code, msg)
-}
-
-func (e *Endpoint) LogStatusOK(typ StatusType, msg string) {
-	e.LogStatus(typ, OK, msg)
-}
-
-// LogStatusOKLocked will log an OK message of the given status type with the
-// given msg string.
-// must be called with endpoint.Mutex held
-func (e *Endpoint) LogStatusOKLocked(typ StatusType, msg string) {
-	e.logStatusLocked(typ, OK, msg)
+	e.logStatusLocked(sev, StateUnspecified, msg, args...)
 }
 
 // logStatusLocked logs a status message
 // must be called with endpoint.Mutex held
-func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) {
+func (e *Endpoint) logStatusLocked(sev Severity, oldState State, msg string, args ...interface{}) {
 	e.Status.indexMU.Lock()
 	defer e.Status.indexMU.Unlock()
+
+	newState := e.StateLocked()
+	if oldState == StateUnspecified {
+		oldState = newState
+	}
+
 	sts := &statusLogMsg{
 		Status: Status{
-			Code:  code,
-			Msg:   msg,
-			Type:  typ,
-			State: e.state,
+			Severity: sev,
+			Msg:      fmt.Sprintf(msg, args...),
+			OldState: oldState.String(),
+			State:    newState.String(),
 		},
 		Timestamp: time.Now().UTC(),
 	}
 	e.Status.addStatusLog(sts)
 	e.getLogger().WithFields(logrus.Fields{
-		"code":                   sts.Status.Code,
-		"type":                   sts.Status.Type,
 		logfields.EndpointState:  sts.Status.State,
 		logfields.PolicyRevision: e.policyRevision,
 	}).Debug(msg)
@@ -1187,7 +1085,7 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 	if cfg.Options == nil {
 		regenCtx.RegenerationLevel = RegenerateWithDatapathRebuild
 		regenCtx.Reason = "endpoint was manually regenerated via API"
-	} else if e.updateAndOverrideEndpointOptions(om) || e.Status.CurrentStatus() != OK {
+	} else if e.updateAndOverrideEndpointOptions(om) || e.state.consecutiveBuildFailures > 0 {
 		regenCtx.RegenerationLevel = RegenerateWithDatapathRewrite
 	}
 
@@ -1211,19 +1109,10 @@ func (e *Endpoint) Update(owner Owner, cfg *models.EndpointConfigurationSpec) er
 		for {
 			select {
 			case <-ticker.C:
-				if err := e.LockAlive(); err != nil {
-					return err
-				}
-				// Check endpoint state before attempting configuration update because
-				// configuration updates can only be applied when the endpoint is in
-				// specific states. See GH-3058.
-				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, regenCtx.Reason)
-				if stateTransitionSucceeded {
-					e.Unlock()
+				if e.ReadyToBuild() {
 					e.Regenerate(owner, regenCtx)
 					return nil
 				}
-				e.Unlock()
 			case <-timeout:
 				e.getLogger().Warning("timed out waiting for endpoint state to change")
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
@@ -1291,8 +1180,7 @@ func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
 	changed := e.OpLabels.ReplaceIdentityLabels(l, e.getLogger())
 	rev := 0
 	if changed {
-		e.identityRevision++
-		rev = e.identityRevision
+		rev = e.bumpIdentityRevisionLocked("Identity labels were replaced")
 	}
 
 	return rev
@@ -1359,7 +1247,7 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 		e.scrubIPsInConntrackTableLocked()
 	}
 
-	e.SetStateLocked(StateDisconnected, "Endpoint removed")
+	e.markDisconnectedLocked()
 
 	endpointPolicyStatus.Remove(e.ID)
 	e.getLogger().Info("Removed endpoint")
@@ -1511,175 +1399,6 @@ func (e *Endpoint) IsDatapathMapPinnedLocked() bool {
 	return e.isDatapathMapPinned
 }
 
-// GetState returns the endpoint's state
-// endpoint.Mutex may only be.RLockAlive()ed
-func (e *Endpoint) GetStateLocked() string {
-	return e.state
-}
-
-// GetState returns the endpoint's state
-// endpoint.Mutex may only be.RLockAlive()ed
-func (e *Endpoint) GetState() string {
-	e.UnconditionalRLock()
-	defer e.RUnlock()
-	return e.GetStateLocked()
-}
-
-// SetStateLocked modifies the endpoint's state
-// endpoint.Mutex must be held
-// Returns true only if endpoints state was changed as requested
-func (e *Endpoint) SetStateLocked(toState, reason string) bool {
-	// Validate the state transition.
-	fromState := e.state
-
-	switch fromState { // From state
-	case "": // Special case for capturing initial state transitions like
-		// nil --> StateWaitingForIdentity, StateRestoring
-		switch toState {
-		case StateWaitingForIdentity, StateRestoring:
-			goto OKState
-		}
-	case StateCreating:
-		switch toState {
-		case StateDisconnecting, StateWaitingForIdentity, StateRestoring:
-			goto OKState
-		}
-	case StateWaitingForIdentity:
-		switch toState {
-		case StateReady, StateDisconnecting:
-			goto OKState
-		}
-	case StateReady:
-		switch toState {
-		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
-			goto OKState
-		}
-	case StateDisconnecting:
-		switch toState {
-		case StateDisconnected:
-			goto OKState
-		}
-	case StateDisconnected:
-		// No valid transitions, as disconnected is a terminal state for the endpoint.
-	case StateWaitingToRegenerate:
-		switch toState {
-		// Note that transitions to waiting-to-regenerate state
-		case StateWaitingForIdentity, StateDisconnecting, StateRestoring:
-			goto OKState
-		}
-	case StateRegenerating:
-		switch toState {
-		// Even while the endpoint is regenerating it is
-		// possible that further changes require a new
-		// build. In this case the endpoint is transitioned
-		// from the regenerating state to
-		// waiting-for-identity or waiting-to-regenerate state.
-		case StateWaitingForIdentity, StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
-			goto OKState
-		}
-	case StateRestoring:
-		switch toState {
-		case StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
-			goto OKState
-		}
-	}
-	if toState != fromState {
-		_, fileName, fileLine, _ := runtime.Caller(1)
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.EndpointState + ".from": fromState,
-			logfields.EndpointState + ".to":   toState,
-			"file":                            fileName,
-			"line":                            fileLine,
-		}).Info("Invalid state transition skipped")
-	}
-	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
-	return false
-
-OKState:
-	e.state = toState
-	e.logStatusLocked(Other, OK, reason)
-
-	if fromState != "" {
-		metrics.EndpointStateCount.
-			WithLabelValues(fromState).Dec()
-	}
-
-	// Since StateDisconnected is the final state, after which the
-	// endpoint is gone, we should not increment metrics for this state.
-	if toState != "" && toState != StateDisconnected {
-		metrics.EndpointStateCount.
-			WithLabelValues(toState).Inc()
-	}
-	return true
-}
-
-// BuilderSetStateLocked modifies the endpoint's state
-// endpoint.Mutex must be held
-// endpoint BuildMutex must be held!
-func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
-	// Validate the state transition.
-	fromState := e.state
-	switch fromState { // From state
-	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
-		// No valid transitions for the builder
-	case StateWaitingToRegenerate:
-		switch toState {
-		// Builder transitions the endpoint from
-		// waiting-to-regenerate state to regenerating state
-		// right after acquiring the endpoint lock, and while
-		// endpoint's build mutex is held. All changes to
-		// cilium and endpoint configuration, policy as well
-		// as the existing set of security identities will be
-		// reconsidered after this point, i.e., even if some
-		// of them are changed regeneration need not be queued
-		// if the endpoint is already in waiting-to-regenerate
-		// state.
-		case StateRegenerating:
-			goto OKState
-		// Transition to ReadyState is not supported, but is
-		// attempted when a regeneration is competed, and another
-		// regeneration has been queued in the meanwhile. So this
-		// is expected and will not be logged as an error or warning.
-		case StateReady:
-			return false
-		}
-	case StateRegenerating:
-		switch toState {
-		// While still holding the build mutex, the builder
-		// tries to transition the endpoint to ready
-		// state. But since the endpoint mutex was released
-		// for the duration of the bpf generation, it is
-		// possible that another build request has been
-		// queued. In this case the endpoint has been
-		// transitioned to waiting-to-regenerate state
-		// already, and the transition to ready state is
-		// skipped (but not worth logging for, as this is
-		// normal, see above).
-		case StateReady:
-			goto OKState
-		}
-	}
-	e.logStatusLocked(Other, Warning, fmt.Sprintf("Skipped invalid state transition to %s due to: %s", toState, reason))
-	return false
-
-OKState:
-	e.state = toState
-	e.logStatusLocked(Other, OK, reason)
-
-	if fromState != "" {
-		metrics.EndpointStateCount.
-			WithLabelValues(fromState).Dec()
-	}
-
-	// Since StateDisconnected is the final state, after which the
-	// endpoint is gone, we should not increment metrics for this state.
-	if toState != "" && toState != StateDisconnected {
-		metrics.EndpointStateCount.
-			WithLabelValues(toState).Inc()
-	}
-	return true
-}
-
 // OnProxyPolicyUpdate is a callback used to update the Endpoint's
 // proxyPolicyRevision when the specified revision has been applied in the
 // proxy.
@@ -1798,13 +1517,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner Owner, addLabels, delLabels pkgLab
 
 	var rev int
 	if changed {
-		// Mark with StateWaitingForIdentity, it will be set to
-		// StateWaitingToRegenerate after the identity resolution has been
-		// completed
-		e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
-
-		e.identityRevision++
-		rev = e.identityRevision
+		rev = e.bumpIdentityRevisionLocked("Identity labels were modified")
 	}
 	e.Unlock()
 
@@ -1912,7 +1625,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner Owner, myChangeR
 }
 
 func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myChangeRev int) error {
-	if err := e.RLockAlive(); err != nil {
+	if err := e.LockAlive(); err != nil {
 		return ErrNotAlive
 	}
 	newLabels := e.OpLabels.IdentityLabels()
@@ -1923,29 +1636,26 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 	if e.identityResolutionIsObsolete(myChangeRev) {
-		e.RUnlock()
+		e.Unlock()
 		elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
 		return nil
 	}
 
 	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
-		// Sets endpoint state to ready if was waiting for identity
-		if e.GetStateLocked() == StateWaitingForIdentity {
-			e.SetStateLocked(StateReady, "Set identity for this endpoint")
-		}
-		e.RUnlock()
+		e.markIdentityRevisionResolvedLocked(myChangeRev)
+		e.Unlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil
 	}
 
 	// Unlock the endpoint mutex for the possibly long lasting kvstore operation
-	e.RUnlock()
+	e.Unlock()
 	elog.Debug("Resolving identity for labels")
 
 	identity, _, err := cache.AllocateIdentity(ctx, owner, newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
-		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
+		e.LogStatus(Warning, "%s (will retry)", err.Error())
 		return err
 	}
 
@@ -2016,6 +1726,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 		Debug("Assigned new identity to endpoint")
 
 	e.SetIdentity(identity)
+	e.markIdentityRevisionResolvedLocked(myChangeRev)
 
 	if oldIdentity != nil {
 		_, err := cache.Release(releaseCtx, owner, oldIdentity)
@@ -2025,8 +1736,6 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 		}
 	}
 
-	readyToRegenerate := false
-
 	// Regeneration is only triggered once the endpoint ID has been
 	// assigned. This ensures that on the initial creation, the endpoint is
 	// not generated until the endpoint ID has been assigned. If the
@@ -2035,9 +1744,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	// identity is not allocated yet when endpointmanager.AddEndpoint() is
 	// called, the controller calling identityLabelsChanged() will trigger
 	// the regeneration as soon as the identity is known.
-	if e.ID != 0 {
-		readyToRegenerate = e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
-	}
+	readyToRegenerate := e.ID != 0
 
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
@@ -2046,7 +1753,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner Owner, myCha
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: "updated security labels"})
+		e.Regenerate(owner, &ExternalRegenerationMetadata{Reason: "Updated security labels"})
 	}
 
 	return nil
@@ -2128,7 +1835,7 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done f
 	}
 
 	ch := make(chan struct{})
-	if e.policyRevision >= rev || e.state == StateDisconnected {
+	if e.policyRevision >= rev || e.state.disconnecting {
 		close(ch)
 		done(time.Now())
 		return ch
@@ -2162,17 +1869,6 @@ func (e *Endpoint) IPs() []net.IP {
 // manager.
 func (e *Endpoint) InsertEvent() {
 	e.getLogger().Info("New endpoint")
-}
-
-// IsDisconnecting returns true if the endpoint is being disconnected or
-// already disconnected
-//
-// This function must be called after re-acquiring the endpoint mutex to verify
-// that the endpoint has not been removed in the meantime.
-//
-// endpoint.mutex must be held in read mode at least
-func (e *Endpoint) IsDisconnecting() bool {
-	return e.state == StateDisconnected || e.state == StateDisconnecting
 }
 
 // PinDatapathMap retrieves a file descriptor from the map ID from the API call

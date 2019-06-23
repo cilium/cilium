@@ -118,7 +118,6 @@ func (f *flannelChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCo
 			IPV4: vethIP,
 		},
 		ContainerID:       pluginCtx.Args.ContainerID,
-		State:             models.EndpointStateWaitingForIdentity,
 		HostMac:           hostMac,
 		InterfaceIndex:    int64(vethHostIdx),
 		Mac:               vethLXCMac,

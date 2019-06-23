@@ -118,11 +118,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// it. Deleting first allows for upgrade scenarios where the format has
 				// changed but our k8s CEP code cannot read in the upstream value.
 				if needInit {
-					state := e.GetState()
+					state := e.State()
 					// Don't bother to create if the
 					// endpoint is already disconnecting
-					if state == endpoint.StateDisconnecting ||
-						state == endpoint.StateDisconnected {
+					if state == endpoint.StateDisconnecting {
 						return nil
 					}
 

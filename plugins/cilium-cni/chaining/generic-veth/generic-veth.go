@@ -152,7 +152,6 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			IPV4: vethIP,
 		},
 		ContainerID:       pluginCtx.Args.ContainerID,
-		State:             models.EndpointStateWaitingForIdentity,
 		HostMac:           hostMac,
 		InterfaceIndex:    int64(vethHostIdx),
 		Mac:               vethLXCMac,

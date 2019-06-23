@@ -126,7 +126,7 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
-	e := endpoint.NewEndpointWithState(ds.d.GetPolicyRepository(), testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewTestEndpoint(ds.d.GetPolicyRepository(), testEndpointID)
 	e.IfName = "dummy1"
 	if qa {
 		e.IPv6 = QAIPv6Addr
@@ -141,10 +141,6 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	}
 	e.SetIdentity(identity)
 
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 
@@ -152,10 +148,6 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 }
 
 func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
-	e.Unlock()
-	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 }

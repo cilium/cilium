@@ -231,7 +231,7 @@ func releaseID(ep *endpoint.Endpoint) {
 		// While endpoint is disconnecting, ID is already available in ID cache.
 		//
 		// Avoid irritating warning messages.
-		state := ep.GetStateLocked()
+		state := ep.StateLocked()
 		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
 			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 		}
@@ -390,11 +390,8 @@ func updateReferences(ep *endpoint.Endpoint) {
 	}
 }
 
-// RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
-// regenerates if state transaction is valid. During this process, the endpoint
-// list is locked and cannot be modified.
-// Returns a waiting group that can be used to know when all the endpoints are
-// regenerated.
+// RegenerateAllEndpoints regenerates all endpoints. Returns a waiting group
+// that can be used to know when all the endpoints are regenerated.
 func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.ExternalRegenerationMetadata) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
@@ -412,22 +409,14 @@ func RegenerateAllEndpoints(owner endpoint.Owner, regenMetadata *endpoint.Extern
 func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata, wg *sync.WaitGroup) {
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		var regen bool
-		state := ep.GetStateLocked()
-		switch state {
-		case endpoint.StateRestoring, endpoint.StateWaitingToRegenerate:
-			ep.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
-			regen = false
-		default:
-			regen = ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		}
-		ep.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			<-ep.Regenerate(owner, regenMetadata)
-		}
+		ep.LogStatus(endpoint.Warning, "Error while handling policy updates for endpoint: "+err.Error())
+		return
+	}
+	state := ep.StateLocked()
+	ep.Unlock()
+
+	if state == endpoint.StateRestoring && ep.ReadyToBuild() {
+		<-ep.Regenerate(owner, regenMetadata)
 	}
 	wg.Done()
 }
@@ -435,14 +424,13 @@ func regenerateEndpointBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, reg
 func regenerateEndpointNonBlocking(owner endpoint.Owner, ep *endpoint.Endpoint, regenMetadata *endpoint.ExternalRegenerationMetadata) {
 	if err := ep.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		ep.LogStatus(endpoint.Policy, endpoint.Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		regen := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		ep.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			ep.Regenerate(owner, regenMetadata)
-		}
+		ep.LogStatus(endpoint.Warning, "Error while handling policy updates for endpoint: "+err.Error())
+		return
+	}
+	ep.Unlock()
+
+	if ep.ReadyToBuild() {
+		ep.Regenerate(owner, regenMetadata)
 	}
 }
 

@@ -15,7 +15,6 @@
 package endpointmanager
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -57,7 +56,7 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapTy
 				scopedLog.Warn(msg)
 			}
 			if e != nil {
-				e.LogStatus(endpoint.BPF, endpoint.Warning, fmt.Sprintf("%s: %s", msg, err))
+				e.LogStatus(endpoint.Warning, "%s: %s", msg, err)
 			}
 			continue
 		}

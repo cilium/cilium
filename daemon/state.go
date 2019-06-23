@@ -174,7 +174,6 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 		ep.UnconditionalLock()
 		scopedLog.Debug("Restoring endpoint")
-		ep.LogStatusOKLocked(endpoint.Other, "Restoring endpoint from previous cilium instance")
 
 		if !option.Config.KeepConfig {
 			ep.SetDefaultOpts(option.Config.Opts)
@@ -291,8 +290,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				return
 			}
 
-			ep.SetStateLocked(endpoint.StateRestoring, "Synchronizing endpoint labels with KVStore")
-
 			if ep.SecurityIdentity != nil {
 				if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
 					log.WithFields(logrus.Fields{
@@ -345,26 +342,21 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// the identity even if has not changed.
 			ep.SetIdentity(identity)
 
-			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
+			// If a build is already pending but hasn't started yet
+			// then there is no reason to schedule a new build
+			if ep.BuildPendingLocked() {
 				ep.Unlock()
-				// EP is already waiting to regenerate. This is no error so no logging.
 				epRegenerated <- false
 				return
 			}
 
-			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
 
-			if !ready {
-				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
-				epRegenerated <- false
-				return
-			}
 			regenerationMetadata := &endpoint.ExternalRegenerationMetadata{
-				Reason: "syncing state to host",
+				Reason: "Initial build after restore",
 			}
 			if buildSuccess := <-ep.Regenerate(d, regenerationMetadata); !buildSuccess {
-				scopedLog.Warn("Failed while regenerating endpoint")
+				scopedLog.Warn("Failed to regenerate restored endpoint")
 				epRegenerated <- false
 				return
 			}

@@ -90,7 +90,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		}
 	}
 	if err != nil {
-		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
+		e.logStatusLocked(Warning, StateUnspecified, "Unable to create a base64: %s", err)
 	}
 
 	if e.ContainerID == "" {
@@ -425,7 +425,7 @@ func (e *Endpoint) regenerateBPF(owner Owner, regenContext *regenerationContext)
 	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
-		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))
+		e.logStatusLocked(Warning, StateUnspecified, "Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr)
 	}
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)

@@ -59,7 +59,6 @@ func newEndpoint(c *check.C, repo *policy.Repository, spec endpointGeneratorSpec
 			"k8s:io.kubernetes.pod.namespace=default",
 			"k8s:name=probe",
 		},
-		State: models.EndpointState("waiting-for-identity"),
 	})
 	c.Assert(err, check.IsNil)
 
@@ -79,7 +78,7 @@ func newEndpoint(c *check.C, repo *policy.Repository, spec endpointGeneratorSpec
 
 	for i := 0; i < spec.logErrors; i++ {
 		e.Status.addStatusLog(&statusLogMsg{
-			Status: Status{Code: Failure, Msg: "Failure", Type: BPF},
+			Status: Status{Severity: Failure, Msg: "Failure"},
 		})
 	}
 
@@ -153,7 +152,7 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulLog(c *check.C) {
 	go func() {
 		for i := 0; i < 1000; i++ {
 			e.Status.addStatusLog(&statusLogMsg{
-				Status: Status{Code: OK, Msg: "Success", Type: BPF},
+				Status: Status{Severity: Info, Msg: "Success"},
 			})
 			time.Sleep(time.Millisecond)
 		}

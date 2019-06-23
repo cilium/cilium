@@ -337,6 +337,40 @@ example is a Kubernetes cluster which uses containerd as the container runtime.
 Endpoints will derive Kubernetes pod labels (prefixed with the ``k8s:`` source
 prefix) and containerd labels (prefixed with ``container:`` source prefix).
 
+Endpoint States
+---------------
+
+An endpoint can be in the following state to describe its current status:
+
+* **Creating:** The endpoint has been created via the API and has not been
+  successfully built yet. The endpoint is *not* connected.
+
+* **Restoring:** The endpoint is being restored from previous state and has not
+  been rebuilt yet. The connectivity state of the endpoint depends on the
+  endpoint state while the previous instance of the Cilium agent was managing
+  the endpoint. The endpoint will transition to Ready once the restore
+  operation has completed successfully.
+
+* **Regenerating:** The endpoint is currently being regenerated to implement
+  the desired state such as policy requirements. The endpoint may or may not be
+  currently connected. After the build has been completed, the endpoint will
+  transition into a state that represents the connectivity state.
+
+* **WaitingForIdentity:** The endpoint had its identity metadata changed and is
+  currently resolving its new identity. After successful identity resolution,
+  the endpoint will be regenerated as needed.
+
+* **WaitingToRegenerate:** The latest changes have been integrated but there are
+  changes outstanding to be incorporated. The endpoint is queued to be built.
+
+* **Ready:** The endpoint is stable and healthy without outstanding changes
+
+* **NotReady:** The endpoint build is currently failing
+
+* **Disconnecting:** The endpoint is being removed
+
+* **Disconnected:** The endpoint has been removed.
+
 .. _identity:
 
 Identity

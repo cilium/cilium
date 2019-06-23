@@ -54,9 +54,9 @@ func getEndpointLog(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%v\n", "Timestamp", "Status", "State", "Message")
+		fmt.Fprintf(w, "%s\t%s\t%s\t%v\n", "Timestamp", "Severity", "State", "Message")
 		for _, entry := range epLog {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%v\n", entry.Timestamp, entry.Code, entry.State, entry.Message)
+			fmt.Fprintf(w, "%s\t%s\t%s -> %s\t%v\n", entry.Timestamp, entry.Severity, entry.OldState, entry.State, entry.Message)
 		}
 		w.Flush()
 	}

@@ -251,6 +251,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
+	// Assign the labels information to the endpoint, this will trigger
+	// resolution of the identity which will be performed synchronously if
+	// no external registry must be contacted or asynchronously otherwise.
+	// In both case, an initial endpoint build is trigger once the identity
+	// is known.
 	ep.UpdateLabels(ctx, d, addLabels, infoLabels, true)
 
 	select {
@@ -269,32 +274,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		ep.Unlock()
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
-
-	build := ep.GetStateLocked() == endpoint.StateReady
-	if build {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Identity is known at endpoint creation time")
-	}
 	ep.Unlock()
-
-	if build {
-		// Do not synchronously regenerate the endpoint when first creating it.
-		// We have custom logic later for waiting for specific checkpoints to be
-		// reached upon regeneration later (checking for when BPF programs have
-		// been compiled), as opposed to waiting for the entire regeneration to
-		// be complete (including proxies being configured). This is done to
-		// avoid a chicken-and-egg problem with L7 policies are imported which
-		// select the endpoint being generated, as when such policies are
-		// imported, regeneration blocks on waiting for proxies to be
-		// configured. When Cilium is used with Istio, though, the proxy is
-		// started as a sidecar, and is not launched yet when this specific code
-		// is executed; if we waited for regeneration to be complete, including
-		// proxy configuration, this code would effectively deadlock addition
-		// of endpoints.
-		ep.Regenerate(d, &endpoint.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
-		})
-	}
 
 	// Only used for CRI-O since it does not support events.
 	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
@@ -383,14 +363,6 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 	return &patchEndpointID{d: d}
 }
 
-func validPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
-	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
-		return true
-	}
-	return false
-}
-
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
 	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
 	scopedLog.Debug("PATCH /endpoint/{id} request")
@@ -402,12 +374,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.policy, epTemplate)
 	if err2 != nil {
 		return api.Error(PutEndpointIDInvalidCode, err2)
-	}
-
-	// Log invalid state transitions, but do not error out for backwards
-	// compatibility.
-	if !validPatchTransitionState(epTemplate.State) {
-		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", epTemplate.State)
 	}
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -444,20 +410,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		changed = true
 	}
 
-	// Only support transition to waiting-for-identity state, also
-	// if the request is for ready state, as we will check the
-	// existence of the security label below. Other transitions
-	// are always internally managed, but we do not error out for
-	// backwards compatibility.
-	if epTemplate.State != "" &&
-		validPatchTransitionState(epTemplate.State) &&
-		ep.GetStateLocked() != endpoint.StateWaitingForIdentity {
-		// Will not change state if the current state does not allow the transition.
-		if ep.SetStateLocked(endpoint.StateWaitingForIdentity, "Update endpoint from API PATCH") {
-			changed = true
-		}
-	}
-
 	if epTemplate.Mac != "" && bytes.Compare(ep.LXCMAC, newEp.LXCMAC) != 0 {
 		ep.LXCMAC = newEp.LXCMAC
 		changed = true
@@ -483,39 +435,19 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// TODO: Do something with the labels?
 	// addLabels := labels.NewLabelsFromModel(params.Endpoint.Labels)
 
-	// If desired state is waiting-for-identity but identity is already
-	// known, bump it to ready state immediately to force re-generation
-	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity && ep.SecurityIdentity != nil {
-		ep.SetStateLocked(endpoint.StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
-		changed = true
-	}
-
-	reason := ""
 	if changed {
 		// Force policy regeneration as endpoint's configuration was changed.
 		// Other endpoints need not be regenerated as no labels were changed.
 		// Note that we still need to (eventually) regenerate the endpoint for
 		// the changes to take effect.
 		ep.ForcePolicyCompute()
-
-		// Transition to waiting-to-regenerate if ready.
-		if ep.GetStateLocked() == endpoint.StateReady {
-			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
-		}
-
-		switch ep.GetStateLocked() {
-		case endpoint.StateWaitingToRegenerate:
-			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
-		case endpoint.StateWaitingForIdentity:
-			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
-		}
 	}
 
 	ep.UpdateLogger(nil)
 	ep.Unlock()
 
-	if reason != "" {
-		if err := ep.RegenerateWait(h.d, reason); err != nil {
+	if changed {
+		if err := ep.RegenerateWait(h.d, "Endpoint modified via API"); err != nil {
 			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
@@ -573,7 +505,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 		ep.BuildMutex.Unlock()
 		return []error{}
 	}
-	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
+	ep.StartDisconnectingLocked("Endpoint deleted")
 
 	// Since the endpoint is being deleted, we no longer need to run events
 	// in its event queue.
