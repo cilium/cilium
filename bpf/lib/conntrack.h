@@ -116,21 +116,21 @@ static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
 						   union tcp_flags flags)
 {
 	__u32 now = bpf_ktime_get_sec();
-	__u8 *accumulated_flags;
+	__u8 accumulated_flags;
 	__u8 seen_flags = flags.lower_bits;
-	__u32 *last_report;
+	__u32 last_report;
 
 #ifdef NEEDS_TIMEOUT
 	entry->lifetime = now + lifetime;
 #endif
 	if (dir == CT_INGRESS) {
-		accumulated_flags = &entry->rx_flags_seen;
-		last_report = &entry->last_rx_report;
+		accumulated_flags = READ_ONCE(entry->rx_flags_seen);
+		last_report = READ_ONCE(entry->last_rx_report);
 	} else {
-		accumulated_flags = &entry->tx_flags_seen;
-		last_report = &entry->last_tx_report;
+		accumulated_flags = READ_ONCE(entry->tx_flags_seen);
+		last_report = READ_ONCE(entry->last_tx_report);
 	}
-	seen_flags |= *accumulated_flags;
+	seen_flags |= accumulated_flags;
 
 	/* It's possible for multiple CPUs to execute the branch statement here
 	 * one after another, before the first CPU is able to execute the entry
@@ -162,10 +162,16 @@ static inline __u32 __inline__ __ct_update_timeout(struct ct_entry *entry,
 	 * otherwise be sent if the MONITOR_AGGREGATION level is set to none
 	 * (ie, sending a notification for every packet).
 	 */
-	if (*last_report + CT_REPORT_INTERVAL < now ||
-	    *accumulated_flags != seen_flags) {
-		*last_report = now;
-		*accumulated_flags = seen_flags;
+	if (last_report + CT_REPORT_INTERVAL < now ||
+	    accumulated_flags != seen_flags) {
+		/* verifier workaround: we don't use reference here. */
+		if (dir == CT_INGRESS) {
+			WRITE_ONCE(entry->rx_flags_seen, seen_flags);
+			WRITE_ONCE(entry->last_rx_report, now);
+		} else {
+			WRITE_ONCE(entry->tx_flags_seen, seen_flags);
+			WRITE_ONCE(entry->last_tx_report, now);
+		}
 		return TRACE_PAYLOAD_LEN;
 	}
 	return 0;
