@@ -36,6 +36,31 @@
 	_x > _y ? _x : _y;	\
 })
 
+static inline void bpf_barrier(void)
+{
+	/* Workaround to avoid verifier complaint:
+	 * "dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed, ctx+const+const is not"
+	 */
+	asm volatile("" ::: "memory");
+}
+
+#ifndef __READ_ONCE
+# define __READ_ONCE(x)		(*(volatile typeof(x) *)&x)
+#endif
+#ifndef __WRITE_ONCE
+# define __WRITE_ONCE(x, v)	(*(volatile typeof(x) *)&x) = (v)
+#endif
+
+/* {READ,WRITE}_ONCE() with verifier workaround via bpf_barrier(). */
+#ifndef READ_ONCE
+# define READ_ONCE(x)		\
+	({ typeof(x) __val; __val = __READ_ONCE(x); bpf_barrier(); __val; })
+#endif
+#ifndef WRITE_ONCE
+# define WRITE_ONCE(x, v)	\
+	({ typeof(x) __val = (v); __WRITE_ONCE(x, __val); bpf_barrier(); __val; })
+#endif
+
 /* Clear CB values */
 static inline void bpf_clear_cb(struct __sk_buff *skb)
 {
