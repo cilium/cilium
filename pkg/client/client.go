@@ -142,30 +142,6 @@ func NewClient(host string) (*Client, error) {
 	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
 }
 
-// ClientError is the error returned by all client functions which use Hint()
-type ClientError struct {
-	msg         string
-	recoverable bool
-}
-
-// Recoverable returns true if the error is likely to be recoverable
-func (c ClientError) Recoverable() bool {
-	return c.recoverable
-}
-
-// Error returns the error message representing the error
-func (c ClientError) Error() string {
-	return c.msg
-}
-
-func newRecoverableError(msg string, args ...interface{}) ClientError {
-	return ClientError{recoverable: true, msg: fmt.Sprintf(msg, args...)}
-}
-
-func newUnrecoverableError(msg string, args ...interface{}) ClientError {
-	return ClientError{recoverable: false, msg: fmt.Sprintf(msg, args...)}
-}
-
 // Hint tries to improve the error message displayed to the user.
 func Hint(err error) error {
 	if err == nil {
@@ -173,14 +149,14 @@ func Hint(err error) error {
 	}
 
 	if err == context.DeadlineExceeded {
-		return newRecoverableError("Cilium API client timeout exceeded")
+		return fmt.Errorf("Cilium API client timeout exceeded")
 	}
 
 	e, _ := url.PathUnescape(err.Error())
 	if strings.Contains(err.Error(), defaults.SockPath) {
-		return newRecoverableError("%s\nIs the agent running?", e)
+		return fmt.Errorf("%s\nIs the agent running?", e)
 	}
-	return newUnrecoverableError("%s", e)
+	return fmt.Errorf("%s", e)
 }
 
 func timeSince(since time.Time) string {
