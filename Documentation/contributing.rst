@@ -404,18 +404,19 @@ This shell script depends on the ``inotify-tools`` package on Linux.
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Once you have downloaded dep make sure you have version >= 0.4.1
+Once you have downloaded dep make sure you have version >= 0.5.3
 
 .. code:: bash
 
     $ dep version
     dep:
-     version     : v0.4.1
-     build date  : 2018-01-24
-     git hash    : 37d9ea0a
-     go version  : go1.9.1
+     version     : v0.5.3
+     build date  : 2019-05-13
+     git hash    : 192eb44
+     go version  : go1.12.5
      go compiler : gc
      platform    : linux/amd64
+     features    : ImportDuringSolve=false
 
 After that, you can edit the ``Gopkg.toml`` file, add the library that you want
 to add. Lets assume we want to add ``github.com/containernetworking/cni``
@@ -431,10 +432,18 @@ Once you add the libraries that you need you can save the file and run
 
 .. code:: bash
 
-    $ dep ensure -v
+    $ dep ensure -v -add github.com/containernetworking/cni
 
 For a first run, it can take a while as it will download all dependencies to
 your local cache but the remaining runs will be faster.
+
+If you need to update an existing dependency (here
+``github.com/containernetworking/cni``) to a new version, edit the
+``Gopkg.toml`` and run
+
+.. code:: bash
+
+    $ dep ensure -v -update github.com/containernetworking/cni
 
 Debugging
 ~~~~~~~~~
