@@ -89,9 +89,7 @@ skb_redirect_to_proxy_hairpin(struct __sk_buff *skb, __be16 proxy_port)
 	int ret;
 
 	skb->cb[0] = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
-	/* Workaround to avoid verifier complaint:
-	 * dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed, ctx+const+const is not */
-	asm volatile("": : :"memory");
+	bpf_barrier(); /* verifier workaround */
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
