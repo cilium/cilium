@@ -777,16 +777,8 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 }
 
 func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
-	var nexthop net.IP
-
-	if ip.IP.To4() != nil {
-		nexthop = n.nodeAddressing.IPv4().Router()
-	} else {
-		nexthop = n.nodeAddressing.IPv6().Router()
-	}
-
 	return route.Route{
-		Nexthop: &nexthop,
+		Nexthop: nil,
 		Device:  n.datapathConfig.HostDevice,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
