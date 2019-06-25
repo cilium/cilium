@@ -21,13 +21,20 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	. "gopkg.in/check.v1"
 )
 
+type ownerMock struct{}
+
+func (o *ownerMock) GetNetConf() *cnitypes.NetConf {
+	return nil
+}
+
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true})
+	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{})
 
 	ipv4 := fakeAddressing.IPv4().AllocationCIDR().IP
 	ipv6 := fakeAddressing.IPv6().AllocationCIDR().IP

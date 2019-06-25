@@ -77,6 +77,7 @@ import (
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -173,6 +174,8 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
+
+	netConf *cnitypes.NetConf
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -661,10 +664,29 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+	var (
+		err           error
+		netConf       *cnitypes.NetConf
+		configuredMTU = option.Config.MTU
+	)
+
 	bootstrapStats.daemonInit.Start()
+
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
+	}
+
+	if option.Config.ReadCNIConfiguration != "" {
+		netConf, err = cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to read CNI configuration")
+		}
+
+		if netConf.MTU != 0 {
+			configuredMTU = netConf.MTU
+			log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
+		}
 	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny)
@@ -675,7 +697,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		return nil, nil, err
 	}
 
-	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, option.Config.MTU)
+	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU)
 
 	nodeMngr, err := nodemanager.NewManager("all", dp.Node())
 	if err != nil {
@@ -695,6 +717,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		k8sResourceSynced: map[string]chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
+		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
@@ -1069,4 +1092,10 @@ func (d *Daemon) GetNodeSuffix() string {
 	}
 
 	return ip.String()
+}
+
+// GetNetConf returns the CNI configuration that was used to initiate the
+// daemon instance. This may return nil when no configuration is available.
+func (d *Daemon) GetNetConf() *cnitypes.NetConf {
+	return d.netConf
 }

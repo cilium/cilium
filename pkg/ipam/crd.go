@@ -76,7 +76,7 @@ type nodeStore struct {
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string) *nodeStore {
+func newNodeStore(nodeName string, owner Owner) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -115,6 +115,34 @@ func newNodeStore(nodeName string) *nodeStore {
 			nodeResource.Spec.ENI.FirstInterfaceIndex = 1
 			nodeResource.Spec.ENI.DeleteOnTermination = true
 			nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
+
+			if c := owner.GetNetConf(); c != nil {
+				if c.ENI.MinAllocate != 0 {
+					nodeResource.Spec.ENI.MinAllocate = c.ENI.MinAllocate
+				}
+
+				if c.ENI.PreAllocate != 0 {
+					nodeResource.Spec.ENI.PreAllocate = c.ENI.PreAllocate
+				}
+
+				if c.ENI.FirstInterfaceIndex != 0 {
+					nodeResource.Spec.ENI.FirstInterfaceIndex = c.ENI.FirstInterfaceIndex
+				}
+
+				if len(c.ENI.SecurityGroups) > 0 {
+					nodeResource.Spec.ENI.SecurityGroups = c.ENI.SecurityGroups
+				}
+
+				if len(c.ENI.SubnetTags) > 0 {
+					nodeResource.Spec.ENI.SubnetTags = c.ENI.SubnetTags
+				}
+
+				if c.ENI.VpcID != "" {
+					nodeResource.Spec.ENI.VpcID = c.ENI.VpcID
+				}
+
+				nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+			}
 
 			nodeResource.Spec.ENI.InstanceID = instanceID
 			nodeResource.Spec.ENI.InstanceType = instanceType
@@ -393,9 +421,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family) Allocator {
+func newCRDAllocator(family Family, owner Owner) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(node.GetName())
+		sharedNodeStore = newNodeStore(node.GetName(), owner)
 	})
 
 	allocator := &crdAllocator{

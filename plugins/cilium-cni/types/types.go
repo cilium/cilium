@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"net"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
@@ -28,29 +30,17 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
-	MTU  int  `json:"mtu"`
-	Args Args `json:"args"`
+	MTU  int              `json:"mtu"`
+	Args Args             `json:"args"`
+	ENI  ciliumv2.ENISpec `json:"eni,omitempty"`
 }
 
-// ReadNetConf reads a CNI configuration file and returns the corresponding
-// NetConf structure
-func ReadNetConf(path string) (*NetConf, error) {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to read CNI configuration '%s': %s", path, err)
-	}
-
-	return LoadNetConf(b)
+// NetConfList is a CNI chaining configuration
+type NetConfList struct {
+	Plugins []*NetConf `json:"plugins,omitempty"`
 }
 
-// LoadNetConf unmarshals a Cilium network configuration from JSON and returns
-// a NetConf together with the CNI version
-func LoadNetConf(bytes []byte) (*NetConf, error) {
-	n := &NetConf{}
-	if err := json.Unmarshal(bytes, n); err != nil {
-		return nil, fmt.Errorf("failed to load netconf: %s", err)
-	}
-
+func parsePrevResult(n *NetConf) (*NetConf, error) {
 	if n.RawPrevResult != nil {
 		resultBytes, err := json.Marshal(n.RawPrevResult)
 		if err != nil {
@@ -67,6 +57,38 @@ func LoadNetConf(bytes []byte) (*NetConf, error) {
 	}
 
 	return n, nil
+}
+
+// ReadNetConf reads a CNI configuration file and returns the corresponding
+// NetConf structure
+func ReadNetConf(path string) (*NetConf, error) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to read CNI configuration '%s': %s", path, err)
+	}
+
+	netConfList := &NetConfList{}
+	if err := json.Unmarshal(b, netConfList); err == nil {
+		for _, plugin := range netConfList.Plugins {
+			if plugin.Type == "cilium-cni" {
+				return parsePrevResult(plugin)
+			}
+		}
+	}
+
+	return LoadNetConf(b)
+}
+
+// LoadNetConf unmarshals a Cilium network configuration from JSON and returns
+// a NetConf together with the CNI version
+func LoadNetConf(bytes []byte) (*NetConf, error) {
+	n := &NetConf{}
+	if err := json.Unmarshal(bytes, n); err != nil {
+		return nil, fmt.Errorf("failed to load netconf: %s", err)
+	}
+
+	return parsePrevResult(n)
+
 }
 
 // ArgsSpec is the specification of additional arguments of the CNI ADD call
