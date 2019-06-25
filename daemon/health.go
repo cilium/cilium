@@ -38,12 +38,15 @@ func (d *Daemon) initHealth() {
 		return
 	}
 
-	// Launch cilium-health in the same namespace as cilium.
+	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
-	d.ciliumHealth = &health.CiliumHealth{}
-	go d.ciliumHealth.Run()
+	if ch, err := health.Launch(); err != nil {
+		log.WithError(err).Fatal("Failed to launch cilium-health")
+	} else {
+		d.ciliumHealth = ch
+	}
 
-	// Launch another cilium-health as an endpoint, managed by cilium.
+	// Launch the cilium-health-responder as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
 	if k8s.IsEnabled() {
 		// When Cilium starts up in k8s mode, it is guaranteed to be
