@@ -6,10 +6,12 @@ import (
 	"crypto/tls"
 	"net/http"
 
-	"github.com/cilium/cilium/api/v1/health/server/restapi"
+	errors "github.com/go-openapi/errors"
+	runtime "github.com/go-openapi/runtime"
+	middleware "github.com/go-openapi/runtime/middleware"
 
-	"github.com/go-openapi/errors"
-	"github.com/go-openapi/runtime"
+	"github.com/cilium/cilium/api/v1/health/server/restapi"
+	"github.com/cilium/cilium/api/v1/health/server/restapi/connectivity"
 )
 
 //go:generate swagger generate server --target ../../health --name CiliumHealth --spec ../openapi.yaml --api-package restapi --server-package server --default-scheme unix
@@ -31,6 +33,22 @@ func configureAPI(api *restapi.CiliumHealthAPI) http.Handler {
 	api.JSONConsumer = runtime.JSONConsumer()
 
 	api.JSONProducer = runtime.JSONProducer()
+
+	if api.GetHealthzHandler == nil {
+		api.GetHealthzHandler = restapi.GetHealthzHandlerFunc(func(params restapi.GetHealthzParams) middleware.Responder {
+			return middleware.NotImplemented("operation .GetHealthz has not yet been implemented")
+		})
+	}
+	if api.ConnectivityGetStatusHandler == nil {
+		api.ConnectivityGetStatusHandler = connectivity.GetStatusHandlerFunc(func(params connectivity.GetStatusParams) middleware.Responder {
+			return middleware.NotImplemented("operation connectivity.GetStatus has not yet been implemented")
+		})
+	}
+	if api.ConnectivityPutStatusProbeHandler == nil {
+		api.ConnectivityPutStatusProbeHandler = connectivity.PutStatusProbeHandlerFunc(func(params connectivity.PutStatusProbeParams) middleware.Responder {
+			return middleware.NotImplemented("operation connectivity.PutStatusProbe has not yet been implemented")
+		})
+	}
 
 	api.ServerShutdown = func() {}
 
