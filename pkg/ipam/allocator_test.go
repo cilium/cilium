@@ -32,6 +32,9 @@ func (o *ownerMock) GetNetConf() *cnitypes.NetConf {
 	return nil
 }
 
+func (o *ownerMock) K8sEventReceived(scope string, action string, valid, equal bool) {}
+func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool)      {}
+
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, Configuration{EnableIPv4: true, EnableIPv6: true}, &ownerMock{})
