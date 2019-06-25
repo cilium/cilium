@@ -32,7 +32,7 @@ import (
 	criStore "github.com/containerd/cri/pkg/store"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	criRuntime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+	criRuntime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"k8s.io/kubernetes/pkg/kubelet/util"
 )
 
