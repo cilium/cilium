@@ -17,6 +17,7 @@ package endpointmanager
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
@@ -402,7 +403,7 @@ func RegenerateAllEndpoints(owner regeneration.Owner, regenMetadata *regeneratio
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
-	log.Infof("regenerating all endpoints due to %s", regenMetadata.Reason)
+	log.WithFields(logrus.Fields{"reason": regenMetadata.Reason}).Info("regenerating all endpoints")
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			<-ep.RegenerateSync(owner, regenMetadata)
