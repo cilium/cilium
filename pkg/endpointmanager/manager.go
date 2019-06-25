@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -402,7 +403,7 @@ func RegenerateAllEndpoints(owner regeneration.Owner, regenMetadata *regeneratio
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
-	log.Infof("regenerating all endpoints due to %s", regenMetadata.Reason)
+	log.WithFields(logrus.Fields{"reason": regenMetadata.Reason}).Info("regenerating all endpoints")
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			<-ep.RegenerateIfAlive(owner, regenMetadata)
