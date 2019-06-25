@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 
 	"github.com/spf13/cobra"
 )
@@ -98,7 +97,7 @@ func listMetrics(bpfMetricsList map[string][]string) {
 		}
 
 		if keyIsValid && valueIsValid {
-			rows = append(rows, [numColumns]string{monitorAPI.DropReason(reasonCode), trafficdirection.TrafficDirection(trafficDirectionCode).String(), packets, bytes})
+			rows = append(rows, [numColumns]string{monitorAPI.DropReason(reasonCode), metricsmap.MetricDirection(trafficDirectionCode), packets, bytes})
 		} else {
 			// Fall back to best effort printing.
 			for i, v := range value {
