@@ -767,6 +767,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
 		}
 
+		if err := k8s.RegisterCRDs(); err != nil {
+			log.WithError(err).Fatal("Unable to register CRDs")
+		}
+
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local
