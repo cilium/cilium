@@ -28,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
@@ -512,6 +513,13 @@ const (
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = "auto-create-cilium-node-resource"
+
+	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	IPv4NativeRoutingCIDR = "native-routing-cidr"
+
+	// EgressMasqueradeInterfaces is the selector used to select interfaces
+	// subject to egress masquerading
+	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
 )
 
 // FQDNS variables
@@ -1044,6 +1052,13 @@ type DaemonConfig struct {
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
+
+	// ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
+	ipv4NativeRoutingCIDR *cidr.CIDR
+
+	// EgressMasqueradeInterfaces is the selector used to select interfaces
+	// subject to egress masquerading
+	EgressMasqueradeInterfaces string
 }
 
 var (
@@ -1074,6 +1089,21 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 	}
 )
+
+// IPv4NativeRoutingCIDR returns the native routing CIDR if configured
+func (c *DaemonConfig) IPv4NativeRoutingCIDR() (cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.RLock()
+	cidr = c.ipv4NativeRoutingCIDR
+	c.ConfigPatchMutex.RUnlock()
+	return
+}
+
+// SetIPv4NativeRoutingCIDR sets the native routing CIDR
+func (c *DaemonConfig) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {
+	c.ConfigPatchMutex.Lock()
+	c.ipv4NativeRoutingCIDR = cidr
+	c.ConfigPatchMutex.Unlock()
+}
 
 // IsExcludedLocalAddress returns true if the specified IP matches one of the
 // excluded local IP ranges
@@ -1345,6 +1375,7 @@ func (c *DaemonConfig) Populate() {
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
+	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableLegacyServices = viper.GetBool(EnableLegacyServices)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.DockerEndpoint = viper.GetString(Docker)
@@ -1424,6 +1455,10 @@ func (c *DaemonConfig) Populate() {
 	c.Version = viper.GetString(Version)
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
+
+	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
+		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
+	}
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
