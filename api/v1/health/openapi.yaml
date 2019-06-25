@@ -12,15 +12,6 @@ produces:
 consumes:
 - application/json
 paths:
-  "/hello":
-    get:
-      summary: Say hello to cilium-health
-      description: |
-        Returns a successful status code if this cilium-health instance is
-        reachable.
-      responses:
-        '200':
-          description: Success
   "/healthz":
     get:
       summary: Get health of Cilium node

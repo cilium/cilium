@@ -299,9 +299,6 @@ func (s *Server) newServer(spec *loads.Document) *healthApi.Server {
 	api := restapi.NewCiliumHealthAPI(spec)
 	api.Logger = log.Printf
 
-	// /hello - this is still used to check if admin API is up
-	api.GetHelloHandler = NewGetHelloHandler(s)
-
 	// Admin API
 	api.GetHealthzHandler = NewGetHealthzHandler(s)
 	api.ConnectivityGetStatusHandler = NewGetStatusHandler(s)

@@ -53,17 +53,6 @@ func init() {
         }
       }
     },
-    "/hello": {
-      "get": {
-        "description": "Returns a successful status code if this cilium-health instance is\nreachable.\n",
-        "summary": "Say hello to cilium-health",
-        "responses": {
-          "200": {
-            "description": "Success"
-          }
-        }
-      }
-    },
     "/status": {
       "get": {
         "description": "Returns the connectivity status to all other cilium-health instances\nusing interval-based probing.\n",
@@ -274,17 +263,6 @@ func init() {
               "$ref": "#/definitions/error"
             },
             "x-go-name": "Failed"
-          }
-        }
-      }
-    },
-    "/hello": {
-      "get": {
-        "description": "Returns a successful status code if this cilium-health instance is\nreachable.\n",
-        "summary": "Say hello to cilium-health",
-        "responses": {
-          "200": {
-            "description": "Success"
           }
         }
       }
@@ -768,6 +746,9 @@ func init() {
               "items": {
                 "type": "string"
               }
+            },
+            "status": {
+              "type": "string"
             }
           }
         },
