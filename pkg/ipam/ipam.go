@@ -63,6 +63,14 @@ type Owner interface {
 	// GetNetConf must return the CNI configuration as passed in by the
 	// user
 	GetNetConf() *cnitypes.NetConf
+
+	// K8sEventReceived is called to do metrics accounting for received
+	// Kubernetes events
+	K8sEventReceived(scope string, action string, valid, equal bool)
+
+	// K8sEventProcessed is called to do metrics accounting for each processed
+	// Kubernetes event
+	K8sEventProcessed(scope string, action string, status bool)
 }
 
 // NewIPAM returns a new IP address manager

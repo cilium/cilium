@@ -175,15 +175,23 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				var valid, equal bool
+				defer func() { owner.K8sEventReceived("CiliumNode", "create", valid, equal) }()
 				if node, ok := obj.(*ciliumv2.CiliumNode); ok {
+					valid = true
 					store.updateLocalNodeResource(node.DeepCopy())
+					owner.K8sEventProcessed("CiliumNode", "create", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				var valid, equal bool
+				defer func() { owner.K8sEventReceived("CiliumNode", "update", valid, equal) }()
 				if node, ok := newObj.(*ciliumv2.CiliumNode); ok {
+					valid = true
 					store.updateLocalNodeResource(node.DeepCopy())
+					owner.K8sEventProcessed("CiliumNode", "update", true)
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
 				}
@@ -195,6 +203,8 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 				// matching the local node name has been
 				// removed. No attempt to cast is required.
 				store.deleteLocalNodeResource()
+				owner.K8sEventProcessed("CiliumNode", "delete", true)
+				owner.K8sEventReceived("CiliumNode", "delete", true, false)
 			},
 		},
 		func(obj interface{}) interface{} {
