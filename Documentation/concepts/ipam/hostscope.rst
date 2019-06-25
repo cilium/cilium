@@ -4,24 +4,19 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-.. _address_management:
+####################
+Host Scope (default)
+####################
 
-******************
-Address Management
-******************
+The host-scope IPAM mode delegates the address allocation to each individual
+node in the cluster. Each cluster node is assigned an allocation CIDR out of
+which the node can allocate IPs without further coordination with any other
+nodes.
 
-The address management is designed with simplicity and resilience in mind. This
-is achieved by delegating the address allocation for *endpoints* to each
-individual node in the cluster. Each cluster node is assigned a *node address
-allocation prefix* out of an overarching *cluster address prefix* and will
-allocate IPs for *endpoints* independently.
-
-This simplifies address handling and allows one to make a fundamental
-assumption:
-
-* No state needs to be synchronized between cluster nodes to allocate IP
-  addresses and to determine whether an IP address belongs to an *endpoint* of
-  the cluster and whether that *endpoint* resides on the local cluster node.
+This means that no state needs to be synchronized between cluster nodes to
+allocate IP addresses and to determine whether an IP address belongs to an
+*endpoint* of the cluster and whether that *endpoint* resides on the local
+cluster node.
 
 .. note:: If you are using Kubernetes, the allocation of the node address prefix
           can be simply delegated to Kubernetes by specifying
@@ -57,4 +52,3 @@ The size of the IPv4 cluster prefix can be changed with the
 is currently fixed sized at ``/48``. The node allocation prefixes can be
 specified manually with the option ``--ipv4-range`` respectively
 ``--ipv6-range``.
-

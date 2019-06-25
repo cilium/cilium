@@ -1,0 +1,368 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    http://docs.cilium.io
+
+.. _ipam_eni:
+
+#######
+AWS ENI
+#######
+
+The AWS ENI allocator is specific to Cilium deployments running in the AWS
+cloud and performs IP allocation based on IPs of `AWS Elastic Network Interfaces (ENI)
+<https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html>`__ by
+communicating with the AWS EC2 API.
+
+The architecture ensures that only a single operator communicates with the EC2
+service API to avoid rate-limiting issues in large clusters. A pre-allocation
+watermark allows to maintain a number of IP addresses to be available for use
+on nodes at all time without requiring to contact the EC2 API when a new pod is
+scheduled in the cluster.
+
+************
+Architecture
+************
+
+.. image:: eni_arch.png
+    :align: center
+
+The AWS ENI allocator builds on top of the CRD-backed allocator. Each node
+creates a ``ciliumnodes.cilium.io`` custom resource matching the node name when
+Cilium starts up for the first time on that node. It contacts the EC2 metadata
+API to retrieve instance ID, instance type, and VPC information and populates
+the custom resource with this information. ENI allocation parameters are
+provided as agent configuration option and are passed into the custom resource
+as well.
+
+The Cilium operator listens for new ``ciliumnodes.cilium.io`` custom resources
+and starts managing the IPAM aspect automatically. It scans the EC2 instances
+for existing ENIs with associated IPs and makes them available via the
+``spec.ipam.available`` field. It will then constantly monitor the used IP
+addresses in the ``status.ipam.used`` field and automatically create ENIs and
+allocate more IPs as needed to meet the IP pre-allocation watermark. This ensures
+that there are always IPs available
+
+The selection of subnets to use for allocation as well as attachment of
+security groups to new ENIs can be controlled separately for each node. This
+makes it possible to hand out pod IPs with differing security groups on
+individual nodes.
+
+The corresponding datapath is described in section :ref:`aws_eni_datapath`.
+
+*************
+Configuration
+*************
+
+* The Cilium agent and operator must be run with the option ``--ipam=eni`` or
+  the option ``ipam: eni``  must be set in the ConfigMap. This will enable ENI
+  allocation in both the node agent and operator.
+
+* In most scenarios, it makes sense to automatically create the
+  ``ciliumnodes.cilium.io`` custom resource when the agent starts up on a node
+  for the first time. To enable this, specify the option
+  ``--auto-create-ciliumnode-resource`` or  set
+  ``auto-create-ciliumnode-resource: "true"`` in the ConfigMap.
+
+* It is generally a good idea to enable metrics in the Operator as well with
+  the option ``--enable-metrics``. See the section :ref:`install_metrics` for
+  additional information how to install and run Prometheus including the
+  Grafana dashboard.
+
+ENI Allocation Parameters
+=========================
+
+The following parameters are available to control the ENI creation and IP
+allocation:
+
+
+``InstanceID``
+  The AWS EC2 instance identifier matching the node.
+
+  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+
+``InstanceType``
+  The AWS EC2 instance type
+
+  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+
+``spec.eni.vpc-id``
+  The VPC identifier used to create ENIs and select AWS subnets for IP
+  allocation.
+
+  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+
+``spec.eni.availability-zone``
+  The availability zone used to create ENIs and select AWS subnets for IP
+  allocation.
+
+  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+
+``spec.eni.min-allocate``
+  The minimum number of IPs that must be allocated when the node is first
+  bootstrapped. It defines the minimum base socket of addresses that must be
+  available. After reaching this watermark, the PreAllocate and
+  MaxAboveWatermark logic takes over to continue allocating IPs.
+
+  If unspecified, no minimum number of IPs is required.
+
+``spec.eni.preallocate``
+  The number of IP addresses that must be available for allocation at all
+  times.  It defines the buffer of addresses available immediately without
+  requiring for the operator to get involved.
+
+  If unspecified, this value defaults to 8.
+
+``spec.eni.max-above-watermark``
+  The maximum number of addresses to allocate beyond the addresses needed to
+  reach the PreAllocate watermark.  Going above the watermark can help reduce
+  the number of API calls to allocate IPs, e.g. when a new ENI is allocated, as
+  many secondary IPs as possible are allocated. Limiting the amount can help
+  reduce waste of IPs.
+
+  If let unspecified, the value defaults to 0.
+
+``spec.eni.first-interface-index``
+  The index of the first ENI to use for IP allocation, e.g. if the node has
+  ``eth0``, ``eth1``, ``eth2`` and FirstInterfaceIndex is set to 1, then only
+  ``eth1`` and ``eth2`` will be used for IP allocation, ``eth0`` will be
+  ignored for PodIP allocation.
+
+  If unspecified, this value defaults to 1 which means that ``eth0`` will not
+  be used for pod IPs.
+
+``spec.eni.security-groups``
+  The list of security groups to attach to any ENI that is created and attached
+  to the instance.
+
+  If unspecified, the security groups of ``eth0`` will be used.
+
+``spec.eni.subnet-tags``
+  The tags used to select the AWS subnets for IP allocation. This is an
+  additional requirement on top of requiring to match the availability zone and
+  VPC of the instance.
+
+  If unspecified, no tags are required.
+
+``spec.eni.delete-on-termination``
+  Remove the ENI when the instance is terminated
+
+  If unspecified, this option is enabled.
+
+*******************
+Operational Details
+*******************
+
+Cache of ENIs, Subnets, and VPCs
+================================
+
+The operator maintains a list of all EC2 ENIs, VPCs and subnets associated with
+the AWS account in a cache. For this purpose, the operator performs the
+following two EC2 API operations:
+
+ * ``DescribeNetworkInterfaces``
+ * ``DescribeSubnets``
+ * ``DescribeVpcs``
+
+The cache is updated once per minute or after an IP allocation or ENI creation
+has been performed. When triggered based on an allocation or creation, the
+operation is performed at most once per second.
+
+Publication of available ENI IPs
+================================
+
+Following the update of the cache, all CiliumNode custom resources representing
+nodes are updated to publish eventual new IPs that have become available.
+
+In this process, all ENIs with an interface index greater than
+``spec.eni.first-interface-index`` are scanned for all available IPs.  All IPs
+found are added to ``spec.ipam.available``. Each ENI meeting this criteria is
+also added to ``status.eni.enis``.
+
+If this updated caused the custom resource to change, the custom resource is
+updated using the Kubernetes API methods ``Update()`` and/or ``UpdateStatus()``
+if available.
+
+Determination of ENI IP deficits
+================================
+
+The operator constantly monitors all nodes and detects deficits in available
+ENI IP addresses. The check to recognize a deficit is performed on two
+occasions:
+
+ * When a ``CiliumNode`` custom resource is updated
+ * All nodes are scanned in a regular interval (once per minute)
+
+When determining whether a node has a deficit in IP addresses, the following
+calculation is performed:
+
+.. code-block:: go
+
+     spec.eni.preallocate - (len(spec.ipam.available) - len(status.ipam.used))
+
+Upon detection of a deficit, the node is added to the list of nodes which
+require IP address allocation. When a deficit is detected using the interval
+based scan, the allocation order of nodes is determined based on the severity
+of the deficit, i.e. the node with the biggest deficit will be at the front of
+the allocation queue.
+
+The allocation queue is handled on demand but at most once per second.
+
+IP Allocation
+=============
+
+When performing IP allocation for a node with an address deficit, the operator
+first looks at the ENIs which are already attached to the instance represented
+by the CiliumNode resource. All ENIs with an interface index greater than
+``spec.eni.first-interface-index`` are considered for use.
+
+.. note::
+
+   In order to not use ``eth0`` for IP allocation, set
+   ``spec.eni.first-interface-index`` to ``1`` to skip the first interface in
+   line.
+
+The operator will then pick the first already allocated ENI which meets the
+following criteria:
+
+ * The ENI has addresses associated which are not yet used or the number of
+   addresses associated with the ENI is lesser than the instance type specific
+   limit.
+
+ * The subnet associated with the ENI has IPs available for allocation
+
+The following formula is used to determine how many IPs are allocated on the
+ENI:
+
+.. code-block:: go
+
+      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.eni.max-above-watermark))
+
+This means that the number of IPs allocated in a single allocation cycle can be
+less than what is required to fulfill ``spec.eni.preallocate``.
+
+In order to allocate the IPs, the method ``AssignPrivateIpAddresses`` of the
+EC2 service API is called. When no more ENIs are available meeting the above
+criteria, a new ENI is created.
+
+ENI Creation
+============
+
+As long as an instance type is capable allocating additional ENIs, ENIs are
+allocated automatically based on demand.
+
+When allocating an ENI, the first operation performed is to identify the best
+subnet. This is done by searching through all subnets and finding a subnet that
+matches the following criteria:
+
+ * The VPC ID of the subnet matches ``spec.eni.vpc-id``
+ * The Availability Zone of the subnet matches
+   ``spec.eni.availability-zone``
+ * The subnet contains all tags as specified by
+   ``spec.eni.subnet-tags``
+
+If multiple subnets match, the subnet with the most available addresses is selected.
+
+After selecting the ENI, the interface index is determine. For this purpose,
+all existing ENIs are scanned and the first unused index greater than
+``spec.eni.first-interface-index`` is selected.
+
+After determining the subnet and interface index, the ENI is created and
+attached to the EC2 instance using the methods ``CreateNetworkInterface`` and
+``AttachNetworkInterface`` of the EC2 API.
+
+The security groups attached to the ENI will be equivalent to
+``spec.eni.security-groups``. The description will be in the following format:
+
+.. code-block:: go
+
+     "Cilium-CNI (<EC2 instance ID>)"
+
+ENI Deletion Policy
+===================
+
+ENIs can be marked for deletion when the EC2 instance to which the ENI is
+attached to is terminated. In order to enable this, the option
+``spec.eni.delete-on-termination`` can be enabled. If enabled, the ENI
+is modifying after creation using ``ModifyNetworkInterface`` to specify this
+deletion policy.
+
+Node Termination
+================
+
+When a node or instance terminates, the Kubernetes apiserver will send a node
+deletion event. This event will be picked up by the operator and the operator
+will delete the corresponding ``ciliumnodes.cilium.io`` custom resource.
+
+*******************
+Required Privileges
+*******************
+
+The following EC2 privileges are required by the Cilium operator in order to
+perform ENI creation and IP allocation:
+
+ * ``DescribeNetworkInterfaces``
+ * ``DescribeSubnets``
+ * ``DescribeVpcs``
+ * ``CreateNetworkInterface``
+ * ``AttachNetworkInterface``
+ * ``ModifyNetworkInterface``
+ * ``AssignPrivateIpAddresses``
+
+*******
+Metrics
+*******
+
+The following metrics are exposed:
+
+``cilium_operator_eni_ips``
+  Number of IPs allocated
+
+  *Labels:*
+
+  * ``type:`` { "used" | "available" | "needed" }
+
+``cilium_operator_eni_allocation_ops``
+  Number of IP allocation operations
+
+  *Labels:*
+
+  * ``subnetId``: Thew AWS subnet ID used for the allocation
+
+``cilium_operator_eni_interface_creation_ops``
+  Number of ENIs allocated
+
+  *Labels:*
+
+  * ``subnetId``: The AWS subnet ID used for the creation
+  * ``status``: The status of the creation
+
+``cilium_operator_eni_available``
+  Number of ENIs with addresses available
+
+``cilium_operator_eni_nodes_at_capacity``
+  Number of nodes unable to allocate more addresses
+
+``cilium_operator_eni_aws_api_duration_seconds``
+  Duration of interactions with AWS API"
+
+  *Labels:*
+
+  ``operation``:
+    EC2 API operation
+
+  ``responseCode``:
+    Status code returned by the operation
+
+
+``cilium_operator_ec2_rate_limit``
+  Number of times the EC2 client rate limiter kicked in
+
+  *Labels:*
+
+  ``operation``:
+    EC2 API operation
+
+``cilium_operator_eni_resync_total``
+  Number of synchronization operations of the AWS EC2 metadata cache
