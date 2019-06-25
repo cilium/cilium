@@ -31,3 +31,7 @@ type CiliumNetworkPolicyListerExpansion interface{}
 // CiliumNetworkPolicyNamespaceListerExpansion allows custom methods to be added to
 // CiliumNetworkPolicyNamespaceLister.
 type CiliumNetworkPolicyNamespaceListerExpansion interface{}
+
+// CiliumNodeListerExpansion allows custom methods to be added to
+// CiliumNodeLister.
+type CiliumNodeListerExpansion interface{}
