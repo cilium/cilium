@@ -42,9 +42,6 @@ func NewCiliumHealthAPI(spec *loads.Document) *CiliumHealthAPI {
 		GetHealthzHandler: GetHealthzHandlerFunc(func(params GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation GetHealthz has not yet been implemented")
 		}),
-		GetHelloHandler: GetHelloHandlerFunc(func(params GetHelloParams) middleware.Responder {
-			return middleware.NotImplemented("operation GetHello has not yet been implemented")
-		}),
 		ConnectivityGetStatusHandler: connectivity.GetStatusHandlerFunc(func(params connectivity.GetStatusParams) middleware.Responder {
 			return middleware.NotImplemented("operation ConnectivityGetStatus has not yet been implemented")
 		}),
@@ -84,8 +81,6 @@ type CiliumHealthAPI struct {
 
 	// GetHealthzHandler sets the operation handler for the get healthz operation
 	GetHealthzHandler GetHealthzHandler
-	// GetHelloHandler sets the operation handler for the get hello operation
-	GetHelloHandler GetHelloHandler
 	// ConnectivityGetStatusHandler sets the operation handler for the get status operation
 	ConnectivityGetStatusHandler connectivity.GetStatusHandler
 	// ConnectivityPutStatusProbeHandler sets the operation handler for the put status probe operation
@@ -155,10 +150,6 @@ func (o *CiliumHealthAPI) Validate() error {
 
 	if o.GetHealthzHandler == nil {
 		unregistered = append(unregistered, "GetHealthzHandler")
-	}
-
-	if o.GetHelloHandler == nil {
-		unregistered = append(unregistered, "GetHelloHandler")
 	}
 
 	if o.ConnectivityGetStatusHandler == nil {
@@ -271,11 +262,6 @@ func (o *CiliumHealthAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/healthz"] = NewGetHealthz(o.context, o.GetHealthzHandler)
-
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/hello"] = NewGetHello(o.context, o.GetHelloHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)

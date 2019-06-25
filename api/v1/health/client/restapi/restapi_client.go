@@ -57,38 +57,6 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 
 }
 
-/*
-GetHello says hello to cilium health
-
-Returns a successful status code if this cilium-health instance is
-reachable.
-
-*/
-func (a *Client) GetHello(params *GetHelloParams) (*GetHelloOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetHelloParams()
-	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
-		ID:                 "GetHello",
-		Method:             "GET",
-		PathPattern:        "/hello",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http"},
-		Params:             params,
-		Reader:             &GetHelloReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*GetHelloOK), nil
-
-}
-
 // SetTransport changes the transport on the client
 func (a *Client) SetTransport(transport runtime.ClientTransport) {
 	a.transport = transport
