@@ -505,6 +505,9 @@ const (
 	// IPAMCRD is the value to select the CRD-backed IPAM plugin for
 	// option.IPAM
 	IPAMCRD = "crd"
+
+	// IPAMENI is the value to select the AWS ENI IPAM plugin for option.IPAM
+	IPAMENI = "eni"
 )
 
 // FQDNS variables
