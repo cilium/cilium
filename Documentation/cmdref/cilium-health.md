@@ -15,12 +15,9 @@ cilium-health [flags]
 ### Options
 
 ```
-  -c, --cilium string        URI to Cilium server API
-  -d, --daemon               Run as a daemon
   -D, --debug                Enable debug messages
   -h, --help                 help for cilium-health
   -H, --host string          URI to cilium-health server API
-  -i, --interval uint        Interval (in seconds) for periodic connectivity probes (default 60)
       --log-driver strings   Logging endpoints to use for example syslog
       --log-opt map          Log driver options for cilium-health (default map[])
 ```
