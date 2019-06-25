@@ -452,6 +452,8 @@ func regenerateEndpointNonBlocking(owner regeneration.Owner, ep *endpoint.Endpoi
 // in said set have had regenerations queued up.
 func RegenerateEndpointSetSignalWhenEnqueued(owner regeneration.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata, endpointIDs map[uint16]struct{}, wg *sync.WaitGroup) {
 
+	mutex.RLock()
+	defer mutex.RUnlock()
 	for endpointID := range endpointIDs {
 		ep := endpoints[endpointID]
 		if ep == nil {
