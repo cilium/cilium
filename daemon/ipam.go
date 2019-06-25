@@ -271,6 +271,10 @@ func (d *Daemon) allocateIPs() error {
 		log.Infof("  Cluster IPv4 prefix: %s", node.GetIPv4ClusterRange())
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
+		if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
+			log.Infof("  IPv4 native routing prefix: %s", c.String())
+		}
+
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4 := net.ParseIP(option.Config.LoopbackIPv4)
 		if loopbackIPv4 == nil {

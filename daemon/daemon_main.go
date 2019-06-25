@@ -470,6 +470,9 @@ func init() {
 	flags.Bool(option.DisableK8sServices, false, "Disable east-west K8s load balancing by cilium")
 	option.BindEnv(option.DisableK8sServices)
 
+	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
+	option.BindEnv(option.EgressMasqueradeInterfaces)
+
 	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
 	option.BindEnv(option.EnableHostReachableServices)
 
