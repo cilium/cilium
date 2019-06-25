@@ -10,6 +10,9 @@
 Monitoring & Metrics
 ********************
 
+cilium-agent
+============
+
 ``cilium-agent`` can be configured to serve `Prometheus <https://prometheus.io>`_
 metrics. Prometheus is a pluggable metrics collection and storage system and
 can act as a data source for `Grafana <https://grafana.com/>`_, a metrics
@@ -22,14 +25,14 @@ passing an empty IP (e.g. ``:9090``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
 Exported Metrics
-================
+----------------
 
 All metrics are exported under the ``cilium`` Prometheus namespace. When
 running and collecting in Kubernetes they will be tagged with a pod name and
 namespace.
 
 Endpoint
---------
+~~~~~~~~
 
 * ``endpoint_count``: Number of endpoints managed by this agent
 * ``endpoint_regenerating``: Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead
@@ -38,7 +41,7 @@ Endpoint
 * ``endpoint_state``: Count of all endpoints, tagged by different endpoint states
 
 Build Queue
------------
+~~~~~~~~~~~
 
 * ``buildqueue_entries``: Number of queued, waiting, and running builds.
     * ``state=running``: Number of builds currently in progress
@@ -46,12 +49,12 @@ Build Queue
     * ``state=waiting``: Number of builds in the queue, waiting to be selected.
 
 Services
---------
+~~~~~~~~
 
 * ``services_events_total``: Number of services events labeled by action type
 
 Datapath
---------
+~~~~~~~~
 
 * ``datapath_errors_total``: Total number of errors occurred in datapath
   management, labeled by area, name and address family.
@@ -66,7 +69,7 @@ Datapath
   collector process labeled by datapath and completion status.
 
 BPF
----
+~~~
 
 * ``bpf_syscall_duration_seconds``: Duration of BPF system call performed
   * Labels: ``operation={lookup, delete, update, objPin, getNextKey, ...}``, ``outcome={success|failure}``
@@ -74,7 +77,7 @@ BPF
   * Labels: ``mapName=<string>``, ``operation={delete|update}``, ``outcome={success|failure}``
 
 Drops/Forwards (L3/L4)
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 * ``drop_count_total``: Total dropped packets, tagged by drop reason and ingress/egress direction
 * ``drop_bytes_total``: Total dropped bytes, tagged by drop reason and ingress/egress direction
@@ -82,7 +85,7 @@ Drops/Forwards (L3/L4)
 * ``forward_bytes_total``: Total forwarded bytes, tagged by ingress/egress direction
 
 Policy
-------
+~~~~~~
 
 * ``policy_count``: Number of policies currently loaded
 * ``policy_regeneration_total``: Total number of policies regenerated successfully
@@ -92,7 +95,7 @@ Policy
 * ``policy_endpoint_enforcement_status``: Number of endpoints labeled by policy enforcement status.
 
 Policy L7 (HTTP/Kafka)
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 * ``proxy_redirects``: Number of redirects installed for endpoints, labeled by protocol
 * ``proxy_upstream_reply_seconds``: Seconds waited for upstream server to reply to a request
@@ -103,18 +106,18 @@ Policy L7 (HTTP/Kafka)
 * ``policy_l7_total``: Number of total L7 requests/responses, tagged by received/parse_errors/forwarded/denied
 
 Identity
---------
+~~~~~~~~
 
 * ``identity_count``: Number of identities currently allocated
 
 
 Events external to Cilium
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 * ``event_ts``: Last timestamp when we received an event. Further labeled by
   source: ``api``, ``containerd``, ``k8s``.
 
 Controllers
------------
+~~~~~~~~~~~
 
 * ``controllers_runs_total``: Number of times that a controller process was run
   labeled by completion status
@@ -122,13 +125,13 @@ Controllers
   process labeled by completion status
 
 SubProcess
-----------
+~~~~~~~~~~
 
 * ``subprocess_start_total``: Number of times that Cilium has started a
   subprocess, labeled by subsystem
 
 Kubernetes
------------
+~~~~~~~~~~
 
 * ``kubernetes_events_received_total``: Number of Kubernetes events received labeled by
   scope, action, validity and equality
@@ -141,13 +144,13 @@ Kubernetes
   outcome.
 
 IPAM
-------
+~~~~
 
 * ``ipam_events_total``: Number of IPAM events received labeled by action and
   datapath family type
 
 KVstore
--------
+~~~~~~~
 
 * ``kvstore_operations_duration_seconds``: Duration of kvstore operation
 
@@ -158,7 +161,7 @@ KVstore
   * Labels: ``action``, ``scope``
 
 Agent
------
+~~~~~
 
 * ``agent_bootstrap_seconds``: Duration of various bootstrap phases
   * Labels: ``scope``, ``outcome``
@@ -166,14 +169,15 @@ Agent
   cilium-agent, labeled by API method, API path and returned HTTP code.
 
 FQDN
------
+~~~~
 
 * ``fqdn_gc_deletions_total``: Number of FQDNs that have been cleaned on FQDN
   Garbage collector job
 
 
 Cilium as a Kubernetes pod
-==========================
+--------------------------
+
 The Cilium Prometheus reference configuration configures jobs that automatically
 collect pod metrics marked with the appropriate two labels can be found
 in :git-tree:`examples/kubernetes/addons/prometheus/templates/04-prometheus.yaml`
@@ -243,7 +247,8 @@ by the Kubernetes API server:
 - populate metrics tags for the Kubernetes namespace and pod name derived from the pod labels
 
 Cilium as a host-agent on a node
-================================
+--------------------------------
+
 Prometheus can use a number of more common service discovery schemes, such as
 consul and DNS, or a cloud provider API, such as AWS, GCE or Azure.
 `Prometheus documentation <https://prometheus.io/docs/prometheus/latest/configuration/configuration/>`_
@@ -261,3 +266,32 @@ a hardcoded IP address and port:
             labels:
               node-id: i-0598c7d7d356eba47
               node-az: a
+
+cilium-operator
+===============
+
+``cilium-operator`` can be configured to serve metrics by running with the
+option ``--enable-metrics``.  By default, the operator will expose metrics on
+port 6942, the port can be changed with the option ``--metrics-address``.
+
+Exported Metrics
+----------------
+
+All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
+
+
+ENI
+~~~
+
+================================ ========================== ========================================================
+Name                             Labels                     Description
+================================ ========================== ========================================================
+``eni_ips``                      type                       Number of IPs allocated
+``eni_allocation_ops``           subnetID                   Number of IP allocation operations
+``eni_interface_creation_ops``   subnetID, status           Number of ENIs allocated
+``eni_available``                                           Number of ENIs with addresses available
+``eni_nodes_at_capacity``                                   Number of nodes unable to allocate more addresses
+``eni_aws_api_duration_seconds`` operation, responseCode    Duration of interactions with AWS API
+``eni_resync_total``                                        Number of synchronization operations to synchronize AWS EC2 metadata
+``eni_ec2_rate_limit``           operation                  Number of times the EC2 client rate limiter kicked in
+================================ ========================== ========================================================
