@@ -66,20 +66,6 @@ func (launcher *Launcher) Run() error {
 	return nil
 }
 
-// Stop kills the current instance so it can be started again
-func (launcher *Launcher) Stop() {
-	launcher.Mutex.Lock()
-	defer launcher.Mutex.Unlock()
-
-	if launcher.process == nil {
-		return
-	}
-	if err := launcher.process.Kill(); err != nil {
-		log.WithError(err).WithField("pid", launcher.process.Pid).Error("process.Kill()")
-	}
-	launcher.process = nil
-}
-
 // SetTarget sets the Launcher target.
 func (launcher *Launcher) SetTarget(target string) {
 	launcher.Mutex.Lock()
