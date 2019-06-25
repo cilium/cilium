@@ -21,16 +21,13 @@ cilium-health ping [flags]
 ### Options inherited from parent commands
 
 ```
-  -c, --cilium string        URI to Cilium server API
-  -d, --daemon               Run as a daemon
   -D, --debug                Enable debug messages
   -H, --host string          URI to cilium-health server API
-  -i, --interval uint        Interval (in seconds) for periodic connectivity probes (default 60)
       --log-driver strings   Logging endpoints to use for example syslog
       --log-opt map          Log driver options for cilium-health (default map[])
 ```
 
 ### SEE ALSO
 
-* [cilium-health](cilium-health.html)	 - Cilium Health Agent
+* [cilium-health](cilium-health.html)	 - Cilium Health Client
 
