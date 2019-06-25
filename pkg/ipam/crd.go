@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/metadata"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -32,6 +34,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -81,6 +84,48 @@ func newNodeStore(nodeName string) *nodeStore {
 		allocationPoolSize: map[Family]int{},
 	}
 	ciliumClient := k8s.CiliumClient()
+
+	if option.Config.AutoCreateCiliumNodeResource {
+		nodeResource := &ciliumv2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: node.GetName(),
+			},
+		}
+
+		// Tie the CiliumNode custom resource lifecycle to the
+		// lifecycle of the Kubernetes node
+		if k8sNode, err := k8s.GetNode(k8s.Client(), node.GetName()); err != nil {
+			log.Warning("Kubernetes node resource representing own node is not available, cannot set OwnerReference")
+		} else {
+			nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+				APIVersion: "v1",
+				Kind:       "Node",
+				Name:       node.GetName(),
+				UID:        k8sNode.UID,
+			}}
+		}
+
+		if option.Config.IPAM == option.IPAMENI {
+			instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
+			if err != nil {
+				log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
+			}
+
+			nodeResource.Spec.ENI.VpcID = vpcID
+			nodeResource.Spec.ENI.FirstInterfaceIndex = 1
+			nodeResource.Spec.ENI.DeleteOnTermination = true
+			nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
+
+			nodeResource.Spec.ENI.InstanceID = instanceID
+			nodeResource.Spec.ENI.InstanceType = instanceType
+			nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
+		}
+
+		_, err := ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource)
+		if err != nil {
+			log.WithError(err).Error("Unable to create CiliumNode resource")
+		}
+	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "crd-allocator-node-refresher",

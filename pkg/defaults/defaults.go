@@ -263,4 +263,8 @@ const (
 	// ENIPreAllocation is the default value for
 	// CiliumNode.Spec.ENI.PreAllocate if no value is set
 	ENIPreAllocation = 8
+
+	// AutoCreateCiliumNodeResource enables automatic creation of a
+	// CiliumNode resource for the local node
+	AutoCreateCiliumNodeResource = false
 )
