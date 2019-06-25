@@ -47,7 +47,7 @@ The documentation is divided into the following sections:
 
    intro
    gettingstarted/index
-   concepts
+   concepts/index
    architecture
    gettinghelp
 
