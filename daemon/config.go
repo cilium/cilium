@@ -132,6 +132,7 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			MasterDeviceIndex: int64(option.Config.Ipvlan.MasterDeviceIndex),
 			OperationMode:     option.Config.Ipvlan.OperationMode,
 		},
+		IPAMMode: option.Config.IPAM,
 	}
 
 	cfg := &models.DaemonConfiguration{

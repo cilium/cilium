@@ -23,17 +23,40 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+// AllocationResult is the result of an allocation
+type AllocationResult struct {
+	// IP is the allocated IP
+	IP net.IP
+
+	// CIDRs is a list of all CIDRs to which the IP has direct access to.
+	// This is primarily useful if the IP has been allocated out of a VPC
+	// subnet range and the VPC provides routing to a set of CIDRs in which
+	// the IP is routable.
+	CIDRs []string
+
+	// Master is the MAC address of the master interface. This is useful
+	// when the IP is a secondary address of an interface which is
+	// represented on the node as a Linux device and all routing of the IP
+	// must occur through that master interface.
+	Master string
+
+	// GatewayIP is the IP of the gateway which must be used for this IP.
+	// If the allocated IP is derived from a VPC, then the gateway
+	// represented the gateway of the VPC or VPC subnet.
+	GatewayIP string
+}
+
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
-	Allocate(ip net.IP, owner string) error
+	Allocate(ip net.IP, owner string) (*AllocationResult, error)
 
 	// Release releases a previously allocated IP or fails
 	Release(ip net.IP) error
 
 	// AllocateNext allocates the next available IP or fails if no more IPs
 	// are available
-	AllocateNext(owner string) (net.IP, error)
+	AllocateNext(owner string) (*AllocationResult, error)
 
 	// Dump returns a map of all allocated IPs with the IP represented as
 	// key in the map. Dump must also provide a status one-liner to
