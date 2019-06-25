@@ -122,15 +122,20 @@ func (k *Key) String() string {
 	return fmt.Sprintf("reason:%d dir:%d", k.Reason, k.Dir)
 }
 
-// Direction gets the direction in human readable string format
-func (k *Key) Direction() string {
-	switch k.Dir {
+// MetricDirection gets the direction in human readable string format
+func MetricDirection(dir uint8) string {
+	switch dir {
 	case dirIngress:
-		return direction[k.Dir]
+		return direction[dir]
 	case dirEgress:
-		return direction[k.Dir]
+		return direction[dir]
 	}
 	return direction[dirUnknown]
+}
+
+// Direction gets the direction in human readable string format
+func (k *Key) Direction() string {
+	return MetricDirection(k.Dir)
 }
 
 // DropForwardReason gets the forwarded/dropped reason in human readable string format
