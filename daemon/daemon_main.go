@@ -64,7 +64,6 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/pkg/workloads"
-	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
@@ -919,17 +918,6 @@ func initEnv(cmd *cobra.Command) {
 
 	if option.Config.PProf {
 		pprof.Enable()
-	}
-
-	if option.Config.ReadCNIConfiguration != "" {
-		netConf, err := cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to read CNI configuration")
-		}
-
-		if netConf.MTU != 0 {
-			option.Config.MTU = netConf.MTU
-		}
 	}
 
 	if option.Config.PreAllocateMaps {
