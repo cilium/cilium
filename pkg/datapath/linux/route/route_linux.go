@@ -21,7 +21,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/mtu"
 
 	"github.com/vishvananda/netlink"
@@ -314,13 +313,51 @@ func Delete(route Route) error {
 	return nil
 }
 
-func lookupRule(fwmark, table, family int) (bool, error) {
+// Rule is the specification of an IP routing rule
+type Rule struct {
+	// Priority is the routing rule priority
+	Priority int
+
+	// Mark is the skb mark that needs to match
+	Mark int
+
+	// Mask is the mask to apply to the skb mark before matching the Mark
+	// field
+	Mask int
+
+	// From is the source address selector
+	From *net.IPNet
+
+	// To is the destination address selector
+	To *net.IPNet
+
+	// Table is the routing table to look up if the rule matches
+	Table int
+}
+
+func lookupRule(spec Rule, family int) (bool, error) {
 	rules, err := netlink.RuleList(family)
 	if err != nil {
 		return false, err
 	}
 	for _, r := range rules {
-		if r.Mark == fwmark && r.Table == table {
+		if spec.Priority != 0 && spec.Priority != r.Priority {
+			continue
+		}
+
+		if spec.From != nil && (r.Src == nil || r.Src.String() != spec.From.String()) {
+			continue
+		}
+
+		if spec.To != nil && (r.Dst == nil || r.Dst.String() != spec.To.String()) {
+			continue
+		}
+
+		if spec.Mark != 0 && r.Mark != spec.Mark {
+			continue
+		}
+
+		if r.Table == spec.Table {
 			return true, nil
 		}
 	}
@@ -329,55 +366,64 @@ func lookupRule(fwmark, table, family int) (bool, error) {
 
 // ReplaceRule add or replace rule in the routing table using a mark to indicate
 // table. Used with BPF datapath to set mark and direct packets to route table.
-func ReplaceRule(fwmark int, table int) error {
-	exists, err := lookupRule(fwmark, table, netlink.FAMILY_V4)
+func ReplaceRule(spec Rule) error {
+	exists, err := lookupRule(spec, netlink.FAMILY_V4)
 	if err != nil {
 		return err
 	}
 	if exists == true {
 		return nil
 	}
-	return replaceRule(fwmark, table, netlink.FAMILY_V4)
+	return replaceRule(spec, netlink.FAMILY_V4)
 }
 
 // ReplaceRuleIPv6 add or replace IPv6 rule in the routing table using a mark to
 // indicate table.
-func ReplaceRuleIPv6(fwmark, table int) error {
-	exists, err := lookupRule(fwmark, table, netlink.FAMILY_V6)
+func ReplaceRuleIPv6(spec Rule) error {
+	exists, err := lookupRule(spec, netlink.FAMILY_V6)
 	if err != nil {
 		return err
 	}
 	if exists == true {
 		return nil
 	}
-	return replaceRule(fwmark, table, netlink.FAMILY_V6)
+	return replaceRule(spec, netlink.FAMILY_V6)
 }
 
-func replaceRule(fwmark, table, family int) error {
+func replaceRule(spec Rule, family int) error {
 	rule := netlink.NewRule()
-	rule.Mark = fwmark
-	rule.Mask = linux_defaults.RouteMarkMask
-	rule.Table = table
+	rule.Mark = spec.Mark
+	rule.Mask = spec.Mask
+	rule.Table = spec.Table
 	rule.Family = family
-	rule.Priority = 1
+	rule.Priority = spec.Priority
+	rule.Src = spec.From
+	rule.Dst = spec.To
 	return netlink.RuleAdd(rule)
 }
 
 // DeleteRule delete a mark based rule from the routing table.
-func DeleteRule(fwmark int, table int) error {
+func DeleteRule(spec Rule) error {
 	rule := netlink.NewRule()
-	rule.Mark = fwmark
-	rule.Mask = linux_defaults.RouteMarkMask
-	rule.Table = table
+	rule.Mark = spec.Mark
+	rule.Mask = spec.Mask
+	rule.Table = spec.Table
+	rule.Priority = spec.Priority
+	rule.Src = spec.From
+	rule.Dst = spec.To
 	rule.Family = netlink.FAMILY_V4
 	return netlink.RuleDel(rule)
 }
 
 // DeleteRuleIPv6 delete a mark based IPv6 rule from the routing table.
-func DeleteRuleIPv6(fwmark int, table int) error {
+func DeleteRuleIPv6(spec Rule) error {
 	rule := netlink.NewRule()
-	rule.Mark = fwmark
-	rule.Table = table
+	rule.Mark = spec.Mark
+	rule.Mask = spec.Mask
+	rule.Table = spec.Table
+	rule.Priority = spec.Priority
+	rule.Src = spec.From
+	rule.Dst = spec.To
 	rule.Family = netlink.FAMILY_V6
 	return netlink.RuleDel(rule)
 }
