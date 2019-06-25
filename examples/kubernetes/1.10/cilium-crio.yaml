@@ -559,6 +559,7 @@ spec:
         - mountPath: /var/lib/etcd-secrets
           name: etcd-secrets
           readOnly: true
+      hostNetwork: true
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       serviceAccount: cilium-operator
