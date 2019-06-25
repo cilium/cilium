@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 )
 
 const (
@@ -173,6 +175,30 @@ func Init() error {
 		// want to specify them manually
 	} else if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
 		return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", EnvNodeNameSpec)
+	}
+
+	return nil
+}
+
+// RegisterCRDs registers all CRDs
+func RegisterCRDs() error {
+	if option.Config.SkipCRDCreation {
+		return nil
+	}
+
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("Unable to create rest configuration: %s", err)
+	}
+
+	apiextensionsclientset, err := apiextensionsclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
+	}
+
+	err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+	if err != nil {
+		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}
 
 	return nil
