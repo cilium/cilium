@@ -46,6 +46,9 @@ type DaemonConfigurationStatus struct {
 	// kvstore configuration
 	KvstoreConfiguration *KVstoreConfiguration `json:"kvstoreConfiguration,omitempty"`
 
+	// Status of masquerading feature
+	Masquerade bool `json:"masquerade,omitempty"`
+
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 
