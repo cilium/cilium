@@ -39,16 +39,25 @@ func newHostScopeAllocator(n *net.IPNet) Allocator {
 	return a
 }
 
-func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) error {
-	return h.allocator.Allocate(ip)
+func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+	if err := h.allocator.Allocate(ip); err != nil {
+		return nil, err
+	}
+
+	return &AllocationResult{IP: ip}, nil
 }
 
 func (h *hostScopeAllocator) Release(ip net.IP) error {
 	return h.allocator.Release(ip)
 }
 
-func (h *hostScopeAllocator) AllocateNext(owner string) (net.IP, error) {
-	return h.allocator.AllocateNext()
+func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+	ip, err := h.allocator.AllocateNext()
+	if err != nil {
+		return nil, err
+	}
+
+	return &AllocationResult{IP: ip}, nil
 }
 
 func (h *hostScopeAllocator) Dump() (map[string]string, string) {

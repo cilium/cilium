@@ -44,24 +44,36 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIPAMHandler {
 
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAM) Handle(params ipamapi.PostIPAMParams) middleware.Responder {
+	family := strings.ToLower(swag.StringValue(params.Family))
+	owner := swag.StringValue(params.Owner)
+	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNext(family, owner)
+	if err != nil {
+		return api.Error(ipamapi.PostIPAMFailureCode, err)
+	}
+
 	resp := &models.IPAMResponse{
 		HostAddressing: node.GetNodeAddressing(),
 		Address:        &models.AddressPair{},
 	}
 
-	family := strings.ToLower(swag.StringValue(params.Family))
-	owner := swag.StringValue(params.Owner)
-	ipv4, ipv6, err := h.daemon.ipam.AllocateNext(family, owner)
-	if err != nil {
-		return api.Error(ipamapi.PostIPAMFailureCode, err)
+	if ipv4Result != nil {
+		resp.Address.IPV4 = ipv4Result.IP.String()
+		resp.IPV4 = &models.IPAMAddressResponse{
+			Cidrs:     ipv4Result.CIDRs,
+			IP:        ipv4Result.IP.String(),
+			MasterMac: ipv4Result.Master,
+			Gateway:   ipv4Result.GatewayIP,
+		}
 	}
 
-	if ipv4 != nil {
-		resp.Address.IPV4 = ipv4.String()
-	}
-
-	if ipv6 != nil {
-		resp.Address.IPV6 = ipv6.String()
+	if ipv6Result != nil {
+		resp.Address.IPV6 = ipv6Result.IP.String()
+		resp.IPV6 = &models.IPAMAddressResponse{
+			Cidrs:     ipv6Result.CIDRs,
+			IP:        ipv6Result.IP.String(),
+			MasterMac: ipv6Result.Master,
+			Gateway:   ipv6Result.GatewayIP,
+		}
 	}
 
 	return ipamapi.NewPostIPAMCreated().WithPayload(resp)
@@ -167,11 +179,13 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	}
 
 	if routerIP == nil {
-		routerIP, err = d.ipam.AllocateNextFamily(ipam.DeriveFamily(family.PrimaryExternal()), "router")
+		var result *ipam.AllocationResult
+		result, err = d.ipam.AllocateNextFamily(ipam.DeriveFamily(family.PrimaryExternal()), "router")
 		if err != nil {
 			err = fmt.Errorf("Unable to allocate IPv4 router IP: %s", err)
 			return
 		}
+		routerIP = result.IP
 	}
 
 	return
@@ -181,17 +195,17 @@ func (d *Daemon) allocateHealthIPs() error {
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		if option.Config.EnableIPv4 {
-			health4, err := d.ipam.AllocateNextFamily(ipam.IPv4, "health")
+			result, err := d.ipam.AllocateNextFamily(ipam.IPv4, "health")
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
 
-			d.nodeDiscovery.LocalNode.IPv4HealthIP = health4
-			log.Debugf("IPv4 health endpoint address: %s", health4)
+			d.nodeDiscovery.LocalNode.IPv4HealthIP = result.IP
+			log.Debugf("IPv4 health endpoint address: %s", result.IP)
 		}
 
 		if option.Config.EnableIPv6 {
-			health6, err := d.ipam.AllocateNextFamily(ipam.IPv6, "health")
+			result, err := d.ipam.AllocateNextFamily(ipam.IPv6, "health")
 			if err != nil {
 				if d.nodeDiscovery.LocalNode.IPv4HealthIP != nil {
 					d.ipam.ReleaseIP(d.nodeDiscovery.LocalNode.IPv4HealthIP)
@@ -199,8 +213,8 @@ func (d *Daemon) allocateHealthIPs() error {
 				return fmt.Errorf("unable to allocate health IPs: %s,see https://cilium.link/ipam-range-full", err)
 			}
 
-			d.nodeDiscovery.LocalNode.IPv6HealthIP = health6
-			log.Debugf("IPv6 health endpoint address: %s", health6)
+			d.nodeDiscovery.LocalNode.IPv6HealthIP = result.IP
+			log.Debugf("IPv6 health endpoint address: %s", result.IP)
 		}
 	}
 	bootstrapStats.healthCheck.End(true)
