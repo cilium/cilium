@@ -501,6 +501,10 @@ const (
 
 	// IPAM is the IPAM method to use
 	IPAM = "ipam"
+
+	// IPAMCRD is the value to select the CRD-backed IPAM plugin for
+	// option.IPAM
+	IPAMCRD = "crd"
 )
 
 // FQDNS variables

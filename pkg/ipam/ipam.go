@@ -82,6 +82,15 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration) *IPAM {
 		if c.EnableIPv4 {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
+	case option.IPAMCRD:
+		log.Info("Initializing CRD-based IPAM")
+		if c.EnableIPv6 {
+			ipam.IPv6Allocator = newCRDAllocator(IPv6)
+		}
+
+		if c.EnableIPv4 {
+			ipam.IPv4Allocator = newCRDAllocator(IPv4)
+		}
 	default:
 		log.Fatalf("Unknown IPAM backend %s", option.Config.IPAM)
 	}
