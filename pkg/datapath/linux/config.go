@@ -273,7 +273,9 @@ func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.Endpoin
 			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
 		}
 
-		fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
+		if option.Config.IPAM != option.IPAMENI {
+			fmt.Fprint(fw, "#define ENABLE_HOST_REDIRECT 1\n")
+		}
 		if option.Config.IsFlannelMasterDeviceSet() {
 			fmt.Fprint(fw, "#define HOST_REDIRECT_TO_INGRESS 1\n")
 		}

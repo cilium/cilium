@@ -39,6 +39,9 @@ const (
 	// locally and passed up the stack. Is used by IPSec to force encrypted
 	// packets to pass through XFRM layer.
 	RTN_LOCAL = 0x2
+
+	// MainTable is Linux's default routing table
+	MainTable = 254
 )
 
 // getNetlinkRoute returns the route configuration as netlink.Route
