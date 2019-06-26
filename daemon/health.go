@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
@@ -48,7 +49,12 @@ func (d *Daemon) initHealth() {
 		// When Cilium starts up in k8s mode, it is guaranteed to be
 		// running inside a new PID namespace which means that existing
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
-		pidfile.Remove(filepath.Join(option.Config.StateDir, health.PidfilePath))
+		pidfilePath := filepath.Join(option.Config.StateDir, health.PidfilePath)
+		if err := pidfile.Remove(pidfilePath); err != nil {
+			log.WithField(logfields.PIDFile, pidfilePath).
+				WithError(err).
+				Warning("Failed to remove pidfile")
+		}
 	}
 
 	// Wait for the API, then launch the controller

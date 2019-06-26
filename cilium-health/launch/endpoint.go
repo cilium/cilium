@@ -168,9 +168,13 @@ func (c *Client) PingEndpoint() error {
 //   and needs to be cleaned up before it is restarted.
 func KillEndpoint() {
 	path := filepath.Join(option.Config.StateDir, PidfilePath)
-	if err := pidfile.Kill(path); err != nil {
-		log.WithField(logfields.Path, path).WithError(err).
-			Warning("Failed to kill cilium-health instance")
+	scopedLog := log.WithField(logfields.PIDFile, path)
+	scopedLog.Debug("Killing old health endpoint process")
+	pid, err := pidfile.Kill(path)
+	if err != nil {
+		scopedLog.WithError(err).Warning("Failed to kill cilium-health-responder")
+	} else if pid != 0 {
+		scopedLog.WithField(logfields.PID, pid).Debug("Killed endpoint process")
 	}
 }
 

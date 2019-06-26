@@ -23,14 +23,9 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/cleanup"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
-	log        = logging.DefaultLogger.WithField(logfields.LogSubsys, "pidfile")
 	cleanUPSig = make(chan struct{})
 	cleanUPWg  = &sync.WaitGroup{}
 )
@@ -38,12 +33,12 @@ var (
 // Remove deletes the pidfile at the specified path. This does not clean up
 // the corresponding process, so should only be used when it is known that the
 // PID contained in the file at the specified path is no longer running.
-func Remove(path string) {
-	scopedLog := log.WithField(logfields.PIDFile, path)
-	scopedLog.Debug("Removing pidfile")
+func Remove(path string) error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		scopedLog.WithError(err).Warning("Failed to remove pidfile")
+		return err
 	}
+
+	return nil
 }
 
 func write(path string, pid int) error {
@@ -74,56 +69,56 @@ func Clean() {
 
 // kill parses the PID in the provided slice and attempts to kill the process
 // associated with that PID.
-func kill(buf []byte, pidfile string) error {
+func kill(buf []byte, pidfile string) (int, error) {
 	pidStr := strings.TrimSpace(string(buf))
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
-		return fmt.Errorf("failed to parse pid from %q: %s", pidStr, err)
+		return 0, fmt.Errorf("failed to parse pid from %q: %s", pidStr, err)
 	}
 	oldProc, err := os.FindProcess(pid)
 	if err != nil {
-		return fmt.Errorf("could not find process %d: %s", pid, err)
+		return 0, fmt.Errorf("could not find process %d: %s", pid, err)
 	}
 	// According to the golang/pkg/os documentation:
 	// "On Unix systems, FindProcess always succeeds and returns a Process
 	// for the given pid, regardless of whether the process exists."
 	//
-	// It could return "os: process already finished", so just log it at
-	// a low level and ignore the error.
-	log.WithFields(logrus.Fields{
-		logfields.PID:     pid,
-		logfields.PIDFile: pidfile,
-	}).Info("Killing old process")
+	// It could return "os: process already finished", therefore we ignore
+	// the error, but return pid 0 to indicate that the process was not
+	// killed.
 	if err := oldProc.Kill(); err != nil {
-		log.WithError(err).Debug("Ignoring process kill failure")
+		// return pid 0 after releasing process
+		pid = 0
 	}
 	if err := oldProc.Release(); err != nil {
-		return fmt.Errorf("couldn't release process %d: %s", pid, err)
+		return 0, fmt.Errorf("couldn't release process %d: %s", pid, err)
 	}
-	return nil
+	return pid, nil
 }
 
 // Kill opens the pidfile at the specified path, attempts to read the PID and
 // kill the process represented by that PID. If the file doesn't exist, the
 // corresponding process doesn't exist, or the process is successfully killed,
-// returns nil. Otherwise, returns an error indicating the failure to kill the
-// process.
+// reports no error and returns the pid of the killed process (if no process
+// was killed, returns pid 0). Otherwise, returns an error indicating the
+// failure to kill the process.
 //
 // On success, deletes the pidfile from the filesystem. Otherwise, leaves it
 // in place.
-func Kill(pidfilePath string) error {
+func Kill(pidfilePath string) (int, error) {
 	if _, err := os.Stat(pidfilePath); os.IsNotExist(err) {
-		return nil
+		return 0, nil
 	}
 
 	pidfile, err := ioutil.ReadFile(pidfilePath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	if err := kill(pidfile, pidfilePath); err != nil {
-		return err
+	pid, err := kill(pidfile, pidfilePath)
+	if err != nil {
+		return pid, err
 	}
 
-	return os.RemoveAll(pidfilePath)
+	return pid, Remove(pidfilePath)
 }
