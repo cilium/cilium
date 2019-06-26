@@ -42,6 +42,7 @@ struct bpf_elf_map __section_maps METRICS_MAP = {
 	.flags		= CONDITIONAL_PREALLOC,
 };
 
+#ifndef SKIP_POLICY_MAP
 /* Global map to jump into policy enforcement of receiving endpoint */
 struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
@@ -51,6 +52,7 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
+#endif /* SKIP_POLICY_MAP */
 
 /* Map to link endpoint id to per endpoint cilium_policy map */
 #ifdef SOCKMAP
