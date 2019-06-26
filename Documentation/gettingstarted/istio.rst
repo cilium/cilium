@@ -31,12 +31,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.1.7
-<https://github.com/istio/istio/releases/tag/1.1.7>`_:
+Download `Istio version 1.2.0
+<https://github.com/istio/istio/releases/tag/1.2.0>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.1.7
+   $ export ISTIO_VERSION=1.2.0
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
@@ -81,8 +81,8 @@ Cilium agent for policy configuration:
 ::
 
     $ awk -f cilium-kube-inject.awk \
-          < ${ISTIO_HOME}/install/kubernetes/helm/istio/templates/sidecar-injector-configmap.yaml \
-          > istio-cilium-helm/templates/sidecar-injector-configmap.yaml
+          < ${ISTIO_HOME}/install/kubernetes/helm/istio/files/injection-template.yaml \
+          > istio-cilium-helm/files/injection-template.yaml
 
 Create an Istio deployment spec, which configures the Cilium-specific variant
 of Pilot, and disables unused services:
@@ -106,17 +106,21 @@ Deploy Istio onto Kubernetes:
     $ kubectl create namespace istio-system
     $ helm template ${ISTIO_HOME}/install/kubernetes/helm/istio-init --name istio-init --namespace istio-system | kubectl apply -f -
 
-Verify that 53 Istio CRDs have been created:
+Verify that 23 Istio CRDs have been created:
 
 ::
 
     $ watch "kubectl get crds | grep 'istio.io\|certmanager.k8s.io' | wc -l"
 
-When the above returns '53', you can stop it with ``CTRL-c`` and deploy Istio:
+.. note::
+
+   This will get stuck at 0 if Cilium is not running in your cluster!
+
+When the above returns '23', you can stop it with ``CTRL-c`` and deploy Istio:
 
 ::
 
-    $ kubectl create -f istio-cilium.yaml
+    $ kubectl apply -f istio-cilium.yaml
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):

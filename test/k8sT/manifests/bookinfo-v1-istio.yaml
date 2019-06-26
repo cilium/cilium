@@ -35,11 +35,12 @@ metadata:
   name: details-v1
 spec:
   replicas: 1
+  selector: null
   strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"3d3c003bd3193c765b0c8c8cb6fa19bdbb17fe97f020b521070c3512b1bf2973","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"6eaa5f3d0263084f01d97d7d17e5e117af881e8e850f9ce60fd9a9d7b1735c3f","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: details
@@ -73,6 +74,8 @@ spec:
         - istio-pilot.istio-system:15011
         - --zipkinAddress
         - zipkin.istio-system:9411
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 10s
         - --proxyAdminPort
@@ -108,10 +111,12 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: "9080"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"details","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.7
+        image: docker.io/cilium/istio_proxy:1.2.0
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -172,7 +177,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.7
+        image: docker.io/istio/proxy_init:1.2.0
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -225,11 +230,12 @@ metadata:
   name: reviews-v1
 spec:
   replicas: 1
+  selector: null
   strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"3d3c003bd3193c765b0c8c8cb6fa19bdbb17fe97f020b521070c3512b1bf2973","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"6eaa5f3d0263084f01d97d7d17e5e117af881e8e850f9ce60fd9a9d7b1735c3f","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: reviews
@@ -263,6 +269,8 @@ spec:
         - istio-pilot.istio-system:15011
         - --zipkinAddress
         - zipkin.istio-system:9411
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 10s
         - --proxyAdminPort
@@ -298,10 +306,12 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: "9080"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"reviews","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.7
+        image: docker.io/cilium/istio_proxy:1.2.0
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -362,7 +372,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.7
+        image: docker.io/istio/proxy_init:1.2.0
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -415,11 +425,12 @@ metadata:
   name: productpage-v1
 spec:
   replicas: 1
+  selector: null
   strategy: {}
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"3d3c003bd3193c765b0c8c8cb6fa19bdbb17fe97f020b521070c3512b1bf2973","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"6eaa5f3d0263084f01d97d7d17e5e117af881e8e850f9ce60fd9a9d7b1735c3f","initContainers":["sleep","istio-init"],"containers":["istio-proxy"],"volumes":["cilium-unix-sock-dir","istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: productpage
@@ -453,6 +464,8 @@ spec:
         - istio-pilot.istio-system:15011
         - --zipkinAddress
         - zipkin.istio-system:9411
+        - --dnsRefreshRate
+        - 300s
         - --connectTimeout
         - 10s
         - --proxyAdminPort
@@ -488,10 +501,12 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: TPROXY
+        - name: ISTIO_META_INCLUDE_INBOUND_PORTS
+          value: "9080"
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"productpage","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.1.7
+        image: docker.io/cilium/istio_proxy:1.2.0
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -552,7 +567,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.1.7
+        image: docker.io/istio/proxy_init:1.2.0
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
