@@ -147,6 +147,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("DirectRouting", func() {
 		It("Check connectivity with automatic direct nodes routes", func() {
+			Skip("Disabled, test is unstable")
 			SkipIfFlannel()
 
 			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
