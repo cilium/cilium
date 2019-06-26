@@ -31,7 +31,6 @@ spec:
       - args:
         - --kvstore=etcd
         - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
-        - --container-runtime=containerd
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
