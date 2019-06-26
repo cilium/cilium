@@ -328,6 +328,11 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 
 			uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 		}
+		for _, nodePortFEs := range svc.NodePorts {
+			for _, fe := range nodePortFEs {
+				uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+			}
+		}
 	}
 
 	return uniqueFrontends
