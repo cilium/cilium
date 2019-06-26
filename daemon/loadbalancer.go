@@ -238,7 +238,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	return NewDeleteServiceIDOK()
 }
 
-func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4Addr) error {
+func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4AddrID) error {
 	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
 	if !ok {
 		return fmt.Errorf("Service frontend not found %+v", frontend)
@@ -247,7 +247,7 @@ func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4Addr) erro
 }
 
 // Deletes a service by the frontend address
-func (d *Daemon) svcDeleteByFrontend(frontend *loadbalancer.L3n4Addr) error {
+func (d *Daemon) svcDeleteByFrontend(frontend *loadbalancer.L3n4AddrID) error {
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
 
