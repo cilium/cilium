@@ -448,6 +448,28 @@ func (l *L3n4AddrID) IsIPv6() bool {
 	return l.L3n4Addr.IsIPv6()
 }
 
+// Equals checks equality of both given addresses.
+func (l *L3n4AddrID) Equals(o *L3n4AddrID) bool {
+	switch {
+	case (l == nil) != (o == nil):
+		return false
+	case (l == nil) && (o == nil):
+		return true
+	}
+
+	if l.ID != o.ID {
+		return false
+	}
+	if !l.IP.Equal(o.IP) {
+		return false
+	}
+	if !l.L4Addr.Equals(&o.L4Addr) {
+		return false
+	}
+
+	return true
+}
+
 // AddFEnBE adds the given 'fe' and 'be' to the SVCMap. If 'fe' exists and beIndex is 0,
 // the new 'be' will be appended to the list of existing backends. If beIndex is bigger
 // than the size of existing backends slice, it will be created a new array with size of

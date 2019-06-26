@@ -17,6 +17,7 @@
 package loadbalancer
 
 import (
+	"net"
 	"testing"
 
 	"gopkg.in/check.v1"
@@ -221,6 +222,136 @@ func TestFEPort_Equals(t *testing.T) {
 			f := tt.fields
 			if got := f.Equals(tt.args.o); got != tt.want {
 				t.Errorf("FEPort.Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestL3n4AddrID_Equals(t *testing.T) {
+	type args struct {
+		o *L3n4AddrID
+	}
+	tests := []struct {
+		name   string
+		fields *L3n4AddrID
+		args   args
+		want   bool
+	}{
+		{
+			name: "both equal",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					IP: net.IPv4(1, 1, 1, 1),
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &L3n4AddrID{
+					L3n4Addr: L3n4Addr{
+						L4Addr: L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						IP: net.IPv4(1, 1, 1, 1),
+					},
+					ID: 1,
+				},
+			},
+			want: true,
+		},
+		{
+			name: "IDs different",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					IP: net.IPv4(1, 1, 1, 1),
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &L3n4AddrID{
+					L3n4Addr: L3n4Addr{
+						L4Addr: L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						IP: net.IPv4(1, 1, 1, 1),
+					},
+					ID: 2,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "IPs different",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: NONE,
+						Port:     1,
+					},
+					IP: net.IPv4(2, 2, 2, 2),
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &L3n4AddrID{
+					L3n4Addr: L3n4Addr{
+						L4Addr: L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						IP: net.IPv4(1, 1, 1, 1),
+					},
+					ID: 1,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Ports different",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: NONE,
+						Port:     2,
+					},
+					IP: net.IPv4(1, 1, 1, 1),
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &L3n4AddrID{
+					L3n4Addr: L3n4Addr{
+						L4Addr: L4Addr{
+							Protocol: NONE,
+							Port:     1,
+						},
+						IP: net.IPv4(1, 1, 1, 1),
+					},
+					ID: 1,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "both nil",
+			args: args{},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := tt.fields
+			if got := f.Equals(tt.args.o); got != tt.want {
+				t.Errorf("L3n4AddrID.Equals() = %v, want %v", got, tt.want)
 			}
 		})
 	}
