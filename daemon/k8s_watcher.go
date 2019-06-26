@@ -101,6 +101,8 @@ var (
 	endpointMetadataCache = endpointImportMetadataCache{
 		endpointImportMetadataMap: make(map[string]endpointImportMetadata),
 	}
+
+	errIPCacheOwnedByNonK8s = fmt.Errorf("ipcache entry owned by kvstore or agent")
 )
 
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
@@ -1666,7 +1668,12 @@ func (d *Daemon) addK8sPodV1(pod *types.Pod) error {
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
 		return nil
 	case err != nil:
-		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add ")
+		msg := "Unable to update ipcache map entry on pod add"
+		if err == errIPCacheOwnedByNonK8s {
+			logger.WithError(err).Debug(msg)
+		} else {
+			logger.WithError(err).Warning(msg)
+		}
 	default:
 		logger.Debug("Updated ipcache map entry on pod add")
 	}
@@ -1848,7 +1855,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 	})
 	if !selfOwned {
 		d.nodeDiscovery.Manager.NodeSoftUpdated(*nodeNew)
-		return fmt.Errorf("ipcache entry owned by kvstore or agent")
+		return errIPCacheOwnedByNonK8s
 	}
 
 	nodeNew.EncryptionKey = hostKey
