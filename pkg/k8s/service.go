@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
@@ -91,12 +93,44 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
-	// FIXME: Add support for
-	//  - NodePort
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
-		if _, ok := svcInfo.Ports[loadbalancer.FEPortName(port.Name)]; !ok {
-			svcInfo.Ports[loadbalancer.FEPortName(port.Name)] = p
+		portName := loadbalancer.FEPortName(port.Name)
+		if _, ok := svcInfo.Ports[portName]; !ok {
+			svcInfo.Ports[portName] = p
+		}
+		// This is a hack;-( In the case of NodePort service, we need to create
+		// two surrogate frontends per IP protocol - one with a zero IP addr used
+		// by the host-lb, another with a public iface IP addr. For each frontend
+		// we will need to store a service ID used for a reverse NAT translation
+		// and for deleting a service.
+		// Unfortunately, doing this in daemon/{loadbalancer,k8s_watcher}.go
+		// would introduce more complexity in already too complex LB codebase,
+		// so for now (until we have refactored the LB code) keep NodePort
+		// frontends in Service.NodePorts.
+		if svc.Spec.Type == v1.ServiceTypeNodePort {
+			if option.Config.EnableNodePort {
+				if _, ok := svcInfo.NodePorts[portName]; !ok {
+					svcInfo.NodePorts[portName] =
+						make(map[string]*loadbalancer.L3n4AddrID)
+				}
+				proto := loadbalancer.L4Type(port.Protocol)
+				port := uint16(port.NodePort)
+				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
+
+				if option.Config.EnableIPv4 {
+					nodePortFE := loadbalancer.NewL3n4AddrID(proto, net.IPv4(0, 0, 0, 0), port, id)
+					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+					nodePortFE = loadbalancer.NewL3n4AddrID(proto, node.GetExternalIPv4(), port, id)
+					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+				}
+				if option.Config.EnableIPv6 {
+					nodePortFE := loadbalancer.NewL3n4AddrID(proto, net.IPv6zero, port, id)
+					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+					nodePortFE = loadbalancer.NewL3n4AddrID(proto, node.GetIPv6(), port, id)
+					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+				}
+			}
 		}
 	}
 
@@ -151,9 +185,13 @@ type Service struct {
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool
 
-	Ports    map[loadbalancer.FEPortName]*loadbalancer.FEPort
-	Labels   map[string]string
-	Selector map[string]string
+	Ports map[loadbalancer.FEPortName]*loadbalancer.FEPort
+	// NodePorts stores mapping for port name => NodePort frontend addr string =>
+	// NodePort fronted addr. The string addr => addr indirection is to avoid
+	// storing duplicates.
+	NodePorts map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID
+	Labels    map[string]string
+	Selector  map[string]string
 }
 
 // String returns the string representation of a service resource
@@ -203,6 +241,30 @@ func (s *Service) DeepEquals(o *Service) bool {
 				return false
 			}
 		}
+
+		if ((s.NodePorts == nil) != (o.NodePorts == nil)) ||
+			len(s.NodePorts) != len(o.NodePorts) {
+			return false
+		}
+		for portName, nodePorts := range s.NodePorts {
+			oNodePorts, ok := o.NodePorts[portName]
+			if !ok {
+				return false
+			}
+			if ((nodePorts == nil) != (oNodePorts == nil)) ||
+				len(nodePorts) != len(oNodePorts) {
+				return false
+			}
+			for nodePortName, nodePort := range nodePorts {
+				oNodePort, ok := oNodePorts[nodePortName]
+				if !ok {
+					return false
+				}
+				if !nodePort.Equals(oNodePort) {
+					return false
+				}
+			}
+		}
 		return true
 	}
 	return false
@@ -214,6 +276,7 @@ func NewService(ip net.IP, headless bool, labels map[string]string, selector map
 		FrontendIP: ip,
 		IsHeadless: headless,
 		Ports:      map[loadbalancer.FEPortName]*loadbalancer.FEPort{},
+		NodePorts:  map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 		Labels:     labels,
 		Selector:   selector,
 	}
