@@ -24,6 +24,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#define SKIP_POLICY_MAP	1
+#define SKIP_CALLS_MAP	1
+
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/lb.h"
