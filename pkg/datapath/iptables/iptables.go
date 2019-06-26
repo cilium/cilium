@@ -669,16 +669,18 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				return err
 			}
 
-			// Masquerade all traffic from a local endpoint that is routed
-			// back to an endpoint on the same node. This happens if a
-			// local endpoint talks to a Kubernetes NodePort or HostPort.
-			if err := runProg("iptables", []string{
-				"-t", "nat",
-				"-A", ciliumPostNatChain,
-				"-s", node.GetIPv4AllocRange().String(),
-				"-m", "comment", "--comment", "cilium hostport loopback masquerade",
-				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
-				return err
+			if !option.Config.EnableNodePort {
+				// Masquerade all traffic from a local endpoint that is routed
+				// back to an endpoint on the same node. This happens if a
+				// local endpoint talks to a Kubernetes NodePort or HostPort.
+				if err := runProg("iptables", []string{
+					"-t", "nat",
+					"-A", ciliumPostNatChain,
+					"-s", node.GetIPv4AllocRange().String(),
+					"-m", "comment", "--comment", "cilium hostport loopback masquerade",
+					"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()}, false); err != nil {
+					return err
+				}
 			}
 
 			// Masquerade all traffic from the host into the
