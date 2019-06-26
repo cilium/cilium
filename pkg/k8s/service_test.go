@@ -93,6 +93,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Selector:   map[string]string{"foo": "bar"},
 		Labels:     map[string]string{"foo": "bar"},
 		Ports:      map[loadbalancer.FEPortName]*loadbalancer.FEPort{},
+		NodePorts:  map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 	})
 
 	k8sSvc = &types.Service{
@@ -117,6 +118,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		IsHeadless: true,
 		Labels:     map[string]string{"foo": "bar"},
 		Ports:      map[loadbalancer.FEPortName]*loadbalancer.FEPort{},
+		NodePorts:  map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 	})
 }
 
@@ -192,6 +194,21 @@ func TestService_Equals(t *testing.T) {
 						ID: 1,
 					},
 				},
+				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					loadbalancer.FEPortName("foo"): {
+						"0.0.0.0:31000": {
+							L3n4Addr: loadbalancer.L3n4Addr{
+								L4Addr: loadbalancer.L4Addr{
+									Protocol: loadbalancer.NONE,
+									Port:     31000,
+								},
+								IP: net.IPv4(0, 0, 0, 0),
+							},
+							ID: 1,
+						},
+					},
+				},
+
 				Labels: map[string]string{
 					"foo": "bar",
 				},
@@ -212,6 +229,21 @@ func TestService_Equals(t *testing.T) {
 							ID: 1,
 						},
 					},
+					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+						loadbalancer.FEPortName("foo"): {
+							"0.0.0.0:31000": {
+								L3n4Addr: loadbalancer.L3n4Addr{
+									L4Addr: loadbalancer.L4Addr{
+										Protocol: loadbalancer.NONE,
+										Port:     31000,
+									},
+									IP: net.IPv4(0, 0, 0, 0),
+								},
+								ID: 1,
+							},
+						},
+					},
+
 					Labels: map[string]string{
 						"foo": "bar",
 					},
@@ -440,6 +472,80 @@ func TestService_Equals(t *testing.T) {
 					},
 					Labels:   map[string]string{},
 					Selector: map[string]string{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nodeports different",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+					loadbalancer.FEPortName("foo"): {
+						L4Addr: &loadbalancer.L4Addr{
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					loadbalancer.FEPortName("foo"): {
+						"1.1.1.1:31000": {
+							L3n4Addr: loadbalancer.L3n4Addr{
+								L4Addr: loadbalancer.L4Addr{
+									Protocol: loadbalancer.NONE,
+									Port:     31000,
+								},
+								IP: net.IPv4(1, 1, 1, 1),
+							},
+							ID: 1,
+						},
+					},
+				},
+
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+						loadbalancer.FEPortName("foo"): {
+							L4Addr: &loadbalancer.L4Addr{
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+						loadbalancer.FEPortName("foo"): {
+							"0.0.0.0:31000": {
+								L3n4Addr: loadbalancer.L3n4Addr{
+									L4Addr: loadbalancer.L4Addr{
+										Protocol: loadbalancer.NONE,
+										Port:     31000,
+									},
+									IP: net.IPv4(0, 0, 0, 0),
+								},
+								ID: 1,
+							},
+						},
+					},
+
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
 				},
 			},
 			want: false,
