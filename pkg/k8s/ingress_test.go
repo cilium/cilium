@@ -80,6 +80,7 @@ func (s *K8sSuite) TestParseIngress(c *check.C) {
 				},
 			},
 		},
+		NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 	})
 }
 
@@ -145,6 +146,7 @@ func (s *K8sSuite) Test_parsingV1beta1(c *check.C) {
 							},
 						},
 					},
+					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 				}, nil
 			},
 		},
