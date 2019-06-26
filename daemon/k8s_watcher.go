@@ -1164,31 +1164,41 @@ func (d *Daemon) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.End
 
 	repPorts := svcInfo.UniquePorts()
 
-	for _, svcPort := range svcInfo.Ports {
+	frontends := []*loadbalancer.L3n4AddrID{}
+
+	for portName, svcPort := range svcInfo.Ports {
 		if !repPorts[svcPort.Port] {
 			continue
 		}
 		repPorts[svcPort.Port] = false
 
-		if svcPort.ID != 0 {
-			if err := service.DeleteID(uint32(svcPort.ID)); err != nil {
+		fe := loadbalancer.NewL3n4AddrID(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port, loadbalancer.ID(svcPort.ID))
+		frontends = append(frontends, fe)
+
+		for _, nodePortFE := range svcInfo.NodePorts[portName] {
+			frontends = append(frontends, nodePortFE)
+		}
+	}
+
+	for _, fe := range frontends {
+		if fe.ID != 0 {
+			if err := service.DeleteID(uint32(fe.ID)); err != nil {
 				scopedLog.WithError(err).Warn("Error while cleaning service ID")
 			}
 		}
 
-		fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, svcInfo.FrontendIP, svcPort.Port)
 		if err := d.svcDeleteByFrontend(fe); err != nil {
 			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
 				Warn("Error deleting service by frontend")
 
 		} else {
-			scopedLog.Debugf("# cilium lb delete-service %s %d 0", svcInfo.FrontendIP, svcPort.Port)
+			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.IP, fe.Port)
 		}
 
-		if err := d.RevNATDelete(svcPort.ID); err != nil {
-			scopedLog.WithError(err).WithField(logfields.ServiceID, svcPort.ID).Warn("Error deleting reverse NAT")
+		if err := d.RevNATDelete(loadbalancer.ServiceID(fe.ID)); err != nil {
+			scopedLog.WithError(err).WithField(logfields.ServiceID, fe.ID).Warn("Error deleting reverse NAT")
 		} else {
-			scopedLog.Debugf("# cilium lb delete-rev-nat %d", svcPort.ID)
+			scopedLog.Debugf("# cilium lb delete-rev-nat %d", fe.ID)
 		}
 	}
 	return nil
@@ -1240,6 +1250,28 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
 		}
 
+		frontends := []*loadbalancer.L3n4AddrID{}
+		frontends = append(frontends, loadbalancer.NewL3n4AddrID(
+			fePort.Protocol, svc.FrontendIP, fePort.Port, loadbalancer.ID(fePort.ID)))
+
+		for _, nodePortFE := range svc.NodePorts[fePortName] {
+			if nodePortFE.ID == 0 {
+				feAddr := loadbalancer.NewL3n4Addr(nodePortFE.Protocol, nodePortFE.IP, nodePortFE.Port)
+				feAddrID, err := service.AcquireID(*feAddr, 0)
+				if err != nil {
+					scopedLog.WithError(err).WithFields(logrus.Fields{
+						logfields.ServiceID: fePortName,
+						logfields.IPAddr:    nodePortFE.IP,
+						logfields.Port:      nodePortFE.Port,
+						logfields.Protocol:  nodePortFE.Protocol,
+					}).Error("Error while getting a new nodeport service ID. Ignoring service...")
+					continue
+				}
+				nodePortFE.ID = feAddrID.ID
+			}
+			frontends = append(frontends, nodePortFE)
+		}
+
 		besValues := []loadbalancer.LBBackEnd{}
 		for ip, portConfiguration := range endpoints.Backends {
 			if backendPort := portConfiguration[string(fePortName)]; backendPort != nil {
@@ -1250,10 +1282,10 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			}
 		}
 
-		fe := loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP, fePort.Port,
-			loadbalancer.ID(fePort.ID))
-		if _, err := d.svcAdd(*fe, besValues, true); err != nil {
-			scopedLog.WithError(err).Error("Error while inserting service in LB map")
+		for _, fe := range frontends {
+			if _, err := d.svcAdd(*fe, besValues, true); err != nil {
+				scopedLog.WithError(err).Error("Error while inserting service in LB map")
+			}
 		}
 	}
 	return nil
