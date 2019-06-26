@@ -1,6 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -e
+
+# Ensure no prompts from apt & co.
+export DEBIAN_FRONTEND=noninteractive
 
 GOLANG_VERSION="1.12.5"
 VAGRANT_VERSION="2.2.4"
@@ -20,8 +23,8 @@ sudo add-apt-repository \
    $(lsb_release -cs) \
    stable"
 
-sudo apt-get update
-sudo apt-get install -y \
+sudo --preserve-env=DEBIAN_FRONTEND apt-get update
+sudo --preserve-env=DEBIAN_FRONTEND apt-get install -y \
     curl jq apt-transport-https htop bmon zip \
     linux-tools-common linux-tools-generic \
     ca-certificates software-properties-common \
@@ -32,6 +35,15 @@ sudo apt-get install -y \
 cd /tmp/
 wget https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_x86_64.deb
 dpkg -i vagrant_*.deb
+
+# this block will attempt to preload required vagrant boxes from the vagrant cache server
+# (it's configuration is in vagrant-cache directory in root of this repo).
+# vagrant cache server is a separate packet box which vagrant-cache.ci.cilium.io points to
+cp /provision/add_vagrant_box /usr/local/bin/
+chmod 755 /usr/local/bin/add_vagrant_box
+
+curl -s https://raw.githubusercontent.com/cilium/cilium/master/vagrant_box_defaults.rb > defaults.rb
+/usr/local/bin/add_vagrant_box defaults.rb
 
 wget https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
 unzip packer_${PACKER_VERSION}_linux_amd64.zip
@@ -59,7 +71,7 @@ go get -u github.com/onsi/ginkgo/ginkgo
 go get -u github.com/onsi/gomega/...
 sudo ln -sf /go/bin/* /usr/local/bin/
 
-sudo curl -L https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+sudo curl -L https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
 echo 'cd /root/go/src/github.com/cilium/cilium' >> /root/.bashrc
