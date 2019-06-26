@@ -17,51 +17,37 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/health/probe/responder"
+	"github.com/cilium/cilium/pkg/pidfile"
 
 	flag "github.com/spf13/pflag"
 )
 
-func removePidfile(path string) {
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "failed to remove pidfile: %s\n", err.Error())
-	}
-}
-
-func writePidfile(path string) error {
-	pid := os.Getpid()
-	pidBytes := []byte(strconv.Itoa(pid) + "\n")
-	return ioutil.WriteFile(path, pidBytes, 0660)
-}
-
-func cancelOnSignal(cancel context.CancelFunc) {
+func cancelOnSignal(cancel context.CancelFunc, sig ...os.Signal) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, sig...)
 	go func() {
-		defer cancel()
-
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 		<-c
+		cancel()
 	}()
 }
 
 func main() {
 	var (
-		pidfile string
-		listen  int
+		pidfilePath string
+		listen      int
 	)
-	flag.StringVar(&pidfile, "pidfile", "", "Write pid to the specified file")
+	flag.StringVar(&pidfilePath, "pidfile", "", "Write pid to the specified file")
 	flag.IntVar(&listen, "listen", 4240, "Port on which the responder listens")
 	flag.Parse()
 
 	// Shutdown gracefully to halt server and remove pidfile
 	ctx, cancel := context.WithCancel(context.Background())
-	cancelOnSignal(cancel)
+	cancelOnSignal(cancel, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
 
 	srv := responder.NewServer(listen)
 	defer srv.Shutdown()
@@ -72,10 +58,10 @@ func main() {
 		}
 	}()
 
-	if pidfile != "" {
-		defer removePidfile(pidfile)
-		if err := writePidfile(pidfile); err != nil {
-			fmt.Fprintf(os.Stderr, "cannot write pidfile: %s: %s\n", pidfile, err.Error())
+	if pidfilePath != "" {
+		defer pidfile.Clean()
+		if err := pidfile.Write(pidfilePath); err != nil {
+			fmt.Fprintf(os.Stderr, "cannot write pidfile: %s: %s\n", pidfilePath, err.Error())
 			os.Exit(-1)
 		}
 	}

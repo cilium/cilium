@@ -60,15 +60,33 @@ func (s *PidfileTestSuite) TestKill(c *C) {
 	c.Assert(err, IsNil)
 	defer Remove(path)
 
-	err = Kill(path)
+	pid, err := Kill(path)
 	c.Assert(err, IsNil)
+	c.Assert(pid, Not(Equals), 0)
 
 	err = cmd.Wait()
 	c.Assert(err, ErrorMatches, "signal: killed")
 }
 
+func (s *PidfileTestSuite) TestKillAlreadyFinished(c *C) {
+	cmd := exec.Command("sleep", "0")
+	err := cmd.Start()
+	c.Assert(err, IsNil)
+
+	err = write(path, cmd.Process.Pid)
+	c.Assert(err, IsNil)
+	defer Remove(path)
+
+	err = cmd.Wait()
+	c.Assert(err, IsNil)
+
+	pid, err := Kill(path)
+	c.Assert(err, IsNil)
+	c.Assert(pid, Equals, 0)
+}
+
 func (s *PidfileTestSuite) TestKillPidfileNotExist(c *C) {
-	err := Kill("/tmp/cilium-foo-bar-some-not-existing-file")
+	_, err := Kill("/tmp/cilium-foo-bar-some-not-existing-file")
 	c.Assert(err, IsNil)
 }
 
@@ -77,7 +95,7 @@ func (s *PidfileTestSuite) TestKillPidfilePermissionDenied(c *C) {
 	c.Assert(err, IsNil)
 	defer Remove(path)
 
-	err = Kill(path)
+	_, err = Kill(path)
 	c.Assert(err, ErrorMatches, ".* permission denied")
 }
 
@@ -86,6 +104,6 @@ func (s *PidfileTestSuite) TestKillFailedParsePid(c *C) {
 	c.Assert(err, IsNil)
 	defer Remove(path)
 
-	err = Kill(path)
+	_, err = Kill(path)
 	c.Assert(err, ErrorMatches, "failed to parse pid .*")
 }
