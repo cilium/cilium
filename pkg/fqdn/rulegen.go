@@ -15,13 +15,11 @@
 package fqdn
 
 import (
-	"context"
 	"net"
 	"regexp"
 	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -73,7 +71,7 @@ type RuleGen struct {
 // the FQDNSelector. All IPs which correspond to the DNS names which match this
 // Selector will be returned as CIDR identities, as other DNS Names which have
 // already been resolved may match this FQDNSelector.
-func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) (identities []identity.NumericIdentity) {
+func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) []identity.NumericIdentity {
 
 	gen.Mutex.Lock()
 	_, exists := gen.allSelectors[selector]
@@ -101,35 +99,24 @@ func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) (ident
 	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, gen.cache)
 	gen.Mutex.Unlock()
 
-	// Used to track identities which are allocated in calls to
-	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
-	// we have to undo all of our changes and release the identities.
-	// This is best effort, as releasing can fail as well.
-	usedIdentities := make([]*identity.Identity, 0)
-	selectorIdentitySliceMapping := make(map[api.FQDNSelector][]identity.NumericIdentity)
-
 	// Allocate identities for each IPNet and then map to selector
-	for selector, selectorIPs := range selectorIPMapping {
-		log.WithFields(logrus.Fields{
-			"fqdnSelector": selector,
-			"ips":          selectorIPs,
-		}).Debug("getting identities for IPs associated with FQDNSelector")
-		var currentlyAllocatedIdentities []*identity.Identity
-		if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
-			cache.ReleaseSlice(context.TODO(), nil, usedIdentities)
-			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
-				"failed to allocate identities for IPs")
-			return
-		}
-		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
-		numIDs := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
-		for i := range currentlyAllocatedIdentities {
-			numIDs = append(numIDs, currentlyAllocatedIdentities[i].ID)
-		}
-		selectorIdentitySliceMapping[selector] = numIDs
+	selectorIPs := selectorIPMapping[selector]
+	log.WithFields(logrus.Fields{
+		"fqdnSelector": selector,
+		"ips":          selectorIPs,
+	}).Debug("getting identities for IPs associated with FQDNSelector")
+	var currentlyAllocatedIdentities []*identity.Identity
+	if currentlyAllocatedIdentities, err = ipcache.AllocateCIDRsForIPs(selectorIPs); err != nil {
+		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
+			"failed to allocate identities for IPs")
+		return nil
+	}
+	numIDs := make([]identity.NumericIdentity, 0, len(currentlyAllocatedIdentities))
+	for i := range currentlyAllocatedIdentities {
+		numIDs = append(numIDs, currentlyAllocatedIdentities[i].ID)
 	}
 
-	return selectorIdentitySliceMapping[selector]
+	return numIDs
 }
 
 // UnregisterForIdentityUpdates removes this FQDNSelector from the set of

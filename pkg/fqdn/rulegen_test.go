@@ -61,6 +61,7 @@ func (ds *FQDNTestSuite) TestRuleGenCIDRGeneration(c *C) {
 	// add rules
 	ids := gen.RegisterForIdentityUpdates(ciliumIOSel)
 	c.Assert(len(ids), Equals, 0)
+	c.Assert(ids, Not(IsNil))
 
 	// poll DNS once, check that we only generate 1 rule (for 1 IP) and that we
 	// still have 1 ToFQDN rule, and that the IP is correct
@@ -110,7 +111,8 @@ func (ds *FQDNTestSuite) TestRuleGenMultiIPUpdate(c *C) {
 	// add rules
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, githubSel}
 	for _, sel := range selectorsToAdd {
-		gen.RegisterForIdentityUpdates(sel)
+		ids := gen.RegisterForIdentityUpdates(sel)
+		c.Assert(ids, Not(IsNil))
 	}
 
 	// poll DNS once, check that we only generate 1 IP for cilium.io
@@ -146,6 +148,7 @@ func (ds *FQDNTestSuite) TestRuleGenMultiIPUpdate(c *C) {
 	c.Assert(selIPMap[githubSel][0].Equal(net.ParseIP("3.3.3.3")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
 	c.Assert(selIPMap[githubSel][1].Equal(net.ParseIP("4.4.4.4")), Equals, true, Commentf("Incorrect IP mapping to FQDN"))
 
+	// Second registration returns nil
 	ids := gen.RegisterForIdentityUpdates(githubSel)
 	c.Assert(ids, IsNil)
 
