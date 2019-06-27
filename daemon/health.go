@@ -57,7 +57,7 @@ func (d *Daemon) initHealth() {
 	controller.NewManager().UpdateController("cilium-health-ep",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				var err error
+				var err, err2 error
 
 				if client != nil {
 					err = client.PingEndpoint()
@@ -66,7 +66,10 @@ func (d *Daemon) initHealth() {
 				// error, restart the health EP.
 				if client == nil || err != nil {
 					d.cleanupHealthEndpoint()
-					client, err = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig)
+					client, err2 = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig)
+					if err != nil && err2 != nil {
+						return err
+					}
 				}
 				return err
 			},

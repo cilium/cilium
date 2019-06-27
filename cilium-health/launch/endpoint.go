@@ -185,6 +185,19 @@ func CleanupEndpoint() {
 	if err := netns.RemoveNetNSWithName(netNSName); err != nil {
 		log.WithError(err).Debug("Unable to remove cilium-health namespace")
 	}
+	// In the case of ipvlan, the ipvlan slave device is removed by removal
+	// of the endpoint netns in "cleanup" of spawn_netns.sh
+	if option.Config.DatapathMode == option.DatapathModeVeth {
+		scopedLog := log.WithField(logfields.Veth, vethName)
+		if link, err := netlink.LinkByName(vethName); err == nil {
+			err = netlink.LinkDel(link)
+			if err != nil {
+				scopedLog.WithError(err).Warning("Couldn't delete cilium-health device")
+			}
+		} else {
+			scopedLog.WithError(err).Debug("Didn't find existing device")
+		}
+	}
 }
 
 // LaunchAsEndpoint launches the cilium-health agent in a nested network
