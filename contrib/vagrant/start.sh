@@ -293,7 +293,8 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options="--auto-direct-node-routes"
+    cilium_options=" --debug --pprof --enable-k8s-event-handover --k8s-require-ipv4-pod-cidr --auto-direct-node-routes"
+    cilium_operator_options=" --debug"
 
     if [[ "${IPV4}" -eq "1" ]]; then
         if [[ -z "${K8S}" ]]; then
@@ -307,13 +308,19 @@ function write_cilium_cfg() {
         cilium_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
         cilium_options+=" --kvstore etcd"
         cilium_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
+        cilium_operator_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
+        cilium_operator_options+=" --kvstore etcd"
+        cilium_operator_options+=" --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml"
     else
         if [[ "${IPV4}" -eq "1" ]]; then
             cilium_options+=" --kvstore-opt consul.address=${MASTER_IPV4}:8500"
+            cilium_operator_options+=" --kvstore-opt consul.address=${MASTER_IPV4}:8500"
         else
             cilium_options+=" --kvstore-opt consul.address=[${ipv6_addr}]:8500"
+            cilium_operator_options+=" --kvstore-opt consul.address=[${ipv6_addr}]:8500"
         fi
         cilium_options+=" --kvstore consul"
+        cilium_operator_options+=" --kvstore consul"
     fi
     # container runtime options
     case "${RUNTIME}" in
@@ -351,10 +358,9 @@ EOF
 
 cat <<EOF >> "$filename"
 sleep 2s
-sed -i '10s+.*+ExecStart=/usr/bin/cilium-agent --debug \$CILIUM_OPTS+' /lib/systemd/system/cilium.service
-sed -i '10s+.*+ExecStart=/usr/bin/cilium-operator --debug \$CILIUM_OPERATOR_OPTS+' /lib/systemd/system/cilium-operator.service
 echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
 echo 'CILIUM_OPTS="${ubuntu_1604_cilium_lb} ${ubuntu_1604_interface} ${cilium_options}"' >> /etc/sysconfig/cilium
+echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
 chmod 644 /etc/sysconfig/cilium
 
