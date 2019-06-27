@@ -370,6 +370,8 @@ func init() {
 
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(option.AutoCreateCiliumNodeResource)
+	flags.Bool("auto-create-ciliumnode-resource", false, "Automatically create CiliumNode resource for own node on startup")
+	flags.MarkHidden("auto-create-ciliumnode-resource")
 
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
