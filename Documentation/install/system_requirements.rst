@@ -162,21 +162,10 @@ Source            `Cilium iproute2 source`_
 .. _`Open Build Service`: https://build.opensuse.org/package/show/security:netfilter/iproute2
 .. _`Cilium iproute2 source`: https://github.com/cilium/iproute2/tree/static-data
 
-Host Firewall Rules
-===================
-
-If you have iptables enabled on your system, the following must be allowed:
-
-========= =======================================
-Chain     Required policy
-========= =======================================
-FORWARD   Accept forwarding to and from PodIPs
-========= =======================================
-
 .. _firewall_requirements:
 
-Network Firewall Rules
-======================
+Firewall Rules
+==============
 
 If you are running Cilium in an environment that requires firewall rules to enable connectivity, you will have to add the following rules to ensure Cilium works properly.
 

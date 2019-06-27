@@ -103,7 +103,6 @@ ip -6 a a ${vm_ipv6}/16 dev enp0s8
 
 echo '${master_ipv6} ${VM_BASENAME}1' >> /etc/hosts
 sysctl -w net.ipv6.conf.all.forwarding=1
-iptables -P FORWARD ACCEPT
 EOF
 }
 
@@ -378,19 +377,11 @@ service cilium restart
 EOF
 }
 
-function write_iptables_rules(){
-    filename="${1}"
-    cat <<EOF >> "${filename}"
-sudo iptables -P FORWARD ACCEPT
-EOF
-}
-
 function create_master(){
     split_ipv4 ipv4_array "${MASTER_IPV4}"
     get_cilium_node_addr master_cilium_ipv6 "${MASTER_IPV4}"
     output_file="${dir}/node-1.sh"
     write_netcfg_header "${MASTER_IPV6}" "${MASTER_IPV6}" "${output_file}"
-    write_iptables_rules "${output_file}"
 
     if [ -n "${NWORKERS}" ]; then
         write_nodes_routes 1 "${MASTER_IPV4}" "${output_file}"
@@ -414,7 +405,6 @@ function create_workers(){
             ipv6_public_workers_addrs+=(${worker_host_ipv6})
 
             write_netcfg_header "${worker_ipv6}" "${MASTER_IPV6}" "${output_file}"
-            write_iptables_rules "${output_file}"
 
             write_master_route "${master_prefix_ip}" "${master_cilium_ipv6}" \
                 "${MASTER_IPV6}" "${i}" "${worker_ipv6}" "${output_file}"
