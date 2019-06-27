@@ -270,11 +270,13 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	stats := statStartGc(m)
 	defer stats.finish()
 
-	err := natMap.Open()
-	if err == nil {
-		defer natMap.Close()
-	} else {
-		natMap = nil
+	if natMap != nil {
+		err := natMap.Open()
+		if err == nil {
+			defer natMap.Close()
+		} else {
+			natMap = nil
+		}
 	}
 
 	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
