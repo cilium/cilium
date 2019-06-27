@@ -88,7 +88,12 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	deployEndpoints := func() {
 		_, _, err = helpers.GenerateManifestForEndpoints(endpointCount, manifestPath)
 		ExpectWithOffset(1, err).Should(BeNil(), "Manifest cannot be created correctly")
-		res := kubectl.Apply(vagrantManifestPath)
+
+		// This is equivalent to res := kubectl.Apply(vagrantManifestPath) but we
+		// need a longer timeout than helpers.ShortCommandTimeout
+		ctx, cancel := context.WithTimeout(context.Background(), endpointsTimeout)
+		defer cancel()
+		res := kubectl.ExecContext(ctx, fmt.Sprintf("%s apply -f  %s", helpers.KubectlCmd, vagrantManifestPath))
 		res.ExpectSuccess("cannot apply eps manifest :%s", res.GetDebugMessage())
 	}
 
