@@ -82,10 +82,6 @@ func (i *internalRWMutex) RUnlock() {
 	i.RWMutex.RUnlock()
 }
 
-func (i *internalRWMutex) RUnlockIgnoreTime() {
-	i.RWMutex.RUnlock()
-}
-
 type internalMutex struct {
 	deadlock.Mutex
 	time.Time

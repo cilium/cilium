@@ -28,10 +28,6 @@ func (i *internalRWMutex) UnlockIgnoreTime() {
 	i.RWMutex.Unlock()
 }
 
-func (i *internalRWMutex) RUnlockIgnoreTime() {
-	i.RWMutex.RUnlock()
-}
-
 type internalMutex struct {
 	sync.Mutex
 }
