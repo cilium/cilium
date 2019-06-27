@@ -124,6 +124,7 @@ Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
+    config.vm.box_check_update = false
 
     config.vm.provider "virtualbox" do |vb|
         # Do not inherit DNS server from host, use proxy
