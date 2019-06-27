@@ -48,6 +48,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	if err := checkStatus(); err != nil {
 		statusCode = http.StatusInternalServerError
 		reply = err.Error()
+		log.WithError(err).Warn("Health check status")
 	}
 
 	w.WriteHeader(statusCode)
