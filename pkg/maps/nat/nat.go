@@ -67,7 +67,7 @@ type NatEntry interface {
 	ToHost() NatEntry
 
 	// Dumps the Nat entry as string.
-	Dump(key tuple.TupleKey, start uint64) string
+	Dump(key NatKey, start uint64) string
 }
 
 // NatDumpCreated returns time in seconds when NAT entry was created.
@@ -118,7 +118,7 @@ func (m *Map) DumpEntries() (string, error) {
 
 	nsecStart, _ := bpf.GetMtime()
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(tuple.TupleKey)
+		key := k.(NatKey)
 		if !key.ToHost().Dump(&buffer, false) {
 			return
 		}
@@ -148,10 +148,9 @@ func statStartGc(m *Map) gcStats {
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		currentKey := key.(*tuple.TupleKey4Global)
-		err := m.Delete(currentKey)
+		err := m.Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
+			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
 		} else {
 			stats.deleted++
 		}
@@ -163,10 +162,9 @@ func doFlush4(m *Map) gcStats {
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
 	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
-		currentKey := key.(*tuple.TupleKey6Global)
-		err := m.Delete(currentKey)
+		err := m.Delete(key)
 		if err != nil {
-			log.WithError(err).WithField(logfields.Key, currentKey.String()).Error("Unable to delete CT entry")
+			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
 		} else {
 			stats.deleted++
 		}
