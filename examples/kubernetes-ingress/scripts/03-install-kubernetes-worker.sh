@@ -322,7 +322,6 @@ ExecStartPre=/bin/bash -c ' \\
            /bin/mount bpffs /sys/fs/bpf -t bpf; \\
         fi'
 ExecStart=/usr/bin/kubelet \\
-  --allow-privileged=true \\
   --client-ca-file=/var/lib/kubelet/ca-k8s.pem \\
   --cloud-provider= \\
   --cluster-dns=${cluster_dns_ip} \\
