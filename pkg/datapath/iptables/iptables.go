@@ -39,7 +39,7 @@ const (
 	ciliumPostMangleChain = "CILIUM_POST_mangle"
 	ciliumPreMangleChain  = "CILIUM_PRE_mangle"
 	ciliumPreRawChain     = "CILIUM_PRE_raw"
-	ciliumForwardChain    = "CILIUM_FORWARD" // Obsoleted, left to force removal of old rules
+	ciliumForwardChain    = "CILIUM_FORWARD"
 	feederDescription     = "cilium-feeder:"
 	xfrmDescription       = "cilium-xfrm-notrack:"
 )
@@ -491,6 +491,27 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 			"-m", "comment", "--comment", "cilium: clear masq bit for pkts to " + ifName,
 			"-j", "MARK", "--set-xmark", clearMasqBit}, false); err != nil {
+			return err
+		}
+
+		// While kube-proxy does change the policy of the iptables FORWARD chain
+		// it doesn't seem to handle all cases, e.g. host network pods that use
+		// the node IP which would still end up in default DENY. Similarly, for
+		// plain Docker setup, we would otherwise hit default DENY in FORWARD chain.
+		// Therefore, add both rules below to avoid having a user to manually opt-in.
+		// See also: https://github.com/kubernetes/kubernetes/issues/39823
+		if err := runProg("iptables", []string{
+			"-A", ciliumForwardChain,
+			"-o", localDeliveryInterface,
+			"-m", "comment", "--comment", "cilium: any->cluster on " + localDeliveryInterface + " forward accept",
+			"-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
+		if err := runProg("iptables", []string{
+			"-A", ciliumForwardChain,
+			"-i", "lxc+",
+			"-m", "comment", "--comment", "cilium: cluster->any on lxc+ forward accept",
+			"-j", "ACCEPT"}, false); err != nil {
 			return err
 		}
 
