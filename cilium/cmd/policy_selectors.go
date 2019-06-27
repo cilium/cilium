@@ -42,6 +42,9 @@ var policyCacheGetCmd = &cobra.Command{
 				first := true
 				fmt.Fprintf(w, "%s", mapping.Selector)
 				fmt.Fprintf(w, "\t%d", mapping.Users)
+				if len(mapping.Identities) == 0 {
+					fmt.Fprintf(w, "\t\n")
+				}
 				for _, idty := range mapping.Identities {
 					if first {
 						fmt.Fprintf(w, "\t%d\t\n", idty)
