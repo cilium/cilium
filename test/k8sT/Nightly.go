@@ -51,7 +51,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 		ProvisionInfraPods(kubectl)
 	})
 	deleteAll := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), helpers.HelperTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), endpointsTimeout)
 		defer cancel()
 		kubectl.ExecInBackground(ctx, fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s --grace-period=0 --force",
@@ -113,9 +113,9 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		deployEndpoints()
 		waitForPodsTime := b.Time("Wait for pods", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointTimeout)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", endpointsTimeout)
 			Expect(err).Should(BeNil(),
-				"Cannot retrieve %d pods in %d seconds", endpointCount, endpointsTimeout)
+				"Cannot retrieve %d pods in %d seconds", endpointCount, endpointsTimeout.Seconds())
 		})
 
 		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
