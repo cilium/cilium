@@ -266,7 +266,7 @@ restart:
 					continue
 				}
 
-				IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, ipIDPair.Key, Identity{
+				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, Identity{
 					ID:     ipIDPair.ID,
 					Source: FromKVStore,
 				})
