@@ -31,16 +31,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Notes
-// Hack 1: We strip ToCIDRSet rules. These are already dissallowed by our
-// validation. We do this to simplify handling our own generated rules.
-// StartManageDNSName is called by daemon when we inject the generated rules. By
-// stripping ToCIDRSet we make the rule equivalent to what it was before. This is
-// inefficient.
-// We also rely on this in addRule, where we now keep the newest instance of a
-// rule to allow handling policy updates for rules we don't look at, but need to
-// retain while generating.
-
 const (
 	// generatedLabelNameUUID is the label key for policy rules that contain a
 	// ToFQDN section and need to be updated
@@ -51,10 +41,8 @@ const (
 // expects the source:key delimiter to be the labels.PathDelimiter
 var uuidLabelSearchKey = labels.LabelSourceCiliumGenerated + labels.PathDelimiter + generatedLabelNameUUID
 
-// RuleGen tracks which rules depend on which DNS names. When DNS updates are
-// given to a RuleGen it will emit generated policy rules with DNS IPs inserted
-// as toCIDR rules. These correspond to the toFQDN matchName entries and are
-// emitted via UpdateSelectors.
+// RuleGen tracks which selectors depend on which DNS names. When DNS updates are
+// given to a RuleGen it update cached selectors as required via UpdateSelectors.
 // DNS information is cached, respecting TTL.
 // Note: When DNS data expires rules are not generated again!
 type RuleGen struct {
