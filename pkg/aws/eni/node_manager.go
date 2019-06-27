@@ -208,11 +208,12 @@ func (n *NodeManager) Resync() {
 			"used":      node.stats.usedIPs,
 		}).Debug("Recalculated allocation requirements")
 		totalUsed += node.stats.usedIPs
-		totalAvailable += node.stats.availableIPs - node.stats.usedIPs
+		availableOnNode := node.stats.availableIPs - node.stats.usedIPs
+		totalAvailable += availableOnNode
 		totalNeeded += node.stats.neededIPs
 		remainingInterfaces += node.stats.remainingInterfaces
 
-		if remainingInterfaces == 0 && totalAvailable == 0 {
+		if node.stats.remainingInterfaces == 0 && availableOnNode == 0 {
 			nodesAtCapacity++
 		}
 		if allocationNeeded && node.stats.remainingInterfaces > 0 {
