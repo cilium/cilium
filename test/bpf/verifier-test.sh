@@ -21,6 +21,8 @@ DIR=$(dirname $0)/../../bpf
 TC_PROGS="bpf_hostdev_ingress bpf_ipsec bpf_lb bpf_lxc bpf_netdev bpf_network bpf_overlay"
 CG_PROGS="bpf_sock sockops/bpf_sockops sockops/bpf_redir"
 XDP_PROGS="bpf_xdp"
+IGNORED_PROGS="bpf_alignchecker"
+ALL_PROGS="${IGNORED_PROGS} ${CG_PROGS} ${TC_PROGS} ${XDP_PROGS}"
 VERBOSE=false
 
 function clean_maps {
@@ -106,8 +108,23 @@ function handle_args {
 	fi
 }
 
+function handle_developers {
+	set +e
+	PROG_DIFF=$(diff -u \
+		<(find ${DIR}/ -name "bpf*.c" | sed 's/^.*bpf\/\([^.]*\).*$/\1/' | sort) \
+		<(for p in ${ALL_PROGS}; do echo $p; done | sort))
+	PROGS_NOT_COVERED=$?
+	set -e
+	if [ $PROGS_NOT_COVERED -ne 0 ]; then
+		echo "This script doesn't verify all BPF programs:" 1>&2
+		echo "${PROG_DIFF}" | tail -n +4 1>&2
+		exit 1
+	fi
+}
+
 function main {
 	handle_args
+	handle_developers
 
 	trap cleanup EXIT
 	ip link add ${DEV} type dummy
