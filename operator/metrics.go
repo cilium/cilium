@@ -21,7 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-const metricNamespace = "operator"
+const metricNamespace = "cilium_operator"
 
 var registry *prometheus.Registry
 
