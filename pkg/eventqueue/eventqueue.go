@@ -20,7 +20,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -200,12 +202,14 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 }
 
 func (ev *Event) printStats(q *EventQueue) {
-	q.getLogger().WithFields(logrus.Fields{
-		"eventType":                    reflect.TypeOf(ev.Metadata).String(),
-		"eventHandlingDuration":        ev.stats.durationStat.Total(),
-		"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
-		"eventConsumeOffQueueWaitTime": ev.stats.waitConsumeOffQueue.Total(),
-	}).Debug("EventQueue event processing statistics")
+	if option.Config.Debug {
+		q.getLogger().WithFields(logrus.Fields{
+			"eventType":                    reflect.TypeOf(ev.Metadata).String(),
+			"eventHandlingDuration":        ev.stats.durationStat.Total(),
+			"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
+			"eventConsumeOffQueueWaitTime": ev.stats.waitConsumeOffQueue.Total(),
+		}).Debug("EventQueue event processing statistics")
+	}
 }
 
 // Run consumes events that have been queued for this EventQueue. It
