@@ -78,6 +78,7 @@ func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) (ident
 	gen.Mutex.Lock()
 	_, exists := gen.allSelectors[selector]
 	if exists {
+		log.WithField("fqdnSelector", selector).Error("FQDNSelector was already registered for updates, returning without any identities")
 		gen.Mutex.Unlock()
 		return nil
 	}
@@ -259,7 +260,7 @@ perDNSName:
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
-			}).Debug("IPs didn't change for DNS name")
+			}).Debug("FQDN: IPs didn't change for DNS name")
 			continue perDNSName
 		}
 
@@ -267,6 +268,12 @@ perDNSName:
 		updatedNames[dnsName] = lookupIPs.IPs
 
 		// accumulate the new selectors affected by new IPs
+		if len(gen.allSelectors) == 0 {
+			log.WithFields(logrus.Fields{
+				"dnsName":   dnsName,
+				"lookupIPs": lookupIPs,
+			}).Debug("FQDN: No selectors registered for updates")
+		}
 		for fqdnSel, fqdnRegex := range gen.allSelectors {
 			matches := fqdnRegex.MatchString(dnsName)
 			if matches {
