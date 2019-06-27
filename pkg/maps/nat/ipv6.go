@@ -48,7 +48,7 @@ func (n *NatEntry6) String() string {
 }
 
 // Dump dumps NAT entry to string.
-func (n *NatEntry6) Dump(key tuple.TupleKey, start uint64) string {
+func (n *NatEntry6) Dump(key NatKey, start uint64) string {
 	var which string
 
 	if key.GetFlags()&tuple.TUPLE_F_IN != 0 {
