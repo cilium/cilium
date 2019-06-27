@@ -1049,13 +1049,13 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 
 	increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
 
-	if !txnresp.Succeeded {
-		return false, ErrLockLeaseExpired
-	}
-
 	// On error, attempt update blindly
 	if err != nil {
 		return true, e.UpdateIfLocked(ctx, key, value, lease, lock)
+	}
+
+	if !txnresp.Succeeded {
+		return false, ErrLockLeaseExpired
 	}
 
 	getR := txnresp.Responses[0].GetResponseRange()
