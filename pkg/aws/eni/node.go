@@ -497,7 +497,7 @@ func (n *Node) SyncToAPIServer() (err error) {
 		}).Debug("Updating status of node in apiserver")
 
 		updatedNode, err = n.manager.k8sAPI.UpdateStatus(node, origNode)
-		if updatedNode != nil {
+		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()
 		}
 		if err == nil || updatedNode == nil {
@@ -527,7 +527,7 @@ func (n *Node) SyncToAPIServer() (err error) {
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
 		updatedNode, err = n.manager.k8sAPI.Update(node, origNode)
-		if updatedNode != nil {
+		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()
 		}
 		if err == nil || updatedNode == nil {

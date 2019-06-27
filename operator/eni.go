@@ -43,10 +43,7 @@ func (k *k8sAPI) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, er
 	switch {
 	case k8sCapabilities.UpdateStatus:
 		if !reflect.DeepEqual(origNode.Status, node.Status) {
-			_, err := ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(node)
-			if err != nil {
-				return nil, err
-			}
+			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(node)
 		}
 	default:
 		if !reflect.DeepEqual(origNode.Status, node.Status) {
@@ -63,10 +60,7 @@ func (k *k8sAPI) Update(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
 	switch {
 	case k8sCapabilities.UpdateStatus:
 		if !reflect.DeepEqual(origNode.Spec, node.Spec) {
-			newNode, err := ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
-			if err != nil {
-				return newNode, err
-			}
+			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(node)
 		}
 	default:
 		if !reflect.DeepEqual(origNode, node) {
