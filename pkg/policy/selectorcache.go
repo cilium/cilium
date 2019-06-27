@@ -674,8 +674,10 @@ func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSele
 	sc.mutex.Lock()
 	idSel, exists := sc.selectors[key]
 	if exists {
-		idSel.removeUser(from)
+		// Add before remove so that the count does not dip to zero in between,
+		// as this causes FQDN unregistration (if applicable).
 		idSel.addUser(to)
+		idSel.removeUser(from)
 	}
 	sc.mutex.Unlock()
 }
