@@ -76,13 +76,9 @@ func (i *internalRWMutex) UnlockIgnoreTime() {
 
 func (i *internalRWMutex) RLock() {
 	i.RWMutex.RLock()
-	i.t = time.Now()
 }
 
 func (i *internalRWMutex) RUnlock() {
-	if sec := time.Since(i.t).Seconds(); sec >= selfishThresholdSec {
-		printStackTo(sec, debug.Stack(), os.Stderr)
-	}
 	i.RWMutex.RUnlock()
 }
 
