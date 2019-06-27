@@ -408,7 +408,7 @@ func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error
 			}).Warning("Instance is out of ENIs")
 			n.lastMaxAdapterWarning = time.Now()
 		}
-		return nil, fmt.Errorf("no more ENIs available")
+		return nil, nil
 	}
 
 	bestSubnet := n.manager.instancesAPI.FindSubnetByTags(n.resource.Spec.ENI.VpcID, n.resource.Spec.ENI.AvailabilityZone, n.resource.Spec.ENI.SubnetTags)
@@ -454,6 +454,11 @@ func (n *Node) resolveIPDeficit() error {
 	bestSubnet, err := n.prepareENICreation(a)
 	if err != nil {
 		return err
+	}
+
+	// Out of ENIs
+	if bestSubnet == nil {
+		return nil
 	}
 
 	return n.allocateENI(bestSubnet, a)
