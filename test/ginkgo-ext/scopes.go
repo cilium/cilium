@@ -49,8 +49,11 @@ type scope struct {
 }
 
 var (
-	currentScope        = &scope{}
-	rootScope           = currentScope
+	currentScope = &scope{}
+	rootScope    = currentScope
+	// countersInitialized protects repeat calls of calculate counters on
+	// rootScope. This relies on ginkgo being single-threaded to set the value
+	// safely.
 	countersInitialized bool
 
 	// failEnabled for tests that have failed on JustAfterEach function we need
@@ -61,6 +64,10 @@ var (
 	failEnabled     = true
 	afterEachFailed = map[string]bool{}
 	afterEachCB     = map[string]func(){}
+
+	// We wrap various ginkgo function here to track invocations and determine
+	// when to call AfterAll. When using a new ginkgo equivalent to It or
+	// Measure, it may need a matching wrapper similar to wrapItFunc.
 
 	Context                               = wrapContextFunc(ginkgo.Context, false)
 	FContext                              = wrapContextFunc(ginkgo.FContext, true)
@@ -74,7 +81,7 @@ var (
 	FIt                                   = wrapItFunc(ginkgo.FIt, true)
 	PIt                                   = ginkgo.PIt
 	XIt                                   = ginkgo.XIt
-	Measure                               = ginkgo.Measure
+	Measure                               = wrapMeasureFunc(ginkgo.Measure, false)
 	JustBeforeEach                        = ginkgo.JustBeforeEach
 	BeforeSuite                           = ginkgo.BeforeSuite
 	AfterSuite                            = ginkgo.AfterSuite
@@ -391,6 +398,9 @@ func wrapNilContextFunc(fn func(string, func()) bool) func(string, func()) bool 
 	}
 }
 
+// wrapItFunc wraps gingko.Measure to track invocations and correctly
+// execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
+// This function is similar to wrapMeasureFunc.
 func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) func(string, interface{}, ...float64) bool {
 	if !countersInitialized {
 		countersInitialized = true
@@ -408,6 +418,29 @@ func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) fun
 			currentScope.normalTests++
 		}
 		return fn(text, wrapTest(body), timeout...)
+	}
+}
+
+// wrapMeasureFunc wraps gingko.Measure to track invocations and correctly
+// execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
+// This function is similar to wrapItFunc.
+func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, focused bool) func(text string, body interface{}, samples int) bool {
+	if !countersInitialized {
+		countersInitialized = true
+		BeforeSuite(func() {
+			calculateCounters(rootScope, false)
+		})
+	}
+	return func(text string, body interface{}, samples int) bool {
+		if currentScope == nil {
+			return fn(text, body, samples)
+		}
+		if focused || isTestFocussed(text) {
+			currentScope.focusedTests++
+		} else {
+			currentScope.normalTests++
+		}
+		return fn(text, wrapTest(body), samples)
 	}
 }
 
@@ -448,6 +481,9 @@ func wrapTest(f interface{}) interface{} {
 	return applyAdvice(f, nil, after)
 }
 
+// calculateCounters initialises the tracking counters that determine when
+// AfterAll should be called. It is not idempotent and should be guarded
+// against repeated initializations.
 func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 	count := s.focusedTests
 	haveFocused := s.focusedTests > 0
