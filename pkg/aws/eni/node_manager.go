@@ -215,7 +215,7 @@ func (n *NodeManager) Resync() {
 		if remainingInterfaces == 0 && totalAvailable == 0 {
 			nodesAtCapacity++
 		}
-		if allocationNeeded {
+		if allocationNeeded && node.stats.remainingInterfaces > 0 {
 			n.deficitResolver.TriggerWithReason(node.name)
 		}
 		node.mutex.Unlock()
