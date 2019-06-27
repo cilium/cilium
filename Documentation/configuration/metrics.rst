@@ -287,8 +287,8 @@ ENI
 Name                             Labels                     Description
 ================================ ========================== ========================================================
 ``eni_ips``                      type                       Number of IPs allocated
-``eni_allocation_ops``           subnetID                   Number of IP allocation operations
-``eni_interface_creation_ops``   subnetID, status           Number of ENIs allocated
+``eni_allocation_ops``           subnetId                   Number of IP allocation operations
+``eni_interface_creation_ops``   subnetId, status           Number of ENIs allocated
 ``eni_available``                                           Number of ENIs with addresses available
 ``eni_nodes_at_capacity``                                   Number of nodes unable to allocate more addresses
 ``eni_aws_api_duration_seconds`` operation, responseCode    Duration of interactions with AWS API
