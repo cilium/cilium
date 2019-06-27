@@ -224,6 +224,11 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 
 	desc := "Cilium-CNI (" + n.resource.Spec.ENI.InstanceID + ")"
 	toAllocate := int64(math.IntMin(neededAddresses+nodeResource.Spec.ENI.MaxAboveWatermark, a.limits.IPv4))
+	// Validate whether request has already been fulfilled in the meantime
+	if toAllocate == 0 {
+		n.mutex.RUnlock()
+		return nil
+	}
 
 	index := int64(nodeResource.Spec.ENI.FirstInterfaceIndex)
 	for indexExists(n.enis, index) {
@@ -235,6 +240,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 		"subnetID":       s.ID,
 		"addresses":      toAllocate,
 	})
+	scopedLog.Info("No more IPs available, creating new ENI")
 	n.mutex.RUnlock()
 
 	eniID, err := n.manager.ec2API.CreateNetworkInterface(toAllocate, s.ID, desc, securityGroups)
@@ -302,6 +308,13 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	// Validate that the node still requires addresses to be allocated, the
+	// request may have been resolved in the meantime.
+	maxAllocate := n.stats.neededIPs + n.resource.Spec.ENI.MaxAboveWatermark
+	if maxAllocate == 0 {
+		return nil, nil
+	}
+
 	instanceType := n.resource.Spec.ENI.InstanceType
 	limits, ok := GetLimits(instanceType)
 
@@ -337,7 +350,6 @@ func (n *Node) determineAllocationAction() (*allocatableResources, error) {
 			a.remainingInterfaces++
 		}
 
-		maxAllocate := n.stats.neededIPs + n.resource.Spec.ENI.MaxAboveWatermark
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:       e.ID,
 			"maxAllocate":    maxAllocate,
@@ -385,12 +397,6 @@ func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	scopedLog := n.loggerLocked().WithFields(logrus.Fields{
-		"vpcID":            n.resource.Spec.ENI.VpcID,
-		"availabilityZone": n.resource.Spec.ENI.AvailabilityZone,
-		"subnetTags":       n.resource.Spec.ENI.SubnetTags,
-	})
-
 	if a.remainingInterfaces == 0 {
 		// This is not a failure scenario, warn once per hour but do
 		// not track as ENI allocation failure. There is a separate
@@ -412,8 +418,6 @@ func (n *Node) prepareENICreation(a *allocatableResources) (*types.Subnet, error
 			n.resource.Spec.ENI.VpcID, n.resource.Spec.ENI.AvailabilityZone, n.resource.Spec.ENI.SubnetTags)
 	}
 
-	scopedLog.WithField("subnet", bestSubnet.ID).Info("No more IPs available, creating new ENI")
-
 	return bestSubnet, nil
 }
 
@@ -425,9 +429,14 @@ func (n *Node) resolveIPDeficit() error {
 		return err
 	}
 
+	// Allocation request has already been fulfilled
+	if a == nil {
+		return nil
+	}
+
 	scopedLog := n.logger()
 
-	if a.subnet != nil {
+	if a.subnet != nil && a.availableOnSubnet > 0 {
 		err := n.manager.ec2API.AssignPrivateIpAddresses(a.eni.ID, int64(a.availableOnSubnet))
 		if err == nil {
 			n.manager.metricsAPI.IncENIAllocationAttempt("success", a.subnet.ID)
