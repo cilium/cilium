@@ -240,18 +240,13 @@ func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 	return deleteMapping6(m, key.(*tuple.TupleKey6Global))
 }
 
-func maps(ipv4, ipv6 bool) []*Map {
-	result := make([]*Map, 0, mapCount)
+// GlobalMaps returns all global NAT maps.
+func GlobalMaps(ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
 	if ipv4 {
-		result = append(result, NewMap(MapNameSnat4Global, true))
+		ipv4Map = NewMap(MapNameSnat4Global, true)
 	}
 	if ipv6 {
-		result = append(result, NewMap(MapNameSnat6Global, false))
+		ipv6Map = NewMap(MapNameSnat6Global, false)
 	}
-	return result
-}
-
-// GlobalMaps returns all global NAT maps.
-func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(ipv4, ipv6)
+	return
 }
