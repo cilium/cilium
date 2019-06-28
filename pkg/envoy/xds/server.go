@@ -17,9 +17,11 @@ package xds
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -56,6 +59,15 @@ var (
 	// ErrResourceWatch is the error returned whenever an internal error
 	// occurs while waiting for new versions of resources.
 	ErrResourceWatch = errors.New("resource watch failed")
+
+	// grpcCanceled is the string prefix of any gRPC error related
+	// to the stream being canceled. Ignore the description, as it
+	// is derived from the client and may vary, while the code is
+	// set by the gRPC library we link with.
+	//
+	// Ref. vendor/google.golang.org/grpc/status/status.go:
+	// return fmt.Sprintf("rpc error: code = %s desc = %s", codes.Code(p.GetCode()), p.GetMessage())
+	grpcCanceled = fmt.Sprintf("rpc error: code = %s", codes.Canceled.String())
 )
 
 // Server implements the handling of xDS streams.
@@ -135,6 +147,8 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 			if err != nil {
 				if err == io.EOF {
 					streamLog.Debug("xDS stream closed")
+				} else if strings.HasPrefix(err.Error(), grpcCanceled) {
+					streamLog.WithError(err).Debug("xDS stream canceled")
 				} else {
 					streamLog.WithError(err).Error("error while receiving request from xDS stream")
 				}
@@ -247,8 +261,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 		chosen, recv, recvOK := reflect.Select(selectCases)
 
 		switch chosen {
-		case doneChIndex: // Context got canceled.
-			streamLog.WithError(ctx.Err()).Error("xDS stream context canceled")
+		case doneChIndex: // Context got canceled, most likely by the client terminating.
+			streamLog.WithError(ctx.Err()).Debug("xDS stream context canceled")
 			return ctx.Err()
 
 		case reqChIndex: // Request received from the stream.
