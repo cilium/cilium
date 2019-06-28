@@ -30,12 +30,26 @@
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/lb.h"
+#include "lib/eps.h"
 #include "lib/metrics.h"
 
 #define CONNECT_REJECT	0
 #define CONNECT_PROCEED	1
 #define SENDMSG_PROCEED	CONNECT_PROCEED
 #define RECVMSG_PROCEED	CONNECT_PROCEED
+
+static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
+{
+	/* Check for 127.0.0.0/8 range, RFC3330. */
+	return (daddr & bpf_htonl(0x7f000000)) == bpf_htonl(0x7f000000);
+}
+
+static __always_inline __maybe_unused bool is_v6_loopback(union v6addr *daddr)
+{
+	/* Check for ::1/128, RFC4291. */
+	union v6addr loopback = { .addr[15] = 1, };
+	return ipv6_addrcmp(&loopback, daddr) == 0;
+}
 
 /* Hack due to missing narrow ctx access. */
 static __always_inline __maybe_unused __be16
@@ -119,6 +133,38 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 			       &rval, 0);
 }
 
+static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
+					  struct lb4_key_v2 *key)
+{
+#ifdef ENABLE_NODEPORT
+	struct remote_endpoint_info *info;
+	__be32 daddr = ctx->user_ip4;
+	__u16 service_port;
+
+	service_port = bpf_ntohs(key->dport);
+	if (service_port < NODEPORT_PORT_MIN ||
+	    service_port > NODEPORT_PORT_MAX)
+		goto out_fill_addr;
+
+	/* When connecting to node port services in our cluster that
+	 * have either HOST_ID or loopback address, we do a wild-card
+	 * lookup with IP of 0.
+	 */
+	if (is_v4_loopback(daddr))
+		return;
+
+	info = ipcache_lookup4(&IPCACHE_MAP, daddr, V4_CACHE_KEY_LEN);
+	if (info != NULL && info->sec_label == HOST_ID)
+		return;
+
+	/* For everything else in terms of node port, do a direct lookup. */
+out_fill_addr:
+	key->address = daddr;
+#else
+	key->address = ctx->user_ip4;
+#endif /* ENABLE_NODEPORT */
+}
+
 __section("from-sock4")
 int sock4_xlate(struct bpf_sock_addr *ctx)
 {
@@ -128,12 +174,8 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb4_service_v2 *slave_svc;
-	__u16 service_port;
 
-	/* For node port services, we do a wild-card lookup with IP of 0. */
-	service_port = bpf_ntohs(key.dport);
-	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
-		key.address = ctx->user_ip4;
+	sock4_handle_node_port(ctx, &key);
 
 	svc = __lb4_lookup_service_v2(&key);
 	if (svc) {
@@ -174,12 +216,8 @@ int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 	struct lb4_backend *backend;
 	struct lb4_service_v2 *svc;
 	struct lb4_service_v2 *slave_svc;
-	__u16 service_port;
 
-	/* For node port services, we do a wild-card lookup with IP of 0. */
-	service_port = bpf_ntohs(lkey.dport);
-	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
-		lkey.address = ctx->user_ip4;
+	sock4_handle_node_port(ctx, &lkey);
 
 	svc = __lb4_lookup_service_v2(&lkey);
 	if (svc) {
@@ -303,6 +341,40 @@ static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 			       &rval, 0);
 }
 
+static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
+					  struct lb6_key_v2 *key)
+{
+#ifdef ENABLE_NODEPORT
+	struct remote_endpoint_info *info;
+	union v6addr daddr;
+	__u16 service_port;
+
+	ctx_get_v6_address(ctx, &daddr);
+
+	service_port = bpf_ntohs(key->dport);
+	if (service_port < NODEPORT_PORT_MIN ||
+	    service_port > NODEPORT_PORT_MAX)
+		goto out_fill_addr;
+
+	/* When connecting to node port services in our cluster that
+	 * have either HOST_ID or loopback address, we do a wild-card
+	 * lookup with IP of 0.
+	 */
+	if (is_v6_loopback(&daddr))
+		return;
+
+	info = ipcache_lookup6(&IPCACHE_MAP, &daddr, V6_CACHE_KEY_LEN);
+	if (info != NULL && info->sec_label == HOST_ID)
+		return;
+
+	/* For everything else in terms of node port, do a direct lookup. */
+out_fill_addr:
+	key->address = daddr;
+#else
+	ctx_get_v6_address(ctx, &key->address);
+#endif /* ENABLE_NODEPORT */
+}
+
 __section("from-sock6")
 int sock6_xlate(struct bpf_sock_addr *ctx)
 {
@@ -312,12 +384,8 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service_v2 *slave_svc;
-	__u16 service_port;
 
-	/* For node port services, we do a wild-card lookup with IP of 0. */
-	service_port = bpf_ntohs(key.dport);
-	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
-		ctx_get_v6_address(ctx, &key.address);
+	sock6_handle_node_port(ctx, &key);
 
 	svc = __lb6_lookup_service_v2(&key);
 	if (svc) {
@@ -358,12 +426,8 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 		.dport		= ctx_get_port(ctx),
 	};
 	struct lb6_service_v2 *slave_svc;
-	__u16 service_port;
 
-	/* For node port services, we do a wild-card lookup with IP of 0. */
-	service_port = bpf_ntohs(lkey.dport);
-	if (service_port < NODEPORT_PORT_MIN || service_port > NODEPORT_PORT_MAX)
-		ctx_get_v6_address(ctx, &lkey.address);
+	sock6_handle_node_port(ctx, &lkey);
 
 	svc = __lb6_lookup_service_v2(&lkey);
 	if (svc) {
