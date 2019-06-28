@@ -185,7 +185,7 @@ var _ = Describe("K8sServicesTest", func() {
 			waitPodsDs()
 
 			var data v1.Service
-			err := kubectl.Get("default", "service test-nodeport").Unmarshal(&data)
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
 			url := fmt.Sprintf("http://%s",
 				net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
