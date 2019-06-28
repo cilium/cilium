@@ -17,6 +17,7 @@
 package eni
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -332,4 +333,35 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 		c.Assert(node.stats.availableIPs, check.Equals, 10)
 		c.Assert(node.stats.usedIPs, check.Equals, 0)
 	}
+}
+
+// TestNodeManagerInstanceNotRunning verifies that allocation correctly detects
+// instances which are no longer running
+func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
+	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
+	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
+	metricsMock := metricsmock.NewMockMetrics()
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsMock)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	// Announce node, ENI attachement will fail
+	cn := newCiliumNode("node1", "i-0", "m4.large", "us-west-1", "vpc-1", 0, 0, 0, 0)
+	mngr.Update(cn)
+
+	// Wait for node to be declared notRunning
+	c.Assert(testutils.WaitUntil(func() bool {
+		if n := mngr.Get("node1"); n != nil {
+			return n.instanceNotRunning
+		}
+		return false
+	}, 5*time.Second), check.IsNil)
+
+	// Metric should not indicate failure
+	c.Assert(metricsMock.ENIAllocationAttempts("ENI attachment failed", testSubnet.ID), check.Equals, int64(0))
+
+	node := mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.stats.availableIPs, check.Equals, 0)
+	c.Assert(node.stats.usedIPs, check.Equals, 0)
 }

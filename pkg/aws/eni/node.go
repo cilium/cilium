@@ -17,6 +17,7 @@ package eni
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -57,6 +58,11 @@ type Node struct {
 	// APIs but are not yet synced backed into the instances manager and
 	// allocation should be delayed until that has happened.
 	resyncNeeded bool
+
+	// instanceNotRunning is true when the EC2 instance backing the node is
+	// not running. This state is detected based on error messages returned
+	// when modifying instance state
+	instanceNotRunning bool
 
 	waitingForAllocation bool
 
@@ -136,6 +142,12 @@ func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate int) (ne
 
 func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 	n.mutex.Lock()
+	// Any modification to the custom resource is seen as a sign that the
+	// instance is alive
+	if n.instanceNotRunning {
+		n.loggerLocked().Info("Marking node as running")
+		n.instanceNotRunning = false
+	}
 	n.resource = resource
 	allocationNeeded := n.recalculateLocked()
 	n.mutex.Unlock()
@@ -201,6 +213,21 @@ func (n *Node) getSecurityGroups() (securityGroups []string) {
 	return
 }
 
+func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
+	// This is handling the special case when an instance has been
+	// terminated but the grace period has delayed the Kubernetes node
+	// deletion event to not have been sent out yet. The next ENI resync
+	// will cause the instance to be marked as inactive.
+	notRunning = strings.Contains(err.Error(), "is not 'running'")
+	if notRunning {
+		n.mutex.Lock()
+		n.instanceNotRunning = true
+		n.loggerLocked().Info("Marking node as not running")
+		n.mutex.Unlock()
+	}
+	return
+}
+
 // indexExists returns true if the specified index is occupied by an ENI in the
 // slice of ENIs
 func indexExists(enis map[string]v2.ENI, index int64) bool {
@@ -259,7 +286,12 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 			scopedLog.WithError(delErr).Warning("Unable to undo ENI creation after failure to attach")
 		}
 
+		if n.errorInstanceNotRunning(err) {
+			return nil
+		}
+
 		n.manager.metricsAPI.IncENIAllocationAttempt("ENI attachment failed", s.ID)
+
 		return fmt.Errorf("unable to attach ENI at index %d: %s", index, err)
 	}
 
@@ -277,6 +309,10 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 			delErr := n.manager.ec2API.DeleteNetworkInterface(eniID)
 			if delErr != nil {
 				scopedLog.WithError(delErr).Warning("Unable to undo ENI creation after failure to attach")
+			}
+
+			if n.errorInstanceNotRunning(err) {
+				return nil
 			}
 
 			n.manager.metricsAPI.IncENIAllocationAttempt("ENI modification failed", s.ID)
@@ -467,6 +503,16 @@ func (n *Node) resolveIPDeficit() error {
 // ResolveIPDeficit attempts to allocate all required IPs to fulfill the needed
 // gap n.neededAddresses. If required, ENIs are created.
 func (n *Node) ResolveIPDeficit() error {
+	// If the instance is no longer running, don't attempt any deficit
+	// resolution and wait for the custom resource to be updated as a sign
+	// of life.
+	n.mutex.RLock()
+	if n.instanceNotRunning {
+		n.mutex.RUnlock()
+		return nil
+	}
+	n.mutex.RUnlock()
+
 	err := n.resolveIPDeficit()
 	n.mutex.Lock()
 	n.waitingForAllocation = false
