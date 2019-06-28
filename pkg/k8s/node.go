@@ -92,7 +92,7 @@ func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 	}
 
 	k8sNodeAddHostIP := func(annotation string) {
-		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok {
+		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok || ciliumInternalIP == "" {
 			scopedLog.Debugf("Missing %s. Annotation required when IPSec Enabled", annotation)
 		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
 			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
@@ -131,7 +131,7 @@ func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 	// the CIDR assigned by k8s controller manager
 	// In case it's invalid or empty then we fall back to our annotations.
 	if newNode.IPv4AllocCIDR == nil {
-		if ipv4CIDR, ok := k8sNode.Annotations[annotation.V4CIDRName]; !ok {
+		if ipv4CIDR, ok := k8sNode.Annotations[annotation.V4CIDRName]; !ok || ipv4CIDR == "" {
 			scopedLog.Debug("Empty IPv4 CIDR annotation in node")
 		} else {
 			allocCIDR, err := cidr.ParseCIDR(ipv4CIDR)
@@ -144,7 +144,7 @@ func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 	}
 
 	if newNode.IPv6AllocCIDR == nil {
-		if ipv6CIDR, ok := k8sNode.Annotations[annotation.V6CIDRName]; !ok {
+		if ipv6CIDR, ok := k8sNode.Annotations[annotation.V6CIDRName]; !ok || ipv6CIDR == "" {
 			scopedLog.Debug("Empty IPv6 CIDR annotation in node")
 		} else {
 			allocCIDR, err := cidr.ParseCIDR(ipv6CIDR)
@@ -157,7 +157,7 @@ func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 	}
 
 	if newNode.IPv4HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[annotation.V4HealthName]; !ok {
+		if healthIP, ok := k8sNode.Annotations[annotation.V4HealthName]; !ok || healthIP == "" {
 			scopedLog.Debug("Empty IPv4 health endpoint annotation in node")
 		} else if ip := net.ParseIP(healthIP); ip == nil {
 			scopedLog.WithField(logfields.V4HealthIP, healthIP).Error("BUG, invalid IPv4 health endpoint annotation in node")
@@ -167,7 +167,7 @@ func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
 	}
 
 	if newNode.IPv6HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[annotation.V6HealthName]; !ok {
+		if healthIP, ok := k8sNode.Annotations[annotation.V6HealthName]; !ok || healthIP == "" {
 			scopedLog.Debug("Empty IPv6 health endpoint annotation in node")
 		} else if ip := net.ParseIP(healthIP); ip == nil {
 			scopedLog.WithField(logfields.V6HealthIP, healthIP).Error("BUG, invalid IPv6 health endpoint annotation in node")
