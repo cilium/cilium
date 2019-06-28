@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"syscall"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
@@ -127,6 +128,9 @@ func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlin
 	}).Debug("Configuring link")
 
 	addr := &netlink.Addr{IPNet: ip.EndpointPrefix()}
+	if ip.IsIPv6() {
+		addr.Flags = syscall.IFA_F_NODAD
+	}
 	if err := netlink.AddrAdd(link, addr); err != nil {
 		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
 	}
