@@ -316,10 +316,9 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int l4_off, int dir,
 					struct ct_state *ct_state, __u32 *monitor)
 {
-	int ret = CT_NEW, ret2 = CT_NEW, action = ACTION_UNSPEC;
+	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
-	struct ct_state ct_state_tmp = {};
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -431,7 +430,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		ipv6_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
-
+#ifdef ENABLE_NODEPORT
 #ifndef QUIET_CT
 		cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
 			    (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
@@ -443,6 +442,9 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		 * TUPLE_F_OUT entry which is created by bpf_netdev on its
 		 * ingress hook. */
 		if (ret == CT_NEW && dir == CT_INGRESS) {
+			struct ct_state ct_state_tmp = {};
+			int ret2 = CT_NEW;
+
 			tuple->flags = TUPLE_F_OUT;
 			ret2 = __ct_lookup(map, skb, tuple, action, dir, &ct_state_tmp,
 					   is_tcp, tcp_flags, monitor);
@@ -451,6 +453,7 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 				ct_state->node_port = 1;
 			}
 		}
+#endif /* ENABLE_NODEPORT */
 	}
 
 #ifdef ENABLE_NAT46
@@ -495,10 +498,9 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int off, int dir,
 					struct ct_state *ct_state, __u32 *monitor)
 {
-	int ret = CT_NEW, ret2 = CT_NEW, action = ACTION_UNSPEC;
+	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
-	struct ct_state ct_state_tmp = {};
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -609,7 +611,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		ipv4_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
-
+#ifdef ENABLE_NODEPORT
 #ifndef QUIET_CT
 		cilium_dbg3(skb, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
 		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
@@ -621,6 +623,9 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		 * TUPLE_F_OUT entry which is created by bpf_netdev on its
 		 * ingress hook. */
 		if (ret == CT_NEW && dir == CT_INGRESS) {
+			struct ct_state ct_state_tmp = {};
+			int ret2 = CT_NEW;
+
 			tuple->flags = TUPLE_F_OUT;
 			ret2 = __ct_lookup(map, skb, tuple, action, dir, &ct_state_tmp,
 					   is_tcp, tcp_flags, monitor);
@@ -629,6 +634,7 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 				ct_state->node_port = 1;
 			}
 		}
+#endif /* ENABLE_NODEPORT */
 	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);

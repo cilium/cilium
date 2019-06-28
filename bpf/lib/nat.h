@@ -108,6 +108,10 @@ struct ipv4_nat_target {
 	const __be32 addr;
 	const __u16 min_port; /* host endianess */
 	const __u16 max_port; /* host endianess */
+	/* Tells whether the port mapping /has/ to be clampled into [min_port,max_port]
+	 * range (true) or only in case of collisions (false) where we would first try
+	 * to not mange the port, but only remap to the SNAT IP as an optimization.
+	 */
 	const bool force_range;
 };
 

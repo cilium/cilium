@@ -350,9 +350,10 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!tc_index_skip_nodeport(skb) &&
-	    nodeport_lb6(skb, src_identity) < 0) {
-		return DROP_INVALID;
+	if (!tc_index_skip_nodeport(skb)) {
+		int ret = nodeport_lb6(skb, src_identity);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* Verifier workaround: modified ctx access. */
@@ -734,9 +735,10 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!tc_index_skip_nodeport(skb) &&
-	    nodeport_lb4(skb, src_identity) < 0) {
-		return DROP_INVALID;
+	if (!tc_index_skip_nodeport(skb)) {
+		int ret = nodeport_lb4(skb, src_identity);
+		if (ret < 0)
+			return ret;
 	}
 
 	/* Verifier workaround: modified ctx access. */
