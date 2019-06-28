@@ -265,6 +265,9 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		return err
 	}
 
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	// Store mapping of backend addr ID => backend ID in the cache
 	cache.addBackendIDs(newBackendIDs)
 
@@ -282,9 +285,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	//		nNonZeroWeights++
 	//	}
 	//}
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	besValuesV2 := svc.getBackendsV2()
 
