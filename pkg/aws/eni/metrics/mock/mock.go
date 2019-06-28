@@ -16,6 +16,7 @@ package mock
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -28,7 +29,7 @@ type mockMetrics struct {
 	availableENIs      int
 	nodesAtCapacity    int
 	ec2ApiCall         map[string]float64
-	ec2RateLimit       map[string]int64
+	ec2RateLimit       map[string]time.Duration
 	resyncCount        int64
 }
 
@@ -39,7 +40,7 @@ func NewMockMetrics() *mockMetrics {
 		ipAllocations:      map[string]int64{},
 		allocatedIPs:       map[string]int{},
 		ec2ApiCall:         map[string]float64{},
-		ec2RateLimit:       map[string]int64{},
+		ec2RateLimit:       map[string]time.Duration{},
 	}
 }
 
@@ -115,15 +116,15 @@ func (m *mockMetrics) ObserveEC2APICall(operation, status string, duration float
 	m.mutex.Unlock()
 }
 
-func (m *mockMetrics) EC2RateLimit(operation string) int64 {
+func (m *mockMetrics) EC2RateLimit(operation string) time.Duration {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.ec2RateLimit[operation]
 }
 
-func (m *mockMetrics) IncEC2RateLimit(operation string) {
+func (m *mockMetrics) ObserveEC2RateLimit(operation string, delay time.Duration) {
 	m.mutex.Lock()
-	m.ec2RateLimit[operation]++
+	m.ec2RateLimit[operation] += delay
 	m.mutex.Unlock()
 }
 

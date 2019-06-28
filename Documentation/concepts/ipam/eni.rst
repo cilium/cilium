@@ -356,8 +356,8 @@ The following metrics are exposed:
     Status code returned by the operation
 
 
-``cilium_operator_ec2_rate_limit``
-  Number of times the EC2 client rate limiter kicked in
+``cilium_operator_ec2_rate_limit_duration_seconds``
+  Duration of EC2 client-side rate limiter blocking
 
   *Labels:*
 

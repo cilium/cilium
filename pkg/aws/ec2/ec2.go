@@ -17,6 +17,7 @@ package ec2
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -38,7 +39,7 @@ type Client struct {
 
 type metricsAPI interface {
 	ObserveEC2APICall(call, status string, duration float64)
-	IncEC2RateLimit(operation string)
+	ObserveEC2RateLimit(operation string, duration time.Duration)
 }
 
 // NewClient returns a new EC2 client
@@ -67,10 +68,11 @@ func deriveStatus(req *aws.Request, err error) string {
 }
 
 func (c *Client) rateLimit(operation string) {
-	if !c.limiter.Allow() {
-		c.metricsAPI.IncEC2RateLimit(operation)
+	r := c.limiter.Reserve()
+	if !r.OK() {
+		c.metricsAPI.ObserveEC2RateLimit(operation, r.Delay())
+		c.limiter.Wait(context.TODO())
 	}
-	c.limiter.Wait(context.TODO())
 }
 
 // describeNetworkInterfaces lists all ENIs

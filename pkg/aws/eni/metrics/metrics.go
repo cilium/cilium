@@ -15,6 +15,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -29,7 +31,7 @@ type prometheusMetrics struct {
 	NodesAtCapacity prometheus.Gauge
 	Resync          prometheus.Counter
 	EC2ApiDuration  *prometheus.HistogramVec
-	EC2RateLimit    *prometheus.CounterVec
+	EC2RateLimit    *prometheus.HistogramVec
 }
 
 // NewPrometheusMetrics returns a new ENI metrics implementation backed by
@@ -88,11 +90,11 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Help:      "Number of resync operations to synchronize AWS EC2 metadata",
 	})
 
-	m.EC2RateLimit = prometheus.NewCounterVec(prometheus.CounterOpts{
+	m.EC2RateLimit = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: eniSubsystem,
-		Name:      "ec2_rate_limit",
-		Help:      "Number of times the EC2 client rate limiter kicked in",
+		Name:      "ec2_rate_limit_duration_seconds",
+		Help:      "Duration of EC2 client-side rate limiter blocking",
 	}, []string{"operation"})
 
 	registry.MustRegister(m.IPsAllocated)
@@ -131,8 +133,8 @@ func (p *prometheusMetrics) ObserveEC2APICall(operation, status string, duration
 	p.EC2ApiDuration.WithLabelValues(operation, status).Observe(duration)
 }
 
-func (p *prometheusMetrics) IncEC2RateLimit(operation string) {
-	p.EC2RateLimit.WithLabelValues(operation).Inc()
+func (p *prometheusMetrics) ObserveEC2RateLimit(operation string, delay time.Duration) {
+	p.EC2RateLimit.WithLabelValues(operation).Observe(delay.Seconds())
 }
 
 func (p *prometheusMetrics) IncResyncCount() {
