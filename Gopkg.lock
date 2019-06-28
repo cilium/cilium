@@ -1830,6 +1830,7 @@
     "golang.org/x/sys/unix",
     "google.golang.org/genproto/googleapis/rpc/status",
     "google.golang.org/grpc",
+    "google.golang.org/grpc/codes",
     "google.golang.org/grpc/reflection",
     "gopkg.in/check.v1",
     "gopkg.in/fsnotify.v1",
