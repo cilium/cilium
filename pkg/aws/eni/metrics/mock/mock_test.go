@@ -18,6 +18,7 @@ package mock
 
 import (
 	"testing"
+	"time"
 
 	"gopkg.in/check.v1"
 )
@@ -45,8 +46,9 @@ func (e *MockSuite) TestMock(c *check.C) {
 	c.Assert(api.NodesAtCapacity(), check.Equals, 5)
 	api.ObserveEC2APICall("DescribeNetworkInterfaces", "success", 2.0)
 	c.Assert(api.EC2APICall("DescribeNetworkInterfaces", "success"), check.Equals, 2.0)
-	api.IncEC2RateLimit("DescribeNetworkInterfaces")
-	c.Assert(api.EC2RateLimit("DescribeNetworkInterfaces"), check.Equals, int64(1))
+	api.ObserveEC2RateLimit("DescribeNetworkInterfaces", time.Second)
+	api.ObserveEC2RateLimit("DescribeNetworkInterfaces", time.Second)
+	c.Assert(api.EC2RateLimit("DescribeNetworkInterfaces"), check.Equals, 2*time.Second)
 	api.IncResyncCount()
 	c.Assert(api.ResyncCount(), check.Equals, int64(1))
 }
