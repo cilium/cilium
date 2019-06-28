@@ -47,7 +47,7 @@ cilium-agent [flags]
       --egress-masquerade-interfaces string        Limit egress masquerading to interface selector
       --enable-endpoint-routes                     Use per endpoint routes instead of routing via cilium_host
       --enable-health-checking                     Enable connectivity health checking (default true)
-      --enable-host-reachable-services             Enable reachability of services for host applications
+      --enable-host-reachable-services             Enable reachability of services for host applications (beta)
       --enable-ipsec                               Enable IPSec support
       --enable-ipv4                                Enable IPv4 support (default true)
       --enable-ipv6                                Enable IPv6 support (default true)
