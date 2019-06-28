@@ -120,43 +120,32 @@ func runNodeWatcher() error {
 
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, nodeController.HasSynced)
+		serNodes.Enqueue(func() error {
+			// Since we serialize all events received from k8s we know that
+			// at this point the list in k8sNodeStore should be the source of truth
+			// and we need to delete all nodes in the kvNodeStore that are *not*
+			// present in the k8sNodeStore.
 
-		controller.NewManager().UpdateController("kvstore-node-gc",
-			controller.ControllerParams{
-				RunInterval: kvNodeGCInterval,
-				DoFunc: func(_ context.Context) error {
-					wg := sync.WaitGroup{}
-					wg.Add(1)
-					serNodes.Enqueue(func() error {
-						defer wg.Done()
+			listOfK8sNodes := k8sNodeStore.ListKeys()
 
-						// Since we serialize all events received from k8s we know that
-						// at this point the list in k8sNodeStore should be the source of truth
-						// and we need to delete all nodes in the kvNodeStore that are *not*
-						// present in the k8sNodeStore.
+			kvStoreNodes := ciliumNodeStore.SharedKeysMap()
+			for _, k8sNode := range listOfK8sNodes {
+				// The remaining kvStoreNodes are leftovers
+				kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, k8sNode)
+				delete(kvStoreNodes, kvStoreNodeName)
+			}
 
-						listOfK8sNodes := k8sNodeStore.ListKeys()
+			for _, kvStoreNode := range kvStoreNodes {
+				if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
+					ciliumNodeStore.DeleteLocalKey(kvStoreNode)
+				}
+			}
 
-						kvStoreNodes := ciliumNodeStore.SharedKeysMap()
-						for _, k8sNode := range listOfK8sNodes {
-							// The remaining kvStoreNodes are leftovers
-							kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, k8sNode)
-							delete(kvStoreNodes, kvStoreNodeName)
-						}
+			return nil
+		}, serializer.NoRetry)
+	}()
 
-						for _, kvStoreNode := range kvStoreNodes {
-							if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
-								ciliumNodeStore.DeleteLocalKey(kvStoreNode)
-							}
-						}
-
-						return nil
-					}, serializer.NoRetry)
-					wg.Wait()
-					return nil
-				},
-			})
-
+	go func() {
 		parallelRequests := 4
 		removeNodeFromCNP := make(chan func(), 50)
 		for i := 0; i < parallelRequests; i++ {
