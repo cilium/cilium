@@ -42,9 +42,12 @@ func init() {
 }
 
 func dumpNat() {
-	maps := nat.GlobalMaps(true, true)
+	ipv4, ipv6 := nat.GlobalMaps(true, true)
 
-	for _, m := range maps {
+	for _, m := range []*nat.Map{ipv4, ipv6} {
+		if m == nil {
+			continue
+		}
 		path, err := m.Path()
 		if err == nil {
 			err = m.Open()

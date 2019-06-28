@@ -129,15 +129,7 @@ func setupMapInfo(mapType MapType, define string, mapKey bpf.MapKey, keySize int
 func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6 bool) {
 	mapInfo = make(map[MapType]mapAttributes)
 
-	var global4Map, global6Map *nat.Map
-
-	natGlobalMaps := nat.GlobalMaps(v4, v6)
-	if v4 {
-		global4Map = natGlobalMaps[0]
-	}
-	if v6 {
-		global6Map = natGlobalMaps[1]
-	}
+	global4Map, global6Map := nat.GlobalMaps(v4, v6)
 
 	// SNAT also only works if the CT map is global so all local maps will be nil
 	natMaps := map[MapType]NatMap{
