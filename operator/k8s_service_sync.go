@@ -33,8 +33,11 @@ import (
 )
 
 var (
-	k8sSvcCache   = k8s.NewServiceCache()
-	servicesStore *store.SharedStore
+	k8sSvcCache = k8s.NewServiceCache()
+	// k8sSvcCacheSynced is used do signalize when all services are synced with
+	// k8s.
+	k8sSvcCacheSynced = make(chan struct{})
+	servicesStore     *store.SharedStore
 )
 
 func k8sServiceHandler() {
@@ -196,6 +199,13 @@ func startSynchronizingServices() {
 	)
 
 	go endpointController.Run(wait.NeverStop)
+
+	go func() {
+		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
+		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
+		close(k8sSvcCacheSynced)
+	}()
+
 	go func() {
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")

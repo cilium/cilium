@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,6 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
 	"k8s.io/klog"
 )
 
@@ -196,12 +198,53 @@ func runOperator(cmd *cobra.Command) {
 	}
 
 	if requiresKVstore() {
+		var goopts *kvstore.ExtraOptions
 		scopedLog := log.WithFields(logrus.Fields{
 			"kvstore": kvStore,
 			"address": kvStoreOpts[fmt.Sprintf("%s.address", kvStore)],
 		})
+		if synchronizeServices {
+			// If K8s is enabled we can do the service translation automagically by
+			// looking at services from k8s and retrieve the service IP from that.
+			// This makes cilium to not depend on kube dns to interact with etcd
+			if k8s.IsEnabled() && kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace) {
+				// Wait services and endpoints cache are synced with k8s before setting
+				// up etcd so we can perform the name resolution for etcd-operator
+				// to the service IP as well perform the service -> backend IPs for
+				// that service IP.
+
+				scopedLog.Info("cilium-operator running with service synchronization: automatic etcd service translation enabled")
+				log := log.WithField(logfields.LogSubsys, "etcd")
+				scopedLog.Info("Waiting for all services to be synced with kubernetes before connecting to etcd")
+				<-k8sSvcCacheSynced
+				scopedLog.Info("Kubernetes services synced")
+				goopts = &kvstore.ExtraOptions{
+					DialOption: []grpc.DialOption{
+						grpc.WithDialer(func(s string, duration time.Duration) (conn net.Conn, e error) {
+							// If the service is available, do the service translation to
+							// the service IP. Otherwise dial with the original service
+							// name `s`.
+							svc := k8s.ParseServiceIDFrom(s)
+							if svc != nil {
+								backendIP := k8sSvcCache.GetRandomBackendIP(*svc)
+								if backendIP != nil {
+									s = backendIP.String()
+								}
+							} else {
+								log.Debug("Service not found")
+							}
+							log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
+							return net.Dial("tcp", s)
+						},
+						),
+					},
+				}
+			}
+		} else {
+			scopedLog.Info("cilium-operator running without service synchronization: automatic etcd service translation disabled")
+		}
 		scopedLog.Info("Connecting to kvstore...")
-		if err := kvstore.Setup(kvStore, kvStoreOpts, nil); err != nil {
+		if err := kvstore.Setup(kvStore, kvStoreOpts, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 	}
