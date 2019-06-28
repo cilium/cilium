@@ -292,6 +292,7 @@ func (d *Daemon) allocateIPs() error {
 			}
 		}
 	}
+
 	bootstrapStats.ipam.End(true)
 	return d.allocateHealthIPs()
 }

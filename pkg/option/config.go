@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -208,6 +209,9 @@ const (
 
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
+
+	// NodePortRange defines a custom range where to look up NodePort services
+	NodePortRange = "node-port-range"
 
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
@@ -597,6 +601,14 @@ const (
 	// allows to keep a Kubernetes node NotReady until Cilium is up and
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady = "write-cni-conf-when-ready"
+)
+
+const (
+	// NodePortMinDefault is the minimal port to listen for NodePort requests
+	NodePortMinDefault = 30000
+
+	// NodePortMaxDefault is the maximum port to listen for NodePort requests
+	NodePortMaxDefault = 32767
 )
 
 // GetTunnelModes returns the list of all tunnel modes
@@ -1042,6 +1054,12 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
+	// NodePortMin is the minimum port address for the NodePort range
+	NodePortMin int
+
+	// NodePortMax is the maximum port address for the NodePort range
+	NodePortMax int
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
@@ -1356,6 +1374,8 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 
 // Populate sets all options with the values from viper
 func (c *DaemonConfig) Populate() {
+	var err error
+
 	c.AccessLog = viper.GetString(AccessLog)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
@@ -1505,6 +1525,24 @@ func (c *DaemonConfig) Populate() {
 			}).Warning("IPv6PodSubnets parameter can not be parsed.")
 	}
 	c.IPv6PodSubnets = subnets
+
+	nodePortRange := viper.GetStringSlice(NodePortRange)
+	if len(nodePortRange) > 0 {
+		if len(nodePortRange) != 2 {
+			log.Fatal("Unable to parse min/max port for NodePort range!")
+		}
+		c.NodePortMin, err = strconv.Atoi(nodePortRange[0])
+		if err != nil {
+			log.WithError(err).Fatal("Unable to parse min port value for NodePort range!")
+		}
+		c.NodePortMax, err = strconv.Atoi(nodePortRange[1])
+		if err != nil {
+			log.WithError(err).Fatal("Unable to parse max port value for NodePort range!")
+		}
+		if c.NodePortMax <= c.NodePortMin {
+			log.Fatal("NodePort range min port must be smaller than max port!")
+		}
+	}
 
 	// Map options
 	if m := viper.GetStringMapString(ContainerRuntimeEndpoint); len(m) != 0 {
