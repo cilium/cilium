@@ -356,6 +356,9 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 		existingCount   int
 	)
 
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	svc := cache.prepareUpdate(fe, backends)
 	besValues := svc.getBackends()
 
@@ -370,9 +373,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue, addRevNAT bool, revNA
 			nNonZeroWeights++
 		}
 	}
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	// Check if the service already exists, it is not failure scenario if
 	// the services doesn't exist. That's simply a new service. Even if the
