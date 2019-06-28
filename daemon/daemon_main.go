@@ -473,7 +473,7 @@ func init() {
 	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
 	option.BindEnv(option.EgressMasqueradeInterfaces)
 
-	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
+	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications (beta)")
 	option.BindEnv(option.EnableHostReachableServices)
 
 	flags.Bool(option.EnableLegacyServices, true, "Enable legacy (prior-v1.5) services")
