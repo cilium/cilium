@@ -48,7 +48,6 @@ func NewClient(ec2Client *ec2.EC2, metrics metricsAPI, rateLimit float64, burst 
 		metricsAPI: metrics,
 		limiter:    rate.NewLimiter(rate.Limit(rateLimit), burst),
 	}
-
 }
 
 // deriveStatus returns a status string based on the HTTP response provided by

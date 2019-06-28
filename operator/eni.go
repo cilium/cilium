@@ -86,7 +86,7 @@ func ciliumNodeDeleted(nodeName string) {
 // startENIAllocator kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func startENIAllocator() error {
+func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
 	log.Info("Starting ENI allocator...")
 
 	cfg, err := external.LoadDefaultAWSConfig()
@@ -110,8 +110,7 @@ func startENIAllocator() error {
 
 	eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
 
-	// Rate limit the EC2 API calls to 10/s with a burst of 2 tokens
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), eniMetrics, 10.0, 2)
+	ec2Client := ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
 	log.Info("Connected to EC2 service API")
 	instances := eni.NewInstancesManager(ec2Client, eniMetrics)
 	nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers)
