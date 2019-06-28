@@ -17,6 +17,7 @@
 package mock
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -73,4 +74,31 @@ func (e *MockSuite) TestMock(c *check.C) {
 
 	c.Assert(api.GetSubnet("s-1"), check.Not(check.IsNil))
 	c.Assert(api.GetSubnet("s-2"), check.IsNil)
+}
+
+func (e *MockSuite) TestSetMockError(c *check.C) {
+	api := NewAPI([]*types.Subnet{})
+	c.Assert(api, check.Not(check.IsNil))
+
+	mockError := errors.New("error")
+
+	api.SetMockError(CreateNetworkInterface, mockError)
+	_, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.Equals, mockError)
+
+	api.SetMockError(AttachNetworkInterface, mockError)
+	_, err = api.AttachNetworkInterface(0, "i-1", "e-1")
+	c.Assert(err, check.Equals, mockError)
+
+	api.SetMockError(DeleteNetworkInterface, mockError)
+	err = api.DeleteNetworkInterface("e-1")
+	c.Assert(err, check.Equals, mockError)
+
+	api.SetMockError(AssignPrivateIpAddresses, mockError)
+	err = api.AssignPrivateIpAddresses("e-1", 10)
+	c.Assert(err, check.Equals, mockError)
+
+	api.SetMockError(ModifyNetworkInterface, mockError)
+	err = api.ModifyNetworkInterface("e-1", "a-1", true)
+	c.Assert(err, check.Equals, mockError)
 }
