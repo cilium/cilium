@@ -28,11 +28,23 @@ import (
 
 type eniMap map[string]*v2.ENI
 
+// Operation is an EC2 API operation that this mock API supports
+type Operation int
+
+const (
+	CreateNetworkInterface Operation = iota
+	DeleteNetworkInterface
+	AttachNetworkInterface
+	ModifyNetworkInterface
+	AssignPrivateIpAddresses
+)
+
 type API struct {
 	mutex      lock.RWMutex
 	unattached map[string]*v2.ENI
 	enis       map[string]eniMap
 	subnets    map[string]*types.Subnet
+	errors     map[Operation]error
 	allocator  *ipallocator.Range
 }
 
@@ -44,6 +56,7 @@ func NewAPI(subnets []*types.Subnet) *API {
 		enis:       map[string]eniMap{},
 		subnets:    map[string]*types.Subnet{},
 		allocator:  ipallocator.NewCIDRRange(cidr),
+		errors:     map[Operation]error{},
 	}
 
 	for _, s := range subnets {
@@ -51,6 +64,14 @@ func NewAPI(subnets []*types.Subnet) *API {
 	}
 
 	return api
+}
+
+// SetMockError modifies the mock API to return an error for a particular
+// operation
+func (e *API) SetMockError(op Operation, err error) {
+	e.mutex.Lock()
+	e.errors[op] = err
+	e.mutex.Unlock()
 }
 
 func (e *API) GetENI(instanceID string, index int) *v2.ENI {
@@ -104,6 +125,10 @@ func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, gr
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
+	if err, ok := e.errors[CreateNetworkInterface]; ok {
+		return "", err
+	}
+
 	subnet, ok := e.subnets[subnetID]
 	if !ok {
 		return "", fmt.Errorf("subnet %s not found", subnetID)
@@ -141,6 +166,10 @@ func (e *API) DeleteNetworkInterface(eniID string) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
+	if err, ok := e.errors[DeleteNetworkInterface]; ok {
+		return err
+	}
+
 	delete(e.unattached, eniID)
 	for _, enis := range e.enis {
 		if _, ok := enis[eniID]; ok {
@@ -154,6 +183,10 @@ func (e *API) DeleteNetworkInterface(eniID string) error {
 func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (string, error) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[AttachNetworkInterface]; ok {
+		return "", err
+	}
 
 	eni, ok := e.unattached[eniID]
 	if !ok {
@@ -174,12 +207,23 @@ func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (str
 }
 
 func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[ModifyNetworkInterface]; ok {
+		return err
+	}
+
 	return nil
 }
 
 func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+
+	if err, ok := e.errors[AssignPrivateIpAddresses]; ok {
+		return err
+	}
 
 	for _, enis := range e.enis {
 		if eni, ok := enis[eniID]; ok {
