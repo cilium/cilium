@@ -418,21 +418,6 @@ enum {
 	NAT46,
 };
 
-/* Default node port range. */
-#ifndef NODEPORT_PORT_MIN
-# define NODEPORT_PORT_MIN	30000
-#endif
-#ifndef NODEPORT_PORT_MAX
-# define NODEPORT_PORT_MAX	32767
-#endif
-
-#ifndef NODEPORT_PORT_MIN_NAT
-# define NODEPORT_PORT_MIN_NAT	(NODEPORT_PORT_MAX + 1)
-#endif
-#ifndef NODEPORT_PORT_MAX_NAT
-# define NODEPORT_PORT_MAX_NAT	34000
-#endif
-
 #define TUPLE_F_OUT		0	/* Outgoing flow */
 #define TUPLE_F_IN		1	/* Incoming flow */
 #define TUPLE_F_RELATED		2	/* Flow represents related packets */

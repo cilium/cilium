@@ -618,6 +618,9 @@ func init() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
+	flags.StringSlice(option.NodePortRange, []string{}, fmt.Sprintf("Set the min/max NodePort port range (default: %d,%d)", option.NodePortMinDefault, option.NodePortMaxDefault))
+	option.BindEnv(option.NodePortRange)
+
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 

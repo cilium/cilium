@@ -292,6 +292,10 @@ func (d *Daemon) allocateIPs() error {
 			}
 		}
 	}
+	if option.Config.EnableNodePort {
+		log.Infof("  NodePort-Range: %d-%d", option.Config.NodePortMin, option.Config.NodePortMax)
+	}
+
 	bootstrapStats.ipam.End(true)
 	return d.allocateHealthIPs()
 }

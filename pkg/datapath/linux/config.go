@@ -215,6 +215,10 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 
 	if option.Config.EnableNodePort {
 		fmt.Fprintf(fw, "#define ENABLE_NODEPORT 1\n")
+		fmt.Fprintf(fw, "#define NODEPORT_PORT_MIN %d\n", option.Config.NodePortMin)
+		fmt.Fprintf(fw, "#define NODEPORT_PORT_MAX %d\n", option.Config.NodePortMax)
+		fmt.Fprintf(fw, "#define NODEPORT_PORT_MIN_NAT %d\n", option.Config.NodePortMax+1)
+		fmt.Fprintf(fw, "#define NODEPORT_PORT_MAX_NAT %d\n", 65535)
 	}
 
 	return fw.Flush()
