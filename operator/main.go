@@ -118,6 +118,9 @@ func init() {
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
+	flags.Int(option.AWSClientBurst, 2, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
+	flags.Float64(option.AWSClientQPSLimit, 4.0, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
+
 	// We need to obtain from Cilium ConfigMap if the CiliumEndpointCRD option
 	// is enabled or disabled. This option is marked as hidden because the
 	// Cilium Endpoint CRD controller is not in this program and by having it
@@ -190,7 +193,9 @@ func runOperator(cmd *cobra.Command) {
 
 	enableENI := viper.GetString(option.IPAM) == option.IPAMENI
 	if enableENI {
-		if err := startENIAllocator(); err != nil {
+		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
+		awsClientBurst := viper.GetInt(option.AWSClientBurst)
+		if err := startENIAllocator(awsClientQPSLimit, awsClientBurst); err != nil {
 			log.WithError(err).Fatal("Unable to start ENI allocator")
 		}
 	}
