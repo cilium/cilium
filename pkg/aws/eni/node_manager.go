@@ -16,6 +16,7 @@
 package eni
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/semaphore"
 )
 
 type k8sAPI interface {
@@ -71,31 +73,46 @@ type NodeManager struct {
 	metricsAPI      metricsAPI
 	resyncTrigger   *trigger.Trigger
 	deficitResolver *trigger.Trigger
+	parallelWorkers int64
 }
 
 // NewNodeManager returns a new NodeManager
-func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, metrics metricsAPI) (*NodeManager, error) {
+func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, metrics metricsAPI, parallelWorkers int64) (*NodeManager, error) {
+	if parallelWorkers < 1 {
+		parallelWorkers = 1
+	}
+
 	mngr := &NodeManager{
-		nodes:        nodeMap{},
-		instancesAPI: instancesAPI,
-		ec2API:       ec2API,
-		k8sAPI:       k8sAPI,
-		metricsAPI:   metrics,
+		nodes:           nodeMap{},
+		instancesAPI:    instancesAPI,
+		ec2API:          ec2API,
+		k8sAPI:          k8sAPI,
+		metricsAPI:      metrics,
+		parallelWorkers: parallelWorkers,
 	}
 
 	deficitResolver, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "eni-node-manager-deficit-resolver",
 		MinInterval: time.Second,
 		TriggerFunc: func(reasons []string) {
+			sem := semaphore.NewWeighted(parallelWorkers)
+
 			for _, name := range reasons {
-				if node := mngr.Get(name); node != nil {
-					if err := node.ResolveIPDeficit(); err != nil {
-						node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
+				sem.Acquire(context.TODO(), 1)
+				go func(name string) {
+					if node := mngr.Get(name); node != nil {
+						if err := node.ResolveIPDeficit(); err != nil {
+							node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
+						}
+					} else {
+						log.WithField(fieldName, name).Warning("Node has disappeared while allocation request was queued")
 					}
-				} else {
-					log.WithField(fieldName, name).Warning("Node has disappeared while allocation request was queued")
-				}
+					sem.Release(1)
+				}(name)
 			}
+			// Acquire the full semaphore, this requires all go routines to
+			// complete and thus blocks until all nodes are synced
+			sem.Acquire(context.TODO(), parallelWorkers)
 		},
 	})
 	if err != nil {
@@ -189,44 +206,71 @@ func (n *NodeManager) GetNodesByNeededAddresses() []*Node {
 	return list
 }
 
+type resyncStats struct {
+	mutex               lock.Mutex
+	totalUsed           int
+	totalAvailable      int
+	totalNeeded         int
+	remainingInterfaces int
+	nodesAtCapacity     int
+}
+
+func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
+	node.mutex.Lock()
+
+	// Resync() is always called after resync of the instance data,
+	// mark node as resynced
+	node.resyncNeeded = false
+	allocationNeeded := node.recalculateLocked()
+	node.loggerLocked().WithFields(logrus.Fields{
+		fieldName:   node.name,
+		"available": node.stats.availableIPs,
+		"used":      node.stats.usedIPs,
+	}).Debug("Recalculated allocation requirements")
+
+	stats.mutex.Lock()
+	stats.totalUsed += node.stats.usedIPs
+	availableOnNode := node.stats.availableIPs - node.stats.usedIPs
+	stats.totalAvailable += availableOnNode
+	stats.totalNeeded += node.stats.neededIPs
+	stats.remainingInterfaces += node.stats.remainingInterfaces
+
+	if node.stats.remainingInterfaces == 0 && availableOnNode == 0 {
+		stats.nodesAtCapacity++
+	}
+	stats.mutex.Unlock()
+
+	if allocationNeeded && node.stats.remainingInterfaces > 0 {
+		n.deficitResolver.TriggerWithReason(node.name)
+	}
+	node.mutex.Unlock()
+
+	node.SyncToAPIServer()
+}
+
 // Resync will attend all nodes and resolves IP deficits. The order of
 // attendance is defined by the number of IPs needed to reach the configured
 // watermarks. Any updates to the node resource are synchronized to the
 // Kubernetes apiserver.
 func (n *NodeManager) Resync() {
-	var totalUsed, totalAvailable, totalNeeded, remainingInterfaces, nodesAtCapacity int
+	stats := resyncStats{}
+	sem := semaphore.NewWeighted(n.parallelWorkers)
 
 	for _, node := range n.GetNodesByNeededAddresses() {
-		node.mutex.Lock()
-		// Resync() is always called after resync of the instance data,
-		// mark node as resynced
-		node.resyncNeeded = false
-		allocationNeeded := node.recalculateLocked()
-		node.loggerLocked().WithFields(logrus.Fields{
-			fieldName:   node.name,
-			"available": node.stats.availableIPs,
-			"used":      node.stats.usedIPs,
-		}).Debug("Recalculated allocation requirements")
-		totalUsed += node.stats.usedIPs
-		availableOnNode := node.stats.availableIPs - node.stats.usedIPs
-		totalAvailable += availableOnNode
-		totalNeeded += node.stats.neededIPs
-		remainingInterfaces += node.stats.remainingInterfaces
-
-		if node.stats.remainingInterfaces == 0 && availableOnNode == 0 {
-			nodesAtCapacity++
-		}
-		if allocationNeeded && node.stats.remainingInterfaces > 0 {
-			n.deficitResolver.TriggerWithReason(node.name)
-		}
-		node.mutex.Unlock()
-
-		node.SyncToAPIServer()
+		sem.Acquire(context.TODO(), 1)
+		go func(node *Node, stats *resyncStats) {
+			n.resyncNode(node, stats)
+			sem.Release(1)
+		}(node, &stats)
 	}
 
-	n.metricsAPI.SetAllocatedIPs("used", totalUsed)
-	n.metricsAPI.SetAllocatedIPs("available", totalAvailable)
-	n.metricsAPI.SetAllocatedIPs("needed", totalNeeded)
-	n.metricsAPI.SetAvailableENIs(remainingInterfaces)
-	n.metricsAPI.SetNodesAtCapacity(nodesAtCapacity)
+	// Acquire the full semaphore, this requires all go routines to
+	// complete and thus blocks until all nodes are synced
+	sem.Acquire(context.TODO(), n.parallelWorkers)
+
+	n.metricsAPI.SetAllocatedIPs("used", stats.totalUsed)
+	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
+	n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
+	n.metricsAPI.SetAvailableENIs(stats.remainingInterfaces)
+	n.metricsAPI.SetNodesAtCapacity(stats.nodesAtCapacity)
 }
