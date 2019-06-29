@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/uuid"
 
+	"golang.org/x/time/rate"
 	"k8s.io/kubernetes/pkg/registry/core/service/ipallocator"
 )
 
@@ -50,6 +51,7 @@ type API struct {
 	errors     map[Operation]error
 	delays     map[Operation]time.Duration
 	allocator  *ipallocator.Range
+	limiter    *rate.Limiter
 }
 
 func NewAPI(subnets []*types.Subnet) *API {
@@ -99,6 +101,25 @@ func (e *API) SetDelay(op Operation, delay time.Duration) {
 		e.setDelayLocked(op, delay)
 	}
 	e.mutex.Unlock()
+}
+
+// SetLimiter adds a rate limiter to all simulated API calls
+func (e *API) SetLimiter(limit float64, burst int) {
+	e.limiter = rate.NewLimiter(rate.Limit(limit), burst)
+}
+
+func (e *API) rateLimit() {
+	e.mutex.RLock()
+	if e.limiter == nil {
+		e.mutex.RUnlock()
+		return
+	}
+
+	r := e.limiter.Reserve()
+	e.mutex.RUnlock()
+	if !r.OK() {
+		time.Sleep(r.Delay())
+	}
 }
 
 func (e *API) GetENI(instanceID string, index int) *v2.ENI {
@@ -158,6 +179,7 @@ func (e *API) simulateDelay(op Operation) {
 }
 
 func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, error) {
+	e.rateLimit()
 	e.simulateDelay(CreateNetworkInterface)
 
 	e.mutex.Lock()
@@ -201,6 +223,7 @@ func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, gr
 }
 
 func (e *API) DeleteNetworkInterface(eniID string) error {
+	e.rateLimit()
 	e.simulateDelay(DeleteNetworkInterface)
 
 	e.mutex.Lock()
@@ -221,6 +244,7 @@ func (e *API) DeleteNetworkInterface(eniID string) error {
 }
 
 func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (string, error) {
+	e.rateLimit()
 	e.simulateDelay(AttachNetworkInterface)
 
 	e.mutex.Lock()
@@ -249,6 +273,7 @@ func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (str
 }
 
 func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error {
+	e.rateLimit()
 	e.simulateDelay(ModifyNetworkInterface)
 
 	e.mutex.Lock()
@@ -262,6 +287,7 @@ func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermina
 }
 
 func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
+	e.rateLimit()
 	e.simulateDelay(AssignPrivateIpAddresses)
 
 	e.mutex.Lock()
