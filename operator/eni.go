@@ -114,7 +114,7 @@ func startENIAllocator() error {
 	ec2Client := ec2shim.NewClient(ec2.New(cfg), eniMetrics, 4.0, 2)
 	log.Info("Connected to EC2 service API")
 	instances := eni.NewInstancesManager(ec2Client, eniMetrics)
-	nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics)
+	nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers)
 	if err != nil {
 		return fmt.Errorf("unable to initialize ENI node manager: %s", err)
 	}

@@ -63,6 +63,7 @@ var (
 	synchronizeNodes    bool
 	enableMetrics       bool
 	metricsAddress      string
+	eniParallelWorkers  int64
 
 	ciliumK8sClient clientset.Interface
 )
@@ -113,6 +114,7 @@ func init() {
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
+	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", 50, "Maximum number of parallel workers used by ENI allocator")
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 

@@ -45,7 +45,7 @@ var (
 
 func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -69,7 +69,7 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 
 func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -153,7 +153,7 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 // - PreAllocate 0 (default: 8)
 func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -184,7 +184,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 // - PreAllocate -1
 func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -224,7 +224,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 // - PreAllocate 1
 func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -270,7 +270,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 // - PreAllocate 8
 func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -295,6 +295,12 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	c.Assert(node.stats.usedIPs, check.Equals, 16)
 }
 
+type nodeState struct {
+	cn           *v2.CiliumNode
+	name         string
+	instanceName string
+}
+
 // TestNodeManagerManyNodes tests IP allocation of 100 nodes across 3 subnets
 //
 // - m4.large (2x ENIs, 2x10 IPs)
@@ -306,15 +312,9 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	testSubnet3 := &types.Subnet{ID: "s-3", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400}
 
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet1, testSubnet2, testSubnet3})
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
-
-	type nodeState struct {
-		cn           *v2.CiliumNode
-		name         string
-		instanceName string
-	}
 
 	state := make([]*nodeState, 100)
 
@@ -341,7 +341,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet})
 	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	metricsMock := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsMock)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsMock, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
@@ -364,4 +364,55 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.stats.availableIPs, check.Equals, 0)
 	c.Assert(node.stats.usedIPs, check.Equals, 0)
+}
+
+func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration) {
+	testSubnet1 := &types.Subnet{ID: "s-1", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 1000000}
+	testSubnet2 := &types.Subnet{ID: "s-2", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 1000000}
+	testSubnet3 := &types.Subnet{ID: "s-3", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 1000000}
+
+	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet1, testSubnet2, testSubnet3})
+	ec2api.SetDelay(ec2mock.AllOperations, delay)
+	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, workers)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	state := make([]*nodeState, c.N)
+
+	c.ResetTimer()
+	for i := range state {
+		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, 10, 0, 0)
+		state[i] = s
+		mngr.Update(s.cn)
+	}
+
+restart:
+	for _, s := range state {
+		if !reachedAddressesNeeded(mngr, s.name, 0) {
+			time.Sleep(5 * time.Millisecond)
+			goto restart
+		}
+	}
+	c.StopTimer()
+
+}
+
+func (e *ENISuite) BenchmarkAllocDelay20Worker1(c *check.C) {
+	benchmarkAllocWorker(c, 1, 20*time.Millisecond)
+}
+func (e *ENISuite) BenchmarkAllocDelay20Worker10(c *check.C) {
+	benchmarkAllocWorker(c, 10, 20*time.Millisecond)
+}
+func (e *ENISuite) BenchmarkAllocDelay20Worker50(c *check.C) {
+	benchmarkAllocWorker(c, 50, 20*time.Millisecond)
+}
+func (e *ENISuite) BenchmarkAllocDelay50Worker1(c *check.C) {
+	benchmarkAllocWorker(c, 1, 50*time.Millisecond)
+}
+func (e *ENISuite) BenchmarkAllocDelay50Worker10(c *check.C) {
+	benchmarkAllocWorker(c, 10, 50*time.Millisecond)
+}
+func (e *ENISuite) BenchmarkAllocDelay50Worker50(c *check.C) {
+	benchmarkAllocWorker(c, 50, 50*time.Millisecond)
 }
