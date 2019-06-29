@@ -56,7 +56,7 @@ type metricsAPI interface {
 	AddIPAllocation(subnetID string, allocated int64)
 	SetAllocatedIPs(typ string, allocated int)
 	SetAvailableENIs(available int)
-	SetNodesAtCapacity(nodes int)
+	SetNodes(category string, nodes int)
 	IncResyncCount()
 }
 
@@ -212,7 +212,9 @@ type resyncStats struct {
 	totalAvailable      int
 	totalNeeded         int
 	remainingInterfaces int
+	nodes               int
 	nodesAtCapacity     int
+	nodesInDeficit      int
 }
 
 func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
@@ -234,6 +236,11 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
 	stats.totalAvailable += availableOnNode
 	stats.totalNeeded += node.stats.neededIPs
 	stats.remainingInterfaces += node.stats.remainingInterfaces
+	stats.nodes++
+
+	if allocationNeeded {
+		stats.nodesInDeficit++
+	}
 
 	if node.stats.remainingInterfaces == 0 && availableOnNode == 0 {
 		stats.nodesAtCapacity++
@@ -272,5 +279,7 @@ func (n *NodeManager) Resync() {
 	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
 	n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
 	n.metricsAPI.SetAvailableENIs(stats.remainingInterfaces)
-	n.metricsAPI.SetNodesAtCapacity(stats.nodesAtCapacity)
+	n.metricsAPI.SetNodes("total", stats.nodes)
+	n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
+	n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)
 }

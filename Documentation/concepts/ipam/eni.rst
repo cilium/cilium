@@ -341,8 +341,12 @@ The following metrics are exposed:
 ``cilium_operator_eni_available``
   Number of ENIs with addresses available
 
-``cilium_operator_eni_nodes_at_capacity``
-  Number of nodes unable to allocate more addresses
+``cilium_operator_eni_nodes``
+  Number of nodes by category
+
+  *Labels:*
+
+  * ``category``: ``{ total | in-deficit | at-capacity }``
 
 ``cilium_operator_eni_aws_api_duration_seconds``
   Duration of interactions with AWS API"
