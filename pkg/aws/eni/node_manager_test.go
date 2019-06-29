@@ -366,13 +366,14 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(node.stats.usedIPs, check.Equals, 0)
 }
 
-func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration) {
+func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	testSubnet1 := &types.Subnet{ID: "s-1", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 1000000}
 	testSubnet2 := &types.Subnet{ID: "s-2", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 1000000}
 	testSubnet3 := &types.Subnet{ID: "s-3", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 1000000}
 
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet1, testSubnet2, testSubnet3})
 	ec2api.SetDelay(ec2mock.AllOperations, delay)
+	ec2api.SetLimiter(rateLimit, burst)
 	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, workers)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
@@ -399,20 +400,20 @@ restart:
 }
 
 func (e *ENISuite) BenchmarkAllocDelay20Worker1(c *check.C) {
-	benchmarkAllocWorker(c, 1, 20*time.Millisecond)
+	benchmarkAllocWorker(c, 1, 20*time.Millisecond, 10.0, 2)
 }
 func (e *ENISuite) BenchmarkAllocDelay20Worker10(c *check.C) {
-	benchmarkAllocWorker(c, 10, 20*time.Millisecond)
+	benchmarkAllocWorker(c, 10, 20*time.Millisecond, 10.0, 2)
 }
 func (e *ENISuite) BenchmarkAllocDelay20Worker50(c *check.C) {
-	benchmarkAllocWorker(c, 50, 20*time.Millisecond)
+	benchmarkAllocWorker(c, 50, 20*time.Millisecond, 10.0, 2)
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker1(c *check.C) {
-	benchmarkAllocWorker(c, 1, 50*time.Millisecond)
+	benchmarkAllocWorker(c, 1, 50*time.Millisecond, 10.0, 2)
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker10(c *check.C) {
-	benchmarkAllocWorker(c, 10, 50*time.Millisecond)
+	benchmarkAllocWorker(c, 10, 50*time.Millisecond, 10.0, 2)
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker50(c *check.C) {
-	benchmarkAllocWorker(c, 50, 50*time.Millisecond)
+	benchmarkAllocWorker(c, 50, 50*time.Millisecond, 10.0, 2)
 }

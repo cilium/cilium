@@ -93,7 +93,7 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 
 	deficitResolver, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "eni-node-manager-deficit-resolver",
-		MinInterval: time.Second,
+		MinInterval: 10 * time.Millisecond,
 		TriggerFunc: func(reasons []string) {
 			sem := semaphore.NewWeighted(parallelWorkers)
 
@@ -121,7 +121,7 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 
 	resyncTrigger, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "eni-node-manager-resync",
-		MinInterval: time.Second,
+		MinInterval: 10 * time.Millisecond,
 		TriggerFunc: func(reasons []string) {
 			instancesAPI.Resync()
 			mngr.Resync()
