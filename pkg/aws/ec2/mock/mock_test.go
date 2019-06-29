@@ -115,3 +115,12 @@ func (e *MockSuite) TestSetDelay(c *check.C) {
 	c.Assert(api.delays[AttachNetworkInterface], check.Equals, time.Second)
 	c.Assert(api.delays[AssignPrivateIpAddresses], check.Equals, time.Second)
 }
+
+func (e *MockSuite) TestSetLimiter(c *check.C) {
+	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}})
+	c.Assert(api, check.Not(check.IsNil))
+
+	api.SetLimiter(10.0, 2)
+	_, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	c.Assert(err, check.IsNil)
+}
