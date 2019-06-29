@@ -17,6 +17,7 @@ package mock
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -32,11 +33,13 @@ type eniMap map[string]*v2.ENI
 type Operation int
 
 const (
-	CreateNetworkInterface Operation = iota
+	AllOperations Operation = iota
+	CreateNetworkInterface
 	DeleteNetworkInterface
 	AttachNetworkInterface
 	ModifyNetworkInterface
 	AssignPrivateIpAddresses
+	MaxOperation
 )
 
 type API struct {
@@ -45,6 +48,7 @@ type API struct {
 	enis       map[string]eniMap
 	subnets    map[string]*types.Subnet
 	errors     map[Operation]error
+	delays     map[Operation]time.Duration
 	allocator  *ipallocator.Range
 }
 
@@ -57,6 +61,7 @@ func NewAPI(subnets []*types.Subnet) *API {
 		subnets:    map[string]*types.Subnet{},
 		allocator:  ipallocator.NewCIDRRange(cidr),
 		errors:     map[Operation]error{},
+		delays:     map[Operation]time.Duration{},
 	}
 
 	for _, s := range subnets {
@@ -71,6 +76,28 @@ func NewAPI(subnets []*types.Subnet) *API {
 func (e *API) SetMockError(op Operation, err error) {
 	e.mutex.Lock()
 	e.errors[op] = err
+	e.mutex.Unlock()
+}
+
+func (e *API) setDelayLocked(op Operation, delay time.Duration) {
+	if delay == time.Duration(0) {
+		delete(e.delays, op)
+	} else {
+		e.delays[op] = delay
+	}
+}
+
+// SetDelay specifies the delay which should be simulated for an individual EC2
+// API operation
+func (e *API) SetDelay(op Operation, delay time.Duration) {
+	e.mutex.Lock()
+	if op == AllOperations {
+		for op := AllOperations + 1; op < MaxOperation; op++ {
+			e.setDelayLocked(op, delay)
+		}
+	} else {
+		e.setDelayLocked(op, delay)
+	}
 	e.mutex.Unlock()
 }
 
@@ -121,7 +148,18 @@ func (e *API) FindSubnetByTags(vpcID, availabilityZone string, required types.Ta
 func (e *API) Resync() {
 }
 
+func (e *API) simulateDelay(op Operation) {
+	e.mutex.RLock()
+	delay, ok := e.delays[op]
+	e.mutex.RUnlock()
+	if ok {
+		time.Sleep(delay)
+	}
+}
+
 func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, error) {
+	e.simulateDelay(CreateNetworkInterface)
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -163,6 +201,8 @@ func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, gr
 }
 
 func (e *API) DeleteNetworkInterface(eniID string) error {
+	e.simulateDelay(DeleteNetworkInterface)
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -181,6 +221,8 @@ func (e *API) DeleteNetworkInterface(eniID string) error {
 }
 
 func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (string, error) {
+	e.simulateDelay(AttachNetworkInterface)
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -207,6 +249,8 @@ func (e *API) AttachNetworkInterface(index int64, instanceID, eniID string) (str
 }
 
 func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error {
+	e.simulateDelay(ModifyNetworkInterface)
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -218,6 +262,8 @@ func (e *API) ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermina
 }
 
 func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
+	e.simulateDelay(AssignPrivateIpAddresses)
+
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
