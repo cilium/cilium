@@ -184,7 +184,7 @@ func (n *Node) recalculateLocked() bool {
 		"toAlloc":              n.stats.neededIPs,
 		"resyncNeeded":         n.resyncNeeded,
 		"waitingForAllocation": n.waitingForAllocation,
-	}).Info("Recalculated needed addresses")
+	}).Debug("Recalculated needed addresses")
 
 	if allocationNeeded {
 		n.waitingForAllocation = true
