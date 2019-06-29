@@ -27,7 +27,7 @@ type mockMetrics struct {
 	ipAllocations      map[string]int64
 	allocatedIPs       map[string]int
 	availableENIs      int
-	nodesAtCapacity    int
+	nodes              map[string]int
 	ec2ApiCall         map[string]float64
 	ec2RateLimit       map[string]time.Duration
 	resyncCount        int64
@@ -39,6 +39,7 @@ func NewMockMetrics() *mockMetrics {
 		allocationAttempts: map[string]int64{},
 		ipAllocations:      map[string]int64{},
 		allocatedIPs:       map[string]int{},
+		nodes:              map[string]int{},
 		ec2ApiCall:         map[string]float64{},
 		ec2RateLimit:       map[string]time.Duration{},
 	}
@@ -92,15 +93,15 @@ func (m *mockMetrics) SetAvailableENIs(available int) {
 	m.mutex.Unlock()
 }
 
-func (m *mockMetrics) NodesAtCapacity() int {
+func (m *mockMetrics) Nodes(category string) int {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	return m.nodesAtCapacity
+	return m.nodes[category]
 }
 
-func (m *mockMetrics) SetNodesAtCapacity(nodes int) {
+func (m *mockMetrics) SetNodes(category string, nodes int) {
 	m.mutex.Lock()
-	m.nodesAtCapacity = nodes
+	m.nodes[category] = nodes
 	m.mutex.Unlock()
 }
 

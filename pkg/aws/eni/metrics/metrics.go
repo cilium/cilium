@@ -23,15 +23,15 @@ import (
 const eniSubsystem = "eni"
 
 type prometheusMetrics struct {
-	registry        *prometheus.Registry
-	AllocateEniOps  *prometheus.CounterVec
-	AllocateIpOps   *prometheus.CounterVec
-	IPsAllocated    *prometheus.GaugeVec
-	Available       prometheus.Gauge
-	NodesAtCapacity prometheus.Gauge
-	Resync          prometheus.Counter
-	EC2ApiDuration  *prometheus.HistogramVec
-	EC2RateLimit    *prometheus.HistogramVec
+	registry       *prometheus.Registry
+	AllocateEniOps *prometheus.CounterVec
+	AllocateIpOps  *prometheus.CounterVec
+	IPsAllocated   *prometheus.GaugeVec
+	Available      prometheus.Gauge
+	Nodes          *prometheus.GaugeVec
+	Resync         prometheus.Counter
+	EC2ApiDuration *prometheus.HistogramVec
+	EC2RateLimit   *prometheus.HistogramVec
 }
 
 // NewPrometheusMetrics returns a new ENI metrics implementation backed by
@@ -69,12 +69,12 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Help:      "Number of ENIs with addresses available",
 	})
 
-	m.NodesAtCapacity = prometheus.NewGauge(prometheus.GaugeOpts{
+	m.Nodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: eniSubsystem,
-		Name:      "nodes_at_capacity",
-		Help:      "Number of nodes unable to allocate more addresses",
-	})
+		Name:      "nodes",
+		Help:      "Number of nodes by category { total | in-deficit | at-capacity }",
+	}, []string{"category"})
 
 	m.EC2ApiDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
@@ -101,7 +101,7 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.AllocateIpOps)
 	registry.MustRegister(m.AllocateEniOps)
 	registry.MustRegister(m.Available)
-	registry.MustRegister(m.NodesAtCapacity)
+	registry.MustRegister(m.Nodes)
 	registry.MustRegister(m.Resync)
 	registry.MustRegister(m.EC2ApiDuration)
 	registry.MustRegister(m.EC2RateLimit)
@@ -125,8 +125,8 @@ func (p *prometheusMetrics) SetAvailableENIs(available int) {
 	p.Available.Set(float64(available))
 }
 
-func (p *prometheusMetrics) SetNodesAtCapacity(nodes int) {
-	p.NodesAtCapacity.Set(float64(nodes))
+func (p *prometheusMetrics) SetNodes(label string, nodes int) {
+	p.Nodes.WithLabelValues(label).Set(float64(nodes))
 }
 
 func (p *prometheusMetrics) ObserveEC2APICall(operation, status string, duration float64) {
