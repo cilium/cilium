@@ -110,8 +110,8 @@ func startENIAllocator() error {
 
 	eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
 
-	// Rate limit the EC2 API calls to 4/s with a burst of 2 tokens
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), eniMetrics, 4.0, 2)
+	// Rate limit the EC2 API calls to 10/s with a burst of 2 tokens
+	ec2Client := ec2shim.NewClient(ec2.New(cfg), eniMetrics, 10.0, 2)
 	log.Info("Connected to EC2 service API")
 	instances := eni.NewInstancesManager(ec2Client, eniMetrics)
 	nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers)
