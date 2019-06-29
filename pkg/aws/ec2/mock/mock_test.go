@@ -19,6 +19,7 @@ package mock
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/aws/types"
 
@@ -101,4 +102,16 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	api.SetMockError(ModifyNetworkInterface, mockError)
 	err = api.ModifyNetworkInterface("e-1", "a-1", true)
 	c.Assert(err, check.Equals, mockError)
+}
+
+func (e *MockSuite) TestSetDelay(c *check.C) {
+	api := NewAPI([]*types.Subnet{})
+	c.Assert(api, check.Not(check.IsNil))
+
+	api.SetDelay(AllOperations, time.Second)
+	c.Assert(api.delays[CreateNetworkInterface], check.Equals, time.Second)
+	c.Assert(api.delays[DeleteNetworkInterface], check.Equals, time.Second)
+	c.Assert(api.delays[ModifyNetworkInterface], check.Equals, time.Second)
+	c.Assert(api.delays[AttachNetworkInterface], check.Equals, time.Second)
+	c.Assert(api.delays[AssignPrivateIpAddresses], check.Equals, time.Second)
 }
