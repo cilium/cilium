@@ -307,20 +307,28 @@ type nodeState struct {
 // - MinAllocate 10
 // - PreAllocate 1
 func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
-	testSubnet1 := &types.Subnet{ID: "s-1", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400}
-	testSubnet2 := &types.Subnet{ID: "s-2", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400}
-	testSubnet3 := &types.Subnet{ID: "s-3", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400}
+	const (
+		numNodes    = 100
+		minAllocate = 10
+	)
 
-	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet1, testSubnet2, testSubnet3})
+	subnets := []*types.Subnet{
+		{ID: "s-1", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400},
+		{ID: "s-2", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400},
+		{ID: "s-3", AvailabilityZone: "us-west-1", VpcID: "vpc-1", AvailableAddresses: 400},
+	}
+
+	ec2api := ec2mock.NewAPI(subnets)
+	metricsapi := metricsmock.NewMockMetrics()
 	mngr, err := NewNodeManager(ec2api, ec2api, k8sapi, metricsapi, 10)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	state := make([]*nodeState, 100)
+	state := make([]*nodeState, numNodes)
 
 	for i := range state {
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
-		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, 10, 0, 0)
+		s.cn = newCiliumNode(s.name, s.instanceName, "m4.large", "us-west-1", "vpc-1", 1, minAllocate, 0, 0)
 		state[i] = s
 		mngr.Update(s.cn)
 	}
@@ -330,9 +338,31 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 
 		node := mngr.Get(s.name)
 		c.Assert(node, check.Not(check.IsNil))
-		c.Assert(node.stats.availableIPs, check.Equals, 10)
+		c.Assert(node.stats.availableIPs, check.Equals, minAllocate)
 		c.Assert(node.stats.usedIPs, check.Equals, 0)
 	}
+
+	// The above check returns as soon as the address requirements are met.
+	// The metrics may still be oudated, resync all nodes to update
+	// metrics.
+	mngr.Resync()
+
+	c.Assert(metricsapi.Nodes("total"), check.Equals, numNodes)
+	c.Assert(metricsapi.Nodes("in-deficit"), check.Equals, 0)
+	c.Assert(metricsapi.Nodes("at-capacity"), check.Equals, 0)
+
+	c.Assert(metricsapi.AllocatedIPs("available"), check.Equals, numNodes*minAllocate)
+	c.Assert(metricsapi.AllocatedIPs("needed"), check.Equals, 0)
+	c.Assert(metricsapi.AllocatedIPs("used"), check.Equals, 0)
+
+	// All subnets must have been used for allocation
+	for _, subnet := range subnets {
+		c.Assert(metricsapi.ENIAllocationAttempts("success", subnet.ID), check.Not(check.Equals), 0)
+		c.Assert(metricsapi.IPAllocations(subnet.ID), check.Not(check.Equals), 0)
+	}
+
+	c.Assert(metricsapi.ResyncCount(), check.Not(check.Equals), 0)
+	c.Assert(metricsapi.AvailableENIs(), check.Not(check.Equals), 0)
 }
 
 // TestNodeManagerInstanceNotRunning verifies that allocation correctly detects
