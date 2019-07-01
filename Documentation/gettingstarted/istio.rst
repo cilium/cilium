@@ -31,12 +31,12 @@ Step 2: Install Istio
 
 Install the `Helm client <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-Download `Istio version 1.2.0
-<https://github.com/istio/istio/releases/tag/1.2.0>`_:
+Download `Istio version 1.2.2
+<https://github.com/istio/istio/releases/tag/1.2.2>`_:
 
 ::
 
-   $ export ISTIO_VERSION=1.2.0
+   $ export ISTIO_VERSION=1.2.2
    $ curl -L https://git.io/getLatestIstio | sh -
    $ export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
    $ export PATH="$PATH:${ISTIO_HOME}/bin"
