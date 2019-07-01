@@ -87,8 +87,6 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 	if (ret != TC_ACT_OK)
 		return ret;
 
-	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
-
 #if defined LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
@@ -124,8 +122,6 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 	ret = ipv4_l3(skb, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
 	if (ret != TC_ACT_OK)
 		return ret;
-
-	cilium_dbg(skb, DBG_LXC_FOUND, ep->ifindex, 0);
 
 #if defined LOCAL_DELIVERY_METRICS
 	/*
