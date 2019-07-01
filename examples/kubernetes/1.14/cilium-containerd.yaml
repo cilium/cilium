@@ -335,7 +335,7 @@ spec:
               key: auto-direct-node-routes
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:v1.4.4
+        image: docker.io/cilium/cilium:v1.4.5
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -577,7 +577,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: docker.io/cilium/operator:v1.4.4
+        image: docker.io/cilium/operator:v1.4.5
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         volumeMounts:
