@@ -101,6 +101,8 @@ var _ = Describe("K8sDemosTest", func() {
 
 		res := kubectl.Apply(deathStarYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", deathStarYAMLLink, res.CombineOutput())
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, "deathstar", helpers.HelperTimeout)
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, "spaceship", helpers.HelperTimeout)
 
 		res = kubectl.Apply(xwingYAMLLink)
 		res.ExpectSuccess("unable to apply %s: %s", xwingYAMLLink, res.CombineOutput())
@@ -108,6 +110,7 @@ var _ = Describe("K8sDemosTest", func() {
 		By("Waiting for pods to be ready")
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, "xwing", helpers.HelperTimeout)
 
 		By("Getting xwing pod names")
 		xwingPods, err := kubectl.GetPodNames(helpers.DefaultNamespace, allianceLabel)
