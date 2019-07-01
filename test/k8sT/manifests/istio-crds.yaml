@@ -161,27 +161,6 @@ data:
     apiVersion: apiextensions.k8s.io/v1beta1
     kind: CustomResourceDefinition
     metadata:
-      name: sidecars.networking.istio.io
-      labels:
-        app: istio-pilot
-        chart: istio
-        heritage: Tiller
-        release: istio
-    spec:
-      group: networking.istio.io
-      names:
-        kind: Sidecar
-        plural: sidecars
-        singular: sidecar
-        categories:
-        - istio-io
-        - networking-istio-io
-      scope: Namespaced
-      version: v1alpha3 
-    ---
-    apiVersion: apiextensions.k8s.io/v1beta1
-    kind: CustomResourceDefinition
-    metadata:
       name: envoyfilters.networking.istio.io
       labels:
         app: istio-pilot
@@ -729,7 +708,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-10
-        image: "docker.io/istio/kubectl:1.2.0"
+        image: "docker.io/istio/kubectl:1.2.2"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: crd-10
@@ -758,7 +737,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-11
-        image: "docker.io/istio/kubectl:1.2.0"
+        image: "docker.io/istio/kubectl:1.2.2"
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: crd-11
@@ -787,7 +766,7 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
         - name: istio-init-crd-12
-          image: "docker.io/istio/kubectl:1.2.0"
+          image: "docker.io/istio/kubectl:1.2.2"
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: crd-12

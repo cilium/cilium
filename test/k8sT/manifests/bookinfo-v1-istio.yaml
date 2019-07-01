@@ -116,7 +116,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"details","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.2.0
+        image: docker.io/cilium/istio_proxy:1.2.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -177,7 +177,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.2.0
+        image: docker.io/istio/proxy_init:1.2.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -311,7 +311,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"reviews","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.2.0
+        image: docker.io/cilium/istio_proxy:1.2.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -372,7 +372,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.2.0
+        image: docker.io/istio/proxy_init:1.2.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
@@ -506,7 +506,7 @@ spec:
         - name: ISTIO_METAJSON_LABELS
           value: |
             {"app":"productpage","track":"stable","version":"v1","zgroup":"bookinfo"}
-        image: docker.io/cilium/istio_proxy:1.2.0
+        image: docker.io/cilium/istio_proxy:1.2.2
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -567,7 +567,7 @@ spec:
         - "9080"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:1.2.0
+        image: docker.io/istio/proxy_init:1.2.2
         imagePullPolicy: IfNotPresent
         name: istio-init
         resources:
