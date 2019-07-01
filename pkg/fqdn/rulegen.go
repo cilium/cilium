@@ -21,23 +21,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
 )
-
-const (
-	// generatedLabelNameUUID is the label key for policy rules that contain a
-	// ToFQDN section and need to be updated
-	generatedLabelNameUUID = "ToFQDN-UUID"
-)
-
-// uuidLabelSearchKey is an *extended* label key. This is because .Has
-// expects the source:key delimiter to be the labels.PathDelimiter
-var uuidLabelSearchKey = labels.LabelSourceCiliumGenerated + labels.PathDelimiter + generatedLabelNameUUID
 
 // RuleGen tracks which selectors depend on which DNS names. When DNS updates are
 // given to a RuleGen it update cached selectors as required via UpdateSelectors.
