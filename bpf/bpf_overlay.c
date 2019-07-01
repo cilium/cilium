@@ -39,6 +39,7 @@
 #ifdef ENABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 {
+	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	struct bpf_tunnel_key key = {};
@@ -88,6 +89,13 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 not_esp:
 #endif
 
+	union v6addr *src = (union v6addr *) &ip6->saddr;
+	info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+	if (info == NULL)
+		return DROP_UNKNOWN_SENDER;
+	if (info->sec_label != *identity)
+		return DROP_INVALID_IDENTITY;
+
 	/* Lookup IPv6 address in list of local endpoints */
 	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
 		/* Let through packets to the node-ip so they are
@@ -128,6 +136,7 @@ to_host:
 
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 {
+	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
@@ -147,6 +156,12 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 	}
+
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+	if (info == NULL)
+		return DROP_UNKNOWN_SENDER;
+	if (info->sec_label != *identity)
+		return DROP_INVALID_IDENTITY;
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 #ifdef ENABLE_IPSEC

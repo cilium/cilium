@@ -236,9 +236,25 @@ policy_can_access_ingress(struct __sk_buff *skb, __u32 src_identity,
 	return ret;
 }
 
+#ifdef ENCAP_IFINDEX
+static inline bool __inline__
+is_encap(struct __sk_buff *skb, __u16 dport, __u8 proto)
+{
+	return proto == IPPROTO_UDP &&
+		(dport == bpf_htons(PORT_UDP_VXLAN) ||
+		 dport == bpf_htons(PORT_UDP_GENEVE) ||
+		 dport == bpf_htons(PORT_UDP_VXLAN_LINUX));
+}
+#endif
+
 static inline int __inline__
 policy_can_egress(struct __sk_buff *skb, __u32 identity, __u16 dport, __u8 proto)
 {
+#ifdef ENCAP_IFINDEX
+	if (is_encap(skb, dport, proto))
+		return DROP_ENCAP_PROHIBITED;
+#endif
+
 	int ret = __policy_can_access(&POLICY_MAP, skb, identity, dport, proto,
 				      CT_EGRESS, false);
 	if (ret >= 0)

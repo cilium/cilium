@@ -72,6 +72,9 @@ var errors = map[uint8]string{
 	166: "Unsupported L2 protocol",
 	167: "No mapping for NAT masquerade",
 	168: "Unsupported protocol for NAT masquerade",
+	170: "Encapsulation traffic is prohibited",
+	171: "Invalid identity",
+	172: "Unknown sender",
 }
 
 // DropReason prints the drop reason in a human readable string
