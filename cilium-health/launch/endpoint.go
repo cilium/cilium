@@ -184,8 +184,29 @@ func KillEndpoint() {
 // This is expected to be called after the process is killed and the endpoint
 // is removed from the endpointmanager.
 func CleanupEndpoint() {
-	// By removing the network namespace, we also remove any associated
-	// veth pairs and ipvlan slaves
+	// Removes the interfaces used for the endpoint process, followed by the
+	// deletion of the health namespace itself. The removal of the interfaces
+	// is needed, because network namespace removal does not always trigger the
+	// deletion of associated interfaces immediately (e.g. when a process in the
+	// namespace marked for deletion has not yet been terminated).
+	switch option.Config.DatapathMode {
+	case option.DatapathModeVeth:
+		scopedLog := log.WithField(logfields.Veth, vethName)
+		if link, err := netlink.LinkByName(vethName); err == nil {
+			err = netlink.LinkDel(link)
+			if err != nil {
+				scopedLog.WithError(err).Info("Couldn't delete cilium-health veth device")
+			}
+		} else {
+			scopedLog.WithError(err).Debug("Didn't find existing device")
+		}
+	case option.DatapathModeIpvlan:
+		if err := netns.RemoveIfFromNetNSWithNameIfBothExist(netNSName, epIfaceName); err != nil {
+			log.WithError(err).WithField(logfields.Ipvlan, epIfaceName).
+				Info("Couldn't delete cilium-health ipvlan slave device")
+		}
+	}
+
 	if err := netns.RemoveNetNSWithName(netNSName); err != nil {
 		log.WithError(err).Debug("Unable to remove cilium-health namespace")
 	}

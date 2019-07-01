@@ -42,6 +42,22 @@ func RemoveIfFromNetNSIfExists(netNS ns.NetNS, ifName string) error {
 	})
 }
 
+// RemoveIfFromNetNSWithNameIfBothExist removes the given interface from
+// the given network namespace identified by its name.
+//
+// If either the interface or the namespace do not exist, no error will
+// be returned.
+func RemoveIfFromNetNSWithNameIfBothExist(netNSName, ifName string) error {
+	netNS, err := ns.GetNS(netNSPath(netNSName))
+	if err != nil {
+		if _, ok := err.(ns.NSPathNotExistErr); ok {
+			return nil
+		}
+		return err
+	}
+	return RemoveIfFromNetNSIfExists(netNS, ifName)
+}
+
 // ReplaceNetNSWithName creates a network namespace with the given name.
 // If such netns already exists from a previous run, it will be removed
 // and then re-created to avoid any previous state of the netns.
