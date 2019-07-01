@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -296,10 +295,9 @@ func (c *Client) GetSubnets() (eni.SubnetMap, error) {
 
 // CreateNetworkInterface creates an ENI with the given parameters
 func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, error) {
-	secondaryCount := int64(math.IntMax(int(toAllocate)-1, 0))
 	createReq := &ec2.CreateNetworkInterfaceInput{
 		Description:                    &desc,
-		SecondaryPrivateIpAddressCount: &secondaryCount,
+		SecondaryPrivateIpAddressCount: &toAllocate,
 		SubnetId:                       &subnetID,
 	}
 	for _, grp := range groups {
