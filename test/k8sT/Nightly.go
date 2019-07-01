@@ -413,9 +413,7 @@ var _ = Describe("NightlyExamples", func() {
 
 			By("Testing the example config")
 			kubectl.Apply(AppManifest).ExpectSuccess("cannot install the GRPC application")
-
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=grpcExample", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "cc-door-mgr", helpers.HelperTimeout)
 
 			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, clientPod,
@@ -433,7 +431,7 @@ var _ = Describe("NightlyExamples", func() {
 			res.ExpectSuccess("Client cannot set Accesscode")
 
 			By("Testing with L7 policy")
-			_, err = kubectl.CiliumPolicyAction(
+			_, err := kubectl.CiliumPolicyAction(
 				helpers.KubeSystemNamespace, PolicyManifest,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Cannot import GPRC policy")
