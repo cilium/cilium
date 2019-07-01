@@ -62,6 +62,8 @@ CLI, agent, health, bugtool, monitor and seperate sha256 files. Using
 	cilium-bugtool-x86_64.sha256sum
 	cilium-health-x86_64
 	cilium-health-x86_64.sha256sum
+	cilium-health-responder-x86_64
+	cilium-health-responder-x86_64.sha256sum
 	cilium-node-monitor-x86_64
 	cilium-node-monitor-x86_64.sha256sum
 	cilium-x86_64

@@ -91,6 +91,7 @@ function copy_binaries() {
   docker cp $SHA:/usr/bin/cilium-agent $TARGET_DIR/cilium-node-monitor-$ARCH
   docker cp $SHA:/usr/bin/cilium-bugtool $TARGET_DIR/cilium-bugtool-$ARCH
   docker cp $SHA:/usr/bin/cilium-health $TARGET_DIR/cilium-health-$ARCH
+  docker cp $SHA:/usr/bin/cilium-health-responder $TARGET_DIR/cilium-health-responder-$ARCH
   docker cp $SHA:/usr/bin/cilium-envoy $TARGET_DIR/cilium-envoy-$ARCH
   docker cp $SHA:/opt/cni/bin/cilium-cni $TARGET_DIR/cilium-cni-$ARCH
   cp contrib/k8s/k8s-cilium-exec.sh $TARGET_DIR/tools/ || true
