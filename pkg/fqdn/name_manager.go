@@ -28,12 +28,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// RuleGen tracks which selectors depend on which DNS names. When DNS updates are
-// given to a RuleGen it update cached selectors as required via UpdateSelectors.
+// NameManager maintains state DNS names, via FQDNSelector or exact match for
+// polling, need to be tracked. It is the main structure which relates the FQDN
+// subsystem to the policy subsystem for plumbing the relation between a DNS
+// name and the corresponding IPs which have been returned via DNS lookups.
+// When DNS updates are given to a NameManager it update cached selectors as
+// required via UpdateSelectors.
 // DNS information is cached, respecting TTL.
-// Note: When DNS data expires rules are not generated again!
-type RuleGen struct {
-	lock.Mutex // this guards both maps and their contents
+type NameManager struct {
+	lock.Mutex
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
@@ -56,17 +59,17 @@ type RuleGen struct {
 // RegisterForIdentityUpdates exposes this FQDNSelector so that identities
 // for IPs contained in a DNS response that matches said selector can be
 // propagated back to the SelectorCache via `UpdateFQDNSelector`. All DNS names
-// contained within the RuleGen's cache are iterated over to see if they match
+// contained within the NameManager's cache are iterated over to see if they match
 // the FQDNSelector. All IPs which correspond to the DNS names which match this
 // Selector will be returned as CIDR identities, as other DNS Names which have
 // already been resolved may match this FQDNSelector.
-func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) []identity.NumericIdentity {
+func (n *NameManager) RegisterForIdentityUpdates(selector api.FQDNSelector) []identity.NumericIdentity {
 
-	gen.Mutex.Lock()
-	_, exists := gen.allSelectors[selector]
+	n.Mutex.Lock()
+	_, exists := n.allSelectors[selector]
 	if exists {
 		log.WithField("fqdnSelector", selector).Error("FQDNSelector was already registered for updates, returning without any identities")
-		gen.Mutex.Unlock()
+		n.Mutex.Unlock()
 		return nil
 	}
 
@@ -75,18 +78,18 @@ func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) []iden
 	regex, err := selector.ToRegex()
 	if err != nil {
 		log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
-		gen.Mutex.Unlock()
+		n.Mutex.Unlock()
 		return nil
 	}
 
 	// Update names to poll for DNS poller since we now care about this selector.
 	if len(selector.MatchName) > 0 {
-		gen.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
+		n.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
 	}
 
-	gen.allSelectors[selector] = regex
-	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, gen.cache)
-	gen.Mutex.Unlock()
+	n.allSelectors[selector] = regex
+	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, n.cache)
+	n.Mutex.Unlock()
 
 	// Allocate identities for each IPNet and then map to selector
 	selectorIPs := selectorIPMapping[selector]
@@ -109,20 +112,20 @@ func (gen *RuleGen) RegisterForIdentityUpdates(selector api.FQDNSelector) []iden
 }
 
 // UnregisterForIdentityUpdates removes this FQDNSelector from the set of
-// FQDNSelectors which are being tracked by the RuleGen. No more updates for IPs
+// FQDNSelectors which are being tracked by the NameManager. No more updates for IPs
 // which correspond to said selector are propagated.
-func (gen *RuleGen) UnregisterForIdentityUpdates(selector api.FQDNSelector) {
-	gen.Mutex.Lock()
-	delete(gen.allSelectors, selector)
+func (n *NameManager) UnregisterForIdentityUpdates(selector api.FQDNSelector) {
+	n.Mutex.Lock()
+	delete(n.allSelectors, selector)
 	if len(selector.MatchName) > 0 {
-		delete(gen.namesToPoll, prepareMatchName(selector.MatchName))
+		delete(n.namesToPoll, prepareMatchName(selector.MatchName))
 	}
-	gen.Mutex.Unlock()
+	n.Mutex.Unlock()
 }
 
-// NewRuleGen creates an initialized RuleGen.
+// NewNameManager creates an initialized NameManager.
 // When config.Cache is nil, the global fqdn.DefaultDNSCache is used.
-func NewRuleGen(config Config) *RuleGen {
+func NewNameManager(config Config) *NameManager {
 
 	if config.Cache == nil {
 		config.Cache = NewDNSCache(0)
@@ -134,7 +137,7 @@ func NewRuleGen(config Config) *RuleGen {
 		}
 	}
 
-	return &RuleGen{
+	return &NameManager{
 		config:       config,
 		namesToPoll:  make(map[string]struct{}),
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
@@ -143,17 +146,17 @@ func NewRuleGen(config Config) *RuleGen {
 
 }
 
-// GetDNSCache returns the DNSCache used by the RuleGen
-func (gen *RuleGen) GetDNSCache() *DNSCache {
-	return gen.cache
+// GetDNSCache returns the DNSCache used by the NameManager
+func (n *NameManager) GetDNSCache() *DNSCache {
+	return n.cache
 }
 
-// GetDNSNames returns a snapshot of the DNS names managed by this RuleGen
-func (gen *RuleGen) GetDNSNames() (dnsNames []string) {
-	gen.Lock()
-	defer gen.Unlock()
+// GetDNSNames returns a snapshot of the DNS names managed by this NameManager
+func (n *NameManager) GetDNSNames() (dnsNames []string) {
+	n.Lock()
+	defer n.Unlock()
 
-	for name := range gen.namesToPoll {
+	for name := range n.namesToPoll {
 		dnsNames = append(dnsNames, name)
 	}
 
@@ -163,9 +166,9 @@ func (gen *RuleGen) GetDNSNames() (dnsNames []string) {
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name, store which rules must be updated in rulesToUpdate,
 // regenerate them, and emit via UpdateSelectors.
-func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) error {
-	// Update IPs in gen
-	fqdnSelectorsToUpdate, updatedDNSNames := gen.UpdateDNSIPs(lookupTime, updatedDNSIPs)
+func (n *NameManager) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) error {
+	// Update IPs in n
+	fqdnSelectorsToUpdate, updatedDNSNames := n.UpdateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
 		log.WithFields(logrus.Fields{
 			"matchName":             dnsName,
@@ -174,45 +177,45 @@ func (gen *RuleGen) UpdateGenerateDNS(lookupTime time.Time, updatedDNSIPs map[st
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	namesMissingIPs, selectorIPMapping := gen.GenerateSelectorUpdates(fqdnSelectorsToUpdate)
+	namesMissingIPs, selectorIPMapping := n.GenerateSelectorUpdates(fqdnSelectorsToUpdate)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
 
-	return gen.config.UpdateSelectors(selectorIPMapping, namesMissingIPs)
+	return n.config.UpdateSelectors(selectorIPMapping, namesMissingIPs)
 }
 
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
-func (gen *RuleGen) ForceGenerateDNS(namesToRegen []string) error {
-	gen.Mutex.Lock()
+func (n *NameManager) ForceGenerateDNS(namesToRegen []string) error {
+	n.Mutex.Lock()
 	affectedFQDNSels := make(map[api.FQDNSelector]struct{}, 0)
 	for _, dnsName := range namesToRegen {
-		for fqdnSel, fqdnRegEx := range gen.allSelectors {
+		for fqdnSel, fqdnRegEx := range n.allSelectors {
 			if fqdnRegEx.MatchString(dnsName) {
 				affectedFQDNSels[fqdnSel] = struct{}{}
 			}
 		}
 	}
 
-	namesMissingIPs, selectorIPMapping := mapSelectorsToIPs(affectedFQDNSels, gen.cache)
+	namesMissingIPs, selectorIPMapping := mapSelectorsToIPs(affectedFQDNSels, n.cache)
 	if len(namesMissingIPs) != 0 {
 		log.WithField(logfields.DNSName, namesMissingIPs).
 			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
 	}
-	gen.Mutex.Unlock()
+	n.Mutex.Unlock()
 
 	// emit the new rules
-	return gen.config.
+	return n.config.
 		UpdateSelectors(selectorIPMapping, namesMissingIPs)
 }
 
-func (gen *RuleGen) CompleteBootstrap() {
-	gen.Lock()
-	gen.bootstrapCompleted = true
-	gen.Unlock()
+func (n *NameManager) CompleteBootstrap() {
+	n.Lock()
+	n.bootstrapCompleted = true
+	n.Unlock()
 }
 
 // UpdateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
@@ -220,19 +223,19 @@ func (gen *RuleGen) CompleteBootstrap() {
 // affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
 // corresponding set of IPs has changed.
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
-func (gen *RuleGen) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelector]struct{}, updatedNames map[string][]net.IP) {
+func (n *NameManager) UpdateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors map[api.FQDNSelector]struct{}, updatedNames map[string][]net.IP) {
 	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
 	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
 
-	gen.Lock()
-	defer gen.Unlock()
+	n.Lock()
+	defer n.Unlock()
 
 perDNSName:
 	for dnsName, lookupIPs := range updatedDNSIPs {
-		updated := gen.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
+		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
-		if !updated && gen.bootstrapCompleted {
+		if !updated && n.bootstrapCompleted {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
@@ -244,13 +247,13 @@ perDNSName:
 		updatedNames[dnsName] = lookupIPs.IPs
 
 		// accumulate the new selectors affected by new IPs
-		if len(gen.allSelectors) == 0 {
+		if len(n.allSelectors) == 0 {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
 			}).Debug("FQDN: No selectors registered for updates")
 		}
-		for fqdnSel, fqdnRegex := range gen.allSelectors {
+		for fqdnSel, fqdnRegex := range n.allSelectors {
 			matches := fqdnRegex.MatchString(dnsName)
 			if matches {
 				affectedSelectors[fqdnSel] = struct{}{}
@@ -265,26 +268,26 @@ perDNSName:
 // gen and figures out to which FQDNSelectors managed by the cache these names
 // map. Returns the set of FQDNSelectors which map to no IPs, and a mapping
 // of FQDNSelectors to IPs.
-func (gen *RuleGen) GenerateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
-	gen.Lock()
-	defer gen.Unlock()
+func (n *NameManager) GenerateSelectorUpdates(fqdnSelectors map[api.FQDNSelector]struct{}) (namesMissingIPs []api.FQDNSelector, selectorIPMapping map[api.FQDNSelector][]net.IP) {
+	n.Lock()
+	defer n.Unlock()
 
-	namesMissingIPs, selectorIPMapping = mapSelectorsToIPs(fqdnSelectors, gen.cache)
+	namesMissingIPs, selectorIPMapping = mapSelectorsToIPs(fqdnSelectors, n.cache)
 	return namesMissingIPs, selectorIPMapping
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
-func (gen *RuleGen) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP, ttl int) (updated bool) {
-	cacheIPs := gen.cache.Lookup(dnsName)
+func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP, ttl int) (updated bool) {
+	cacheIPs := n.cache.Lookup(dnsName)
 
-	if gen.config.MinTTL > ttl {
-		ttl = gen.config.MinTTL
+	if n.config.MinTTL > ttl {
+		ttl = n.config.MinTTL
 	}
 
-	gen.cache.Update(lookupTime, dnsName, newIPs, ttl)
-	sortedNewIPs := gen.cache.Lookup(dnsName) // DNSCache returns IPs sorted
+	n.cache.Update(lookupTime, dnsName, newIPs, ttl)
+	sortedNewIPs := n.cache.Lookup(dnsName) // DNSCache returns IPs sorted
 
 	// The 0 checks below account for an unlike race condition where this
 	// function is called with already expired data and if other cache data

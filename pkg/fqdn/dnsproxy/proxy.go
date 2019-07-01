@@ -73,7 +73,8 @@ type DNSProxy struct {
 	LookupEndpointIDByIP LookupEndpointIDByIPFunc
 
 	// NotifyOnDNSMsg is a provided callback by which the proxy can emit DNS
-	// response data. It is intended to wire into a DNS cache and a fqdn.RuleGen.
+	// response data. It is intended to wire into a DNS cache and a
+	// fqdn.NameManager.
 	// Note: this is a little pointless since this proxy is in-process but it is
 	// intended to allow us to switch to an external proxy process by forcing the
 	// design now.
@@ -274,7 +275,7 @@ func (p *DNSProxy) CheckAllowed(name, endpointID string) bool {
 //  DNS query (lowercased). If not, the request is dropped.
 //  - The allowed request is forwarded to the originally intended DNS server IP
 //  - The response is shared via NotifyOnDNSMsg (this will go to a
-//  fqdn/RuleGen instance).
+//  fqdn/NameManager instance).
 //  - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat := ProxyRequestContext{}

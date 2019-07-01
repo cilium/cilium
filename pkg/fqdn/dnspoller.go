@@ -53,9 +53,9 @@ func StartDNSPoller(poller *DNSPoller) {
 type DNSPoller struct {
 	lock.Mutex // this guards both maps and their contents
 
-	// ruleManager is the backing RuleGen that tells this poller which names to
+	// ruleManager is the backing NameManager that tells this poller which names to
 	// poll, and where to submit DNS updates.
-	ruleManager *RuleGen
+	ruleManager *NameManager
 
 	// config is a copy from when this instance was initialized.
 	// It is read-only once set
@@ -68,7 +68,7 @@ type DNSPoller struct {
 }
 
 // NewDNSPoller creates an initialized DNSPoller. It does not start the controller (use .Start)
-func NewDNSPoller(config Config, ruleManager *RuleGen) *DNSPoller {
+func NewDNSPoller(config Config, ruleManager *NameManager) *DNSPoller {
 	if config.MinTTL == 0 {
 		config.MinTTL = 2 * int(DNSPollerInterval/time.Second)
 	}
