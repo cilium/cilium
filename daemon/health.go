@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -74,8 +75,15 @@ func (d *Daemon) initHealth() {
 				// On the first initialization, or on
 				// error, restart the health EP.
 				if client == nil || err != nil {
+					var launchErr error
 					d.cleanupHealthEndpoint()
-					client, err = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig)
+					client, launchErr = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig)
+					if launchErr != nil {
+						if err != nil {
+							return fmt.Errorf("failed to restart endpoint (check failed: %q): %s", err, launchErr)
+						}
+						return launchErr
+					}
 				}
 				return err
 			},
