@@ -21,23 +21,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
-
-// getUUIDFromRuleLabels returns the value of the UUID label
-func getRuleUUIDLabel(rule *api.Rule) (uuid string) {
-	return rule.Labels.Get(uuidLabelSearchKey)
-}
-
-// generateUUIDLabel builds a random UUID label that can be used to uniquely identify
-// rules augmented with a "toCIDRSet" based on "toFQDNs".
-func generateUUIDLabel() labels.Label {
-	return labels.NewLabel(generatedLabelNameUUID, uuid.NewUUID().String(), labels.LabelSourceCiliumGenerated)
-}
 
 // mapSelectorsToIPs iterates through a set of FQDNSelectors and evalutes whether
 // they match the DNS Names in the cache. If so, the set of IPs which the cache
