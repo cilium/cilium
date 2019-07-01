@@ -49,7 +49,7 @@ func AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
 
 func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
-	usedIdentities := []*identity.Identity{}
+	var usedIdentities []*identity.Identity
 
 	// maintain list of newly allocated identities to update ipcache
 	allocatedIdentities := map[string]*identity.Identity{}
@@ -60,19 +60,20 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 			continue
 		}
 
+		prefixStr := prefix.String()
 		// Figure out if this call needs to be able to update the selector cache synchronously.
 		id, isNew, err := cache.AllocateIdentity(context.Background(), nil, cidr.GetCIDRLabels(prefix))
 		if err != nil {
 			cache.ReleaseSlice(context.Background(), nil, usedIdentities)
-			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix.String(), err)
+			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
 		}
 
-		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
+		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefixStr})
 
 		usedIdentities = append(usedIdentities, id)
-		allocatedIdentities[prefix.String()] = id
+		allocatedIdentities[prefixStr] = id
 		if isNew {
-			newlyAllocatedIdentities[prefix.String()] = id
+			newlyAllocatedIdentities[prefixStr] = id
 		}
 
 	}
