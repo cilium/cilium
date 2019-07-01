@@ -222,18 +222,22 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 			}
 		}
 	}()
-	log.WithFields(logrus.Fields{
-		logfields.IdentityLabels: lbls.String(),
-	}).Debug("Resolving identity")
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.IdentityLabels: lbls.String(),
+		}).Debug("Resolving identity")
+	}
 
 	// If there is only one label with the "reserved" source and a well-known
 	// key, use the well-known identity for that key.
 	if reservedIdentity := LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
-		log.WithFields(logrus.Fields{
-			logfields.Identity:       reservedIdentity.ID,
-			logfields.IdentityLabels: lbls.String(),
-			"isNew":                  false,
-		}).Debug("Resolved reserved identity")
+		if option.Config.Debug {
+			log.WithFields(logrus.Fields{
+				logfields.Identity:       reservedIdentity.ID,
+				logfields.IdentityLabels: lbls.String(),
+				"isNew":                  false,
+			}).Debug("Resolved reserved identity")
+		}
 		return reservedIdentity, false, nil
 	}
 
@@ -255,11 +259,13 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 		return nil, false, err
 	}
 
-	log.WithFields(logrus.Fields{
-		logfields.Identity:       idp,
-		logfields.IdentityLabels: lbls.String(),
-		"isNew":                  isNew,
-	}).Debug("Resolved identity")
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.Identity:       idp,
+			logfields.IdentityLabels: lbls.String(),
+			"isNew":                  isNew,
+		}).Debug("Resolved identity")
+	}
 
 	return identity.NewIdentity(identity.NumericIdentity(idp), lbls), isNew, nil
 }
