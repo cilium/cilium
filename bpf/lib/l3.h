@@ -77,8 +77,6 @@ static inline int ipv6_local_delivery(struct __sk_buff *skb, int l3_off, int l4_
 {
 	int ret;
 
-	cilium_dbg(skb, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
-
 	mac_t lxc_mac = ep->mac;
 	mac_t router_mac = ep->node_mac;
 
@@ -108,8 +106,6 @@ static inline int __inline__ ipv4_local_delivery(struct __sk_buff *skb, int l3_o
 						 struct endpoint_info *ep, __u8 direction)
 {
 	int ret;
-
-	cilium_dbg(skb, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
 	mac_t lxc_mac = ep->mac;
 	mac_t router_mac = ep->node_mac;
