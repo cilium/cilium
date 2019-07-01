@@ -130,10 +130,11 @@ type Daemon struct {
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	// dnsRuleGen manages toFQDNs rules
-	dnsRuleGen *fqdn.RuleGen
+	// dnsNameManager tracks which api.FQDNSelector are present in policy which
+	// apply to locally running endpoints.
+	dnsNameManager *fqdn.NameManager
 
-	// dnsPoller polls DNS names and sends them to dnsRuleGen
+	// dnsPoller polls DNS names and sends them to dnsNameManager
 	dnsPoller *fqdn.DNSPoller
 
 	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,

@@ -128,8 +128,8 @@ func (d *Daemon) updateSelectorCacheFQDNs(selectors map[policyApi.FQDNSelector][
 }
 
 // bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
-// d.dnsRuleGen, and the DNS proxy.
-// dnsRuleGen and DNSPoller will use the default resolver and, implicitly, the
+// d.dnsNameManager, and the DNS proxy.
+// dnsNameManager and DNSPoller will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
@@ -142,10 +142,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		PollerResponseNotify: d.pollerResponseNotify,
 	}
 
-	rg := fqdn.NewRuleGen(cfg)
+	rg := fqdn.NewNameManager(cfg)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
-	d.dnsRuleGen = rg
-	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsRuleGen)
+	d.dnsNameManager = rg
+	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsNameManager)
 	if option.Config.ToFQDNsEnablePoller {
 		fqdn.StartDNSPoller(d.dnsPoller)
 	}
@@ -189,7 +189,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			log.WithField(logfields.Controller, dnsGCJobName).Infof(
 				"FQDN garbage collector work deleted %d name entries", len(namesToClean))
-			return d.dnsRuleGen.ForceGenerateDNS(namesToClean)
+			return d.dnsNameManager.ForceGenerateDNS(namesToClean)
 		},
 	})
 
@@ -203,7 +203,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
-			d.dnsRuleGen.GetDNSCache().UpdateFromCache(precache, nil)
+			d.dnsNameManager.GetDNSCache().UpdateFromCache(precache, nil)
 		}
 	}
 
@@ -214,7 +214,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	for _, restoredEP := range restoredEndpoints.restored {
 		// Upgrades from old ciliums have this nil
 		if restoredEP.DNSHistory != nil {
-			d.dnsRuleGen.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
+			d.dnsNameManager.GetDNSCache().UpdateFromCache(restoredEP.DNSHistory, []string{})
 		}
 	}
 
@@ -262,7 +262,7 @@ func (d *Daemon) updateSelectors(selectorWithIPsToUpdate map[policyApi.FQDNSelec
 
 // pollerResponseNotify handles update events for updates from the poller. It
 // sends these on as monitor events and accesslog entries.
-// Note: The poller directly updates d.dnsRuleGen with new IP data, separate
+// Note: The poller directly updates d.dnsNameManager with new IP data, separate
 // from this callback.
 func (d *Daemon) pollerResponseNotify(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
 	// Do nothing if this option is off
@@ -463,7 +463,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	record.Log()
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		// This must happen before the ruleGen update below, to ensure that
+		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
 		if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
@@ -474,7 +474,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			"qname": qname,
 			"ips":   responseIPs,
 		}).Debug("Updating DNS name in cache from response to to query")
-		err = d.dnsRuleGen.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
+		err = d.dnsNameManager.UpdateGenerateDNS(lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -540,7 +540,7 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 	}
 
 	namesToRegen, err := deleteDNSLookups(
-		h.daemon.dnsRuleGen.GetDNSCache(),
+		h.daemon.dnsNameManager.GetDNSCache(),
 		h.daemon.dnsPoller.DNSHistory,
 		endpoints,
 		time.Now(),
@@ -548,7 +548,7 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 	if err != nil {
 		return api.Error(DeleteFqdnCacheBadRequestCode, err)
 	}
-	h.daemon.dnsRuleGen.ForceGenerateDNS(namesToRegen)
+	h.daemon.dnsNameManager.ForceGenerateDNS(namesToRegen)
 	return NewDeleteFqdnCacheOK()
 }
 

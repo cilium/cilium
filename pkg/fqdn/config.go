@@ -53,6 +53,6 @@ type Config struct {
 	// PollerResponseNotify is used when the poller receives DNS data in response
 	// to a successful poll.
 	// Note: This function doesn't do much, as the poller is still wired to
-	// RuleGen directly right now.
+	// NameManager directly right now.
 	PollerResponseNotify func(lookupTime time.Time, qname string, response *DNSIPRecords)
 }
