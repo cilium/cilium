@@ -147,11 +147,11 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		BeforeAll(func() {
 			kubectl.Apply(demoPath)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App1, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App2, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App3, helpers.HelperTimeout)
 
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
-
-			ciliumPod, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
 			Expect(err).Should(BeNil(), "cannot get CiliumPod")
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(helpers.DefaultNamespace, app1Service)
@@ -704,6 +704,8 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		BeforeEach(func() {
 			kubectl.Apply(helpers.ManifestGet(deployment))
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, "frontend", helpers.HelperTimeout)
+
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
 			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
 			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
@@ -869,13 +871,12 @@ EOF`, k, v)
 			res = kubectl.Apply(demoPath)
 			res.ExpectSuccess("unable to apply manifest")
 
-			err := kubectl.WaitforPods(secondNS, "-l zgroup=testapp", helpers.HelperTimeout)
-			Expect(err).To(BeNil(),
-				"testapp pods are not ready after timeout in namspace %q", secondNS)
-
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
-			Expect(err).To(BeNil(),
-				"testapp pods are not ready after timeout in %q namespace", helpers.DefaultNamespace)
+			ExpectDeployReady(kubectl, secondNS, helpers.App1, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, secondNS, helpers.App2, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, secondNS, helpers.App3, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App1, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App2, helpers.HelperTimeout)
+			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App3, helpers.HelperTimeout)
 
 			appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 			appPodsNS = helpers.GetAppPods(apps, secondNS, kubectl, "id")
