@@ -58,14 +58,12 @@ var _ = Describe("K8sFQDNTest", func() {
 		res = kubectl.Apply(demoManifest)
 		res.ExpectSuccess("Demo config cannot be deployed")
 
-		err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), "Testapp is not ready after timeout")
-
 		appPods = helpers.GetAppPods(apps, helpers.DefaultNamespace, kubectl, "id")
 
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bind", helpers.HelperTimeout)
-		Expect(err).Should(BeNil(), "Bind app is not ready after timeout")
-
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, "bind", helpers.HelperTimeout)
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App1, helpers.HelperTimeout)
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App2, helpers.HelperTimeout)
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App3, helpers.HelperTimeout)
 	})
 
 	AfterFailed(func() {
