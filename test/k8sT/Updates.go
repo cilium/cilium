@@ -255,9 +255,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		res := kubectl.Apply(demoPath)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
-
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
-		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App1, timeout)
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App2, timeout)
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App3, timeout)
 
 		ExpectKubeDNSReady(kubectl)
 
@@ -269,13 +269,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		res = kubectl.Apply(migrateSVCServer)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-server")
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-server", timeout)
-		Expect(err).Should(BeNil(), "migrate-svc-server pods are not ready after timeout")
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, "migrate-svc-server", timeout)
 
 		res = kubectl.Apply(migrateSVCClient)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-client")
-		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-client", timeout)
-		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
+		ExpectDeployReady(kubectl, helpers.DefaultNamespace, "migrate-svc-client", timeout)
 
 		validateEndpointsConnection()
 		checkNoInteruptsInMigratedSVCFlows()
