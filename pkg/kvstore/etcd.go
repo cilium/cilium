@@ -832,8 +832,14 @@ func (e *etcdClient) statusChecker() {
 
 		allConnected := len(endpoints) == ok
 
+		e.RWMutex.RLock()
+		sessionLeaseID := e.session.Lease()
+		lockSessionLeaseID := e.lockSession.Lease()
+		e.RWMutex.RUnlock()
+
 		e.statusLock.Lock()
-		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, has-quorum=%t: %s", ok, len(endpoints), hasQuorum, strings.Join(newStatus, "; "))
+		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%t: %s",
+			ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, hasQuorum, strings.Join(newStatus, "; "))
 
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {
