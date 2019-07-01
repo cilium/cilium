@@ -777,7 +777,11 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
-	return kub.WaitforPods(KubeSystemNamespace, fmt.Sprintf("-l %s", kubeDNSLabel), DNSHelperTimeout)
+	deployName := map[string]string{
+		"coredns": "coredns",
+		"kubedns": "kube-dns",
+	}[GetDNSEngine()]
+	return kub.WaitforDeployReady("kube-system", deployName, DNSHelperTimeout)
 }
 
 // WaitForKubeDNSEntry waits until the given DNS entry exists in the kube-dns
