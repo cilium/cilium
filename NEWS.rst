@@ -2,6 +2,15 @@
 NEWS
 ******
 
+v1.5.4
+======
+
+::
+
+    Thomas Graf (1):
+          bpf: Prohibit encapsulation traffic from pod when running in encapsulation mode
+
+
 v1.5.3
 ======
 
