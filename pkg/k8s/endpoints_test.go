@@ -481,3 +481,110 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 	_, ep := ParseEndpoints(endpoints)
 	c.Assert(ep.String(), check.Equals, "172.0.0.1:8080/TCP,172.0.0.1:8081/TCP,172.0.0.2:8080/TCP,172.0.0.2:8081/TCP")
 }
+
+func (s *K8sSuite) TestEndpointsMerge(c *check.C) {
+	eps1 := &Endpoints{
+		Backends: map[string]service.PortConfiguration{
+			"172.20.0.1": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+		},
+	}
+	eps2 := &Endpoints{
+		Backends: map[string]service.PortConfiguration{
+			"172.20.0.2": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+		},
+	}
+
+	epsWant := &Endpoints{
+		Backends: map[string]service.PortConfiguration{
+			"172.20.0.1": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+			"172.20.0.2": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+		},
+	}
+
+	// Simple merge
+	c.Assert(eps1.Merge(eps2), checker.DeepEquals, epsWant)
+
+	eps1 = &Endpoints{
+		Backends: map[string]service.PortConfiguration{
+			"172.20.0.1": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+			"172.20.0.2": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+		},
+	}
+	eps2 = &Endpoints{
+		Backends: map[string]service.PortConfiguration{
+			"172.20.0.1": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     2,
+				},
+			},
+			"172.20.0.2": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+				"bar": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+		},
+	}
+
+	epsWant = &Endpoints{
+		Backends: map[string]service.PortConfiguration{
+			"172.20.0.1": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     2,
+				},
+			},
+			"172.20.0.2": map[string]*loadbalancer.L4Addr{
+				"foo": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+				"bar": {
+					Protocol: loadbalancer.NONE,
+					Port:     1,
+				},
+			},
+		},
+	}
+
+	// Existing ports should be merged into existing frontend
+	c.Assert(eps1.Merge(eps2), checker.DeepEquals, epsWant)
+
+	// Nil endpoints should keep the same eps1 intact
+	c.Assert(eps1.Merge(nil), checker.DeepEquals, epsWant)
+}
