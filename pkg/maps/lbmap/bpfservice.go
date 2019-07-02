@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+// serviceValueMap is a mapping from the Backend (IP:PORT) to its corresponding
+// map value.
 type serviceValueMap map[BackendAddrID]ServiceValue
 
 type bpfBackend struct {
@@ -55,16 +57,16 @@ type bpfService struct {
 	// backendsV2 is a map of all service v2 backends indexed by the legacy IDs.
 	// A backend can only be listed once in the map.
 	// TODO(brb) use list instead to preserve the ordering when svc backends change.
-	backendsV2 map[BackendAddrID]ServiceValue
+	backendsV2 serviceValueMap
 }
 
 func newBpfService(key ServiceKey) *bpfService {
 	return &bpfService{
 		frontendKey:              key,
 		backendsByMapIndex:       map[int]*bpfBackend{},
-		uniqueBackends:           map[BackendAddrID]ServiceValue{},
+		uniqueBackends:           serviceValueMap{},
 		slaveSlotByBackendAddrID: map[BackendAddrID]int{},
-		backendsV2:               map[BackendAddrID]ServiceValue{},
+		backendsV2:               serviceValueMap{},
 	}
 }
 
@@ -162,11 +164,11 @@ func (b *bpfService) getSlaveSlot(id BackendAddrID) (int, bool) {
 
 // getBackendsV2 makes a copy of backendsV2, so that they are safe to use
 // after the bpfService lock has been released.
-func (b *bpfService) getBackendsV2() map[BackendAddrID]ServiceValue {
+func (b *bpfService) getBackendsV2() serviceValueMap {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	backends := make(map[BackendAddrID]ServiceValue, len(b.backendsV2))
+	backends := make(serviceValueMap, len(b.backendsV2))
 	for addrID, backend := range b.backendsV2 {
 		backends[addrID] = backend
 	}
@@ -336,11 +338,11 @@ func (l *lbmapCache) addBackendIDs(backendIDs map[BackendAddrID]loadbalancer.Bac
 
 // filterNewBackends filters out backends which already exists from the given
 // map (i.e. keeps only new backends).
-func (l *lbmapCache) filterNewBackends(backends map[BackendAddrID]ServiceValue) map[BackendAddrID]ServiceValue {
+func (l *lbmapCache) filterNewBackends(backends serviceValueMap) serviceValueMap {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
-	newBackends := map[BackendAddrID]ServiceValue{}
+	newBackends := serviceValueMap{}
 
 	for addrID, b := range backends {
 		if _, found := l.backendIDByAddrID[addrID]; !found {

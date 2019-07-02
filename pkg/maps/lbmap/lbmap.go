@@ -314,7 +314,7 @@ func acquireNewBackendIDs(backends []ServiceValue,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error)) (
 	map[BackendAddrID]loadbalancer.BackendID, error) {
 
-	newBackendsByAddrID := map[BackendAddrID]ServiceValue{}
+	newBackendsByAddrID := serviceValueMap{}
 	for _, b := range backends {
 		newBackendsByAddrID[b.BackendAddrID()] = b
 	}
@@ -411,7 +411,7 @@ func updateServiceLegacyLocked(fe ServiceKey, besValues []ServiceValue,
 	return nil
 }
 
-func updateServiceV2Locked(fe ServiceKey, backends map[BackendAddrID]ServiceValue,
+func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 	svc *bpfService,
 	addRevNAT bool, revNATID int,
 	weights []uint16, nNonZeroWeights uint16) error {
