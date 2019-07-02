@@ -52,7 +52,6 @@ cilium-agent [flags]
       --enable-ipv4                                Enable IPv4 support (default true)
       --enable-ipv6                                Enable IPv6 support (default true)
       --enable-k8s-event-handover                  Enable k8s event handover to kvstore for improved scalability
-      --enable-legacy-services                     Enable legacy (prior-v1.5) services (default true)
       --enable-node-port                           Enable NodePort type services by Cilium (beta)
       --enable-policy string                       Enable policy enforcement (default "default")
       --enable-tracing                             Enable tracing while determining policy (debugging)

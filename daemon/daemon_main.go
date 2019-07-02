@@ -479,8 +479,9 @@ func init() {
 	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
 	option.BindEnv(option.HostReachableServicesProtos)
 
-	flags.Bool(option.EnableLegacyServices, true, "Enable legacy (prior-v1.5) services")
-	option.BindEnv(option.EnableLegacyServices)
+	flags.Bool(option.DeprecatedEnableLegacyServices, false, "Enable legacy (prior-v1.5) services")
+	flags.MarkDeprecated(option.DeprecatedEnableLegacyServices, "this option is deprecated as of v1.6")
+	option.BindEnv(option.DeprecatedEnableLegacyServices)
 
 	flags.StringP(option.Docker, "e", workloads.GetRuntimeDefaultOpt(workloads.Docker, "endpoint"), "Path to docker runtime socket (DEPRECATED: use container-runtime-endpoint instead)")
 	option.BindEnv(option.Docker)
