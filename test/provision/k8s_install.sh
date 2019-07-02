@@ -293,7 +293,7 @@ else
     # though the service IP should be routed to a different interface.
     # This particular workaround is only needed for cilium, running on a pod on host
     # network namespace, to reach out kube-api-server.
-    sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
+    # sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
 fi
 
 # Create world network
