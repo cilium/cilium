@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Authors of Cilium
+ *  Copyright (C) 2018-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,18 +50,6 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	/* If endpoint a service use L4/L3 stack for now. These can be
 	 * pulled in as needed.
 	 */
-#ifdef ENABLE_LEGACY_SERVICES
-	{
-		struct lb4_key lb4_key = {};
-		struct lb4_service *svc
-
-		sk_lb4_key(&lb4_key, &key);
-		svc = __lb4_lookup_service(&lb4_key);
-		if (svc)
-			return;
-	}
-#endif
-
 	sk_lb4_key_v2(&lb4_key, &key);
 	svc = __lb4_lookup_service_v2(&lb4_key);
 	if (svc)

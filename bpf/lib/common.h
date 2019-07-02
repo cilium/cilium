@@ -482,7 +482,7 @@ struct ct_entry {
 	      node_port:1,
 	      reserve:10;
 	__u16 rev_nat_index;
-	__u16 slave;
+	__u16 backend_id; /* Populated only in v1.6+ BPF code. */
 
 	/* *x_flags_seen represents the OR of all TCP flags seen for the
 	 * transmit/receive direction of this entry. */
@@ -541,20 +541,6 @@ struct lb6_reverse_nat {
 	__be16 port;
 } __attribute__((packed));
 
-struct lb4_key {
-	__be32 address;
-        __be16 dport;		/* L4 port filter, if unset, all ports apply */
-	__u16 slave;		/* Backend iterator, 0 indicates the master service */
-} __attribute__((packed));
-
-struct lb4_service {
-	__be32 target;
-	__be16 port;
-	__u16 count;
-	__u16 rev_nat_index;
-	__u16 weight;
-} __attribute__((packed));
-
 struct lb4_key_v2 {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
@@ -565,10 +551,8 @@ struct lb4_key_v2 {
 
 struct lb4_service_v2 {
 	__u32 backend_id;	/* Backend ID in lb4_backends */
-	/* For the master service, count denotes number of service endpoints,
-	 * while for any service endpoint, count contains a slave slot number
-	 * in a corresponding legacy service which points to the same backend
-	 * (used for the backward compatibility)
+	/* For the master service, count denotes number of service endpoints.
+	 * For service endpoints, zero. (Previously, legacy service ID)
 	 */
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
@@ -603,7 +587,7 @@ struct ct_state {
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
-	__u16 slave;		/* Slave slot number in a legacy service */
+	__u16 unused;
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
 

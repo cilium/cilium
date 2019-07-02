@@ -45,8 +45,6 @@ int main() {
     DECLARE_STRUCT(ct_entry, iter);
     DECLARE_STRUCT(ipcache_key, iter);
     DECLARE_STRUCT(remote_endpoint_info, iter);
-    DECLARE_STRUCT(lb4_key, iter);
-    DECLARE_STRUCT(lb4_service, iter);
     DECLARE_STRUCT(lb4_key_v2, iter);
     DECLARE_STRUCT(lb4_service_v2, iter);
     DECLARE_STRUCT(lb4_backend, iter);

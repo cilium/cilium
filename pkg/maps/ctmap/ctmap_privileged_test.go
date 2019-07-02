@@ -61,7 +61,6 @@ func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
 		Lifetime:         37459,
 		Flags:            0x0011,
 		RevNAT:           0,
-		Slave:            0,
 		TxFlagsSeen:      0x02,
 		RxFlagsSeen:      0x14,
 		SourceSecurityID: 40653,
