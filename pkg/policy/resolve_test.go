@@ -115,6 +115,30 @@ func GenerateL3IngressRules(numRules int) api.Rules {
 	return rules
 }
 
+func GenerateL3EgressRules(numRules int) api.Rules {
+	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
+	fooSelector := api.NewESFromLabels(parseFooLabel)
+	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+
+	// Change ingRule and rule in the for-loop below to change what type of rules
+	// are added into the policy repository.
+	egRule := api.EgressRule{
+		ToEndpoints: []api.EndpointSelector{barSelector},
+	}
+
+	var rules api.Rules
+	for i := 1; i <= numRules; i++ {
+
+		rule := api.Rule{
+			EndpointSelector: fooSelector,
+			Egress:           []api.EgressRule{egRule},
+		}
+		rule.Sanitize()
+		rules = append(rules, &rule)
+	}
+	return rules
+}
+
 func GenerateCIDRRules(numRules int) api.Rules {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
@@ -200,6 +224,16 @@ func (ds *PolicyTestSuite) BenchmarkRegenerateCIDRPolicyRules(c *C) {
 
 func (ds *PolicyTestSuite) BenchmarkRegenerateL3IngressPolicyRules(c *C) {
 	testRepo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
+		_ = ip.DistillPolicy(DummyOwner{})
+		ip.Detach()
+	}
+}
+
+func (ds *PolicyTestSuite) BenchmarkRegenerateL3EgressPolicyRules(c *C) {
+	testRepo := bootstrapRepo(GenerateL3EgressRules, 1000, c)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
