@@ -34,7 +34,6 @@ const (
 
 var (
 	listRevNAT bool
-	listLegacy bool
 )
 
 func dumpRevNat(serviceList map[string][]string) {
@@ -99,15 +98,6 @@ func dumpSVC(serviceList map[string][]string) {
 	}
 }
 
-func dumpLegacySVC(serviceList map[string][]string) {
-	if err := lbmap.Service4Map.DumpIfExists(serviceList); err != nil {
-		Fatalf("Unable to dump IPv4 services table: %s", err)
-	}
-	if err := lbmap.Service6Map.DumpIfExists(serviceList); err != nil {
-		Fatalf("Unable to dump IPv6 services table: %s", err)
-	}
-}
-
 // bpfCtListCmd represents the bpf_ct_list command
 var bpfLBListCmd = &cobra.Command{
 	Use:     "list",
@@ -122,9 +112,6 @@ var bpfLBListCmd = &cobra.Command{
 		case listRevNAT:
 			firstTitle = idTitle
 			dumpRevNat(serviceList)
-		case listLegacy:
-			firstTitle = serviceAddressTitle
-			dumpLegacySVC(serviceList)
 		default:
 			firstTitle = serviceAddressTitle
 			dumpSVC(serviceList)
@@ -144,6 +131,5 @@ var bpfLBListCmd = &cobra.Command{
 func init() {
 	bpfLBCmd.AddCommand(bpfLBListCmd)
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
-	bpfLBListCmd.Flags().BoolVarP(&listLegacy, "legacy", "", false, "List legacy service entries")
 	command.AddJSONOutput(bpfLBListCmd)
 }
