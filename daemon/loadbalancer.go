@@ -42,7 +42,6 @@ func (d *Daemon) addSVC2BPFMap(feCilium loadbalancer.L3n4AddrID, feBPF lbmap.Ser
 	revNATID := int(feCilium.ID)
 
 	if err := lbmap.UpdateService(feBPF, besBPF, addRevNAT, revNATID,
-		option.Config.EnableLegacyServices,
 		service.AcquireBackendID, service.DeleteBackendID); err != nil {
 		if addRevNAT {
 			delete(d.loadBalancer.RevNATMap, loadbalancer.ServiceID(feCilium.ID))
@@ -265,68 +264,11 @@ func (d *Daemon) svcDelete(svc *loadbalancer.LBSVC) error {
 }
 
 func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
-	var (
-		errV2     error
-		errLegacy error
-	)
-
-	errV2 = lbmap.DeleteServiceV2(svc, service.DeleteBackendID)
-	if option.Config.EnableLegacyServices {
-		errLegacy = d.svcDeleteBPFLegacy(svc)
-	}
-
-	if errV2 != nil || errLegacy != nil {
-		return fmt.Errorf("Deleting service from BPF maps failed: %s (v2), %s (legacy)",
-			errV2, errLegacy)
+	if err := lbmap.DeleteServiceV2(svc, service.DeleteBackendID); err != nil {
+		return fmt.Errorf("Deleting service from BPF maps failed: %s", err)
 	}
 
 	lbmap.DeleteServiceCache(svc)
-
-	return nil
-}
-
-func (d *Daemon) svcDeleteBPFLegacy(svc loadbalancer.L3n4AddrID) error {
-	log.WithField(logfields.ServiceName, svc.String()).Debug("deleting service from BPF maps")
-	var svcKey lbmap.ServiceKey
-	if !svc.IsIPv6() {
-		svcKey = lbmap.NewService4Key(svc.IP, svc.Port, 0)
-	} else {
-		svcKey = lbmap.NewService6Key(svc.IP, svc.Port, 0)
-	}
-
-	svcKey.SetBackend(0)
-
-	// Get count of backends from master.
-	val, err := svcKey.Map().Lookup(svcKey.ToNetwork())
-	if err != nil {
-		return fmt.Errorf("key %s is not in lbmap", svcKey.ToNetwork())
-	}
-
-	vval := val.(lbmap.ServiceValue)
-	numBackends := uint16(vval.GetCount())
-
-	// ServiceKeys are unique by their slave number, which corresponds to the number of backends. Delete each of these.
-	for i := numBackends; i > 0; i-- {
-		var slaveKey lbmap.ServiceKey
-		if !svc.IsIPv6() {
-			slaveKey = lbmap.NewService4Key(svc.IP, svc.Port, i)
-		} else {
-			slaveKey = lbmap.NewService6Key(svc.IP, svc.Port, i)
-		}
-		log.WithFields(logrus.Fields{
-			"idx.backend": i,
-			"key":         slaveKey,
-		}).Debug("deleting backend # for slave ServiceKey")
-		if err := lbmap.DeleteService(slaveKey); err != nil {
-			return fmt.Errorf("deleting service failed for %s: %s", slaveKey, err)
-
-		}
-	}
-
-	log.WithField(logfields.ServiceID, svc.ID).Debug("done deleting service slaves, now deleting master service")
-	if err := lbmap.DeleteService(svcKey); err != nil {
-		return fmt.Errorf("deleting service failed for %s: %s", svcKey, err)
-	}
 
 	return nil
 }
@@ -476,23 +418,11 @@ func (d *Daemon) RevNATDump() ([]loadbalancer.L3n4AddrID, error) {
 }
 
 func openServiceMaps() error {
+	if err := lbmap.RemoveDeprecatedMaps(); err != nil {
+		return err
+	}
+
 	if option.Config.EnableIPv6 {
-		if option.Config.EnableLegacyServices {
-			if _, err := lbmap.Service6Map.OpenOrCreate(); err != nil {
-				return err
-			}
-			if _, err := lbmap.RRSeq6Map.OpenOrCreate(); err != nil {
-				return err
-			}
-		} else {
-			// Remove leftovers from previous installations
-			if err := lbmap.Service6Map.UnpinIfExists(); err != nil {
-				return err
-			}
-			if err := lbmap.RRSeq6Map.UnpinIfExists(); err != nil {
-				return err
-			}
-		}
 		if _, err := lbmap.Service6MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
@@ -508,22 +438,6 @@ func openServiceMaps() error {
 	}
 
 	if option.Config.EnableIPv4 {
-		if option.Config.EnableLegacyServices {
-			if _, err := lbmap.Service4Map.OpenOrCreate(); err != nil {
-				return err
-			}
-			if _, err := lbmap.RRSeq4Map.OpenOrCreate(); err != nil {
-				return err
-			}
-		} else {
-			// Remove leftovers from previous installations
-			if err := lbmap.Service4Map.UnpinIfExists(); err != nil {
-				return err
-			}
-			if err := lbmap.RRSeq4Map.UnpinIfExists(); err != nil {
-				return err
-			}
-		}
 		if _, err := lbmap.Service4MapV2.OpenOrCreate(); err != nil {
 			return err
 		}
@@ -859,15 +773,8 @@ func restoreServices() {
 	for _, err := range errors {
 		log.WithError(err).Warning("Error occurred while dumping service v2 table from datapath")
 	}
-	svcMap := svcMapV2
-	if option.Config.EnableLegacyServices {
-		svcMap, _, errors = lbmap.DumpServiceMapsToUserspace()
-		for _, err := range errors {
-			log.WithError(err).Warning("Error occurred while dumping service table from datapath")
-		}
-	}
 
-	for feHash, svc := range svcMap {
+	for _, svc := range svcMapV2 {
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.ServiceID: svc.FE.ID,
 			logfields.ServiceIP: svc.FE.L3n4Addr.String(),
@@ -896,67 +803,12 @@ func restoreServices() {
 			}
 		}
 
-		v2Exists := true
-		if option.Config.EnableLegacyServices {
-			_, v2Exists = svcMapV2[feHash]
-		}
-
 		// Restore the service cache to guarantee backend ordering
 		// across restarts
-		if err := lbmap.RestoreService(svc, v2Exists); err != nil {
+		if err := lbmap.RestoreService(svc); err != nil {
 			scopedLog.WithError(err).Warning("Unable to restore service in cache")
 			failed++
 			continue
-		}
-
-		if !option.Config.EnableLegacyServices {
-			continue
-		}
-
-		// Create the svc v2 from the legacy one
-		if !v2Exists {
-			fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
-			if err != nil {
-				failed++
-				scopedLog.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
-					WithError(err).Warning("Unable to convert service key and values v2")
-				continue
-			}
-			// We restore only services which has the revNat enabled
-			addRevNAT := true
-			revNATID := int(svc.FE.ID)
-			err = lbmap.UpdateService(fe, besValues, addRevNAT, revNATID, true,
-				service.AcquireBackendID, service.DeleteBackendID)
-			if err != nil {
-				failed++
-				scopedLog.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
-					Warning("Unable to restore service v2")
-			}
-		}
-	}
-
-	// Delete v2 services which do not have the legacy equivalents. Can
-	// happen after cilium-agent has been downgraded to < v1.5, some svc gets
-	// removed, and then the agent upgraded again to >= v1.5 (observed on the CI).
-	if option.Config.EnableLegacyServices {
-		for feHash, svc := range svcMapV2 {
-			if _, found := svcMap[feHash]; !found {
-				// Remove revNAT if there is no restored service using it
-				delRevNAT := true
-				if _, found := svcIDs[svc.FE.ID]; found {
-					delRevNAT = false
-				}
-
-				log.WithFields(logrus.Fields{
-					logfields.ServiceID: svc.FE.ID,
-					"delRevNAT":         delRevNAT,
-				}).Debug("Deleting orphan service from BPF maps v2")
-
-				if err := lbmap.DeleteOrphanServiceV2AndRevNAT(svc.FE, delRevNAT); err != nil {
-					log.WithField(logfields.ServiceID, svc.FE.ID).WithError(err).
-						Warning("Unable to remove orphan service v2")
-				}
-			}
 		}
 	}
 

@@ -58,9 +58,6 @@ var _ = Describe("RuntimeLB", func() {
 	})
 
 	AfterEach(func() {
-		err := vm.BpfLBMapsAreSynced()
-		Expect(err).Should(BeNil(), "v2 and legacy bpf lb are not in sync")
-
 		cleanupLBDevice(vm)
 	}, 500)
 

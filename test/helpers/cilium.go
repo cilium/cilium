@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -755,52 +754,6 @@ func (s *SSHMeta) ServiceAdd(id int, frontend string, backends []string) *CmdRes
 		"service update --frontend '%s' --backends '%s' --id '%d' --rev",
 		frontend, strings.Join(backends, ","), id)
 	return s.ExecCilium(cmd)
-}
-
-// BpfLBMapsAreSynced checks whether the v2 and legacy BPF maps contain the same
-// endpoints.
-func (s *SSHMeta) BpfLBMapsAreSynced() error {
-	bpfLB, err := s.BpfLBList(false, false)
-	if err != nil {
-		return err
-	}
-	bpfLegacyLB, err := s.BpfLBList(true, true)
-	if err != nil {
-		return err
-	}
-
-	if len(bpfLB) != len(bpfLegacyLB) {
-		return fmt.Errorf("Number of services do not match: %d (v2) vs %d (legacy)",
-			len(bpfLB), len(bpfLegacyLB))
-	}
-
-	for svc, entries := range bpfLB {
-		legacyEntries, found := bpfLegacyLB[svc]
-		if !found {
-			return fmt.Errorf("%s service not found in the legacy BPF map", svc)
-		}
-
-		sort.Strings(legacyEntries)
-		sort.Strings(entries)
-		if len(entries) != len(legacyEntries) {
-			return fmt.Errorf("Number of %s endpoints do not match: %d (v2) vs %d (legacy)",
-				svc, len(entries), len(legacyEntries))
-		}
-
-		for i, entry := range entries {
-			if i == 0 {
-				// Ignore master services, as they do not match due to revNATID
-				// being set in v2
-				continue
-			}
-			if entry != legacyEntries[i] {
-				return fmt.Errorf("%d-th sorted entries do not match: %s (v2) vs %s (legacy)",
-					i, entry, legacyEntries[i])
-			}
-		}
-	}
-
-	return nil
 }
 
 // ServiceIsSynced checks that the Cilium service with the specified id has its

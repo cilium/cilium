@@ -388,9 +388,6 @@ const (
 	// DisableK8sServices disables east-west K8s load balancing by cilium
 	DisableK8sServices = "disable-k8s-services"
 
-	// EnableLegacyServices enables the legacy services
-	EnableLegacyServices = "enable-legacy-services"
-
 	// MaxCtrlIntervalName and MaxCtrlIntervalNameEnv allow configuration
 	// of MaxControllerInterval.
 	MaxCtrlIntervalName = "max-controller-interval"
@@ -533,6 +530,9 @@ const (
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
+
+	// DeprecatedEnableLegacyServices enables the legacy services
+	DeprecatedEnableLegacyServices = "enable-legacy-services"
 )
 
 // FQDNS variables
@@ -877,7 +877,6 @@ type DaemonConfig struct {
 	DebugVerbose                  []string
 	DisableConntrack              bool
 	DisableK8sServices            bool
-	EnableLegacyServices          bool
 	EnableHostReachableServices   bool
 	DockerEndpoint                string
 	EnablePolicy                  string
@@ -1408,7 +1407,6 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
-	c.EnableLegacyServices = viper.GetBool(EnableLegacyServices)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)

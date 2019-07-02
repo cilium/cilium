@@ -144,14 +144,6 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	fmt.Fprintf(fw, "#define LB4_BACKEND_MAP cilium_lb4_backends\n")
 	fmt.Fprintf(fw, "#define LB4_REVERSE_NAT_SK_MAP cilium_lb4_reverse_sk\n")
 
-	if option.Config.EnableLegacyServices {
-		fmt.Fprintf(fw, "#define ENABLE_LEGACY_SERVICES 1\n")
-		fmt.Fprintf(fw, "#define LB6_SERVICES_MAP cilium_lb6_services\n")
-		fmt.Fprintf(fw, "#define LB6_RR_SEQ_MAP cilium_lb6_rr_seq\n")
-		fmt.Fprintf(fw, "#define LB4_SERVICES_MAP cilium_lb4_services\n")
-		fmt.Fprintf(fw, "#define LB4_RR_SEQ_MAP cilium_lb4_rr_seq\n")
-	}
-
 	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", option.Config.TracePayloadlen)
 	fmt.Fprintf(fw, "#define MTU %d\n", cfg.MtuConfig.GetDeviceMTU())
 
