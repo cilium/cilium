@@ -146,10 +146,11 @@ func (s *ServiceCache) DeleteService(k8sSvc *v1.Service) {
 	svcID := ParseServiceID(k8sSvc)
 
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	oldService, serviceOK := s.services[svcID]
 	endpoints, _ := s.correlateEndpoints(svcID)
 	delete(s.services, svcID)
-	s.mutex.Unlock()
 
 	if serviceOK {
 		s.Events <- ServiceEvent{
@@ -226,10 +227,11 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *v1.Endpoints) ServiceID {
 	svcID := ParseEndpointsID(k8sEndpoints)
 
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	service, serviceOK := s.services[svcID]
 	delete(s.endpoints, svcID)
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
-	s.mutex.Unlock()
 
 	if serviceOK {
 		event := ServiceEvent{
@@ -323,10 +325,11 @@ func (s *ServiceCache) DeleteIngress(ingress *v1beta1.Ingress) {
 	svcID := ParseIngressID(ingress)
 
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	oldService, ok := s.ingresses[svcID]
 	endpoints, _ := s.endpoints[svcID]
 	delete(s.ingresses, svcID)
-	s.mutex.Unlock()
 
 	if ok {
 		s.Events <- ServiceEvent{
