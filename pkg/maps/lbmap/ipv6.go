@@ -486,5 +486,5 @@ func NewBackend6(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8prot
 func (b *Backend6) IsIPv6() bool                  { return true }
 func (b *Backend6) Map() *bpf.Map                 { return Backend6Map }
 func (b *Backend6) GetID() loadbalancer.BackendID { return b.Key.GetID() }
-func (b *Backend6) GetKey() bpf.MapKey            { return b.Key }
+func (b *Backend6) GetKey() BackendKey            { return b.Key }
 func (b *Backend6) GetValue() BackendValue        { return b.Value }

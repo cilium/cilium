@@ -733,20 +733,24 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	return nil
 }
 
-func restoreBackendIDs() (map[lbmap.BackendAddrID]loadbalancer.BackendID, error) {
+func restoreBackendIDs() (map[lbmap.BackendAddrID]lbmap.BackendKey, error) {
 	lbBackends, err := lbmap.DumpBackendMapsToUserspace()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to dump LB backend maps: %s", err)
 	}
 
-	restoredBackendIDs := map[lbmap.BackendAddrID]loadbalancer.BackendID{}
+	restoredBackendIDs := map[lbmap.BackendAddrID]lbmap.BackendKey{}
 
 	for addrID, lbBackend := range lbBackends {
 		err := service.RestoreBackendID(lbBackend.L3n4Addr, lbBackend.ID)
 		if err != nil {
 			return nil, err
 		}
-		restoredBackendIDs[addrID] = lbBackend.ID
+		be, err := lbmap.LBBackEnd2Backend(*lbBackend)
+		if err != nil {
+			return nil, err
+		}
+		restoredBackendIDs[addrID] = be.GetKey()
 	}
 
 	log.WithField(logfields.BackendIDs, restoredBackendIDs).
