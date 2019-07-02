@@ -124,6 +124,11 @@ func (s *ServiceCache) GetRandomBackendIP(svcID ServiceID) *loadbalancer.L3n4Add
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
 func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
+	var (
+		externalServiceReady bool
+		externalK8sEndpoints *Endpoints
+	)
+
 	svcID, newService := ParseService(k8sSvc)
 	if newService == nil {
 		return svcID
@@ -132,22 +137,72 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service) ServiceID {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if oldService, ok := s.services[svcID]; ok {
-		if oldService.DeepEquals(newService) {
-			return svcID
-		}
+	oldService, ok := s.services[svcID]
+	if ok && oldService.DeepEquals(newService) {
+		return svcID
 	}
+
+	// If the new service has received externalIPs then we need to check
+	// if it previously existed without externalIPs or vice-versa.
+	oldSvcID := svcID
+	if newService.IsK8sExternal() {
+		oldSvcID.k8sExternal = false
+	} else {
+		oldSvcID.k8sExternal = true
+	}
+	oldService, ok = s.services[oldSvcID]
 
 	s.services[svcID] = newService
 
-	// Check if the corresponding Endpoints resource is already available
+	if ok {
+		switch {
+		// Get old external services
+		case oldService.IsK8sExternal() && !newService.IsK8sExternal():
+			delete(s.endpoints, oldSvcID)
+			delete(s.services, oldSvcID)
+			// We want to get any correlation for the service if there are
+			// normal k8s endpoints running
+			endpoints, serviceReady := s.correlateEndpoints(svcID)
+
+			event := ServiceEvent{
+				Action:    DeleteService,
+				ID:        svcID,
+				Service:   newService,
+				Endpoints: endpoints,
+			}
+			if serviceReady {
+				event.Action = UpdateService
+			}
+			s.Events <- event
+
+			return svcID
+		case !oldService.IsK8sExternal() && newService.IsK8sExternal():
+		}
+	}
+
+	if newService.IsK8sExternal() {
+		s.endpoints[svcID] = newService.K8sExternalIPs
+
+		// correlate external IPs with the service
+		externalK8sEndpoints, externalServiceReady = s.correlateEndpoints(svcID)
+
+		// We also need to store the svcID as non external so that k8s endpoints
+		// of this service can be correlated
+		svcID.k8sExternal = false
+		s.services[svcID] = newService
+	}
+
+	// Check if the corresponding k8s endpoints resource is already available
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
-	if serviceReady {
+
+	svcID.k8sExternal = newService.IsK8sExternal()
+
+	if serviceReady || externalServiceReady {
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        svcID,
 			Service:   newService,
-			Endpoints: endpoints,
+			Endpoints: endpoints.Merge(externalK8sEndpoints),
 		}
 	}
 
@@ -162,16 +217,36 @@ func (s *ServiceCache) DeleteService(k8sSvc *types.Service) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	oldService, serviceOK := s.services[svcID]
-	endpoints, _ := s.correlateEndpoints(svcID)
+	oldSvc, oldSvcOk := s.services[svcID]
+	oldEndpoints, _ := s.correlateEndpoints(svcID)
 	delete(s.services, svcID)
+	if svcID.k8sExternal {
+		// We will delete the external endpoints created in the service addition
+		delete(s.endpoints, svcID)
 
-	if serviceOK {
+		svcID.k8sExternal = false
+		oldNonExternalSvc, oldNonExternalSvcOk := s.services[svcID]
+		oldNonExternalEndpoints, _ := s.correlateEndpoints(svcID)
+		delete(s.services, svcID)
+		svcID.k8sExternal = true
+
+		if oldNonExternalSvcOk {
+			s.Events <- ServiceEvent{
+				Action:    DeleteService,
+				ID:        svcID,
+				Service:   oldNonExternalSvc,
+				Endpoints: oldNonExternalEndpoints.Merge(oldEndpoints),
+			}
+		}
+		return
+	}
+
+	if oldSvcOk {
 		s.Events <- ServiceEvent{
 			Action:    DeleteService,
 			ID:        svcID,
-			Service:   oldService,
-			Endpoints: endpoints,
+			Service:   oldSvc,
+			Endpoints: oldEndpoints,
 		}
 	}
 }
@@ -194,15 +269,36 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints) (ServiceID
 
 	s.endpoints[svcID] = newEndpoints
 
-	// Check if the corresponding Endpoints resource is already available
+	// We need to take into account services with external IPs
+	var externalK8sEndpoints *Endpoints
+	svcID.k8sExternal = true
+	externalSvc, isExternal := s.services[svcID]
+	if isExternal {
+		externalK8sEndpoints, _ = s.correlateEndpoints(svcID)
+	}
+	// If no external IPs were found then we need to set it back to
+	// k8sExternal to false so we keep original behavior of services without
+	// external IPs.
+	svcID.k8sExternal = false
 	service, ok := s.services[svcID]
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
+
+	// If it is external then we will set as it is external to the events
+	// channel.
+	if isExternal {
+		svcID.k8sExternal = true
+		service = externalSvc
+	}
+
+	// Only send a service update if we have normal k8s endpoints correlation
+	// with the service. K8s correlation update was already made when the
+	// service was added.
 	if ok && serviceReady {
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
 			ID:        svcID,
 			Service:   service,
-			Endpoints: endpoints,
+			Endpoints: endpoints.Merge(externalK8sEndpoints),
 		}
 	}
 
@@ -221,6 +317,15 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID 
 	delete(s.endpoints, svcID)
 	endpoints, serviceReady := s.correlateEndpoints(svcID)
 
+	svcID.k8sExternal = true
+	externalService, externalServiceOK := s.services[svcID]
+	svcID.k8sExternal = externalServiceOK
+	var externalServiceReady bool
+	if externalServiceOK {
+		endpoints, externalServiceReady = s.correlateEndpoints(svcID)
+		service = externalService
+	}
+
 	if serviceOK {
 		event := ServiceEvent{
 			Action:    DeleteService,
@@ -229,7 +334,7 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID 
 			Endpoints: endpoints,
 		}
 
-		if serviceReady {
+		if serviceReady || externalServiceReady {
 			event.Action = UpdateService
 		}
 
