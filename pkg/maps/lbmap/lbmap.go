@@ -302,8 +302,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	}
 
 	// Delete no longer needed backends
-	if err := removeBackendsLocked(removedBackendIDs, fe.IsIPv6(),
-		releaseBackendID); err != nil {
+	if err := removeBackendsLocked(removedBackendIDs, releaseBackendID); err != nil {
 		return err
 	}
 
@@ -312,22 +311,26 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 
 func acquireNewBackendIDs(backends []ServiceValue,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error)) (
-	map[BackendAddrID]loadbalancer.BackendID, error) {
+	map[BackendAddrID]BackendKey, error) {
 
 	newBackendsByAddrID := serviceValueMap{}
 	for _, b := range backends {
 		newBackendsByAddrID[b.BackendAddrID()] = b
 	}
 	newBackendsByAddrID = cache.filterNewBackends(newBackendsByAddrID)
-	newBackendIDs := map[BackendAddrID]loadbalancer.BackendID{}
+	newBackendIDs := map[BackendAddrID]BackendKey{}
 
-	for addrID := range newBackendsByAddrID {
+	for addrID, value := range newBackendsByAddrID {
 		addr := *serviceValue2L3n4Addr(newBackendsByAddrID[addrID])
 		backendID, err := acquireBackendID(addr)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to acquire backend ID for %s: %s", addrID, err)
 		}
-		newBackendIDs[addrID] = backendID
+		if value.IsIPv6() {
+			newBackendIDs[addrID] = NewBackend6Key(backendID)
+		} else {
+			newBackendIDs[addrID] = NewBackend4Key(backendID)
+		}
 		log.WithFields(logrus.Fields{
 			logfields.BackendName: addrID,
 			logfields.BackendID:   backendID,
@@ -437,8 +440,8 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 	svcValV2 = svcKeyV2.NewValue().(ServiceValueV2)
 	slot := 1
 	for addrID, svcVal := range backends {
-		backendID := cache.getBackendIDByAddrID(addrID)
-		svcValV2.SetBackendID(backendID)
+		backendKey := cache.getBackendKey(addrID)
+		svcValV2.SetBackendID(backendKey.GetID())
 		svcValV2.SetRevNat(revNATID)
 		svcValV2.SetWeight(svcVal.GetWeight())
 		svcKeyV2.SetSlave(slot)
@@ -494,24 +497,15 @@ func updateServiceV2Locked(fe ServiceKey, backends serviceValueMap,
 	return nil
 }
 
-func removeBackendsLocked(removedBackendIDs []loadbalancer.BackendID, isIPv6 bool,
+func removeBackendsLocked(removedBackendIDs []BackendKey,
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
-	var backendKey BackendKey
-
-	if isIPv6 {
-		backendKey = NewBackend6Key(0)
-	} else {
-		backendKey = NewBackend4Key(0)
-	}
-
-	for _, backendID := range removedBackendIDs {
-		backendKey.SetID(backendID)
+	for _, backendKey := range removedBackendIDs {
 		if err := deleteBackendLocked(backendKey); err != nil {
-			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendID, err)
+			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendKey, err)
 		}
-		releaseBackendID(backendID)
-		log.WithField(logfields.BackendID, backendID).Debug("Deleted backend")
+		releaseBackendID(backendKey.GetID())
+		log.WithField(logfields.BackendID, backendKey).Debug("Deleted backend")
 	}
 
 	return nil
@@ -875,7 +869,7 @@ func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 }
 
 // AddBackendIDsToCache populates the given backend IDs to the lbmap local cache.
-func AddBackendIDsToCache(backendIDs map[BackendAddrID]loadbalancer.BackendID) {
+func AddBackendIDsToCache(backendIDs map[BackendAddrID]BackendKey) {
 	cache.addBackendIDs(backendIDs)
 }
 
@@ -885,8 +879,7 @@ func AddBackendIDsToCache(backendIDs map[BackendAddrID]loadbalancer.BackendID) {
 //The given key has to be of the master service.
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbalancer.BackendID)) error {
 	var (
-		backendKey BackendKey
-		svcKey     ServiceKeyV2
+		svcKey ServiceKeyV2
 	)
 
 	mutex.Lock()
@@ -914,19 +907,12 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 		}
 	}
 
-	if isIPv6 {
-		backendKey = NewBackend6Key(0)
-	} else {
-		backendKey = NewBackend4Key(0)
-	}
-
-	for _, id := range backendsToRemove {
-		backendKey.SetID(id)
+	for _, backendKey := range backendsToRemove {
 		if err := deleteBackendLocked(backendKey); err != nil {
-			return fmt.Errorf("Unable to delete backend with ID %d: %s", id, err)
+			return fmt.Errorf("Unable to delete backend with ID %d: %s", backendKey, err)
 		}
-		releaseBackendID(id)
-		log.WithField(logfields.BackendID, id).Debug("Deleted backend")
+		releaseBackendID(backendKey.GetID())
+		log.WithField(logfields.BackendID, backendKey).Debug("Deleted backend")
 	}
 
 	return nil
@@ -1022,23 +1008,16 @@ func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	var key BackendKey
 	errors := make([]error, 0)
 	toRemove := cache.removeBackendsWithRefCountZero()
 
-	for addrID, id := range toRemove {
-		log.WithField(logfields.BackendID, id).Debug("Removing orphan backend")
-		if addrID.IsIPv6() {
-			key = NewBackend6Key(id)
-		} else {
-			key = NewBackend4Key(id)
-		}
+	for _, key := range toRemove {
+		log.WithField(logfields.BackendID, key).Debug("Removing orphan backend")
 		if err := deleteBackendLocked(key); err != nil {
 			errors = append(errors,
-				fmt.Errorf("Unable to remove backend from the BPF map %d: %s",
-					id, err))
+				fmt.Errorf("Unable to remove backend from the BPF map %d: %s", key, err))
 		}
-		releaseBackendID(id)
+		releaseBackendID(key.GetID())
 	}
 
 	return errors
