@@ -156,10 +156,6 @@ data:
   # wait-bpf-mount makes init container wait until bpf filesystem is mounted
   wait-bpf-mount: "false"
 
-  # Enable legacy services (prior v1.5) to prevent from terminating existing
-  # connections with services when upgrading Cilium from < v1.5 to v1.5.
-  enable-legacy-services: "false"
-
   # Enable chaining with another CNI plugin
   #
   # Supported modes:
