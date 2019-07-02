@@ -220,16 +220,15 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Expect a 403 from app1-service")
 		}
 
-		// checkNoInteruptsInMigratedSVCFlows checks whether there are no
+		// checkNoInteruptsInSVCFlows checks whether there are no
 		// interrupts in established connections to the migrate-svc service
-		// after Cilium has been upgraded / downgraded. This is needed to check
-		// that migration legacy <-> v2 services does not cause any interruptions.
+		// after Cilium has been upgraded / downgraded.
 		//
 		// The check is based on restart count of the Pods. We can do it so, because
 		// any interrupt in the flow makes a client to panic which makes the Pod
 		// to restart.
 		lastCount := -1
-		checkNoInteruptsInMigratedSVCFlows := func() {
+		checkNoInteruptsInSVCFlows := func() {
 			By("No interrupts in migrated svc flows")
 
 			filter := `{.items[*].status.containerStatuses[0].restartCount}`
@@ -278,7 +277,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
 
 		validateEndpointsConnection()
-		checkNoInteruptsInMigratedSVCFlows()
+		checkNoInteruptsInSVCFlows()
 
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
@@ -313,11 +312,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
 
 		cmPatch := helpers.CiliumConfigMapPatch
-		// To avoid breaking the established connections to the "migrate-svc" Service
-		if helpers.RunsOnlyLegacySVC(oldVersion) {
-			cmPatch = helpers.CiliumConfigMapWithEnabledLegacySVCPatch
-		}
-
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, cmPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
@@ -343,7 +337,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		validateEndpointsConnection()
-		checkNoInteruptsInMigratedSVCFlows()
+		checkNoInteruptsInSVCFlows()
 
 		By("Downgrading cilium to %s image", oldVersion)
 
@@ -374,7 +368,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		validateEndpointsConnection()
-		checkNoInteruptsInMigratedSVCFlows()
+		checkNoInteruptsInSVCFlows()
 	}
 	return testfunc, cleanupCallback
 }
