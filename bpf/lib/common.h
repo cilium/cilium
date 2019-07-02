@@ -36,6 +36,10 @@
 #define EVENT_SOURCE 0
 #endif
 
+#define PORT_UDP_VXLAN 4789
+#define PORT_UDP_GENEVE 6081
+#define PORT_UDP_VXLAN_LINUX 8472
+
 #ifdef PREALLOCATE_MAPS
 #define CONDITIONAL_PREALLOC 0
 #else
@@ -281,6 +285,9 @@ enum {
 #define DROP_UNKNOWN_CT			-163
 #define DROP_HOST_UNREACHABLE		-164
 #define DROP_NO_CONFIG		-165
+#define DROP_ENCAP_PROHIBITED	-170
+#define DROP_INVALID_IDENTITY	-171
+#define DROP_UNKNOWN_SENDER	-172
 
 /* Cilium metrics reason for forwarding packet.
  * If reason > 0 then this is a drop reason and value corresponds to -(DROP_*)
