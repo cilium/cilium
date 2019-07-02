@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Authors of Cilium
+ *  Copyright (C) 2018-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,16 +74,6 @@ static __always_inline void sk_msg_extract4_key(struct sk_msg_md *msg,
 	key->sport = (bpf_ntohl(msg->local_port) >> 16);
 	key->dport = msg->remote_port >> 16;
 }
-
-#ifdef ENABLE_LEGACY_SERVICES
-static __always_inline void sk_lb4_key(struct lb4_key *lb4,
-				       struct sock_key *key)
-{
-	/* SK MSG is always egress, so use daddr */
-	lb4->address = key->dip4;
-	lb4->dport = key->dport;
-}
-#endif
 
 static __always_inline void sk_lb4_key_v2(struct lb4_key_v2 *lb4,
 					  struct sock_key *key)

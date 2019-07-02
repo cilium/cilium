@@ -429,8 +429,6 @@ static inline int handle_ipv4_from_lxc(struct __sk_buff *skb, __u32 *dstID)
 	}
 
 	ct_state_new.orig_dport = key.dport;
-	/* It's safe to lookup the v2 svc instead of the legacy, as the v2 is
-	 * created before the endpoint datapath code has been reloaded. */
 	if ((svc = lb4_lookup_service_v2(skb, &key)) != NULL) {
 		ret = lb4_local(get_ct_map4(&tuple), skb, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
