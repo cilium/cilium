@@ -36,7 +36,6 @@ var (
 		"foo": fooLabel,
 	}
 	lblsArray   = lbls.LabelArray()
-	repo        = &Repository{}
 	fooIdentity = &identity.Identity{
 		ID:         303,
 		Labels:     lbls,
@@ -68,33 +67,6 @@ func (d *dummyEndpoint) RLockAlive() error {
 func (d *dummyEndpoint) RUnlock() {
 }
 
-func (ds *PolicyTestSuite) SetUpSuite(c *C) {
-	var wg sync.WaitGroup
-	SetPolicyEnabled(option.DefaultEnforcement)
-	GenerateNumIdentities(3000)
-	testSelectorCache.UpdateIdentities(identityCache, nil)
-	repo.selectorCache = testSelectorCache
-	rulez, _ := repo.AddList(GenerateNumRules(1000))
-
-	epSet := NewEndpointSet(map[Endpoint]struct{}{
-		&dummyEndpoint{
-			ID:               9001,
-			SecurityIdentity: fooIdentity,
-		}: {},
-	})
-
-	epsToRegen := NewEndpointSet(nil)
-	rulez.UpdateRulesEndpointsCaches(epSet, epsToRegen, &wg)
-	wg.Wait()
-
-	c.Assert(epSet.Len(), Equals, 0)
-	c.Assert(epsToRegen.Len(), Equals, 1)
-}
-
-func (ds *PolicyTestSuite) TearDownSuite(c *C) {
-	repo = &Repository{}
-}
-
 func GenerateNumIdentities(numIdentities int) {
 	for i := 0; i < numIdentities; i++ {
 
@@ -119,7 +91,7 @@ func GenerateNumIdentities(numIdentities int) {
 	}
 }
 
-func GenerateNumRules(numRules int) api.Rules {
+func GenerateCIDRRules(numRules int) api.Rules {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -164,16 +136,46 @@ func (d DummyOwner) GetSecurityIdentity() *identity.Identity {
 	return fooIdentity
 }
 
-func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
+func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
+	testRepo := NewPolicyRepository()
+
+	var wg sync.WaitGroup
+	SetPolicyEnabled(option.DefaultEnforcement)
+	GenerateNumIdentities(3000)
+	testSelectorCache.UpdateIdentities(identityCache, nil)
+	testRepo.selectorCache = testSelectorCache
+	rulez, _ := testRepo.AddList(ruleGenFunc(numRules))
+
+	epSet := NewEndpointSet(map[Endpoint]struct{}{
+		&dummyEndpoint{
+			ID:               9001,
+			SecurityIdentity: fooIdentity,
+		}: {},
+	})
+
+	epsToRegen := NewEndpointSet(nil)
+	rulez.UpdateRulesEndpointsCaches(epSet, epsToRegen, &wg)
+	wg.Wait()
+
+	c.Assert(epSet.Len(), Equals, 0)
+	c.Assert(epsToRegen.Len(), Equals, 1)
+
+	return testRepo
+}
+
+func (ds *PolicyTestSuite) BenchmarkRegenerateCIDRPolicyRules(c *C) {
+	testRepo := bootstrapRepo(GenerateCIDRRules, 1000, c)
+
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		ip, _ := repo.resolvePolicyLocked(fooIdentity)
+		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{})
 		ip.Detach()
 	}
 }
 
 func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
+	repo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
@@ -181,9 +183,6 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 		idFooSelectLabels[lbl.Key] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
-
-	repo := NewPolicyRepository()
-	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -258,6 +257,8 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
+	repo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
+
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
@@ -270,9 +271,6 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	oldLocalhostOpt := option.Config.AllowLocalhost
 	option.Config.AllowLocalhost = option.AllowLocalhostAlways
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
-
-	repo := NewPolicyRepository()
-	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -353,6 +351,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
+	repo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
 
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
@@ -360,9 +359,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 		idFooSelectLabels[lbl.Key] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
-
-	repo := NewPolicyRepository()
-	repo.selectorCache = testSelectorCache
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{
@@ -438,15 +434,14 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
+	repo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
+
 	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
 	idFooSelectLabels := labels.Labels{}
 	for _, lbl := range idFooSelectLabelArray {
 		idFooSelectLabels[lbl.Key] = lbl
 	}
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
-
-	repo := NewPolicyRepository()
-	repo.selectorCache = testSelectorCache
 
 	lblTest := labels.ParseLabel("id=resolve_test_1")
 

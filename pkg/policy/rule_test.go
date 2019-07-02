@@ -2011,7 +2011,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMatches(c *C) {
-	repo = parseAndAddRules(c, api.Rules{&api.Rule{
+	repo := parseAndAddRules(c, api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
