@@ -2,7 +2,7 @@
 
 pipeline {
     agent {
-        label 'fixed'
+        label 'baremetal'
     }
 
     parameters {
