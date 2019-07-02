@@ -330,6 +330,378 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 }
 
+func (s *K8sSuite) TestServiceCacheWithK8sExternalIPs(c *check.C) {
+	svcCache := NewServiceCache()
+
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
+				ExternalIPs: []string{
+					"10.0.0.1",
+					"8.8.8.8",
+				},
+				Ports: []v1.ServicePort{
+					{
+						Name:       "http",
+						Port:       80,
+						Protocol:   v1.ProtocolTCP,
+						TargetPort: intstr.FromInt(8989),
+					},
+				},
+			},
+		},
+	}
+
+	svcID := svcCache.UpdateService(k8sSvc)
+
+	// The service should be ready as both service contains external IPs set
+	// in its structure.
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	k8sEndpoints := &types.Endpoints{
+		Endpoints: &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Subsets: []v1.EndpointSubset{
+				{
+					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
+					Ports: []v1.EndpointPort{
+						{
+							Name:     "http-test-svc",
+							Port:     8080,
+							Protocol: v1.ProtocolTCP,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	svcCache.UpdateEndpoints(k8sEndpoints)
+
+	// We should have 2 set of endpoints store, one for external services and
+	// the other for non external (normal k8s endpoints)
+	endpoints, ready := svcCache.correlateEndpoints(svcID)
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "10.0.0.1:80/TCP,8.8.8.8:80/TCP")
+
+	svcID.k8sExternal = false
+	endpoints, ready = svcCache.correlateEndpoints(svcID)
+	svcID.k8sExternal = true
+
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
+	// The service should be ready as both service and endpoints have been
+	// imported, both k8s external IPs and normal k8s endpoints should be seen
+	// as backends.
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Updating the service without changing it should not result in an event
+	svcCache.UpdateService(k8sSvc)
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service event received for unchanged service object")
+	default:
+	}
+
+	// Deleting the service will result in a service delete event
+	svcCache.DeleteService(k8sSvc)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Reinserting the service should re-match with the still existing endpoints
+	svcCache.UpdateService(k8sSvc)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Deleting the endpoints will result in a service update event as the k8s
+	// external IPs still exist
+	svcCache.DeleteEndpoints(k8sEndpoints)
+
+	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
+	c.Assert(serviceReady, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "10.0.0.1:80/TCP,8.8.8.8:80/TCP")
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Reinserting the endpoints should re-match with the still existing service
+	svcCache.UpdateEndpoints(k8sEndpoints)
+
+	// We should have 2 set of endpoints stored, one for external services and
+	// the other for non external (normal k8s endpoints)
+	endpoints, ready = svcCache.correlateEndpoints(svcID)
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "10.0.0.1:80/TCP,8.8.8.8:80/TCP")
+
+	svcID.k8sExternal = false
+	endpoints, ready = svcCache.correlateEndpoints(svcID)
+	svcID.k8sExternal = true
+
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Deleting the service will result in a service delete event
+	svcCache.DeleteService(k8sSvc)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Deleting the endpoints will not emit an event as the notification
+	// was sent out when the service was deleted.
+	svcCache.DeleteEndpoints(k8sEndpoints)
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service delete event received")
+	default:
+	}
+
+	svcCache.UpdateEndpoints(k8sEndpoints)
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service endpoint update event received")
+	default:
+	}
+	svcCache.UpdateService(k8sSvc)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// The k8s service is now a normal service!
+	k8sSvc.Spec.ExternalIPs = nil
+
+	svcCache.UpdateService(k8sSvc)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		svcID.k8sExternal = false
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// The k8s service is now a service with external IPs
+	k8sSvc.Spec.ExternalIPs = []string{
+		"10.0.0.1",
+		"8.8.8.8",
+	}
+
+	svcCache.UpdateService(k8sSvc)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		c.Assert(event.Action, check.Equals, UpdateService)
+		svcID.k8sExternal = true
+		c.Assert(event.ID, check.Equals, svcID)
+		eps := &Endpoints{
+			Backends: map[string]service.PortConfiguration{
+				"10.0.0.1": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+				"2.2.2.2": {
+					"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
+				},
+				"8.8.8.8": {
+					"http": loadbalancer.NewL4Addr(loadbalancer.TCP, 80),
+				},
+			},
+		}
+		c.Assert(event.Endpoints, checker.DeepEquals, eps)
+		_, svc := ParseService(k8sSvc)
+		c.Assert(event.Service, checker.DeepEquals, svc)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service endpoint update event received")
+	default:
+	}
+}
+
 func (s *K8sSuite) TestCacheActionString(c *check.C) {
 	c.Assert(UpdateService.String(), check.Equals, "service-updated")
 	c.Assert(DeleteService.String(), check.Equals, "service-deleted")

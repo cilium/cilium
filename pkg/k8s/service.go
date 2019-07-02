@@ -51,8 +51,9 @@ func getAnnotationShared(svc *types.Service) bool {
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
 func ParseServiceID(svc *types.Service) ServiceID {
 	return ServiceID{
-		Name:      svc.ObjectMeta.Name,
-		Namespace: svc.ObjectMeta.Namespace,
+		Name:        svc.ObjectMeta.Name,
+		Namespace:   svc.ObjectMeta.Namespace,
+		k8sExternal: len(svc.Spec.ExternalIPs) != 0,
 	}
 }
 
@@ -92,6 +93,24 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	svcInfo := NewService(clusterIP, headless, svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
+
+	if len(svc.Spec.ExternalIPs) != 0 {
+		// Accordingly with k8s docs: Traffic that ingresses into the cluster
+		// with the external IP (as destination IP), on the service port, will
+		// be routed to one of the service endpoints.
+		// For Cilium this means the backends are the cartesian product of
+		// service ports x external IPs + real k8s endpoints and the service IP
+		// will continue to be the service IP.
+		eps := newEndpoints()
+		for _, ipStr := range svc.Spec.ExternalIPs {
+			portCfg := service.PortConfiguration{}
+			for _, port := range svc.Spec.Ports {
+				portCfg[port.Name] = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+			}
+			eps.Backends[ipStr] = portCfg
+		}
+		svcInfo.K8sExternalIPs = eps
+	}
 
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewFEPort(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -141,6 +160,8 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 type ServiceID struct {
 	Name      string `json:"serviceName,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
+	// k8sExternal accounts if the service contains external K8s IPs or not.
+	k8sExternal bool
 }
 
 // String returns the string representation of a service ID
@@ -177,6 +198,10 @@ func ParseServiceIDFrom(dn string) *ServiceID {
 type Service struct {
 	FrontendIP net.IP
 	IsHeadless bool
+
+	// K8sExternalIPs contains the list of external endpoints if the service has
+	// external IPs defined.
+	K8sExternalIPs *Endpoints
 
 	// IncludeExternal is true when external endpoints from other clusters
 	// should be included
@@ -215,6 +240,11 @@ func (s Service) IsExternal() bool {
 	return len(s.Selector) == 0
 }
 
+// IsK8sExternal returns true if the service is expected to serve out-of-cluster IP addresses
+func (s *Service) IsK8sExternal() bool {
+	return s.K8sExternalIPs != nil
+}
+
 // DeepEquals returns true if both services are equal
 func (s *Service) DeepEquals(o *Service) bool {
 	switch {
@@ -223,6 +253,11 @@ func (s *Service) DeepEquals(o *Service) bool {
 	case (s == nil) && (o == nil):
 		return true
 	}
+
+	if !s.K8sExternalIPs.DeepEquals(o.K8sExternalIPs) {
+		return false
+	}
+
 	if s.IsHeadless == o.IsHeadless &&
 		s.FrontendIP.Equal(o.FrontendIP) &&
 		comparator.MapStringEquals(s.Labels, o.Labels) &&
