@@ -20,6 +20,9 @@ spec:
     type: RollingUpdate
   template:
     metadata:
+      annotations:
+        prometheus.io/port: "6942"
+        prometheus.io/scrape: "true"
       labels:
         io.cilium/app: operator
         name: cilium-operator
@@ -93,6 +96,11 @@ spec:
         image: docker.io/cilium/operator:__CILIUM_VERSION__
         imagePullPolicy: Always
         name: cilium-operator
+        ports:
+        - containerPort: 6942
+          hostPort: 6942
+          name: prometheus
+          protocol: TCP
         livenessProbe:
           httpGet:
             path: /healthz
