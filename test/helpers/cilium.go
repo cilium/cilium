@@ -46,17 +46,13 @@ const (
 // BpfLBList returns the output of `cilium bpf lb list -o json` as a map
 // Key will be the frontend address and the value is an array with all backend
 // addresses
-func (s *SSHMeta) BpfLBList(legacy bool, noDuplicates bool) (map[string][]string, error) {
+func (s *SSHMeta) BpfLBList(noDuplicates bool) (map[string][]string, error) {
 	var (
 		result map[string][]string
 		res    *CmdRes
 	)
 
-	if legacy {
-		res = s.ExecCilium("bpf lb list --legacy -o json")
-	} else {
-		res = s.ExecCilium("bpf lb list -o json")
-	}
+	res = s.ExecCilium("bpf lb list -o json")
 
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("cannot get bpf lb list: %s", res.CombineOutput())
@@ -769,7 +765,7 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 		return false, err
 	}
 
-	bpfLB, err := s.BpfLBList(false, false)
+	bpfLB, err := s.BpfLBList(false)
 	if err != nil {
 		return false, err
 	}

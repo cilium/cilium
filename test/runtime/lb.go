@@ -302,7 +302,7 @@ var _ = Describe("RuntimeLB", func() {
 
 			oldSvcIds, err := vm.ServiceGetIds()
 			Expect(err).Should(BeNil())
-			oldBpfLB, err := vm.BpfLBList(false, false)
+			oldBpfLB, err := vm.BpfLBList(false)
 			Expect(err).Should(BeNil())
 
 			err = vm.RestartCilium()
@@ -320,7 +320,7 @@ var _ = Describe("RuntimeLB", func() {
 
 			By("Checking that BPF LB maps match the service")
 
-			newBpfLB, err := vm.BpfLBList(false, false)
+			newBpfLB, err := vm.BpfLBList(false)
 			Expect(err).Should(BeNil(), "Cannot retrieve bpf lb list after restart")
 			Expect(oldBpfLB).Should(Equal(newBpfLB))
 			svcSync, err := vm.ServiceIsSynced(svcID)
