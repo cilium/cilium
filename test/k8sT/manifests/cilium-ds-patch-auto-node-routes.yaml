@@ -17,6 +17,8 @@ spec:
         - "--pprof=true"
         - "--log-system-load"
         - "--config-dir=/tmp/cilium/config-map"
+        - "--device=enp0s8"
+        - "--enable-node-port"
       volumes:
       - name: etcd-secrets
         secret:

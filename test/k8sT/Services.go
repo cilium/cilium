@@ -181,6 +181,29 @@ var _ = Describe("K8sServicesTest", func() {
 			testHTTPRequest(url)
 		})
 
+		deployCilium := func(ciliumDaemonSetPatchFile string) {
+			_ = kubectl.Apply(helpers.DNSDeployment())
+
+			err := kubectl.DeployETCDOperator()
+			ExpectWithOffset(1, err).To(BeNil(), "Unable to deploy etcd operator")
+
+			err = kubectl.CiliumInstall(ciliumDaemonSetPatchFile, helpers.CiliumConfigMapPatch)
+			ExpectWithOffset(1, err).To(BeNil(), "Unable to install Cilium")
+
+			ExpectCiliumReady(kubectl)
+			ExpectETCDOperatorReady(kubectl)
+
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")
+
+			_, err = kubectl.CiliumNodesWait()
+			ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
+
+			By("Making sure all endpoints are in ready state")
+			err = kubectl.CiliumEndpointWaitReady()
+			ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
+		}
+
 		testNodePort := func() {
 			waitPodsDs()
 
@@ -212,6 +235,8 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		It("Tests NodePort", func() {
+			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
+
 			testNodePort()
 		})
 
