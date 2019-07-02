@@ -322,6 +322,14 @@ New ConfigMap Options
     configurations with various other plugins. See the section
     :ref:`cni_chaining` for a list of supported CNI chaining plugins.
 
+Deprecated metrics
+~~~~~~~~~~~~~~~~~~
+
+* ``policy_l7_parse_errors_total``: Use ``policy_l7_total`` instead.
+* ``policy_l7_forwarded_total``: Use ``policy_l7_total`` instead.
+* ``policy_l7_denied_total``: Use ``policy_l7_total`` instead.
+* ``policy_l7_received_total``: Use ``policy_l7_total`` instead.
+
 .. _1.5_upgrade_notes:
 
 1.5 Upgrade Notes

@@ -13,19 +13,6 @@ data:
     rule_files:
       - "/etc/prometheus-rules/*.rules"
     scrape_configs:
-      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L37
-      - job_name: 'kubernetes-nodes'
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        kubernetes_sd_configs:
-          - role: node
-        relabel_configs:
-          - source_labels: [__address__]
-            regex: '(.*):10250'
-            replacement: '${1}:10255'
-            target_label: __address__
-
       # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L79
       - job_name: 'kubernetes-endpoints'
         kubernetes_sd_configs:
@@ -86,7 +73,7 @@ data:
             target_label: kubernetes_pod_name
           - source_labels: [__meta_kubernetes_pod_container_port_number]
             action: keep
-            regex: 9\d{3}
+            regex: \d+
 
       # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L119
       - job_name: 'kubernetes-services'
@@ -174,41 +161,6 @@ spec:
       - emptyDir: {}
         name: storage
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: prometheus
-  name: prometheus
-  namespace: cilium-monitoring
-spec:
-  ports:
-  - name: webui
-    port: 9090
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    app: prometheus
-  type: ClusterIP
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: prometheus
-  name: prometheus-open
-  namespace: cilium-monitoring
-spec:
-  ports:
-  - name: open
-    nodePort: 31001
-    port: 9090
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    app: prometheus
-  type: NodePort
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -255,3 +207,20 @@ kind: ServiceAccount
 metadata:
   name: prometheus-k8s
   namespace: cilium-monitoring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus
+  namespace: cilium-monitoring
+spec:
+  ports:
+  - name: webui
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: prometheus
+  type: ClusterIP

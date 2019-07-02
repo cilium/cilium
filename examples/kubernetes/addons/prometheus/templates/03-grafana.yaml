@@ -23,7 +23,7 @@ spec:
           value: /configmap/grafana/grafana-config.ini
         - name: GF_PATHS_PROVISIONING
           value: /configmap/grafana/provisioning
-        image: docker.io/grafana/grafana:6.0.0
+        image: docker.io/grafana/grafana:6.2.5
         imagePullPolicy: IfNotPresent
         name: grafana-core
         readinessProbe:
@@ -48,6 +48,8 @@ spec:
             path: provisioning/datasources/prometheus.yaml
           - key: cilium-dashboard
             path: provisioning/cilium/cilium-dashboard.json
+          - key: cilium-operator-dashboard
+            path: provisioning/cilium/cilium-operator-dashboard.json
           - key: dashboard-config
             path: provisioning/dashboards/config.yaml
           name: grafana-config
@@ -62,10 +64,9 @@ metadata:
   namespace: cilium-monitoring
 spec:
   ports:
-  - nodePort: 31000
-    port: 3000
+  - port: 3000
     protocol: TCP
     targetPort: 3000
   selector:
     app: grafana
-  type: NodePort
+  type: ClusterIP
