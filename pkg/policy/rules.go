@@ -117,7 +117,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	// each FromEndpoints for all ingress rules. This ensures that FromRequires
 	// is taken into account when evaluating policy at L4.
 	for _, r := range rules {
-		if r.EndpointSelector.Matches(ctx.To) {
+		if ctx.rulesSelect || r.EndpointSelector.Matches(ctx.To) {
 			matchedRules = append(matchedRules, r)
 			for _, ingressRule := range r.Ingress {
 				for _, requirement := range ingressRule.FromRequires {
@@ -167,7 +167,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	// ToEndpoints for all egress rules. This ensures that ToRequires is
 	// taken into account when evaluating policy at L4.
 	for _, r := range rules {
-		if r.EndpointSelector.Matches(ctx.From) {
+		if ctx.rulesSelect || r.EndpointSelector.Matches(ctx.From) {
 			matchedRules = append(matchedRules, r)
 			for _, egressRule := range r.Egress {
 				for _, requirement := range egressRule.ToRequires {
