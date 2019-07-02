@@ -49,11 +49,6 @@ type bpfService struct {
 	// backendsByMapIndex, it will only be listed once in uniqueBackends.
 	uniqueBackends serviceValueMap
 
-	// slaveSlotByBackendAddrID is a map of slot numbers within the legacy
-	// service of slaves which are identified by the legacy ID. Used to
-	// map legacy svc backends by svc v2 for the backward compatibility.
-	slaveSlotByBackendAddrID map[BackendAddrID]int
-
 	// backendsV2 is a map of all service v2 backends indexed by the legacy IDs.
 	// A backend can only be listed once in the map.
 	// TODO(brb) use list instead to preserve the ordering when svc backends change.
@@ -62,104 +57,11 @@ type bpfService struct {
 
 func newBpfService(key ServiceKey) *bpfService {
 	return &bpfService{
-		frontendKey:              key,
-		backendsByMapIndex:       map[int]*bpfBackend{},
-		uniqueBackends:           serviceValueMap{},
-		slaveSlotByBackendAddrID: map[BackendAddrID]int{},
-		backendsV2:               serviceValueMap{},
+		frontendKey:        key,
+		backendsByMapIndex: map[int]*bpfBackend{},
+		uniqueBackends:     serviceValueMap{},
+		backendsV2:         serviceValueMap{},
 	}
-}
-
-func (b *bpfService) addBackend(backend ServiceValue) int {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	nextSlot := len(b.backendsByMapIndex) + 1
-	b.backendsByMapIndex[nextSlot] = &bpfBackend{
-		bpfValue: backend,
-		id:       backend.BackendAddrID(),
-	}
-
-	b.uniqueBackends[backend.BackendAddrID()] = backend
-
-	return nextSlot
-}
-
-func (b *bpfService) deleteBackend(backend ServiceValue) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	idToRemove := backend.BackendAddrID()
-	indicesToRemove := []int{}
-	duplicateCount := map[BackendAddrID]int{}
-
-	for index, backend := range b.backendsByMapIndex {
-		// create a slice of all backend indices that match the backend
-		// ID (ip, port, revnat id)
-		if idToRemove == backend.id {
-			indicesToRemove = append(indicesToRemove, index)
-		} else {
-			duplicateCount[backend.id]++
-		}
-	}
-
-	// select the backend with the most duplicates that is not the backend
-	var lowestCount int
-	var fillBackendID BackendAddrID
-	for backendID, count := range duplicateCount {
-		if lowestCount == 0 || count < lowestCount {
-			lowestCount = count
-			fillBackendID = backendID
-		}
-	}
-
-	if fillBackendID == "" {
-		// No more entries to fill in, we can remove all backend slots
-		b.backendsByMapIndex = map[int]*bpfBackend{}
-	} else {
-		fillBackend := &bpfBackend{
-			id:       fillBackendID,
-			isHole:   true,
-			bpfValue: b.uniqueBackends[fillBackendID],
-		}
-		for _, removeIndex := range indicesToRemove {
-			b.backendsByMapIndex[removeIndex] = fillBackend
-		}
-	}
-
-	delete(b.uniqueBackends, idToRemove)
-	delete(b.slaveSlotByBackendAddrID, backend.BackendAddrID())
-}
-
-func (b *bpfService) getBackends() []ServiceValue {
-	b.mutex.RLock()
-	backends := make([]ServiceValue, len(b.backendsByMapIndex))
-	dstIndex := 0
-	for i := 1; i <= len(b.backendsByMapIndex); i++ {
-		if b.backendsByMapIndex[i] == nil {
-			log.Errorf("BUG: hole found in backendsByMapIndex: %#v", b.backendsByMapIndex)
-			continue
-		}
-
-		backends[dstIndex] = b.backendsByMapIndex[i].bpfValue
-		dstIndex++
-	}
-	b.mutex.RUnlock()
-	return backends
-}
-
-// getSlaveSlot returns a slot number (lb{4,6}_key.slave) in the given service.
-// The slot number points to any backend identified by the addr ID in the
-// legacy service.
-//
-// As the legacy svc maps are append-only, we can point to any slot number
-// in the v2 svc.
-func (b *bpfService) getSlaveSlot(id BackendAddrID) (int, bool) {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-
-	slot, found := b.slaveSlotByBackendAddrID[id]
-	return slot, found
 }
 
 // getBackendsV2 makes a copy of backendsV2, so that they are safe to use
@@ -283,24 +185,6 @@ func (l *lbmapCache) delete(fe ServiceKey) {
 	l.mutex.Lock()
 	delete(l.entries, fe.String())
 	l.mutex.Unlock()
-}
-
-func (l *lbmapCache) getSlaveSlot(fe ServiceKeyV2, addrID BackendAddrID) (int, bool) {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
-
-	frontendID := fe.String()
-	bpfSvc, found := l.entries[frontendID]
-	if !found {
-		return 0, false
-	}
-
-	pos, found := bpfSvc.slaveSlotByBackendAddrID[addrID]
-	if !found {
-		return 0, false
-	}
-
-	return pos, true
 }
 
 // addBackendV2Locked increments a ref count for the given backend and returns
