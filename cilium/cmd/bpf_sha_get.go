@@ -31,7 +31,11 @@ var bpfShaGetCmd = &cobra.Command{
 	Short:   "Get datapath SHA header",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf sha get")
-		dumpSha(args[0])
+		if len(args) == 0 {
+			cmd.Help()
+		} else {
+			dumpSha(args[0])
+		}
 	},
 }
 
