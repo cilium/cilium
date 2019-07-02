@@ -551,6 +551,100 @@ func TestService_Equals(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "k8sExternalIPs different",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: true,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+					loadbalancer.FEPortName("foo"): {
+						L4Addr: &loadbalancer.L4Addr{
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+						ID: 1,
+					},
+				},
+				NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+					loadbalancer.FEPortName("foo"): {
+						"1.1.1.1:31000": {
+							L3n4Addr: loadbalancer.L3n4Addr{
+								L4Addr: loadbalancer.L4Addr{
+									Protocol: loadbalancer.NONE,
+									Port:     31000,
+								},
+								IP: net.IPv4(1, 1, 1, 1),
+							},
+							ID: 1,
+						},
+					},
+				},
+				K8sExternalIPs: &Endpoints{
+					Backends: map[string]service.PortConfiguration{
+						"172.20.0.2": map[string]*loadbalancer.L4Addr{
+							"foo": {
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
+						},
+					},
+				},
+
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: true,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.FEPort{
+						loadbalancer.FEPortName("foo"): {
+							L4Addr: &loadbalancer.L4Addr{
+								Protocol: loadbalancer.NONE,
+								Port:     1,
+							},
+							ID: 1,
+						},
+					},
+					NodePorts: map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{
+						loadbalancer.FEPortName("foo"): {
+							"1.1.1.1:31000": {
+								L3n4Addr: loadbalancer.L3n4Addr{
+									L4Addr: loadbalancer.L4Addr{
+										Protocol: loadbalancer.NONE,
+										Port:     31000,
+									},
+									IP: net.IPv4(1, 1, 1, 1),
+								},
+								ID: 1,
+							},
+						},
+					},
+					K8sExternalIPs: &Endpoints{
+						Backends: map[string]service.PortConfiguration{
+							"172.20.0.2": map[string]*loadbalancer.L4Addr{
+								"foo": {
+									Protocol: loadbalancer.NONE,
+									Port:     2,
+								},
+							},
+						},
+					},
+
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "both nil",
 			args: args{},
 			want: true,
