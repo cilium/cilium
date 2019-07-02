@@ -127,7 +127,10 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 		}
 	}
 
+	// Only dealing with matching rules from now on. Mark it in the ctx
+	oldRulesSelect := ctx.rulesSelect
 	ctx.rulesSelect = true
+
 	for _, r := range matchedRules {
 		found, err := r.resolveIngressPolicy(ctx, &state, result, requirements, selectorCache)
 		if err != nil {
@@ -142,6 +145,10 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	matchedRules.wildcardL3L4Rules(true, result, requirements, selectorCache)
 
 	state.trace(len(rules), ctx)
+
+	// Restore ctx in case caller uses it again.
+	ctx.rulesSelect = oldRulesSelect
+
 	return result, nil
 }
 
@@ -170,7 +177,10 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 		}
 	}
 
+	// Only dealing with matching rules from now on. Mark it in the ctx
+	oldRulesSelect := ctx.rulesSelect
 	ctx.rulesSelect = true
+
 	for i, r := range matchedRules {
 		state.ruleID = i
 		found, err := r.resolveEgressPolicy(ctx, &state, result, requirements, selectorCache)
@@ -186,6 +196,10 @@ func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64
 	matchedRules.wildcardL3L4Rules(false, result, requirements, selectorCache)
 
 	state.trace(len(rules), ctx)
+
+	// Restore ctx in case caller uses it again.
+	ctx.rulesSelect = oldRulesSelect
+
 	return result, nil
 }
 
