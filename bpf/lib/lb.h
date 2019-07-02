@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,26 +72,6 @@ struct bpf_elf_map __section_maps LB6_BACKEND_MAP = {
 	.flags          = CONDITIONAL_PREALLOC,
 };
 
-#ifdef ENABLE_LEGACY_SERVICES
-struct bpf_elf_map __section_maps LB6_SERVICES_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb6_key),
-	.size_value	= sizeof(struct lb6_service),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
-struct bpf_elf_map __section_maps LB6_RR_SEQ_MAP = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(struct lb6_key),
-	.size_value     = sizeof(struct lb_sequence),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_FE,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-#endif /* ENABLE_LEGACY_SERVICES */
-
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -130,26 +110,6 @@ struct bpf_elf_map __section_maps LB4_BACKEND_MAP = {
 	.max_elem       = CILIUM_LB_MAP_MAX_ENTRIES,
 	.flags          = CONDITIONAL_PREALLOC,
 };
-
-#ifdef ENABLE_LEGACY_SERVICES
-struct bpf_elf_map __section_maps LB4_SERVICES_MAP = {
-	.type		= BPF_MAP_TYPE_HASH,
-	.size_key	= sizeof(struct lb4_key),
-	.size_value	= sizeof(struct lb4_service),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-
-struct bpf_elf_map __section_maps LB4_RR_SEQ_MAP = {
-	.type           = BPF_MAP_TYPE_HASH,
-	.size_key       = sizeof(struct lb4_key),
-	.size_value     = sizeof(struct lb_sequence),
-	.pinning        = PIN_GLOBAL_NS,
-	.max_elem       = CILIUM_LB_MAP_MAX_FE,
-	.flags		= CONDITIONAL_PREALLOC,
-};
-#endif /* ENABLE_LEGACY_SERVICES */
 
 #endif /* ENABLE_IPV4 */
 
@@ -424,40 +384,6 @@ static inline int __inline__ lb6_extract_key_v2(struct __sk_buff *skb,
 #endif
 }
 
-#ifdef ENABLE_LEGACY_SERVICES
-static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
-						    struct lb6_key *key)
-{
-	key->slave = 0;
-#ifdef LB_L4
-	if (key->dport) {
-		struct lb6_service *svc;
-
-		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
-		svc = map_lookup_elem(&LB6_SERVICES_MAP, key);
-		if (svc && svc->count != 0)
-			return svc;
-
-		key->dport = 0;
-	}
-#endif
-
-#ifdef LB_L3
-	if (1) {
-		struct lb6_service *svc;
-
-		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER, key->address.p4, key->dport);
-		svc = map_lookup_elem(&LB6_SERVICES_MAP, key);
-		if (svc && svc->count != 0)
-			return svc;
-	}
-#endif
-
-	cilium_dbg_lb(skb, DBG_LB6_LOOKUP_MASTER_FAIL, key->address.p2, key->address.p3);
-	return NULL;
-}
-#endif /* ENABLE_LEGACY_SERVICES */
-
 static inline
 struct lb6_service_v2 *__lb6_lookup_service_v2(struct lb6_key_v2 *key)
 {
@@ -520,26 +446,6 @@ static inline struct lb6_backend *lb6_lookup_backend(struct __sk_buff *skb,
 
 	return backend;
 }
-
-#ifdef ENABLE_LEGACY_SERVICES
-static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
-						   struct lb6_key *key,
-						   __u16 slave)
-{
-	struct lb6_service *svc;
-
-	key->slave = slave;
-	cilium_dbg_lb(skb, DBG_LB6_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&LB6_SERVICES_MAP, key);
-	if (svc != NULL) {
-		cilium_dbg_lb(skb, DBG_LB6_LOOKUP_SLAVE_SUCCESS, svc->target.p4,
-			      svc->port);
-		return svc;
-	}
-
-	return NULL;
-}
-#endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
 struct lb6_service_v2 *__lb6_lookup_slave_v2(struct lb6_key_v2 *key)
@@ -609,9 +515,6 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
-#ifdef ENABLE_LEGACY_SERVICES
-	struct lb6_service *svc;
-#endif /* ENABLE_LEGACY_SERVICES */
 	struct lb6_service_v2 *slave_svc;
 	int slave;
 	int ret;
@@ -630,7 +533,6 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
-		state->slave = slave_svc->count;
 		state->rev_nat_index = svc_v2->rev_nat_index;
 		ret = ct_create6(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
@@ -653,19 +555,6 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 		goto drop_no_service;
 	}
 
-#ifdef ENABLE_LEGACY_SERVICES
-	if (state->backend_id == 0) {
-		if (!(svc = lb6_lookup_service(skb, (struct lb6_key *)key))) {
-			goto drop_no_service;
-		}
-		if (!(svc = lb6_lookup_slave(skb, (struct lb6_key *)key, state->slave))) {
-			goto drop_no_service;
-		}
-		state->backend_id = svc->count;
-		ct_update6_backend_id(map, tuple, state);
-	}
-#endif /* ENABLE_LEGACY_SERVICES */
-
 	// See lb4_local comment
 	if (state->rev_nat_index != svc_v2->rev_nat_index) {
 		cilium_dbg_lb(skb, DBG_LB_STALE_CT, svc_v2->rev_nat_index,
@@ -675,8 +564,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
-		state->slave = slave_svc->count;
-		ct_update6_slave_and_backend_id(map, tuple, state);
+		ct_update6_backend_id(map, tuple, state);
 		state->rev_nat_index = svc_v2->rev_nat_index;
 		ct_update6_rev_nat_index(map, tuple, state);
 	}
@@ -698,8 +586,7 @@ static inline int __inline__ lb6_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
-		state->slave = slave_svc->count;
-		ct_update6_slave_and_backend_id(map, tuple, state);
+		ct_update6_backend_id(map, tuple, state);
 	}
 
 update_state:
@@ -846,51 +733,6 @@ static inline int __inline__ lb4_extract_key_v2(struct __sk_buff *skb,
 #endif
 }
 
-#ifdef ENABLE_LEGACY_SERVICES
-
-static inline struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
-{
-	key->slave = 0;
-#ifdef LB_L4
-	if (key->dport) {
-		struct lb4_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
-		if (svc && svc->count != 0)
-			return svc;
-
-		key->dport = 0;
-	}
-#endif
-
-#ifdef LB_L3
-	if (1) {
-		struct lb4_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
-		if (svc && svc->count != 0)
-			return svc;
-	}
-#endif
-	return NULL;
-}
-
-static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
-						     struct lb4_key *key)
-{
-	struct lb4_service *svc = __lb4_lookup_service(key);
-
-	if (!svc)
-		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_MASTER_FAIL, 0, 0);
-	return svc;
-}
-
-#endif /* ENABLE_LEGACY_SERVICES */
-
 static inline
 struct lb4_service_v2 *__lb4_lookup_service_v2(struct lb4_key_v2 *key)
 {
@@ -952,26 +794,6 @@ static inline struct lb4_backend *lb4_lookup_backend(struct __sk_buff *skb,
 
 	return backend;
 }
-
-#ifdef ENABLE_LEGACY_SERVICES
-static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
-						   struct lb4_key *key,
-						   __u16 slave)
-{
-	struct lb4_service *svc;
-
-	key->slave = slave;
-	cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = map_lookup_elem(&LB4_SERVICES_MAP, key);
-	if (svc != NULL) {
-		cilium_dbg_lb(skb, DBG_LB4_LOOKUP_SLAVE_SUCCESS, svc->target,
-			      svc->port);
-		return svc;
-	}
-
-	return NULL;
-}
-#endif /* ENABLE_LEGACY_SERVICES */
 
 static inline
 struct lb4_service_v2 *__lb4_lookup_slave_v2(struct lb4_key_v2 *key)
@@ -1055,9 +877,6 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
-#ifdef ENABLE_LEGACY_SERVICES
-	struct lb4_service *svc;
-#endif /* ENABLE_LEGACY_SERVICES */
 	struct lb4_service_v2 *slave_svc;
 	int slave;
 	int ret;
@@ -1075,8 +894,6 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
-		/* See the lb4_services_v2.count comment re the hack */
-		state->slave = slave_svc->count;
 		state->rev_nat_index = svc_v2->rev_nat_index;
 		ret = ct_create4(map, tuple, skb, CT_SERVICE, state);
 		/* Fail closed, if the conntrack entry create fails drop
@@ -1103,22 +920,6 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 		goto drop_no_service;
 	}
 
-#ifdef ENABLE_LEGACY_SERVICES
-	/* If the flow hasn't been using the corresponding v2 endpoint,
-	 * update the CT entry to start using the v2
-	 * */
-	if (state->backend_id == 0) {
-		if (!(svc = lb4_lookup_service(skb, (struct lb4_key *)key))) {
-			goto drop_no_service;
-		}
-		if (!(svc = lb4_lookup_slave(skb, (struct lb4_key *)key, state->slave))) {
-			goto drop_no_service;
-		}
-		state->backend_id = svc->count;
-		ct_update4_backend_id(map, tuple, state);
-	}
-#endif /* ENABLE_LEGACY_SERVICES */
-
 	// If the CT_SERVICE entry is from a non-related connection (e.g.
 	// endpoint has been removed, but its CT entries were not (it is
 	// totally possible due to the bug in DumpReliablyWithCallback)),
@@ -1133,8 +934,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
-		state->slave = slave_svc->count;
-		ct_update4_slave_and_backend_id(map, tuple, state);
+		ct_update4_backend_id(map, tuple, state);
 		state->rev_nat_index = svc_v2->rev_nat_index;
 		ct_update4_rev_nat_index(map, tuple, state);
 	}
@@ -1156,8 +956,7 @@ static inline int __inline__ lb4_local(void *map, struct __sk_buff *skb,
 			goto drop_no_service;
 		}
 		state->backend_id = slave_svc->backend_id;
-		state->slave = slave_svc->count;
-		ct_update4_slave_and_backend_id(map, tuple, state);
+		ct_update4_backend_id(map, tuple, state);
 	}
 
 update_state:

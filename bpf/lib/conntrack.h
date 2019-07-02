@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -230,14 +230,21 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
-			ct_state->slave = entry->slave;
 			ct_state->node_port = entry->node_port;
-			/* As we currently support both types of services (in the code
-			 * referred as "legacy" and "v2"), we store references to both
-			 * types of service endpoints. For the legacy, a slave slot
-			 * number is stored within the "ct_entry.slave" field, while
-			 * for the v2, a backend id is stored in the "ct_entry.rx_bytes"
-			 * field which is not used by a entry with dir=CT_SERVICE.
+			/* To support seamless upgrade from an earlier service
+			 * implementation, we store references to the backend
+			 * in two places in the entry: backend_id and rx_bytes.
+			 * Previously, the field "ct_entry.backend_id" was used
+			 * for legacy services so we co-opted the field
+			 * "ct_entry.rx_bytes" to store the services v2
+			 * backend (as it is not used with dir=CT_SERVICE).
+			 *
+			 * As of v1.6, "ct_entry.backend_id" is populated with
+			 * the LB backend_id and in v1.7 it will be safe to
+			 * trust that the field has the actual backend_id.
+			 * For now, just retrieve the backend out of rx_bytes.
+			 *
+			 * TODO (1.7): Switch to entry->backend_id
 			 */
 			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->rx_bytes;
@@ -643,20 +650,6 @@ out:
 	return ret;
 }
 
-static inline void __inline__ ct_update6_slave(void *map,
-					       struct ipv6_ct_tuple *tuple,
-					       struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->slave = state->slave;
-	return;
-}
-
 static inline void __inline__ ct_update6_backend_id(void *map,
 						    struct ipv6_ct_tuple *tuple,
 						    struct ct_state *state)
@@ -668,23 +661,7 @@ static inline void __inline__ ct_update6_backend_id(void *map,
 		return;
 
 	/* See the ct_create4 comments re the rx_bytes hack */
-	entry->rx_bytes = state->backend_id;
-	return;
-}
-
-static inline void __inline__
-ct_update6_slave_and_backend_id(void *map,
-				struct ipv6_ct_tuple *tuple,
-				struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->slave = state->slave;
-	/* See the ct_create4 comments re the rx_bytes hack */
+	entry->backend_id = state->backend_id;
 	entry->rx_bytes = state->backend_id;
 	return;
 }
@@ -715,6 +692,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* See the ct_create4 comments re the rx_bytes hack */
 	if (dir == CT_SERVICE) {
+		entry.backend_id = ct_state->backend_id;
 		entry.rx_bytes = ct_state->backend_id;
 	}
 
@@ -722,7 +700,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	entry.node_port = ct_state->node_port;
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
-	entry.slave = ct_state->slave;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
@@ -764,20 +741,6 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	return 0;
 }
 
-static inline void __inline__ ct_update4_slave(void *map,
-					       struct ipv4_ct_tuple *tuple,
-					       struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->slave = state->slave;
-	return;
-}
-
 static inline void __inline__ ct_update4_backend_id(void *map,
 						    struct ipv4_ct_tuple *tuple,
 						    struct ct_state *state)
@@ -789,23 +752,7 @@ static inline void __inline__ ct_update4_backend_id(void *map,
 		return;
 
 	/* See the ct_create4 comments re the rx_bytes hack */
-	entry->rx_bytes = state->backend_id;
-	return;
-}
-
-static inline void __inline__
-ct_update4_slave_and_backend_id(void *map,
-				struct ipv4_ct_tuple *tuple,
-				struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->slave = state->slave;
-	/* See the ct_create4 comments re the rx_bytes hack */
+	entry->backend_id = state->backend_id;
 	entry->rx_bytes = state->backend_id;
 	return;
 }
@@ -837,7 +784,9 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	entry.node_port = ct_state->node_port;
 
 	/* We need to store the backend_id (points to a svc v2 endpoint), while
-	 * keeping the slave field in tact for the backward compatibility.
+	 * handling migration for users upgrading from prior releases. where
+	 * the "ct_entry.backend_id" field was used for legacy services.
+	 *
 	 * Previously, the rx_bytes field was not used for entries with
 	 * the dir=CT_SERVICE (see GH#7060). Therefore, we can safely abuse
 	 * this field to save the backend_id. The hack will go away once we stop
@@ -845,10 +794,10 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	 * with backend_id of svc v2, in v1.7 we will remove the rx_bytes hack).
 	 */
 	if (dir == CT_SERVICE) {
+		entry.backend_id = ct_state->backend_id;
 		entry.rx_bytes = ct_state->backend_id;
 	}
 	entry.rev_nat_index = ct_state->rev_nat_index;
-	entry.slave = ct_state->slave;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
@@ -932,22 +881,9 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 	return 0;
 }
 
-static inline void __inline__ ct_update6_slave(void *map,
-					      struct ipv6_ct_tuple *tuple,
-					      struct ct_state *state)
-{
-}
-
 static inline void __inline__ ct_update6_backend_id(void *map,
 						    struct ipv6_ct_tuple *tuple,
 						    struct ct_state *state)
-{
-}
-
-static inline void __inline__
-ct_update6_slave_and_backend_id(void *map,
-				struct ipv6_ct_tuple *tuple,
-				struct ct_state *state)
 {
 }
 
@@ -964,22 +900,9 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	return 0;
 }
 
-static inline void __inline__ ct_update4_slave(void *map,
-					       struct ipv4_ct_tuple *tuple,
-					       struct ct_state *state)
-{
-}
-
 static inline void __inline__ ct_update4_backend_id(void *map,
 						    struct ipv4_ct_tuple *tuple,
 					            struct ct_state *state)
-{
-}
-
-static inline void __inline__
-ct_update4_slave_and_backend_id(void *map,
-				struct ipv4_ct_tuple *tuple,
-				struct ct_state *state)
 {
 }
 

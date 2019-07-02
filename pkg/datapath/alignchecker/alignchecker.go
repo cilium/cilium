@@ -49,8 +49,6 @@ func CheckStructAlignments(path string) error {
 		"ct_entry":             {reflect.TypeOf(ctmap.CtEntry{})},
 		"ipcache_key":          {reflect.TypeOf(ipcachemap.Key{})},
 		"remote_endpoint_info": {reflect.TypeOf(ipcachemap.RemoteEndpointInfo{})},
-		"lb4_key":              {reflect.TypeOf(lbmap.Service4Key{})},
-		"lb4_service":          {reflect.TypeOf(lbmap.Service4Value{})},
 		"lb4_key_v2":           {reflect.TypeOf(lbmap.Service4KeyV2{})},
 		"lb4_service_v2":       {reflect.TypeOf(lbmap.Service4ValueV2{})},
 		"lb4_backend":          {reflect.TypeOf(lbmap.Backend4Value{})},
