@@ -245,11 +245,9 @@ func updateMasterService(fe ServiceKey, nbackends int, nonZeroWeights uint16) er
 	return updateServiceEndpoint(fe, zeroValue)
 }
 
-// UpdateService adds or updates the given service in the bpf maps (in both -
-// legacy and v2).
+// UpdateService adds or updates the given service in the bpf maps.
 func UpdateService(fe ServiceKey, backends []ServiceValue,
 	addRevNAT bool, revNATID int,
-	isLegacySVCEnabled bool,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
@@ -298,18 +296,8 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		return err
 	}
 
-	if isLegacySVCEnabled {
-		besValues := svc.getBackends()
-		// Update the legacy service BPF maps
-		if err := updateServiceLegacyLocked(fe, besValues, addRevNAT, revNATID,
-			weights, nNonZeroWeights); err != nil {
-			return err
-		}
-	}
-
 	// Update the v2 service BPF maps
-	if err := updateServiceV2Locked(fe, besValuesV2, svc, addRevNAT, revNATID,
-		weights, nNonZeroWeights, isLegacySVCEnabled); err != nil {
+	if err := updateServiceV2Locked(fe, besValuesV2, svc, addRevNAT, revNATID, weights, nNonZeroWeights); err != nil {
 		return err
 	}
 
@@ -426,8 +414,7 @@ func updateServiceLegacyLocked(fe ServiceKey, besValues []ServiceValue,
 func updateServiceV2Locked(fe ServiceKey, backends map[BackendAddrID]ServiceValue,
 	svc *bpfService,
 	addRevNAT bool, revNATID int,
-	weights []uint16, nNonZeroWeights uint16,
-	isLegacySVCEnabled bool) error {
+	weights []uint16, nNonZeroWeights uint16) error {
 
 	var (
 		existingCount int
@@ -450,13 +437,6 @@ func updateServiceV2Locked(fe ServiceKey, backends map[BackendAddrID]ServiceValu
 	svcValV2 = svcKeyV2.NewValue().(ServiceValueV2)
 	slot := 1
 	for addrID, svcVal := range backends {
-		if isLegacySVCEnabled {
-			legacySlaveSlot, found := svc.getSlaveSlot(addrID)
-			if !found {
-				return fmt.Errorf("Slave slot not found for backend with addrID %s", addrID)
-			}
-			svcValV2.SetCount(legacySlaveSlot) // For the backward-compatibility
-		}
 		backendID := cache.getBackendIDByAddrID(addrID)
 		svcValV2.SetBackendID(backendID)
 		svcValV2.SetRevNat(revNATID)
@@ -798,8 +778,8 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 // RestoreService restores a single service in the cache. This is required to
 // guarantee consistent backend ordering, slave slot and backend by backend
 // address ID lookups.
-func RestoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
-	return cache.restoreService(svc, v2Exists)
+func RestoreService(svc loadbalancer.LBSVC) error {
+	return cache.restoreService(svc)
 }
 
 func lookupServiceV2(key ServiceKeyV2) (ServiceValueV2, error) {
@@ -1062,4 +1042,24 @@ func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error
 	}
 
 	return errors
+}
+
+// RemoveDeprecatedMaps removes the maps for legacy services, left over from
+// previous installations.
+//
+// Safe to remove in Cilium 1.7.
+func RemoveDeprecatedMaps() error {
+	if err := Service6Map.UnpinIfExists(); err != nil {
+		return err
+	}
+	if err := RRSeq6Map.UnpinIfExists(); err != nil {
+		return err
+	}
+	if err := Service4Map.UnpinIfExists(); err != nil {
+		return err
+	}
+	if err := RRSeq4Map.UnpinIfExists(); err != nil {
+		return err
+	}
+	return nil
 }

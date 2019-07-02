@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type serviceValueMap map[BackendAddrID]ServiceValue
@@ -199,7 +198,7 @@ func createBackendsMap(backends []ServiceValue) serviceValueMap {
 }
 
 // restoreService restores service cache of the given legacy and v2 service.
-func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error {
+func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC) error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -216,31 +215,12 @@ func (l *lbmapCache) restoreService(svc loadbalancer.LBSVC, v2Exists bool) error
 		l.entries[frontendID] = bpfSvc
 	}
 
-	if option.Config.EnableLegacyServices {
-		for index, backend := range serviceValues {
-			b := &bpfBackend{
-				id:       backend.BackendAddrID(),
-				bpfValue: backend,
-			}
-			if _, ok := bpfSvc.uniqueBackends[backend.BackendAddrID()]; ok {
-				b.isHole = true
-			} else {
-				bpfSvc.uniqueBackends[backend.BackendAddrID()] = backend
-				bpfSvc.slaveSlotByBackendAddrID[backend.BackendAddrID()] = index + 1
-			}
-
-			bpfSvc.backendsByMapIndex[index+1] = b
+	for _, backend := range serviceValues {
+		addrID := backend.BackendAddrID()
+		if _, found := bpfSvc.backendsV2[addrID]; !found {
+			l.addBackendV2Locked(addrID)
 		}
-	}
-
-	if !option.Config.EnableLegacyServices || v2Exists {
-		for _, backend := range serviceValues {
-			addrID := backend.BackendAddrID()
-			if _, found := bpfSvc.backendsV2[addrID]; !found {
-				l.addBackendV2Locked(addrID)
-			}
-			bpfSvc.backendsV2[addrID] = backend
-		}
+		bpfSvc.backendsV2[addrID] = backend
 	}
 
 	return nil
@@ -266,19 +246,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (
 	toRemoveBackendIDs := []loadbalancer.BackendID{}
 	toAddBackendIDs := map[loadbalancer.BackendID]ServiceValue{}
 
-	// Step 1: Delete all backends that no longer exist. This will not
-	// actually remove the backends but overwrite all slave slots that
-	// point to the removed backend with the backend that has the least
-	// duplicated slots.
-	if option.Config.EnableLegacyServices {
-		for addrID, b := range bpfSvc.uniqueBackends {
-			if _, ok := newBackendsMap[addrID]; !ok {
-				bpfSvc.deleteBackend(b)
-				delete(bpfSvc.slaveSlotByBackendAddrID, addrID)
-			}
-		}
-	}
-	// Step 2: Delete all backends that no longer exist in the service v2.
+	// Step 1: Delete all backends that no longer exist.
 	for addrID := range bpfSvc.backendsV2 {
 		if _, ok := newBackendsMap[addrID]; !ok {
 			isLastInstanceRemoved, err := l.delBackendV2Locked(addrID)
@@ -294,17 +262,7 @@ func (l *lbmapCache) prepareUpdate(fe ServiceKey, backends []ServiceValue) (
 		}
 	}
 
-	if option.Config.EnableLegacyServices {
-		// Step 3: Add all backends that don't exist in the legacy service yet.
-		for _, b := range backends {
-			if _, ok := bpfSvc.uniqueBackends[b.BackendAddrID()]; !ok {
-				addrID := b.BackendAddrID()
-				pos := bpfSvc.addBackend(b)
-				bpfSvc.slaveSlotByBackendAddrID[addrID] = pos
-			}
-		}
-	}
-	// Step 4: Add all backends that don't exist in the service v2 yet.
+	// Step 2: Add all backends that don't exist in the service yet.
 	for _, b := range backends {
 		addrID := b.BackendAddrID()
 		if _, ok := bpfSvc.backendsV2[addrID]; !ok {
