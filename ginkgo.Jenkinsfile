@@ -93,7 +93,10 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        sh 'cd ${TESTDIR}; vagrant up runtime --provision'
+                        retry(3) {
+                            sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
+                            sh 'cd ${TESTDIR}; vagrant up runtime --provision'
+                        }
                     }
                     post {
                         unsuccessful {
@@ -115,7 +118,10 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up k8s1-1.10 k8s2-1.10 --provision'
+                        retry(3) {
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy k8s1-1.10 k8s2-1.10 --force'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up k8s1-1.10 k8s2-1.10 --provision'
+                        }
                     }
                     post {
                         unsuccessful {
@@ -136,7 +142,10 @@ pipeline {
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant up k8s1-1.15 k8s2-1.15 --provision'
+                        retry(3) {
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant destroy k8s1-1.15 k8s2-1.15 --force'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant up k8s1-1.15 k8s2-1.15 --provision'
+                        }
                     }
                     post {
                         unsuccessful {
