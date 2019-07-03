@@ -625,12 +625,3 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 		logfields.Identity: identity.StringID(),
 	})
 }
-
-// GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
-// for CIDR policy or IPcache lookup from this endpoint.
-func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
-	if e.desiredPolicy == nil || e.desiredPolicy.CIDRPolicy == nil {
-		return policy.GetDefaultPrefixLengths()
-	}
-	return e.desiredPolicy.CIDRPolicy.ToBPFData()
-}
