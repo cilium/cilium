@@ -29,8 +29,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var ciliumNodeStore cache.Store
-
 func convertToCiliumNode(obj interface{}) interface{} {
 	cnp, _ := obj.(*v2.CiliumNode)
 	return cnp
@@ -42,8 +40,7 @@ func startSynchronizingCiliumNodes() {
 	// TODO: The operator is currently storing a full copy of the
 	// CiliumNode resource, as the resource grows, we may want to consider
 	// introducing a slim version of it.
-	ciliumNodeStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	ciliumNodeInformer := informer.NewInformerWithStore(
+	_, ciliumNodeInformer := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
 			"ciliumnodes", v1.NamespaceAll, fields.Everything()),
 		&v2.CiliumNode{},
@@ -93,7 +90,6 @@ func startSynchronizingCiliumNodes() {
 			},
 		},
 		convertToCiliumNode,
-		ciliumNodeStore,
 	)
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
