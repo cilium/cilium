@@ -67,8 +67,8 @@ func deriveStatus(req *aws.Request, err error) string {
 
 func (c *Client) rateLimit(operation string) {
 	r := c.limiter.Reserve()
-	if !r.OK() {
-		c.metricsAPI.ObserveEC2RateLimit(operation, r.Delay())
+	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
+		c.metricsAPI.ObserveEC2RateLimit(operation, delay)
 		c.limiter.Wait(context.TODO())
 	}
 }

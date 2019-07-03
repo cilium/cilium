@@ -430,20 +430,20 @@ restart:
 }
 
 func (e *ENISuite) BenchmarkAllocDelay20Worker1(c *check.C) {
-	benchmarkAllocWorker(c, 1, 20*time.Millisecond, 10.0, 2)
+	benchmarkAllocWorker(c, 1, 20*time.Millisecond, 100.0, 4)
 }
 func (e *ENISuite) BenchmarkAllocDelay20Worker10(c *check.C) {
-	benchmarkAllocWorker(c, 10, 20*time.Millisecond, 10.0, 2)
+	benchmarkAllocWorker(c, 10, 20*time.Millisecond, 100.0, 4)
 }
 func (e *ENISuite) BenchmarkAllocDelay20Worker50(c *check.C) {
-	benchmarkAllocWorker(c, 50, 20*time.Millisecond, 10.0, 2)
+	benchmarkAllocWorker(c, 50, 20*time.Millisecond, 100.0, 4)
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker1(c *check.C) {
-	benchmarkAllocWorker(c, 1, 50*time.Millisecond, 10.0, 2)
+	benchmarkAllocWorker(c, 1, 50*time.Millisecond, 100.0, 4)
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker10(c *check.C) {
-	benchmarkAllocWorker(c, 10, 50*time.Millisecond, 10.0, 2)
+	benchmarkAllocWorker(c, 10, 50*time.Millisecond, 100.0, 4)
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker50(c *check.C) {
-	benchmarkAllocWorker(c, 50, 50*time.Millisecond, 10.0, 2)
+	benchmarkAllocWorker(c, 50, 50*time.Millisecond, 100.0, 4)
 }
