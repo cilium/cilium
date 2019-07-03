@@ -16,9 +16,12 @@ package linux
 
 import (
 	"bufio"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -50,6 +53,9 @@ func writeIncludes(w io.Writer) (int, error) {
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
 func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+	extraMacrosMap := make(map[string]string)
+	cDefinesMap := make(map[string]string)
+
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
@@ -77,9 +83,11 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		node.GetNodePortIPv6().String())
 
 	if option.Config.EnableIPv6 {
+		extraMacrosMap["ROUTER_IP"] = routerIP.String()
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))
 		if option.Config.EnableNodePort {
 			ipv6NP := node.GetNodePortIPv6()
+			extraMacrosMap["IPV6_NODEPORT"] = ipv6NP.String()
 			fw.WriteString(defineIPv6("IPV6_NODEPORT", ipv6NP))
 		}
 	}
@@ -88,12 +96,13 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		ipv4GW := node.GetInternalIPv4()
 		loopbackIPv4 := node.GetIPv4Loopback()
 		ipv4Range := node.GetIPv4AllocRange()
-		fmt.Fprintf(fw, "#define IPV4_GATEWAY %#x\n", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
-		fmt.Fprintf(fw, "#define IPV4_LOOPBACK %#x\n", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
-		fmt.Fprintf(fw, "#define IPV4_MASK %#x\n", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
+		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4GW, reflect.Uint32).(uint32))
+		cDefinesMap["IPV4_LOOPBACK"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(loopbackIPv4, reflect.Uint32).(uint32))
+		cDefinesMap["IPV4_MASK"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4Range.Mask, reflect.Uint32).(uint32))
+
 		if option.Config.EnableNodePort {
 			ipv4NP := node.GetNodePortIPv4()
-			fmt.Fprintf(fw, "#define IPV4_NODEPORT %#x\n", byteorder.HostSliceToNetwork(ipv4NP, reflect.Uint32).(uint32))
+			cDefinesMap["IPV4_NODEPORT"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4NP, reflect.Uint32).(uint32))
 		}
 	}
 
@@ -101,110 +110,122 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		fw.WriteString(FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
+	extraMacrosMap["HOST_IP"] = hostIP.String()
 	fw.WriteString(defineIPv6("HOST_IP", hostIP))
-	fmt.Fprintf(fw, "#define HOST_ID %d\n", identity.GetReservedID(labels.IDNameHost))
-	fmt.Fprintf(fw, "#define WORLD_ID %d\n", identity.GetReservedID(labels.IDNameWorld))
-	fmt.Fprintf(fw, "#define HEALTH_ID %d\n", identity.GetReservedID(labels.IDNameHealth))
-	fmt.Fprintf(fw, "#define UNMANAGED_ID %d\n", identity.GetReservedID(labels.IDNameUnmanaged))
-	fmt.Fprintf(fw, "#define INIT_ID %d\n", identity.GetReservedID(labels.IDNameInit))
-	fmt.Fprintf(fw, "#define LB_RR_MAX_SEQ %d\n", lbmap.MaxSeq)
-	fmt.Fprintf(fw, "#define CILIUM_LB_MAP_MAX_ENTRIES %d\n", lbmap.MaxEntries)
-	fmt.Fprintf(fw, "#define TUNNEL_MAP %s\n", tunnel.MapName)
-	fmt.Fprintf(fw, "#define TUNNEL_ENDPOINT_MAP_SIZE %d\n", tunnel.MaxEntries)
-	fmt.Fprintf(fw, "#define ENDPOINTS_MAP %s\n", lxcmap.MapName)
-	fmt.Fprintf(fw, "#define ENDPOINTS_MAP_SIZE %d\n", lxcmap.MaxEntries)
-	fmt.Fprintf(fw, "#define METRICS_MAP %s\n", metricsmap.MapName)
-	fmt.Fprintf(fw, "#define METRICS_MAP_SIZE %d\n", metricsmap.MaxEntries)
-	fmt.Fprintf(fw, "#define POLICY_MAP_SIZE %d\n", policymap.MaxEntries)
-	fmt.Fprintf(fw, "#define IPCACHE_MAP %s\n", ipcachemap.Name)
-	fmt.Fprintf(fw, "#define IPCACHE_MAP_SIZE %d\n", ipcachemap.MaxEntries)
-	fmt.Fprintf(fw, "#define POLICY_PROG_MAP_SIZE %d\n", policymap.ProgArrayMaxEntries)
-	fmt.Fprintf(fw, "#define SOCKOPS_MAP_SIZE %d\n", sockmap.MaxEntries)
-	fmt.Fprintf(fw, "#define ENCRYPT_MAP %s\n", encrypt.MapName)
+
+	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
+	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorld))
+	cDefinesMap["HEALTH_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHealth))
+	cDefinesMap["UNMANAGED_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameUnmanaged))
+	cDefinesMap["INIT_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameInit))
+	cDefinesMap["LB_RR_MAX_SEQ"] = fmt.Sprintf("%d", lbmap.MaxSeq)
+	cDefinesMap["CILIUM_LB_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.MaxEntries)
+	cDefinesMap["TUNNEL_MAP"] = tunnel.MapName
+	cDefinesMap["TUNNEL_ENDPOINT_MAP_SIZE"] = fmt.Sprintf("%d", tunnel.MaxEntries)
+	cDefinesMap["ENDPOINTS_MAP"] = lxcmap.MapName
+	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
+	cDefinesMap["METRICS_MAP"] = metricsmap.MapName
+	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
+	cDefinesMap["POLICY_MAP_SIZE"] = fmt.Sprintf("%d", policymap.MaxEntries)
+	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
+	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
+	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.ProgArrayMaxEntries)
+	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
+	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
 
 	if option.Config.DatapathMode == option.DatapathModeIpvlan {
-		fmt.Fprintf(fw, "#define ENABLE_SECCTX_FROM_IPCACHE 1\n")
+		cDefinesMap["ENABLE_SECCTX_FROM_IPCACHE"] = "1"
 	}
 
 	if option.Config.PreAllocateMaps {
-		fmt.Fprintf(fw, "#define PREALLOCATE_MAPS 1\n")
+		cDefinesMap["PREALLOCATE_MAPS"] = "1"
 	}
 
-	fmt.Fprintf(fw, "#define EVENTS_MAP %s\n", "cilium_events")
-	fmt.Fprintf(fw, "#define POLICY_CALL_MAP %s\n", policymap.CallMapName)
-	fmt.Fprintf(fw, "#define EP_POLICY_MAP %s\n", eppolicymap.MapName)
-	fmt.Fprintf(fw, "#define LB6_REVERSE_NAT_MAP cilium_lb6_reverse_nat\n")
-	fmt.Fprintf(fw, "#define LB6_SERVICES_MAP_V2 cilium_lb6_services_v2\n")
-	fmt.Fprintf(fw, "#define LB6_BACKEND_MAP cilium_lb6_backends\n")
-	fmt.Fprintf(fw, "#define LB6_RR_SEQ_MAP_V2 cilium_lb6_rr_seq_v2\n")
-	fmt.Fprintf(fw, "#define LB6_REVERSE_NAT_SK_MAP cilium_lb6_reverse_sk\n")
-	fmt.Fprintf(fw, "#define LB4_REVERSE_NAT_MAP cilium_lb4_reverse_nat\n")
-	fmt.Fprintf(fw, "#define LB4_SERVICES_MAP_V2 cilium_lb4_services_v2\n")
-	fmt.Fprintf(fw, "#define LB4_RR_SEQ_MAP_V2 cilium_lb4_rr_seq_v2\n")
-	fmt.Fprintf(fw, "#define LB4_BACKEND_MAP cilium_lb4_backends\n")
-	fmt.Fprintf(fw, "#define LB4_REVERSE_NAT_SK_MAP cilium_lb4_reverse_sk\n")
+	cDefinesMap["EVENTS_MAP"] = "cilium_events"
+	cDefinesMap["POLICY_CALL_MAP"] = policymap.CallMapName
+	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
+	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
+	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
+	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends"
+	cDefinesMap["LB6_RR_SEQ_MAP_V2"] = "cilium_lb6_rr_seq_v2"
+	cDefinesMap["LB6_REVERSE_NAT_SK_MAP"] = "cilium_lb6_reverse_sk"
+	cDefinesMap["LB4_REVERSE_NAT_MAP"] = "cilium_lb4_reverse_nat"
+	cDefinesMap["LB4_SERVICES_MAP_V2"] = "cilium_lb4_services_v2"
+	cDefinesMap["LB4_RR_SEQ_MAP_V2"] = "cilium_lb4_rr_seq_v2"
+	cDefinesMap["LB4_BACKEND_MAP"] = "cilium_lb4_backends"
+	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = "cilium_lb4_reverse_sk"
 
-	fmt.Fprintf(fw, "#define TRACE_PAYLOAD_LEN %dULL\n", option.Config.TracePayloadlen)
-	fmt.Fprintf(fw, "#define MTU %d\n", cfg.MtuConfig.GetDeviceMTU())
+	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
+	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.MtuConfig.GetDeviceMTU())
 
 	if option.Config.EnableIPv4 {
-		fmt.Fprintf(fw, "#define ENABLE_IPV4 1\n")
+		cDefinesMap["ENABLE_IPV4"] = "1"
 	}
+
 	if option.Config.EnableIPv6 {
-		fmt.Fprintf(fw, "#define ENABLE_IPV6 1\n")
+		cDefinesMap["ENABLE_IPV6"] = "1"
 	}
+
 	if option.Config.EnableIPSec {
-		fmt.Fprintf(fw, "#define ENABLE_IPSEC 1\n")
+		cDefinesMap["ENABLE_IPSEC"] = "1"
 	}
+
 	if option.Config.EncryptNode {
-		fmt.Fprintf(fw, "#define ENCRYPT_NODE 1\n")
+		cDefinesMap["ENCRYPT_NODE"] = "1"
 	}
+
 	if option.Config.EnableHostReachableServices {
 		if option.Config.EnableHostServicesTCP {
-			fmt.Fprintf(fw, "#define ENABLE_HOST_SERVICES_TCP 1\n")
+			cDefinesMap["ENABLE_HOST_SERVICES_TCP"] = "1"
 		}
 		if option.Config.EnableHostServicesUDP {
-			fmt.Fprintf(fw, "#define ENABLE_HOST_SERVICES_UDP 1\n")
+			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
 		}
 	}
+
 	if option.Config.EncryptInterface != "" {
 		link, err := netlink.LinkByName(option.Config.EncryptInterface)
 		if err == nil {
-			fmt.Fprintf(fw, "#define ENCRYPT_IFACE %d\n", link.Attrs().Index)
+			cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 
 			addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
 			if err == nil {
 				a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
-				fmt.Fprintf(fw, "#define IPV4_ENCRYPT_IFACE %d\n", a)
+				cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 			}
 		}
 	}
 	if option.Config.IsPodSubnetsDefined() {
-		fmt.Fprintf(fw, "#define IP_POOLS 1\n")
+		cDefinesMap["IP_POOLS"] = "1"
 	}
 	haveMasquerade := !option.Config.InstallIptRules && option.Config.Masquerade
 	if haveMasquerade || option.Config.EnableNodePort {
-		fmt.Fprintf(fw, "#define SNAT_COLLISION_RETRIES %d\n", nat.CollisionRetriesDefault)
-		fmt.Fprintf(fw, "#define SNAT_DETERMINISTIC_RETRIES %d\n", nat.DeterministicRetriesDefault)
+		cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.CollisionRetriesDefault)
+		cDefinesMap["SNAT_DETERMINISTIC_RETRIES"] = fmt.Sprintf("%d", nat.DeterministicRetriesDefault)
+
 		if option.Config.EnableIPv4 {
-			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV4 %s\n", nat.MapNameSnat4Global)
-			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV4_SIZE %d\n", nat.MaxEntries)
+			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
+			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", nat.MaxEntries)
 		}
+
 		if option.Config.EnableIPv6 {
-			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6 %s\n", nat.MapNameSnat6Global)
-			fmt.Fprintf(fw, "#define SNAT_MAPPING_IPV6_SIZE %d\n", nat.MaxEntries)
+			cDefinesMap["SNAT_MAPPING_IPV6"] = nat.MapNameSnat6Global
+			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", nat.MaxEntries)
 		}
 	}
 	if haveMasquerade {
-		fmt.Fprintf(fw, "#define ENABLE_MASQUERADE 1\n")
-		fmt.Fprintf(fw, "#define SNAT_MAPPING_MIN_PORT %d\n", nat.MinPortSnatDefault)
-		fmt.Fprintf(fw, "#define SNAT_MAPPING_MAX_PORT %d\n", nat.MaxPortSnatDefault)
+		cDefinesMap["ENABLE_MASQUERADE"] = "1"
+		cDefinesMap["SNAT_MAPPING_MIN_PORT"] = fmt.Sprintf("%d", nat.MinPortSnatDefault)
+		cDefinesMap["SNAT_MAPPING_MAX_PORT"] = fmt.Sprintf("%d", nat.MaxPortSnatDefault)
+
 		// SNAT_DIRECTION is defined by init.sh
 		if option.Config.EnableIPv4 {
 			ipv4Addr := node.GetExternalIPv4()
-			fmt.Fprintf(fw, "#define SNAT_IPV4_EXTERNAL %#x\n", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
+			cDefinesMap["SNAT_IPV4_EXTERNAL"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
 		}
+
 		if option.Config.EnableIPv6 {
+			extraMacrosMap["SNAT_IPV6_EXTERNAL"] = hostIP.String()
 			fw.WriteString(defineIPv6("SNAT_IPV6_EXTERNAL", hostIP))
 		}
 	}
@@ -214,11 +235,42 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	}
 
 	if option.Config.EnableNodePort {
-		fmt.Fprintf(fw, "#define ENABLE_NODEPORT 1\n")
-		fmt.Fprintf(fw, "#define NODEPORT_PORT_MIN %d\n", option.Config.NodePortMin)
-		fmt.Fprintf(fw, "#define NODEPORT_PORT_MAX %d\n", option.Config.NodePortMax)
-		fmt.Fprintf(fw, "#define NODEPORT_PORT_MIN_NAT %d\n", option.Config.NodePortMax+1)
-		fmt.Fprintf(fw, "#define NODEPORT_PORT_MAX_NAT %d\n", 65535)
+		cDefinesMap["ENABLE_NODEPORT"] = "1"
+		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
+		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
+		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
+		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
+	}
+
+	// Since golang maps are unordered, we sort the keys in the map
+	// to get a consistent writtern format to the writer. This maintains
+	// the consistency when we try to calculate hash for a datapath after
+	// writing the config.
+	keys := []string{}
+	for key := range cDefinesMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		fmt.Fprintf(fw, "#define %s %s\n", key, cDefinesMap[key])
+	}
+
+	// Populate cDefinesMap with extraMacrosMap to get all the configuration
+	// in the cDefinesMap itself.
+	for key, value := range extraMacrosMap {
+		cDefinesMap[key] = value
+	}
+
+	// Write the JSON encoded config as base64 encoded commented string to
+	// the header file.
+	jsonBytes, err := json.Marshal(cDefinesMap)
+	if err == nil {
+		// We don't care if some error occurs while marshaling the map.
+		// In such cases we skip embedding the base64 encoded JSON configuration
+		// to the writer.
+		encodedConfig := base64.StdEncoding.EncodeToString(jsonBytes)
+		fmt.Fprintf(fw, "\n// JSON_OUTPUT: %s\n", encodedConfig)
 	}
 
 	return fw.Flush()
