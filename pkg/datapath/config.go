@@ -25,12 +25,6 @@ import (
 // options that affect lookups and logic applied at a per-device level, whether
 // those are devices associated with the endpoint or associated with the host.
 type DeviceConfiguration interface {
-	// GetCIDRPrefixLengths fetches the lists of unique IPv6 and IPv4
-	// prefix lengths used for datapath lookups, each of which is sorted
-	// from longest prefix to shortest prefix. It must return more than
-	// one element in each returned array.
-	GetCIDRPrefixLengths() (s6, s4 []int)
-
 	// GetOptions fetches the configurable datapath options from the owner.
 	GetOptions() *option.IntOptions
 }

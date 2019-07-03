@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -147,10 +146,6 @@ type Daemon struct {
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
-
-	// prefixLengths tracks a mapping from CIDR prefix length to the count
-	// of rules that refer to that prefix length.
-	prefixLengths *counter.PrefixLengthCounter
 
 	clustermesh *clustermesh.ClusterMesh
 
@@ -314,12 +309,6 @@ func (d *Daemon) GetPolicyRepository() *policy.Repository {
 // DebugEnabled returns if debug mode is enabled.
 func (d *Daemon) DebugEnabled() bool {
 	return option.Config.Opts.IsEnabled(option.Debug)
-}
-
-// GetCIDRPrefixLengths returns the sorted list of unique prefix lengths used
-// by CIDR policies.
-func (d *Daemon) GetCIDRPrefixLengths() (s6, s4 []int) {
-	return d.prefixLengths.ToBPFData()
 }
 
 // GetOptions returns the datapath configuration options of the daemon.
@@ -640,37 +629,6 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	return nil
 }
 
-func createIPNet(ones, bits int) *net.IPNet {
-	return &net.IPNet{
-		Mask: net.CIDRMask(ones, bits),
-	}
-}
-
-// createPrefixLengthCounter wraps around the counter library, providing
-// references to prefix lengths that will always be present.
-func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	prefixLengths4 := ipcachemap.IPCache.GetMaxPrefixLengths(false)
-	prefixLengths6 := ipcachemap.IPCache.GetMaxPrefixLengths(true)
-	counter := counter.NewPrefixLengthCounter(prefixLengths6, prefixLengths4)
-
-	// This is a bit ugly, but there's not a great way to define an IPNet
-	// without parsing strings, etc.
-	defaultPrefixes := []*net.IPNet{
-		// IPv4
-		createIPNet(0, net.IPv4len*8),             // world
-		createIPNet(net.IPv4len*8, net.IPv4len*8), // hosts
-
-		// IPv6
-		createIPNet(0, net.IPv6len*8),             // world
-		createIPNet(net.IPv6len*8, net.IPv6len*8), // hosts
-	}
-	_, err := counter.Add(defaultPrefixes)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to create default prefix lengths")
-	}
-	return counter
-}
-
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	var (
@@ -724,7 +682,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
 		uniqueID:          map[uint64]context.CancelFunc{},
-		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),

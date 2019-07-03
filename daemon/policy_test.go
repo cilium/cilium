@@ -460,7 +460,7 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	// wait for prefix lengths to be correct after timeout to ensure that we
 	// do not assert before the releasing of CIDRs has been performed.
 	testutils.WaitUntil(func() bool {
-		_, s4 := ds.d.prefixLengths.ToBPFData()
+		_, s4 := ds.Datapath().PrefixLengthCounter().ToBPFData()
 		sort.Ints(s4)
 		if len(s4) != 2 {
 			c.Logf("IPv4 Prefix lengths incorrect (expected [0, 32]). This may be because CIDRs were not released on replace. %+v", s4)
