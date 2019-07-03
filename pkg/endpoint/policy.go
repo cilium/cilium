@@ -34,7 +34,6 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -233,7 +232,6 @@ func (e *Endpoint) regenerate(owner regeneration.Owner, context *regenerationCon
 
 	context.Stats = regenerationStatistics{}
 	stats := &context.Stats
-	metrics.EndpointCountRegenerating.Inc()
 	stats.totalTime.Start()
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.StartTime: time.Now(),
