@@ -28,11 +28,13 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ciliumEndpointGCInterval is the interval between attempts of the CEP GC
-// controller.
-// Note that only one node per cluster should run this, and most iterations
-// will simply return.
-const ciliumEndpointGCInterval = 30 * time.Minute
+var (
+	// ciliumEndpointGCInterval is the interval between attempts of the CEP GC
+	// controller.
+	// Note that only one node per cluster should run this, and most iterations
+	// will simply return.
+	ciliumEndpointGCInterval time.Duration
+)
 
 // enableCiliumEndpointSyncGC starts the node-singleton sweeper for
 // CiliumEndpoint objects where the managing node is no longer running. These
