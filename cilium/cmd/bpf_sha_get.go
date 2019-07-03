@@ -15,9 +15,12 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
@@ -52,7 +55,22 @@ func dumpSha(sha string) {
 	}
 
 	if command.OutputJSON() {
-		if err := command.PrintOutput(fmt.Sprintf("%s", text)); err != nil {
+		regex, err := regexp.Compile("// JSON_OUTPUT: (?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)")
+		if err != nil {
+			Fatalf("Error preparing regex for parsing JSON: %s\n", err)
+		}
+
+		jsonEncStr := regex.FindString(fmt.Sprintf("%s", text))
+		if jsonEncStr == "" {
+			Fatalf("No JSON embedded in the file.")
+		}
+
+		jsonStr, err := base64.StdEncoding.DecodeString(strings.Replace(jsonEncStr, "// JSON_OUTPUT: ", "", -1))
+		if err != nil {
+			Fatalf("Error while decoding JSON encoded as base64 string: %s", err)
+		}
+
+		if err := command.PrintOutput(jsonStr); err != nil {
 			Fatalf("error printing output in JSON: %s\n", err)
 		}
 		return
