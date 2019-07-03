@@ -33,6 +33,9 @@ const (
 	// warningInterval is the interval for warnings which should be done
 	// once and then repeated if the warning persists.
 	warningInterval = time.Hour
+
+	// maxAttachRetries is the maximum number of attachment retries
+	maxAttachRetries = 5
 )
 
 // Node represents a Kubernetes node running Cilium with an associated
@@ -239,6 +242,15 @@ func indexExists(enis map[string]v2.ENI, index int64) bool {
 	return false
 }
 
+// findNextIndex returns the next available index with the provided index being
+// the first candidate
+func (n *Node) findNextIndex(index int64) int64 {
+	for indexExists(n.enis, index) {
+		index++
+	}
+	return index
+}
+
 // allocateENI creates an additional ENI and attaches it to the instance as
 // specified by the ciliumNode. neededAddresses of secondary IPs are assigned
 // to the interface up to the maximum number of addresses as allowed by the
@@ -257,10 +269,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 		return nil
 	}
 
-	index := int64(nodeResource.Spec.ENI.FirstInterfaceIndex)
-	for indexExists(n.enis, index) {
-		index++
-	}
+	index := n.findNextIndex(int64(nodeResource.Spec.ENI.FirstInterfaceIndex))
 
 	scopedLog := n.loggerLocked().WithFields(logrus.Fields{
 		"securityGroups": securityGroups,
@@ -279,8 +288,21 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 	scopedLog = scopedLog.WithField(fieldEniID, eniID)
 	scopedLog.Info("Created new ENI")
 
+	attachRetries := 0
+retryAttachment:
 	attachmentID, err := n.manager.ec2API.AttachNetworkInterface(index, nodeResource.Spec.ENI.InstanceID, eniID)
 	if err != nil {
+		// Handle the situation if the index is already in use, this
+		// can happen if the local list of ENIs is oudated.
+		// Retry the attachment to avoid having to delete the ENI
+		if strings.Contains(err.Error(), "already has an interface attached at device") {
+			if attachRetries < maxAttachRetries {
+				attachRetries++
+				index = n.findNextIndex(index + 1)
+				goto retryAttachment
+			}
+		}
+
 		delErr := n.manager.ec2API.DeleteNetworkInterface(eniID)
 		if delErr != nil {
 			scopedLog.WithError(delErr).Warning("Unable to undo ENI creation after failure to attach")
