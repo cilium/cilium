@@ -433,6 +433,7 @@ func (e *etcdClient) renewSession() error {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd session: %s", err)
 	}
+	log.Infof("Got new lease ID %x", newSession.Lease())
 
 	e.session = newSession
 	e.UnlockIgnoreTime()
@@ -460,6 +461,7 @@ func (e *etcdClient) renewLockSession() error {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd lock session: %s", err)
 	}
+	log.Infof("Got new lock lease ID %x", newSession.Lease())
 
 	e.lockSession = newSession
 	e.UnlockIgnoreTime()
@@ -513,6 +515,9 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 		}
 		s = *session
 		ls = *lockSession
+
+		log.Infof("Got lease ID %x", s.Lease())
+		log.Infof("Got lock lease ID %x", ls.Lease())
 		close(errorChan)
 	}()
 
