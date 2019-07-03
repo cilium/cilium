@@ -559,7 +559,7 @@ spec:
           name: etcd-secrets
           readOnly: true
       hostNetwork: true
-      dnsPolicy: ClusterFirst
+      dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
