@@ -172,9 +172,6 @@ var (
 	// It must be thread-safe.
 	EndpointCount prometheus.GaugeFunc
 
-	// EndpointCountRegenerating is the number of endpoints currently regenerating
-	EndpointCountRegenerating = NoOpGauge
-
 	// EndpointRegenerationCount is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
 	EndpointRegenerationCount = NoOpCounterVec
@@ -371,7 +368,6 @@ var (
 
 type Configuration struct {
 	APIInteractionsEnabled                  bool
-	EndpointCountRegeneratingEnabled        bool
 	EndpointRegenerationCountEnabled        bool
 	EndpointStateCountEnabled               bool
 	EndpointRegenerationTimeStatsEnabled    bool
@@ -423,7 +419,6 @@ type Configuration struct {
 func DefaultMetrics() map[string]struct{} {
 	return map[string]struct{}{
 		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":            {},
-		Namespace + "_endpoint_regenerating":                                      {},
 		Namespace + "_endpoint_regenerations":                                     {},
 		Namespace + "_endpoint_state":                                             {},
 		Namespace + "_endpoint_regeneration_time_stats_seconds":                   {},
@@ -490,16 +485,6 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, APIInteractions)
 			c.APIInteractionsEnabled = true
-
-		case Namespace + "_endpoint_regenerating":
-			EndpointCountRegenerating = prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace: Namespace,
-				Name:      "endpoint_regenerating",
-				Help:      "Number of endpoints currently regenerating. Deprecated. Use endpoint_state with proper labels instead",
-			})
-
-			collectors = append(collectors, EndpointCountRegenerating)
-			c.EndpointCountRegeneratingEnabled = true
 
 		case Namespace + "_endpoint_regenerations":
 			EndpointRegenerationCount = prometheus.NewCounterVec(prometheus.CounterOpts{

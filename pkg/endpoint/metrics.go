@@ -71,7 +71,6 @@ type regenerationStatistics struct {
 // Prometheus.
 func (s *regenerationStatistics) SendMetrics() {
 	endpointPolicyStatus.Update(s.endpointID, s.policyStatus)
-	metrics.EndpointCountRegenerating.Dec()
 
 	if !s.success {
 		// Endpoint regeneration failed, increase on failed metrics
