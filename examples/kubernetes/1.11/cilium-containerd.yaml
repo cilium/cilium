@@ -475,7 +475,7 @@ spec:
         command:
         - cilium-operator
         env:
-        - name: POD_NAMESPACE
+        - name: CILIUM_K8S_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1

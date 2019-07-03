@@ -115,6 +115,9 @@ func init() {
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
 	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", 50, "Maximum number of parallel workers used by ENI allocator")
+	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
+	flags.MarkHidden(option.K8sNamespaceName)
+	option.BindEnv(option.K8sNamespaceName)
 
 	flags.IntVar(&unmanagedKubeDnsWatcherInterval, "unmanaged-pod-watcher-interval", 15, "Interval to check for unmanaged kube-dns pods (0 to disable)")
 
@@ -151,6 +154,7 @@ func initConfig() {
 	option.Config.ClusterName = viper.GetString(option.ClusterName)
 	option.Config.ClusterID = viper.GetInt(option.ClusterIDName)
 	option.Config.DisableCiliumEndpointCRD = viper.GetBool(option.DisableCiliumEndpointCRDName)
+	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
 
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName("cilium-operator")
@@ -214,7 +218,7 @@ func runOperator(cmd *cobra.Command) {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			if k8s.IsEnabled() && kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace) {
+			if k8s.IsEnabled() && kvstore.IsEtcdOperator(kvStore, kvStoreOpts, option.Config.K8sNamespace) {
 				// Wait services and endpoints cache are synced with k8s before setting
 				// up etcd so we can perform the name resolution for etcd-operator
 				// to the service IP as well perform the service -> backend IPs for
