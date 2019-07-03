@@ -17,20 +17,27 @@ package fake
 import (
 	"io"
 
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 )
 
 type fakeDatapath struct {
-	node           datapath.NodeHandler
-	nodeAddressing datapath.NodeAddressing
+	node                datapath.NodeHandler
+	nodeAddressing      datapath.NodeAddressing
+	prefixLengthCounter *counter.PrefixLengthCounter
 }
 
 // NewDatapath returns a new fake datapath
 func NewDatapath() datapath.Datapath {
 	return &fakeDatapath{
-		node:           NewNodeHandler(),
-		nodeAddressing: NewNodeAddressing(),
+		node:                NewNodeHandler(),
+		nodeAddressing:      NewNodeAddressing(),
+		prefixLengthCounter: newPrefixLengthCounter(),
 	}
+}
+
+func newPrefixLengthCounter() *counter.PrefixLengthCounter {
+	return counter.NewPrefixLengthCounter(4, 18)
 }
 
 // Node returns a fake handler for node events
@@ -70,4 +77,8 @@ func (f *fakeDatapath) InstallProxyRules(uint16, bool, string) error {
 
 func (f *fakeDatapath) RemoveProxyRules(uint16, bool, string) error {
 	return nil
+}
+
+func (f *fakeDatapath) PrefixLengthCounter() *counter.PrefixLengthCounter {
+	return f.prefixLengthCounter
 }

@@ -598,7 +598,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		Revision:             p.GetRevision(),
 		SelectorCache:        p.GetSelectorCache(),
 		L4Policy:             NewL4Policy(p.GetRevision()),
-		CIDRPolicy:           NewCIDRPolicy(),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
 	}
@@ -627,12 +626,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 			return nil, err
 		}
 
-		newCIDRIngressPolicy := matchingRules.resolveCIDRPolicy(&ingressCtx)
-		if err := newCIDRIngressPolicy.Validate(); err != nil {
-			return nil, err
-		}
-
-		calculatedPolicy.CIDRPolicy.Ingress = newCIDRIngressPolicy.Ingress
 		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy
 	}
 
@@ -642,12 +635,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 			return nil, err
 		}
 
-		newCIDREgressPolicy := matchingRules.resolveCIDRPolicy(&egressCtx)
-		if err := newCIDREgressPolicy.Validate(); err != nil {
-			return nil, err
-		}
-
-		calculatedPolicy.CIDRPolicy.Egress = newCIDREgressPolicy.Egress
 		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy
 	}
 
