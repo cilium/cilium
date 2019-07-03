@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
-	"github.com/cilium/cilium/pkg/maps/ipcache"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -55,7 +54,6 @@ func writeIncludes(w io.Writer) (int, error) {
 func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
 	extraMacrosMap := make(map[string]string)
 	cDefinesMap := make(map[string]string)
-
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
@@ -284,8 +282,11 @@ func (l *linuxDatapath) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 
 	// In case the Linux kernel doesn't support LPM map type, pass the set
 	// of prefix length for the datapath to lookup the map.
-	if ipcache.IPCache.MapType != bpf.BPF_MAP_TYPE_LPM_TRIE {
-		ipcachePrefixes6, ipcachePrefixes4 := cfg.GetCIDRPrefixLengths()
+	if ipcachemap.IPCache.MapType != bpf.BPF_MAP_TYPE_LPM_TRIE {
+		if l.PrefixLengthCounter() == nil {
+			log.Error("PrefixLengthCounter is nil?")
+		}
+		ipcachePrefixes6, ipcachePrefixes4 := l.PrefixLengthCounter().ToBPFData()
 
 		fmt.Fprint(w, "#define IPCACHE6_PREFIXES ")
 		for _, prefix := range ipcachePrefixes6 {

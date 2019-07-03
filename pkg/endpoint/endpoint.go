@@ -729,12 +729,10 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	sortProxyStats(proxyStats)
 
 	var (
-		realizedCIDRPolicy *policy.CIDRPolicy
-		realizedL4Policy   *policy.L4Policy
+		realizedL4Policy *policy.L4Policy
 	)
 	if e.realizedPolicy != nil {
 		realizedL4Policy = e.realizedPolicy.L4Policy
-		realizedCIDRPolicy = e.realizedPolicy.CIDRPolicy
 	}
 
 	mdl := &models.EndpointPolicy{
@@ -744,17 +742,14 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
-		CidrPolicy:               realizedCIDRPolicy.GetModel(),
 		L4:                       realizedL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
 	}
 
 	var (
-		desiredCIDRPolicy *policy.CIDRPolicy
-		desiredL4Policy   *policy.L4Policy
+		desiredL4Policy *policy.L4Policy
 	)
 	if e.desiredPolicy != nil {
-		desiredCIDRPolicy = e.desiredPolicy.CIDRPolicy
 		desiredL4Policy = e.desiredPolicy.L4Policy
 	}
 
@@ -765,7 +760,6 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.nextPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
-		CidrPolicy:               desiredCIDRPolicy.GetModel(),
 		L4:                       desiredL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
 	}
