@@ -18,16 +18,20 @@ package k8s
 
 import (
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/checker"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
+	"k8s.io/api/core/v1"
 	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/cache"
 )
 
 func (s *K8sSuite) Test_EqualV2CNP(c *C) {
@@ -854,5 +858,533 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 	for _, tt := range tests {
 		got := EqualV1Services(tt.args.o1, tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToNetworkPolicy(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &networkingv1.NetworkPolicy{},
+			},
+			want: &types.NetworkPolicy{
+				NetworkPolicy: &networkingv1.NetworkPolicy{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &networkingv1.NetworkPolicy{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.NetworkPolicy{
+					NetworkPolicy: &networkingv1.NetworkPolicy{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToNetworkPolicy(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v1.Service{},
+			},
+			want: &types.Service{
+				Service: &v1.Service{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v1.Service{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.Service{
+					Service: &v1.Service{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToK8sService(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToK8sEndpoints(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v1.Endpoints{},
+			},
+			want: &types.Endpoints{
+				Endpoints: &v1.Endpoints{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v1.Endpoints{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.Endpoints{
+					Endpoints: &v1.Endpoints{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToK8sEndpoints(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToIngress(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v1beta1.Ingress{},
+			},
+			want: &types.Ingress{
+				Ingress: &v1beta1.Ingress{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v1beta1.Ingress{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.Ingress{
+					Ingress: &v1beta1.Ingress{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToIngress(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToCNPWithStatus(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v2.CiliumNetworkPolicy{},
+			},
+			want: &types.SlimCNP{
+				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v2.CiliumNetworkPolicy{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToCNPWithStatus(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToCNP(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v2.CiliumNetworkPolicy{},
+			},
+			want: &types.SlimCNP{
+				CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v2.CiliumNetworkPolicy{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.SlimCNP{
+					CiliumNetworkPolicy: &v2.CiliumNetworkPolicy{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToCNP(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToK8sPod(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v1.Pod{},
+			},
+			want: &types.Pod{},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v1.Pod{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.Pod{},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToPod(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToNode(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v1.Node{},
+			},
+			want: &types.Node{},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v1.Node{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.Node{},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToNode(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToNamespace(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v1.Namespace{},
+			},
+			want: &types.Namespace{},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v1.Namespace{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.Namespace{},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToNamespace(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

@@ -28,6 +28,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 func CopyObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
@@ -232,137 +233,299 @@ func EqualV1Namespace(ns1, ns2 *types.Namespace) bool {
 }
 
 // ConvertToNetworkPolicy converts a *networkingv1.NetworkPolicy into a
-// *types.NetworkPolicy
+// *types.NetworkPolicy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.NetworkPolicy in its Obj.
+// If the given obj can't be cast into either *networkingv1.NetworkPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToNetworkPolicy(obj interface{}) interface{} {
-	netPol, ok := obj.(*networkingv1.NetworkPolicy)
-	if !ok {
-		return nil
-	}
 	// TODO check which fields we really need
-	return &types.NetworkPolicy{
-		NetworkPolicy: netPol,
+	switch concreteObj := obj.(type) {
+	case *networkingv1.NetworkPolicy:
+		return &types.NetworkPolicy{
+			NetworkPolicy: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		netPol, ok := concreteObj.Obj.(*networkingv1.NetworkPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.NetworkPolicy{
+				NetworkPolicy: netPol,
+			},
+		}
+	default:
+		return obj
 	}
 }
 
-// ConvertToK8sService converts a *v1.Service into a *types.Service
+// ConvertToK8sService converts a *v1.Service into a
+// *types.Service or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Service in its Obj.
+// If the given obj can't be cast into either *v1.Service
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToK8sService(obj interface{}) interface{} {
-	service, ok := obj.(*v1.Service)
-	if !ok {
-		return nil
-	}
 	// TODO check which fields we really need
-	return &types.Service{
-		Service: service,
+	switch concreteObj := obj.(type) {
+	case *v1.Service:
+		return &types.Service{
+			Service: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		svc, ok := concreteObj.Obj.(*v1.Service)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.Service{
+				Service: svc,
+			},
+		}
+	default:
+		return obj
 	}
 }
 
-// ConvertToK8sEndpoints converts a *v1.Endpoints into a *types.Endpoints
+// ConvertToK8sEndpoints converts a *v1.Endpoints into a
+// *types.Endpoints or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Endpoints in its Obj.
+// If the given obj can't be cast into either *v1.Endpoints
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToK8sEndpoints(obj interface{}) interface{} {
-	endpoints, ok := obj.(*v1.Endpoints)
-	if !ok {
-		return nil
-	}
 	// TODO check which fields we really need
-	return &types.Endpoints{
-		Endpoints: endpoints,
+	switch concreteObj := obj.(type) {
+	case *v1.Endpoints:
+		return &types.Endpoints{
+			Endpoints: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		eps, ok := concreteObj.Obj.(*v1.Endpoints)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.Endpoints{
+				Endpoints: eps,
+			},
+		}
+	default:
+		return obj
 	}
 }
 
-// ConvertToIngress converts a *v1beta1.Ingress into a *v1beta1.Ingress
+// ConvertToIngress converts a *v1beta1.Ingress into a
+// *types.Ingress or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Ingress in its Obj.
+// If the given obj can't be cast into either *v1beta1.Ingress
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToIngress(obj interface{}) interface{} {
-	ingress, ok := obj.(*v1beta1.Ingress)
-	if !ok {
-		return nil
-	}
 	// TODO check which fields we really need
-	return &types.Ingress{
-		Ingress: ingress,
+	switch concreteObj := obj.(type) {
+	case *v1beta1.Ingress:
+		return &types.Ingress{
+			Ingress: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		ingrss, ok := concreteObj.Obj.(*v1beta1.Ingress)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.Ingress{
+				Ingress: ingrss,
+			},
+		}
+	default:
+		return obj
 	}
 }
 
 // ConvertToCNPWithStatus converts a *cilium_v2.CiliumNetworkPolicy into a
-// *types.SlimCNP
+// *types.SlimCNP or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.SlimCNP in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToCNPWithStatus(obj interface{}) interface{} {
-	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		return nil
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumNetworkPolicy:
+		return &types.SlimCNP{
+			CiliumNetworkPolicy: concreteObj,
+		}
+	case cache.DeletedFinalStateUnknown:
+		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.SlimCNP{
+				CiliumNetworkPolicy: cnp,
+			},
+		}
+	default:
+		return obj
 	}
-	slimCNP := &types.SlimCNP{
-		CiliumNetworkPolicy: cnp,
-	}
-	return slimCNP
 }
 
-// ConvertToCNP converts a *cilium_v2.CiliumNetworkPolicy into a *types.SlimCNP
-// without the Status field of the given CNP.
+// ConvertToCNP converts a *cilium_v2.CiliumNetworkPolicy into a
+// *types.SlimCNP without the Status field of the given CNP, or a
+// cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown with a
+// *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 // WARNING calling this function will set *all* fields of the given CNP as
 // empty.
 func ConvertToCNP(obj interface{}) interface{} {
-	cnp, ok := obj.(*cilium_v2.CiliumNetworkPolicy)
-	if !ok {
-		return nil
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumNetworkPolicy:
+		cnp := &types.SlimCNP{
+			CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+				TypeMeta:   concreteObj.TypeMeta,
+				ObjectMeta: concreteObj.ObjectMeta,
+				Spec:       concreteObj.Spec,
+				Specs:      concreteObj.Specs,
+			},
+		}
+		*concreteObj = cilium_v2.CiliumNetworkPolicy{}
+		return cnp
+	case cache.DeletedFinalStateUnknown:
+		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.SlimCNP{
+				CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+					TypeMeta:   cnp.TypeMeta,
+					ObjectMeta: cnp.ObjectMeta,
+					Spec:       cnp.Spec,
+					Specs:      cnp.Specs,
+				},
+			},
+		}
+		*cnp = cilium_v2.CiliumNetworkPolicy{}
+		return dfsu
+	default:
+		return obj
 	}
-	slimCNP := &types.SlimCNP{
-		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
-			TypeMeta:   cnp.TypeMeta,
-			ObjectMeta: cnp.ObjectMeta,
-			Spec:       cnp.Spec,
-			Specs:      cnp.Specs,
-		},
-	}
-	*cnp = cilium_v2.CiliumNetworkPolicy{}
-	return slimCNP
 }
 
-// ConvertToPod converts a *v1.Pod into a *types.Pod.
+// ConvertToPod converts a *v1.Pod into a
+// *types.Pod or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Pod in its Obj.
+// If the given obj can't be cast into either *v1.Pod
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 // WARNING calling this function will set *all* fields of the given Pod as
 // empty.
 func ConvertToPod(obj interface{}) interface{} {
-	pod, ok := obj.(*v1.Pod)
-	if !ok {
-		return nil
+	switch concreteObj := obj.(type) {
+	case *v1.Pod:
+		p := &types.Pod{
+			TypeMeta:        concreteObj.TypeMeta,
+			ObjectMeta:      concreteObj.ObjectMeta,
+			StatusPodIP:     concreteObj.Status.PodIP,
+			StatusHostIP:    concreteObj.Status.HostIP,
+			SpecHostNetwork: concreteObj.Spec.HostNetwork,
+		}
+		*concreteObj = v1.Pod{}
+		return p
+	case cache.DeletedFinalStateUnknown:
+		pod, ok := concreteObj.Obj.(*v1.Pod)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.Pod{
+				TypeMeta:        pod.TypeMeta,
+				ObjectMeta:      pod.ObjectMeta,
+				StatusPodIP:     pod.Status.PodIP,
+				StatusHostIP:    pod.Status.HostIP,
+				SpecHostNetwork: pod.Spec.HostNetwork,
+			},
+		}
+		*pod = v1.Pod{}
+		return dfsu
+	default:
+		return obj
 	}
-	p := &types.Pod{
-		TypeMeta:        pod.TypeMeta,
-		ObjectMeta:      pod.ObjectMeta,
-		StatusPodIP:     pod.Status.PodIP,
-		StatusHostIP:    pod.Status.HostIP,
-		SpecHostNetwork: pod.Spec.HostNetwork,
-	}
-	*pod = v1.Pod{}
-	return p
 }
 
-// ConvertToNode converts a *v1.Node into a *types.Node.
+// ConvertToNode converts a *v1.Node into a
+// *types.Node or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Node in its Obj.
+// If the given obj can't be cast into either *v1.Node
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 // WARNING calling this function will set *all* fields of the given Node as
 // empty.
 func ConvertToNode(obj interface{}) interface{} {
-	node, ok := obj.(*v1.Node)
-	if !ok {
-		return nil
+	switch concreteObj := obj.(type) {
+	case *v1.Node:
+		p := &types.Node{
+			TypeMeta:        concreteObj.TypeMeta,
+			ObjectMeta:      concreteObj.ObjectMeta,
+			StatusAddresses: concreteObj.Status.Addresses,
+			SpecPodCIDR:     concreteObj.Spec.PodCIDR,
+		}
+		*concreteObj = v1.Node{}
+		return p
+	case cache.DeletedFinalStateUnknown:
+		node, ok := concreteObj.Obj.(*v1.Node)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.Node{
+				TypeMeta:        node.TypeMeta,
+				ObjectMeta:      node.ObjectMeta,
+				StatusAddresses: node.Status.Addresses,
+				SpecPodCIDR:     node.Spec.PodCIDR,
+			},
+		}
+		*node = v1.Node{}
+		return dfsu
+	default:
+		return obj
 	}
-	n := &types.Node{
-		TypeMeta:        node.TypeMeta,
-		ObjectMeta:      node.ObjectMeta,
-		StatusAddresses: node.Status.Addresses,
-		SpecPodCIDR:     node.Spec.PodCIDR,
-	}
-	*node = v1.Node{}
-	return n
 }
 
-// ConvertToNamespace converts a *v1.Namespace into a *types.Namespace.
+// ConvertToNamespace converts a *v1.Namespace into a
+// *types.Namespace or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *types.Namespace in its Obj.
+// If the given obj can't be cast into either *v1.Namespace
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
 // WARNING calling this function will set *all* fields of the given Namespace as
 // empty.
 func ConvertToNamespace(obj interface{}) interface{} {
-	namespace, ok := obj.(*v1.Namespace)
-	if !ok {
-		return nil
+	switch concreteObj := obj.(type) {
+	case *v1.Namespace:
+		p := &types.Namespace{
+			TypeMeta:   concreteObj.TypeMeta,
+			ObjectMeta: concreteObj.ObjectMeta,
+		}
+		*concreteObj = v1.Namespace{}
+		return p
+	case cache.DeletedFinalStateUnknown:
+		namespace, ok := concreteObj.Obj.(*v1.Namespace)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.Namespace{
+				TypeMeta:   namespace.TypeMeta,
+				ObjectMeta: namespace.ObjectMeta,
+			},
+		}
+		*namespace = v1.Namespace{}
+		return dfsu
+	default:
+		return obj
 	}
-	n := &types.Namespace{
-		TypeMeta:   namespace.TypeMeta,
-		ObjectMeta: namespace.ObjectMeta,
-	}
-	*namespace = v1.Namespace{}
-	return n
 }
