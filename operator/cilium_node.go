@@ -29,11 +29,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func convertToCiliumNode(obj interface{}) interface{} {
-	cnp, _ := obj.(*v2.CiliumNode)
-	return cnp
-}
-
 func startSynchronizingCiliumNodes() {
 	log.Info("Starting to synchronize CiliumNode custom resources...")
 
@@ -89,7 +84,7 @@ func startSynchronizingCiliumNodes() {
 				log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 			},
 		},
-		convertToCiliumNode,
+		k8s.ConvertToCiliumNode,
 	)
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
