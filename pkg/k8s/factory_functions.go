@@ -536,6 +536,20 @@ func ConvertToNamespace(obj interface{}) interface{} {
 // If the given obj can't be cast into either *cilium_v2.CiliumNode
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToCiliumNode(obj interface{}) interface{} {
-	cnp, _ := obj.(*cilium_v2.CiliumNode)
-	return cnp
+	// TODO create a slim type of the CiliumNode
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumNode:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumNode, ok := concreteObj.Obj.(*cilium_v2.CiliumNode)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumNode,
+		}
+	default:
+		return obj
+	}
 }
