@@ -117,8 +117,8 @@ func (e *API) rateLimit() {
 
 	r := e.limiter.Reserve()
 	e.mutex.RUnlock()
-	if !r.OK() {
-		time.Sleep(r.Delay())
+	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
+		time.Sleep(delay)
 	}
 }
 
