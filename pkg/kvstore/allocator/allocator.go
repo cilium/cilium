@@ -545,7 +545,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		k     = key.GetKey()
 	)
 
-	log.WithField(fieldKey, key).Info("Allocating key")
+	log.WithField(fieldKey, key).Debug("Allocating key")
 
 	select {
 	case <-a.initialListDone:
