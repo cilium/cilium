@@ -529,3 +529,13 @@ func ConvertToNamespace(obj interface{}) interface{} {
 		return obj
 	}
 }
+
+// ConvertToCiliumNode converts a *cilium_v2.CiliumNode into a
+// *cilium_v2.CiliumNode or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumNode in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumNode
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumNode(obj interface{}) interface{} {
+	cnp, _ := obj.(*cilium_v2.CiliumNode)
+	return cnp
+}
