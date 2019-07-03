@@ -552,7 +552,7 @@ spec:
           name: etcd-secrets
           readOnly: true
       hostNetwork: true
-      dnsPolicy: ClusterFirst
+      dnsPolicy: ClusterFirstWithHostNet
       priorityClassName: system-node-critical
       restartPolicy: Always
       serviceAccount: cilium-operator
