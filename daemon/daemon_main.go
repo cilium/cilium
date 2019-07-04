@@ -1142,10 +1142,28 @@ func initEnv(cmd *cobra.Command) {
 		// We enable host reachable services in order to allow
 		// access to node port services from the host.
 		option.Config.EnableHostReachableServices = true
+		option.Config.EnableHostServicesTCP = true
+		option.Config.EnableHostServicesUDP = true
 	}
 
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
 		log.Fatal("BPF NodePort needs external facing device specified")
+	}
+
+	if option.Config.EnableHostReachableServices {
+		// Note: probing for BPF_CGROUP_UDP{4,6}_SENDMSG instead of BPF_CGROUP_INET{4,6}_CONNECT hook since
+		// we want to catch 4.18+ and not 4.17+ kernels as they also have fib lookup helper which we require
+		// for BPF based node port.
+		if option.Config.EnableHostServicesTCP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_SENDMSG) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_SENDMSG) != nil) {
+			log.Fatal("BPF host reachable services for TCP needs kernel 4.18.0 or higher.")
+		}
+		if option.Config.EnableHostServicesUDP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
+			log.Fatal("BPF host reachable services for UDP needs kernel 4.19.57 or higher. If you run an older kernel and only need TCP, then specify: --host-reachable-services-protos=tcp")
+		}
 	}
 
 	// If device has been specified, use it to derive better default
