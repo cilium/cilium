@@ -503,3 +503,42 @@ func GetMtime() (uint64, error) {
 
 	return uint64(unix.TimespecToNsec(ts)), nil
 }
+
+type bpfAttrProg struct {
+	ProgType    uint32
+	InsnCnt     uint32
+	Insns       uintptr
+	License     uintptr
+	LogLevel    uint32
+	LogSize     uint32
+	LogBuf      uintptr
+	KernVersion uint32
+	Flags       uint32
+	Name        [16]byte
+	Ifindex     uint32
+	AttachType  uint32
+}
+
+func TestDummyProg(progType ProgType, attachType uint32) error {
+	insns := []byte{
+		// R0 = 1; EXIT
+		0xb7, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	license := []byte{'A', 'S', 'L', '2', '\x00'}
+	bpfAttr := bpfAttrProg{
+		ProgType:   uint32(progType),
+		AttachType: uint32(attachType),
+		InsnCnt:    uint32(len(insns) / 8),
+		Insns:      uintptr(unsafe.Pointer(&insns[0])),
+		License:    uintptr(unsafe.Pointer(&license[0])),
+	}
+	fd, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_LOAD,
+		uintptr(unsafe.Pointer(&bpfAttr)),
+		unsafe.Sizeof(bpfAttr))
+	if errno != 0 {
+		unix.Close(int(fd))
+		return nil
+	}
+	return errno
+}
