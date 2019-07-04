@@ -348,6 +348,15 @@ function bpf_load_cgroups()
 	return $RETCODE
 }
 
+function bpf_clear_cgroups()
+{
+	CGRP=$1
+
+	bpftool cgroup show $CGRP | sed -n '1!p' | \
+	  awk -v cgroup="$CGRP" '$2 ~ "connect4|connect6|sendmsg4|sendmsg6|recvmsg4|recvmsg6"
+	  { exec="bpftool cgroup detach "cgroup" "$2" id "$1; system(exec) }'
+}
+
 function encap_fail()
 {
 	(>&2 echo "ERROR: Setup of encapsulation device $ENCAP_DEV has failed. Is another program using a $MODE device?")
@@ -541,6 +550,8 @@ if [ "$HOSTLB" = "true" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 snd-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 rcv-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 	fi
+else
+	bpf_clear_cgroups $CGROUP_ROOT
 fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
