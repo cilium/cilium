@@ -28,9 +28,10 @@ IPSEC=${10}
 MASQ=${11}
 ENCRYPT_DEV=${12}
 HOSTLB=${13}
-CGROUP_ROOT=${14}
-BPFFS_ROOT=${15}
-NODE_PORT=${16}
+HOSTLB_UDP=${14}
+CGROUP_ROOT=${15}
+BPFFS_ROOT=${16}
+NODE_PORT=${17}
 
 ID_HOST=1
 ID_WORLD=2
@@ -348,6 +349,19 @@ function bpf_load_cgroups()
 	return $RETCODE
 }
 
+function bpf_clear_cgroups()
+{
+	CGRP=$1
+	HOOK=$2
+
+	set +e
+	ID=$(bpftool cgroup show $CGRP | grep $HOOK | awk '{print $1}')
+	set -e
+	if [ -n "$ID" ]; then
+		bpftool cgroup detach $CGRP $HOOK id $ID
+	fi
+}
+
 function encap_fail()
 {
 	(>&2 echo "ERROR: Setup of encapsulation device $ENCAP_DEV has failed. Is another program using a $MODE device?")
@@ -533,14 +547,31 @@ if [ "$HOSTLB" = "true" ]; then
 	COPTS="-DLB_L3 -DLB_L4"
 	if [ "$IP6_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 snd-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 rcv-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		if [ "$HOSTLB_UDP" = "true" ]; then
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 snd-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 rcv-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		else
+			bpf_clear_cgroups $CGROUP_ROOT sendmsg6
+			bpf_clear_cgroups $CGROUP_ROOT recvmsg6
+		fi
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 snd-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 rcv-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		if [ "$HOSTLB_UDP" = "true" ]; then
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 snd-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 rcv-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		else
+			bpf_clear_cgroups $CGROUP_ROOT sendmsg4
+			bpf_clear_cgroups $CGROUP_ROOT recvmsg4
+		fi
 	fi
+else
+	bpf_clear_cgroups $CGROUP_ROOT connect4
+	bpf_clear_cgroups $CGROUP_ROOT connect6
+	bpf_clear_cgroups $CGROUP_ROOT sendmsg4
+	bpf_clear_cgroups $CGROUP_ROOT sendmsg6
+	bpf_clear_cgroups $CGROUP_ROOT recvmsg4
+	bpf_clear_cgroups $CGROUP_ROOT recvmsg6
 fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX

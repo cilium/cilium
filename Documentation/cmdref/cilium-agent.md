@@ -68,6 +68,7 @@ cilium-agent [flags]
       --flannel-uninstall-on-exit                  When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
       --force-local-policy-eval-at-source          Force policy evaluation of all local communication at the source endpoint (default true)
   -h, --help                                       help for cilium-agent
+      --host-reachable-services-protos strings     Only enable reachability of services for host applications for specific protocols (default [tcp,udp])
       --http-idle-timeout uint                     Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                 Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
       --http-request-timeout uint                  Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)

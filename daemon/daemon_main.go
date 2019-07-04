@@ -476,6 +476,9 @@ func init() {
 	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications (beta)")
 	option.BindEnv(option.EnableHostReachableServices)
 
+	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
+	option.BindEnv(option.HostReachableServicesProtos)
+
 	flags.Bool(option.EnableLegacyServices, true, "Enable legacy (prior-v1.5) services")
 	option.BindEnv(option.EnableLegacyServices)
 
