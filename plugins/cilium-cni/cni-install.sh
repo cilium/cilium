@@ -105,7 +105,7 @@ EOF
     },
     {
       "type": "portmap",
-      "capabilities": {"portMappings": true},
+      "capabilities": {"portMappings": true}
     }
   ]
 }
