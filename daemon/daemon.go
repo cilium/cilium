@@ -103,6 +103,7 @@ const (
 	initArgMasquerade
 	initArgEncryptInterface
 	initArgHostReachableServices
+	initArgHostReachableServicesUDP
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort

@@ -167,6 +167,14 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	if option.Config.EncryptNode {
 		fmt.Fprintf(fw, "#define ENCRYPT_NODE 1\n")
 	}
+	if option.Config.EnableHostReachableServices {
+		if option.Config.EnableHostServicesTCP {
+			fmt.Fprintf(fw, "#define ENABLE_HOST_SERVICES_TCP 1\n")
+		}
+		if option.Config.EnableHostServicesUDP {
+			fmt.Fprintf(fw, "#define ENABLE_HOST_SERVICES_UDP 1\n")
+		}
+	}
 	if option.Config.EncryptInterface != "" {
 		link, err := netlink.LinkByName(option.Config.EncryptInterface)
 		if err == nil {
