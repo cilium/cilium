@@ -18,6 +18,7 @@ package bpf
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -502,4 +503,63 @@ func GetMtime() (uint64, error) {
 	}
 
 	return uint64(unix.TimespecToNsec(ts)), nil
+}
+
+type bpfAttrProg struct {
+	ProgType    uint32
+	InsnCnt     uint32
+	Insns       uintptr
+	License     uintptr
+	LogLevel    uint32
+	LogSize     uint32
+	LogBuf      uintptr
+	KernVersion uint32
+	Flags       uint32
+	Name        [16]byte
+	Ifindex     uint32
+	AttachType  uint32
+}
+
+// TestDummyProg loads a minimal BPF program into the kernel and probes
+// whether it succeeds in doing so. This can be used to bail out early
+// in the daemon when a given type is not supported.
+func TestDummyProg(progType ProgType, attachType uint32) error {
+	var oldLim unix.Rlimit
+	insns := []byte{
+		// R0 = 1; EXIT
+		0xb7, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+		0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	license := []byte{'A', 'S', 'L', '2', '\x00'}
+	bpfAttr := bpfAttrProg{
+		ProgType:   uint32(progType),
+		AttachType: uint32(attachType),
+		InsnCnt:    uint32(len(insns) / 8),
+		Insns:      uintptr(unsafe.Pointer(&insns[0])),
+		License:    uintptr(unsafe.Pointer(&license[0])),
+	}
+	tmpLim := unix.Rlimit{
+		Cur: math.MaxUint64,
+		Max: math.MaxUint64,
+	}
+	err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
+	if err != nil {
+		return err
+	}
+	err = unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim)
+	if err != nil {
+		return err
+	}
+	fd, _, errno := unix.Syscall(unix.SYS_BPF, BPF_PROG_LOAD,
+		uintptr(unsafe.Pointer(&bpfAttr)),
+		unsafe.Sizeof(bpfAttr))
+	err = unix.Setrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
+	if errno == 0 {
+		unix.Close(int(fd))
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return errno
 }
