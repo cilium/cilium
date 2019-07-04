@@ -327,6 +327,15 @@ const (
 	// EnableHostReachableServices is the name of the EnableHostReachableServices option
 	EnableHostReachableServices = "enable-host-reachable-services"
 
+	// HostReachableServicesProtos is the name of the HostReachableServicesProtos option
+	HostReachableServicesProtos = "host-reachable-services-protos"
+
+	// HostServicesTCP is the name of EnableHostServicesTCP config
+	HostServicesTCP = "tcp"
+
+	// HostServicesUDP is the name of EnableHostServicesUDP config
+	HostServicesUDP = "udp"
+
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
 
@@ -879,6 +888,8 @@ type DaemonConfig struct {
 	DisableK8sServices            bool
 	EnableLegacyServices          bool
 	EnableHostReachableServices   bool
+	EnableHostServicesTCP         bool
+	EnableHostServicesUDP         bool
 	DockerEndpoint                string
 	EnablePolicy                  string
 	EnableTracing                 bool
@@ -1287,6 +1298,11 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("%s must be set when using %s", ReadCNIConfiguration, WriteCNIConfigurationWhenReady)
 	}
 
+	if c.EnableHostReachableServices && !c.EnableHostServicesUDP && !c.EnableHostServicesTCP {
+		return fmt.Errorf("%s must be at minimum one of [%s,%s]",
+			HostReachableServicesProtos, HostServicesTCP, HostServicesUDP)
+	}
+
 	return nil
 }
 
@@ -1547,6 +1563,22 @@ func (c *DaemonConfig) Populate() {
 		}
 		if c.NodePortMax <= c.NodePortMin {
 			log.Fatal("NodePort range min port must be smaller than max port!")
+		}
+	}
+
+	hostServicesProtos := viper.GetStringSlice(HostReachableServicesProtos)
+	if len(hostServicesProtos) > 2 {
+		log.Fatal("Unable to parse protocols for host reachable services!")
+	}
+	for i := 0; i < len(hostServicesProtos); i++ {
+		switch strings.ToLower(hostServicesProtos[i]) {
+		case HostServicesTCP:
+			c.EnableHostServicesTCP = true
+		case HostServicesUDP:
+			c.EnableHostServicesUDP = true
+		default:
+			log.Fatalf("Unable to parse protocol %s for host reachable services!",
+				hostServicesProtos[i])
 		}
 	}
 

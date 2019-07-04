@@ -110,8 +110,14 @@ func (d *Daemon) compileBase() error {
 
 	if option.Config.EnableHostReachableServices {
 		args[initArgHostReachableServices] = "true"
+		if option.Config.EnableHostServicesUDP {
+			args[initArgHostReachableServicesUDP] = "true"
+		} else {
+			args[initArgHostReachableServicesUDP] = "false"
+		}
 	} else {
 		args[initArgHostReachableServices] = "false"
+		args[initArgHostReachableServicesUDP] = "false"
 	}
 
 	if option.Config.EncryptInterface != "" {

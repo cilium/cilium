@@ -91,7 +91,26 @@ __u64 sock_cookie_or_rnd(struct bpf_sock_addr *ctx)
 #endif
 }
 
+static __always_inline __maybe_unused
+bool sock_proto_enabled(const struct bpf_sock_addr *ctx)
+{
+	switch (ctx->protocol) {
+#ifdef ENABLE_HOST_SERVICES_TCP
+	case IPPROTO_TCP:
+		return true;
+#endif /* ENABLE_HOST_SERVICES_TCP */
+#ifdef ENABLE_HOST_SERVICES_UDP
+	case IPPROTO_UDPLITE:
+	case IPPROTO_UDP:
+		return true;
+#endif /* ENABLE_HOST_SERVICES_UDP */
+	default:
+		return false;
+	}
+}
+
 #ifdef ENABLE_IPV4
+#ifdef ENABLE_HOST_SERVICES_UDP
 struct ipv4_revnat_tuple {
 	__u64 cookie;
 	__be32 address;
@@ -132,6 +151,15 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	return map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey,
 			       &rval, 0);
 }
+#else
+static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
+				      struct lb4_backend *backend,
+				      struct lb4_key_v2 *lkey,
+				      struct lb4_service_v2 *slave_svc)
+{
+	return -1;
+}
+#endif /* ENABLE_HOST_SERVICES_UDP */
 
 static inline void sock4_handle_node_port(struct bpf_sock_addr *ctx,
 					  struct lb4_key_v2 *key)
@@ -175,6 +203,9 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	};
 	struct lb4_service_v2 *slave_svc;
 
+	if (!sock_proto_enabled(ctx))
+		return CONNECT_PROCEED;
+
 	sock4_handle_node_port(ctx, &key);
 
 	svc = __lb4_lookup_service_v2(&key);
@@ -207,6 +238,7 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 	return CONNECT_PROCEED;
 }
 
+#ifdef ENABLE_HOST_SERVICES_UDP
 __section("snd-sock4")
 int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 {
@@ -279,9 +311,11 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 
 	return RECVMSG_PROCEED;
 }
-#endif
+#endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
+#ifdef ENABLE_HOST_SERVICES_UDP
 struct ipv6_revnat_tuple {
 	__u64 cookie;
 	union v6addr address;
@@ -303,24 +337,6 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 	.max_elem	= 256 * 1024,
 };
 
-static __always_inline void ctx_get_v6_address(struct bpf_sock_addr *ctx,
-					       union v6addr *addr)
-{
-	addr->p1 = ctx->user_ip6[0];
-	addr->p2 = ctx->user_ip6[1];
-	addr->p3 = ctx->user_ip6[2];
-	addr->p4 = ctx->user_ip6[3];
-}
-
-static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
-					       union v6addr *addr)
-{
-	ctx->user_ip6[0] = addr->p1;
-	ctx->user_ip6[1] = addr->p2;
-	ctx->user_ip6[2] = addr->p3;
-	ctx->user_ip6[3] = addr->p4;
-}
-
 static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 				      struct lb6_backend *backend,
 				      struct lb6_key_v2 *lkey,
@@ -339,6 +355,33 @@ static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 
 	return map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey,
 			       &rval, 0);
+}
+#else
+static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
+				      struct lb6_backend *backend,
+				      struct lb6_key_v2 *lkey,
+				      struct lb6_service_v2 *slave_svc)
+{
+	return -1;
+}
+#endif /* ENABLE_HOST_SERVICES_UDP */
+
+static __always_inline void ctx_get_v6_address(struct bpf_sock_addr *ctx,
+					       union v6addr *addr)
+{
+	addr->p1 = ctx->user_ip6[0];
+	addr->p2 = ctx->user_ip6[1];
+	addr->p3 = ctx->user_ip6[2];
+	addr->p4 = ctx->user_ip6[3];
+}
+
+static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
+					       union v6addr *addr)
+{
+	ctx->user_ip6[0] = addr->p1;
+	ctx->user_ip6[1] = addr->p2;
+	ctx->user_ip6[2] = addr->p3;
+	ctx->user_ip6[3] = addr->p4;
 }
 
 static inline void sock6_handle_node_port(struct bpf_sock_addr *ctx,
@@ -385,6 +428,9 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 	};
 	struct lb6_service_v2 *slave_svc;
 
+	if (!sock_proto_enabled(ctx))
+		return CONNECT_PROCEED;
+
 	sock6_handle_node_port(ctx, &key);
 
 	svc = __lb6_lookup_service_v2(&key);
@@ -417,6 +463,7 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 	return CONNECT_PROCEED;
 }
 
+#ifdef ENABLE_HOST_SERVICES_UDP
 __section("snd-sock6")
 int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 {
@@ -489,6 +536,7 @@ int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 
 	return RECVMSG_PROCEED;
 }
-#endif
+#endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_IPV6 */
 
 BPF_LICENSE("GPL");
