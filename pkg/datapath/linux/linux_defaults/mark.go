@@ -42,7 +42,7 @@ package linux_defaults
 // 1 1 0 0 From host
 // 0 0 1 0 To Ingress Proxy
 // 0 0 1 1 To Egress proxy
-//
+// 0 1 0 1 NodePort reply
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
 	// bits from a mark.
@@ -61,6 +61,10 @@ const (
 	// to determine whether the mark is indicating that traffic is destined
 	// to a proxy.
 	MagicMarkIsToProxy uint32 = 0x0200
+
+	// MagicMarkNodePortReply determines that the packet is a reply to
+	// a NodePort request.
+	MagicMarkNodePortReply int = 0x0500
 
 	// MagicMarkIngress determines that the traffic is sourced from the
 	// proxy which is applying Ingress policy

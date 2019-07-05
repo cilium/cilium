@@ -205,8 +205,10 @@ ct_recreate6:
 
 #ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc(). */
-		if (ct_state.node_port)
+		if (ct_state.node_port) {
+			skb->mark |= MARK_MAGIC_NODE_PORT_REPLY;
 			return redirect(NATIVE_DEV_IFINDEX, 0);
+		}
 #endif
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(skb, l4_off, &csum_off,

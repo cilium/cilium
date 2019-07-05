@@ -554,6 +554,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			// * May not leave on a cilium_ interface, this excludes all
 			//   tunnel traffic
 			// * Must originate from an IP in the local allocation range
+			// * Must not be reply to BPF NodePort request
 			// * Tunnel mode:
 			//   * May not be targeted to an IP in the local allocation
 			//     range
@@ -570,14 +571,23 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					return err
 				}
 			} else {
-				if err := runProg("iptables", []string{
+				rule := []string{
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
 					"-s", node.GetIPv4AllocRange().String(),
 					"!", "-d", remoteSnatDstAddrExclusion(),
 					"!", "-o", "cilium_+",
+				}
+				if option.Config.EnableNodePort {
+					nodePortReply := fmt.Sprintf("%#08x", linux_defaults.MagicMarkNodePortReply)
+					rule = append(rule,
+						"-m", "mark", "--mark", nodePortReply)
+				}
+				rule = append(rule,
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
-					"-j", "MASQUERADE"}, false); err != nil {
+					"-j", "MASQUERADE")
+
+				if err := runProg("iptables", rule, false); err != nil {
 					return err
 				}
 			}
