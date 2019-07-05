@@ -51,14 +51,18 @@ pipeline {
         }
         stage('Boot VMs'){
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 60, unit: 'MINUTES')
             }
             environment {
                 TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
-                sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                retry(3){
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy --force'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant destroy --force'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up --no-provision'
+                    sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant up --no-provision'
+                }
             }
         }
         stage('BDD-Test-PR') {
