@@ -958,6 +958,11 @@ func initEnv(cmd *cobra.Command) {
 		scopedLog.WithError(err).Fatal("Could not create library directory")
 	}
 	if !option.Config.KeepTemplates {
+		// We need to remove the old probes here as otherwise stale .t tests could
+		// still reside from newer Cilium versions which might break downgrade.
+		if err := os.RemoveAll(filepath.Join(option.Config.BpfDir, "/probes/")); err != nil {
+			scopedLog.WithError(err).Fatal("Could not delete old probes from library directory")
+		}
 		if err := RestoreAssets(option.Config.LibDir, defaults.BpfDir); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to restore agent assets")
 		}
