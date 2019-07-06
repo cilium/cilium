@@ -171,6 +171,12 @@ const (
 	// KVstorePeriodicSync is the default kvstore periodic sync interval
 	KVstorePeriodicSync = 5 * time.Minute
 
+	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
+	KVstoreConnectivityTimeout = 2 * time.Minute
+
+	// IPAllocationTimeout is the timeout when allocating CIDRs
+	IPAllocationTimeout = 2 * time.Minute
+
 	// PolicyQueueSize is the default queue size for policy-related events.
 	PolicyQueueSize = 100
 
