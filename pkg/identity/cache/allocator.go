@@ -300,7 +300,10 @@ func AllocateIdentity(ctx context.Context, owner IdentityAllocatorOwner, lbls la
 
 	// This will block until the kvstore can be accessed and all identities
 	// were successfully synced
-	WaitForInitialGlobalIdentities(ctx)
+	err = WaitForInitialGlobalIdentities(ctx)
+	if err != nil {
+		return nil, false, err
+	}
 
 	if IdentityAllocator == nil {
 		return nil, false, fmt.Errorf("allocator not initialized")
@@ -352,7 +355,10 @@ func Release(ctx context.Context, owner IdentityAllocatorOwner, id *identity.Ide
 
 	// This will block until the kvstore can be accessed and all identities
 	// were successfully synced
-	WaitForInitialGlobalIdentities(ctx)
+	err = WaitForInitialGlobalIdentities(ctx)
+	if err != nil {
+		return false, err
+	}
 
 	if IdentityAllocator == nil {
 		return false, fmt.Errorf("allocator not initialized")

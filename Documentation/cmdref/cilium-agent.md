@@ -76,6 +76,7 @@ cilium-agent [flags]
       --identity-allocation-mode string            Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration      Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                     Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
+      --ip-allocation-timeout duration             Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ipam string                                Backend to use for IPAM
       --ipsec-key-file string                      Path to IPSec key file
       --ipv4-cluster-cidr-mask-size int            Mask size for the cluster wide CIDR (default 8)
@@ -99,6 +100,7 @@ cilium-agent [flags]
       --keep-bpf-templates                         Do not restore BPF template files from binary
       --keep-config                                When restoring state, keeps containers' configuration in place
       --kvstore string                             Key-value store type
+      --kvstore-connectivity-timeout duration      Time after which an incomplete kvstore operation  is considered failed (default 2m0s)
       --kvstore-opt map                            Key-value store options (default map[])
       --kvstore-periodic-sync duration             Periodic KVstore synchronization interval (default 5m0s)
       --label-prefix-file string                   Valid label prefixes file path

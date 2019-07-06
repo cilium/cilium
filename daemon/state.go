@@ -269,7 +269,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			l, _ := labels.FilterLabels(ep.OpLabels.AllLabels())
 			ep.RUnlock()
 
-			identity, _, err := cache.AllocateIdentity(context.Background(), d, l)
+			allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+			defer cancel()
+			identity, _, err := cache.AllocateIdentity(allocateCtx, d, l)
 
 			if err != nil {
 				scopedLog.WithError(err).Warn("Unable to restore endpoint")
@@ -282,7 +284,14 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// endpoints that don't have a fixed identity or are
 			// not well known.
 			if !identity.IsFixed() && !identity.IsWellKnown() {
-				cache.WaitForInitialGlobalIdentities(context.Background())
+				identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+				defer cancel()
+
+				err = cache.WaitForInitialGlobalIdentities(identityCtx)
+				if err != nil {
+					scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
+					return
+				}
 				ipcache.WaitForInitialSync()
 			}
 

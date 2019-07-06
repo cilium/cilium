@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
@@ -61,8 +62,12 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 		}
 
 		prefixStr := prefix.String()
+
 		// Figure out if this call needs to be able to update the selector cache synchronously.
-		id, isNew, err := cache.AllocateIdentity(context.Background(), nil, cidr.GetCIDRLabels(prefix))
+		allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
+		defer cancel()
+
+		id, isNew, err := cache.AllocateIdentity(allocateCtx, nil, cidr.GetCIDRLabels(prefix))
 		if err != nil {
 			cache.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefixStr, err)
@@ -104,7 +109,10 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 		}
 
 		if id := cache.LookupIdentity(cidr.GetCIDRLabels(prefix)); id != nil {
-			released, err := cache.Release(context.Background(), nil, id)
+			releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+			defer cancel()
+
+			released, err := cache.Release(releaseCtx, nil, id)
 			if err != nil {
 				log.WithError(err).Warningf("Unable to release identity for CIDR %s. Ignoring error. Identity may be leaked", prefix.String())
 			}

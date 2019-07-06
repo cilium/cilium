@@ -452,6 +452,12 @@ const (
 	// synchronization with the kvstore occurs
 	KVstorePeriodicSync = "kvstore-periodic-sync"
 
+	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
+	KVstoreConnectivityTimeout = "kvstore-connectivity-timeout"
+
+	// IPAllocationTimeout is the timeout when allocating CIDRs
+	IPAllocationTimeout = "ip-allocation-timeout"
+
 	// IdentityChangeGracePeriod is the name of the
 	// IdentityChangeGracePeriod option
 	IdentityChangeGracePeriod = "identity-change-grace-period"
@@ -1013,6 +1019,12 @@ type DaemonConfig struct {
 	// synchronization with the kvstore occurs
 	KVstorePeriodicSync time.Duration
 
+	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
+	KVstoreConnectivityTimeout time.Duration
+
+	// IPAllocationTimeout is the timeout when allocating CIDRs
+	IPAllocationTimeout time.Duration
+
 	// IdentityChangeGracePeriod is the grace period that needs to pass
 	// before an endpoint that has changed its identity will start using
 	// that new identity. During the grace period, the new identity has
@@ -1144,6 +1156,8 @@ var (
 		EnableIPv6:                   defaults.EnableIPv6,
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
 		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
+		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
+		IPAllocationTimeout:          defaults.IPAllocationTimeout,
 		IdentityChangeGracePeriod:    defaults.IdentityChangeGracePeriod,
 		ContainerRuntimeEndpoint:     make(map[string]string),
 		FixedIdentityMapping:         make(map[string]string),
@@ -1496,6 +1510,8 @@ func (c *DaemonConfig) Populate() {
 	c.KVstoreLeaseTTL = viper.GetDuration(KVstoreLeaseTTL)
 	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = viper.GetDuration(KVstorePeriodicSync)
+	c.KVstoreConnectivityTimeout = viper.GetDuration(KVstoreConnectivityTimeout)
+	c.IPAllocationTimeout = viper.GetDuration(IPAllocationTimeout)
 	c.LabelPrefixFile = viper.GetString(LabelPrefixFile)
 	c.Labels = viper.GetStringSlice(Labels)
 	c.LBInterface = viper.GetString(LB)
