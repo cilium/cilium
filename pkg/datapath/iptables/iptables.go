@@ -579,9 +579,11 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					"!", "-o", "cilium_+",
 				}
 				if option.Config.EnableNodePort {
-					nodePortReply := fmt.Sprintf("%#08x", linux_defaults.MagicMarkNodePortReply)
+					nodePortReply := fmt.Sprintf("%#08x/%#08x",
+						linux_defaults.MagicMarkNodePortReply,
+						linux_defaults.MagicMarkNodePortReply)
 					rule = append(rule,
-						"-m", "mark", "--mark", nodePortReply)
+						"-m", "mark", "!", "--mark", nodePortReply)
 				}
 				rule = append(rule,
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",

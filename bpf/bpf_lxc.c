@@ -522,6 +522,7 @@ ct_recreate4:
 		 * perform the reverse DNAT.
 		 */
 		if (ct_state.node_port) {
+			skb->mark |= MARK_MAGIC_NODE_PORT_REPLY;
 			return redirect(NATIVE_DEV_IFINDEX, 0);
 		}
 #endif /* ENABLE_NODEPORT */
