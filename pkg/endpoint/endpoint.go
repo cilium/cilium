@@ -1337,7 +1337,11 @@ func (e *Endpoint) LeaveLocked(owner regeneration.Owner, proxyWaitGroup *complet
 
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		identitymanager.Remove(e.SecurityIdentity)
-		_, err := cache.Release(context.Background(), owner, e.SecurityIdentity)
+
+		releaseCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		_, err := cache.Release(releaseCtx, owner, e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
@@ -1947,7 +1951,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration
 	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	identity, _, err := cache.AllocateIdentity(ctx, owner, newLabels)
+	allocateCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	identity, _, err := cache.AllocateIdentity(allocateCtx, owner, newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
