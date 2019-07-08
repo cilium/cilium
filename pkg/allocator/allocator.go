@@ -190,11 +190,25 @@ type Backend interface {
 	// DeleteAllKeys will delete all keys
 	DeleteAllKeys()
 
-	//FIXME: missing KVLocker parameter?
+	// AllocateID creates a new key->ID association. The ID may be allocated by
+	// another node, and an error is not expected to always be fatal. The actual
+	// ID is obtained by Allocator from the local idPool, which is updated with
+	// used-IDs as the Backend makes calls to the handler in ListAndWatch.
 	AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) error
+
+	// AcquireReference records that this node is using this key->ID mapping.
+	// This is distinct from any reference counting within this agent; only one
+	// reference exists for this node for any number of managed endpoints using
+	// it.
+	// The semantics of cleaning up stale references is delegated to the Backend
+	// implementation. RunGC may need to be invoked.
+	// This can race, and so lock can be provided (via a Lock call, below).
 	AcquireReference(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) error
 
-	Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLocker, error)
+	// Release releases the use of an ID associated with the provided key. It
+	// does not guard against concurrent calls to
+	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
+	Release(ctx context.Context, key AllocatorKey) (err error)
 
 	// UpdateKey refreshes the record that this node is using this key -> id
 	// mapping. When reliablyMissing is set it will also recreate missing master or
@@ -202,21 +216,36 @@ type Backend interface {
 	//
 	UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing bool) error
 
+	// Get returns the allocated ID for this key as seen by the Backend. This may
+	// have been created by other agents.
 	Get(ctx context.Context, key AllocatorKey) (idpool.ID, error)
+
+	// GetIfLocked behaves like Get, but returns an error when the key value has
+	// changed since lock was created with Lock.
+	GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error)
+
+	// GetByID returns the key associated with this ID, as seen by the Backend.
+	// This may have been created by other agents.
 	GetByID(id idpool.ID) (AllocatorKey, error)
 
-	// Release releases the use of an ID associated with the provided key. It
-	// does not guard against concurrent calls to
-	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
-	Release(ctx context.Context, key AllocatorKey) (err error)
+	// Lock provides an opaque lock object that can be used, later, to ensure
+	// that the key has not changed since the lock was created. This can be done
+	// with GetIfLocked.
+	Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLocker, error)
 
+	// ListAndWatch begins synchronizing the local Backend instance with its
+	// remote.
 	ListAndWatch(handler CacheMutations, stopChan chan struct{})
 
+	// RunGC reaps stale or unused identities within the Backend and makes them
+	// available for reuse. It is used by the cilium-operator and is not invoked
+	// by cilium-agent.
+	// Note: not all Backend implemenations rely on this, such as the kvstore
+	// backends, and may use leases to expire keys.
 	RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
 
+	// Status returns a human-readable status of the Backend.
 	Status() (string, error)
-
-	GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error)
 }
 
 // NewAllocator creates a new Allocator. Any type can be used as key as long as
@@ -495,16 +524,6 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, fmt.Errorf("Found master key after proceeding with new allocation for %s", k)
 	}
 
-	//FIXME: missing lock parameter. master calls CreateOnlyIfLocked.
-	//// create /id/<ID> and fail if it already exists
-	//keyPath := path.Join(a.idPrefix, strID)
-	//success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, []byte(k), false, lock)
-	//if err != nil || !success {
-	//	// Creation failed. Another agent most likely beat us to allocating this
-	//	// ID, retry.
-	//	releaseKeyAndID()
-	//	return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
-	//}
 	err = a.backend.AllocateID(ctx, id, key)
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this

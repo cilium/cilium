@@ -75,9 +75,20 @@ func newCache(a *Allocator) cache {
 type waitChan chan bool
 
 type CacheMutations interface {
+	// OnListDone is called when the initial full-sync is complete.
 	OnListDone()
+
+	// OnAdd is called when a new key->ID appears.
 	OnAdd(id idpool.ID, key AllocatorKey)
+
+	// OnModify is called when a key->ID mapping is modified. This may happen
+	// when leases are updated, and does not mean the actual mapping had changed.
 	OnModify(id idpool.ID, key AllocatorKey)
+
+	// OnDelete is called when a key->ID mapping is removed. This may trigger
+	// master-key protection, if enabled, where the local allocator will recreate
+	// the key->ID association is recreated because the local node is still using
+	// it.
 	OnDelete(id idpool.ID, key AllocatorKey)
 }
 
