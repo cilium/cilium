@@ -794,6 +794,84 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 
 #endif /* ENABLE_IPV4 */
 
+static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
+{
+	__u32 seclabel, tunnel_endpoint = 0;
+#ifdef IP_POOLS
+	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
+	struct bpf_fib_lookup fib_params = {};
+	void *data, *data_end;
+	struct iphdr *iphdr;
+	__be32 sum;
+#endif
+
+	seclabel = get_identity(skb);
+	tunnel_endpoint = skb->cb[4];
+	skb->mark = 0;
+#ifdef ENCAP_IFINDEX
+	bpf_clear_cb(skb);
+	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+#endif
+#ifdef IP_POOLS
+	if (!revalidate_data(skb, &data, &data_end, &iphdr))
+		return DROP_INVALID;
+
+	/* When IP_POOLS is enabled ip addresses are not
+	 * assigned on a per node basis so lacking node
+	 * affinity we can not use IP address to assign the
+	 * destination IP. Instead rewrite it here from cb[].
+	 */
+	sum = csum_diff(&iphdr->daddr, 4, &tunnel_endpoint, 4, 0);
+	if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, daddr),
+	    &tunnel_endpoint, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
+	    0, sum, 0) < 0)
+		return DROP_CSUM_L3;
+
+	if (!revalidate_data(skb, &data, &data_end, &iphdr))
+		return DROP_INVALID;
+
+	sum = csum_diff(&iphdr->saddr, 4, &tunnel_source, 4, 0);
+	if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, saddr),
+	    &tunnel_source, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
+	    0, sum, 0) < 0)
+		return DROP_CSUM_L3;
+
+#ifdef HAVE_FIB_LOOKUP
+	{
+	int err;
+
+	if (!revalidate_data(skb, &data, &data_end, &iphdr))
+		return DROP_INVALID;
+
+	fib_params.family = AF_INET;
+	fib_params.ifindex = ENCRYPT_IFACE;
+
+	fib_params.ipv4_src = iphdr->saddr;
+	fib_params.ipv4_dst = iphdr->daddr;
+
+	err = fib_lookup(skb, &fib_params, sizeof(fib_params),
+		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+	if (err != 0)
+		return DROP_INVALID;
+	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+		return DROP_WRITE_ERROR;
+	}
+#endif
+#endif
+	bpf_clear_cb(skb);
+#ifdef ENCRYPT_NODE
+	return redirect(ENCRYPT_IFACE, 0);
+#else
+	return TC_ACT_OK;
+#endif
+}
+
 static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 {
 	__u32 identity = 0;
@@ -803,82 +881,8 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 	if (1) {
 		__u32 magic = skb->mark & MARK_MAGIC_HOST_MASK;
 
-		if (magic == MARK_MAGIC_ENCRYPT) {
-			__u32 seclabel, tunnel_endpoint = 0;
-#ifdef IP_POOLS
-			__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
-			struct bpf_fib_lookup fib_params = {};
-			void *data, *data_end;
-			struct iphdr *iphdr;
-			__be32 sum;
-#endif
-
-			seclabel = get_identity(skb);
-			tunnel_endpoint = skb->cb[4];
-			skb->mark = 0;
-#ifdef ENCAP_IFINDEX
-			bpf_clear_cb(skb);
-			return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
-#endif
-#ifdef IP_POOLS
-			if (!revalidate_data(skb, &data, &data_end, &iphdr))
-				return DROP_INVALID;
-
-			/* When IP_POOLS is enabled ip addresses are not
-			 * assigned on a per node basis so lacking node
-			 * affinity we can not use IP address to assign the
-			 * destination IP. Instead rewrite it here from cb[].
-			 */
-			sum = csum_diff(&iphdr->daddr, 4, &tunnel_endpoint, 4, 0);
-			if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, daddr),
-			    &tunnel_endpoint, 4, 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
-				return DROP_CSUM_L3;
-
-			if (!revalidate_data(skb, &data, &data_end, &iphdr))
-				return DROP_INVALID;
-
-			sum = csum_diff(&iphdr->saddr, 4, &tunnel_source, 4, 0);
-			if (skb_store_bytes(skb, ETH_HLEN + offsetof(struct iphdr, saddr),
-			    &tunnel_source, 4, 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (l3_csum_replace(skb, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
-				return DROP_CSUM_L3;
-
-#ifdef HAVE_FIB_LOOKUP
-			{
-			int err;
-
-			if (!revalidate_data(skb, &data, &data_end, &iphdr))
-				return DROP_INVALID;
-
-			fib_params.family = AF_INET;
-			fib_params.ifindex = ENCRYPT_IFACE;
-
-			fib_params.ipv4_src = iphdr->saddr;
-			fib_params.ipv4_dst = iphdr->daddr;
-
-			err = fib_lookup(skb, &fib_params, sizeof(fib_params),
-					    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-			if (err != 0)
-				return DROP_INVALID;
-			if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
-				return DROP_WRITE_ERROR;
-			}
-#endif
-#endif
-			bpf_clear_cb(skb);
-#ifdef ENCRYPT_NODE
-			return redirect(ENCRYPT_IFACE, 0);
-#else
-			return TC_ACT_OK;
-#endif
-		}
+		if (magic == MARK_MAGIC_ENCRYPT)
+			return do_netdev_encrypt(skb);
 	}
 #endif
 	bpf_clear_cb(skb);
