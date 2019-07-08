@@ -258,7 +258,10 @@ func (k *kvstoreBackend) GetByID(id idpool.ID) (allocator.AllocatorKey, error) {
 	return k.keyType.PutKey(string(v))
 }
 
-func (k *kvstoreBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) {
+// UpdateKey refreshes the record that this node is using this key -> id
+// mapping. When reliablyMissing is set it will also recreate missing master or
+// slave keys.
+func (k *kvstoreBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
 	var (
 		err       error
 		recreated bool
@@ -271,7 +274,7 @@ func (k *kvstoreBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, rel
 	success, err := kvstore.CreateOnly(context.TODO(), keyPath, []byte(key.GetKey()), false)
 	switch {
 	case err != nil:
-		log.WithError(err).WithField(fieldKey, keyPath).Warning("Unable to re-create missing master key")
+		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %s", fieldKey, valueKey, err)
 	case success:
 		log.WithField(fieldKey, keyPath).Warning("Re-created missing master key")
 	}
@@ -286,10 +289,12 @@ func (k *kvstoreBackend) UpdateKey(id idpool.ID, key allocator.AllocatorKey, rel
 	}
 	switch {
 	case err != nil:
-		log.WithError(err).WithField(fieldKey, valueKey).Warning("Unable to re-create missing slave key")
+		return fmt.Errorf("Unable to re-create missing slave key \"%s\" -> \"%s\": %s", fieldKey, valueKey, err)
 	case recreated:
 		log.WithField(fieldKey, valueKey).Warning("Re-created missing slave key")
 	}
+
+	return nil
 }
 
 // Release releases the use of an ID associated with the provided key.  It does

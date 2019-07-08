@@ -106,10 +106,11 @@ func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLo
 	return &dummyLock{}, nil
 }
 
-func (d *dummyBackend) UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing bool) {
+func (d *dummyBackend) UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.identities[id] = key
+	return nil
 }
 
 //FIXME: Does this actually need to lock?

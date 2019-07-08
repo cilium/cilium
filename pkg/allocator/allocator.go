@@ -196,12 +196,18 @@ type Backend interface {
 
 	Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLocker, error)
 
-	//FIXME: return errors and log them
-	UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing bool)
+	// UpdateKey refreshes the record that this node is using this key -> id
+	// mapping. When reliablyMissing is set it will also recreate missing master or
+	// slave keys.
+	//
+	UpdateKey(id idpool.ID, key AllocatorKey, reliablyMissing bool) error
 
 	Get(ctx context.Context, key AllocatorKey) (idpool.ID, error)
 	GetByID(id idpool.ID) (AllocatorKey, error)
 
+	// Release releases the use of an ID associated with the provided key. It
+	// does not guard against concurrent calls to
+	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
 	Release(ctx context.Context, key AllocatorKey) (err error)
 
 	ListAndWatch(handler CacheMutations, stopChan chan struct{})
@@ -424,11 +430,9 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		value = a.localKeys.lookupKey(k)
 		if value != 0 {
 			// re-create master key
-			// FIXME: Might need error returns to return the error here
-			//if success, err := a.backend.UpdateKey(value, key, true); err != nil || !success {
-			//	return 0, false, fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
-			//}
-			a.backend.UpdateKey(value, key, true)
+			if err := a.backend.UpdateKey(value, key, true); err != nil {
+				return 0, false, fmt.Errorf("unable to re-create missing master key '%s': %s while allocating ID", key, value, err)
+			}
 		}
 	} else {
 		_, err := a.localKeys.allocate(k, key, value) // Why do we pass k and key? k := key.GetKey()
@@ -682,8 +686,9 @@ func (a *Allocator) syncLocalKeys() error {
 	ids := a.localKeys.getVerifiedIDs()
 
 	for id, value := range ids {
-		// FIXME: Might need error returns to return the error here
-		a.backend.UpdateKey(id, value, false)
+		if err := a.backend.UpdateKey(id, value, false); err != nil {
+			return fmt.Errorf("unable to sync key '%s': %s", id, value, err)
+		}
 	}
 
 	return nil
