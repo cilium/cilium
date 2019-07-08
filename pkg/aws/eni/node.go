@@ -530,7 +530,7 @@ func (n *Node) SyncToAPIServer() (err error) {
 	scopedLog.Debug("Refreshing node")
 
 	node := n.ResourceCopy()
-	origNode := n.ResourceCopy()
+	origNode := node.DeepCopy()
 
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -559,8 +559,17 @@ func (n *Node) SyncToAPIServer() (err error) {
 		updatedNode, err = n.manager.k8sAPI.UpdateStatus(node, origNode)
 		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()
-		}
-		if err == nil || updatedNode == nil {
+			if err == nil {
+				break
+			}
+		} else if err != nil {
+			node, err = n.manager.k8sAPI.Get(node.Name)
+			if err != nil {
+				break
+			}
+			node = node.DeepCopy()
+			origNode = node.DeepCopy()
+		} else {
 			break
 		}
 	}
@@ -589,8 +598,17 @@ func (n *Node) SyncToAPIServer() (err error) {
 		updatedNode, err = n.manager.k8sAPI.Update(node, origNode)
 		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()
-		}
-		if err == nil || updatedNode == nil {
+			if err == nil {
+				break
+			}
+		} else if err != nil {
+			node, err = n.manager.k8sAPI.Get(node.Name)
+			if err != nil {
+				break
+			}
+			node = node.DeepCopy()
+			origNode = node.DeepCopy()
+		} else {
 			break
 		}
 	}
