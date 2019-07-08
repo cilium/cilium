@@ -208,7 +208,7 @@ func shuffleMaps(realized, backup, pending string) error {
 //   BPF programs so that they pick up the new map.
 //
 // Returns an error if garbage collection failed to occur.
-func (l *BPFListener) garbageCollect(ctx context.Context) error {
+func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, error) {
 	log.Debug("Running garbage collection for BPF IPCache")
 
 	// Since controllers run asynchronously, need to make sure
@@ -220,7 +220,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) error {
 	if ipcacheMap.SupportsDelete() {
 		keysToRemove := map[string]*ipcacheMap.Key{}
 		if err := l.bpfMap.DumpWithCallback(updateStaleEntriesFunction(keysToRemove)); err != nil {
-			return fmt.Errorf("error dumping ipcache BPF map: %s", err)
+			return nil, fmt.Errorf("error dumping ipcache BPF map: %s", err)
 		}
 
 		// Remove all keys which are not in in-memory cache from BPF map
@@ -229,7 +229,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) error {
 			log.WithFields(logrus.Fields{logfields.BPFMapKey: k}).
 				Debug("deleting from ipcache BPF map")
 			if err := l.bpfMap.Delete(k); err != nil {
-				return fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
+				return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 			}
 		}
 	} else {
@@ -237,7 +237,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) error {
 		pendingMapName := fmt.Sprintf("%s_pending", ipcacheMap.Name)
 		pendingMap := ipcacheMap.NewMap(pendingMapName)
 		if _, err := pendingMap.OpenOrCreate(); err != nil {
-			return fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
+			return nil, fmt.Errorf("Unable to create %s map: %s", pendingMapName, err)
 		}
 		pendingListener := newListener(pendingMap, l.datapath)
 		ipcache.IPIdentityCache.DumpToListenerLocked(pendingListener)
@@ -250,13 +250,13 @@ func (l *BPFListener) garbageCollect(ctx context.Context) error {
 		// will pick up the new paths without requiring recompilation.
 		backupMapName := fmt.Sprintf("%s_old", ipcacheMap.Name)
 		if err := shuffleMaps(ipcacheMap.Name, backupMapName, pendingMapName); err != nil {
-			return err
+			return nil, err
 		}
 
 		wg, err := l.datapath.TriggerReloadWithoutCompile("datapath ipcache")
 		if err != nil {
 			handleMapShuffleFailure(backupMapName, ipcacheMap.Name)
-			return err
+			return nil, err
 		}
 
 		// If the base programs successfully compiled, then the maps
@@ -266,11 +266,11 @@ func (l *BPFListener) garbageCollect(ctx context.Context) error {
 		if err := ipcacheMap.Reopen(); err != nil {
 			// Very unlikely; base program compilation succeeded.
 			log.WithError(err).Warning("Failed to reopen BPF ipcache map")
-			return err
+			return nil, err
 		}
-		wg.Wait()
+		return wg, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // OnIPIdentityCacheGC spawns a controller which synchronizes the BPF IPCache Map
@@ -286,7 +286,16 @@ func (l *BPFListener) OnIPIdentityCacheGC() {
 	// consistent state.
 	controller.NewManager().UpdateController("ipcache-bpf-garbage-collection",
 		controller.ControllerParams{
-			DoFunc:      l.garbageCollect,
+			DoFunc: func(ctx context.Context) error {
+				wg, err := l.garbageCollect(ctx)
+				if err != nil {
+					return err
+				}
+				if wg != nil {
+					wg.Wait()
+				}
+				return nil
+			},
 			RunInterval: 5 * time.Minute,
 		},
 	)
