@@ -554,7 +554,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			// * May not leave on a cilium_ interface, this excludes all
 			//   tunnel traffic
 			// * Must originate from an IP in the local allocation range
-			// * Must not be reply to BPF NodePort request
+			// * Must not be reply if BPF NodePort is enabled
 			// * Tunnel mode:
 			//   * May not be targeted to an IP in the local allocation
 			//     range
@@ -579,11 +579,11 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					"!", "-o", "cilium_+",
 				}
 				if option.Config.EnableNodePort {
-					nodePortReply := fmt.Sprintf("%#08x/%#08x",
-						linux_defaults.MagicMarkNodePortReply,
-						linux_defaults.MagicMarkNodePortReply)
+					replyMark := fmt.Sprintf("%#08x/%#08x",
+						linux_defaults.MagicMarkReply,
+						linux_defaults.MagicMarkReply)
 					rule = append(rule,
-						"-m", "mark", "!", "--mark", nodePortReply)
+						"-m", "mark", "!", "--mark", replyMark)
 				}
 				rule = append(rule,
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
