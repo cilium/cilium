@@ -99,10 +99,9 @@ func invalidKey(key, prefix string, deleteInvalid bool) {
 	}
 }
 
-func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
+func (k *cache) keyToID(key string) (id idpool.ID, err error) {
 	if !strings.HasPrefix(key, c.prefix) {
-		invalidKey(key, c.prefix, deleteInvalid)
-		return idpool.NoID
+		return idpool.NoID, fmt.Errorf("Found invalid key \"%s\" outside of prefix \"%s\"", key, k.idPrefix)
 	}
 
 	suffix := strings.TrimPrefix(key, c.prefix)
@@ -110,13 +109,12 @@ func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
 		suffix = suffix[1:]
 	}
 
-	id, err := strconv.ParseUint(suffix, 10, 64)
+	idParsed, err := strconv.ParseUint(suffix, 10, 64)
 	if err != nil {
-		invalidKey(key, c.prefix, deleteInvalid)
-		return idpool.NoID
+		return idpool.NoID, fmt.Errorf("Cannot parse key suffix \"%s\"", suffix)
 	}
 
-	return idpool.ID(id)
+	return idpool.ID(idParsed), nil
 }
 
 // start requests a LIST operation from the kvstore and starts watching the
@@ -160,8 +158,16 @@ func (c *cache) start(a *Allocator) waitChan {
 					continue
 				}
 
-				id := c.keyToID(event.Key, c.deleteInvalidPrefixes)
-				if id != 0 {
+				id, err := k.keyToID(event.Key)
+				switch {
+				case err != nil:
+					log.WithError(err).Warning("Invalid key")
+
+					if k.deleteInvalidPrefixes {
+						kvstore.Delete(event.Key)
+					}
+
+				case id != 0:
 					c.mutex.Lock()
 
 					var key AllocatorKey
