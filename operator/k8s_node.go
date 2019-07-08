@@ -120,11 +120,25 @@ func runNodeWatcher() error {
 
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, nodeController.HasSynced)
+
 		serNodes.Enqueue(func() error {
 			// Since we serialize all events received from k8s we know that
 			// at this point the list in k8sNodeStore should be the source of truth
 			// and we need to delete all nodes in the kvNodeStore that are *not*
 			// present in the k8sNodeStore.
+
+			if enableENI {
+				nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(meta_v1.ListOptions{})
+				if err != nil {
+					log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
+				} else {
+					for _, node := range nodes.Items {
+						if _, ok, err := k8sNodeStore.GetByKey(node.Name); !ok && err == nil {
+							deleteCiliumNode(node.Name)
+						}
+					}
+				}
+			}
 
 			listOfK8sNodes := k8sNodeStore.ListKeys()
 
