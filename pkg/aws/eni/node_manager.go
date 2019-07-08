@@ -33,6 +33,7 @@ import (
 type k8sAPI interface {
 	Update(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
 	UpdateStatus(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
+	Get(name string) (*v2.CiliumNode, error)
 }
 
 type nodeManagerAPI interface {

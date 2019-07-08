@@ -93,6 +93,10 @@ func (k *k8sMock) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, e
 	return nil, nil
 }
 
+func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
+	return &v2.CiliumNode{}, nil
+}
+
 func newCiliumNode(node, instanceID, instanceType, az, vpcID string, preAllocate, minAllocate, available, used int) *v2.CiliumNode {
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},

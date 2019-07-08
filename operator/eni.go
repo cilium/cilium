@@ -31,11 +31,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var nodeManager *eni.NodeManager
 
 type k8sAPI struct{}
+
+func (k *k8sAPI) Get(node string) (*v2.CiliumNode, error) {
+	return ciliumK8sClient.CiliumV2().CiliumNodes().Get(node, metav1.GetOptions{})
+}
 
 func (k *k8sAPI) UpdateStatus(node, origNode *v2.CiliumNode) (*v2.CiliumNode, error) {
 	// If k8s supports status as a sub-resource, then we need to update the status separately
