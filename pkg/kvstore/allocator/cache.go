@@ -15,6 +15,7 @@
 package allocator
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -91,18 +92,9 @@ func (c *cache) getLogger() *logrus.Entry {
 	})
 }
 
-func invalidKey(key, prefix string, deleteInvalid bool) {
-	log.WithFields(logrus.Fields{fieldKey: key, fieldPrefix: prefix}).Warning("Found invalid key outside of prefix")
-
-	if deleteInvalid {
-		kvstore.Delete(key)
-	}
-}
-
-func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
+func (c *cache) keyToID(key string) (id idpool.ID, err error) {
 	if !strings.HasPrefix(key, c.prefix) {
-		invalidKey(key, c.prefix, deleteInvalid)
-		return idpool.NoID
+		return idpool.NoID, fmt.Errorf("Found invalid key \"%s\" outside of prefix \"%s\"", key, c.prefix)
 	}
 
 	suffix := strings.TrimPrefix(key, c.prefix)
@@ -110,13 +102,12 @@ func (c *cache) keyToID(key string, deleteInvalid bool) idpool.ID {
 		suffix = suffix[1:]
 	}
 
-	id, err := strconv.ParseUint(suffix, 10, 64)
+	idParsed, err := strconv.ParseUint(suffix, 10, 64)
 	if err != nil {
-		invalidKey(key, c.prefix, deleteInvalid)
-		return idpool.NoID
+		return idpool.NoID, fmt.Errorf("Cannot parse key suffix \"%s\"", suffix)
 	}
 
-	return idpool.ID(id)
+	return idpool.ID(idParsed), nil
 }
 
 // start requests a LIST operation from the kvstore and starts watching the
@@ -160,8 +151,16 @@ func (c *cache) start(a *Allocator) waitChan {
 					continue
 				}
 
-				id := c.keyToID(event.Key, c.deleteInvalidPrefixes)
-				if id != 0 {
+				id, err := c.keyToID(event.Key)
+				switch {
+				case err != nil:
+					log.WithError(err).WithField(fieldKey, event.Value).Warning("Invalid key")
+
+					if c.deleteInvalidPrefixes {
+						kvstore.Delete(event.Key)
+					}
+
+				case id != idpool.NoID:
 					c.mutex.Lock()
 
 					var key AllocatorKey
