@@ -1147,7 +1147,13 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.EnableNodePort && option.Config.Device == "undefined" {
-		log.Fatal("BPF NodePort needs external facing device specified")
+		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			log.Fatal("BPF NodePort's external facing device could not be determined. Use --device to specify.")
+		}
+		log.WithField(logfields.Interface, device).
+			Info("Using auto-derived device for BPF node port")
+		option.Config.Device = device
 	}
 
 	if option.Config.EnableHostReachableServices {
