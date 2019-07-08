@@ -51,6 +51,8 @@ func newLocalKeys() *localKeys {
 // allocate creates an entry for key in localKeys if needed and increments the
 // refcnt. The value associated with the key must match the local cache or an
 // error is returned
+// Note: keyString is expected to be key.GetKey(). We allow it to be passed in
+// to avoid creating large strings repeatdly.
 func (lk *localKeys) allocate(keyString string, key AllocatorKey, val idpool.ID) (idpool.ID, error) {
 	lk.Lock()
 	defer lk.Unlock()
