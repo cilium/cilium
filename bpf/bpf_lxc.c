@@ -204,9 +204,9 @@ ct_recreate6:
 		policy_mark_skip(skb);
 
 #ifdef ENABLE_NODEPORT
+		skb->mark |= MARK_MAGIC_REPLY;
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
-			skb->mark |= MARK_MAGIC_NODE_PORT_REPLY;
 			return redirect(NATIVE_DEV_IFINDEX, 0);
 		}
 #endif
@@ -517,12 +517,17 @@ ct_recreate4:
 		policy_mark_skip(skb);
 
 #ifdef ENABLE_NODEPORT
+		/* We need to mark the packet to make it bypass the cilium
+		 * masquerade non-cluster iptables rule. For some reasons,
+		 * netfilter decides to MASQ a second reply packet which
+		 * by any means should not enter the nat table.
+		 */
+		skb->mark |= MARK_MAGIC_REPLY;
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll redirect to bpf_netdev egress to
 		 * perform the reverse DNAT.
 		 */
 		if (ct_state.node_port) {
-			skb->mark |= MARK_MAGIC_NODE_PORT_REPLY;
 			return redirect(NATIVE_DEV_IFINDEX, 0);
 		}
 #endif /* ENABLE_NODEPORT */
