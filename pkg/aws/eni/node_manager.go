@@ -191,14 +191,13 @@ func (n *NodeManager) Get(nodeName string) *Node {
 // allocated, sorted by the number of addresses needed in descending order
 func (n *NodeManager) GetNodesByNeededAddresses() []*Node {
 	n.mutex.RLock()
-	defer n.mutex.RUnlock()
-
 	list := make([]*Node, len(n.nodes))
 	index := 0
 	for _, node := range n.nodes {
 		list[index] = node
 		index++
 	}
+	n.mutex.RUnlock()
 
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].getNeededAddresses() > list[j].getNeededAddresses()
