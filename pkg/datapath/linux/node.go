@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/j-keck/arping"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
@@ -482,6 +483,8 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 	var spi uint8
 	var err error
 
+	n.insertNeighbor(newNode)
+
 	if n.nodeConfig.EnableIPv4 && n.nodeConfig.EncryptNode {
 		internalIPv4 := n.nodeAddressing.IPv4().PrimaryExternal()
 		exactMask := net.IPv4Mask(255, 255, 255, 255)
@@ -520,6 +523,52 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 		}
 	}
 
+}
+
+func neighborLog(spec string, err error, ip *net.IP, hwAddr *net.HardwareAddr, link int) {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Reason: spec,
+		"IP":             ip,
+		"HardwareAddr":   hwAddr,
+		"LinkIndex":      link,
+	})
+
+	if err != nil {
+		scopedLog.WithError(err).Error("insertNeighbor failed")
+	} else {
+		scopedLog.Debug("insertNeighbor")
+	}
+}
+
+func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
+	ciliumIPv4 := newNode.GetCiliumInternalIP(false)
+	var hwAddr net.HardwareAddr
+	link := 0
+
+	if !newNode.IsLocal() {
+		return
+	}
+
+	if option.Config.Tunnel != option.TunnelDisabled {
+		return
+	}
+
+	linkAttr, err := netlink.LinkByName(option.Config.EncryptInterface)
+	if err != nil {
+		neighborLog("insertNeightbor LinkByName", err, &ciliumIPv4, &hwAddr, link)
+		return
+	}
+	link = linkAttr.Attrs().Index
+
+	if hwAddr, _, err := arping.Ping(ciliumIPv4); err != nil {
+		neigh := netlink.Neigh{
+			LinkIndex:    link,
+			IP:           ciliumIPv4,
+			HardwareAddr: hwAddr,
+		}
+		err := netlink.NeighAdd(&neigh)
+		neighborLog("insertNeighbor NeighAdd", err, &ciliumIPv4, &hwAddr, link)
+	}
 }
 
 func (n *linuxNodeHandler) enableIPsec(newNode *node.Node) {
