@@ -209,6 +209,10 @@ func runOperator(cmd *cobra.Command) {
 		startSynchronizingCiliumNodes()
 	}
 
+	if synchronizeServices {
+		startSynchronizingServices()
+	}
+
 	if requiresKVstore() {
 		var goopts *kvstore.ExtraOptions
 		scopedLog := log.WithFields(logrus.Fields{
@@ -259,10 +263,6 @@ func runOperator(cmd *cobra.Command) {
 		if err := kvstore.Setup(kvStore, kvStoreOpts, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
-	}
-
-	if synchronizeServices {
-		startSynchronizingServices()
 	}
 
 	if enableCepGC {
