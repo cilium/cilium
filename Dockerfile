@@ -43,6 +43,7 @@ COPY --from=builder /tmp/install /
 COPY --from=cilium-envoy / /
 COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
+COPY contrib/packaging/docker/init-container.sh /init-container.sh
 WORKDIR /root
 RUN groupadd -f cilium \
 	&& echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc \
