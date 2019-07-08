@@ -2642,25 +2642,29 @@ of all details, but enough for getting started.
 
   ::
 
-    # ip link add dev sim0 type netdevsim
-    # ip link set dev sim0 up
-    # ethtool -K sim0 hw-tc-offload on
+    # modprobe netdevsim
+    // [ID] [PORT_COUNT]
+    # echo "1 1" > /sys/bus/netdevsim/new_device
+    # devlink dev
+    netdevsim/netdevsim1
+    # devlink port
+    netdevsim/netdevsim1/0: type eth netdev eth0 flavour physical
     # ip l
     [...]
-    7: sim0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
-        link/ether a2:24:4c:1c:c2:b3 brd ff:ff:ff:ff:ff:ff
+    4: eth0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+        link/ether 2a:d5:cd:08:d1:3f brd ff:ff:ff:ff:ff:ff
 
   After that step, XDP BPF or tc BPF programs can be test loaded as shown
   in the various examples earlier:
 
   ::
 
-    # ip -force link set dev sim0 xdpoffload obj prog.o
+    # ip -force link set dev eth0 xdpoffload obj prog.o
     # ip l
     [...]
-    7: sim0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 xdpoffload qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
-        link/ether a2:24:4c:1c:c2:b3 brd ff:ff:ff:ff:ff:ff
-        prog/xdp id 20 tag 57cd311f2e27366b
+    4: eth0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 xdpoffload qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+        link/ether 2a:d5:cd:08:d1:3f brd ff:ff:ff:ff:ff:ff
+        prog/xdp id 16 tag a04f5eef06a7f555
 
 These two workflows are the basic operations to load XDP BPF respectively tc BPF
 programs with iproute2.
