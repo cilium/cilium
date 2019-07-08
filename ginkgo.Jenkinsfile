@@ -259,6 +259,7 @@ pipeline {
 
     post {
         always {
+            sh 'dmesg'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }
