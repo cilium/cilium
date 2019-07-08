@@ -64,6 +64,7 @@ var (
 	enableMetrics       bool
 	metricsAddress      string
 	eniParallelWorkers  int64
+	enableENI           bool
 
 	ciliumK8sClient clientset.Interface
 )
@@ -196,7 +197,7 @@ func runOperator(cmd *cobra.Command) {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
-	enableENI := viper.GetString(option.IPAM) == option.IPAMENI
+	enableENI = viper.GetString(option.IPAM) == option.IPAMENI
 	if enableENI {
 		awsClientQPSLimit := viper.GetFloat64(option.AWSClientQPSLimit)
 		awsClientBurst := viper.GetInt(option.AWSClientBurst)

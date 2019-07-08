@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 
 	"k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,16 +42,6 @@ func startSynchronizingCiliumNodes() {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				if node, ok := obj.(*v2.CiliumNode); ok {
-					_, err := k8s.Client().CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
-					switch {
-					case k8serrors.IsNotFound(err):
-						log.WithField("name", node.Name).Warning("Discovered CiliumNode without matching Kubernetes node resource")
-						deleteCiliumNode(node.Name)
-						return
-					case err != nil:
-						log.WithField("name", node.Name).WithError(err).Warning("Unable to retrieve Kubernetes node")
-					}
-
 					ciliumNodeUpdated(node.DeepCopy())
 				} else {
 					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
