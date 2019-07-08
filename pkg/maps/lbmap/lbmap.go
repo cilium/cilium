@@ -152,6 +152,9 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var (
 		weights         []uint16
 		nNonZeroWeights uint16
@@ -163,9 +166,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	if err != nil {
 		return err
 	}
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	// Store mapping of backend addr ID => backend ID in the cache
 	cache.addBackendIDs(newBackendIDs)
@@ -378,6 +378,9 @@ func DeleteRevNATBPF(id loadbalancer.ServiceID, isIPv6 bool) error {
 // DumpServiceMapsToUserspaceV2 dumps the services in the same way as
 // DumpServiceMapsToUserspace.
 func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC, []error) {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	newSVCMap := loadbalancer.SVCMap{}
 	newSVCList := []*loadbalancer.LBSVC{}
 	errors := []error{}
@@ -426,9 +429,6 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 		newSVCList = append(newSVCList, svc)
 	}
 
-	mutex.RLock()
-	defer mutex.RUnlock()
-
 	if option.Config.EnableIPv4 {
 		// TODO(brb) optimization: instead of dumping the backend map, we can
 		// pass its content to the function.
@@ -472,6 +472,9 @@ func DumpServiceMapsToUserspaceV2() (loadbalancer.SVCMap, []*loadbalancer.LBSVC,
 
 // DumpBackendMapsToUserspace dumps the backend entries from the BPF maps.
 func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, error) {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	lbBackends := map[BackendAddrID]*loadbalancer.LBBackEnd{}
 
@@ -513,6 +516,8 @@ func DumpBackendMapsToUserspace() (map[BackendAddrID]*loadbalancer.LBBackEnd, er
 // revNAT BPF maps, and stores the contents of said dumps in a RevNATMap.
 // Returns the errors that occurred while dumping the maps.
 func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	newRevNATMap := loadbalancer.RevNATMap{}
 	errors := []error{}
@@ -529,9 +534,6 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 		fe := revNatValue2L3n4AddrID(revNatK, revNatV)
 		newRevNATMap[loadbalancer.ServiceID(fe.ID)] = fe.L3n4Addr
 	}
-
-	mutex.RLock()
-	defer mutex.RUnlock()
 
 	if option.Config.EnableIPv4 {
 		if err := RevNat4Map.DumpWithCallback(parseRevNATEntries); err != nil {
@@ -554,6 +556,9 @@ func DumpRevNATMapsToUserspace() (loadbalancer.RevNATMap, []error) {
 // guarantee consistent backend ordering, slave slot and backend by backend
 // address ID lookups.
 func RestoreService(svc loadbalancer.LBSVC) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	return cache.restoreService(svc)
 }
 
@@ -651,6 +656,9 @@ func updateServiceEndpointV2(key ServiceKeyV2, value ServiceValueV2) error {
 
 // AddBackendIDsToCache populates the given backend IDs to the lbmap local cache.
 func AddBackendIDsToCache(backendIDs map[BackendAddrID]BackendKey) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	cache.addBackendIDs(backendIDs)
 }
 
@@ -659,12 +667,12 @@ func AddBackendIDsToCache(backendIDs map[BackendAddrID]BackendKey) {
 //
 //The given key has to be of the master service.
 func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbalancer.BackendID)) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var (
 		svcKey ServiceKeyV2
 	)
-
-	mutex.Lock()
-	defer mutex.Unlock()
 
 	isIPv6 := svc.IsIPv6()
 
@@ -701,6 +709,9 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 
 // DeleteServiceCache deletes the service cache.
 func DeleteServiceCache(svc loadbalancer.L3n4AddrID) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var svcKey ServiceKey
 
 	if !svc.IsIPv6() {
