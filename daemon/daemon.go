@@ -441,10 +441,21 @@ func (d *Daemon) initMaps() error {
 		defer d.loadBalancer.BPFMapMU.Unlock()
 
 		if option.Config.EnableIPv6 {
-			if err := lbmap.Service6Map.DeleteAll(); err != nil {
+			if option.Config.EnableLegacyServices {
+				if err := lbmap.Service6Map.DeleteAll(); err != nil {
+					return err
+				}
+				if err := lbmap.RRSeq6Map.DeleteAll(); err != nil {
+					return err
+				}
+			}
+			if err := lbmap.Service6MapV2.DeleteAll(); err != nil {
 				return err
 			}
-			if err := lbmap.RRSeq6Map.DeleteAll(); err != nil {
+			if err := lbmap.RRSeq6MapV2.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.Backend6Map.DeleteAll(); err != nil {
 				return err
 			}
 		}
@@ -453,10 +464,21 @@ func (d *Daemon) initMaps() error {
 		}
 
 		if option.Config.EnableIPv4 {
-			if err := lbmap.Service4Map.DeleteAll(); err != nil {
+			if option.Config.EnableLegacyServices {
+				if err := lbmap.Service4Map.DeleteAll(); err != nil {
+					return err
+				}
+				if err := lbmap.RRSeq4Map.DeleteAll(); err != nil {
+					return err
+				}
+			}
+			if err := lbmap.Service4MapV2.DeleteAll(); err != nil {
 				return err
 			}
-			if err := lbmap.RRSeq4Map.DeleteAll(); err != nil {
+			if err := lbmap.RRSeq4MapV2.DeleteAll(); err != nil {
+				return err
+			}
+			if err := lbmap.Backend4Map.DeleteAll(); err != nil {
 				return err
 			}
 		}
