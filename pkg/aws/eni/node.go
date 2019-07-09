@@ -194,6 +194,28 @@ func (n *Node) recalculateLocked() bool {
 	return allocationNeeded
 }
 
+// ENIs returns a copy of all ENIs attached to the node
+func (n *Node) ENIs() (enis map[string]v2.ENI) {
+	enis = map[string]v2.ENI{}
+	n.mutex.RLock()
+	for _, e := range n.enis {
+		enis[e.ID] = e
+	}
+	n.mutex.RUnlock()
+	return
+}
+
+// Pool returns the IP allocation pool available to the node
+func (n *Node) Pool() (pool map[string]v2.AllocationIP) {
+	pool = map[string]v2.AllocationIP{}
+	n.mutex.RLock()
+	for k, allocationIP := range n.available {
+		pool[k] = allocationIP
+	}
+	n.mutex.RUnlock()
+	return
+}
+
 // ResourceCopy returns a deep copy of the CiliumNode custom resource
 // associated with the node
 func (n *Node) ResourceCopy() *v2.CiliumNode {
@@ -532,9 +554,6 @@ func (n *Node) SyncToAPIServer() (err error) {
 	node := n.ResourceCopy()
 	origNode := node.DeepCopy()
 
-	n.mutex.RLock()
-	defer n.mutex.RUnlock()
-
 	// Always update the status first to ensure that the ENI information is
 	// synced for all addresses that are marked as available.
 	//
@@ -546,10 +565,7 @@ func (n *Node) SyncToAPIServer() (err error) {
 			node.Status.IPAM.Used = map[string]v2.AllocationIP{}
 		}
 
-		node.Status.ENI.ENIs = map[string]v2.ENI{}
-		for _, e := range n.enis {
-			node.Status.ENI.ENIs[e.ID] = e
-		}
+		node.Status.ENI.ENIs = n.ENIs()
 
 		scopedLog.WithFields(logrus.Fields{
 			"numENIs":      len(node.Status.ENI.ENIs),
@@ -588,10 +604,7 @@ func (n *Node) SyncToAPIServer() (err error) {
 			node.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
 		}
 
-		node.Spec.IPAM.Pool = map[string]v2.AllocationIP{}
-		for k, allocationIP := range n.available {
-			node.Spec.IPAM.Pool[k] = allocationIP
-		}
+		node.Spec.IPAM.Pool = n.Pool()
 
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
