@@ -717,6 +717,13 @@
   revision = "07191f837fedd2f13d1ec7b5f885f0f3ec54b1cb"
 
 [[projects]]
+  digest = "1:a1e80fb6e907339b64a933c36c161c8f4cc649bfae3b9efd2b15647cf122b9bc"
+  name = "github.com/j-keck/arping"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "v1.0.0"
+
+[[projects]]
   digest = "1:55a63f420e0ef5af8380d646d9d695182e7d4bd2a096321414dfd27c98d5da70"
   name = "github.com/jessevdk/go-flags"
   packages = ["."]
@@ -1838,6 +1845,7 @@
     "github.com/hashicorp/consul/api",
     "github.com/hashicorp/go-immutable-radix",
     "github.com/hashicorp/go-version",
+    "github.com/j-keck/arping",
     "github.com/jessevdk/go-flags",
     "github.com/kevinburke/ssh_config",
     "github.com/kr/pretty",
