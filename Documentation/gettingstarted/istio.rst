@@ -220,6 +220,7 @@ making a query from reviews pod to the productpage:
         <title>Simple Bookstore App</title>
 
 .. only:: not (epub or latex or html)
+
    Notes for Istio debugging:
    - Set istio proxy to debug or trace mode:
    $ kubectl exec -it $(kubectl get pod -l app=productpage -o jsonpath='{.items[0].metadata.name}') -c istio-proxy -- curl -XPOST http://127.0.0.1:15000/logging?level=debug
