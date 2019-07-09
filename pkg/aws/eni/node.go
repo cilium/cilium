@@ -77,6 +77,12 @@ type Node struct {
 	// node. It ensures that multiple requests to resolve a deficit are
 	// batched together if deficit resolution is still ongoing.
 	deficitResolver *trigger.Trigger
+
+	// k8sSync is the trigger used to synchronize node information with the
+	// K8s apiserver. The trigger is used to batch multiple updates
+	// together if the apiserver is slow to respond or subject to rate
+	// limiting.
+	k8sSync *trigger.Trigger
 }
 
 type nodeStatistics struct {
