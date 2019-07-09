@@ -163,7 +163,7 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 	}
 	outChan := copyWait(cmd.Stdout, stdout)
 
-	if err = session.Run(cmd.Path); err != nil {
+	if err = session.Start(cmd.Path); err != nil {
 		return false, err
 	}
 
