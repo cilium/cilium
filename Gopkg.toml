@@ -31,6 +31,14 @@ required = [
             ]
 
 [[constraint]]
+  name = "github.com/cilium/arping"
+  revision = "97b3e8dcf2b43a2048e16ac6b027f8003e6f32d5"
+
+  # main-usage = "only in integration tests"
+  # on-revision = ""
+
+
+[[constraint]]
   name = "github.com/asaskevich/govalidator"
   revision = "f9ffefc3facfbe0caee3fea233cbb6e8208f4541"
 

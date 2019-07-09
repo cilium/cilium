@@ -106,6 +106,13 @@
   revision = "0b2ad9ac246b05c4f5750721d0c4d230888cac5e"
 
 [[projects]]
+  digest = "1:7a8b9e765c08874600e67d7f9aff28fe017b7f2e672460c4bf0e6262fc3de16d"
+  name = "github.com/cilium/arping"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "97b3e8dcf2b43a2048e16ac6b027f8003e6f32d5"
+
+[[projects]]
   digest = "1:813b38ef06b8eea9552d7a0e4961efb0f731d8d2a0fee3059cb2c76d73e2fa8c"
   name = "github.com/cilium/proxy"
   packages = [
@@ -1783,6 +1790,7 @@
     "github.com/aws/aws-sdk-go-v2/aws/external",
     "github.com/aws/aws-sdk-go-v2/service/ec2",
     "github.com/c9s/goprocinfo/linux",
+    "github.com/cilium/arping",
     "github.com/cilium/proxy/go/cilium/api",
     "github.com/cilium/proxy/go/envoy/api/v2",
     "github.com/cilium/proxy/go/envoy/api/v2/core",
