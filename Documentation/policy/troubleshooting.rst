@@ -104,9 +104,10 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
 
     $ kubectl exec -ti cilium-88k78 -n kube-system /bin/bash
 
-    # print out the Layer 4 ingress labels
+    # print out the ingress labels
     # clean up the data
     # fetch each policy via each set of labels
+    # (Note that while the structure is "...l4.ingress...", it reflects all L3, L4 and L7 policy.
 
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.l4.ingress[*].derived-from-rules}{@}{"\n"}{end}'|tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
     Labels: k8s:io.cilium.k8s.policy.name=rule1 k8s:io.cilium.k8s.policy.namespace=default
@@ -166,10 +167,8 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
     Revision: 217
 
 
-    # repeat for L4 egress and L3
+    # repeat for egress
     $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.l4.egress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
-    $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.cidr-policy.ingress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
-    $ cilium endpoint get 568 -o jsonpath='{range ..status.policy.realized.cidr-policy.egress[*].derived-from-rules}{@}{"\n"}{end}' | tr -d '][' | xargs -I{} bash -c 'echo "Labels: {}"; cilium policy get {}'
 
 Troubleshooting ``toFQDNs`` rules
 =================================
