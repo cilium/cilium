@@ -364,6 +364,18 @@ var (
 	// BPFMapOps is the metric to measure the number of operations done to a
 	// bpf map.
 	BPFMapOps = NoOpCounterVec
+
+	// TriggerPolicyUpdateTotal is the metric to count total number of
+	// policy update triggers
+	TriggerPolicyUpdateTotal = NoOpCounterVec
+
+	// TriggerPolicyUpdateFolds is the current level folding that is
+	// happening when running policy update triggers
+	TriggerPolicyUpdateFolds = NoOpGauge
+
+	// TriggerPolicyUpdateCallDuration measures the latency and call
+	// duration of policy update triggers
+	TriggerPolicyUpdateCallDuration = NoOpObserverVec
 )
 
 type Configuration struct {
@@ -414,6 +426,9 @@ type Configuration struct {
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
+	TriggerPolicyUpdateTotal                bool
+	TriggerPolicyUpdateFolds                bool
+	TriggerPolicyUpdateCallDuration         bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -462,6 +477,9 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":              {},
 		Namespace + "_fqdn_gc_deletions_total":                                    {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                         {},
+		Namespace + "_triggers_policy_update_total":                               {},
+		Namespace + "_triggers_policy_update_folds":                               {},
+		Namespace + "_triggers_policy_update_call_duration_seconds":               {},
 	}
 }
 
@@ -969,6 +987,39 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, BPFMapOps)
 			c.BPFMapOps = true
+
+		case Namespace + "_triggers_policy_update_total":
+			TriggerPolicyUpdateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: "triggers",
+				Name:      "policy_update_total",
+				Help:      "Total number of policy update trigger invocations labelled by reason",
+			}, []string{"reason"})
+
+			collectors = append(collectors, TriggerPolicyUpdateTotal)
+			c.TriggerPolicyUpdateTotal = true
+
+		case Namespace + "_triggers_policy_update_folds":
+			TriggerPolicyUpdateFolds = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: "triggers",
+				Name:      "policy_update_folds",
+				Help:      "Current number of folds",
+			})
+
+			collectors = append(collectors, TriggerPolicyUpdateFolds)
+			c.TriggerPolicyUpdateFolds = true
+
+		case Namespace + "_triggers_policy_update_call_duration_seconds":
+			TriggerPolicyUpdateCallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Subsystem: "triggers",
+				Name:      "policy_update__call_duration_seconds",
+				Help:      "Duration of policy update trigger",
+			}, []string{"type"})
+
+			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
+			c.TriggerPolicyUpdateCallDuration = true
 		}
 	}
 
