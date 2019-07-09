@@ -104,26 +104,6 @@ var _ = Describe("K8sIstioTest", func() {
 
 		res = kubectl.Apply(istioYAMLPath)
 		res.ExpectSuccess("unable to create Istio resources")
-
-		// Ignore one-time jobs and Prometheus. All other pods in the
-		// namespaces have an "istio" label.
-		By("Waiting for Istio pods to be ready")
-		err = kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
-		Expect(err).To(BeNil(),
-			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
-
-		for _, name := range istioServiceNames {
-			By("Waiting for Istio service %q to be ready", name)
-			err = kubectl.WaitForServiceEndpoints(
-				istioSystemNamespace, "", name, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Service %q is not ready after timeout", name)
-		}
-
-		for _, name := range istioServiceNames {
-			By("Waiting for DNS to resolve Istio service %q", name)
-			err = kubectl.WaitForKubeDNSEntry(name, istioSystemNamespace)
-			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-		}
 	})
 
 	AfterAll(func() {
@@ -161,6 +141,28 @@ var _ = Describe("K8sIstioTest", func() {
 			"cilium bpf proxy list")
 	})
 
+	waitIstioReady := func() {
+		// Ignore one-time jobs and Prometheus. All other pods in the
+		// namespaces have an "istio" label.
+		By("Waiting for Istio pods to be ready")
+		err := kubectl.WaitforPods(istioSystemNamespace, "-l istio", helpers.HelperTimeout)
+		ExpectWithOffset(1, err).To(BeNil(),
+			"Istio pods are not ready after timeout in namespace %q", istioSystemNamespace)
+
+		for _, name := range istioServiceNames {
+			By("Waiting for Istio service %q to be ready", name)
+			err = kubectl.WaitForServiceEndpoints(
+				istioSystemNamespace, "", name, helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Service %q is not ready after timeout", name)
+		}
+
+		for _, name := range istioServiceNames {
+			By("Waiting for DNS to resolve Istio service %q", name)
+			err = kubectl.WaitForKubeDNSEntry(name, istioSystemNamespace)
+			ExpectWithOffset(1, err).To(BeNil(), "DNS entry is not ready after timeout")
+		}
+	}
+
 	// This is a subset of Services's "Bookinfo Demo" test suite, with the pods
 	// injected with Istio sidecar proxies and Istio mTLS enabled.
 	Context("Istio Bookinfo Demo", func() {
@@ -169,33 +171,6 @@ var _ = Describe("K8sIstioTest", func() {
 			resourceYAMLPaths []string
 			policyPaths       []string
 		)
-
-		BeforeEach(func() {
-			// Those YAML files are the bookinfo-v1.yaml and bookinfo-v2.yaml
-			// manifests injected with Istio sidecars using those commands:
-			// istioctl kube-inject -f bookinfo-v1.yaml > bookinfo-v1-istio.yaml
-			// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
-			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1-istio.yaml")
-			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2-istio.yaml")
-			l7PolicyPath := helpers.ManifestGet("cnp-specs.yaml")
-
-			// Create the L7 policy before creating the pods, in order to test
-			// that the sidecar proxy mode doesn't deadlock on endpoint
-			// creation in this case.
-			policyPaths = []string{l7PolicyPath}
-			for _, policyPath := range policyPaths {
-				By("Creating policy in file %q", policyPath)
-				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "Unable to create policy %q", policyPath)
-			}
-
-			resourceYAMLPaths = []string{bookinfoV2YAML, bookinfoV1YAML}
-			for _, resourcePath := range resourceYAMLPaths {
-				By("Creating resources in file %q", resourcePath)
-				res := kubectl.Create(resourcePath)
-				res.ExpectSuccess("Unable to create resource %q", resourcePath)
-			}
-		})
 
 		AfterEach(func() {
 			for _, resourcePath := range resourceYAMLPaths {
@@ -275,10 +250,35 @@ var _ = Describe("K8sIstioTest", func() {
 			app := "app"
 			health := "health"
 			ratingsPath := "ratings/0"
-
 			apiPort := "9080"
-
 			podNameFilter := "{.items[*].metadata.name}"
+
+			// Those YAML files are the bookinfo-v1.yaml and bookinfo-v2.yaml
+			// manifests injected with Istio sidecars using those commands:
+			// istioctl kube-inject -f bookinfo-v1.yaml > bookinfo-v1-istio.yaml
+			// istioctl kube-inject -f bookinfo-v2.yaml > bookinfo-v2-istio.yaml
+			bookinfoV1YAML := helpers.ManifestGet("bookinfo-v1-istio.yaml")
+			bookinfoV2YAML := helpers.ManifestGet("bookinfo-v2-istio.yaml")
+			l7PolicyPath := helpers.ManifestGet("cnp-specs.yaml")
+
+			waitIstioReady()
+
+			// Create the L7 policy before creating the pods, in order to test
+			// that the sidecar proxy mode doesn't deadlock on endpoint
+			// creation in this case.
+			policyPaths = []string{l7PolicyPath}
+			for _, policyPath := range policyPaths {
+				By("Creating policy in file %q", policyPath)
+				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Unable to create policy %q", policyPath)
+			}
+
+			resourceYAMLPaths = []string{bookinfoV2YAML, bookinfoV1YAML}
+			for _, resourcePath := range resourceYAMLPaths {
+				By("Creating resources in file %q", resourcePath)
+				res := kubectl.Create(resourcePath)
+				res.ExpectSuccess("Unable to create resource %q", resourcePath)
+			}
 
 			// Wait for pods and endpoints to be ready before creating the
 			// next resources to reduce the load on the next pod creations,
