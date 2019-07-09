@@ -302,6 +302,14 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 	return CT_NEW;
 }
 
+static inline void __inline__ ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
+{
+	if (tuple->flags & TUPLE_F_IN)
+		tuple->flags &= ~TUPLE_F_IN;
+	else
+		tuple->flags |= TUPLE_F_IN;
+}
+
 static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
 	union v6addr tmp_addr = {};
@@ -315,11 +323,7 @@ static inline void __inline__ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
 
-	/* Flip ingress/egress flag */
-	if (tuple->flags & TUPLE_F_IN)
-		tuple->flags &= ~TUPLE_F_IN;
-	else
-		tuple->flags |= TUPLE_F_IN;
+	ct_flip_tuple_dir6(tuple);
 }
 
 /* Offset must point to IPv6 */
@@ -441,30 +445,6 @@ static inline int __inline__ ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
 		ipv6_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
-#ifdef ENABLE_NODEPORT
-#ifndef QUIET_CT
-		cilium_dbg3(skb, DBG_CT_LOOKUP6_1, (__u32) tuple->saddr.p4, (__u32) tuple->daddr.p4,
-			    (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
-		cilium_dbg3(skb, DBG_CT_LOOKUP6_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-#endif
-
-		/* The additional lookup is required to determine the node_port
-		 * flag value. The flag is set in the endpoint -> client
-		 * TUPLE_F_OUT entry which is created by bpf_netdev on its
-		 * ingress hook. */
-		if (ret == CT_NEW && dir == CT_INGRESS) {
-			struct ct_state ct_state_tmp = {};
-			int ret2 = CT_NEW;
-
-			tuple->flags = TUPLE_F_OUT;
-			ret2 = __ct_lookup(map, skb, tuple, action, dir, &ct_state_tmp,
-					   is_tcp, tcp_flags, monitor);
-			tuple->flags = TUPLE_F_IN;
-			if (ret2 == CT_ESTABLISHED && ct_state_tmp.node_port == 1) {
-				ct_state->node_port = 1;
-			}
-		}
-#endif /* ENABLE_NODEPORT */
 	}
 
 #ifdef ENABLE_NAT46
@@ -475,6 +455,14 @@ out:
 	if (conn_is_dns(tuple->dport))
 		*monitor = MTU;
 	return ret;
+}
+
+static inline void __inline__ ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
+{
+	if (tuple->flags & TUPLE_F_IN)
+		tuple->flags &= ~TUPLE_F_IN;
+	else
+		tuple->flags |= TUPLE_F_IN;
 }
 
 static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
@@ -489,11 +477,7 @@ static inline void __inline__ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
 
-	/* Flip ingress/egress flag */
-	if (tuple->flags & TUPLE_F_IN)
-		tuple->flags &= ~TUPLE_F_IN;
-	else
-		tuple->flags |= TUPLE_F_IN;
+	ct_flip_tuple_dir4(tuple);
 }
 
 static inline void ct4_cilium_dbg_tuple(struct __sk_buff *skb, __u8 type,
@@ -622,30 +606,6 @@ static inline int __inline__ ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 		ipv4_ct_tuple_reverse(tuple);
 		ret = __ct_lookup(map, skb, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
-#ifdef ENABLE_NODEPORT
-#ifndef QUIET_CT
-		cilium_dbg3(skb, DBG_CT_LOOKUP4_1, tuple->saddr, tuple->daddr,
-		      (bpf_ntohs(tuple->sport) << 16) | bpf_ntohs(tuple->dport));
-		cilium_dbg3(skb, DBG_CT_LOOKUP4_2, (tuple->nexthdr << 8) | tuple->flags, 0, 0);
-#endif
-
-		/* The additional lookup is required to determine the node_port
-		 * flag value. The flag is set in the endpoint -> client
-		 * TUPLE_F_OUT entry which is created by bpf_netdev on its
-		 * ingress hook. */
-		if (ret == CT_NEW && dir == CT_INGRESS) {
-			struct ct_state ct_state_tmp = {};
-			int ret2 = CT_NEW;
-
-			tuple->flags = TUPLE_F_OUT;
-			ret2 = __ct_lookup(map, skb, tuple, action, dir, &ct_state_tmp,
-					   is_tcp, tcp_flags, monitor);
-			tuple->flags = TUPLE_F_IN;
-			if (ret2 == CT_ESTABLISHED && ct_state_tmp.node_port == 1) {
-				ct_state->node_port = 1;
-			}
-		}
-#endif /* ENABLE_NODEPORT */
 	}
 out:
 	cilium_dbg(skb, DBG_CT_VERDICT, ret < 0 ? -ret : ret, ct_state->rev_nat_index);

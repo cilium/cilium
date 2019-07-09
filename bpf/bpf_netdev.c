@@ -146,13 +146,16 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT) int tail_nodepor
 		goto drop_err;
 	}
 
+	fib_params.family = AF_INET6;
+	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	if (dir == NAT_DIR_INGRESS)
+		/* Continuing revnat on service via rev_nodeport_lb6(). */
+		goto done;
+
 	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-
-	fib_params.family = AF_INET6;
-	fib_params.ifindex = NATIVE_DEV_IFINDEX;
 
 	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
@@ -172,7 +175,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT) int tail_nodepor
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-
+done:
 	return redirect(fib_params.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,
@@ -192,6 +195,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	struct lb6_key_v2 key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	bool backend_local;
 	__u32 monitor = 0;
 	__u16 service_port;
 
@@ -244,6 +248,10 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	backend_local = lookup_ip6_endpoint(ip6);
 
 	switch (ret) {
 	case CT_NEW:
@@ -253,6 +261,14 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 				 &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
+		if (backend_local) {
+			ct_flip_tuple_dir6(&tuple);
+			ct_state_new.rev_nat_index = 0;
+			ret = ct_create6(get_ct_map6(&tuple), &tuple, skb,
+					 CT_INGRESS, &ct_state_new);
+			if (IS_ERR(ret))
+				return ret;
+		}
 		break;
 
 	case CT_ESTABLISHED:
@@ -263,10 +279,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_UNKNOWN_CT;
 	}
 
-	if (!revalidate_data(skb, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
-	if (!lookup_ip6_endpoint(ip6)) {
+	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
@@ -275,8 +288,8 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	return TC_ACT_OK;
 }
 
-/* See local_rev_nodeport_lb4(). */
-static inline int local_rev_nodeport_lb6(struct __sk_buff *skb)
+/* See rev_nodeport_lb4(). */
+static inline int rev_nodeport_lb6(struct __sk_buff *skb)
 {
 	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -534,13 +547,16 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT) int tail_nodepor
 		goto drop_err;
 	}
 
+	fib_params.family = AF_INET;
+	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	if (dir == NAT_DIR_INGRESS)
+		/* Continuing revnat on service via rev_nodeport_lb4(). */
+		goto done;
+
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-
-	fib_params.family = AF_INET;
-	fib_params.ifindex = NATIVE_DEV_IFINDEX;
 
 	fib_params.ipv4_src = ip4->saddr;
 	fib_params.ipv4_dst = ip4->daddr;
@@ -560,7 +576,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT) int tail_nodepor
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-
+done:
 	return redirect(fib_params.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,
@@ -583,6 +599,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	struct lb4_key_v2 key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	bool backend_local;
 	__u32 monitor = 0;
 	__u16 service_port;
 
@@ -631,6 +648,10 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 			 &ct_state, &monitor);
 	if (ret < 0)
 		return ret;
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	backend_local = lookup_ip4_endpoint(ip4);
 
 	switch (ret) {
 	case CT_NEW:
@@ -640,6 +661,14 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 				 &ct_state_new);
 		if (IS_ERR(ret))
 			return ret;
+		if (backend_local) {
+			ct_flip_tuple_dir4(&tuple);
+			ct_state_new.rev_nat_index = 0;
+			ret = ct_create4(get_ct_map4(&tuple), &tuple, skb,
+					 CT_INGRESS, &ct_state_new);
+			if (IS_ERR(ret))
+				return ret;
+		}
 		break;
 
 	case CT_ESTABLISHED:
@@ -650,10 +679,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_UNKNOWN_CT;
 	}
 
-	if (!revalidate_data(skb, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	if (!lookup_ip4_endpoint(ip4)) {
+	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		return DROP_MISSED_TAIL_CALL;
@@ -662,11 +688,12 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	return TC_ACT_OK;
 }
 
-/* Reverse NAT handling of node-port traffic for the case where the backend
- * was a local EP. Replies from remote EPs would ingress into nodeport_lb4()
- * instead.
+/* Reverse NAT handling of node-port traffic for the case where the
+ * backend i) was a local EP and bpf_lxc redirected to us, ii) was
+ * a remote backend and we got here after reverse SNAT from the
+ * tail_nodeport_nat_ipv4().
  */
-static inline int local_rev_nodeport_lb4(struct __sk_buff *skb)
+static inline int rev_nodeport_lb4(struct __sk_buff *skb)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1060,12 +1087,12 @@ int to_netdev(struct __sk_buff *skb)
 	switch (proto) {
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = local_rev_nodeport_lb4(skb);
+		ret = rev_nodeport_lb4(skb);
 		break;
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = local_rev_nodeport_lb6(skb);
+		ret = rev_nodeport_lb6(skb);
 		break;
 # endif
 	default:
