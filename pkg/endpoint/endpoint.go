@@ -1572,9 +1572,19 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		// No valid transitions, as disconnected is a terminal state for the endpoint.
 	case StateWaitingToRegenerate:
 		switch toState {
-		// Note that transitions to waiting-to-regenerate state
+		// Note that transitions to StateWaitingToRegenerate are not allowed,
+		// as callers of this function enqueue regenerations if 'true' is
+		// returned. We don't want to return 'true' for the case of
+		// transitioning to StateWaitingToRegenerate, as this means that a
+		// regeneration is already queued up. Callers would then queue up
+		// another unneeded regeneration, which is undesired.
 		case StateWaitingForIdentity, StateDisconnecting, StateRestoring:
 			goto OKState
+		// Don't log this state transition being invalid below so that we don't
+		// put warnings in the logs for a case which does not result in incorrect
+		// behavior.
+		case StateWaitingToRegenerate:
+			return false
 		}
 	case StateRegenerating:
 		switch toState {
