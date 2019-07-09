@@ -486,9 +486,44 @@ type CtEntry struct {
 // GetValuePtr returns the unsafe.Pointer for s.
 func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
 
+const (
+	RxClosing  = 1 << 0
+	TxClosing  = 1 << 1
+	Nat64      = 1 << 2
+	LBLoopback = 1 << 3
+	SeenNonSyn = 1 << 4
+	NodePort   = 1 << 5
+)
+
+func (c *CtEntry) flagsString() string {
+	var buffer bytes.Buffer
+
+	buffer.WriteString(fmt.Sprintf("Flags=%#04x [ ", c.Flags))
+	if (c.Flags & RxClosing) != 0 {
+		buffer.WriteString("RxClosing ")
+	}
+	if (c.Flags & TxClosing) != 0 {
+		buffer.WriteString("TxClosing ")
+	}
+	if (c.Flags & Nat64) != 0 {
+		buffer.WriteString("Nat64 ")
+	}
+	if (c.Flags & LBLoopback) != 0 {
+		buffer.WriteString("LBLoopback ")
+	}
+	if (c.Flags & SeenNonSyn) != 0 {
+		buffer.WriteString("SeenNonSyn ")
+	}
+	if (c.Flags & NodePort) != 0 {
+		buffer.WriteString("NodePort ")
+	}
+	buffer.WriteString("]")
+	return buffer.String()
+}
+
 // String returns the readable format
 func (c *CtEntry) String() string {
-	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d Flags=%#04x RevNAT=%d SourceSecurityID=%d \n",
+	return fmt.Sprintf("expires=%d RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d \n",
 		c.Lifetime,
 		c.RxPackets,
 		c.RxBytes,
@@ -498,7 +533,7 @@ func (c *CtEntry) String() string {
 		c.TxBytes,
 		c.TxFlagsSeen,
 		c.LastTxReport,
-		c.Flags,
+		c.flagsString(),
 		byteorder.NetworkToHost(c.RevNAT),
 		c.SourceSecurityID)
 }
