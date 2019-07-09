@@ -147,7 +147,21 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			return false
 		}
 
+		k8sSync, err := trigger.NewTrigger(trigger.Parameters{
+			Name:        fmt.Sprintf("eni-node-k8s-sync-%s", resource.Name),
+			MinInterval: 10 * time.Millisecond,
+			TriggerFunc: func(reasons []string) {
+				node.SyncToAPIServer()
+			},
+		})
+		if err != nil {
+			deficitResolver.Shutdown()
+			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
+			return false
+		}
+
 		node.deficitResolver = deficitResolver
+		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
 
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
@@ -164,6 +178,9 @@ func (n *NodeManager) Delete(nodeName string) {
 	if node, ok := n.nodes[nodeName]; ok {
 		if node.deficitResolver != nil {
 			node.deficitResolver.Shutdown()
+		}
+		if node.k8sSync != nil {
+			node.k8sSync.Shutdown()
 		}
 	}
 
@@ -244,7 +261,7 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
 	}
 	node.mutex.Unlock()
 
-	node.SyncToAPIServer()
+	node.k8sSync.Trigger()
 }
 
 // Resync will attend all nodes and resolves IP deficits. The order of
