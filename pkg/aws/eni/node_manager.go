@@ -73,7 +73,6 @@ type NodeManager struct {
 	k8sAPI          k8sAPI
 	metricsAPI      metricsAPI
 	resyncTrigger   *trigger.Trigger
-	deficitResolver *trigger.Trigger
 	parallelWorkers int64
 }
 
@@ -92,34 +91,6 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 		parallelWorkers: parallelWorkers,
 	}
 
-	deficitResolver, err := trigger.NewTrigger(trigger.Parameters{
-		Name:        "eni-node-manager-deficit-resolver",
-		MinInterval: 10 * time.Millisecond,
-		TriggerFunc: func(reasons []string) {
-			sem := semaphore.NewWeighted(parallelWorkers)
-
-			for _, name := range reasons {
-				sem.Acquire(context.TODO(), 1)
-				go func(name string) {
-					if node := mngr.Get(name); node != nil {
-						if err := node.ResolveIPDeficit(); err != nil {
-							node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
-						}
-					} else {
-						log.WithField(fieldName, name).Warning("Node has disappeared while allocation request was queued")
-					}
-					sem.Release(1)
-				}(name)
-			}
-			// Acquire the full semaphore, this requires all go routines to
-			// complete and thus blocks until all nodes are synced
-			sem.Acquire(context.TODO(), parallelWorkers)
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize deficit resolver trigger: %s", err)
-	}
-
 	resyncTrigger, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "eni-node-manager-resync",
 		MinInterval: 10 * time.Millisecond,
@@ -133,7 +104,6 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 	}
 
 	mngr.resyncTrigger = resyncTrigger
-	mngr.deficitResolver = deficitResolver
 
 	return mngr, nil
 }
@@ -162,6 +132,22 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			name:    resource.Name,
 			manager: n,
 		}
+
+		deficitResolver, err := trigger.NewTrigger(trigger.Parameters{
+			Name:        fmt.Sprintf("eni-deficit-resolver-%s", resource.Name),
+			MinInterval: 10 * time.Millisecond,
+			TriggerFunc: func(reasons []string) {
+				if err := node.ResolveIPDeficit(); err != nil {
+					node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
+				}
+			},
+		})
+		if err != nil {
+			node.logger().WithError(err).Error("Unable to create deficit-resolver trigger")
+			return false
+		}
+
+		node.deficitResolver = deficitResolver
 		n.nodes[node.name] = node
 
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
@@ -175,6 +161,12 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 // Kubernetes apiserver
 func (n *NodeManager) Delete(nodeName string) {
 	n.mutex.Lock()
+	if node, ok := n.nodes[nodeName]; ok {
+		if node.deficitResolver != nil {
+			node.deficitResolver.Shutdown()
+		}
+	}
+
 	delete(n.nodes, nodeName)
 	n.mutex.Unlock()
 }
@@ -248,7 +240,7 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
 	stats.mutex.Unlock()
 
 	if allocationNeeded && node.stats.remainingInterfaces > 0 {
-		n.deficitResolver.TriggerWithReason(node.name)
+		node.deficitResolver.Trigger()
 	}
 	node.mutex.Unlock()
 

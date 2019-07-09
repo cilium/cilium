@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/math"
+	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
 )
@@ -71,6 +72,11 @@ type Node struct {
 	available map[string]v2.AllocationIP
 
 	manager *NodeManager
+
+	// deficitResolver is the trigger used to resolve a deficit of this
+	// node. It ensures that multiple requests to resolve a deficit are
+	// batched together if deficit resolution is still ongoing.
+	deficitResolver *trigger.Trigger
 }
 
 type nodeStatistics struct {
@@ -153,7 +159,7 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 	n.mutex.Unlock()
 
 	if allocationNeeded {
-		n.manager.deficitResolver.TriggerWithReason(resource.Name)
+		n.deficitResolver.Trigger()
 	}
 
 	return allocationNeeded
