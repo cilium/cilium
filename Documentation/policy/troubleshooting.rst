@@ -215,62 +215,66 @@ podname`` when running in kubernetes.
 .. only:: html
 
    .. tabs::
-     .. group-tab:: k8s YAML
+      .. group-tab:: k8s YAML
 
-        .. code-block:: yaml
+         .. code-block:: yaml
 
-                cidr-policy:
-                  egress:
-                  - derived-from-rules:
-                    - - k8s:io.cilium.k8s.policy.name=rebel-escape
-                      - k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952
-                      - k8s:io.cilium.k8s.policy.namespace=default
-                      - k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy
-                      - cilium-generated:ToFQDN-UUID=4cee1da1-1361-11e9-a6d4-080027d2d952
-                    rule: 104.198.14.52/32
-                  ingress: []
+            cidr-policy:
+              egress:
+              - derived-from-rules:
+                - - k8s:io.cilium.k8s.policy.name=rebel-escape
+                  - k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952
+                  - k8s:io.cilium.k8s.policy.namespace=default
+                  - k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy
+                  - cilium-generated:ToFQDN-UUID=4cee1da1-1361-11e9-a6d4-080027d2d952
+                rule: 104.198.14.52/32
+              ingress: []
 
-     .. group-tab:: JSON
+      .. group-tab:: JSON
 
-        .. code-block:: json
+         .. code-block:: json
 
-                "cidr-policy": {
-                  "egress": [
-                    {
-                      "derived-from-rules": [
-                        [
-                          "k8s:io.cilium.k8s.policy.name=rebel-escape",
-                          "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
-                          "k8s:io.cilium.k8s.policy.namespace=default",
-                          "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
-                          "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
-                        ]
-                      ],
-                      "rule": "104.198.14.52/32"
-                    }
-                  ],
-                  "ingress": []
-                },
+            {
+              "cidr-policy": {
+                "egress": [
+                  {
+                    "derived-from-rules": [
+                      [
+                        "k8s:io.cilium.k8s.policy.name=rebel-escape",
+                        "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
+                        "k8s:io.cilium.k8s.policy.namespace=default",
+                        "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+                        "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
+                      ]
+                    ],
+                    "rule": "104.198.14.52/32"
+                  }
+                ],
+                "ingress": []
+              }
+            }
 
 .. only:: epub or latex
 
-        .. code-block:: json
+   .. code-block:: json
 
-                "cidr-policy": {
-                  "egress": [
-                    {
-                      "derived-from-rules": [
-                        [
-                          "k8s:io.cilium.k8s.policy.name=rebel-escape",
-                          "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
-                          "k8s:io.cilium.k8s.policy.namespace=default",
-                          "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
-                          "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
-                        ]
-                      ],
-                      "rule": "104.198.14.52/32"
-                    }
-                  ],
-                  "ingress": []
-                },
+      {
+        "cidr-policy": {
+          "egress": [
+            {
+              "derived-from-rules": [
+                [
+                  "k8s:io.cilium.k8s.policy.name=rebel-escape",
+                  "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
+                  "k8s:io.cilium.k8s.policy.namespace=default",
+                  "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+                  "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
+                ]
+              ],
+              "rule": "104.198.14.52/32"
+            }
+          ],
+          "ingress": []
+        }
+      }
 
