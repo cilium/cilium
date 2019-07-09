@@ -266,6 +266,8 @@ latest ``1.1.y`` release before subsequently upgrading to ``1.2.z``.
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 | ``>=1.2.5``           | ``1.5.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.5.x``             | ``1.6.y``             | Required              | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
 
@@ -282,6 +284,14 @@ Annotations:
 
 1.6 Upgrade Notes
 -----------------
+
+Upgrading from >=1.5.0 to 1.6.y
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Follow the standard procedures to perform the upgrade as described in
+   :ref:`upgrade_minor`. Users running older versions should first upgrade to
+   the latest v1.5.x point release to minimize disruption of service
+   connections during upgrade.
 
 Changes that may require action
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -321,6 +331,15 @@ New ConfigMap Options
   * ``cni-chaining-mode`` has been added to automatically generate CNI chaining
     configurations with various other plugins. See the section
     :ref:`cni_chaining` for a list of supported CNI chaining plugins.
+
+Deprecated options
+~~~~~~~~~~~~~~~~~~
+
+* ``enable-legacy-services``: This option was introduced to ease the transition
+  between Cilium 1.4.x and 1.5.x releases, allowing smooth upgrade and
+  downgrade. As of 1.6.0, it is deprecated. Subsequently downgrading from 1.6.x
+  or later to 1.4.x may result in disruption of connections that connect via
+  services.
 
 Deprecated metrics
 ~~~~~~~~~~~~~~~~~~
