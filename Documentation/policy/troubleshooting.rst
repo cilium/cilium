@@ -4,12 +4,13 @@
     Please use the official rendered version released here:
     http://docs.cilium.io
 
-.. _policy_tracing:
 .. _policy_troubleshooting:
 
 ***************
 Troubleshooting
 ***************
+
+.. _policy_tracing:
 
 Policy Tracing
 ==============
@@ -175,95 +176,101 @@ Troubleshooting ``toFQDNs`` rules
 
 The effect of ``toFQDNs`` may change long after a policy is applied, as DNS
 data changes. This can make it difficult to debug unexpectedly blocked
-connections, or transient failures. Cilium amends the internal policy as it
-sees DNS IP information and this can be obtained with via ``cilium policy
-get``. In every rule with a ``toFQDNs`` a corresponding ``toCIDRSet`` rule is
-present with the derived IPs that Cilium will allow.
+connections, or transient failures. Cilium provides CLI tools to introspect
+the state of applying FQDN policy in multiple layers of the daemon:
 
-.. code-block:: json
-
-        {
-          "toCIDRSet": [
-            {
-              "cidr": "104.198.14.52/32"
-            }
-          ],
-          "toFQDNs": [
-            {
-              "matchPattern": "cilium.io"
-            }
-          ]
-        }
-
-The per-Endpoint status from cilium includes the labels of the
-original rules that caused the ``toCIDRSet`` to be generated. This can be
-obtained with ``cilium endpoint get <endpoint ID>``, or ``kubectl get cep
-podname`` when running in kubernetes.
-
-
-.. only:: html
-
-   .. tabs::
-      .. group-tab:: k8s YAML
-
-         .. code-block:: yaml
-
-            cidr-policy:
-              egress:
-              - derived-from-rules:
-                - - k8s:io.cilium.k8s.policy.name=rebel-escape
-                  - k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952
-                  - k8s:io.cilium.k8s.policy.namespace=default
-                  - k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy
-                  - cilium-generated:ToFQDN-UUID=4cee1da1-1361-11e9-a6d4-080027d2d952
-                rule: 104.198.14.52/32
-              ingress: []
-
-      .. group-tab:: JSON
-
-         .. code-block:: json
-
-            {
-              "cidr-policy": {
-                "egress": [
-                  {
-                    "derived-from-rules": [
-                      [
-                        "k8s:io.cilium.k8s.policy.name=rebel-escape",
-                        "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
-                        "k8s:io.cilium.k8s.policy.namespace=default",
-                        "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
-                        "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
-                      ]
-                    ],
-                    "rule": "104.198.14.52/32"
-                  }
-                ],
-                "ingress": []
-              }
-            }
-
-.. only:: epub or latex
+#. ``cilium policy get`` should show the FQDN policy that was imported:
 
    .. code-block:: json
 
       {
-        "cidr-policy": {
-          "egress": [
-            {
-              "derived-from-rules": [
-                [
-                  "k8s:io.cilium.k8s.policy.name=rebel-escape",
-                  "k8s:io.cilium.k8s.policy.uid=c96f66a8-135e-11e9-babd-080027d2d952",
-                  "k8s:io.cilium.k8s.policy.namespace=default",
-                  "k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
-                  "cilium-generated:ToFQDN-UUID=9a1d4006-1360-11e9-a6d4-080027d2d952"
-                ]
-              ],
-              "rule": "104.198.14.52/32"
-            }
-          ],
-          "ingress": []
-        }
+        "endpointSelector": {
+          "matchLabels": {
+            "any:class": "mediabot",
+            "any:org": "empire",
+            "k8s:io.kubernetes.pod.namespace": "default"
+          }
+        },
+        "egress": [
+          {
+            "toFQDNs": [
+              {
+                "matchName": "api.twitter.com"
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "kube-system",
+                  "k8s:k8s-app": "kube-dns"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "53",
+                    "protocol": "ANY"
+                  }
+                ],
+                "rules": {
+                  "dns": [
+                    {
+                      "matchPattern": "*"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "labels": [
+          {
+            "key": "io.cilium.k8s.policy.derived-from",
+            "value": "CiliumNetworkPolicy",
+            "source": "k8s"
+          },
+          {
+            "key": "io.cilium.k8s.policy.name",
+            "value": "fqdn",
+            "source": "k8s"
+          },
+          {
+            "key": "io.cilium.k8s.policy.namespace",
+            "value": "default",
+            "source": "k8s"
+          },
+          {
+            "key": "io.cilium.k8s.policy.uid",
+            "value": "fc9d6022-2ffa-4f72-b59e-b9067c3cfecf",
+            "source": "k8s"
+          }
+        ]
       }
 
+
+#. After making a DNS request, the FQDN to IP mapping should be available via
+   ``cilium fqdn cache list``:
+
+   .. code-block:: shell-session
+
+      # cilium fqdn cache list
+      Endpoint   FQDN                TTL      ExpirationTime             IPs
+      2761       help.twitter.com.   604800   2019-07-16T17:57:38.179Z   104.244.42.67,104.244.42.195,104.244.42.3,104.244.42.131
+      2761       api.twitter.com.    604800   2019-07-16T18:11:38.627Z   104.244.42.194,104.244.42.130,104.244.42.66,104.244.42.2
+
+#. If the traffic is allowed, then these IPs should have corresponding local identities via
+   ``cilium identity list | grep <IP>``:
+
+   .. code-block:: shell-session
+
+      # cilium identity list | grep -A 1 104.244.42.194
+      16777220   cidr:104.244.42.194/32
+                 reserved:world
+
+#. Given the identity of the traffic that should be allowed, the regular
+   :ref:`policy_tracing` steps can be used to validate that the policy is
+   calculated correctly.
