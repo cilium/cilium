@@ -267,4 +267,8 @@ const (
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = false
+
+	// PolicyTriggerInterval is default amount of time between triggers of
+	// policy updates are invoked.
+	PolicyTriggerInterval = 1 * time.Second
 )
