@@ -138,7 +138,7 @@ case $K8S_VERSION in
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
         ;;
     "1.12")
-        KUBERNETES_CNI_VERSION="0.6.0"
+        KUBERNETES_CNI_VERSION="0.7.5"
         K8S_FULL_VERSION="1.12.1"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri"
