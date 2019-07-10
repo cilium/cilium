@@ -17,6 +17,8 @@
 package labels
 
 import (
+	"sort"
+
 	"github.com/cilium/cilium/pkg/checker"
 
 	. "gopkg.in/check.v1"
@@ -144,4 +146,42 @@ func (s *LabelsSuite) TestSame(c *C) {
 	c.Assert(lbls6.Same(lbls4), Equals, false)
 	c.Assert(lbls6.Same(lbls5), Equals, false)
 	c.Assert(lbls6.Same(lbls6), Equals, true)
+}
+
+// TestOutputConversions tests the various ways a LabelArray can be converted
+// into other representations
+func (s *LabelsSuite) TestOutputConversions(c *C) {
+	lbls := LabelArray{
+		NewLabel("env", "devel", LabelSourceAny),
+		NewLabel("user", "bob", LabelSourceContainer),
+		NewLabel("something", "somethingelse", LabelSourceK8s),
+		NewLabel("nosource", "value", ""),
+		NewLabel("nosource", "value", "actuallyASource"),
+	}
+
+	expectMdl := []string{"any:env=devel", "container:user=bob", "k8s:something=somethingelse", "unspec:nosource=value", "actuallyASource:nosource=value"}
+	sort.StringSlice(expectMdl).Sort()
+	mdl := lbls.GetModel()
+	sort.StringSlice(mdl).Sort()
+	c.Assert(len(mdl), Equals, len(expectMdl))
+	for i := range mdl {
+		c.Assert(mdl[i], Equals, expectMdl[i])
+	}
+
+	expectString := "[any:env=devel container:user=bob k8s:something=somethingelse unspec:nosource=value actuallyASource:nosource=value]"
+	c.Assert(lbls.String(), Equals, expectString)
+
+	// Note: the two nosource entries do not alias when rendered into the StringMap
+	// format, because they have different sources.
+	expectMap := map[string]string{
+		"any:env":                       "devel",
+		"container:user":                "bob",
+		"k8s:something":                 "somethingelse",
+		LabelSourceUnspec + ":nosource": "value",
+		"actuallyASource:nosource":      "value"}
+	mp := lbls.StringMap()
+	c.Assert(len(mp), Equals, len(expectMap))
+	for k, v := range mp {
+		c.Assert(v, Equals, expectMap[k])
+	}
 }
