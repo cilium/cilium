@@ -32,6 +32,12 @@ type configuration struct {
 	// KubeconfigPath is the local path to the kubeconfig configuration
 	// file on the filesystem
 	KubeconfigPath string
+
+	// QPS is the QPS to pass to the kubernetes client configuration.
+	QPS float32
+
+	// Burst is the burst to pass to the kubernetes client configuration.
+	Burst int
 }
 
 // GetAPIServer returns the configured API server address
@@ -45,10 +51,22 @@ func GetKubeconfigPath() string {
 	return config.KubeconfigPath
 }
 
+// GetQPS gets the QPS of the K8s configuration.
+func GetQPS() float32 {
+	return config.QPS
+}
+
+// GetBurst gets the burst limit of the K8s configuration.
+func GetBurst() int {
+	return config.Burst
+}
+
 // Configure sets the parameters of the Kubernetes package
-func Configure(apiServer, kubeconfigPath string) {
+func Configure(apiServer, kubeconfigPath string, qps float32, burst int) {
 	config.APIServer = apiServer
 	config.KubeconfigPath = kubeconfigPath
+	config.QPS = qps
+	config.Burst = burst
 
 	if IsEnabled() &&
 		config.APIServer != "" &&

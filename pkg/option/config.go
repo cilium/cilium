@@ -529,6 +529,12 @@ const (
 	// AWSClientBurst is the burst value allowed for the AWS client used by the AWS ENI IPAM
 	AWSClientBurst = "aws-client-burst"
 
+	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
+	K8sClientQPSLimit = "k8s-client-qps"
+
+	// K8sClientBurst is the burst value allowed for the K8s client. Defaults to k8s client defaults.
+	K8sClientBurst = "k8s-client-burst"
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = "auto-create-cilium-node-resource"
