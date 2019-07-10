@@ -542,6 +542,10 @@ const (
 
 	// DeprecatedEnableLegacyServices enables the legacy services
 	DeprecatedEnableLegacyServices = "enable-legacy-services"
+
+	// PolicyTriggerInterval is the amount of time between triggers of policy
+	// updates are invoked.
+	PolicyTriggerInterval = "policy-trigger-interval"
 )
 
 // FQDNS variables
@@ -1099,6 +1103,10 @@ type DaemonConfig struct {
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
+
+	// PolicyTriggerInterval is the amount of time between when policy updates
+	// are triggered.
+	PolicyTriggerInterval time.Duration
 }
 
 var (
@@ -1502,6 +1510,7 @@ func (c *DaemonConfig) Populate() {
 	c.Version = viper.GetString(Version)
 	c.Workloads = viper.GetStringSlice(ContainerRuntime)
 	c.WriteCNIConfigurationWhenReady = viper.GetString(WriteCNIConfigurationWhenReady)
+	c.PolicyTriggerInterval = viper.GetDuration(PolicyTriggerInterval)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
