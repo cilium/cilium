@@ -65,7 +65,11 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 	msg := nl.NewIfAddrmsg(family)
 	msg.Index = uint32(base.Index)
 	msg.Scope = uint8(addr.Scope)
-	prefixlen, masklen := addr.Mask.Size()
+	mask := addr.Mask
+	if addr.Peer != nil {
+		mask = addr.Peer.Mask
+	}
+	prefixlen, masklen := mask.Size()
 	msg.Prefixlen = uint8(prefixlen)
 	req.AddData(msg)
 
@@ -107,7 +111,7 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		if addr.Broadcast == nil {
 			calcBroadcast := make(net.IP, masklen/8)
 			for i := range localAddrData {
-				calcBroadcast[i] = localAddrData[i] | ^addr.Mask[i]
+				calcBroadcast[i] = localAddrData[i] | ^mask[i]
 			}
 			addr.Broadcast = calcBroadcast
 		}
@@ -206,13 +210,17 @@ func parseAddr(m []byte) (addr Addr, family, index int, err error) {
 				IP:   attr.Value,
 				Mask: net.CIDRMask(int(msg.Prefixlen), 8*len(attr.Value)),
 			}
-			addr.Peer = dst
 		case unix.IFA_LOCAL:
+			// iproute2 manual:
+			// If a peer address is specified, the local address
+			// cannot have a prefix length. The network prefix is
+			// associated with the peer rather than with the local
+			// address.
+			n := 8 * len(attr.Value)
 			local = &net.IPNet{
 				IP:   attr.Value,
-				Mask: net.CIDRMask(int(msg.Prefixlen), 8*len(attr.Value)),
+				Mask: net.CIDRMask(n, n),
 			}
-			addr.IPNet = local
 		case unix.IFA_BROADCAST:
 			addr.Broadcast = attr.Value
 		case unix.IFA_LABEL:
@@ -226,12 +234,24 @@ func parseAddr(m []byte) (addr Addr, family, index int, err error) {
 		}
 	}
 
-	// IFA_LOCAL should be there but if not, fall back to IFA_ADDRESS
+	// libnl addr.c comment:
+	// IPv6 sends the local address as IFA_ADDRESS with no
+	// IFA_LOCAL, IPv4 sends both IFA_LOCAL and IFA_ADDRESS
+	// with IFA_ADDRESS being the peer address if they differ
+	//
+	// But obviously, as there are IPv6 PtP addresses, too,
+	// IFA_LOCAL should also be handled for IPv6.
 	if local != nil {
-		addr.IPNet = local
+		if family == FAMILY_V4 && local.IP.Equal(dst.IP) {
+			addr.IPNet = dst
+		} else {
+			addr.IPNet = local
+			addr.Peer = dst
+		}
 	} else {
 		addr.IPNet = dst
 	}
+
 	addr.Scope = int(msg.Scope)
 
 	return
@@ -250,21 +270,22 @@ type AddrUpdate struct {
 // AddrSubscribe takes a chan down which notifications will be sent
 // when addresses change.  Close the 'done' chan to stop subscription.
 func AddrSubscribe(ch chan<- AddrUpdate, done <-chan struct{}) error {
-	return addrSubscribeAt(netns.None(), netns.None(), ch, done, nil, false)
+	return addrSubscribeAt(netns.None(), netns.None(), ch, done, nil, false, 0)
 }
 
 // AddrSubscribeAt works like AddrSubscribe plus it allows the caller
 // to choose the network namespace in which to subscribe (ns).
 func AddrSubscribeAt(ns netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}) error {
-	return addrSubscribeAt(ns, netns.None(), ch, done, nil, false)
+	return addrSubscribeAt(ns, netns.None(), ch, done, nil, false, 0)
 }
 
 // AddrSubscribeOptions contains a set of options to use with
 // AddrSubscribeWithOptions.
 type AddrSubscribeOptions struct {
-	Namespace     *netns.NsHandle
-	ErrorCallback func(error)
-	ListExisting  bool
+	Namespace         *netns.NsHandle
+	ErrorCallback     func(error)
+	ListExisting      bool
+	ReceiveBufferSize int
 }
 
 // AddrSubscribeWithOptions work like AddrSubscribe but enable to
@@ -275,10 +296,10 @@ func AddrSubscribeWithOptions(ch chan<- AddrUpdate, done <-chan struct{}, option
 		none := netns.None()
 		options.Namespace = &none
 	}
-	return addrSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting)
+	return addrSubscribeAt(*options.Namespace, netns.None(), ch, done, options.ErrorCallback, options.ListExisting, options.ReceiveBufferSize)
 }
 
-func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}, cberr func(error), listExisting bool) error {
+func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-chan struct{}, cberr func(error), listExisting bool, rcvbuf int) error {
 	s, err := nl.SubscribeAt(newNs, curNs, unix.NETLINK_ROUTE, unix.RTNLGRP_IPV4_IFADDR, unix.RTNLGRP_IPV6_IFADDR)
 	if err != nil {
 		return err
@@ -288,6 +309,12 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 			<-done
 			s.Close()
 		}()
+	}
+	if rcvbuf != 0 {
+		err = pkgHandle.SetSocketReceiveBufferSize(rcvbuf, false)
+		if err != nil {
+			return err
+		}
 	}
 	if listExisting {
 		req := pkgHandle.newNetlinkRequest(unix.RTM_GETADDR,
@@ -304,9 +331,9 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 			msgs, err := s.Receive()
 			if err != nil {
 				if cberr != nil {
-					cberr(err)
+					cberr(fmt.Errorf("Receive: %v", err))
 				}
-				return
+				continue
 			}
 			for _, m := range msgs {
 				if m.Header.Type == unix.NLMSG_DONE {
@@ -319,16 +346,17 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 						continue
 					}
 					if cberr != nil {
-						cberr(syscall.Errno(-error))
+						cberr(fmt.Errorf("error message: %v",
+							syscall.Errno(-error)))
 					}
-					return
+					continue
 				}
 				msgType := m.Header.Type
 				if msgType != unix.RTM_NEWADDR && msgType != unix.RTM_DELADDR {
 					if cberr != nil {
 						cberr(fmt.Errorf("bad message type: %d", msgType))
 					}
-					return
+					continue
 				}
 
 				addr, _, ifindex, err := parseAddr(m.Data)
@@ -336,7 +364,7 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 					if cberr != nil {
 						cberr(fmt.Errorf("could not parse address: %v", err))
 					}
-					return
+					continue
 				}
 
 				ch <- AddrUpdate{LinkAddress: *addr.IPNet,
