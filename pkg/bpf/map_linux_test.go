@@ -354,6 +354,34 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	err = noSuchMap.DumpWithCallbackIfExists(customCb)
 	c.Assert(err, IsNil)
 	c.Assert(len(dump2), Equals, 0)
+
+	// Validate that if the key is zero, it shows up in dump output.
+	keyZero := &TestKey{Key: 0}
+	valueZero := &TestValue{Value: 0}
+	err = testMap.Update(keyZero, valueZero)
+	c.Assert(err, IsNil)
+
+	dump4 := map[string][]string{}
+	customCb = func(key MapKey, value MapValue) {
+		dump4[key.String()] = append(dump4[key.String()], "custom-"+value.String())
+	}
+	ds := NewDumpStats(testMap)
+	err = testMap.DumpReliablyWithCallback(customCb, ds)
+	c.Assert(err, IsNil)
+	c.Assert(dump4, checker.DeepEquals, map[string][]string{
+		"key=0":   {"custom-value=0"},
+		"key=105": {"custom-value=205"},
+		"key=106": {"custom-value=206"},
+	})
+
+	dump5 := map[string][]string{}
+	err = testMap.Dump(dump5)
+	c.Assert(err, IsNil)
+	c.Assert(dump5, checker.DeepEquals, map[string][]string{
+		"key=0":   {"value=0"},
+		"key=105": {"value=205"},
+		"key=106": {"value=206"},
+	})
 }
 
 func (s *BPFPrivilegedTestSuite) TestGetModel(c *C) {
