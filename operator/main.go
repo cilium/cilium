@@ -126,6 +126,9 @@ func init() {
 	flags.Int(option.AWSClientBurst, 4, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
 	flags.Float64(option.AWSClientQPSLimit, 20.0, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
 
+	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
+	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
+
 	// We need to obtain from Cilium ConfigMap if the CiliumEndpointCRD option
 	// is enabled or disabled. This option is marked as hidden because the
 	// Cilium Endpoint CRD controller is not in this program and by having it
@@ -185,7 +188,10 @@ func runOperator(cmd *cobra.Command) {
 		registerMetrics()
 	}
 
-	k8s.Configure(k8sAPIServer, k8sKubeConfigPath)
+	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
+	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
+
+	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 	if err := k8s.Init(); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}

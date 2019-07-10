@@ -779,7 +779,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	debug.RegisterStatusObject("ipam", d.ipam)
 
 	bootstrapStats.k8sInit.Start()
-	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath)
+	k8s.Configure(option.Config.K8sAPIServer, option.Config.K8sKubeConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 	bootstrapStats.k8sInit.End(true)
 	d.runK8sServiceHandler()
 	policyApi.InitEntities(option.Config.ClusterName)
