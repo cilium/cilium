@@ -161,7 +161,7 @@ func createDirectRouteSpec(CIDR *cidr.CIDR, nodeIP net.IP) (routeSpec *netlink.R
 		return
 	}
 
-	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() {
+	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() && !routes[0].Gw.Equal(nodeIP) {
 		err = fmt.Errorf("route to destination %s contains gateway %s, must be directly reachable",
 			nodeIP, routes[0].Gw.String())
 		return
