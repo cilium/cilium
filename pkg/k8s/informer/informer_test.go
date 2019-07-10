@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,9 +47,9 @@ var _ = Suite(&K8sIntegrationSuite{})
 func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 	if os.Getenv("INTEGRATION") != "" {
 		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig")
+			k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		} else {
-			k8s.Configure("", k8sConfigPath)
+			k8s.Configure("", k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		}
 	}
 }

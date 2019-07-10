@@ -44,7 +44,7 @@ var (
 )
 
 // CreateConfig creates a rest.Config for a given endpoint using a kubeconfig file.
-func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
+func createConfig(endpoint, kubeCfgPath string, qps float32, burst int) (*rest.Config, error) {
 	userAgent := fmt.Sprintf("Cilium %s", version.Version)
 
 	// If the endpoint and the kubeCfgPath are empty then we can try getting
@@ -54,7 +54,7 @@ func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		config.UserAgent = userAgent
+		setConfig(config, userAgent, qps, burst)
 		return config, nil
 	}
 
@@ -63,26 +63,39 @@ func createConfig(endpoint, kubeCfgPath string) (*rest.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		config.UserAgent = userAgent
+		setConfig(config, userAgent, qps, burst)
 		return config, nil
 	}
 
 	config := &rest.Config{Host: endpoint, UserAgent: userAgent}
+	setConfig(config, userAgent, qps, burst)
 	err := rest.SetKubernetesDefaults(config)
 
 	return config, err
 }
 
+func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
+	if config.UserAgent != "" {
+		config.UserAgent = userAgent
+	}
+	if qps != 0.0 {
+		config.QPS = qps
+	}
+	if burst != 0 {
+		config.Burst = burst
+	}
+}
+
 // CreateConfigFromAgentResponse creates a client configuration from a
 // models.DaemonConfigurationResponse
 func CreateConfigFromAgentResponse(resp *models.DaemonConfiguration) (*rest.Config, error) {
-	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration)
+	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration, GetQPS(), GetBurst())
 }
 
 // CreateConfig creates a client configuration based on the configured API
 // server and Kubeconfig path
 func CreateConfig() (*rest.Config, error) {
-	return createConfig(GetAPIServer(), GetKubeconfigPath())
+	return createConfig(GetAPIServer(), GetKubeconfigPath(), GetQPS(), GetBurst())
 }
 
 // CreateClient creates a new client to access the Kubernetes API

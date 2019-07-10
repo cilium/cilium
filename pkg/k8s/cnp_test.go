@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
@@ -60,9 +61,9 @@ func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 	}
 	if os.Getenv("INTEGRATION") != "" {
 		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			Configure("", "/var/lib/cilium/cilium.kubeconfig")
+			Configure("", "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		} else {
-			Configure("", k8sConfigPath)
+			Configure("", k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		}
 		restConfig, err := CreateConfig()
 		c.Assert(err, IsNil)
