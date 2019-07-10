@@ -199,6 +199,20 @@ func (ls LabelArray) String() string {
 	return res
 }
 
+// StringMap converts LabelArray into map[string]string
+// Note: The source is included in the keys with a ':' separator.
+// Note: LabelArray does not deduplicate entries, as it is an array. It is
+// possible for the output to contain fewer entries when the source and key are
+// repeated in a LabelArray, as that is the key of the output. This scenario is
+// not expected.
+func (ls LabelArray) StringMap() map[string]string {
+	o := map[string]string{}
+	for _, v := range ls {
+		o[v.Source+":"+v.Key] = v.Value
+	}
+	return o
+}
+
 // Same returns true if the label arrays are the same, i.e., have the same labels in the same order.
 func (ls LabelArray) Same(b LabelArray) bool {
 	if len(ls) != len(b) {
