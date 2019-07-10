@@ -227,7 +227,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	if ep.GetK8sNamespaceAndPodNameLocked() != "" && k8s.IsEnabled() {
+	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
 		identityLabels, info, err := fetchK8sLabels(ep)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")

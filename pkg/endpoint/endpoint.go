@@ -1404,6 +1404,14 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 	e.Unlock()
 }
 
+// K8sNamespaceAndPodNameIsSet returns true if the pod name is set
+func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
+	e.UnconditionalLock()
+	podName := e.GetK8sNamespaceAndPodNameLocked()
+	e.Unlock()
+	return podName != "" && podName != "/"
+}
+
 // GetK8sPodName returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sPodName() string {

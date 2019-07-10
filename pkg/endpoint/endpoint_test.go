@@ -469,3 +469,11 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 		})
 	}
 }
+
+func (s *EndpointSuite) TestK8sPodNameIsSet(c *C) {
+	e := Endpoint{}
+	c.Assert(e.K8sNamespaceAndPodNameIsSet(), Equals, false)
+	e.K8sPodName = "foo"
+	e.K8sNamespace = "default"
+	c.Assert(e.K8sNamespaceAndPodNameIsSet(), Equals, true)
+}
