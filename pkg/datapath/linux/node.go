@@ -541,13 +541,13 @@ func neighborLog(spec string, err error, ip *net.IP, hwAddr *net.HardwareAddr, l
 }
 
 func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
+	if newNode.IsLocal() {
+		return
+	}
+
 	ciliumIPv4 := newNode.GetNodeIP(false)
 	var hwAddr net.HardwareAddr
 	link := 0
-
-	if !newNode.IsLocal() {
-		return
-	}
 
 	if option.Config.Tunnel != option.TunnelDisabled {
 		return
