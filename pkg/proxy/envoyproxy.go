@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
 
 // the global Envoy instance
@@ -61,7 +62,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 
 // UpdateRules is a no-op for envoy, as redirect data is synchronized via the
 // xDS cache.
-func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter) (revert.RevertFunc, error) {
+func (k *envoyRedirect) UpdateRules(wg *completion.WaitGroup, l4 regeneration.PolicyL4Filter) (revert.RevertFunc, error) {
 	return func() error { return nil }, nil
 }
 

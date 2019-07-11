@@ -63,10 +63,10 @@ type DaemonSuite struct {
 	OnTracingEnabled          func() bool
 	OnAlwaysAllowLocalhost    func() bool
 	OnGetCachedLabelList      func(id identity.NumericIdentity) (labels.LabelArray, error)
-	OnGetPolicyRepository     func() *policy.Repository
-	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	OnGetPolicyRepository     func() regeneration.PolicyRepository
+	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 regeneration.PolicyL4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
 	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
+	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy regeneration.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e regeneration.EndpointInfoSource)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
@@ -208,14 +208,14 @@ func (ds *DaemonSuite) GetCachedLabelList(id identity.NumericIdentity) (labels.L
 	panic("GetCachedLabelList should not have been called")
 }
 
-func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
+func (ds *DaemonSuite) GetPolicyRepository() regeneration.PolicyRepository {
 	if ds.OnGetPolicyRepository != nil {
 		return ds.OnGetPolicyRepository()
 	}
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (ds *DaemonSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 regeneration.PolicyL4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	if ds.OnUpdateProxyRedirect != nil {
 		return ds.OnUpdateProxyRedirect(e, l4, proxyWaitGroup)
 	}
@@ -229,7 +229,7 @@ func (ds *DaemonSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id
 	panic("RemoveProxyRedirect should not have been called")
 }
 
-func (ds *DaemonSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+func (ds *DaemonSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy regeneration.L4Policy,
 	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if ds.OnUpdateNetworkPolicy != nil {
 		return ds.OnUpdateNetworkPolicy(e, policy, proxyWaitGroup)

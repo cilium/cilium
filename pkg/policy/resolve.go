@@ -17,6 +17,7 @@ package policy
 import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -28,7 +29,7 @@ type selectorPolicy struct {
 	Revision uint64
 
 	// SelectorCache managing selectors in L4Policy
-	SelectorCache *SelectorCache
+	SelectorCache regeneration.SelectorCache
 
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy *L4Policy
@@ -76,12 +77,12 @@ type EndpointPolicy struct {
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
-	LookupRedirectPort(l4 *L4Filter) uint16
+	LookupRedirectPort(l4 regeneration.PolicyL4Filter) uint16
 	GetSecurityIdentity() *identity.Identity
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
-func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorPolicy {
+func newSelectorPolicy(revision uint64, selectorCache regeneration.SelectorCache) *selectorPolicy {
 	return &selectorPolicy{
 		Revision:      revision,
 		SelectorCache: selectorCache,
@@ -157,7 +158,9 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
 		keysFromFilter := filter.ToKeys(direction)
+		
 		for _, keyFromFilter := range keysFromFilter {
+			policyKey := NewPolicyKey(keyFromFilter)
 			var proxyPort uint16
 			// Preserve the already-allocated proxy ports for redirects that
 			// already exist.
@@ -171,13 +174,13 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 					continue
 				}
 			}
-			p.PolicyMapState[keyFromFilter] = MapStateEntry{ProxyPort: proxyPort}
+			p.PolicyMapState[policyKey] = MapStateEntry{ProxyPort: proxyPort}
 		}
 	}
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
-func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
+func NewEndpointPolicy(repo regeneration.PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(0, repo.GetSelectorCache()),
 	}

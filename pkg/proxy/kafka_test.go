@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -57,7 +58,7 @@ func (s *proxyTestSuite) SetUpSuite(c *C) {
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector regeneration.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 }
 
 var (

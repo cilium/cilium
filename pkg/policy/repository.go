@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
 
 // Repository is a list of policy rules which in combination form the security
@@ -61,13 +62,23 @@ type Repository struct {
 	policyCache *PolicyCache
 }
 
+// RLock() creates a read lock on the struct mutex
+func (p *Repository) RLock() {
+	p.Mutex.RLock()
+}
+
+// RUnlock() removes the lock on the struct mutex
+func (p *Repository) RUnlock() {
+	p.Mutex.RUnlock()
+}
+
 // GetSelectorCache() returns the selector cache used by the Repository
-func (p *Repository) GetSelectorCache() *SelectorCache {
+func (p *Repository) GetSelectorCache() regeneration.SelectorCache {
 	return p.selectorCache
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
-func (p *Repository) GetPolicyCache() *PolicyCache {
+func (p *Repository) GetPolicyCache() regeneration.PolicyCache {
 	return p.policyCache
 }
 
@@ -117,19 +128,19 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 
 // This belongs to l4.go as this manipulates L4Filters
 func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelectorSlice,
-	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache *SelectorCache) {
+	ruleLabels labels.LabelArray, l4Policy L4PolicyMap, selectorCache regeneration.SelectorCache) {
 	for _, filter := range l4Policy {
-		if proto != filter.Protocol || (port != 0 && port != filter.Port) {
+		if proto != filter.GetProtocol() || (port != 0 && port != filter.GetPort()) {
 			continue
 		}
-		switch filter.L7Parser {
+		switch L7ParserType(filter.L7ParserType()) {
 		case ParserTypeNone:
 			continue
 		case ParserTypeHTTP:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
+				cs := filter.CacheIdentitySelector(sel, selectorCache)
+				filter.GetL7RulesPerEp()[cs] = api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				}
 			}
@@ -138,8 +149,8 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 			for _, sel := range endpoints {
 				rule := api.PortRuleKafka{}
 				rule.Sanitize()
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
+				cs := filter.CacheIdentitySelector(sel, selectorCache)
+				filter.GetL7RulesPerEp()[cs] = api.L7Rules{
 					Kafka: []api.PortRuleKafka{rule},
 				}
 			}
@@ -152,22 +163,23 @@ func wildcardL3L4Rule(proto api.L4Proto, port int, endpoints api.EndpointSelecto
 					MatchPattern: "*",
 				}
 				rule.Sanitize()
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
+				cs := filter.CacheIdentitySelector(sel, selectorCache)
+				filter.GetL7RulesPerEp()[cs] = api.L7Rules{
 					DNS: []api.PortRuleDNS{rule},
 				}
 			}
 		default:
 			// Wildcard at L7 all the endpoints allowed at L3 or L4.
 			for _, sel := range endpoints {
-				cs := filter.cacheIdentitySelector(sel, selectorCache)
-				filter.L7RulesPerEp[cs] = api.L7Rules{
-					L7Proto: filter.L7Parser.String(),
+				cs := filter.CacheIdentitySelector(sel, selectorCache)
+				filter.GetL7RulesPerEp()[cs] = api.L7Rules{
+					L7Proto: filter.L7ParserType(),
 					L7:      []api.PortRuleL7{},
 				}
 			}
 		}
-		filter.DerivedFromRules = append(filter.DerivedFromRules, ruleLabels)
+
+		filter.SetRuleLabels(append(filter.GetRuleLabels(), ruleLabels))
 	}
 }
 

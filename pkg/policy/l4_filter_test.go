@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
@@ -233,7 +234,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        "http",
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -341,7 +342,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -421,7 +422,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeKafka,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -675,7 +676,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		Protocol:         api.ProtoTCP,
 		U8Proto:          6,
 		allowsAllAtL3:    true,
-		CachedSelectors:  CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors:  regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:         ParserTypeNone,
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
@@ -733,7 +734,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		Protocol:         api.ProtoTCP,
 		U8Proto:          6,
 		allowsAllAtL3:    true,
-		CachedSelectors:  CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors:  regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:         ParserTypeNone,
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
@@ -804,7 +805,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			cachedSelectorA: api.L7Rules{
@@ -873,7 +874,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			cachedSelectorA: api.L7Rules{
@@ -955,7 +956,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -1033,7 +1034,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -1219,7 +1220,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 		Port:            80,
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
-		CachedSelectors: CachedSelectorSlice{cachedSelectorA, cachedSelectorC},
+		CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorA, cachedSelectorC},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			cachedSelectorC: api.L7Rules{
@@ -1291,7 +1292,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 		Port:             80,
 		Protocol:         api.ProtoTCP,
 		U8Proto:          6,
-		CachedSelectors:  CachedSelectorSlice{cachedSelectorA, cachedSelectorC},
+		CachedSelectors:  regeneration.CachedSelectorSlice{cachedSelectorA, cachedSelectorC},
 		L7Parser:         ParserTypeNone,
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          true,
@@ -1364,7 +1365,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 		Protocol:        api.ProtoTCP,
 		U8Proto:         6,
 		allowsAllAtL3:   true,
-		CachedSelectors: CachedSelectorSlice{wildcardCachedSelector, cachedSelectorHost},
+		CachedSelectors: regeneration.CachedSelectorSlice{wildcardCachedSelector, cachedSelectorHost},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			wildcardCachedSelector: api.L7Rules{
@@ -1422,7 +1423,7 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 		Port:             0,
 		Protocol:         api.ProtoAny,
 		U8Proto:          0,
-		CachedSelectors:  CachedSelectorSlice{wildcardCachedSelector},
+		CachedSelectors:  regeneration.CachedSelectorSlice{wildcardCachedSelector},
 		L7Parser:         ParserTypeNone,
 		L7RulesPerEp:     L7DataMap{},
 		Ingress:          false,

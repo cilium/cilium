@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	"github.com/sirupsen/logrus"
 )
@@ -51,6 +52,22 @@ type Key struct {
 	TrafficDirection uint8
 }
 
+func (k Key) GetIdentity() uint32 {
+	return k.Identity
+}
+
+func (k Key) GetDestPort() uint16 {
+	return k.DestPort
+}
+
+func (k Key) GetNexthdr() uint8 {
+	return k.Nexthdr
+}
+
+func (k Key) GetTrafficDirection() uint8 {
+	return k.TrafficDirection
+}
+
 // IsIngress returns true if the key refers to an ingress policy key
 func (k Key) IsIngress() bool {
 	return k.TrafficDirection == trafficdirection.Ingress.Uint8()
@@ -59,6 +76,15 @@ func (k Key) IsIngress() bool {
 // IsEgress returns true if the key refers to an egress policy key
 func (k Key) IsEgress() bool {
 	return k.TrafficDirection == trafficdirection.Egress.Uint8()
+}
+
+func NewPolicyKey(key regeneration.PolicyKey) Key {
+	return Key{
+		Identity: key.GetIdentity(),
+		DestPort: key.GetDestPort(),
+		Nexthdr: key.GetNexthdr(),
+		TrafficDirection: key.GetTrafficDirection(),
+	}
 }
 
 // MapStateEntry is the configuration associated with a Key in a

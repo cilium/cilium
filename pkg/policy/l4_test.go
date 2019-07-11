@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/kr/pretty"
 
 	. "gopkg.in/check.v1"
@@ -78,7 +79,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		Ingress: L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
-				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
+				CachedSelectors: regeneration.CachedSelectorSlice{cachedFooSelector},
 				L7Parser:        "http",
 				L7RulesPerEp: L7DataMap{
 					cachedFooSelector: api.L7Rules{
@@ -89,7 +90,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			},
 			"9090/TCP": {
 				Port: 9090, Protocol: api.ProtoTCP,
-				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
+				CachedSelectors: regeneration.CachedSelectorSlice{cachedFooSelector},
 				L7Parser:        "tester",
 				L7RulesPerEp: L7DataMap{
 					cachedFooSelector: api.L7Rules{
@@ -108,7 +109,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			},
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
-				CachedSelectors: CachedSelectorSlice{cachedFooSelector},
+				CachedSelectors: regeneration.CachedSelectorSlice{cachedFooSelector},
 				L7Parser:        "http",
 				L7RulesPerEp: L7DataMap{
 					cachedFooSelector: api.L7Rules{

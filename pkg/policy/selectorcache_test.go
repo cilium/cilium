@@ -23,6 +23,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	. "gopkg.in/check.v1"
 )
@@ -33,14 +34,14 @@ var _ = Suite(&SelectorCacheTestSuite{})
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector regeneration.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 }
 
 type cachedSelectionUser struct {
 	c             *C
 	sc            *SelectorCache
 	name          string
-	selections    map[CachedSelector][]identity.NumericIdentity
+	selections    map[regeneration.CachedSelector][]identity.NumericIdentity
 	notifications int
 	adds          int
 	deletes       int
@@ -51,7 +52,7 @@ func newUser(c *C, name string, sc *SelectorCache) *cachedSelectionUser {
 		c:          c,
 		sc:         sc,
 		name:       name,
-		selections: make(map[CachedSelector][]identity.NumericIdentity),
+		selections: make(map[regeneration.CachedSelector][]identity.NumericIdentity),
 	}
 }
 
@@ -64,7 +65,7 @@ func haveNid(nid identity.NumericIdentity, selections []identity.NumericIdentity
 	return false
 }
 
-func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
+func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) regeneration.CachedSelector {
 	notifications := csu.notifications
 	cached, added := csu.sc.AddIdentitySelector(csu, sel)
 	csu.c.Assert(cached, Not(Equals), nil)
@@ -80,7 +81,7 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	return cached
 }
 
-func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSelector {
+func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) regeneration.CachedSelector {
 	notifications := csu.notifications
 	cached, added := csu.sc.AddFQDNSelector(csu, sel)
 	csu.c.Assert(cached, Not(Equals), nil)
@@ -96,7 +97,7 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	return cached
 }
 
-func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
+func (csu *cachedSelectionUser) RemoveSelector(sel regeneration.CachedSelector) {
 	notifications := csu.notifications
 	csu.sc.RemoveSelector(sel, csu)
 	delete(csu.selections, sel)
@@ -105,7 +106,7 @@ func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
 	csu.c.Assert(csu.notifications, Equals, notifications)
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector regeneration.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 	csu.notifications++
 	csu.adds += len(added)
 	csu.deletes += len(deleted)
@@ -160,7 +161,7 @@ func (ds *SelectorCacheTestSuite) TestAddRemoveSelector(c *C) {
 	user2 := newUser(c, "user2", sc)
 	cached3 := user2.AddIdentitySelector(testSelector)
 
-	// Same old CachedSelector is returned, nothing new is cached
+	// Same old regeneration.CachedSelector is returned, nothing new is cached
 	c.Assert(cached3, Equals, cached)
 
 	// Removing the first user does not remove the cached selector

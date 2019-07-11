@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	. "gopkg.in/check.v1"
 )
 
@@ -176,7 +177,7 @@ func GenerateCIDRRules(numRules int) api.Rules {
 
 type DummyOwner struct{}
 
-func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
+func (d DummyOwner) LookupRedirectPort(l4 regeneration.PolicyL4Filter) uint16 {
 	return 0
 }
 
@@ -292,7 +293,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
+						CachedSelectors: regeneration.CachedSelectorSlice{
 							wildcardCachedSelector,
 						},
 						allowsAllAtL3: true,
@@ -384,7 +385,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
+						CachedSelectors: regeneration.CachedSelectorSlice{
 							wildcardCachedSelector,
 							cachedSelectorHost,
 						},
@@ -464,7 +465,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
+						CachedSelectors: regeneration.CachedSelectorSlice{
 							wildcardCachedSelector,
 						},
 						allowsAllAtL3:    true,
@@ -584,7 +585,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						CachedSelectors: CachedSelectorSlice{
+						CachedSelectors: regeneration.CachedSelectorSlice{
 							cachedSelectorWorld,
 							cachedSelectorTest,
 						},

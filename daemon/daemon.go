@@ -188,7 +188,7 @@ func (d *Daemon) Datapath() datapath.Datapath {
 
 // UpdateProxyRedirect updates the redirect rules in the proxy for a particular
 // endpoint using the provided L4 filter. Returns the allocated proxy port
-func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+func (d *Daemon) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 regeneration.PolicyL4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
 	}
@@ -217,7 +217,7 @@ func (d *Daemon) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id strin
 
 // UpdateNetworkPolicy adds or updates a network policy in the set
 // published to L7 proxies.
-func (d *Daemon) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+func (d *Daemon) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy regeneration.L4Policy,
 	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 	if d.l7Proxy == nil {
 		return fmt.Errorf("can't update network policy, proxy disabled"), nil
@@ -307,7 +307,7 @@ func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() *policy.Repository {
+func (d *Daemon) GetPolicyRepository() regeneration.PolicyRepository {
 	return d.policy
 }
 

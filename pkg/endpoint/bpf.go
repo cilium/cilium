@@ -168,7 +168,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 			// Only create a redirect if the proxy is NOT running in a sidecar
 			// container. If running in a sidecar container, just allow traffic
 			// to the port at L4 by setting the proxy port to 0.
-			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
+			if !e.hasSidecarProxy || policy.L7ParserType(l4.L7ParserType()) != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
@@ -196,7 +196,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 				// Update the endpoint API model to report that Cilium manages a
 				// redirect for that port.
 				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+				proxyStats := e.getProxyStatisticsLocked(l4.L7ParserType(), uint16(l4.GetPort()), l4.IsIngress())
 				proxyStats.AllocatedProxyPort = int64(redirectPort)
 				e.proxyStatisticsMutex.Unlock()
 
@@ -205,7 +205,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 
 			// Set the proxy port in the policy map.
 			var direction trafficdirection.TrafficDirection
-			if l4.Ingress {
+			if l4.IsIngress() {
 				direction = trafficdirection.Ingress
 			} else {
 				direction = trafficdirection.Egress
@@ -214,13 +214,15 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 			keysFromFilter := l4.ToKeys(direction)
 
 			for _, keyFromFilter := range keysFromFilter {
-				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
-					updatedDesiredMapState[keyFromFilter] = oldEntry
+				policyKey := policy.NewPolicyKey(keyFromFilter)
+
+				if oldEntry, ok := e.desiredPolicy.PolicyMapState[policyKey]; ok {
+					updatedDesiredMapState[policyKey] = oldEntry
 				} else {
-					insertedDesiredMapState[keyFromFilter] = struct{}{}
+					insertedDesiredMapState[policyKey] = struct{}{}
 				}
 
-				e.desiredPolicy.PolicyMapState[keyFromFilter] = policy.MapStateEntry{ProxyPort: redirectPort}
+				e.desiredPolicy.PolicyMapState[policyKey] = policy.MapStateEntry{ProxyPort: redirectPort}
 			}
 
 		}

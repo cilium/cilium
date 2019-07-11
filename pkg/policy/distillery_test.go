@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
@@ -65,7 +66,7 @@ func (ep *testEP) WithIdentity(id int64) *testEP {
 	return ep
 }
 
-func (ep *testEP) LookupRedirectPort(l4 *L4Filter) uint16 {
+func (ep *testEP) LookupRedirectPort(l4 regeneration.PolicyL4Filter) uint16 {
 	return 42
 }
 

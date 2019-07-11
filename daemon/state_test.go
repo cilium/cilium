@@ -146,7 +146,7 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 		return nil
 	}
 
-	ds.OnUpdateNetworkPolicy = func(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+	ds.OnUpdateNetworkPolicy = func(e regeneration.EndpointUpdater, policy regeneration.L4Policy,
 		proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
 		return nil, nil
 	}

@@ -22,16 +22,8 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
-
-// SelectorPolicy represents a cached selectorPolicy, previously resolved from
-// the policy repository and ready to be distilled against a set of identities
-// to compute datapath-level policy configuration.
-type SelectorPolicy interface {
-	// Consume returns the policy in terms of connectivity to peer
-	// Identities. The callee MUST NOT modify the returned pointer.
-	Consume(owner PolicyOwner) *EndpointPolicy
-}
 
 // PolicyCache represents a cache of resolved policies for identities.
 type PolicyCache struct {
@@ -57,7 +49,7 @@ func NewPolicyCache(repo *Repository, subscribe bool) *PolicyCache {
 	return cache
 }
 
-func (cache *PolicyCache) GetSelectorCache() *SelectorCache {
+func (cache *PolicyCache) GetSelectorCache() regeneration.SelectorCache {
 	return cache.repo.GetSelectorCache()
 }
 
@@ -182,7 +174,7 @@ type cachedSelectorPolicy struct {
 	policy   unsafe.Pointer
 }
 
-func newCachedSelectorPolicy(identity *identityPkg.Identity, selectorCache *SelectorCache) *cachedSelectorPolicy {
+func newCachedSelectorPolicy(identity *identityPkg.Identity, selectorCache regeneration.SelectorCache) *cachedSelectorPolicy {
 	cip := &cachedSelectorPolicy{
 		identity: identity,
 	}

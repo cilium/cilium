@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,7 +28,7 @@ import (
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
 
-func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, requirements []v1.LabelSelectorRequirement, selectorCache *SelectorCache) {
+func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, requirements []v1.LabelSelectorRequirement, selectorCache regeneration.SelectorCache) {
 	// Duplicate L3-only rules into wildcard L7 rules.
 	for _, r := range rules {
 		if ingress {
@@ -102,7 +103,7 @@ func (rules ruleSlice) wildcardL3L4Rules(ingress bool, l4Policy L4PolicyMap, req
 	}
 }
 
-func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (L4PolicyMap, error) {
+func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint64, selectorCache regeneration.SelectorCache) (L4PolicyMap, error) {
 	result := L4PolicyMap{}
 
 	ctx.PolicyTrace("\n")
@@ -152,7 +153,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(ctx *SearchContext, revision uint6
 	return result, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64, selectorCache *SelectorCache) (L4PolicyMap, error) {
+func (rules ruleSlice) resolveL4EgressPolicy(ctx *SearchContext, revision uint64, selectorCache regeneration.SelectorCache) (L4PolicyMap, error) {
 	result := L4PolicyMap{}
 
 	ctx.PolicyTrace("\n")

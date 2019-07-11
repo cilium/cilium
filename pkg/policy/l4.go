@@ -29,14 +29,15 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 )
 
-// L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
-type L7DataMap map[CachedSelector]api.L7Rules
+// L7DataMap contains a map of L7 rules per endpoint where key is a regeneration.CachedSelector
+type L7DataMap regeneration.L7DataMap
 
 func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 	if len(l7) == 0 {
@@ -45,7 +46,7 @@ func (l7 L7DataMap) MarshalJSON() ([]byte, error) {
 
 	/* First, create a sorted slice of the selectors so we can get
 	 * consistent JSON output */
-	selectors := make(CachedSelectorSlice, 0, len(l7))
+	selectors := make(regeneration.CachedSelectorSlice, 0, len(l7))
 	for cs := range l7 {
 		selectors = append(selectors, cs)
 	}
@@ -111,7 +112,7 @@ type L4Filter struct {
 	// This includes selectors for destinations affected by entity-based
 	// and CIDR-based policy.
 	// Holds references to the CachedSelectors, which must be released!
-	CachedSelectors CachedSelectorSlice `json:"-"`
+	CachedSelectors regeneration.CachedSelectorSlice `json:"-"`
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
@@ -124,6 +125,59 @@ type L4Filter struct {
 
 	// This reference is circular, but it is cleaned up at Detach()
 	policy unsafe.Pointer // *L4Policy
+}
+
+func (l4 *L4Filter) L7ParserType() string {
+	return l4.L7Parser.String()
+}
+
+func (l4 *L4Filter) GetPort() int {
+	return l4.Port
+}
+
+func (l4 *L4Filter) GetProtocol() api.L4Proto {
+	return l4.Protocol
+}
+
+func (l4 *L4Filter) IsIngress() bool {
+	return l4.Ingress
+}
+
+func (l4 *L4Filter) GetL7RulesPerEp() regeneration.L7DataMap {
+	return regeneration.L7DataMap(l4.L7RulesPerEp)
+}
+
+func (l4 *L4Filter) GetRuleLabels() labels.LabelArrayList {
+	return l4.DerivedFromRules
+}
+
+func (l4 *L4Filter) SetRuleLabels(l labels.LabelArrayList) {
+	l4.DerivedFromRules = l
+}
+
+func (l4 *L4Filter) GetL7RulesPerEpCopy() regeneration.L7DataMap {
+	rules := make(regeneration.L7DataMap, len(l4.L7RulesPerEp))
+	for key, val := range l4.L7RulesPerEp {
+		rules[key] = val
+	}
+
+	return rules
+}
+
+func (l4 *L4Filter) SetCachedSelectors(cs regeneration.CachedSelectorSlice) {
+	l4.CachedSelectors = cs
+}
+
+func (l4 *L4Filter) GetCachedSelectors() regeneration.CachedSelectorSlice {
+	return l4.CachedSelectors
+}
+
+func (l4 *L4Filter) SetAllowsAllAtL3(value bool) {
+	l4.allowsAllAtL3 = value
+}
+
+func (l4 *L4Filter) SetL7ParserType(parser string) {
+	l4.L7Parser = L7ParserType(parser)
 }
 
 // AllowsAllAtL3 returns whether this L4Filter applies to all endpoints at L3.
@@ -149,8 +203,8 @@ func (l4 *L4Filter) HasL3DependentL7Rules() bool {
 }
 
 // ToKeys converts filter into a list of Keys.
-func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
-	keysToAdd := []Key{}
+func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) regeneration.PolicyKeySlice {
+	keysToAdd := regeneration.PolicyKeySlice{}
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
@@ -166,7 +220,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 				Nexthdr:          0,
 				TrafficDirection: direction.Uint8(),
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			keysToAdd.Append(keyToAdd)
 		} else {
 			// L4 allow
 			log.WithFields(logrus.Fields{
@@ -182,7 +236,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 				Nexthdr:          proto,
 				TrafficDirection: direction.Uint8(),
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			keysToAdd.Append(keyToAdd)
 		}
 		if !l4.HasL3DependentL7Rules() {
 			return keysToAdd
@@ -205,7 +259,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 				Nexthdr:          proto,
 				TrafficDirection: direction.Uint8(),
 			}
-			keysToAdd = append(keysToAdd, keyToAdd)
+			keysToAdd.Append(keyToAdd)
 		}
 	}
 
@@ -217,7 +271,7 @@ func (l4 *L4Filter) ToKeys(direction trafficdirection.TrafficDirection) []Key {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (l4 *L4Filter) IdentitySelectionUpdated(selector regeneration.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
 		logfields.EndpointSelector: selector,
 		logfields.PolicyID:         selections,
@@ -245,7 +299,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, selections
 	}
 }
 
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCache *SelectorCache) CachedSelector {
+func (l4 *L4Filter) CacheIdentitySelector(sel api.EndpointSelector, selectorCache regeneration.SelectorCache) regeneration.CachedSelector {
 	cs, added := selectorCache.AddIdentitySelector(l4, sel)
 	if added {
 		l4.CachedSelectors = append(l4.CachedSelectors, cs)
@@ -253,19 +307,19 @@ func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, selectorCach
 	return cs
 }
 
-func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, selectorCache *SelectorCache) {
+func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, selectorCache regeneration.SelectorCache) {
 	for _, sel := range selectors {
-		l4.cacheIdentitySelector(sel, selectorCache)
+		l4.CacheIdentitySelector(sel, selectorCache)
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, selectorCache *SelectorCache) {
+func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, selectorCache regeneration.SelectorCache) {
 	for _, fqdnSel := range selectors {
 		l4.cacheFQDNSelector(fqdnSel, selectorCache)
 	}
 }
 
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *SelectorCache) CachedSelector {
+func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache regeneration.SelectorCache) regeneration.CachedSelector {
 	cs, added := selectorCache.AddFQDNSelector(l4, sel)
 	if added {
 		l4.CachedSelectors = append(l4.CachedSelectors, cs)
@@ -285,7 +339,7 @@ func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api
 	return rules
 }
 
-func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSelector) {
+func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []regeneration.CachedSelector) {
 	if rules.Len() == 0 {
 		return
 	}
@@ -301,7 +355,7 @@ func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, endpoints []CachedSe
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
 func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, selectorCache *SelectorCache, fqdns api.FQDNSelectorSlice) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, selectorCache regeneration.SelectorCache, fqdns api.FQDNSelectorSlice) *L4Filter {
 
 	// already validated via PortRule.Validate()
 	p, _ := strconv.ParseUint(port.Port, 0, 16)
@@ -318,10 +372,10 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 	}
 
 	if peerEndpoints.SelectsAllEndpoints() {
-		l4.cacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
+		l4.CacheIdentitySelector(api.WildcardEndpointSelector, selectorCache)
 		l4.allowsAllAtL3 = true
 	} else {
-		l4.CachedSelectors = make(CachedSelectorSlice, 0, len(peerEndpoints))
+		l4.CachedSelectors = make(regeneration.CachedSelectorSlice, 0, len(peerEndpoints))
 		l4.cacheIdentitySelectors(peerEndpoints, selectorCache)
 		l4.cacheFQDNSelectors(fqdns, selectorCache)
 	}
@@ -349,15 +403,15 @@ func createL4Filter(peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, 
 	return l4
 }
 
-// detach releases the references held in the L4Filter and must be called before
+// Detach releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected.
-func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
+func (l4 *L4Filter) Detach(selectorCache regeneration.SelectorCache) {
 	selectorCache.RemoveSelectors(l4.CachedSelectors, l4)
-	l4.attach(nil)
+	l4.Attach(nil)
 }
 
-func (l4 *L4Filter) attach(l4Policy *L4Policy) {
-	atomic.StorePointer(&l4.policy, unsafe.Pointer(l4Policy))
+func (l4 *L4Filter) Attach(l4Policy regeneration.L4Policy) {
+	atomic.StorePointer(&l4.policy, unsafe.Pointer(&l4Policy))
 }
 
 // createL4IngressFilter creates a filter for L4 policy that applies to the
@@ -368,7 +422,7 @@ func (l4 *L4Filter) attach(l4Policy *L4Policy) {
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
 func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 bool, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache regeneration.SelectorCache) *L4Filter {
 
 	filter := createL4Filter(fromEndpoints, rule, port, protocol, ruleLabels, true, selectorCache, nil)
 
@@ -378,7 +432,7 @@ func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, hostWildcard
 		for _, cs := range filter.CachedSelectors {
 			if cs.Selects(identity.ReservedIdentityHost) {
 				hostSelector := api.ReservedEndpointSelectors[labels.IDNameHost]
-				hcs := filter.cacheIdentitySelector(hostSelector, selectorCache)
+				hcs := filter.CacheIdentitySelector(hostSelector, selectorCache)
 				filter.L7RulesPerEp[hcs] = api.L7Rules{}
 			}
 		}
@@ -392,7 +446,7 @@ func createL4IngressFilter(fromEndpoints api.EndpointSelectorSlice, hostWildcard
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
 func createL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
-	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache *SelectorCache, fqdns api.FQDNSelectorSlice) *L4Filter {
+	protocol api.L4Proto, ruleLabels labels.LabelArray, selectorCache regeneration.SelectorCache, fqdns api.FQDNSelectorSlice) *L4Filter {
 
 	return createL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false, selectorCache, fqdns)
 }
@@ -421,7 +475,7 @@ func (l4 *L4Filter) String() string {
 }
 
 // Note: Only used for policy tracing
-func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
+func (l4 *L4Filter) MatchesLabels(labels labels.LabelArray) bool {
 	if l4.AllowsAllAtL3() {
 		return true
 	} else if len(labels) == 0 {
@@ -440,21 +494,25 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) bool {
 
 // L4PolicyMap is a list of L4 filters indexable by protocol/port
 // key format: "port/proto"
-type L4PolicyMap map[string]*L4Filter
+type L4PolicyMap map[string]regeneration.PolicyL4Filter
+
+func (l4 L4PolicyMap) GetMap() map[string]regeneration.PolicyL4Filter {
+	return l4
+}
 
 // Detach removes the cached selectors held by L4PolicyMap from the
 // selectorCache, allowing the map to be garbage collected when there
 // are no more references to it.
-func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
+func (l4 L4PolicyMap) Detach(selectorCache regeneration.SelectorCache) {
 	for _, f := range l4 {
-		f.detach(selectorCache)
+		f.Detach(selectorCache)
 	}
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
-func (l4 L4PolicyMap) Attach(l4Policy *L4Policy) {
+func (l4 L4PolicyMap) Attach(l4Policy regeneration.L4Policy) {
 	for _, f := range l4 {
-		f.attach(l4Policy)
+		f.Attach(l4Policy)
 	}
 }
 
@@ -489,7 +547,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 
 	// Check L3-only filters first.
 	filter, match := l4[api.PortProtocolAny]
-	if match && filter.matchesLabels(labels) {
+	if match && filter.MatchesLabels(labels) {
 		return api.Allowed
 	}
 
@@ -500,12 +558,12 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 			tcpPort := fmt.Sprintf("%d/TCP", l4Ctx.Port)
 			tcpFilter, tcpmatch := l4[tcpPort]
 			if tcpmatch {
-				tcpmatch = tcpFilter.matchesLabels(labels)
+				tcpmatch = tcpFilter.MatchesLabels(labels)
 			}
 			udpPort := fmt.Sprintf("%d/UDP", l4Ctx.Port)
 			udpFilter, udpmatch := l4[udpPort]
 			if udpmatch {
-				udpmatch = udpFilter.matchesLabels(labels)
+				udpmatch = udpFilter.MatchesLabels(labels)
 			}
 			if !tcpmatch && !udpmatch {
 				return api.Denied
@@ -513,7 +571,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 		default:
 			port := fmt.Sprintf("%d/%s", l4Ctx.Port, lwrProtocol)
 			filter, match := l4[port]
-			if !match || !filter.matchesLabels(labels) {
+			if !match || !filter.MatchesLabels(labels) {
 				return api.Denied
 			}
 		}
@@ -542,6 +600,18 @@ func NewL4Policy(revision uint64) *L4Policy {
 		Revision: revision,
 		users:    make(map[*EndpointPolicy]struct{}),
 	}
+}
+
+func (l4 *L4Policy) GetIngressPolicies() regeneration.L4PolicyMap {
+	return l4.Ingress
+}
+
+func (l4 *L4Policy) GetEgressPolicies() regeneration.L4PolicyMap {
+	return l4.Egress
+}
+
+func (l4 *L4Policy) GetRevision() uint64 {
+	return l4.Revision
 }
 
 // insertUser adds a user to the L4Policy so that incremental
@@ -583,7 +653,7 @@ func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentit
 // circular pointer references.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
-func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
+func (l4 *L4Policy) Detach(selectorCache regeneration.SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
 
@@ -635,7 +705,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	for _, v := range l4.Ingress {
 		ingress = append(ingress, &models.PolicyRule{
 			Rule:             v.MarshalIndent(),
-			DerivedFromRules: v.DerivedFromRules.GetModel(),
+			DerivedFromRules: v.GetRuleLabels().GetModel(),
 		})
 	}
 
@@ -643,7 +713,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	for _, v := range l4.Egress {
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.MarshalIndent(),
-			DerivedFromRules: v.DerivedFromRules.GetModel(),
+			DerivedFromRules: v.GetRuleLabels().GetModel(),
 		})
 	}
 

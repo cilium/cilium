@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
@@ -597,7 +598,7 @@ func createBootstrap(filePath string, name, cluster, version string, xdsSock, eg
 	}
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules) *cilium.PortNetworkPolicyRule {
+func getPortNetworkPolicyRule(sel regeneration.CachedSelector, l7Parser policy.L7ParserType, l7Rules api.L7Rules) *cilium.PortNetworkPolicyRule {
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	var remotePolicies []uint64
@@ -661,21 +662,22 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 	return r
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(l4Policy regeneration.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
 		return allowAllPortNetworkPolicy
 	}
 
-	if len(l4Policy) == 0 {
+	l4PolicyMap := l4Policy.GetMap()
+	if len(l4PolicyMap) == 0 {
 		return nil
 	}
 
-	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
+	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4PolicyMap))
 
-	for _, l4 := range l4Policy {
+	for _, l4 := range l4PolicyMap {
 		var protocol envoy_api_v2_core.SocketAddress_Protocol
-		switch l4.Protocol {
+		switch api.L4Proto(l4.GetProtocol()) {
 		case api.ProtoTCP:
 			protocol = envoy_api_v2_core.SocketAddress_TCP
 		case api.ProtoUDP:
@@ -683,14 +685,14 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 		}
 
 		pnp := &cilium.PortNetworkPolicy{
-			Port:     uint32(l4.Port),
+			Port:     uint32(l4.GetPort()),
 			Protocol: protocol,
-			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerEp)),
+			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.GetL7RulesPerEp())),
 		}
 
 		allowAll := false
-		for sel, l7 := range l4.L7RulesPerEp {
-			rule := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+		for sel, l7 := range l4.GetL7RulesPerEp() {
+			rule := getPortNetworkPolicyRule(sel, policy.L7ParserType(l4.L7ParserType()), l7)
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
 					// Got an allow-all rule, which would short-circuit all of
@@ -728,7 +730,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, policy *policy.L4Policy,
+func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, policy regeneration.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
@@ -738,8 +740,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, ingressPolicyEnforced)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, egressPolicyEnforced)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.GetIngressPolicies(), ingressPolicyEnforced)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.GetEngressPolicies(), egressPolicyEnforced)
 	}
 
 	return p
@@ -749,7 +751,7 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
+func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy regeneration.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 
 	s.mutex.Lock()
@@ -818,7 +820,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 	for _, p := range policies {
 		var callback func(error)
 		if policy != nil {
-			policyRevision := policy.Revision
+			policyRevision := policy.GetRevision()
 			callback = func(err error) {
 				if err == nil {
 					go ep.OnProxyPolicyUpdate(policyRevision)

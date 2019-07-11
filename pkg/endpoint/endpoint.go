@@ -405,7 +405,7 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *Endpoint {
+func NewEndpointWithState(repo regeneration.PolicyRepository, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
 		ID:            ID,
 		OpLabels:      pkgLabels.NewOpLabels(),
@@ -1050,7 +1050,7 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 
 // ParseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
-func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
+func ParseEndpoint(repo regeneration.PolicyRepository, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	strEpSlice := strings.Split(strEp, ":")

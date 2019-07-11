@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	logging "github.com/op/go-logging"
 	. "gopkg.in/check.v1"
@@ -659,7 +660,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:             0,
 			Protocol:         api.ProtoAny,
 			U8Proto:          0x0,
-			CachedSelectors:  CachedSelectorSlice{cachedSelectorBar1},
+			CachedSelectors:  regeneration.CachedSelectorSlice{cachedSelectorBar1},
 			L7RulesPerEp:     L7DataMap{},
 			Ingress:          true,
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
@@ -668,7 +669,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:            9092,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
 			L7Parser:        ParserTypeKafka,
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -685,7 +686,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:            80,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
 			L7Parser:        ParserTypeHTTP,
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -702,7 +703,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			Port:            9090,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
 			L7Parser:        L7ParserType("tester"),
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -830,7 +831,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			Port:            80,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
 			L7Parser:        ParserTypeHTTP,
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -847,7 +848,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			Port:            9092,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
 			L7Parser:        ParserTypeKafka,
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -919,7 +920,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			CachedSelectors: CachedSelectorSlice{
+			CachedSelectors: regeneration.CachedSelectorSlice{
 				expectedCachedSelector,
 			},
 			L7RulesPerEp:     L7DataMap{},
@@ -998,7 +999,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			Protocol:      "ANY",
 			U8Proto:       0x0,
 			allowsAllAtL3: false,
-			CachedSelectors: CachedSelectorSlice{
+			CachedSelectors: regeneration.CachedSelectorSlice{
 				expectedCachedSelector2,
 			},
 			L7RulesPerEp:     L7DataMap{},
@@ -1008,7 +1009,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			CachedSelectors: CachedSelectorSlice{
+			CachedSelectors: regeneration.CachedSelectorSlice{
 				expectedCachedSelector,
 			},
 			L7RulesPerEp:     L7DataMap{},
@@ -1106,7 +1107,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			Port:            9092,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
 			L7Parser:        ParserTypeKafka,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
@@ -1123,7 +1124,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			Port:            80,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
 			L7Parser:        ParserTypeHTTP,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
@@ -1141,7 +1142,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			Protocol:         "ANY",
 			U8Proto:          0x0,
 			allowsAllAtL3:    false,
-			CachedSelectors:  CachedSelectorSlice{cachedSelectorBar1},
+			CachedSelectors:  regeneration.CachedSelectorSlice{cachedSelectorBar1},
 			L7Parser:         "",
 			L7RulesPerEp:     L7DataMap{},
 			Ingress:          false,
@@ -1260,7 +1261,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			Port:            80,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
 			L7Parser:        ParserTypeHTTP,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
@@ -1277,7 +1278,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			Port:            9092,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
 			L7Parser:        ParserTypeKafka,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
@@ -1385,7 +1386,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			Protocol:         "ANY",
 			U8Proto:          0x0,
 			allowsAllAtL3:    false,
-			CachedSelectors:  CachedSelectorSlice{cachedSelectorWorld},
+			CachedSelectors:  regeneration.CachedSelectorSlice{cachedSelectorWorld},
 			L7Parser:         "",
 			L7RulesPerEp:     L7DataMap{},
 			Ingress:          true,
@@ -1395,7 +1396,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			Port:            9092,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
 			L7Parser:        ParserTypeKafka,
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -1412,7 +1413,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			Port:            80,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
 			L7Parser:        ParserTypeHTTP,
 			Ingress:         true,
 			L7RulesPerEp: L7DataMap{
@@ -1521,7 +1522,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			Protocol:         "ANY",
 			U8Proto:          0x0,
 			allowsAllAtL3:    false,
-			CachedSelectors:  CachedSelectorSlice{cachedSelectorWorld},
+			CachedSelectors:  regeneration.CachedSelectorSlice{cachedSelectorWorld},
 			L7Parser:         "",
 			L7RulesPerEp:     L7DataMap{},
 			Ingress:          false,
@@ -1531,7 +1532,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			Port:            9092,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
 			L7Parser:        ParserTypeKafka,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
@@ -1548,7 +1549,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			Port:            80,
 			Protocol:        api.ProtoTCP,
 			U8Proto:         0x6,
-			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
 			L7Parser:        ParserTypeHTTP,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
@@ -1667,7 +1668,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected := NewL4Policy(repo.GetRevision())
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		CachedSelectors: CachedSelectorSlice{cachedSelectorApp2},
+		CachedSelectors: regeneration.CachedSelectorSlice{cachedSelectorApp2},
 		L7Parser:        ParserTypeHTTP,
 		L7RulesPerEp: L7DataMap{
 			cachedSelectorApp2: api.L7Rules{

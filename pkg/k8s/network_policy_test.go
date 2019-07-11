@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
@@ -100,7 +101,7 @@ var (
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector regeneration.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
@@ -175,7 +176,7 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(ingressL4Policy, checker.Equals, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-			CachedSelectors: policy.CachedSelectorSlice{cachedEPSelector},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedEPSelector},
 			L7Parser:        policy.ParserTypeNone,
 			L7RulesPerEp:    policy.L7DataMap{},
 			Ingress:         true,
@@ -503,7 +504,7 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	c.Assert(egressL4Policy, checker.DeepEquals, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-			CachedSelectors: policy.CachedSelectorSlice{cachedEPSelector},
+			CachedSelectors: regeneration.CachedSelectorSlice{cachedEPSelector},
 			L7Parser:        policy.ParserTypeNone,
 			L7RulesPerEp:    policy.L7DataMap{},
 			Ingress:         false,

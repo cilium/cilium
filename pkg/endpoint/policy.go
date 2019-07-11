@@ -44,7 +44,7 @@ import (
 )
 
 // ProxyID returns a unique string to identify a proxy mapping.
-func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
+func (e *Endpoint) ProxyID(l4 regeneration.PolicyL4Filter) string {
 	return policy.ProxyIDFromFilter(e.ID, l4)
 }
 
@@ -52,7 +52,7 @@ func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
+func (e *Endpoint) LookupRedirectPort(l4Filter regeneration.PolicyL4Filter) uint16 {
 	if !l4Filter.IsRedirect() {
 		return 0
 	}
@@ -120,9 +120,9 @@ func (e *Endpoint) regeneratePolicy(owner regeneration.Owner) (retErr error) {
 
 	stats.waitingForPolicyRepository.Start()
 	repo := owner.GetPolicyRepository()
-	repo.Mutex.RLock()
+	repo.RLock()
 	revision := repo.GetRevision()
-	defer repo.Mutex.RUnlock()
+	defer repo.RUnlock()
 	stats.waitingForPolicyRepository.End(true)
 
 	// Recompute policy for this endpoint only if not already done for this revision.

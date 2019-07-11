@@ -394,7 +394,7 @@ func (p *Proxy) ReinstallRules() {
 // The proxy listening port is returned, but proxy configuration on that port
 // may still be ongoing asynchronously. Caller should wait for successful completion
 // on 'wg' before assuming the returned proxy port is listening.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
+func (p *Proxy) CreateOrUpdateRedirect(l4 regeneration.PolicyL4Filter, id string, localEndpoint logger.EndpointUpdater,
 	wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 
 	p.mutex.Lock()
@@ -414,7 +414,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
 
-		if redir.listener.parserType == l4.L7Parser {
+		if redir.listener.parserType.String() == l4.L7ParserType() {
 			updateRevertFunc := redir.updateRules(l4)
 			revertStack.Push(updateRevertFunc)
 			var implUpdateRevertFunc revert.RevertFunc
@@ -428,7 +428,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			redir.lastUpdated = time.Now()
 
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-				Debug("updated existing ", l4.L7Parser, " proxy instance")
+				Debug("updated existing ", l4.L7ParserType(), " proxy instance")
 
 			redir.mutex.Unlock()
 
@@ -451,13 +451,13 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
-	pp := getProxyPort(l4.L7Parser, l4.Ingress)
+	pp := getProxyPort(l4.L7ParserType(), l4.IsIngress())
 	if pp == nil {
-		err = proxyNotFoundError(l4.L7Parser, l4.Ingress)
+		err = proxyNotFoundError(l4.L7ParserType(), l4.IsIngress())
 		return
 	}
 
-	redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
+	redir := newRedirect(localEndpoint, pp, uint16(l4.GetPort()))
 	redir.updateRules(l4)
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
@@ -477,7 +477,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			}
 		}
 
-		switch l4.L7Parser {
+		switch policy.L7ParserType(l4.L7ParserType()) {
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
 
@@ -492,7 +492,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		if err == nil {
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-				Debug("Created new ", l4.L7Parser, " proxy instance")
+				Debug("Created new ", l4.L7ParserType(), " proxy instance")
 			p.redirects[id] = redir
 			// must mark the proxyPort configured while we still hold the lock to prevent racing between
 			// two parallel runs
@@ -535,7 +535,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	}
 
 	// an error occurred, and we have no more retries
-	scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
+	scopedLog.WithError(err).Error("Unable to create ", l4.L7ParserType(), " proxy")
 	revertFunc() // Ignore errors while reverting. This is best-effort.
 	return
 }

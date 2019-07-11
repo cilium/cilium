@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
 
 func proxyID(endpointID uint16, ingress bool, protocol string, port uint16) string {
@@ -37,8 +38,8 @@ func ProxyIDFromKey(endpointID uint16, key Key) string {
 }
 
 // ProxyIDFromFilter returns a unique string to identify a proxy mapping.
-func ProxyIDFromFilter(endpointID uint16, l4 *L4Filter) string {
-	return proxyID(endpointID, l4.Ingress, string(l4.Protocol), uint16(l4.Port))
+func ProxyIDFromFilter(endpointID uint16, l4 regeneration.PolicyL4Filter) string {
+	return proxyID(endpointID, l4.IsIngress(), string(l4.GetProtocol()), uint16(l4.GetPort()))
 }
 
 // ParseProxyID parses a proxy ID returned by ProxyID and returns its components.

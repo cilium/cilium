@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
@@ -34,7 +35,7 @@ type ServerSuite struct{}
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector regeneration.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
 }
 
 var (

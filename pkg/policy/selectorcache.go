@@ -16,7 +16,6 @@ package policy
 
 import (
 	"sort"
-	"strings"
 	"sync/atomic"
 	"unsafe"
 
@@ -28,74 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 
 	"github.com/sirupsen/logrus"
 )
-
-// CachedSelector represents an identity selector owned by the selector cache
-type CachedSelector interface {
-	// GetSelections returns the cached set of numeric identities
-	// selected by the CachedSelector.  The retuned slice must NOT
-	// be modified, as it is shared among multiple users.
-	GetSelections() []identity.NumericIdentity
-
-	// Selects return 'true' if the CachedSelector selects the given
-	// numeric identity.
-	Selects(nid identity.NumericIdentity) bool
-
-	// IsWildcard returns true if the endpoint selector selects
-	// all endpoints.
-	IsWildcard() bool
-
-	// String returns the string representation of this selector.
-	// Used as a map key.
-	String() string
-}
-
-// CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
-type CachedSelectorSlice []CachedSelector
-
-func (s CachedSelectorSlice) Len() int      { return len(s) }
-func (s CachedSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-
-func (s CachedSelectorSlice) Less(i, j int) bool {
-	return strings.Compare(s[i].String(), s[j].String()) < 0
-}
-
-// SelectsAllEndpoints returns whether the CachedSelectorSlice selects all
-// endpoints, which is true if the wildcard endpoint selector is present in the
-// slice.
-func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
-	for _, selector := range s {
-		if selector.IsWildcard() {
-			return true
-		}
-	}
-	return false
-}
-
-// Insert in a sorted order? Returns true if inserted, false if cs was already in
-func (s *CachedSelectorSlice) Insert(cs CachedSelector) bool {
-	for _, selector := range *s {
-		if selector == cs {
-			return false
-		}
-	}
-	*s = append(*s, cs)
-	return true
-}
-
-// CachedSelectionUser inserts selectors into the cache and gets update
-// callbacks whenever the set of selected numeric identities change for
-// the CachedSelectors pushed by it.
-type CachedSelectionUser interface {
-	// IdentitySelectionUpdated implementations MUST NOT call back
-	// to selector cache while executing this function!
-	//
-	// The caller is responsible for making sure the same identity is not
-	// present in both 'added' and 'deleted'.
-	IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity)
-}
 
 // identitySelector is the internal interface for all selectors in the
 // selector cache.
@@ -129,9 +64,9 @@ type CachedSelectionUser interface {
 // map, slice, or a func, or a runtime panic will be triggered. In all
 // cases below identitySelector is being implemented by structs.
 type identitySelector interface {
-	CachedSelector
-	addUser(CachedSelectionUser) (added bool)
-	removeUser(CachedSelectionUser) (last bool)
+	regeneration.CachedSelector
+	addUser(regeneration.CachedSelectionUser) (added bool)
+	removeUser(regeneration.CachedSelectionUser) (last bool)
 	notifyUsers(added, deleted []identity.NumericIdentity)
 	numUsers() int
 }
@@ -229,7 +164,7 @@ var (
 type selectorManager struct {
 	key              string
 	selections       unsafe.Pointer // *[]identity.NumericIdentity
-	users            map[CachedSelectionUser]struct{}
+	users            map[regeneration.CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
 
@@ -240,7 +175,7 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 }
 
 //
-// CachedSelector implementation (== Public API)
+// regeneration.CachedSelector implementation (== Public API)
 //
 // No locking needed.
 //
@@ -254,7 +189,7 @@ func (s *selectorManager) GetSelections() []identity.NumericIdentity {
 	return *(*[]identity.NumericIdentity)(atomic.LoadPointer(&s.selections))
 }
 
-// Selects return 'true' if the CachedSelector selects the given
+// Selects return 'true' if the regeneration.CachedSelector selects the given
 // numeric identity.
 func (s *selectorManager) Selects(nid identity.NumericIdentity) bool {
 	if s.IsWildcard() {
@@ -281,7 +216,7 @@ func (s *selectorManager) String() string {
 //
 
 // lock must be held
-func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
+func (s *selectorManager) addUser(user regeneration.CachedSelectionUser) (added bool) {
 	if _, exists := s.users[user]; exists {
 		return false
 	}
@@ -290,12 +225,12 @@ func (s *selectorManager) addUser(user CachedSelectionUser) (added bool) {
 }
 
 // lock must be held
-func (s *selectorManager) removeUser(user CachedSelectionUser) (last bool) {
+func (s *selectorManager) removeUser(user regeneration.CachedSelectionUser) (last bool) {
 	delete(s.users, user)
 	return len(s.users) == 0
 }
 
-func (f *fqdnSelector) removeUser(user CachedSelectionUser) (last bool) {
+func (f *fqdnSelector) removeUser(user regeneration.CachedSelectionUser) (last bool) {
 	delete(f.users, user)
 	removed := len(f.users) == 0
 	if removed {
@@ -394,7 +329,7 @@ type labelIdentitySelector struct {
 	namespaces []string // allowed namespaces, or ""
 }
 
-// xxxMatches returns true if the CachedSelector matches given labels.
+// xxxMatches returns true if the regeneration.CachedSelector matches given labels.
 // This is slow, but only used for policy tracing, so it's OK.
 func (l *labelIdentitySelector) xxxMatches(labels labels.LabelArray) bool {
 	return l.selector.Matches(labels)
@@ -421,7 +356,7 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 }
 
 //
-// CachedSelector implementation (== Public API)
+// regeneration.CachedSelector implementation (== Public API)
 //
 // No locking needed.
 //
@@ -446,7 +381,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 		fqdnSel = &fqdnSelector{
 			selectorManager: selectorManager{
 				key:              fqdnKey,
-				users:            make(map[CachedSelectionUser]struct{}),
+				users:            make(map[regeneration.CachedSelectionUser]struct{}),
 				cachedSelections: make(map[identity.NumericIdentity]struct{}),
 			},
 			selector: fqdnSelec,
@@ -526,8 +461,8 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
 // an identical EndpointSelector has already been cached, the corresponding
-// CachedSelector is returned, otherwise one is created and added to the cache.
-func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
+// regeneration.CachedSelector is returned, otherwise one is created and added to the cache.
+func (sc *SelectorCache) AddFQDNSelector(user regeneration.CachedSelectionUser, fqdnSelec api.FQDNSelector) (cachedSelector regeneration.CachedSelector, added bool) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -540,7 +475,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 	newFQDNSel := &fqdnSelector{
 		selectorManager: selectorManager{
 			key:              key,
-			users:            make(map[CachedSelectionUser]struct{}),
+			users:            make(map[regeneration.CachedSelectionUser]struct{}),
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: fqdnSelec,
@@ -577,7 +512,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 
 // FindCachedIdentitySelector finds the given api.EndpointSelector in the
 // selector cache, returning nil if one can not be found.
-func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
+func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) regeneration.CachedSelector {
 	key := selector.CachedString()
 	sc.mutex.Lock()
 	idSel := sc.selectors[key]
@@ -587,9 +522,9 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 
 // AddIdentitySelector adds the given api.EndpointSelector in to the
 // selector cache. If an identical EndpointSelector has already been
-// cached, the corresponding CachedSelector is returned, otherwise one
+// cached, the corresponding regeneration.CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelector(user regeneration.CachedSelectionUser, selector api.EndpointSelector) (cachedSelector regeneration.CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
@@ -608,7 +543,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	newIDSel := &labelIdentitySelector{
 		selectorManager: selectorManager{
 			key:              key,
-			users:            make(map[CachedSelectionUser]struct{}),
+			users:            make(map[regeneration.CachedSelectionUser]struct{}),
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
 		},
 		selector: selector,
@@ -641,7 +576,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	return newIDSel, true
 }
 
-func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(selector regeneration.CachedSelector, user regeneration.CachedSelectionUser) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
@@ -651,15 +586,15 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	}
 }
 
-// RemoveSelector removes CachedSelector for the user.
-func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
+// RemoveSelector removes regeneration.CachedSelector for the user.
+func (sc *SelectorCache) RemoveSelector(selector regeneration.CachedSelector, user regeneration.CachedSelectionUser) {
 	sc.mutex.Lock()
 	sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
 }
 
-// RemoveSelectors removes CachedSelectorSlice for the user.
-func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
+// RemoveSelectors removes regeneration.CachedSelectorSlice for the user.
+func (sc *SelectorCache) RemoveSelectors(selectors regeneration.CachedSelectorSlice, user regeneration.CachedSelectionUser) {
 	sc.mutex.Lock()
 	for _, selector := range selectors {
 		sc.removeSelectorLocked(selector, user)
@@ -667,9 +602,9 @@ func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user Cac
 	sc.mutex.Unlock()
 }
 
-// ChangeUser changes the CachedSelectionUser that gets updates on the
+// ChangeUser changes the regeneration.CachedSelectionUser that gets updates on the
 // updates on the cached selector.
-func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
+func (sc *SelectorCache) ChangeUser(selector regeneration.CachedSelector, from, to regeneration.CachedSelectionUser) {
 	key := selector.String()
 	sc.mutex.Lock()
 	idSel, exists := sc.selectors[key]
