@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 type mockMetrics struct {
@@ -139,4 +140,16 @@ func (m *mockMetrics) IncResyncCount() {
 	m.mutex.Lock()
 	m.resyncCount++
 	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
+	return nil
+}
+
+func (m *mockMetrics) K8sSyncTrigger() trigger.MetricsObserver {
+	return nil
+}
+
+func (m *mockMetrics) ResyncTrigger() trigger.MetricsObserver {
+	return nil
 }
