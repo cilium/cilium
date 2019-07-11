@@ -59,6 +59,9 @@ type metricsAPI interface {
 	SetAvailableENIs(available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
+	DeficitResolverTrigger() trigger.MetricsObserver
+	K8sSyncTrigger() trigger.MetricsObserver
+	ResyncTrigger() trigger.MetricsObserver
 }
 
 // nodeMap is a mapping of node names to ENI nodes
@@ -92,8 +95,9 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 	}
 
 	resyncTrigger, err := trigger.NewTrigger(trigger.Parameters{
-		Name:        "eni-node-manager-resync",
-		MinInterval: 10 * time.Millisecond,
+		Name:            "eni-node-manager-resync",
+		MinInterval:     10 * time.Millisecond,
+		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
 			instancesAPI.Resync()
 			mngr.Resync()
@@ -134,8 +138,9 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 		}
 
 		deficitResolver, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        fmt.Sprintf("eni-deficit-resolver-%s", resource.Name),
-			MinInterval: 10 * time.Millisecond,
+			Name:            fmt.Sprintf("eni-deficit-resolver-%s", resource.Name),
+			MinInterval:     10 * time.Millisecond,
+			MetricsObserver: n.metricsAPI.DeficitResolverTrigger(),
 			TriggerFunc: func(reasons []string) {
 				if err := node.ResolveIPDeficit(); err != nil {
 					node.logger().WithError(err).Warning("Unable to resolve IP deficit of node")
@@ -148,8 +153,9 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 		}
 
 		k8sSync, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        fmt.Sprintf("eni-node-k8s-sync-%s", resource.Name),
-			MinInterval: 10 * time.Millisecond,
+			Name:            fmt.Sprintf("eni-node-k8s-sync-%s", resource.Name),
+			MinInterval:     10 * time.Millisecond,
+			MetricsObserver: n.metricsAPI.K8sSyncTrigger(),
 			TriggerFunc: func(reasons []string) {
 				node.SyncToAPIServer()
 			},

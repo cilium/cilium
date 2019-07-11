@@ -17,21 +17,26 @@ package metrics
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/trigger"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const eniSubsystem = "eni"
 
 type prometheusMetrics struct {
-	registry       *prometheus.Registry
-	AllocateEniOps *prometheus.CounterVec
-	AllocateIpOps  *prometheus.CounterVec
-	IPsAllocated   *prometheus.GaugeVec
-	Available      prometheus.Gauge
-	Nodes          *prometheus.GaugeVec
-	Resync         prometheus.Counter
-	EC2ApiDuration *prometheus.HistogramVec
-	EC2RateLimit   *prometheus.HistogramVec
+	registry        *prometheus.Registry
+	AllocateEniOps  *prometheus.CounterVec
+	AllocateIpOps   *prometheus.CounterVec
+	IPsAllocated    *prometheus.GaugeVec
+	Available       prometheus.Gauge
+	Nodes           *prometheus.GaugeVec
+	Resync          prometheus.Counter
+	EC2ApiDuration  *prometheus.HistogramVec
+	EC2RateLimit    *prometheus.HistogramVec
+	deficitResolver *triggerMetrics
+	k8sSync         *triggerMetrics
+	resync          *triggerMetrics
 }
 
 // NewPrometheusMetrics returns a new ENI metrics implementation backed by
@@ -97,6 +102,10 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Help:      "Duration of EC2 client-side rate limiter blocking",
 	}, []string{"operation"})
 
+	m.deficitResolver = newTriggerMetrics(namespace, "deficit_resolver")
+	m.k8sSync = newTriggerMetrics(namespace, "k8s_sync")
+	m.resync = newTriggerMetrics(namespace, "ec2_resync")
+
 	registry.MustRegister(m.IPsAllocated)
 	registry.MustRegister(m.AllocateIpOps)
 	registry.MustRegister(m.AllocateEniOps)
@@ -105,8 +114,23 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.Resync)
 	registry.MustRegister(m.EC2ApiDuration)
 	registry.MustRegister(m.EC2RateLimit)
+	m.deficitResolver.register(registry)
+	m.k8sSync.register(registry)
+	m.resync.register(registry)
 
 	return m
+}
+
+func (p *prometheusMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
+	return p.deficitResolver
+}
+
+func (p *prometheusMetrics) K8sSyncTrigger() trigger.MetricsObserver {
+	return p.k8sSync
+}
+
+func (p *prometheusMetrics) ResyncTrigger() trigger.MetricsObserver {
+	return p.resync
 }
 
 func (p *prometheusMetrics) IncENIAllocationAttempt(status, subnetID string) {
@@ -139,4 +163,57 @@ func (p *prometheusMetrics) ObserveEC2RateLimit(operation string, delay time.Dur
 
 func (p *prometheusMetrics) IncResyncCount() {
 	p.Resync.Inc()
+}
+
+type triggerMetrics struct {
+	total        prometheus.Counter
+	folds        prometheus.Gauge
+	callDuration prometheus.Histogram
+	latency      prometheus.Histogram
+}
+
+func newTriggerMetrics(namespace, name string) *triggerMetrics {
+	return &triggerMetrics{
+		total: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: eniSubsystem,
+			Name:      name + "_queued_total",
+			Help:      "Number of queued triggers",
+		}),
+		folds: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: eniSubsystem,
+			Name:      name + "_folds",
+			Help:      "Current level of folding",
+		}),
+		callDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: eniSubsystem,
+			Name:      name + "_duration_seconds",
+			Help:      "Duration of trigger runs",
+		}),
+		latency: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: eniSubsystem,
+			Name:      name + "_latency_seconds",
+			Help:      "Latency between queue and trigger run",
+		}),
+	}
+}
+
+func (t *triggerMetrics) register(registry *prometheus.Registry) {
+	registry.MustRegister(t.total)
+	registry.MustRegister(t.folds)
+	registry.MustRegister(t.callDuration)
+	registry.MustRegister(t.latency)
+}
+
+func (t *triggerMetrics) QueueEvent(reason string) {
+	t.total.Inc()
+}
+
+func (t *triggerMetrics) PostRun(duration, latency time.Duration, folds int) {
+	t.callDuration.Observe(duration.Seconds())
+	t.latency.Observe(latency.Seconds())
+	t.folds.Set(float64(folds))
 }
