@@ -544,6 +544,10 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 		return err
 	}
 
+	if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
+		return nil
+	}
+
 	mk := m.MapKey.DeepCopyMapKey()
 	mv := m.MapValue.DeepCopyMapValue()
 
@@ -565,14 +569,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	bpfNextKeySize := unsafe.Sizeof(bpfNextKey)
 
 	for {
-		err := GetNextKeyFromPointers(m.fd, bpfCurrentKeyPtr, bpfCurrentKeySize)
-
-		if err != nil {
-			break
-		}
-
-		err = LookupElementFromPointers(m.fd, bpfNextKeyPtr, bpfNextKeySize)
-
+		err := LookupElementFromPointers(m.fd, bpfNextKeyPtr, bpfNextKeySize)
 		if err != nil {
 			return err
 		}
@@ -587,6 +584,11 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 		}
 
 		copy(key, nextKey)
+
+		err = GetNextKeyFromPointers(m.fd, bpfCurrentKeyPtr, bpfCurrentKeySize)
+		if err != nil {
+			break
+		}
 	}
 	return nil
 }
@@ -631,8 +633,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		return err
 	}
 
-	// prevKey is initially invalid, causing GetNextKey to return the first key in the map as currentKey.
-	err := GetNextKey(m.fd, unsafe.Pointer(&prevKey[0]), unsafe.Pointer(&currentKey[0]))
+	err := GetFirstKey(m.fd, unsafe.Pointer(&currentKey[0]))
 	if err != nil {
 		// Map is empty, nothing to clean up.
 		stats.Lookup = 1
