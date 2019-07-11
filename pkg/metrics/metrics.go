@@ -233,7 +233,7 @@ var (
 
 	// L7 statistics
 
-	// ProxyRedirects is the number of redirects labelled by protocol
+	// ProxyRedirects is the number of redirects labeled by protocol
 	ProxyRedirects = NoOpGaugeVec
 
 	// ProxyPolicyL7Total is a count of all l7 requests handled by proxy
@@ -364,6 +364,18 @@ var (
 	// BPFMapOps is the metric to measure the number of operations done to a
 	// bpf map.
 	BPFMapOps = NoOpCounterVec
+
+	// TriggerPolicyUpdateTotal is the metric to count total number of
+	// policy update triggers
+	TriggerPolicyUpdateTotal = NoOpCounterVec
+
+	// TriggerPolicyUpdateFolds is the current level folding that is
+	// happening when running policy update triggers
+	TriggerPolicyUpdateFolds = NoOpGauge
+
+	// TriggerPolicyUpdateCallDuration measures the latency and call
+	// duration of policy update triggers
+	TriggerPolicyUpdateCallDuration = NoOpObserverVec
 )
 
 type Configuration struct {
@@ -414,54 +426,60 @@ type Configuration struct {
 	FQDNGarbageCollectorCleanedTotalEnabled bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
+	TriggerPolicyUpdateTotal                bool
+	TriggerPolicyUpdateFolds                bool
+	TriggerPolicyUpdateCallDuration         bool
 }
 
 func DefaultMetrics() map[string]struct{} {
 	return map[string]struct{}{
-		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":            {},
-		Namespace + "_endpoint_regenerations":                                     {},
-		Namespace + "_endpoint_state":                                             {},
-		Namespace + "_endpoint_regeneration_time_stats_seconds":                   {},
-		Namespace + "_policy_count":                                               {},
-		Namespace + "_policy_regeneration_total":                                  {},
-		Namespace + "_policy_regeneration_time_stats_seconds":                     {},
-		Namespace + "_policy_max_revision":                                        {},
-		Namespace + "_policy_import_errors":                                       {},
-		Namespace + "_policy_endpoint_enforcement_status":                         {},
-		Namespace + "_policy_implementation_delay":                                {},
-		Namespace + "_identity_count":                                             {},
-		Namespace + "_event_ts":                                                   {},
-		Namespace + "_proxy_redirects":                                            {},
-		Namespace + "_policy_l7_total":                                            {},
-		Namespace + "_policy_l7_parse_errors_total":                               {},
-		Namespace + "_policy_l7_forwarded_total":                                  {},
-		Namespace + "_policy_l7_denied_total":                                     {},
-		Namespace + "_policy_l7_received_total":                                   {},
-		Namespace + "_proxy_upstream_reply_seconds":                               {},
-		Namespace + "_drop_count_total":                                           {},
-		Namespace + "_drop_bytes_total":                                           {},
-		Namespace + "_forward_count_total":                                        {},
-		Namespace + "_forward_bytes_total":                                        {},
-		Namespace + "_" + SubsystemDatapath + "_errors_total":                     {},
-		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":          {},
-		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total": {},
-		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_entries":             {},
-		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_duration_seconds":    {},
-		Namespace + "_services_events_total":                                      {},
-		Namespace + "_errors_warnings_total":                                      {},
-		Namespace + "_controllers_runs_total":                                     {},
-		Namespace + "_controllers_runs_duration_seconds":                          {},
-		Namespace + "_subprocess_start_total":                                     {},
-		Namespace + "_kubernetes_events_total":                                    {},
-		Namespace + "_kubernetes_events_received_total":                           {},
-		Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":        {},
-		Namespace + "_" + SubsystemK8sClient + "_api_calls_counter":               {},
-		Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":         {},
-		Namespace + "_ipam_events_total":                                          {},
-		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":       {},
-		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":              {},
-		Namespace + "_fqdn_gc_deletions_total":                                    {},
-		Namespace + "_" + SubsystemBPF + "_map_ops_total":                         {},
+		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":               {},
+		Namespace + "_endpoint_regenerations":                                        {},
+		Namespace + "_endpoint_state":                                                {},
+		Namespace + "_endpoint_regeneration_time_stats_seconds":                      {},
+		Namespace + "_policy_count":                                                  {},
+		Namespace + "_policy_regeneration_total":                                     {},
+		Namespace + "_policy_regeneration_time_stats_seconds":                        {},
+		Namespace + "_policy_max_revision":                                           {},
+		Namespace + "_policy_import_errors":                                          {},
+		Namespace + "_policy_endpoint_enforcement_status":                            {},
+		Namespace + "_policy_implementation_delay":                                   {},
+		Namespace + "_identity_count":                                                {},
+		Namespace + "_event_ts":                                                      {},
+		Namespace + "_proxy_redirects":                                               {},
+		Namespace + "_policy_l7_total":                                               {},
+		Namespace + "_policy_l7_parse_errors_total":                                  {},
+		Namespace + "_policy_l7_forwarded_total":                                     {},
+		Namespace + "_policy_l7_denied_total":                                        {},
+		Namespace + "_policy_l7_received_total":                                      {},
+		Namespace + "_proxy_upstream_reply_seconds":                                  {},
+		Namespace + "_drop_count_total":                                              {},
+		Namespace + "_drop_bytes_total":                                              {},
+		Namespace + "_forward_count_total":                                           {},
+		Namespace + "_forward_bytes_total":                                           {},
+		Namespace + "_" + SubsystemDatapath + "_errors_total":                        {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total":             {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_key_fallbacks_total":    {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_entries":                {},
+		Namespace + "_" + SubsystemDatapath + "_conntrack_gc_duration_seconds":       {},
+		Namespace + "_services_events_total":                                         {},
+		Namespace + "_errors_warnings_total":                                         {},
+		Namespace + "_controllers_runs_total":                                        {},
+		Namespace + "_controllers_runs_duration_seconds":                             {},
+		Namespace + "_subprocess_start_total":                                        {},
+		Namespace + "_kubernetes_events_total":                                       {},
+		Namespace + "_kubernetes_events_received_total":                              {},
+		Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":           {},
+		Namespace + "_" + SubsystemK8sClient + "_api_calls_counter":                  {},
+		Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":            {},
+		Namespace + "_ipam_events_total":                                             {},
+		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
+		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
+		Namespace + "_fqdn_gc_deletions_total":                                       {},
+		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
+		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
+		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
+		Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds": {},
 	}
 }
 
@@ -969,6 +987,39 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, BPFMapOps)
 			c.BPFMapOps = true
+
+		case Namespace + "_" + SubsystemTriggers + "_policy_update_total":
+			TriggerPolicyUpdateTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemTriggers,
+				Name:      "policy_update_total",
+				Help:      "Total number of policy update trigger invocations labeled by reason",
+			}, []string{"reason"})
+
+			collectors = append(collectors, TriggerPolicyUpdateTotal)
+			c.TriggerPolicyUpdateTotal = true
+
+		case Namespace + "_" + SubsystemTriggers + "_policy_update_folds":
+			TriggerPolicyUpdateFolds = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemTriggers,
+				Name:      "policy_update_folds",
+				Help:      "Current number of folds",
+			})
+
+			collectors = append(collectors, TriggerPolicyUpdateFolds)
+			c.TriggerPolicyUpdateFolds = true
+
+		case Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds":
+			TriggerPolicyUpdateCallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemTriggers,
+				Name:      "policy_update_call_duration_seconds",
+				Help:      "Duration of policy update trigger",
+			}, []string{"type"})
+
+			collectors = append(collectors, TriggerPolicyUpdateCallDuration)
+			c.TriggerPolicyUpdateCallDuration = true
 		}
 	}
 
