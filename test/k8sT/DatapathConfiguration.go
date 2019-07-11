@@ -179,6 +179,27 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
+	Context("Transparent encryption with encrypt-node DirectRouting", func() {
+		It("Check connectivity with automatic direct nodes routes", func() {
+			SkipIfFlannel()
+
+			if !helpers.RunsOnNetNext() {
+				Skip("Skipping test because it is not running with the net-next kernel")
+				return
+			}
+
+			deployCilium([]string{
+				"--set global.tunnel=disabled",
+				"--set global.autoDirectNodeRoutes=true",
+				"--set global.encryption.enabled=true",
+				"--set global.encryption.interface=enp0s8",
+				"--set global.encryption.nodeEncryption=true",
+			})
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
+
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
 			// Flannel always disables IPv6, this test is a no-op in that case.
