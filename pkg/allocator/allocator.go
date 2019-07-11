@@ -451,7 +451,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	// fetch first key that matches /value/<key> while ignoring the
 	// node suffix
-	value, err := a.Get(ctx, key)
+	value, err := a.GetIfLocked(ctx, key, lock)
 	if err != nil {
 		return 0, false, err
 	}
@@ -468,7 +468,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		value = a.localKeys.lookupKey(k)
 		if value != 0 {
 			// re-create master key
-			if err := a.backend.UpdateKey(ctx, value, key, true); err != nil {
+			if err := a.backend.UpdateKeyIfLocked(ctx, value, key, true, lock); err != nil {
 				return 0, false, fmt.Errorf("unable to re-create missing master key '%s': %s while allocating ID: %s", key, value, err)
 			}
 		}
@@ -533,7 +533,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, fmt.Errorf("Found master key after proceeding with new allocation for %s", k)
 	}
 
-	err = a.backend.AllocateID(ctx, id, key)
+	err = a.backend.AllocateIDIfLocked(ctx, id, key, lock)
 	if err != nil {
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
