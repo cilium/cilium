@@ -981,25 +981,4 @@ int to_netdev(struct __sk_buff *skb)
 	return ret;
 }
 
-__section("masq-post")
-int do_masq_post(struct __sk_buff *skb)
-{
-	__u16 proto;
-	int ret;
-
-	if (!validate_ethertype(skb, &proto))
-		/* Pass unknown traffic to the stack */
-		return TC_ACT_OK;
-
-	ret = do_netdev(skb, proto);
-	if (!ret) {
-		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
-		ret = snat_process(skb, BPF_PKT_DIR);
-		if (!ret)
-			cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST,
-					   skb->ifindex);
-	}
-	return ret;
-}
-
 BPF_LICENSE("GPL");
