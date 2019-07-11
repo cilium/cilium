@@ -168,6 +168,8 @@ func (d *Daemon) compileBase() error {
 		args[initArgNodePort] = "true"
 	}
 
+	log.Info("Setting up base BPF datapath")
+
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ExecTimeout)
 	defer cancel()
