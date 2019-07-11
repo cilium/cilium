@@ -243,6 +243,17 @@ func GetNextKey(fd int, key, nextKey unsafe.Pointer) error {
 	return GetNextKeyFromPointers(fd, uintptr(unsafe.Pointer(&uba)), unsafe.Sizeof(uba))
 }
 
+// GetFirstKey fetches the first key in the map.
+func GetFirstKey(fd int, nextKey unsafe.Pointer) error {
+	uba := bpfAttrMapOpElem{
+		mapFd: uint32(fd),
+		key:   0, // NULL -> Get first element
+		value: uint64(uintptr(nextKey)),
+	}
+
+	return GetNextKeyFromPointers(fd, uintptr(unsafe.Pointer(&uba)), unsafe.Sizeof(uba))
+}
+
 // This struct must be in sync with union bpf_attr's anonymous struct used by
 // BPF_OBJ_*_ commands
 type bpfAttrObjOp struct {
