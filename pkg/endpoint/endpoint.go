@@ -2238,10 +2238,9 @@ func (e *Endpoint) SyncEndpointHeaderFile(owner regeneration.Owner) error {
 
 	if e.dnsHistoryTrigger == nil {
 		t, err := trigger.NewTrigger(trigger.Parameters{
-			Name:              "sync_endpoint_header_file",
-			PrometheusMetrics: false,
-			MinInterval:       5 * time.Second,
-			TriggerFunc:       func(reasons []string) { e.syncEndpointHeaderFile(owner, reasons) },
+			Name:        "sync_endpoint_header_file",
+			MinInterval: 5 * time.Second,
+			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(owner, reasons) },
 		})
 		if err != nil {
 			return fmt.Errorf(
