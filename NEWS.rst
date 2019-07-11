@@ -2,6 +2,117 @@
 NEWS
 ******
 
+
+v1.5.5
+======
+
+::
+
+    André Martins (31):
+          *.Jenkinsfile: remove leftover failFast
+          test: add serial ports to CI VMs
+          test: bump k8s 1.13 to 1.13.7
+          pkg/kvstore: add new *IfLocked methods to perform txns
+          pkg/kvstore: add Comparator() to KVLocker
+          kvstore/allocator: make the allocator aware of kvstore lock holding
+          pkg/kvstore: implement new *IfLocked methods for etcd
+          pkg/kvstore: introduced a dedicated session for locks
+          test/provision: upgrade k8s 1.15 to 1.15.0-beta.2
+          test: error out if no-spec policies is allowed in k8s >= 1.15
+          test: bump to k8s 1.14.3
+          daemon: fix endpoint restore when endpoints are not available
+          pkg/lock: fix RUnlockIgnoreTime
+          .travis: update travis golang to 1.12.5
+          pkg/metrics: re-register newStatusCollector function
+          vendor: update k8s to v1.15.0
+          test: test against 1.15.0
+          test: run k8s 1.15.0 by default in all PRs
+          docs: update documentation with k8s 1.15 support
+          kubernetes-upstream: add seperate stage to run tests
+          test: set k8s 1.15 as default k8s version
+          pkg/endpointmanager: protecting endpoints against concurrent access
+          examples/kubernetes: bump cilium to v1.5.4
+          pkg/kvstore: fix nil pointer in error while doing a transaction in etcd
+          operator: add warning message if status returns an error
+          maps/lbmap: protect service cache refcount with concurrent access
+          pkg/k8s: do not parse empty annotations
+          pkg/kvstore: add etcd lease information into cilium status
+          test: set 1.15 by default in CI Vagrantfile
+          pkg/k8s: hold mutex while adding events to the queue
+          pkg/k8s: add conversion for DeleteFinalStateUnknown objects
+    
+    Deepesh Pathak (1):
+          cli: fix panic in cilium bpf sha get command
+    
+    Ian Vernon (12):
+          endpoint: make sure `updateRegenerationStatistics` is called within anonymous function
+          test: have timeout for `Exec`
+          test: create session and run commands asynchronously
+          test: use context with timeout to ensure that Cilium log gathering takes <= 5 minutes
+          test: add timeout to `waitToDeleteCilium` helper function
+          test: make sure that `GetPodNames` times out after 30 seconds
+          test: change `GetPodNames` to have a timeout
+          test: do not overwrite context in `GetPodNamesContext`
+          fqdn: correctly populate Source IP and Port in `notifyOnDNSMsg`
+          test: introduce `ExecShort` function
+          test: remove unused function
+          allocator: fix race condition when allocating local identities upon bootstrap
+    
+    Ifeanyi Ubah (2):
+          test: Enable IPv6 forwarding in test VMs
+          pkg/health: Fix IPv6 URL format in HTTP probe
+    
+    Jarno Rajahalme (1):
+          identity: Initialize well-known identities before the policy repository.
+    
+    Joe Stringer (2):
+          docs: Remove architecture target links
+          Disable automatic direct node routes test
+    
+    John Fastabend (1):
+          cilium: docker.go ineffectual assignment
+    
+    Maciej Kwiek (5):
+          Preload vagrant boxes in k8s upstream jenkinsfile
+          Don't set debug to true in monitor test
+          Change nightly CI job label from fixed to baremetal
+          Retry provisioning vagrant vms in CI
+          retry vm provisioning, increase timeout
+    
+    Martynas Pumputis (9):
+          docs: Clarify about legacy services enabled by default
+          mac: Add function to generate a random MAC addr
+          vendor: Update vishvananda/netlink
+          endpoint: Set random MAC addrs for veth when creating it
+          bpf: Set random MAC addrs for cilium interfaces
+          daemon: Change loglevel of "ipcache entry owned by kvstore or agent"
+          daemon: Do not remove revNAT if removing svc fails
+          daemon: Remove svc-v2 maps when restore is disabled
+          lbmap: Get rid of bpfService cache lock
+    
+    Ray Bejjani (5):
+          CI: Ensure k8s execs cancel contexts
+          CI: Report last seen error in CiliumPreFlightCheck
+          CI: Clean VMs and reclaim disk after jobs complete
+          CI: Clean workspace when all stages complete
+          CI: Clean VMs and reclaim disk in nightly test
+    
+    Sebastian Wicki (2):
+          k8s: Fix policies with multiple From/To selectors
+          k8s: Introduce test for multiple From/To selectors
+    
+    Thomas Graf (2):
+          test: Fix NodeCleanMetadata by using --overwrite
+          bpf: Remove unneeded debug instructions to stay below instruction limit
+    
+v1.5.4
+======
+
+::
+
+    Thomas Graf (1):
+          bpf: Prohibit encapsulation traffic from pod when running in encapsulation mode
+
 v1.5.3
 ======
 
