@@ -76,6 +76,10 @@ func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key Allocat
 	return nil
 }
 
+func (d *dummyBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) error {
+	return d.AllocateID(ctx, id, key)
+}
+
 func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -112,8 +116,8 @@ func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key Allocato
 	return nil
 }
 
-func (d *dummyBackend) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
-	return d.Get(ctx, key)
+func (d *dummyBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error {
+	return d.UpdateKey(ctx, id, key, reliablyMissing)
 }
 
 func (d *dummyBackend) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
@@ -125,6 +129,10 @@ func (d *dummyBackend) Get(ctx context.Context, key AllocatorKey) (idpool.ID, er
 		}
 	}
 	return idpool.NoID, nil
+}
+
+func (d *dummyBackend) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
+	return d.Get(ctx, key)
 }
 
 func (d *dummyBackend) GetByID(id idpool.ID) (AllocatorKey, error) {

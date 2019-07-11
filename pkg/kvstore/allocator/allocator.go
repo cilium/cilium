@@ -131,6 +131,18 @@ func (k *kvstoreBackend) AllocateID(ctx context.Context, id idpool.ID, key alloc
 	return nil
 }
 
+// AllocateID allocates a key->ID mapping in the kvstore.
+func (k *kvstoreBackend) AllocateIDIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
+	// create /id/<ID> and fail if it already exists
+	keyPath := path.Join(k.idPrefix, id.String())
+	success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, []byte(key.GetKey()), false, lock)
+	if err != nil || !success {
+		return fmt.Errorf("unable to create master key '%s': %s", keyPath, err)
+	}
+
+	return nil
+}
+
 // AcquireReference marks that this node is using this key->ID mapping in the kvstore.
 func (k *kvstoreBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
 	keyString := key.GetKey()
@@ -275,6 +287,46 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 		recreated, err = kvstore.CreateOnly(ctx, valueKey, []byte(id.String()), true)
 	} else {
 		recreated, err = kvstore.UpdateIfDifferent(ctx, valueKey, []byte(id.String()), true)
+	}
+	switch {
+	case err != nil:
+		return fmt.Errorf("Unable to re-create missing slave key \"%s\" -> \"%s\": %s", fieldKey, valueKey, err)
+	case recreated:
+		log.WithField(fieldKey, valueKey).Warning("Re-created missing slave key")
+	}
+
+	return nil
+}
+
+// UpdateKeyIfLocked refreshes the record that this node is using this key -> id
+// mapping. When reliablyMissing is set it will also recreate missing master or
+// slave keys.
+func (k *kvstoreBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error {
+	var (
+		err       error
+		recreated bool
+		keyPath   = path.Join(k.idPrefix, id.String())
+		valueKey  = path.Join(k.valuePrefix, key.GetKey(), k.suffix)
+	)
+
+	// Use of CreateOnly() ensures that any existing potentially
+	// conflicting key is never overwritten.
+	success, err := kvstore.CreateOnlyIfLocked(ctx, keyPath, []byte(key.GetKey()), false, lock)
+	switch {
+	case err != nil:
+		return fmt.Errorf("Unable to re-create missing master key \"%s\" -> \"%s\": %s", fieldKey, valueKey, err)
+	case success:
+		log.WithField(fieldKey, keyPath).Warning("Re-created missing master key")
+	}
+
+	// Also re-create the slave key in case it has been deleted. This will
+	// ensure that the next garbage collection cycle of any participating
+	// node does not remove the master key again.
+	// lock is ignored since the key doesn't exist.
+	if reliablyMissing {
+		recreated, err = kvstore.CreateOnly(ctx, valueKey, []byte(id.String()), true)
+	} else {
+		recreated, err = kvstore.UpdateIfDifferentIfLocked(ctx, valueKey, []byte(id.String()), true, lock)
 	}
 	switch {
 	case err != nil:

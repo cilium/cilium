@@ -198,6 +198,10 @@ type Backend interface {
 	// Backend makes calls to the handler in ListAndWatch.
 	AllocateID(ctx context.Context, id idpool.ID, key AllocatorKey) error
 
+	// AllocateIDIfLocked behaves like AllocateID but when lock is non-nil the
+	// operation proceeds only if it is still valid.
+	AllocateIDIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, lock kvstore.KVLocker) error
+
 	// AcquireReference records that this node is using this key->ID mapping.
 	// This is distinct from any reference counting within this agent; only one
 	// reference exists for this node for any number of managed endpoints using
@@ -217,12 +221,15 @@ type Backend interface {
 	// slave keys.
 	UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error
 
+	// UpdateKeyIfLocked behaves like UpdateKey but when lock is non-nil the operation proceeds only if it is still valid.
+	UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error
+
 	// Get returns the allocated ID for this key as seen by the Backend. This may
 	// have been created by other agents.
 	Get(ctx context.Context, key AllocatorKey) (idpool.ID, error)
 
-	// GetIfLocked behaves like Get, but returns an error when the key value has
-	// changed since lock was created with Lock.
+	// GetIfLocked behaves like Get, but but when lock is non-nil the
+	// operation proceeds only if it is still valid.
 	GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error)
 
 	// GetByID returns the key associated with this ID, as seen by the Backend.
