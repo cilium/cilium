@@ -384,6 +384,41 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	})
 }
 
+func (s *BPFPrivilegedTestSuite) TestDeleteAll(c *C) {
+	key1 := &TestKey{Key: 105}
+	value1 := &TestValue{Value: 205}
+	key2 := &TestKey{Key: 106}
+	value2 := &TestValue{Value: 206}
+
+	err := testMap.Update(key1, value1)
+	c.Assert(err, IsNil)
+	err = testMap.Update(key2, value1)
+	c.Assert(err, IsNil)
+	err = testMap.Update(key2, value2)
+	c.Assert(err, IsNil)
+
+	keyZero := &TestKey{Key: 0}
+	valueZero := &TestValue{Value: 0}
+	err = testMap.Update(keyZero, valueZero)
+	c.Assert(err, IsNil)
+
+	dump1 := map[string][]string{}
+	err = testMap.Dump(dump1)
+	c.Assert(err, IsNil)
+	c.Assert(dump1, checker.DeepEquals, map[string][]string{
+		"key=0":   {"value=0"},
+		"key=105": {"value=205"},
+		"key=106": {"value=206"},
+	})
+
+	err = testMap.DeleteAll()
+	c.Assert(err, IsNil)
+
+	dump2 := map[string][]string{}
+	err = testMap.Dump(dump2)
+	c.Assert(err, IsNil)
+}
+
 func (s *BPFPrivilegedTestSuite) TestGetModel(c *C) {
 	model := testMap.GetModel()
 	c.Assert(model, Not(IsNil))
