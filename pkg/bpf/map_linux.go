@@ -870,7 +870,6 @@ func (m *Map) DeleteAll() error {
 	scopedLog := m.scopedLogger()
 	scopedLog.Debug("deleting all entries in map")
 
-	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 
 	if m.cache != nil {
@@ -890,17 +889,11 @@ func (m *Map) DeleteAll() error {
 	mv := m.MapValue.DeepCopyMapValue()
 
 	for {
-		err := GetNextKey(
-			m.fd,
-			unsafe.Pointer(&key[0]),
-			unsafe.Pointer(&nextKey[0]),
-		)
-
-		if err != nil {
+		if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
 			break
 		}
 
-		err = DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
+		err := DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
 
 		mk, _, err2 := m.dumpParser(nextKey, []byte{}, mk, mv)
 		if err2 == nil {
@@ -912,8 +905,6 @@ func (m *Map) DeleteAll() error {
 		if err != nil {
 			return err
 		}
-
-		copy(key, nextKey)
 	}
 
 	return nil
