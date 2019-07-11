@@ -1,7 +1,7 @@
 include ../../Makefile.defs
 
 TARGET=cilium-health-responder
-SOURCES := $(shell find ../../pkg/health/probe/responder . \( -name '*.go' ! -name '*_test.go' \))
+SOURCES := $(shell find ../../pkg/health/defaults ../../pkg/health/probe/responder ../../pkg/pidfile . \( -name '*.go' ! -name '*_test.go' \))
 $(TARGET): $(SOURCES)
 	@$(ECHO_GO)
 	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)

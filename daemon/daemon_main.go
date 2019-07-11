@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -505,6 +506,9 @@ func init() {
 
 	flags.Bool(option.ForceLocalPolicyEvalAtSource, defaults.ForceLocalPolicyEvalAtSource, "Force policy evaluation of all local communication at the source endpoint")
 	option.BindEnv(option.ForceLocalPolicyEvalAtSource)
+
+	flags.String(option.HealthServeAddr, healthDefaults.ServeAddr, "IP:Port on which the cilium health host connectivity check responds (pass \":Port\" to bind on all interfaces)")
+	option.BindEnv(option.HealthServeAddr)
 
 	flags.String(option.HTTP403Message, "", "Message returned in proxy L7 403 body")
 	flags.MarkHidden(option.HTTP403Message)

@@ -31,10 +31,12 @@ import (
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"github.com/cilium/cilium/pkg/metrics"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -138,6 +140,9 @@ const (
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
+
+	// HealthServeAddr is the IP:Port on which the cilium health host connectivity check is served
+	HealthServeAddr = "health-serve-addr"
 
 	// IPv4ClusterCIDRMaskSize is the mask size for the cluster wide CIDR
 	IPv4ClusterCIDRMaskSize = "ipv4-cluster-cidr-mask-size"
@@ -989,6 +994,9 @@ type DaemonConfig struct {
 	// health endpoints
 	EnableHealthChecking bool
 
+	// HealthServeAddr is the address the health host connectivity check listens on
+	HealthServeAddr string
+
 	// KVstoreKeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL ideally
 	// by a factor of 3.
@@ -1141,6 +1149,7 @@ var (
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
+		HealthServeAddr:              healthDefaults.ServeAddr,
 	}
 )
 
@@ -1450,6 +1459,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
 	c.ForceLocalPolicyEvalAtSource = viper.GetBool(ForceLocalPolicyEvalAtSource)
 	c.HostDevice = getHostDevice()
+	c.HealthServeAddr = viper.GetString(HealthServeAddr)
 	c.HTTPIdleTimeout = viper.GetInt(HTTPIdleTimeout)
 	c.HTTPMaxGRPCTimeout = viper.GetInt(HTTPMaxGRPCTimeout)
 	c.HTTPRequestTimeout = viper.GetInt(HTTPRequestTimeout)
