@@ -275,4 +275,8 @@ const (
 	// K8sClientBurst is is the default burst for the k8s client. It is set to 0 because the the k8s client
 	// has its own default.
 	K8sClientBurst = 0
+
+	// PolicyTriggerInterval is default amount of time between triggers of
+	// policy updates are invoked.
+	PolicyTriggerInterval = 1 * time.Second
 )

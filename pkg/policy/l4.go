@@ -95,8 +95,14 @@ const (
 	ParserTypeDNS L7ParserType = "dns"
 )
 
+// L4Filter represents the policy (allowed remote sources / destinations of
+// traffic) that applies at a specific L4 port/protocol combination (including
+// all ports and protocols), at either ingress or egress. The policy here is
+// specified in terms of selectors that are mapped to security identities via
+// the selector cache.
 type L4Filter struct {
-	// Port is the destination port to allow
+	// Port is the destination port to allow. Port 0 indicates that all traffic
+	// is allowed at L4.
 	Port int `json:"port"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`

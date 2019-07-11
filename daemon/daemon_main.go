@@ -794,6 +794,10 @@ func init() {
 	flags.String(option.WriteCNIConfigurationWhenReady, "", fmt.Sprintf("Write the CNI configuration as specified via --%s to path when agent is ready", option.ReadCNIConfiguration))
 	option.BindEnv(option.WriteCNIConfigurationWhenReady)
 
+	flags.Duration(option.PolicyTriggerInterval, defaults.PolicyTriggerInterval, "Time between triggers of policy updates (regenerations for all endpoints)")
+	flags.MarkHidden(option.PolicyTriggerInterval)
+	option.BindEnv(option.PolicyTriggerInterval)
+
 	viper.BindPFlags(flags)
 }
 

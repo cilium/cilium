@@ -767,7 +767,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:              "policy_update",
 		PrometheusMetrics: true,
-		MinInterval:       time.Second,
+		MinInterval:       option.Config.PolicyTriggerInterval,
 		TriggerFunc:       d.policyUpdateTrigger,
 	})
 	if err != nil {

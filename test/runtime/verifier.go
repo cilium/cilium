@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,9 @@ var _ = Describe("RuntimeVerifier", func() {
 		ExpectCiliumNotRunning(vm)
 		res = vm.ExecWithSudo("rm -f /sys/fs/bpf/tc/globals/cilium*")
 		res.ExpectSuccess()
+		cmd := fmt.Sprintf("make -C %s/../bpf clean V=0", helpers.BasePath)
+		res = vm.Exec(cmd)
+		res.ExpectSuccess("Expected cleaning the bpf/ tree to succeed")
 	})
 
 	AfterFailed(func() {
