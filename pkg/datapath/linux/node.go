@@ -569,7 +569,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 		err := netlink.NeighAdd(&neigh)
 		neighborLog("insertNeighbor NeighAdd", err, &ciliumIPv4, &hwAddr, link)
 	} else {
-		neighborLog("insertNeighbor arping failed", err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("insertNeighbor arping succeeded", err, &ciliumIPv4, &hwAddr, link)
 	}
 }
 
