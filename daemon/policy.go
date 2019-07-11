@@ -48,6 +48,24 @@ import (
 	"github.com/op/go-logging"
 )
 
+type policyTriggerMetrics struct{}
+
+func (p *policyTriggerMetrics) QueueEvent(reason string) {
+	if option.Config.MetricsConfig.TriggerPolicyUpdateTotal {
+		metrics.TriggerPolicyUpdateTotal.WithLabelValues(reason).Inc()
+	}
+}
+
+func (p *policyTriggerMetrics) PostRun(duration, latency time.Duration, folds int) {
+	if option.Config.MetricsConfig.TriggerPolicyUpdateCallDuration {
+		metrics.TriggerPolicyUpdateCallDuration.WithLabelValues("duration").Observe(duration.Seconds())
+		metrics.TriggerPolicyUpdateCallDuration.WithLabelValues("latency").Observe(latency.Seconds())
+	}
+	if option.Config.MetricsConfig.TriggerPolicyUpdateFolds {
+		metrics.TriggerPolicyUpdateFolds.Set(float64(folds))
+	}
+}
+
 func (d *Daemon) policyUpdateTrigger(reasons []string) {
 	log.Debugf("Regenerating all endpoints")
 	reason := strings.Join(reasons, ", ")
