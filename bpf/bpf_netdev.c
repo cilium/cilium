@@ -972,7 +972,7 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
 
 	if (!revalidate_data(skb, &data, &data_end, &iphdr)) {
 		ret = DROP_INVALID;
-		goto drop_err
+		goto drop_err;
 	}
 
 	fib_params.family = AF_INET;
