@@ -27,7 +27,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       initContainers:
         - name: clean-cilium-state
-          image: docker.io/cilium/cilium-init:__CILIUM_INIT_VERSION__
+          image: docker.io/cilium/cilium:__CILIUM_INIT_VERSION__
           imagePullPolicy: IfNotPresent
           command: ["/bin/echo"]
           args:

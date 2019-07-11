@@ -168,7 +168,7 @@ spec:
               key: clean-cilium-bpf-state
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium-init:__CILIUM_INIT_VERSION__
+        image: docker.io/cilium/cilium:__CILIUM_INIT_VERSION__
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
