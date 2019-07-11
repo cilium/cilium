@@ -267,4 +267,12 @@ const (
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource = false
+
+	// K8sClientQPSLimit is is the default qps for the k8s client. It is set to 0 because the the k8s client
+	// has its own default.
+	K8sClientQPSLimit = 0
+
+	// K8sClientBurst is is the default burst for the k8s client. It is set to 0 because the the k8s client
+	// has its own default.
+	K8sClientBurst = 0
 )

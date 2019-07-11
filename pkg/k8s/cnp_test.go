@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -60,9 +61,9 @@ func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
 	}
 	if os.Getenv("INTEGRATION") != "" {
 		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			Configure("", "/var/lib/cilium/cilium.kubeconfig")
+			Configure("", "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		} else {
-			Configure("", k8sConfigPath)
+			Configure("", k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
 		}
 		restConfig, err := CreateConfig()
 		c.Assert(err, IsNil)

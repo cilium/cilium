@@ -83,7 +83,7 @@ func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
 // CreateConfigFromAgentResponse creates a client configuration from a
 // models.DaemonConfigurationResponse
 func CreateConfigFromAgentResponse(resp *models.DaemonConfiguration) (*rest.Config, error) {
-	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration, 0, 0)
+	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration, GetQPS(), GetBurst())
 }
 
 // CreateConfig creates a client configuration based on the configured API
