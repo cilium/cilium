@@ -50,6 +50,7 @@
 #include "lib/csum.h"
 #include "lib/encap.h"
 #include "lib/nat.h"
+#include "lib/nodeport.h"
 
 #if defined ENABLE_ARP_PASSTHROUGH && defined ENABLE_ARP_RESPONDER
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
@@ -207,7 +208,8 @@ ct_recreate6:
 		skb->mark |= MARK_MAGIC_REPLY;
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state.node_port) {
-			return redirect(NATIVE_DEV_IFINDEX, 0);
+			ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
+			return DROP_MISSED_TAIL_CALL;
 		}
 #endif
 		if (ct_state.rev_nat_index) {
@@ -528,7 +530,8 @@ ct_recreate4:
 		 * perform the reverse DNAT.
 		 */
 		if (ct_state.node_port) {
-			return redirect(NATIVE_DEV_IFINDEX, 0);
+			ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
+			return DROP_MISSED_TAIL_CALL;
 		}
 #endif /* ENABLE_NODEPORT */
 

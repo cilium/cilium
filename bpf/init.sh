@@ -508,7 +508,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ]; then
 		fi
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
-		if [ "$MASQ" = "true" ] || [ "$NODE_PORT" = "true" ]; then
+		if [ "$MASQ" = "true" ]; then
 		    bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP "no_qdisc_reset"
 		fi
 
