@@ -2,6 +2,116 @@
 NEWS
 ******
 
+v1.4.6
+======
+
+::
+
+    André Martins (18):
+          operator: add ca-certificates to operator
+          docs: fix architecture images' URL
+          test: replace guestbook test docker image
+          daemon/Makefile: rm -f on make clean for links
+          pkg/endpoint: fix assignment in nil map on restore
+          Jenkinsfile: backport all Jenkinsfile from master
+          daemon: fix endpoint restore when endpoints are not available
+          pkg/lock: fix RUnlockIgnoreTime
+          test: bump k8s 1.13 to 1.13.7
+          *.Jenkinsfile: remove leftover failFast
+          pkg/kvstore: Run GetPrefix with limit of 1
+          kvstore/allocator: do not re-get slave key on allocation
+          kvstore/allocator: release ID from idpool on error
+          kvstore/allocator: protect concurrent access of slave keys
+          examples/kubernetes: bump cilium to v1.4.5
+          maps/lbmap: protect service cache refcount with concurrent access
+          pkg/k8s: hold mutex while adding events to the queue
+          kubernetes-upstream: add seperate stage to run tests
+    
+    Eloy Coto (2):
+          Test: Fix timeout on test/PolicyGen
+          Test: Add a invalid CNP Test
+    
+    Ian Vernon (3):
+          contrib: fix up check-fmt.sh
+          test: make function provided to WithTimeout run asynchronously
+          test: provide context which will be cancled to `CiliumExecContext`
+    
+    Ifeanyi Ubah (2):
+          pkg/health: Fix IPv6 URL format in HTTP probe
+          test: Enable IPv6 forwarding in test VMs
+    
+    Jarno Rajahalme (4):
+          CI: Enforce sensible timeouts.
+          docs: Update urllib3 dependency to address CVE-2019-11324
+          proxylib: Fix egress enforcement
+          envoy: Prevent resending NACKed resources also when there are no ACK observers.
+    
+    Joe Stringer (2):
+          contrib: Fix cherry-pick script
+          endpoint: Fix bug with endpoint state metrics
+    
+    John Fastabend (1):
+          cilium: IsLocal() needs to compare both Name and Cluster
+    
+    Maciej Kwiek (11):
+          Add `dep check` to travis build
+          [k8s-upstream-test] Replace deprecated provider
+          Add jenkins stage for loading vagrant boxes
+          Recover from ginkgo fail in WithTimeout helper
+          Jenkins separate directories for parallel builds
+          Don't overwrite minRequired in WaitforNPods
+          Preload vagrant boxes in k8s upstream jenkinsfile
+          Don't set debug to true in monitor test
+          Change nightly CI job label from fixed to baremetal
+          Retry provisioning vagrant vms in CI
+          retry vm provisioning, increase timeout
+    
+    Martynas Pumputis (14):
+          daemon: Panic if executable name does not match cilium{-agent,-node-monitor,}
+          contrib: Exit early if no git remote is found
+          docs: Add k8s 1.14 to supported versions for testing
+          components: Fix cilium-agent process detection
+          cli: Do not cli init when running cilium-agent
+          daemon: Set $HOME as dir to look for default config ciliumd.yaml
+          bpf: Set BPF_F_NO_PREALLOC before comparing maps
+          daemon: Remove stale maps only after restoring all endpoints
+          mac: Add function to generate a random MAC addr
+          vendor: Update vishvananda/netlink
+          endpoint: Set random MAC addrs for veth when creating it
+          bpf: Set random MAC addrs for cilium interfaces
+          daemon: Change loglevel of "ipcache entry owned by kvstore or agent"
+          daemon: Do not remove revNAT if removing svc fails
+    
+    Ray Bejjani (6):
+          CI: WaitForNPods uses count of pods
+          CI: Consolidate WaitforNPods and WaitForPodsRunning
+          CI: Consolidate Vagrant box information into 1 file
+          CI: Clean VMs and reclaim disk after jobs complete
+          CI: Clean workspace when all stages complete
+          CI: Clean VMs and reclaim disk in nightly test
+    
+    Sebastian Wicki (2):
+          k8s: Fix policies with multiple From/To selectors
+          k8s: Introduce test for multiple From/To selectors
+    
+    Thomas Graf (4):
+          allocator: Verify locally allocated key
+          doc: Add EKS node-init DaemonSet to mount BPF filesystem
+          ipcache: Fix automatic recovery of deleted ipcache entries
+          bpf: Remove unneeded debug instructions to stay below instruction limit
+    
+    刘群 (1):
+          doc: fix up Ubuntu apt-get install command
+
+v1.4.5
+======
+
+::
+
+    Thomas Graf (1):
+          bpf: Prohibit encapsulation traffic from pod when running in encapsulation mode
+
+
 v1.4.4
 ======
 
