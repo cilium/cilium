@@ -553,6 +553,18 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 		return
 	}
 
+	iface, err := net.InterfaceByName(option.Config.EncryptInterface)
+	if err != nil {
+		neighborLog("insertNeightbor InterfaceByName", err, &ciliumIPv4, &hwAddr, link)
+		return
+	}
+
+	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
+	if err != nil {
+		neighborLog("insertNeightbor IP not L2 reachable", nil, &ciliumIPv4, &hwAddr, link)
+		return
+	}
+
 	linkAttr, err := netlink.LinkByName(option.Config.EncryptInterface)
 	if err != nil {
 		neighborLog("insertNeightbor LinkByName", err, &ciliumIPv4, &hwAddr, link)
@@ -560,7 +572,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 	}
 	link = linkAttr.Attrs().Index
 
-	if hwAddr, _, err := arping.Ping(ciliumIPv4); err == nil {
+	if hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface); err == nil {
 		neigh := netlink.Neigh{
 			LinkIndex:    link,
 			IP:           ciliumIPv4,
