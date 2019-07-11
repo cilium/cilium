@@ -536,12 +536,12 @@ func neighborLog(spec string, err error, ip *net.IP, hwAddr *net.HardwareAddr, l
 	if err != nil {
 		scopedLog.WithError(err).Error("insertNeighbor failed")
 	} else {
-		scopedLog.Debug("insertNeighbor")
+		scopedLog.Info("insertNeighbor")
 	}
 }
 
 func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
-	ciliumIPv4 := newNode.GetCiliumInternalIP(false)
+	ciliumIPv4 := newNode.GetNodeIP(false)
 	var hwAddr net.HardwareAddr
 	link := 0
 
@@ -568,6 +568,8 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 		}
 		err := netlink.NeighAdd(&neigh)
 		neighborLog("insertNeighbor NeighAdd", err, &ciliumIPv4, &hwAddr, link)
+	} else {
+		neighborLog("insertNeighbor arping failed", err, &ciliumIPv4, &hwAddr, link)
 	}
 }
 
