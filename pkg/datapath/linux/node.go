@@ -540,6 +540,23 @@ func neighborLog(spec string, err error, ip *net.IP, hwAddr *net.HardwareAddr, l
 	}
 }
 
+func findIPInNetworkFromIface(dstIP net.IP, iface *net.Interface) (net.IP, error) {
+	addrs, err := iface.Addrs()
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok {
+			if ipnet.Contains(dstIP) {
+				return ipnet.IP, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("iface: '%s' can't reach ip: '%s'", iface.Name, dstIP)
+}
+
 func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 	if newNode.IsLocal() {
 		return
@@ -553,6 +570,18 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 		return
 	}
 
+	iface, err := net.InterfaceByName(option.Config.EncryptInterface)
+	if err != nil {
+		neighborLog("insertNeightbor InterfaceByName", err, &ciliumIPv4, &hwAddr, link)
+		return
+	}
+
+	_, err = findIPInNetworkFromIface(ciliumIPv4, iface)
+	if err != nil {
+		neighborLog("insertNeightbor IP not L2 reachable", nil, &ciliumIPv4, &hwAddr, link)
+		return
+	}
+
 	linkAttr, err := netlink.LinkByName(option.Config.EncryptInterface)
 	if err != nil {
 		neighborLog("insertNeightbor LinkByName", err, &ciliumIPv4, &hwAddr, link)
@@ -560,7 +589,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 	}
 	link = linkAttr.Attrs().Index
 
-	if hwAddr, _, err := arping.Ping(ciliumIPv4); err == nil {
+	if hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface); err == nil {
 		neigh := netlink.Neigh{
 			LinkIndex:    link,
 			IP:           ciliumIPv4,
