@@ -75,9 +75,15 @@ func createConfig(endpoint, kubeCfgPath string, qps float32, burst int) (*rest.C
 }
 
 func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
-	config.UserAgent = userAgent
-	config.QPS = qps
-	config.Burst = burst
+	if config.UserAgent != "" {
+		config.UserAgent = userAgent
+	}
+	if qps != 0.0 {
+		config.QPS = qps
+	}
+	if burst != 0 {
+		config.Burst = burst
+	}
 }
 
 // CreateConfigFromAgentResponse creates a client configuration from a

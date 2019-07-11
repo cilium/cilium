@@ -270,7 +270,7 @@ const (
 
 	// K8sClientQPSLimit is is the default qps for the k8s client. It is set to 0 because the the k8s client
 	// has its own default.
-	K8sClientQPSLimit = 0
+	K8sClientQPSLimit float32 = 0.0
 
 	// K8sClientBurst is is the default burst for the k8s client. It is set to 0 because the the k8s client
 	// has its own default.

@@ -126,7 +126,7 @@ func init() {
 	flags.Int(option.AWSClientBurst, 4, "Burst value allowed for the AWS client used by the AWS ENI IPAM")
 	flags.Float64(option.AWSClientQPSLimit, 20.0, "Queries per second limit for the AWS client used by the AWS ENI IPAM")
 
-	flags.Float64(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
+	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
 
 	// We need to obtain from Cilium ConfigMap if the CiliumEndpointCRD option
