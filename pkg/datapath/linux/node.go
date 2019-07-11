@@ -565,9 +565,10 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 			LinkIndex:    link,
 			IP:           ciliumIPv4,
 			HardwareAddr: hwAddr,
+			State:        netlink.NUD_PERMANENT,
 		}
-		err := netlink.NeighAdd(&neigh)
-		neighborLog("insertNeighbor NeighAdd", err, &ciliumIPv4, &hwAddr, link)
+		err := netlink.NeighSet(&neigh)
+		neighborLog("insertNeighbor NeighSet", err, &ciliumIPv4, &hwAddr, link)
 	} else {
 		neighborLog("insertNeighbor arping failed", err, &ciliumIPv4, &hwAddr, link)
 	}
