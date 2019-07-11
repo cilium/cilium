@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/launcher"
@@ -278,9 +277,14 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 		return nil, fmt.Errorf("failed configure health interface %q: %s", epIfaceName, err)
 	}
 
+	_, port, err := net.SplitHostPort(option.Config.HealthServeAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
 	prog := "ip"
-	args := []string{"netns", "exec", netNSName, binaryName, "--pidfile", pidfile}
+	args := []string{"netns", "exec", netNSName, binaryName, "--listen", ":" + port, "--pidfile", pidfile}
 	cmd.SetTarget(prog)
 	cmd.SetArgs(args)
 	log.Infof("Spawning health endpoint with command %q %q", prog, args)
@@ -330,7 +334,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.
-	client, err := probe.NewClient("http://" + net.JoinHostPort(healthIP.String(), fmt.Sprintf("%d", healthDefaults.HTTPPathPort)))
+	client, err := probe.NewClient("http://" + net.JoinHostPort(healthIP.String(), port))
 	if err != nil {
 		return nil, fmt.Errorf("Cannot establish connection to health endpoint: %s", err)
 	}

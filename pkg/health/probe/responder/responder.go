@@ -18,7 +18,6 @@ package responder
 // as this package typically runs in its own process
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -32,10 +31,10 @@ type Server struct {
 }
 
 // NewServer creates a new server listening on the given port
-func NewServer(port int) *Server {
+func NewServer(addr string) *Server {
 	return &Server{
 		http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
+			Addr:    addr,
 			Handler: http.HandlerFunc(serverRequests),
 		},
 	}
