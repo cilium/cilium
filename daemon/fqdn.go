@@ -407,7 +407,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithError(err).Error("cannot extract DNS message details")
 	}
 
-	ep.UpdateProxyStatistics("dns", uint16(serverPort), false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics(strings.ToUpper(protocol), uint16(serverPort), false, !msg.Response, verdict)
 	record := logger.NewLogRecord(proxy.DefaultEndpointInfoRegistry, ep, flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),

@@ -67,7 +67,7 @@ type EndpointUpdater interface {
 
 	// UpdateProxyStatistics updates the Endpoint's proxy statistics to account
 	// for a new observed flow with the given characteristics.
-	UpdateProxyStatistics(l7Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
+	UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
 }
 
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP
