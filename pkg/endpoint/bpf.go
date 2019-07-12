@@ -196,7 +196,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 				// Update the endpoint API model to report that Cilium manages a
 				// redirect for that port.
 				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+				proxyStats := e.getProxyStatisticsLocked(proxyID, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
 				proxyStats.AllocatedProxyPort = int64(redirectPort)
 				e.proxyStatisticsMutex.Unlock()
 
@@ -319,19 +319,12 @@ func (e *Endpoint) removeOldRedirects(owner regeneration.Owner, desiredRedirects
 		// active or known for that port anymore. We never delete stats
 		// until an endpoint is deleted, so we only set the redirect port
 		// to 0.
-		//
-		// We don't know the L7 protocol of the redirect, so we can't just
-		// build a ProxyStatistics and lookup e.proxyStatistics by key.
-		// We have to loop to find which entry has the same redirect port.
-		// Looping is acceptable since there should be only a few redirects
-		// for each endpoint.
 		e.proxyStatisticsMutex.Lock()
-		for _, stats := range e.proxyStatistics {
-			if stats.AllocatedProxyPort == int64(redirectPort) {
-				updatedStats[redirectPort] = stats
-				stats.AllocatedProxyPort = 0
-				break
-			}
+		if proxyStats, ok := e.proxyStatistics[id]; ok {
+			updatedStats[redirectPort] = proxyStats
+			proxyStats.AllocatedProxyPort = 0
+		} else {
+			e.getLogger().WithField(logfields.L4PolicyID, id).Warn("Proxy stats not found")
 		}
 		e.proxyStatisticsMutex.Unlock()
 	}
