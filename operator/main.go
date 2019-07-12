@@ -167,6 +167,15 @@ func runOperator(cmd *cobra.Command) {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
+	// Restart kube-dns as soon as possible since it helps etcd-operator to be
+	// properly setup. If kube-dns is not managed by Cilium it can prevent
+	// etcd from reaching out kube-dns in EKS.
+	if option.Config.DisableCiliumEndpointCRD {
+		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
+	} else {
+		enableUnmanagedKubeDNSController()
+	}
+
 	if synchronizeServices {
 		startSynchronizingServices()
 	}
@@ -182,13 +191,6 @@ func runOperator(cmd *cobra.Command) {
 	if identityGCInterval != time.Duration(0) {
 		startIdentityGC()
 	}
-
-	if option.Config.DisableCiliumEndpointCRD {
-		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
-	} else {
-		enableUnmanagedKubeDNSController()
-	}
-
 	err := enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
