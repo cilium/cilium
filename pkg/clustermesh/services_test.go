@@ -23,6 +23,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -111,7 +112,7 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction,
 		var event k8s.ServiceEvent
 		select {
 		case event = <-s.svcCache.Events:
-		case <-time.After(time.Second * 10):
+		case <-time.After(defaults.NodeDeleteDelay + time.Second*10):
 			c.Errorf("Timeout while waiting for event to be received")
 			return false
 		}
@@ -234,9 +235,14 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	})
 
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "1")
-	s.expectEvent(c, k8s.UpdateService, svcID, nil)
-
+	// The observer will have a defaults.NodeDeleteDelay time before it receives
+	// the event. For this reason we will trigger the delete events sequentially
+	// and only do the assertion in the end. This way we wait 30seconds for the
+	// test to complete instead of 30+30 seconds.
+	time.Sleep(2 * time.Second)
 	kvstore.DeletePrefix("cilium/state/services/v1/" + s.randomName + "2")
+
+	s.expectEvent(c, k8s.UpdateService, svcID, nil)
 	s.expectEvent(c, k8s.DeleteService, svcID, nil)
 }
 
