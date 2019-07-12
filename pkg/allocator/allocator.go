@@ -51,40 +51,28 @@ const (
 // in parallel request the ID for keys and are guaranteed to retrieve the same
 // ID for an identical key.
 //
-// Slave keys:
-//   Slave keys are owned by individual nodes:
-//     - basePath/value/key1/node1 => 1001
-//     - basePath/value/key1/node2 => 1001
-//     - basePath/value/key2/node1 => 1002
-//     - basePath/value/key2/node2 => 1002
+// While the details of how keys are stored is delegated to Backend
+// implementations, some expectations exist. See pkg/kvstore/allocator for
+// details about the kvstore implementation.
 //
-//   If at least one key exists with the prefix basePath/value/keyN then that
-//   key must be considered to be in use in the allocation space.
-//
-//   Slave keys are protected by a lease and will automatically get removed
-//   after ~ option.Config.KVstoreLeaseTTL if the node does not renew in time.
-//
-// Master key:
-//    - basePath/id/1001 => key1
-//    - basePath/id/1002 => key2
-//
-//   Master keys provide the mapping from ID to key. As long as a master key
-//   for an ID exists, the ID is still in use. However, if a master key is no
-//   longer backed by at least one slave key, the garbage collector will
-//   eventually release the master key and return it back to the pool.
+// A node takes a reference to an identity when it is in-use on that node, and
+// the identity remains in-use if there is any node refernce to it. When an
+// identity no longer has any node references, it may be garbage collected. No
+// guarantees are made at that point and the numeric identity may be reused.
+// Note that the numeric IDs are selected locally and verified with the Backend.
 //
 // Lookup ID by key:
-// 1. Return ID from local cache updated by watcher (no kvstore interactions)
+// 1. Return ID from local cache updated by watcher (no Backend interactions)
 // 2. Do ListPrefix() on slave key excluding node suffix, return the first
 //    result that matches the exact prefix.
 //
 // Lookup key by ID:
-// 1. Return key from local cache updated by watcher (no kvstore interactions)
+// 1. Return key from local cache updated by watcher (no Backend interactions)
 // 2. Do Get() on master key, return result
 //
 // Allocate:
 // 1. Check local key cache, increment, and return if key is already in use
-//    locally (no kvstore interactions)
+//    locally (no Backend interactions)
 // 2. Check local cache updated by watcher, if...
 //
 // ... match found:
@@ -98,11 +86,11 @@ const (
 // 2.2 Create a new master key with the condition that it may not exist
 // 2.3 Create a new slave key
 //
-// 1.1. If found, increment and return (no kvstore interactions)
-// 2. Lookup ID by key in local cache or via first slave key found in kvstore
+// 1.1. If found, increment and return (no Backend interactions)
+// 2. Lookup ID by key in local cache or via first slave key found in Backend
 //
 // Release:
-//  1. Reduce local reference count until last use (no kvstore interactions)
+//  1. Reduce local reference count until last use (no Backend interactions)
 //  2. Delete slave key (basePath/value/key1/node1)
 //     This automatically guarantees that when the last node has released the
 //     key, the key is no longer found by Get()
