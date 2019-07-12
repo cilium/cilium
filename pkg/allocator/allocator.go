@@ -552,6 +552,11 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		return 0, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
 	}
 
+	// mark the key as verified in the local cache
+	if err := a.localKeys.verify(k); err != nil {
+		log.WithError(err).Error("BUG: Unable to verify local key")
+	}
+
 	log.WithField(fieldKey, k).Info("Allocated new global key")
 
 	return id, true, nil
