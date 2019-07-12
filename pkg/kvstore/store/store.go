@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -257,6 +258,10 @@ func (s *SharedStore) Close() {
 		}
 
 		delete(s.localKeys, name)
+		// Since we have received our own notification we also need to remove
+		// it from the shared keys.
+		delete(s.sharedKeys, name)
+
 		s.onDelete(key)
 	}
 }
@@ -426,14 +431,26 @@ func (s *SharedStore) updateKey(name string, value []byte) error {
 	return nil
 }
 
-func (s *SharedStore) deleteKey(name string) {
+func (s *SharedStore) deleteSharedKey(name string) {
 	s.mutex.Lock()
 	existingKey, ok := s.sharedKeys[name]
 	delete(s.sharedKeys, name)
 	s.mutex.Unlock()
 
 	if ok {
-		s.onDelete(existingKey)
+		go func() {
+			time.Sleep(defaults.NodeDeleteDelay)
+			s.mutex.RLock()
+			_, ok := s.sharedKeys[name]
+			s.mutex.RUnlock()
+			if ok {
+				log.Warningf("Received node delete event for node %s which re-appeared within %s",
+					name, defaults.NodeDeleteDelay)
+				return
+			}
+
+			s.onDelete(existingKey)
+		}()
 	} else {
 		s.getLogger().WithField("key", name).
 			Warning("Unable to find deleted key in local state")
@@ -488,7 +505,7 @@ func (s *SharedStore) watcher(listDone chan bool) {
 
 				s.syncLocalKey(localKey)
 			} else {
-				s.deleteKey(keyName)
+				s.deleteSharedKey(keyName)
 			}
 		}
 	}
