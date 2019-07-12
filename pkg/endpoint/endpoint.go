@@ -1597,7 +1597,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateRestoring:
 		switch toState {
-		case StateDisconnecting, StateWaitingToRegenerate, StateRestoring:
+		case StateDisconnecting, StateRestoring:
 			goto OKState
 		}
 	}
@@ -1640,7 +1640,7 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	switch fromState { // From state
 	case StateCreating, StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
 		// No valid transitions for the builder
-	case StateWaitingToRegenerate:
+	case StateWaitingToRegenerate, StateRestoring:
 		switch toState {
 		// Builder transitions the endpoint from
 		// waiting-to-regenerate state to regenerating state

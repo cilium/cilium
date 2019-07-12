@@ -285,6 +285,10 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	// Builder transitions to ready state after build is done
 	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, true)
 
+	// Check that direct transition from restoring --> regenerating is valid.
+	e.state = StateRestoring
+	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+
 	// Typical lifecycle
 	e.state = StateCreating
 	c.Assert(e.SetStateLocked(StateWaitingForIdentity, "test"), Equals, true)
@@ -310,6 +314,15 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	// parallel disconnect fails
 	c.Assert(e.SetStateLocked(StateDisconnecting, "test"), Equals, false)
 	c.Assert(e.SetStateLocked(StateDisconnected, "test"), Equals, true)
+
+	// Restoring state
+	e.state = StateRestoring
+	c.Assert(e.SetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
+	c.Assert(e.SetStateLocked(StateDisconnecting, "test"), Equals, true)
+
+	e.state = StateRestoring
+	c.Assert(e.SetStateLocked(StateRestoring, "test"), Equals, true)
+
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
