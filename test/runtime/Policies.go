@@ -65,8 +65,11 @@ var _ = Describe("RuntimePolicies", func() {
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
+		// Make sure that Cilium is started with appropriate CLI options
+		// (specifically to exclude the local addresses that are populated for
+		// CIDR policy tests).
+		Expect(vm.SetUpCilium()).To(BeNil())
 		ExpectCiliumReady(vm)
-
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
 
@@ -1334,7 +1337,7 @@ var _ = Describe("RuntimePolicies", func() {
 					curlFailures++
 				}
 			}
-			Expect(curlFailures).To(BeNumerically("<=", 1), "Curl to %q have failed more than once")
+			Expect(curlFailures).To(BeNumerically("<=", 1), "Curl to %q have failed more than once", cloudFlare)
 
 			By("Pinging %q from %q (should not work)", api.EntityHost, helpers.App1)
 			res = vm.ContainerExec(helpers.App1, helpers.Ping(cloudFlare))
