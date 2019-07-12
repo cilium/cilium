@@ -354,22 +354,8 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// parts of the identity not being marshaled to JSON. Hence we must set
 			// the identity even if has not changed.
 			ep.SetIdentity(identity)
-
-			if ep.GetStateLocked() == endpoint.StateWaitingToRegenerate {
-				ep.Unlock()
-				// EP is already waiting to regenerate. This is no error so no logging.
-				epRegenerated <- false
-				return
-			}
-
-			ready := ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Triggering synchronous endpoint regeneration while syncing state to host")
 			ep.Unlock()
 
-			if !ready {
-				scopedLog.WithField(logfields.EndpointState, ep.GetState()).Warn("Endpoint in inconsistent state")
-				epRegenerated <- false
-				return
-			}
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason: "syncing state to host",
 			}
