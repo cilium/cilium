@@ -1319,7 +1319,7 @@ func (e *Endpoint) LeaveLocked(owner regeneration.Owner, proxyWaitGroup *complet
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
-		e.removeOldRedirects(owner, nil, proxyWaitGroup)
+		e.removeOldRedirects(owner, nil)
 	}
 
 	if e.PolicyMap != nil {
