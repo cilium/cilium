@@ -19,6 +19,7 @@ package store
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cilium/cilium/pkg/defaults"
 	"testing"
 	"time"
 
@@ -165,7 +166,7 @@ func expect(check func() bool) error {
 			return nil
 		}
 
-		if time.Since(start) > 10*time.Second {
+		if time.Since(start) > defaults.NodeDeleteDelay+10*time.Second {
 			return fmt.Errorf("timeout while waiting for expected value")
 		}
 
@@ -197,15 +198,20 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 	c.Assert(expect(func() bool { return localKey3.updated() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey1)
-	c.Assert(expect(func() bool { return localKey1.deleted() >= 1 }), IsNil)
+	// localKey2 will be deleted 2 times, one from local key and other from
+	// the kvstore watcher
+	c.Assert(expect(func() bool { return localKey1.deleted() == 2 }), IsNil)
 	c.Assert(expect(func() bool { return localKey2.deleted() == 0 }), IsNil)
 	c.Assert(expect(func() bool { return localKey3.deleted() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey3)
+	// localKey3 won't be deleted because it was never added
 	c.Assert(expect(func() bool { return localKey3.deleted() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey2)
 	c.Assert(expect(func() bool { return localKey1.deleted() == 2 }), IsNil)
+	// localKey2 will be deleted 2 times, one from local key and other from
+	// the kvstore watcher
 	c.Assert(expect(func() bool { return localKey2.deleted() == 2 }), IsNil)
 	c.Assert(expect(func() bool { return localKey3.deleted() == 0 }), IsNil)
 }

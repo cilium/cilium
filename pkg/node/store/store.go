@@ -16,9 +16,7 @@ package store
 
 import (
 	"path"
-	"time"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -101,26 +99,16 @@ func (o *NodeObserver) OnDelete(k store.NamedKey) {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = node.FromKVStore
 
-		go func() {
-			time.Sleep(defaults.NodeDeleteDelay)
+		o.manager.NodeDeleted(*nodeCopy)
 
-			if o.manager.Exists(nodeCopy.Identity()) {
-				log.Warningf("Received node delete event for node %s which re-appeared within %s",
-					nodeCopy.Name, defaults.NodeDeleteDelay)
-				return
-			}
-
-			o.manager.NodeDeleted(*nodeCopy)
-
-			ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
-			if ciliumIPv4 != nil {
-				ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), ipcache.FromKVStore)
-			}
-			ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
-			if ciliumIPv6 != nil {
-				ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), ipcache.FromKVStore)
-			}
-		}()
+		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
+		if ciliumIPv4 != nil {
+			ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), ipcache.FromKVStore)
+		}
+		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
+		if ciliumIPv6 != nil {
+			ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), ipcache.FromKVStore)
+		}
 	}
 }
 
