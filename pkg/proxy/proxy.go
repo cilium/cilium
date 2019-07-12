@@ -136,7 +136,7 @@ func (p *Proxy) StartListeners(rTypes policy.RedirectType, wg *completion.WaitGr
 			rType := pp.redirectType
 			name := pp.name
 			if rTypes&rType != 0 {
-				_, err, createFinalizeFunc, createRevertFunc := p.createListenerLocked(pp, wg)
+				err, createFinalizeFunc, createRevertFunc := p.createListenerLocked(pp, wg)
 				if err != nil {
 					revertStack.Revert()
 					return fmt.Errorf("Failed to create listener %s: %s", name, err), nil, nil
@@ -453,16 +453,14 @@ func (p *Proxy) ReinstallRules() {
 // a proxy port as required. The proxy listening port is returned, but proxy configuration
 // on that port may still be ongoing asynchronously. Caller should wait for successful
 // completion on 'wg' before assuming the returned proxy port is listening.
-func (p *Proxy) createListenerLocked(pp *ProxyPort, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (p *Proxy) createListenerLocked(pp *ProxyPort, wg *completion.WaitGroup) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	defer func() {
-		if err == nil && proxyPort == 0 {
+		if err == nil && pp.proxyPort == 0 {
 			panic("Trying to configure zero proxy port")
 		}
 	}()
 
 	if pp.acknowledged {
-		// Already up and running
-		proxyPort = pp.proxyPort
 		return
 	}
 
@@ -508,8 +506,6 @@ func (p *Proxy) createListenerLocked(pp *ProxyPort, wg *completion.WaitGroup) (p
 					panic(err)
 				}
 			}
-			// Must return the proxy port when successful
-			proxyPort = pp.proxyPort
 			return
 		}
 	}
@@ -524,15 +520,12 @@ func (p *Proxy) createListenerLocked(pp *ProxyPort, wg *completion.WaitGroup) (p
 // updated.
 // The proxy listening port is returned, but proxy configuration on that port
 // may still be ongoing asynchronously.
-func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 
 	p.mutex.Lock()
 	defer func() {
 		p.UpdateRedirectMetrics()
 		p.mutex.Unlock()
-		if err == nil && proxyPort == 0 {
-			panic("Trying to configure zero proxy port")
-		}
 	}()
 
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
@@ -563,9 +556,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 				Debug("updated existing ", l4.L7Parser, " proxy instance")
 
 			redir.mutex.Unlock()
-
-			// Must return the proxy port when successful
-			proxyPort = redir.listener.proxyPort
 			return
 		}
 
@@ -620,9 +610,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			}
 			return err
 		})
-
-		// Must return the proxy port when successful
-		proxyPort = pp.proxyPort
 		return
 	}
 
