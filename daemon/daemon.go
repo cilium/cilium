@@ -891,9 +891,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	identitymanager.Subscribe(d.policy)
 
 	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-		option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath)
+	d.l7Proxy = proxy.StartProxySupport(&d, d.datapath)
 	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.fqdn.Start()
