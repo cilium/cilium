@@ -403,9 +403,65 @@ func createL4EgressFilter(toEndpoints api.EndpointSelectorSlice, rule api.PortRu
 	return createL4Filter(toEndpoints, rule, port, protocol, ruleLabels, false, selectorCache, fqdns)
 }
 
+// RedirectType indicates what kind id redirect is needed
+type RedirectType uint16
+
+const (
+	// RedirectTypeNone indicates no redirection
+	RedirectTypeNone RedirectType = 0
+
+	// RedirectTypeDNSEgress indicates a need for DNS egress redirect
+	RedirectTypeDNSEgress RedirectType = 1 << iota
+	// RedirectTypeKafkaIngress indicates a need for Kafka ingress redirect
+	RedirectTypeKafkaIngress
+	// RedirectTypeKafkaEgress indicates a need for Kafka egress redirect
+	RedirectTypeKafkaEgress
+	// RedirectTypeHTTPIngress indicates a need for HTTP ingress redirect
+	RedirectTypeHTTPIngress
+	// RedirectTypeHTTPEgress indicates a need for HTTP egress redirect
+	RedirectTypeHTTPEgress
+	// RedirectTypeProxylibIngress indicates a need for Proxylib ingress redirect
+	RedirectTypeProxylibIngress
+	// RedirectTypeProxylibEgress indicates a need for Proxylib egress redirect
+	RedirectTypeProxylibEgress
+
+	// RedirectTypeIngressMask is a mask of all ingress redirect types
+	RedirectTypeIngressMask = RedirectTypeKafkaIngress | RedirectTypeHTTPIngress | RedirectTypeProxylibIngress
+
+	// RedirectTypeAgentMask is a mask of all redirect types implemented in the Cilium Agent
+	RedirectTypeAgentMask = RedirectTypeDNSEgress | RedirectTypeKafkaIngress | RedirectTypeKafkaEgress
+)
+
 // IsRedirect returns true if the L4 filter contains a port redirection
 func (l4 *L4Filter) IsRedirect() bool {
 	return l4.L7Parser != ParserTypeNone
+}
+
+func (l4 *L4Filter) GetRedirectType() RedirectType {
+	if l4.Ingress {
+		switch l4.L7Parser {
+		case ParserTypeNone:
+			return RedirectTypeNone
+		case ParserTypeDNS:
+			return RedirectTypeNone // DNS is egress only
+		case ParserTypeKafka:
+			return RedirectTypeKafkaIngress
+		case ParserTypeHTTP:
+			return RedirectTypeHTTPIngress
+		}
+		return RedirectTypeProxylibIngress
+	}
+	switch l4.L7Parser {
+	case ParserTypeNone:
+		return RedirectTypeNone
+	case ParserTypeDNS:
+		return RedirectTypeDNSEgress
+	case ParserTypeKafka:
+		return RedirectTypeKafkaEgress
+	case ParserTypeHTTP:
+		return RedirectTypeHTTPEgress
+	}
+	return RedirectTypeProxylibEgress
 }
 
 // MarshalIndent returns the `L4Filter` in indented JSON string.
