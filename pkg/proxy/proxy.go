@@ -66,6 +66,8 @@ type ProxyPort struct {
 	parserType policy.L7ParserType
 	// 'true' for ingress, 'false' for egress (immutable)
 	ingress bool
+	// redirectType  (immutable)
+	redirectType policy.RedirectType
 	// createListener is called when the listener should be created (immutable)
 	createListener func(*Proxy, *ProxyPort, *completion.WaitGroup) (error, revert.RevertFunc)
 	// ProxyPort is the desired proxy listening port number.
@@ -124,9 +126,33 @@ func (p *Proxy) StartListeners(rTypes policy.RedirectType, wg *completion.WaitGr
 			p.StartEnvoy()
 		}
 
-		// TODO: Start the needed listeners
-		p.runningProxies |= rTypes
+		var revertStack revert.RevertStack
+		var finalizeList revert.FinalizeList
+
+		proxyPortsMutex.Lock()
+		defer proxyPortsMutex.Unlock()
+
+		for i := range proxyPorts {
+			pp := &proxyPorts[i]
+			rType := pp.redirectType
+			name := pp.name
+			if rTypes&rType != 0 {
+				_, err, createFinalizeFunc, createRevertFunc := p.createListenerLocked(pp, wg)
+				if err != nil {
+					revertStack.Revert()
+					return fmt.Errorf("Failed to create listener %s: %s", name, err), nil, nil
+				}
+				finalizeList.Append(createFinalizeFunc)
+				finalizeList.Append(func() {
+					p.runningProxies |= rType
+					log.WithField(fieldProxyRedirectID, name).Debugf("Listener creation ACKed")
+				})
+				revertStack.Push(createRevertFunc)
+			}
+		}
+		return nil, finalizeList.Finalize, revertStack.Revert
 	}
+	return nil, nil, nil
 }
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
@@ -184,41 +210,48 @@ var (
 			parserType:     policy.ParserTypeHTTP,
 			ingress:        false,
 			name:           "cilium-http-egress",
+			redirectType:   policy.RedirectTypeHTTPEgress,
 			createListener: createEnvoyListener,
 		},
 		{
 			parserType:     policy.ParserTypeHTTP,
 			ingress:        true,
 			name:           "cilium-http-ingress",
+			redirectType:   policy.RedirectTypeHTTPIngress,
 			createListener: createEnvoyListener,
 		},
 		{
 			parserType:     policy.ParserTypeKafka,
 			ingress:        false,
 			name:           "cilium-kafka-egress",
+			redirectType:   policy.RedirectTypeKafkaEgress,
 			createListener: createKafkaListener,
 		},
 		{
 			parserType:     policy.ParserTypeKafka,
 			ingress:        true,
 			name:           "cilium-kafka-ingress",
+			redirectType:   policy.RedirectTypeKafkaIngress,
 			createListener: createKafkaListener,
 		},
 		{
-			parserType: policy.ParserTypeDNS,
-			ingress:    false,
-			name:       "cilium-dns-egress",
+			parserType:   policy.ParserTypeDNS,
+			ingress:      false,
+			name:         "cilium-dns-egress",
+			redirectType: policy.RedirectTypeDNSEgress,
 		},
 		{
 			parserType:     policy.ParserTypeNone,
 			ingress:        false,
 			name:           "cilium-proxylib-egress",
+			redirectType:   policy.RedirectTypeProxylibEgress,
 			createListener: createEnvoyListener,
 		},
 		{
 			parserType:     policy.ParserTypeNone,
 			ingress:        true,
 			name:           "cilium-proxylib-ingress",
+			redirectType:   policy.RedirectTypeProxylibIngress,
 			createListener: createEnvoyListener,
 		},
 	}
@@ -561,47 +594,44 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		return
 	}
 
-	proxyPort, err, finalizeFunc, revertFunc = p.createListenerLocked(pp, wg)
+	redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
+	redir.updateRules(l4)
+	// Rely on create*Redirect to update rules, unlike the update case above.
+
+	switch l4.L7Parser {
+	case policy.ParserTypeDNS:
+		redir.implementation, err = createDNSRedirect(redir)
+
+	case policy.ParserTypeKafka:
+		redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
+
+	case policy.ParserTypeHTTP:
+		redir.implementation, err = p.createEnvoyRedirect(redir)
+	default:
+		redir.implementation, err = p.createEnvoyRedirect(redir)
+	}
+
 	if err == nil {
-		redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
-		redir.updateRules(l4)
-		// Rely on create*Redirect to update rules, unlike the update case above.
+		scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
+			Debug("Created new ", l4.L7Parser, " proxy instance")
+		p.redirects[id] = redir
 
-		switch l4.L7Parser {
-		case policy.ParserTypeDNS:
-			redir.implementation, err = createDNSRedirect(redir)
+		revertStack.Push(func() error {
+			completionCtx, cancel := context.WithCancel(context.Background())
+			proxyWaitGroup := completion.NewWaitGroup(completionCtx)
+			err, finalize, _ := p.RemoveRedirect(id, proxyWaitGroup)
+			// Don't wait for an ACK. This is best-effort. Just clean up the completions.
+			cancel()
+			proxyWaitGroup.Wait() // Ignore the returned error.
+			if err == nil && finalize != nil {
+				finalize()
+			}
+			return err
+		})
 
-		case policy.ParserTypeKafka:
-			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{})
-
-		case policy.ParserTypeHTTP:
-			redir.implementation, err = p.createEnvoyRedirect(redir)
-		default:
-			redir.implementation, err = p.createEnvoyRedirect(redir)
-		}
-
-		if err == nil {
-			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
-				Debug("Created new ", l4.L7Parser, " proxy instance")
-			p.redirects[id] = redir
-
-			revertStack.Push(func() error {
-				completionCtx, cancel := context.WithCancel(context.Background())
-				proxyWaitGroup := completion.NewWaitGroup(completionCtx)
-				err, finalize, _ := p.RemoveRedirect(id, proxyWaitGroup)
-				// Don't wait for an ACK. This is best-effort. Just clean up the completions.
-				cancel()
-				proxyWaitGroup.Wait() // Ignore the returned error.
-				if err == nil && finalize != nil {
-					finalize()
-				}
-				return err
-			})
-
-			// Must return the proxy port when successful
-			proxyPort = pp.proxyPort
-			return
-		}
+		// Must return the proxy port when successful
+		proxyPort = pp.proxyPort
+		return
 	}
 
 	// an error occurred, and we have no more retries
