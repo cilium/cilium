@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -92,6 +93,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
 	c.Assert(err, IsNil)
 
+	logging.ToggleDebugLogs(true)
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	option.Config.Device = "undefined"

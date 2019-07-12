@@ -82,7 +82,7 @@ func (ds *DaemonSuite) endpointCreator(id uint16, secID identity.NumericIdentity
 	repo := ds.d.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := e.NewEndpointWithState(repo, id, e.StateReady)
+	ep := e.NewEndpointWithState(ds.d, id, e.StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.DockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.DockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID

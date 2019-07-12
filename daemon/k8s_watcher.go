@@ -1709,7 +1709,7 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	oldLabels := labels.Map2Labels(oldPodLabels, labels.LabelSourceK8s)
 	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
 
-	err := podEP.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
+	err := podEP.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 	if err != nil {
 		log.WithError(err).Debugf("error while updating endpoint with new labels")
 		return err
@@ -1773,7 +1773,7 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()
 		if oldNS.Name == epNS {
-			err := ep.ModifyIdentityLabels(d, newIdtyLabels, oldIdtyLabels)
+			err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 			if err != nil {
 				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
 					Warningf("unable to update endpoint with new namespace labels")

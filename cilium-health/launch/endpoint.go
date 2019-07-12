@@ -289,7 +289,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(owner.GetPolicyRepository(), info)
+	ep, err := endpoint.NewEndpointFromChangeModel(owner, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}
@@ -313,7 +313,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
-	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
+	if err := endpointmanager.AddEndpoint(ep, "Create cilium-health endpoint"); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
@@ -326,7 +326,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 	// Give the endpoint a security identity
 	ctx, cancel := context.WithTimeout(baseCtx, LaunchTime)
 	defer cancel()
-	ep.UpdateLabels(ctx, owner, labels.LabelHealth, nil, true)
+	ep.UpdateLabels(ctx, labels.LabelHealth, nil, true)
 
 	// Initialize the health client to talk to this instance. This is why
 	// the caller must limit usage of this package to a single goroutine.

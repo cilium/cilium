@@ -127,7 +127,7 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
-	e := endpoint.NewEndpointWithState(ds.d.GetPolicyRepository(), testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewEndpointWithState(ds.d, testEndpointID, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
 	if qa {
 		e.IPv6 = QAIPv6Addr
