@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/allocator"
+	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -47,13 +48,27 @@ func (gi globalIdentity) GetKey() string {
 	return kvstore.Encode([]byte(str))
 }
 
+// GetAsMap() encodes a globalIdentity a map of keys to values. The keys will
+// include a source delimted by a ':'. This output is pareable by PutKeyFromMap.
+func (gi globalIdentity) GetAsMap() map[string]string {
+	return gi.StringMap()
+}
+
 // PutKey() decodes a globalIdentity from its string representation
-func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
+func (gi globalIdentity) PutKey(v string) (kvstoreallocator.AllocatorKey, error) {
 	b, err := kvstore.Decode(v)
 	if err != nil {
 		return nil, err
 	}
 	return globalIdentity{labels.NewLabelArrayFromSortedList(string(b))}, nil
+}
+
+// PutKeyFromMap() decodes a globalIdentity from a map of key to value. Output
+// from GetAsMap can be parsed.
+// Note: NewLabelArrayFromMap will parse the ':' separated label source from
+// the keys because the source parameter is ""
+func (gi globalIdentity) PutKeyFromMap(v map[string]string) kvstoreallocator.AllocatorKey {
+	return globalIdentity{labels.Map2Labels(v, "").LabelArray()}
 }
 
 var (
@@ -130,10 +145,14 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 		setupMutex.Lock()
 		defer setupMutex.Unlock()
 
-		a, err := allocator.NewAllocator(IdentitiesPath, globalIdentity{},
+		backend, err := kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), globalIdentity{})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+		}
+
+		a, err := allocator.NewAllocator(globalIdentity{}, backend,
 			allocator.WithMax(maxID), allocator.WithMin(minID),
-			allocator.WithSuffix(owner.GetNodeSuffix()),
-			allocator.WithEvents(evs),
+			allocator.WithEvents(events),
 			allocator.WithMasterKeyProtection(),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 		if err != nil {
