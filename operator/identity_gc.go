@@ -17,8 +17,9 @@ package main
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/kvstore/allocator"
+	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 )
 
 var (
@@ -29,7 +30,11 @@ var (
 
 func startIdentityGC() {
 	log.Infof("Starting security identity garbage collector with %s interval...", identityGCInterval)
-	a := allocator.NewAllocatorForGC(cache.IdentitiesPath)
+	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil)
+	if err != nil {
+		log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+	}
+	a := allocator.NewAllocatorForGC(backend)
 
 	keysToDelete := map[string]uint64{}
 	go func() {

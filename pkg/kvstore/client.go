@@ -27,10 +27,11 @@ var (
 )
 
 func initClient(module backendModule, opts *ExtraOptions) error {
+	scopedLog := log.WithField(fieldKVStoreModule, module.getName())
 	c, errChan := module.newClient(opts)
 	if c == nil {
 		err := <-errChan
-		log.WithError(err).Fatalf("Unable to create etcd client")
+		scopedLog.WithError(err).Fatal("Unable to create kvstore client")
 	}
 
 	defaultClient = c
@@ -44,7 +45,7 @@ func initClient(module backendModule, opts *ExtraOptions) error {
 	go func() {
 		err, isErr := <-errChan
 		if isErr && err != nil {
-			log.WithError(err).Fatalf("Unable to connect to kvstore")
+			scopedLog.WithError(err).Fatal("Unable to connect to kvstore")
 		}
 		deleteLegacyPrefixes()
 	}()

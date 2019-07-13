@@ -22,6 +22,9 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "kvstore")
 
 const (
+	// fieldKVStoreModule is the name of the kvstore backend (etcd or consul)
+	fieldKVStoreModule = "module"
+
 	// name of watcher
 	fieldWatcher = "watcher"
 
