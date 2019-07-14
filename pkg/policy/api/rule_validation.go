@@ -131,7 +131,7 @@ func (i *IngressRule) sanitize() error {
 	}
 
 	for n := range i.ToPorts {
-		if err := i.ToPorts[n].sanitize(); err != nil {
+		if err := i.ToPorts[n].sanitize(true); err != nil {
 			return err
 		}
 	}
@@ -228,7 +228,7 @@ func (e *EgressRule) sanitize() error {
 	}
 
 	for i := range e.ToPorts {
-		if err := e.ToPorts[i].sanitize(); err != nil {
+		if err := e.ToPorts[i].sanitize(false); err != nil {
 			return err
 		}
 	}
@@ -381,7 +381,7 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 	return nil
 }
 
-func (pr *PortRule) sanitize() error {
+func (pr *PortRule) sanitize(ingress bool) error {
 	if len(pr.Ports) > maxPorts {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
@@ -390,12 +390,17 @@ func (pr *PortRule) sanitize() error {
 			return err
 		}
 
+		hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 		// DNS L7 rules can be TCP, UDP or ANY, all others are TCP only.
 		switch {
-		case pr.Rules.IsEmpty(), pr.Rules != nil && len(pr.Rules.DNS) > 0:
+		case pr.Rules.IsEmpty(), hasDNSRules:
 			// nothing to do if no rules OR they are DNS rules (note the comma above)
 		case pr.Ports[i].Protocol != ProtoTCP:
 			return fmt.Errorf("L7 rules can only apply to TCP (not %s) except for DNS rules", pr.Ports[i].Protocol)
+		}
+
+		if ingress && hasDNSRules {
+			return fmt.Errorf("DNS rules are not allowed on ingress")
 		}
 	}
 

@@ -145,6 +145,29 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	err = invalidPortRule.Sanitize()
 	c.Assert(err.Error(), Equals, "L7 rules can only apply to TCP (not UDP) except for DNS rules")
 
+	// Rule is invalid because DNS proxy rules are not allowed on ingress rules.
+	invalidPortRule = Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "53", Protocol: ProtoAny},
+					},
+					Rules: &L7Rules{
+						DNS: []PortRuleDNS{
+							{MatchName: "domain.com"},
+						},
+					},
+				}},
+			},
+		},
+	}
+
+	err = invalidPortRule.Sanitize()
+	c.Assert(err, Not(IsNil), Commentf("DNS rule should not be allowed on ingress"))
+
 	// Rule is invalid because only ProtoTCP is allowed for L7 rules (except with DNS, below).
 	invalidPortRule = Rule{
 		EndpointSelector: WildcardEndpointSelector,
