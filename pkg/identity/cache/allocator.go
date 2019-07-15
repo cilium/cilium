@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/idpool"
+	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/labels"
@@ -31,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
 )
 
 // globalIdentity is the structure used to store an identity in the kvstore
@@ -110,12 +113,15 @@ type IdentityAllocatorOwner interface {
 	GetNodeSuffix() string
 }
 
-// InitIdentityAllocator creates the the identity allocator. Only the
-// first invocation of this function will have an effect.  Caller must
-// have initialized well known identities before calling this (by
-// calling identity.InitWellKnownIdentities()). Returns a channel which is
-// closed when initialization of the allocator is completed.
-func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
+// InitIdentityAllocator creates the the identity allocator. Only the first
+// invocation of this function will have an effect. The Caller must have
+// initialized well known identities before calling this (by calling
+// identity.InitWellKnownIdentities()).
+// client and identityStore are only used by the CRD identity allocator,
+// currently, and identityStore may be nil.
+// Returns a channel which is closed when initialization of the allocator is
+// completed.
+func InitIdentityAllocator(owner IdentityAllocatorOwner, client clientset.Interface, identityStore cache.Store) <-chan struct{} {
 	setupMutex.Lock()
 	defer setupMutex.Unlock()
 
@@ -145,9 +151,30 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 		setupMutex.Lock()
 		defer setupMutex.Unlock()
 
-		backend, err := kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), globalIdentity{})
-		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+		var (
+			backend allocator.Backend
+			err     error
+		)
+
+		switch option.Config.IdentityAllocationMode {
+		case option.IdentityAllocationModeKVstore:
+			log.Debug("Identity allocation backed by KVStore")
+			backend, err = kvstoreallocator.NewKVStoreBackend(IdentitiesPath, owner.GetNodeSuffix(), globalIdentity{})
+			if err != nil {
+				log.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+			}
+
+		case option.IdentityAllocationModeCRD:
+			log.Debug("Identity allocation backed by CRD")
+			backend, err = identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
+				NodeName: owner.GetNodeSuffix(),
+				Store:    identityStore,
+				Client:   client,
+				KeyType:  globalIdentity{},
+			})
+			if err != nil {
+				log.WithError(err).Fatal("Unable to initialize Kubernetes CRD backend for identity allocation")
+			}
 		}
 
 		a, err := allocator.NewAllocator(globalIdentity{}, backend,
@@ -156,7 +183,7 @@ func InitIdentityAllocator(owner IdentityAllocatorOwner) <-chan struct{} {
 			allocator.WithMasterKeyProtection(),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 		if err != nil {
-			log.WithError(err).Fatal("Unable to initialize identity allocator")
+			log.WithError(err).Fatalf("Unable to initialize Identity Allocator with backend %s", option.Config.IdentityAllocationMode)
 		}
 
 		IdentityAllocator = a
