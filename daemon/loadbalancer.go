@@ -636,11 +636,11 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	// Maps service IDs to whether they are IPv6 (true) or IPv4 (false).
 	k8sDeletedRevNATS := make(map[loadbalancer.ServiceID]bool)
 
-	// Set of L3n4Addrs in string form for storage as a key in map.
-	k8sServicesFrontendAddresses := d.k8sSvcCache.UniqueServiceFrontends()
-
 	d.loadBalancer.BPFMapMU.Lock()
 	defer d.loadBalancer.BPFMapMU.Unlock()
+
+	// Set of L3n4Addrs in string form for storage as a key in map.
+	k8sServicesFrontendAddresses := d.k8sSvcCache.UniqueServiceFrontends()
 
 	log.Debugf("dumping BPF service maps to userspace")
 	// At this point the creation of the v2 svc from the corresponding legacy
@@ -708,7 +708,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	for _, svc := range k8sDeletedServices {
 		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc))
 		svcLogger.Debug("removing service because it was not synced from Kubernetes")
-		if err := d.svcDeleteBPF(svc); err != nil {
+		if err := d.svcDeleteByFrontendLocked(&svc); err != nil {
 			bpfDeleteErrors = append(bpfDeleteErrors, err)
 		}
 	}
