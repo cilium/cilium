@@ -557,6 +557,18 @@ const (
 	// PolicyTriggerInterval is the amount of time between triggers of policy
 	// updates are invoked.
 	PolicyTriggerInterval = "policy-trigger-interval"
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode = "identity-allocation-mode"
+
+	// IdentityAllocationModeKVstore enables use of a key-value store such
+	// as etcd or consul for identity allocation
+	IdentityAllocationModeKVstore = "kvstore"
+
+	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
+	// identity allocation
+	IdentityAllocationModeCRD = "crd"
 )
 
 // FQDNS variables
@@ -1121,6 +1133,10 @@ type DaemonConfig struct {
 	// PolicyTriggerInterval is the amount of time between when policy updates
 	// are triggered.
 	PolicyTriggerInterval time.Duration
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode string
 }
 
 var (
@@ -1150,6 +1166,7 @@ var (
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		HealthServeAddr:              healthDefaults.ServeAddr,
+		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 	}
 )
 
@@ -1466,6 +1483,7 @@ func (c *DaemonConfig) Populate() {
 	c.HTTPRetryCount = viper.GetInt(HTTPRetryCount)
 	c.HTTPRetryTimeout = viper.GetInt(HTTPRetryTimeout)
 	c.IPv4ClusterCIDRMaskSize = viper.GetInt(IPv4ClusterCIDRMaskSize)
+	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
 	c.IdentityChangeGracePeriod = viper.GetDuration(IdentityChangeGracePeriod)
 	c.IPAM = viper.GetString(IPAM)
 	c.IPv4Range = viper.GetString(IPv4Range)

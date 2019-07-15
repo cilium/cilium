@@ -20,6 +20,7 @@ import (
 	"time"
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/option"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -106,6 +107,14 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNode{},
 		&CiliumNodeList{},
 	)
+
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+		scheme.AddKnownTypes(SchemeGroupVersion,
+			&CiliumIdentity{},
+			&CiliumIdentityList{},
+		)
+	}
+
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
 }
@@ -123,6 +132,12 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 
 	if err := createNodeCRD(clientset); err != nil {
 		return err
+	}
+
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+		if err := createIdentityCRD(clientset); err != nil {
+			return err
+		}
 	}
 
 	return nil
