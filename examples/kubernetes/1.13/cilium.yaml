@@ -637,6 +637,8 @@ rules:
   - ciliumendpoints/status
   - ciliumnodes
   - ciliumnodes/status
+  - ciliumidentities
+  - ciliumidentities/status
   verbs:
   - '*'
 ---
@@ -965,6 +967,8 @@ rules:
   - ciliumendpoints/status
   - ciliumnodes
   - ciliumnodes/status
+  - ciliumidentities
+  - ciliumidentities/status
   verbs:
   - '*'
 ---
