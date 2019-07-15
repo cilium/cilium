@@ -458,6 +458,57 @@ type EndpointIdentity struct {
 	LabelsSHA256 string `json:"labelsSHA256,omitempty"`
 }
 
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CiliumIdentity is a CRD that represents an identity managed by Cilium.
+// It is intended as a backing store for identity allocation, acting as the
+// global coordination backend, and can be used in place of a KVStore (such as
+// etcd).
+// The name of the CRD is the numeric identity and the labels on the CRD object
+// are the the kubernetes sourced labels seen by cilium. This is currently the
+// only label source possible when running under kubernetes. Non-kubernetes
+// labels are filtered but all labels, from all sources, are places in the
+// SecurityLabels field. These also include the source and are used to define
+// the identity.
+// The labels under metav1.ObjectMeta can be used when searching for
+// CiliumIdentity instances that include particular labels. This can be done
+// with invocations such as:
+//   kubectl get ciliumid -l 'foo=bar'
+// Each node using a ciliumidentity updates the status field with it's name and
+// a timestamp when it first allocates or uses an identity, and periodically
+// after that. It deletes its entry when no longer using this identity.
+// cilium-operator uses the list of nodes in status to reference count
+// users of this identity, and to expire stale usage.
+type CiliumIdentity struct {
+	// +k8s:openapi-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	// SecurityLabels is the source-of-truth set of labels for this identity.
+	SecurityLabels map[string]string `json:"security-labels"`
+
+	Status IdentityStatus `json:"status"`
+}
+
+// IdentityStatus is the status of an identity
+type IdentityStatus struct {
+	Nodes map[string]metav1.Time `json:"nodes,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+//
+// CiliumIdentityList is a list of CiliumIdentity objects
+type CiliumIdentityList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of CiliumIdentity
+	Items []CiliumIdentity `json:"items"`
+}
+
 // AddressPair is is a par of IPv4 and/or IPv6 address
 // +k8s:deepcopy-gen=false
 type AddressPair struct {

@@ -18,6 +18,8 @@ package v2
 
 type CiliumEndpointExpansion interface{}
 
+type CiliumIdentityExpansion interface{}
+
 type CiliumNetworkPolicyExpansion interface{}
 
 type CiliumNodeExpansion interface{}
