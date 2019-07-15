@@ -20,6 +20,7 @@ import (
 	"time"
 
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/option"
 
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -105,7 +106,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEndpoint{},
 		&CiliumNode{},
 		&CiliumNodeList{},
+		&CiliumIdentity{},
+		&CiliumIdentityList{},
 	)
+
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
 }
@@ -123,6 +127,12 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 
 	if err := createNodeCRD(clientset); err != nil {
 		return err
+	}
+
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+		if err := createIdentityCRD(clientset); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -290,18 +300,35 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 // createIdentityCRD creates and updates the CiliumIdentity CRD. It should be
 // called on agent startup but is idempotent and safe to call again.
 func createIdentityCRD(clientset apiextensionsclient.Interface) error {
+
+	var (
+		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
+		CustomResourceDefinitionSingularName = "ciliumidentity"
+
+		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
+		CustomResourceDefinitionPluralName = "ciliumidentities"
+
+		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
+		CustomResourceDefinitionShortNames = []string{"ciliumid"}
+
+		// CustomResourceDefinitionKind is the Kind name of custom resource definition
+		CustomResourceDefinitionKind = "CiliumIdentity"
+
+		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
+	)
+
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "ciliumidentities." + SchemeGroupVersion.Group,
+			Name: CRDName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   SchemeGroupVersion.Group,
 			Version: SchemeGroupVersion.Version,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     "ciliumidentities",
-				Singular:   "ciliumidentity",
-				ShortNames: []string{"ciliumid"},
-				Kind:       "CiliumIdentity",
+				Plural:     CustomResourceDefinitionPluralName,
+				Singular:   CustomResourceDefinitionSingularName,
+				ShortNames: CustomResourceDefinitionShortNames,
+				Kind:       CustomResourceDefinitionKind,
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
