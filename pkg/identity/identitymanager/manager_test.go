@@ -79,6 +79,8 @@ func (s *IdentityManagerTestSuite) TestIdentityManagerLifecycle(c *C) {
 	c.Assert(exists, Equals, false)
 	_, exists = idm.identities[barIdentity.ID]
 	c.Assert(exists, Equals, true)
+
+	idm.RemoveOldAddNew(nil, barIdentity)
 }
 
 type identityManagerObserver struct {

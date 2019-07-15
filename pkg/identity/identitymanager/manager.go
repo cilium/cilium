@@ -18,6 +18,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -93,6 +95,11 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 	idm.mutex.Lock()
 	defer idm.mutex.Unlock()
+
+	log.WithFields(logrus.Fields{
+		"old": old,
+		"new": new,
+	}).Debug("removing old and adding new identity")
 
 	idm.remove(old)
 	idm.add(new)
