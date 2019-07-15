@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package informer
+package benchmarks
 
 import (
 	"encoding/json"
@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/informer"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	. "gopkg.in/check.v1"
@@ -450,7 +451,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 	}
 
 	if newInformer {
-		_, controller := NewInformer(
+		_, controller := informer.NewInformer(
 			lw,
 			&v1.Node{},
 			0,
