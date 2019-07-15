@@ -109,7 +109,8 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	defer kvstore.Close()
 
 	identity.InitWellKnownIdentities()
-	<-cache.InitIdentityAllocator(&identityAllocatorOwnerMock{})
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	<-cache.InitIdentityAllocator(&identityAllocatorOwnerMock{}, nil, nil)
 	defer cache.Close()
 
 	dir, err := ioutil.TempDir("", "multicluster")
