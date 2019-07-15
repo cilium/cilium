@@ -1375,6 +1375,10 @@ The next steps happens in parallel:
     - Runs the multi-node Kubernetes e2e tests against the latest default
       version of Kubernetes specified above.
 
+This job can be used to run tests on custom branches. To do so, log into Jenkins and go to https://jenkins.cilium.io/job/cilium-ginkgo/configure .
+Then add your branch name to ``GitHub Organization -> cilium -> Filter by name (with wildcards) -> Include`` field and save changes.
+After you don't need to run tests on your branch, please remove the branch from this field.
+
 
 Cilium-PR-Ginkgo-Tests-k8s
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
