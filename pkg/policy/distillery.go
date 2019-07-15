@@ -72,11 +72,10 @@ func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create 
 		cip = newCachedSelectorPolicy(identity, cache.repo.GetSelectorCache())
 		cache.policies[identity.ID] = cip
 	}
-	computed := false
 	if cip != nil {
-		computed = cip.getPolicy().Revision > 0
+		return cip, cip.getPolicy().Revision > 0
 	}
-	return cip, computed
+	return nil, false
 }
 
 // insert adds the specified Identity to the policy cache, with a reference
