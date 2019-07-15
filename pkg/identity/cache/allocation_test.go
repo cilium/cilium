@@ -219,7 +219,8 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
 	identity.InitWellKnownIdentities()
-	<-InitIdentityAllocator(newDummyOwner())
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	<-InitIdentityAllocator(newDummyOwner(), nil, nil)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -235,7 +236,8 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
-	<-InitIdentityAllocator(owner)
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	<-InitIdentityAllocator(owner, nil, nil)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 
@@ -318,7 +320,8 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 
 	owner := newDummyOwner()
 	identity.InitWellKnownIdentities()
-	<-InitIdentityAllocator(owner)
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	<-InitIdentityAllocator(owner, nil, nil)
 	defer Close()
 	defer IdentityAllocator.DeleteAllKeys()
 

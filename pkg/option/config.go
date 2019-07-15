@@ -552,6 +552,18 @@ const (
 	// PolicyTriggerInterval is the amount of time between triggers of policy
 	// updates are invoked.
 	PolicyTriggerInterval = "policy-trigger-interval"
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode = "identity-allocation-mode"
+
+	// IdentityAllocationModeKVstore enables use of a key-value store such
+	// as etcd or consul for identity allocation
+	IdentityAllocationModeKVstore = "kvstore"
+
+	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
+	// identity allocation
+	IdentityAllocationModeCRD = "crd"
 )
 
 // FQDNS variables
@@ -1113,6 +1125,10 @@ type DaemonConfig struct {
 	// PolicyTriggerInterval is the amount of time between when policy updates
 	// are triggered.
 	PolicyTriggerInterval time.Duration
+
+	// IdentityAllocationMode specifies what mode to use for identity
+	// allocation
+	IdentityAllocationMode string
 }
 
 var (
@@ -1141,6 +1157,7 @@ var (
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
+		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 	}
 )
 
@@ -1642,6 +1659,19 @@ func (c *DaemonConfig) Populate() {
 
 	if err := c.parseExcludedLocalAddresses(viper.GetStringSlice(ExcludeLocalAddress)); err != nil {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
+	}
+
+	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
+	switch c.IdentityAllocationMode {
+	// This is here for tests. Some call Populate without the normal init
+	case "":
+		c.IdentityAllocationMode = IdentityAllocationModeKVstore
+
+	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD:
+		// c.IdentityAllocationMode is set above
+
+	default:
+		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
 	}
 
 	// Hidden options

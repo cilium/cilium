@@ -869,7 +869,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// well known identities have already been initialized above
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	cache.InitIdentityAllocator(&d)
+	cache.InitIdentityAllocator(&d, k8s.CiliumClient(), nil)
 
 	d.bootstrapClusterMesh(nodeMngr)
 
