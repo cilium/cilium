@@ -1186,14 +1186,15 @@
   revision = "d98352740cb2c55f81556b63d4a1ec64c5a319c2"
 
 [[projects]]
-  digest = "1:2afb0affa2aea1e68c58c1f6ae5c8856a4d36375d9942591f84060f99434331c"
+  digest = "1:5a7f93ff66c2c7b6bfe3dbc0d196e149f7bcc49e84244d0d0bad3503e18f5c10"
   name = "github.com/vishvananda/netlink"
   packages = [
     ".",
     "nl",
   ]
   pruneopts = "NUT"
-  revision = "99a56c251ae6d00ce3d73cf8ee0b9ecb94fe323b"
+  revision = "pr/netlink_pid_checks"
+  source = "github.com/borkmann/netlink"
 
 [[projects]]
   branch = "master"
