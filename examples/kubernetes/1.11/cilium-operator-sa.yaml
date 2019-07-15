@@ -51,6 +51,8 @@ rules:
   - ciliumendpoints/status
   - ciliumnodes
   - ciliumnodes/status
+  - ciliumidentities
+  - ciliumidentities/status
   verbs:
   - '*'
 ---
