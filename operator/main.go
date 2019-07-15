@@ -66,7 +66,9 @@ var (
 	eniParallelWorkers  int64
 	enableENI           bool
 
-	ciliumK8sClient clientset.Interface
+	k8sIdentityGCInterval       time.Duration
+	k8sIdentityHeartbeatTimeout time.Duration
+	ciliumK8sClient             clientset.Interface
 )
 
 func main() {
@@ -112,9 +114,11 @@ func init() {
 	flags.StringVar(&metricsAddress, "metrics-address", ":6942", "Address to serve Prometheus metrics")
 	flags.BoolVar(&synchronizeServices, "synchronize-k8s-services", true, "Synchronize Kubernetes services to kvstore")
 	flags.BoolVar(&synchronizeNodes, "synchronize-k8s-nodes", true, "Synchronize Kubernetes nodes to kvstore and perform CNP GC")
+	flags.DurationVar(&k8sIdentityHeartbeatTimeout, "identity-heartbeat-timeout", 15*time.Minute, "Timeout after which identity expires on lack of heartbeat")
 	flags.BoolVar(&enableCepGC, "cilium-endpoint-gc", true, "Enable CiliumEndpoint garbage collector")
 	flags.DurationVar(&ciliumEndpointGCInterval, "cilium-endpoint-gc-interval", time.Minute*30, "GC interval for cilium endpoints")
-	flags.DurationVar(&identityGCInterval, "identity-gc-interval", time.Minute*10, "GC interval for security identities")
+	flags.StringVar(&identityAllocationMode, option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
+	flags.DurationVar(&identityGCInterval, "identity-gc-interval", defaults.KVstoreLeaseTTL, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
 	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", 50, "Maximum number of parallel workers used by ENI allocator")
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
@@ -166,16 +170,9 @@ func initConfig() {
 }
 
 func requiresKVstore() bool {
-	if identityGCInterval != time.Duration(0) {
-		return true
-	}
-
-	switch {
-	case synchronizeServices, synchronizeNodes:
-		return true
-	}
-
-	return false
+	return identityAllocationMode == option.IdentityAllocationModeKVstore ||
+		synchronizeServices ||
+		synchronizeNodes
 }
 
 func runOperator(cmd *cobra.Command) {
@@ -278,6 +275,14 @@ func runOperator(cmd *cobra.Command) {
 		scopedLog.Info("Connecting to kvstore...")
 		if err := kvstore.Setup(kvStore, kvStoreOpts, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
+		}
+	}
+
+	if identityAllocationMode == option.IdentityAllocationModeCRD {
+		startManagingK8sIdentities()
+
+		if identityGCInterval != time.Duration(0) {
+			go startCRDIdentityGC()
 		}
 	}
 

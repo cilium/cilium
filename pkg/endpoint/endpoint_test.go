@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -58,7 +59,8 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
-	<-cache.InitIdentityAllocator(&testIdentityAllocator{})
+	// The nils are only used by k8s CRD identities. We default to kvstore.
+	<-cache.InitIdentityAllocator(&testIdentityAllocator{}, nil, nil)
 	s.repo = policy.NewPolicyRepository()
 }
 
