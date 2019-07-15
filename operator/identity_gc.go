@@ -26,6 +26,10 @@ var (
 	// identityGCInterval is the interval in which allocator identities are
 	// attempted to be expired from the kvstore
 	identityGCInterval time.Duration
+
+	// identityAllocationMode specifies what mode to use for identity
+	// allocation
+	identityAllocationMode string
 )
 
 func startIdentityGC() {
