@@ -47,16 +47,17 @@ type epInfoCache struct {
 	ipvlan bool
 
 	// For datapath.EndpointConfiguration
-	identity              identity.NumericIdentity
-	mac                   mac.MAC
-	ipv4                  addressing.CiliumIPv4
-	ipv6                  addressing.CiliumIPv6
-	conntrackLocal        bool
-	requireARPPassthrough bool
-	requireEgressProg     bool
-	requireRouting        bool
-	requireEndpointRoute  bool
-	options               *option.IntOptions
+	identity                               identity.NumericIdentity
+	mac                                    mac.MAC
+	ipv4                                   addressing.CiliumIPv4
+	ipv6                                   addressing.CiliumIPv6
+	conntrackLocal                         bool
+	requireARPPassthrough                  bool
+	requireEgressProg                      bool
+	requireRouting                         bool
+	requireEndpointRoute                   bool
+	cidr4PrefixLengths, cidr6PrefixLengths []int
+	options                                *option.IntOptions
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -69,6 +70,7 @@ type epInfoCache struct {
 
 // Must be called when endpoint is still locked.
 func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
+	cidr6, cidr4 := e.GetCIDRPrefixLengths()
 
 	ep := &epInfoCache{
 		revision: e.nextPolicyRevision,
@@ -88,6 +90,8 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		requireEgressProg:     e.RequireEgressProg(),
 		requireRouting:        e.RequireRouting(),
 		requireEndpointRoute:  e.RequireEndpointRoute(),
+		cidr4PrefixLengths:    cidr4,
+		cidr6PrefixLengths:    cidr6,
 		options:               e.Options.DeepCopy(),
 
 		endpoint: e,
@@ -167,6 +171,10 @@ func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
 
 func (ep *epInfoCache) ConntrackLocalLocked() bool {
 	return ep.conntrackLocal
+}
+
+func (ep *epInfoCache) GetCIDRPrefixLengths() ([]int, []int) {
+	return ep.cidr6PrefixLengths, ep.cidr4PrefixLengths
 }
 
 func (ep *epInfoCache) GetOptions() *option.IntOptions {

@@ -33,6 +33,9 @@ type selectorPolicy struct {
 	// L4Policy contains the computed L4 and L7 policy.
 	L4Policy *L4Policy
 
+	// CIDRPolicy contains the L3 (not L4) CIDR-based policy.
+	CIDRPolicy *CIDRPolicy
+
 	// IngressPolicyEnabled specifies whether this policy contains any policy
 	// at ingress.
 	IngressPolicyEnabled bool

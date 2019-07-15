@@ -116,7 +116,6 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 				copy(value.TunnelEndpoint[:], ip4)
 			}
 		}
-
 		err := l.bpfMap.Update(&key, &value)
 		if err != nil {
 			scopedLog.WithError(err).WithFields(logrus.Fields{

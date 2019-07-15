@@ -270,7 +270,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	prefixes := policy.GetCIDRPrefixes(sourceRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
-	newPrefixLengths, err := d.datapath.PrefixLengthCounter().Add(prefixes)
+	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
@@ -285,7 +285,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		// Only recompile if configuration has changed.
 		logger.Debug("CIDR policy has changed; recompiling base programs")
 		if err := d.compileBase(); err != nil {
-			_ = d.datapath.PrefixLengthCounter().Delete(prefixes)
+			_ = d.prefixLengths.Delete(prefixes)
 			metrics.PolicyImportErrors.Inc()
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
 			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
@@ -299,7 +299,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	}
 
 	if _, err := ipcache.AllocateCIDRs(bpfIPCache.IPCache, prefixes); err != nil {
-		_ = d.datapath.PrefixLengthCounter().Delete(prefixes)
+		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
@@ -387,7 +387,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	if len(removedPrefixes) > 0 {
 		logger.WithField("prefixes", removedPrefixes).Debug("Decrementing replaced CIDR refcounts when adding rules")
 		ipcache.ReleaseCIDRs(removedPrefixes)
-		d.datapath.PrefixLengthCounter().Delete(removedPrefixes)
+		d.prefixLengths.Delete(removedPrefixes)
 	}
 
 	logger.WithField(logfields.PolicyRevision, newRev).Info("Policy imported via API, recalculating...")
@@ -584,7 +584,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
 	ipcache.ReleaseCIDRs(prefixes)
 
-	prefixesChanged := d.datapath.PrefixLengthCounter().Delete(prefixes)
+	prefixesChanged := d.prefixLengths.Delete(prefixes)
 	if !bpfIPCache.BackedByLPM() && prefixesChanged {
 		// Only recompile if configuration has changed.
 		log.Debug("CIDR policy has changed; recompiling base programs")
