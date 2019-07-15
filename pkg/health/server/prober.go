@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -236,7 +237,7 @@ func (p *prober) httpProbe(node string, ip string, port int) *models.Connectivit
 		logfields.NodeName: node,
 		logfields.IPAddr:   ip,
 		"host":             host,
-		"port":             port,
+		"path":             PortToPaths[port],
 	})
 
 	client, err := probe.NewClient(host)
@@ -295,13 +296,17 @@ func (p *prober) runHTTPProbe() {
 				logfields.IPAddr:   ip.String(),
 			})
 
-			port := p.server.tcpExternalPort
 			status := &models.PathStatus{}
-			status.HTTP = p.httpProbe(name, ip.String(), port)
-			if status.HTTP.Status != "" {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.Port: port,
-				}).Debugf("Failed to probe: %s", status.HTTP.Status)
+			ports := map[int]**models.ConnectivityStatus{
+				defaults.HTTPPathPort: &status.HTTP,
+			}
+			for port, result := range ports {
+				*result = p.httpProbe(name, ip.String(), port)
+				if status.HTTP.Status != "" {
+					scopedLog.WithFields(logrus.Fields{
+						logfields.Port: port,
+					}).Debugf("Failed to probe: %s", status.HTTP.Status)
+				}
 			}
 
 			peer := ipString(ip.String())

@@ -21,7 +21,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/pidfile"
 
@@ -40,17 +39,17 @@ func cancelOnSignal(cancel context.CancelFunc, sig ...os.Signal) {
 func main() {
 	var (
 		pidfilePath string
-		listenAddr  string
+		listen      int
 	)
 	flag.StringVar(&pidfilePath, "pidfile", "", "Write pid to the specified file")
-	flag.StringVar(&listenAddr, "listen", defaults.ServeAddr, "Address on which the responder listens")
+	flag.IntVar(&listen, "listen", 4240, "Port on which the responder listens")
 	flag.Parse()
 
 	// Shutdown gracefully to halt server and remove pidfile
 	ctx, cancel := context.WithCancel(context.Background())
 	cancelOnSignal(cancel, syscall.SIGINT, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
 
-	srv := responder.NewServer(listenAddr)
+	srv := responder.NewServer(listen)
 	defer srv.Shutdown()
 	go func() {
 		if err := srv.Serve(); err != nil {

@@ -16,8 +16,6 @@ package server
 
 import (
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
@@ -38,6 +36,12 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "health-server")
+
+	// PortToPaths is a convenience map for access to the ports and their
+	// common string representations
+	PortToPaths = map[int]string{
+		defaults.HTTPPathPort: "Via L3",
+	}
 )
 
 // Config stores the configuration data for a cilium-health server.
@@ -46,7 +50,6 @@ type Config struct {
 	CiliumURI     string
 	ProbeInterval time.Duration
 	ProbeDeadline time.Duration
-	TCPServerAddr string
 }
 
 // ipString is an IP address used as a more descriptive type name in maps.
@@ -67,9 +70,8 @@ type Server struct {
 	// a diff of the nodes added and removed based on this clientID.
 	clientID int64
 
-	tcpServer       *responder.Server // Server for external pings
-	tcpExternalPort int               // Port on which to ping external hosts
-	startTime       time.Time
+	tcpServers []*responder.Server // Servers for external pings
+	startTime  time.Time
 
 	// The lock protects against read and write access to the IP->Node map,
 	// the list of statuses as most recently seen, and the last time a
@@ -258,7 +260,7 @@ func (s *Server) runActiveServices() error {
 }
 
 // Serve spins up the following goroutines:
-// * TCP API Server: Responder to the health API "/hello" message
+// * TCP API Server: Responders to the health API "/hello" message, one per path
 // * Prober: Periodically run pings across the cluster at a configured interval
 //   and update the server's connectivity status cache.
 // * Unix API Server: Handle all health API requests over a unix socket.
@@ -267,9 +269,12 @@ func (s *Server) runActiveServices() error {
 func (s *Server) Serve() (err error) {
 	errors := make(chan error)
 
-	go func() {
-		errors <- s.tcpServer.Serve()
-	}()
+	for i := range s.tcpServers {
+		srv := s.tcpServers[i]
+		go func() {
+			errors <- srv.Serve()
+		}()
+	}
 
 	go func() {
 		errors <- s.runActiveServices()
@@ -282,7 +287,9 @@ func (s *Server) Serve() (err error) {
 
 // Shutdown server and clean up resources
 func (s *Server) Shutdown() {
-	s.tcpServer.Shutdown()
+	for i := range s.tcpServers {
+		s.tcpServers[i].Shutdown()
+	}
 	s.Server.Shutdown()
 }
 
@@ -311,6 +318,7 @@ func NewServer(config Config) (*Server, error) {
 	server := &Server{
 		startTime:    time.Now(),
 		Config:       config,
+		tcpServers:   []*responder.Server{},
 		connectivity: &healthReport{},
 	}
 
@@ -324,18 +332,13 @@ func NewServer(config Config) (*Server, error) {
 		return nil, err
 	}
 
-	_, tcpPort, err := net.SplitHostPort(config.TCPServerAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse health tcp serve address: %s", err)
-	}
-	server.tcpExternalPort, err = strconv.Atoi(tcpPort)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse health tcp serve port: %s", err)
-	}
-
 	server.Client = cl
 	server.Server = *server.newServer(swaggerSpec)
-	server.tcpServer = responder.NewServer(config.TCPServerAddr)
+
+	for port := range PortToPaths {
+		srv := responder.NewServer(port)
+		server.tcpServers = append(server.tcpServers, srv)
+	}
 
 	return server, nil
 }
