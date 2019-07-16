@@ -101,7 +101,7 @@ Prepare the nodes for Cilium
 
 Deploy the following DaemonSet to prepare all EKS nodes for Cilium:
 
-   .. code:: bash
+   .. parsed-literal::
 
        kubectl -n kube-system apply -f \ |SCM_WEB|\/examples/kubernetes/node-init/eks-node-init.yaml
 

@@ -142,7 +142,7 @@ installed:
 
 You can test connectivity by deploying the following connectivity checker pods:
 
-.. code:: bash
+.. parsed-literal::
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
     $ kubectl get pods
