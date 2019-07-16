@@ -168,7 +168,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 			// Only create a redirect if the proxy is NOT running in a sidecar
 			// container. If running in a sidecar container, just allow traffic
 			// to the port at L4 by setting the proxy port to 0.
-			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
+			if !e.hasSidecarProxy || l4.GetRedirectType()&policy.RedirectTypeAgentMask != 0 {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
