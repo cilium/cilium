@@ -33,6 +33,7 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"id.lizards":                  NewLabel("id.lizards", "web", LabelSourceContainer),
 		"id.lizards.k8s":              NewLabel("id.lizards.k8s", "web", LabelSourceK8s),
 		"io.kubernetes.pod.namespace": NewLabel("io.kubernetes.pod.namespace", "default", LabelSourceContainer),
+		"app.kubernetes.io":           NewLabel("app.kubernetes.io", "my-nginx", LabelSourceContainer),
 	}
 
 	dlpcfg := defaultLabelPrefixCfg()
@@ -51,6 +52,9 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"io.kubernetes.container.terminationMessagePath":            "",
 		"io.kubernetes.pod.name":                                    "my-nginx-3800858182-07i3n",
 		"io.kubernetes.pod.namespace":                               "default",
+		"app.kubernetes.io":                                         "my-nginx",
+		"kubernetes.io.foo":                                         "foo",
+		"beta.kubernetes.io.foo":                                    "foo",
 		"annotation.kubectl.kubernetes.io":                          "foo",
 		"annotation.hello":                                          "world",
 		"annotation." + k8sConst.CiliumIdentityAnnotationDeprecated: "12356",
@@ -63,11 +67,11 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	}
 	allLabels := Map2Labels(allNormalLabels, LabelSourceContainer)
 	filtered, _ := dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 1)
+	c.Assert(len(filtered), Equals, 2)
 	allLabels["id.lizards"] = NewLabel("id.lizards", "web", LabelSourceContainer)
 	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
-	c.Assert(len(filtered), Equals, 3)
+	c.Assert(len(filtered), Equals, 4)
 	c.Assert(filtered, checker.DeepEquals, wanted)
 	// Making sure we are deep copying the labels
 	allLabels["id.lizards"] = NewLabel("id.lizards", "web", "I can change this and doesn't affect any one")
