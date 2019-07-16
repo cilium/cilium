@@ -433,6 +433,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	var revertStack revert.RevertStack
 	revertFunc = revertStack.Revert
 
+	var finalizeList revert.FinalizeList
+	finalizeFunc = finalizeList.Finalize
+
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
 
@@ -460,7 +463,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		}
 
 		var removeRevertFunc revert.RevertFunc
-		err, finalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
+		var removeFinalizeFunc revert.FinalizeFunc
+		err, removeFinalizeFunc, removeRevertFunc = p.removeRedirect(id, wg)
 		redir.mutex.Unlock()
 
 		if err != nil {
@@ -468,6 +472,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			return 0, err, nil, nil
 		}
 
+		finalizeList.Append(removeFinalizeFunc)
 		revertStack.Push(removeRevertFunc)
 	}
 
@@ -535,12 +540,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			})
 
 			// Set the proxy port only after an ACK is received.
-			removeFinalizeFunc := finalizeFunc
-			finalizeFunc = func() {
-				if removeFinalizeFunc != nil {
-					removeFinalizeFunc()
-				}
-
+			finalizeList.Append(func() {
 				proxyPortsMutex.Lock()
 				err := p.ackProxyPort(pp)
 				proxyPortsMutex.Unlock()
@@ -550,7 +550,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 					// installation of iptables rules.
 					panic(err)
 				}
-			}
+			})
 			// Must return the proxy port when successful
 			proxyPort = pp.proxyPort
 			return
