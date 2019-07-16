@@ -178,6 +178,14 @@ func (s *SSHMeta) ExecShort(cmd string, options ...ExecOptions) *CmdRes {
 	return s.ExecContext(ctx, cmd, options...)
 }
 
+// ExecMiddle runs command with the provided options. It will take up to
+// MidCommandTimeout seconds to run the command before it times out.
+func (s *SSHMeta) ExecMiddle(cmd string, options ...ExecOptions) *CmdRes {
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
+	defer cancel()
+	return s.ExecContext(ctx, cmd, options...)
+}
+
 // ExecContextShort is a wrapper around ExecContext which creates a child
 // context with a timeout of ShortCommandTimeout.
 func (s *SSHMeta) ExecContextShort(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes {

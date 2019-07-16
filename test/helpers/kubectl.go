@@ -682,7 +682,7 @@ func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string) *Cmd
 // Apply applies the Kubernetes manifest located at path filepath.
 func (kub *Kubectl) Apply(filePath string) *CmdRes {
 	kub.logger.Debugf("applying %s", filePath)
-	return kub.ExecShort(
+	return kub.ExecMiddle(
 		fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
 }
 
