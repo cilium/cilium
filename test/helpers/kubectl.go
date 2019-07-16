@@ -1857,13 +1857,9 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 }
 
 func (kub *Kubectl) ciliumPreFlightCheck() error {
-	switch GetCurrentIntegration() {
-	case CIIntegrationFlannel:
-	default:
-		err := kub.ciliumStatusPreFlightCheck()
-		if err != nil {
-			return fmt.Errorf("status is unhealthy: %s", err)
-		}
+	err := kub.ciliumStatusPreFlightCheck()
+	if err != nil {
+		return fmt.Errorf("status is unhealthy: %s", err)
 	}
 
 	err := kub.ciliumControllersPreFlightCheck()
