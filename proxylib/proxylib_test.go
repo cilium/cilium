@@ -198,7 +198,7 @@ type PanicParser struct {
 }
 
 func (p *PanicParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
-	log.Infof("PanicParserFactory: Create: %v", connection)
+	log.Debugf("PanicParserFactory: Create: %v", connection)
 	return &PanicParser{connection: connection}
 }
 
@@ -489,7 +489,7 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected Policy Update to fail due to mismatching L7 protocols on the same port, but it succeeded")
 	} else {
-		log.Infof("Expected error: %s", err)
+		log.Debugf("Expected error: %s", err)
 	}
 }
 

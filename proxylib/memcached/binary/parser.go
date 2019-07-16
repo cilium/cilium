@@ -31,7 +31,7 @@ type ParserFactory struct{}
 
 // Create creates binary memcached parser
 func (p *ParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
-	log.Infof("ParserFactory: Create: %v", connection)
+	log.Debugf("ParserFactory: Create: %v", connection)
 	return &Parser{connection: connection, injectQueue: make([]queuedInject, 0)}
 }
 

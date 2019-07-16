@@ -99,7 +99,7 @@ func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, node
 		}
 		if (nodeID == "" || old.nodeID == nodeID) && xdsPath == oldXdsPath && accessLogPath == oldAccessLogPath {
 			old.openCount++
-			log.Infof("Opened existing library instance %d, open count: %d", id, old.openCount)
+			log.Debugf("Opened existing library instance %d, open count: %d", id, old.openCount)
 			return id
 		}
 	}
@@ -110,7 +110,7 @@ func OpenInstance(nodeID string, xdsPath string, newPolicyClient func(path, node
 
 	instances[instanceId] = ins
 
-	log.Infof("Opened new library instance %d", instanceId)
+	log.Debugf("Opened new library instance %d", instanceId)
 
 	return instanceId
 }
@@ -139,9 +139,9 @@ func CloseInstance(id uint64) uint64 {
 			}
 			delete(instances, id)
 		}
-		log.Infof("CloseInstance(%d): Remaining open count: %d", id, count)
+		log.Debugf("CloseInstance(%d): Remaining open count: %d", id, count)
 	} else {
-		log.Infof("CloseInstance(%d): Not found (closed already?)", id)
+		log.Debugf("CloseInstance(%d): Not found (closed already?)", id)
 	}
 	return count
 }

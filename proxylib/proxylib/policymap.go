@@ -39,7 +39,7 @@ var l7RuleParsers map[string]L7RuleParser = make(map[string]L7RuleParser)
 // RegisterL7Parser adds a l7 policy protocol protocol parser to the map of known l7 policy parsers.
 // This is called from parser init() functions while we are still single-threaded
 func RegisterL7RuleParser(l7PolicyTypeName string, parserFunc L7RuleParser) {
-	log.Infof("NPDS: Registering L7 rule parser: %s", l7PolicyTypeName)
+	log.Debugf("NPDS: Registering L7 rule parser: %s", l7PolicyTypeName)
 	l7RuleParsers[l7PolicyTypeName] = parserFunc
 }
 

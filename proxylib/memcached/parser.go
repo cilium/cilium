@@ -168,7 +168,7 @@ const (
 )
 
 func init() {
-	log.Info("init(): Registering memcacheParserFactory")
+	log.Debug("init(): Registering memcacheParserFactory")
 	proxylib.RegisterParserFactory(parserName, memcacheParserFactory)
 	proxylib.RegisterL7RuleParser(parserName, L7RuleParser)
 }

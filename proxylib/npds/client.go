@@ -52,7 +52,7 @@ func (c *Client) Close() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if !c.closing {
-		log.Infof("NPDS: Client %s closing on %s", c.nodeId, c.path)
+		log.Debugf("NPDS: Client %s closing on %s", c.nodeId, c.path)
 		c.closing = true
 		if c.stream != nil {
 			c.stream.CloseSend()
@@ -76,7 +76,7 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 		path:    path,
 		nodeId:  nodeId,
 	}
-	log.Infof("NPDS: Client %s starting on %s", c.nodeId, c.path)
+	log.Debugf("NPDS: Client %s starting on %s", c.nodeId, c.path)
 
 	// These are used to return error if the 1st try fails
 	// Only used for testing and logging, as we keep on trying anyway.
@@ -98,14 +98,14 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 					close(startErr)
 					starting = false
 				}
-				log.Infof("NPDS: Client %s connected on %s", c.nodeId, c.path)
+				log.Debugf("NPDS: Client %s connected on %s", c.nodeId, c.path)
 			})
 			c.mutex.Lock()
 			closing := c.closing
 			c.mutex.Unlock()
 
 			if err != nil {
-				log.Info(err)
+				log.Debug(err)
 				if starting {
 					startErr <- err
 					close(startErr)
