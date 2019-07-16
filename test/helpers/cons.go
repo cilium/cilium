@@ -34,6 +34,10 @@ var (
 	// long time to execute.
 	ShortCommandTimeout = 10 * time.Second
 
+	// MidCommandTimeout is a timeout for commands which may take a bit longer
+	// than ShortCommandTimeout, but less time than HelperTimeout to execute.
+	MidCommandTimeout = 30 * time.Second
+
 	// CiliumStartTimeout is a predefined timeout value for Cilium startup.
 	CiliumStartTimeout = 100 * time.Second
 
