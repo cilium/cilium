@@ -21,6 +21,9 @@ import (
 	"math/big"
 	"net"
 	"sort"
+	"strings"
+
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -737,7 +740,7 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 
 var privateIPBlocks []*net.IPNet
 
-func init() {
+func initPrivatePrefixes() {
 	// We only care about global scope prefixes here.
 	for _, cidr := range []string{
 		"10.0.0.0/8",     // RFC1918
@@ -750,6 +753,57 @@ func init() {
 	}
 }
 
+var excludedIPs []net.IP
+
+func initExcludedIPs() {
+	// We exclude below bad device prefixes from address selection ...
+	prefixes := []string{
+		"docker",
+	}
+	links, err := netlink.LinkList()
+	if err != nil {
+		return
+	}
+	for _, l := range links {
+		// ... also all down devices since they won't be reachable.
+		if l.Attrs().OperState == netlink.OperUp {
+			skip := true
+			for _, p := range prefixes {
+				if strings.HasPrefix(l.Attrs().Name, p) {
+					skip = false
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+		}
+		addr, err := netlink.AddrList(l, netlink.FAMILY_ALL)
+		if err != nil {
+			continue
+		}
+		for _, a := range addr {
+			excludedIPs = append(excludedIPs, a.IP)
+		}
+	}
+}
+
+func init() {
+	initPrivatePrefixes()
+	initExcludedIPs()
+}
+
+// IsExcluded returns whether a given IP is must be excluded
+// due to coming from blacklisted device.
+func IsExcluded(excludeList []net.IP, ip net.IP) bool {
+	for _, e := range excludeList {
+		if e.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 // IsPublicAddr returns whether a given global IP is from
 // a public range.
 func IsPublicAddr(ip net.IP) bool {
@@ -759,6 +813,12 @@ func IsPublicAddr(ip net.IP) bool {
 		}
 	}
 	return true
+}
+
+// GetExcludedIPs returns a list of IPs from netdevices that Cilium
+// needs to exclude to operate
+func GetExcludedIPs() []net.IP {
+	return excludedIPs
 }
 
 // GetCIDRPrefixesFromIPs returns all of the ips as a slice of *net.IPNet.
