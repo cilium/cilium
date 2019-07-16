@@ -78,6 +78,8 @@ type DaemonSuite struct {
 
 func TestMain(m *testing.M) {
 	option.Config.Populate()
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
+
 	time.Local = time.UTC
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
 	if err != nil {
