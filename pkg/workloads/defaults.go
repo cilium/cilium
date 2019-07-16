@@ -73,5 +73,5 @@ func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels 
 	endpointmanager.UpdateReferences(ep)
 
 	identityLabels, informationLabels := getFilteredLabels(containerID, allLabels)
-	ep.UpdateLabels(context.Background(), Owner(), identityLabels, informationLabels, false)
+	ep.UpdateLabels(context.Background(), identityLabels, informationLabels, false)
 }
