@@ -16,10 +16,11 @@ package proxy
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strconv"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -44,13 +45,14 @@ var (
 
 // readOpenLocalPorts returns the set of L4 ports currently open locally.
 // procNetFiles should be procNetTCPFiles or procNetUDPFiles (or both).
-func readOpenLocalPorts(procNetFiles []string) (map[uint16]struct{}, error) {
+func readOpenLocalPorts(procNetFiles []string) map[uint16]struct{} {
 	openLocalPorts := make(map[uint16]struct{}, 128)
 
 	for _, file := range procNetFiles {
 		b, err := ioutil.ReadFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read proc file %s: %s", file, err)
+			log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+			continue
 		}
 
 		lines := bytes.Split(b, []byte("\n"))
@@ -65,11 +67,12 @@ func readOpenLocalPorts(procNetFiles []string) (map[uint16]struct{}, error) {
 			// The port number is in hexadecimal.
 			localPort, err := strconv.ParseUint(string(groups[1]), 16, 16)
 			if err != nil {
-				return nil, fmt.Errorf("invalid local port number in %s: %s", file, err)
+				log.WithError(err).WithField(logfields.Path, file).Errorf("cannot read proc file")
+				continue
 			}
 			openLocalPorts[uint16(localPort)] = struct{}{}
 		}
 	}
 
-	return openLocalPorts, nil
+	return openLocalPorts
 }
