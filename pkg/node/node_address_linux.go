@@ -35,6 +35,7 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error
 	var ipLen int
 	var err error
 
+	ipsToExclude := ip.GetExcludedIPs()
 	linkScopeMax := unix.RT_SCOPE_UNIVERSE
 	if family == netlink.FAMILY_V4 {
 		ipLen = 4
@@ -46,6 +47,8 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error
 		link, err = netlink.LinkByName(intf)
 		if err != nil {
 			link = nil
+		} else {
+			ipsToExclude = []net.IP{}
 		}
 	}
 
@@ -62,6 +65,9 @@ retryScope:
 
 	for _, a := range addr {
 		if a.Scope <= linkScopeMax {
+			if ip.IsExcluded(ipsToExclude, a.IP) {
+				continue
+			}
 			if len(a.IP) >= ipLen {
 				if ip.IsPublicAddr(a.IP) {
 					ipsPublic = append(ipsPublic, a.IP)
