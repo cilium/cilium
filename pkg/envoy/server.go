@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -166,6 +167,13 @@ func StartXDSServer(stateDir string) *XDSServer {
 				},
 			},
 		},
+		SocketOptions: []*envoy_api_v2_core.SocketOption{{
+			Description: "Listener socket mark",
+			Level:       syscall.SOL_SOCKET,
+			Name:        syscall.SO_MARK,
+			Value:       &envoy_api_v2_core.SocketOption_IntValue{IntValue: 0xB00}, // egress
+			State:       envoy_api_v2_core.SocketOption_STATE_PREBIND,
+		}},
 		// FilterChains: []*envoy_api_v2_listener.FilterChain
 		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",
@@ -341,6 +349,7 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, endpointP
 	listenerConf.Name = name
 	listenerConf.Address.GetSocketAddress().PortSpecifier = &envoy_api_v2_core.SocketAddress_PortValue{PortValue: uint32(port)}
 	if isIngress {
+		listenerConf.SocketOptions[0].Value.(*envoy_api_v2_core.SocketOption_IntValue).IntValue = 0xA00 // Ingress socket mark
 		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
