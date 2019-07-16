@@ -402,7 +402,7 @@ func init() {
 	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
 	option.BindEnv(option.ConntrackGCInterval)
 
-	flags.StringSlice(option.ContainerRuntime, []string{"auto"}, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
+	flags.StringSlice(option.ContainerRuntime, option.ContainerRuntimeAuto, `Sets the container runtime(s) used by Cilium { containerd | crio | docker | none | auto } ( "auto" uses the container runtime found in the order: "docker", "containerd", "crio" )`)
 	option.BindEnv(option.ContainerRuntime)
 
 	flags.Var(option.NewNamedMapOptions(option.ContainerRuntimeEndpoint, &option.Config.ContainerRuntimeEndpoint, nil),
@@ -1090,6 +1090,10 @@ func initEnv(cmd *cobra.Command) {
 				log.Warn("Running Cilium in flannel mode requires IPv6 mode be 'false'. Disabling IPv6 mode")
 				option.Config.EnableIPv6 = false
 			}
+			if option.Config.FlannelManageExistingContainers && !option.Config.WorkloadsEnabled() {
+				log.Warnf("Managing existing flannel containers with Cilium requires container workloads. Changing %s to %q", option.ContainerRuntime, "auto")
+				option.Config.Workloads = option.ContainerRuntimeAuto
+			}
 		}
 	case option.DatapathModeIpvlan:
 		if option.Config.Tunnel != "" && option.Config.Tunnel != option.TunnelDisabled {
@@ -1383,6 +1387,7 @@ func runDaemon() {
 
 	if option.Config.IsFlannelMasterDeviceSet() {
 		// health checking is not supported by flannel
+		log.Warnf("Running Cilium in flannel mode doesn't support health checking. Changing %s mode to %t", option.EnableHealthChecking, false)
 		option.Config.EnableHealthChecking = false
 
 		err := node.SetInternalIPv4From(option.Config.FlannelMasterDevice)

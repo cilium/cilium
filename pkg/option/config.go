@@ -572,9 +572,13 @@ const (
 	IdentityAllocationModeCRD = "crd"
 )
 
-// FQDNS variables
+// Default string arguments
 var (
 	FQDNRejectOptions = []string{FQDNProxyDenyWithNameError, FQDNProxyDenyWithRefused}
+
+	// ContainerRuntimeAuto is the configuration for autodetecting the
+	// container runtime backends that Cilium should use.
+	ContainerRuntimeAuto = []string{"auto"}
 )
 
 // Available option for DaemonConfig.DatapathMode
