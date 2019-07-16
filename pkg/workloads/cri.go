@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -328,5 +328,5 @@ func (c *criClient) workloadIDsList(ctx context.Context) ([]string, error) {
 // GetAllInfraContainersPID returns a map that maps container IDs to the PID
 // of that container.
 func (c *criClient) GetAllInfraContainersPID() (map[string]int, error) {
-	return nil, errors.New("not implemented")
+	return nil, errors.New("not implemented for cri")
 }
