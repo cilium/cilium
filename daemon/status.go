@@ -383,7 +383,11 @@ func (d *Daemon) startStatusCollector() {
 		{
 			Name: "kvstore",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				return kvstore.Client().Status()
+				if option.Config.KVStore == "" {
+					return models.StatusStateDisabled, nil
+				} else {
+					return kvstore.Client().Status()
+				}
 			},
 			OnStatusUpdate: func(status status.Status) {
 				var msg string

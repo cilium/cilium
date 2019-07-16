@@ -81,6 +81,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	option.Config.Populate()
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 
 	// kvstore is initialized before generic SetUpTest so it must have been completed
 	ds.kvstoreInit = true
