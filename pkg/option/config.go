@@ -1675,7 +1675,7 @@ func (c *DaemonConfig) Populate() {
 	switch {
 	// This is here for tests. Some call Populate without the normal init
 	case c.IdentityAllocationMode == "":
-		c.IdentityAllocationMode = IdentityAllocationModeKVstore
+		c.IdentityAllocationMode = IdentityAllocationModeCRD
 
 	case c.IdentityAllocationMode != IdentityAllocationModeKVstore &&
 		c.IdentityAllocationMode != IdentityAllocationModeCRD:
