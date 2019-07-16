@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/vishvananda/netlink"
@@ -28,6 +29,7 @@ import (
 // code should really move into this package.
 
 func listLocalAddresses(family int) ([]net.IP, error) {
+	ipsToExclude := ip.GetExcludedIPs()
 	addrs, err := netlink.AddrList(nil, family)
 	if err != nil {
 		return nil, err
@@ -39,7 +41,9 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		if addr.Scope == int(netlink.SCOPE_LINK) {
 			continue
 		}
-
+		if ip.IsExcluded(ipsToExclude, addr.IP) {
+			continue
+		}
 		switch addr.IP.String() {
 		case "127.0.0.1", "::1":
 			continue
