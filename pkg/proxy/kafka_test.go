@@ -260,7 +260,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 		testMode: true,
 	})
 	c.Assert(err, IsNil)
-	defer redir.Close(nil)
+	defer redir.Close()
 
 	log.WithFields(logrus.Fields{
 		"address": proxyAddress,
@@ -313,7 +313,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, Equals, proto.ErrTopicAuthorizationFailed)
 
 	log.Debug("Testing done, closing listen socket")
-	finalize, _ := redir.Close(nil)
+	finalize, _ := redir.Close()
 	finalize()
 
 	// In order to see in the logs that the connections get closed after the
