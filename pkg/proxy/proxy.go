@@ -404,6 +404,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 		if err == nil && proxyPort == 0 {
 			panic("Trying to configure zero proxy port")
 		}
+		
 	}()
 
 	scopedLog := log.WithField(fieldProxyRedirectID, id)
@@ -421,7 +422,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			implUpdateRevertFunc, err = redir.implementation.UpdateRules(wg, l4)
 			if err != nil {
 				err = fmt.Errorf("unable to update existing redirect: %s", err)
-				return
+				return 0, err, nil, nil
 			}
 			revertStack.Push(implUpdateRevertFunc)
 
@@ -443,7 +444,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 
 		if err != nil {
 			err = fmt.Errorf("unable to remove old redirect: %s", err)
-			return
+			return 0, err, nil, nil
 		}
 
 		revertStack.Push(removeRevertFunc)
@@ -454,7 +455,8 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	pp := getProxyPort(l4.L7Parser, l4.Ingress)
 	if pp == nil {
 		err = proxyNotFoundError(l4.L7Parser, l4.Ingress)
-		return
+		revertFunc()
+		return 0, err, nil, nil
 	}
 
 	redir := newRedirect(localEndpoint, pp, uint16(l4.Port))
@@ -473,7 +475,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
 			if err != nil {
 				revertFunc() // Ignore errors while reverting. This is best-effort.
-				return
+				return 0, err, nil, nil
 			}
 		}
 
@@ -537,7 +539,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	// an error occurred, and we have no more retries
 	scopedLog.WithError(err).Error("Unable to create ", l4.L7Parser, " proxy")
 	revertFunc() // Ignore errors while reverting. This is best-effort.
-	return
+	return 0, err, nil, nil
 }
 
 // RemoveRedirect removes an existing redirect.
