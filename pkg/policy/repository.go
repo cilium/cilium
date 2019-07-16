@@ -387,8 +387,10 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 	}
 
 	endpointsToBumpRevision.ForEachGo(policySelectionWG, func(epp Endpoint) {
-		endpointSelected, err := r.updateEndpointsCaches(epp, endpointsToRegenerate)
-
+		endpointSelected, err := r.updateEndpointsCaches(epp)
+		if endpointSelected {
+			endpointsToRegenerate.Insert(epp)
+		}
 		// If we could not evaluate the rules against the current endpoint, or
 		// the endpoint is not selected by the rules, remove it from the set
 		// of endpoints to bump the revision. If the error is non-nil, the
