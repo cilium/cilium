@@ -23,14 +23,20 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/revert"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -46,7 +52,56 @@ type EndpointSuite struct {
 	repo *policy.Repository
 }
 
-var _ = Suite(&EndpointSuite{})
+// suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
+var suite = EndpointSuite{repo: policy.NewPolicyRepository()}
+var _ = Suite(&suite)
+
+func (s *EndpointSuite) SetUpSuite(c *C) {
+	s.repo = policy.NewPolicyRepository()
+}
+
+func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
+	return s.repo
+}
+
+func (s *EndpointSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+	return 0, nil, nil, nil
+}
+
+func (s *EndpointSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
+}
+
+func (s *EndpointSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	return nil, nil
+}
+
+func (s *EndpointSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
+
+func (s *EndpointSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	return nil, nil
+}
+
+func (s *EndpointSuite) RemoveFromEndpointQueue(epID uint64) {}
+
+func (s *EndpointSuite) GetCompilationLock() *lock.RWMutex {
+	return nil
+}
+
+func (s *EndpointSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+	return nil
+}
+
+func (s *EndpointSuite) Datapath() datapath.Datapath {
+	return nil
+}
+
+func (s *EndpointSuite) GetNodeSuffix() string {
+	return ""
+}
+
+func (s *EndpointSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 type testIdentityAllocator struct{}
 
@@ -59,7 +114,6 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 	identity.InitWellKnownIdentities()
 	<-cache.InitIdentityAllocator(&testIdentityAllocator{})
-	s.repo = policy.NewPolicyRepository()
 }
 
 func (s *EndpointSuite) TearDownTest(c *C) {
@@ -167,7 +221,7 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
-	e := NewEndpointWithState(s.repo, 100, StateCreating)
+	e := NewEndpointWithState(s, 100, StateCreating)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(pkgLabels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -191,7 +245,7 @@ func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {
 }
 
 func (s *EndpointSuite) TestEndpointState(c *C) {
-	e := NewEndpointWithState(s.repo, 100, StateCreating)
+	e := NewEndpointWithState(s, 100, StateCreating)
 	e.UnconditionalLock()
 	defer e.Unlock()
 

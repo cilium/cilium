@@ -175,7 +175,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		epTemplate.DatapathConfiguration.RequireEgressProg = true
 	}
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.policy, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -246,13 +246,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	err = endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT")
+	err = endpointmanager.AddEndpoint(ep, "Create endpoint from API PUT")
 	logger := ep.Logger(daemonSubsys)
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	ep.UpdateLabels(ctx, d, addLabels, infoLabels, true)
+	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
@@ -291,7 +291,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// is executed; if we waited for regeneration to be complete, including
 		// proxy configuration, this code would effectively deadlock addition
 		// of endpoints.
-		ep.Regenerate(d, &regeneration.ExternalRegenerationMetadata{
+		ep.Regenerate(&regeneration.ExternalRegenerationMetadata{
 			Reason:        "Initial build on endpoint creation",
 			ParentContext: ctx,
 		})
@@ -400,7 +400,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
-	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.policy, epTemplate)
+	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d, epTemplate)
 	if err2 != nil {
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}
@@ -516,7 +516,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	ep.Unlock()
 
 	if reason != "" {
-		if err := ep.RegenerateWait(h.d, reason); err != nil {
+		if err := ep.RegenerateWait(reason); err != nil {
 			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
@@ -611,7 +611,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
-	errs = append(errs, ep.LeaveLocked(d, proxyWaitGroup, conf)...)
+	errs = append(errs, ep.LeaveLocked(proxyWaitGroup, conf)...)
 	ep.Unlock()
 
 	err := ep.WaitForProxyCompletions(proxyWaitGroup)
@@ -677,7 +677,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 		return api.Error(PatchEndpointIDInvalidCode, err)
 	}
 
-	if err := ep.Update(d, cfg); err != nil {
+	if err := ep.Update(cfg); err != nil {
 		switch err.(type) {
 		case endpoint.UpdateValidationError:
 			return api.Error(PatchEndpointIDConfigInvalidCode, err)
@@ -870,7 +870,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDInvalidCode, err
 	}
 
-	if err := ep.ModifyIdentityLabels(d, addLabels, delLabels); err != nil {
+	if err := ep.ModifyIdentityLabels(addLabels, delLabels); err != nil {
 		return PatchEndpointIDLabelsNotFoundCode, err
 	}
 
