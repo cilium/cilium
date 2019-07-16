@@ -23,7 +23,7 @@ import (
 type PasserParserFactory struct{}
 
 func init() {
-	log.Info("init(): Registering PasserParserFactory")
+	log.Debug("init(): Registering PasserParserFactory")
 	RegisterParserFactory("test.passer", &PasserParserFactory{})
 }
 
@@ -35,7 +35,7 @@ func (p *PasserParserFactory) Create(connection *Connection) Parser {
 		return nil
 	}
 
-	log.Infof("PasserParserFactory: Create: %v", connection)
+	log.Debugf("PasserParserFactory: Create: %v", connection)
 	return &PasserParser{}
 }
 
@@ -51,9 +51,9 @@ func (p *PasserParser) OnData(reply, endStream bool, data [][]byte) (OpType, int
 		return NOP, 0
 	}
 	if !reply {
-		log.Infof("PasserParser: Request: %d bytes", n_bytes)
+		log.Debugf("PasserParser: Request: %d bytes", n_bytes)
 	} else {
-		log.Infof("PasserParser: Response: %d bytes", n_bytes)
+		log.Debugf("PasserParser: Response: %d bytes", n_bytes)
 	}
 	return PASS, n_bytes
 }

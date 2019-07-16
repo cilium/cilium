@@ -38,7 +38,7 @@ const (
 )
 
 func init() {
-	log.Info("init(): Registering blockParserFactory")
+	log.Debug("init(): Registering blockParserFactory")
 	RegisterParserFactory(blockParserName, blockParserFactory)
 }
 
@@ -48,7 +48,7 @@ type BlockParser struct {
 }
 
 func (p *BlockParserFactory) Create(connection *Connection) Parser {
-	log.Infof("BlockParserFactory: Create: %v", connection)
+	log.Debugf("BlockParserFactory: Create: %v", connection)
 	return &BlockParser{connection: connection}
 }
 
@@ -130,9 +130,9 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 	}
 
 	if !reply {
-		log.Infof("BlockParser: Request: %s", block)
+		log.Debugf("BlockParser: Request: %s", block)
 	} else {
-		log.Infof("BlockParser: Response: %s", block)
+		log.Debugf("BlockParser: Response: %s", block)
 	}
 
 	if missing == 0 && block_len == 0 {
@@ -140,7 +140,7 @@ func (p *BlockParser) OnData(reply, endStream bool, data [][]byte) (OpType, int)
 		return NOP, 0
 	}
 
-	log.Infof("BlockParser: missing: %d", missing)
+	log.Debugf("BlockParser: missing: %d", missing)
 
 	if bytes.Contains(block, []byte("PASS")) {
 		p.connection.Log(cilium.EntryType_Request, &cilium.LogEntry_GenericL7{

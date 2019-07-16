@@ -147,7 +147,7 @@ type CassandraParserFactory struct{}
 var cassandraParserFactory *CassandraParserFactory
 
 func init() {
-	log.Info("init(): Registering cassandraParserFactory")
+	log.Debug("init(): Registering cassandraParserFactory")
 	RegisterParserFactory("cassandra", cassandraParserFactory)
 	RegisterL7RuleParser("cassandra", CassandraRuleParser)
 }

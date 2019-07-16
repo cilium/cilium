@@ -41,7 +41,7 @@ func (ins *Instance) InsertPolicyText(version string, policies []string, expectF
 			}
 			return err
 		}
-		log.Infof("Text -> proto.Message: %s -> %v", policy, pb)
+		log.Debugf("Text -> proto.Message: %s -> %v", policy, pb)
 		data, err := proto.Marshal(pb)
 		if err != nil {
 			if expectFail != "marshal" {

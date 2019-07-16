@@ -72,15 +72,15 @@ func (rule *r2d2Rule) Matches(data interface{}) bool {
 		return false
 	}
 	if len(rule.cmdExact) > 0 && rule.cmdExact != reqData.cmd {
-		log.Infof("R2d2Rule: cmd mismatch %s, %s", rule.cmdExact, reqData.cmd)
+		log.Debugf("R2d2Rule: cmd mismatch %s, %s", rule.cmdExact, reqData.cmd)
 		return false
 	}
 	if rule.fileRegexCompiled != nil &&
 		!rule.fileRegexCompiled.MatchString(reqData.file) {
-		log.Infof("R2d2Rule: file mismatch %s, %s", rule.fileRegexCompiled.String(), reqData.file)
+		log.Debugf("R2d2Rule: file mismatch %s, %s", rule.fileRegexCompiled.String(), reqData.file)
 		return false
 	}
-	log.Infof("policy match for rule: '%s' '%s'", rule.cmdExact, regexStr)
+	log.Debugf("policy match for rule: '%s' '%s'", rule.cmdExact, regexStr)
 	return true
 }
 
@@ -120,7 +120,7 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 		if rr.fileRegexCompiled != nil {
 			regexStr = rr.fileRegexCompiled.String()
 		}
-		log.Infof("Parsed rule '%s' '%s'", rr.cmdExact, regexStr)
+		log.Debugf("Parsed rule '%s' '%s'", rr.cmdExact, regexStr)
 		rules = append(rules, &rr)
 	}
 	return rules
@@ -129,7 +129,7 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 type factory struct{}
 
 func init() {
-	log.Info("init(): Registering r2d2ParserFactory")
+	log.Debug("init(): Registering r2d2ParserFactory")
 	proxylib.RegisterParserFactory("r2d2", &factory{})
 	proxylib.RegisterL7RuleParser("r2d2", ruleParser)
 }
@@ -150,21 +150,21 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 	// inefficient, but simple
 	data := string(bytes.Join(dataArray, []byte{}))
 
-	log.Infof("OnData: '%s'", data)
+	log.Debugf("OnData: '%s'", data)
 	msgLen := strings.Index(data, "\r\n")
 	if msgLen < 0 {
 		// No delimiter, request more data
-		log.Infof("No delimiter found, requesting more bytes")
+		log.Debugf("No delimiter found, requesting more bytes")
 		return proxylib.MORE, 1
 	}
 
 	msgStr := data[:msgLen] // read single request
 	msgLen += 2             // include "\r\n"
-	log.Infof("Request = '%s'", msgStr)
+	log.Debugf("Request = '%s'", msgStr)
 
 	// we don't process reply traffic for now
 	if reply {
-		log.Infof("reply, passing %d bytes", msgLen)
+		log.Debugf("reply, passing %d bytes", msgLen)
 		return proxylib.PASS, msgLen
 	}
 
@@ -198,7 +198,7 @@ func (p *parser) OnData(reply, endStream bool, dataArray [][]byte) (proxylib.OpT
 
 	if !matches {
 		p.connection.Inject(true, []byte("ERROR\r\n"))
-		log.Infof("Policy mismatch, dropping %d bytes", msgLen)
+		log.Debugf("Policy mismatch, dropping %d bytes", msgLen)
 		return proxylib.DROP, msgLen
 	}
 

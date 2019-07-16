@@ -58,10 +58,10 @@ var resources = []*cilium.NetworkPolicy{
 func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.NetworkPolicy) {
 	comp := completion.NewCompletion(nil, func(err error) {
 		if err == nil {
-			log.Info("ACK Callback called")
+			log.Debug("ACK Callback called")
 			cs.acks++
 		} else {
-			log.Info("NACK Callback called")
+			log.Debug("NACK Callback called")
 			cs.nacks++
 		}
 	})
@@ -72,7 +72,7 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 type updater struct{}
 
 func (u *updater) PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) error {
-	log.Infof("Received policy update: %v", *resp)
+	log.Debugf("Received policy update: %v", *resp)
 	return nil
 }
 
