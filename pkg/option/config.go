@@ -1676,6 +1676,14 @@ func (c *DaemonConfig) Populate() {
 		c.IdentityAllocationMode != IdentityAllocationModeCRD {
 		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
 	}
+	if c.KVStore == "" {
+		if c.IdentityAllocationMode != IdentityAllocationModeCRD {
+			log.Fatalf("If %[1]q is disabled, %[2]q must be configured to %[3]q. Specify %[1]q or %[2]q", KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
+		}
+		if c.DisableCiliumEndpointCRD {
+			log.Fatalf("Option %q=%q requires CiliumEndpoint, remove %q option", KVStore, c.KVStore, DisableCiliumEndpointCRDName)
+		}
+	}
 
 	// Hidden options
 	c.ConfigFile = viper.GetString(ConfigFile)
