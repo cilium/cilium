@@ -707,22 +707,6 @@ func DeleteServiceV2(svc loadbalancer.L3n4AddrID, releaseBackendID func(loadbala
 	return nil
 }
 
-// DeleteServiceCache deletes the service cache.
-func DeleteServiceCache(svc loadbalancer.L3n4AddrID) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var svcKey ServiceKey
-
-	if !svc.IsIPv6() {
-		svcKey = NewService4Key(svc.IP, svc.Port, 0)
-	} else {
-		svcKey = NewService6Key(svc.IP, svc.Port, 0)
-	}
-
-	cache.delete(svcKey)
-}
-
 func DeleteOrphanBackends(releaseBackendID func(loadbalancer.BackendID)) []error {
 	mutex.Lock()
 	defer mutex.Unlock()

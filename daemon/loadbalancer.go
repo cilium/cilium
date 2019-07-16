@@ -268,8 +268,6 @@ func (d *Daemon) svcDeleteBPF(svc loadbalancer.L3n4AddrID) error {
 		return fmt.Errorf("Deleting service from BPF maps failed: %s", err)
 	}
 
-	lbmap.DeleteServiceCache(svc)
-
 	return nil
 }
 
