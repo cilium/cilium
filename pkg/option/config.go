@@ -1661,13 +1661,26 @@ func (c *DaemonConfig) Populate() {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
 	}
 
+	// FIXME: This is copied from pkg/k8s to avoid an import loop
+	isK8s := Config.K8sAPIServer != "" ||
+		Config.K8sKubeConfigPath != "" ||
+		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
+			os.Getenv("KUBERNETES_SERVICE_PORT") != "")
 	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
-	switch c.IdentityAllocationMode {
-	// This is here for tests. Some call Populate without the normal init
-	case "":
+	switch {
+	// This is the default. It must be kvstore to support upgrades from versions without this flag.
+	case c.IdentityAllocationMode == "":
 		c.IdentityAllocationMode = IdentityAllocationModeKVstore
 
-	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD:
+	case c.IdentityAllocationMode == IdentityAllocationModeKVstore:
+		// c.IdentityAllocationMode is set above. This is valid in all cases
+
+	// We cannot use CRD when not in k8s
+	case c.IdentityAllocationMode == IdentityAllocationModeCRD && !isK8s:
+		log.Fatalf("Invalid identity allocation mode %q. It must be %s in non-kubernetes environments", c.IdentityAllocationMode, IdentityAllocationModeKVstore)
+
+	// This is valid in k8s, and we arrive here because the case above did not match
+	case c.IdentityAllocationMode == IdentityAllocationModeCRD:
 		// c.IdentityAllocationMode is set above
 
 	default:
