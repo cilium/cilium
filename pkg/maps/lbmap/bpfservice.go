@@ -241,9 +241,7 @@ func (l *lbmapCache) removeServiceV2(svcKey ServiceKeyV2) ([]BackendKey, int, er
 		}
 	}
 
-	// FIXME(brb) uncomment the following line after we have removed the support for
-	// legacy svc.
-	//delete(l.entries, frontendID)
+	delete(l.entries, frontendID)
 
 	return backendsToRemove, count, nil
 }
