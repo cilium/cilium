@@ -117,7 +117,7 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 
 	if accessLogFile != "" {
 		if err := logger.OpenLogfile(accessLogFile); err != nil {
-			log.WithError(err).WithField(logger.FieldFilePath, accessLogFile).
+			log.WithError(err).WithField(logfields.Path, accessLogFile).
 				Warn("Cannot open L7 access log")
 		}
 	}
@@ -212,10 +212,7 @@ func isPortAvailable(openLocalPorts map[uint16]struct{}, port uint16) bool {
 // Called with proxyPortsMutex held!
 func allocatePort(port, min, max uint16) (uint16, error) {
 	// Get a snapshot of the TCP and UDP ports already open locally.
-	openLocalPorts, err := readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
-	if err != nil {
-		return 0, fmt.Errorf("couldn't read local ports from /proc: %s", err)
-	}
+	openLocalPorts := readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
 
 	if isPortAvailable(openLocalPorts, port) {
 		return port, nil
