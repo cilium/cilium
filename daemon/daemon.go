@@ -867,6 +867,14 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	return &d, restoredEndpoints, nil
 }
 
+// Ensure proxies included in the rTypes mask are configured.
+func (d *Daemon) StartProxies(rTypes policy.RedirectType, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	if d.l7Proxy != nil {
+		return d.l7Proxy.StartListeners(rTypes, wg)
+	}
+	return fmt.Errorf("Daemon proxy support needed but not started"), nil, nil
+}
+
 func setupIPSec() (int, error) {
 	var authKeySize int
 
