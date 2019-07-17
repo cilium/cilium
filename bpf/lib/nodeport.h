@@ -26,6 +26,11 @@
 
 #define CB_SRC_IDENTITY	0
 
+/* No nodeport on cilium_host interface. */
+#ifdef FROM_HOST
+# undef ENABLE_NODEPORT
+#endif
+
 static inline void tc_index_clear_nodeport(struct __sk_buff *skb)
 {
 #ifdef ENABLE_NODEPORT
