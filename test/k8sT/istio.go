@@ -271,7 +271,7 @@ var _ = Describe("K8sIstioTest", func() {
 			policyPaths = []string{l7PolicyPath}
 			for _, policyPath := range policyPaths {
 				By("Creating policy in file %q", policyPath)
-				_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
+				_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlApply, helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "Unable to create policy %q", policyPath)
 			}
 
