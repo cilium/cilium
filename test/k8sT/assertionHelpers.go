@@ -52,10 +52,10 @@ func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
 }
 
-// ExpectCiliumRunning is a wrapper around helpers/WaitForPodsRunning. It
-// asserts the cilium pods are running on all nodes.
+// ExpectCiliumRunning is a wrapper around helpers/WaitForNPods. It
+// asserts the cilium pods are running on all nodes (but not yet ready!).
 func ExpectCiliumRunning(vm *helpers.Kubectl) {
-	err := vm.WaitforNPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", vm.GetNumNodes(), longTimeout)
+	err := vm.WaitforNPodsRunning(helpers.KubeSystemNamespace, "-l k8s-app=cilium", vm.GetNumNodes(), longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium was not able to get into ready state")
 
 }
