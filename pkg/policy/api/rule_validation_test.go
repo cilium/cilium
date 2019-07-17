@@ -495,3 +495,63 @@ func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 	c.Assert(err, Not(IsNil))
 
 }
+
+func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
+	tooManyPortsRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						// Max is 40 ports
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+						{Port: "82", Protocol: ProtoTCP},
+						{Port: "83", Protocol: ProtoTCP},
+						{Port: "84", Protocol: ProtoTCP},
+						{Port: "85", Protocol: ProtoTCP},
+						{Port: "86", Protocol: ProtoTCP},
+						{Port: "87", Protocol: ProtoTCP},
+						{Port: "88", Protocol: ProtoTCP},
+						{Port: "89", Protocol: ProtoTCP},
+						{Port: "90", Protocol: ProtoTCP},
+						{Port: "91", Protocol: ProtoTCP},
+						{Port: "92", Protocol: ProtoTCP},
+						{Port: "93", Protocol: ProtoTCP},
+						{Port: "94", Protocol: ProtoTCP},
+						{Port: "95", Protocol: ProtoTCP},
+						{Port: "96", Protocol: ProtoTCP},
+						{Port: "97", Protocol: ProtoTCP},
+						{Port: "98", Protocol: ProtoTCP},
+						{Port: "99", Protocol: ProtoTCP},
+						{Port: "100", Protocol: ProtoTCP},
+						{Port: "101", Protocol: ProtoTCP},
+						{Port: "102", Protocol: ProtoTCP},
+						{Port: "103", Protocol: ProtoTCP},
+						{Port: "104", Protocol: ProtoTCP},
+						{Port: "105", Protocol: ProtoTCP},
+						{Port: "106", Protocol: ProtoTCP},
+						{Port: "107", Protocol: ProtoTCP},
+						{Port: "108", Protocol: ProtoTCP},
+						{Port: "109", Protocol: ProtoTCP},
+						{Port: "110", Protocol: ProtoTCP},
+						{Port: "111", Protocol: ProtoTCP},
+						{Port: "112", Protocol: ProtoTCP},
+						{Port: "113", Protocol: ProtoTCP},
+						{Port: "114", Protocol: ProtoTCP},
+						{Port: "115", Protocol: ProtoTCP},
+						{Port: "116", Protocol: ProtoTCP},
+						{Port: "117", Protocol: ProtoTCP},
+						{Port: "118", Protocol: ProtoTCP},
+						{Port: "119", Protocol: ProtoTCP},
+						{Port: "120", Protocol: ProtoTCP},
+						{Port: "121", Protocol: ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	err := tooManyPortsRule.Sanitize()
+	c.Assert(err, NotNil)
+}
