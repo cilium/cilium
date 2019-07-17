@@ -233,6 +233,10 @@ func (s *Service4Value) SetAddress(ip net.IP) error {
 	return nil
 }
 
+func (s *Service4Value) GetAddress() net.IP {
+	return s.Address.IP()
+}
+
 // ToNetwork converts Service4Value to network byte order.
 func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s

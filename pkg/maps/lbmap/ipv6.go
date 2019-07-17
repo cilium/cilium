@@ -234,6 +234,10 @@ func (s *Service6Value) SetAddress(ip net.IP) error {
 	return nil
 }
 
+func (s *Service6Value) GetAddress() net.IP {
+	return s.Address.IP()
+}
+
 // ToNetwork converts Service6Value ports to network byte order.
 func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
