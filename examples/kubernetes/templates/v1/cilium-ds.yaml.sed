@@ -45,6 +45,11 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: CILIUM_IDENTITY_ALLOCATION_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: identity-allocation-mode
+              name: cilium-config
         - name: CILIUM_FLANNEL_MASTER_DEVICE
           valueFrom:
             configMapKeyRef:
