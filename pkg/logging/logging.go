@@ -21,8 +21,11 @@ import (
 	"log/syslog"
 	"os"
 	"regexp"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
@@ -30,8 +33,8 @@ import (
 
 const (
 	SLevel = "syslog.level"
-
 	Syslog = "syslog"
+	Level  = "level"
 )
 
 var (
@@ -56,6 +59,14 @@ var (
 		logrus.InfoLevel:  syslog.LOG_INFO,
 		logrus.DebugLevel: syslog.LOG_DEBUG,
 	}
+
+	levelStringToLogrusLevel = map[string]logrus.Level{
+		"panic":   logrus.PanicLevel,
+		"error":   logrus.ErrorLevel,
+		"warning": logrus.WarnLevel,
+		"info":    logrus.InfoLevel,
+		"debug":   logrus.DebugLevel,
+	}
 )
 
 // InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
@@ -63,6 +74,23 @@ func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
 	logger.Formatter = setupFormatter()
 	return logger
+}
+
+// GetLogLevelFromConfig returns what the log level provided via global
+// configuration. If the logging level is invalid, ok will be false.
+func GetLogLevelFromConfig() (logrus.Level, bool) {
+	lvl, ok := levelStringToLogrusLevel[strings.ToLower(option.Config.LogOpt[Level])]
+	return lvl, ok
+}
+
+func setupLogLevel(logOpts map[string]string) logrus.Level {
+	if levelOpt, ok := logOpts[Level]; ok {
+		if convertedLevel, ok := GetLogLevelFromConfig(); ok {
+			return convertedLevel
+		}
+		DefaultLogger.Warning("invalid logging level provided: %s; setting to %s", levelOpt, DefaultLogLevel)
+	}
+	return DefaultLogLevel
 }
 
 // SetupLogging sets up each logging service provided in loggers and configures
@@ -74,7 +102,8 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 		logrus.SetOutput(os.Stdout)
 	}
 
-	SetLogLevel(DefaultLogLevel)
+	level := setupLogLevel(logOpts)
+	SetLogLevel(level)
 	ToggleDebugLogs(debug)
 
 	// always suppress the default logger so libraries don't print things
