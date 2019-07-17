@@ -79,6 +79,9 @@ type ServiceValue interface {
 	// Set address to map to (left blank for master)
 	SetAddress(net.IP) error
 
+	// Get address to map to (left blank for master)
+	GetAddress() net.IP
+
 	// Set port to map to (left blank for master)
 	SetPort(uint16)
 
