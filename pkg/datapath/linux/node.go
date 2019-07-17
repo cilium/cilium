@@ -1049,43 +1049,10 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate node.Node) 
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
-func lookupDefaultRoute(family int) (netlink.Route, error) {
-	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
-	if err != nil {
-		log.WithError(err).Error("Unable to list direct routes")
-		return netlink.Route{}, err
-	}
-
-	if len(routes) != 1 {
-		return netlink.Route{}, fmt.Errorf("Multiple default routes found")
-	}
-
-	log.Debugf("Found default route on node %v", routes[0])
-	return routes[0], nil
-}
-
-// NodeDeviceNameWithDefaultRoute returns the node's device name which handles
-// the default route in the current namespace
+// NodeDeviceNameWithDefaultRoute returns the node's device name which
+// handles the default route in the current namespace
 func NodeDeviceNameWithDefaultRoute() (string, error) {
-	linkIndex := 0
-	if option.Config.EnableIPv4 {
-		route, err := lookupDefaultRoute(netlink.FAMILY_V4)
-		if err != nil {
-			return "", err
-		}
-		linkIndex = route.LinkIndex
-	}
-	if option.Config.EnableIPv6 {
-		route, err := lookupDefaultRoute(netlink.FAMILY_V6)
-		if err != nil {
-			return "", err
-		}
-		if linkIndex != 0 && linkIndex != route.LinkIndex {
-			return "", fmt.Errorf("IPv4/IPv6 have different link indices")
-		}
-		linkIndex = route.LinkIndex
-	}
-	link, err := netlink.LinkByIndex(linkIndex)
+	link, err := route.NodeDeviceWithDefaultRoute()
 	if err != nil {
 		return "", err
 	}
