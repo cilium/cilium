@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,26 +21,26 @@ import (
 	"log/syslog"
 	"os"
 	"regexp"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
 )
 
 const (
-	SLevel = "syslog.level"
-
-	Syslog = "syslog"
+	SLevel   = "syslog.level"
+	Syslog   = "syslog"
+	LevelOpt = "level"
 )
 
 var (
 	// DefaultLogger is the base logrus logger. It is different from the logrus
 	// default to avoid external dependencies from writing out unexpectedly
 	DefaultLogger = InitializeDefaultLogger()
-
-	// DefaultLogLevel is the alternative we provide to Debug
-	DefaultLogLevel = logrus.InfoLevel
 
 	// DefaultLogLevelStr is the string representation of DefaultLogLevel. It
 	// is used to allow for injection of the logging level via go's ldflags in
@@ -71,7 +71,12 @@ var (
 		"info":    logrus.InfoLevel,
 		"debug":   logrus.DebugLevel,
 	}
+
+	logOptions = LogOptions{}
 )
+
+// LogOptions maps configuration key-value pairs related to logging.
+type LogOptions map[string]string
 
 // InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
 func InitializeDefaultLogger() *logrus.Logger {
@@ -81,16 +86,60 @@ func InitializeDefaultLogger() *logrus.Logger {
 	return logger
 }
 
+// GetLogLevelFromConfig returns the log level provided via global
+// configuration. If the logging level is invalid, ok will be false.
+func GetLogLevelFromConfig() (logrus.Level, bool) {
+	return logOptions.GetLogLevel()
+}
+
+// GetLogLevel returns the log level specified in the provided LogOptions. If
+// it is not set in the options, ok will be false.
+func (o LogOptions) GetLogLevel() (logrus.Level, bool) {
+	lvl, ok := LevelStringToLogrusLevel[strings.ToLower(o[LevelOpt])]
+	return lvl, ok
+}
+
+// configureLogLevelFromOptions returns the log level based off of the value of
+// LevelOpt in o, or the default log level if the value in the map is invalid or
+// not set.
+func (o LogOptions) configureLogLevelFromOptions() logrus.Level {
+	var level logrus.Level
+	if levelOpt, ok := o[LevelOpt]; ok {
+		if convertedLevel, ok := o.GetLogLevel(); ok {
+			level = convertedLevel
+		} else {
+			// Invalid configuration provided, go with default.
+			DefaultLogger.WithField(logfields.LogSubsys, "logging").Warningf("invalid logging level provided: %s; setting to %s", levelOpt, DefaultLogLevelStr)
+			o[LevelOpt] = DefaultLogLevelStr
+			level = LevelStringToLogrusLevel[DefaultLogLevelStr]
+		}
+	} else {
+		// No logging option provided, default to DefaultLogLevelStr.
+		o[LevelOpt] = DefaultLogLevelStr
+		level = LevelStringToLogrusLevel[DefaultLogLevelStr]
+	}
+	return level
+}
+
+// configureLogLevelFromOptions sets the log level of the DefaultLogger based
+// off of the value of LevelOpt in logOpts. If LevelOpt is not set in logOpts,
+// it defaults to DefaultLogLevelStr.
+func setLogLevelFromOptions(logOpts LogOptions) {
+	DefaultLogger.SetLevel(logOpts.configureLogLevelFromOptions())
+}
+
 // SetupLogging sets up each logging service provided in loggers and configures
 // each logger with the provided logOpts.
 func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug bool) error {
+	logOptions = logOpts
+
 	// Set default logger to output to stdout if no loggers are provided.
 	if len(loggers) == 0 {
 		// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 		logrus.SetOutput(os.Stdout)
 	}
 
-	ToggleDebugLogs(debug)
+	ConfigureLogLevel(debug)
 
 	// always suppress the default logger so libraries don't print things
 	logrus.SetLevel(logrus.PanicLevel)
@@ -100,7 +149,7 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 	for _, logger := range loggers {
 		switch logger {
 		case Syslog:
-			valuesToValidate := getLogDriverConfig(Syslog, logOpts)
+			valuesToValidate := getLogDriverConfig(Syslog, logOptions)
 			err := validateOpts(Syslog, valuesToValidate, syslogOpts)
 			if err != nil {
 				return err
@@ -117,20 +166,22 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 // SetLogLevel sets the log level on DefaultLogger. This logger is, by
 // convention, the base logger for package specific ones thus setting the level
 // here impacts the default logging behaviour.
-// This function is thread-safe when logging, reading DefaultLogger.Level is
+// This function is thread-safe when logging, reading DefaultLogger.LevelOpt is
 // not protected this way, however.
 func SetLogLevel(level logrus.Level) {
 	DefaultLogger.SetLevel(level)
 }
 
-// ToggleDebugLogs switches on or off debugging logs. It will select
-// DefaultLogLevel when turning debug off.
+// ConfigureLogLevel configures the logging level of the global logger. If
+// debugging is not enabled, it will set the logging level based off of the
+// logging options configured at bootstrap. Debug being enabled takes precedence
+// over the configuration in the logging options.
 // It is thread-safe.
-func ToggleDebugLogs(debug bool) {
+func ConfigureLogLevel(debug bool) {
 	if debug {
 		SetLogLevel(logrus.DebugLevel)
 	} else {
-		SetLogLevel(DefaultLogLevel)
+		setLogLevelFromOptions(logOptions)
 	}
 }
 
