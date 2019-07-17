@@ -1620,36 +1620,6 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 				"matchLabels":{"id.httpd1":""}
 			},`)
 		testInvalidPolicy(invalidJSON)
-
-		By("Test maximum tcp ports")
-		var ports string
-		for i := 0; i < 50; i++ {
-			ports += fmt.Sprintf(`{"port": "%d", "protocol": "tcp"}`, i)
-		}
-		tooManyTCPPorts := fmt.Sprintf(`[{
-		"endpointSelector": {
-			"matchLabels": {
-				"foo": ""
-			}
-		},
-		"ingress": [{
-			"fromEndpoints": [{
-					"matchLabels": {
-						"reserved:host": ""
-					}
-				},
-				{
-					"matchLabels": {
-						"bar": ""
-					}
-				}
-			],
-			"toPorts": [{
-				"ports": [%s]
-			}]
-		}]
-		}]`, ports)
-		testInvalidPolicy(tooManyTCPPorts)
 	})
 
 	Context("Policy command", func() {
