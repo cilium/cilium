@@ -120,11 +120,13 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		if (ret < 0)
 			return ret;
 	}
-
+#ifdef ENCAP_IFINDEX
+	return TC_ACT_OK;
+#endif /* ENCAP_IFINDEX */
 	/* Verifier workaround: modified ctx access. */
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
-#endif
+#endif /* ENABLE_NODEPORT */
 
 	nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(skb, l3_off, &nexthdr);
@@ -289,11 +291,13 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		if (ret < 0)
 			return ret;
 	}
-
+#ifdef ENCAP_IFINDEX
+	return TC_ACT_OK;
+#endif /* ENCAP_IFINDEX */
 	/* Verifier workaround: modified ctx access. */
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
-#endif
+#endif /* ENABLE_NODEPORT */
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 	secctx = derive_ipv4_sec_ctx(skb, ip4);
