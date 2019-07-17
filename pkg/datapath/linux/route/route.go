@@ -19,8 +19,9 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
 
@@ -82,4 +83,47 @@ func (r *Route) ToIPCommand(dev string) []string {
 	}
 	res = append(res, "dev", dev)
 	return res
+}
+
+func lookupDefaultRoute(family int) (netlink.Route, error) {
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
+	if err != nil {
+		log.WithError(err).Error("Unable to list direct routes")
+		return netlink.Route{}, err
+	}
+
+	if len(routes) != 1 {
+		return netlink.Route{}, fmt.Errorf("Multiple default routes found")
+	}
+
+	log.Debugf("Found default route on node %v", routes[0])
+	return routes[0], nil
+}
+
+// NodeDeviceWithDefaultRoute returns the node's device which handles the
+// default route in the current namespace
+func NodeDeviceWithDefaultRoute() (netlink.Link, error) {
+	linkIndex := 0
+	if option.Config.EnableIPv4 {
+		route, err := lookupDefaultRoute(netlink.FAMILY_V4)
+		if err != nil {
+			return nil, err
+		}
+		linkIndex = route.LinkIndex
+	}
+	if option.Config.EnableIPv6 {
+		route, err := lookupDefaultRoute(netlink.FAMILY_V6)
+		if err != nil {
+			return nil, err
+		}
+		if linkIndex != 0 && linkIndex != route.LinkIndex {
+			return nil, fmt.Errorf("IPv4/IPv6 have different link indices")
+		}
+		linkIndex = route.LinkIndex
+	}
+	link, err := netlink.LinkByIndex(linkIndex)
+	if err != nil {
+		return nil, err
+	}
+	return link, nil
 }
