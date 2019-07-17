@@ -273,10 +273,6 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 
 		_, runErr := runCommand(session, cmd)
 		sessionErrChan <- runErr
-
-		if closeErr := session.Close(); closeErr != nil {
-			log.WithError(closeErr).Error("failed to close session")
-		}
 	}()
 
 	select {
@@ -287,6 +283,9 @@ func (client *SSHClient) RunCommandContext(ctx context.Context, cmd *SSHCommand)
 			log.Warning("sending SIGHUP to session due to canceled context")
 			if err := session.Signal(ssh.SIGHUP); err != nil {
 				log.Errorf("failed to kill command when context is canceled: %s", err)
+			}
+			if closeErr := session.Close(); closeErr != nil {
+				log.WithError(closeErr).Error("failed to close session")
 			}
 		} else {
 			log.Error("timeout reached; no session was able to be created")
