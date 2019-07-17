@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/datapath/linux"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
@@ -1126,8 +1127,13 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
-		log.WithField(logfields.Tunnel, option.Config.Tunnel).
-			Fatal("Currently ipsec with tunneling disabled requires option \"encrypt-interface\".")
+		// Default to the interface associated with the default gateway
+		link, err := linux.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			log.WithField(logfields.Tunnel, option.Config.Tunnel).
+				Fatal("Option \"encrypt-interface\" not set and unable to get link for default interface")
+		}
+		option.Config.EncryptInterface = link
 	}
 
 	// BPF masquerade specified, rejecting unsupported options for this mode.
