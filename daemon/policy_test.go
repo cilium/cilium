@@ -127,7 +127,7 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
-	e := endpoint.NewEndpointWithState(ds.d.GetPolicyRepository(), testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewEndpointWithState(ds.d, testEndpointID, endpoint.StateWaitingForIdentity)
 	e.IfName = "dummy1"
 	if qa {
 		e.IPv6 = QAIPv6Addr
@@ -146,7 +146,7 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
+	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 
 	return e
@@ -157,7 +157,7 @@ func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
 	e.Unlock()
 	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(ds.d, regenerationMetadata)
+	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
 }
 
@@ -547,7 +547,7 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 	// Delete the endpoint.
 	e.UnconditionalLock()
-	e.LeaveLocked(ds.d, nil, endpoint.DeleteConfig{})
+	e.LeaveLocked(nil, endpoint.DeleteConfig{})
 	e.Unlock()
 
 	// Check that the policy has been removed from the xDS cache.
@@ -649,7 +649,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 
 	// Delete the endpoint.
 	e.UnconditionalLock()
-	e.LeaveLocked(ds.d, nil, endpoint.DeleteConfig{})
+	e.LeaveLocked(nil, endpoint.DeleteConfig{})
 	e.Unlock()
 
 	// Check that the policy has been removed from the xDS cache.

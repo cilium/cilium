@@ -62,7 +62,7 @@ func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
 
 // Note that this function assumes that endpoint policy has already been generated!
 // must be called with endpoint.Mutex held for reading
-func (e *Endpoint) updateNetworkPolicy(owner regeneration.Owner, proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
+func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
 	// Skip updating the NetworkPolicy if no identity has been computed for this
 	// endpoint.
 	// This breaks a circular dependency between configuring NetworkPolicies in
@@ -79,7 +79,7 @@ func (e *Endpoint) updateNetworkPolicy(owner regeneration.Owner, proxyWaitGroup 
 	}
 
 	// Publish the updated policy to L7 proxies.
-	return owner.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
+	return e.owner.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
@@ -105,7 +105,7 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy(owner regeneration.Owner) (retErr error) {
+func (e *Endpoint) regeneratePolicy() (retErr error) {
 	var forceRegeneration bool
 
 	// No point in calculating policy if endpoint does not have an identity yet.
@@ -119,7 +119,7 @@ func (e *Endpoint) regeneratePolicy(owner regeneration.Owner) (retErr error) {
 	stats.totalTime.Start()
 
 	stats.waitingForPolicyRepository.Start()
-	repo := owner.GetPolicyRepository()
+	repo := e.owner.GetPolicyRepository()
 	repo.Mutex.RLock()
 	revision := repo.GetRevision()
 	defer repo.Mutex.RUnlock()
@@ -225,7 +225,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 }
 
 // Called with e.Mutex UNlocked
-func (e *Endpoint) regenerate(owner regeneration.Owner, context *regenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	var revision uint64
 	var compilationExecuted bool
 	var err error
@@ -318,7 +318,7 @@ func (e *Endpoint) regenerate(owner regeneration.Owner, context *regenerationCon
 		e.Unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(owner, context)
+	revision, compilationExecuted, err = e.regenerateBPF(context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -415,7 +415,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 //  - false if the regeneration failed
 //  - true if the regeneration succeed
 //  - nothing and the channel is closed if the regeneration did not happen
-func (e *Endpoint) RegenerateIfAlive(owner regeneration.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	if err := e.LockAlive(); err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
@@ -432,7 +432,7 @@ func (e *Endpoint) RegenerateIfAlive(owner regeneration.Owner, regenMetadata *re
 		e.Unlock()
 		if regen {
 			// Regenerate logs status according to the build success/failure
-			return e.Regenerate(owner, regenMetadata)
+			return e.Regenerate(regenMetadata)
 		}
 	}
 
@@ -444,7 +444,7 @@ func (e *Endpoint) RegenerateIfAlive(owner regeneration.Owner, regenMetadata *re
 // Regenerate forces the regeneration of endpoint programs & policy
 // Should only be called with e.state == StateWaitingToRegenerate or with
 // e.state == StateWaitingForIdentity
-func (e *Endpoint) Regenerate(owner regeneration.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
 	var (
@@ -461,7 +461,6 @@ func (e *Endpoint) Regenerate(owner regeneration.Owner, regenMetadata *regenerat
 	regenContext := ParseExternalRegenerationMetadata(ctx, cFunc, regenMetadata)
 
 	epEvent := eventqueue.NewEvent(&EndpointRegenerationEvent{
-		owner:        owner,
 		regenContext: regenContext,
 		ep:           e,
 	})
@@ -503,7 +502,7 @@ func (e *Endpoint) Regenerate(owner regeneration.Owner, regenMetadata *regenerat
 	return done
 }
 
-func (e *Endpoint) notifyEndpointRegeneration(owner regeneration.Owner, err error) {
+func (e *Endpoint) notifyEndpointRegeneration(err error) {
 	repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
 	if reprerr != nil {
 		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
@@ -511,11 +510,11 @@ func (e *Endpoint) notifyEndpointRegeneration(owner regeneration.Owner, err erro
 
 	if err != nil {
 		if reprerr == nil && !option.Config.DryMode {
-			owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
+			e.owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
 		}
 	} else {
 		if reprerr == nil && !option.Config.DryMode {
-			owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
+			e.owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
 		}
 	}
 }
