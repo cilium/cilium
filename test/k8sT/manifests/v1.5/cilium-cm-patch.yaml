@@ -2,6 +2,7 @@
 metadata:
   namespace: kube-system
 data:
+  identity-allocation-mode: "kvstore"
   etcd-config: |-
     ---
     endpoints:
