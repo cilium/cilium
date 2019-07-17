@@ -29,8 +29,6 @@ spec:
     spec:
       containers:
       - args:
-        - --kvstore=etcd
-        - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
@@ -45,6 +43,23 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: CILIUM_IDENTITY_ALLOCATION_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: identity-allocation-mode
+              name: cilium-config
+        - name: CILIUM_KVSTORE
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore
+              name: cilium-config
+              optional: true
+        - name: CILIUM_KVSTORE_OPT
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore-opt
+              name: cilium-config
+              optional: true
         - name: CILIUM_FLANNEL_MASTER_DEVICE
           valueFrom:
             configMapKeyRef:

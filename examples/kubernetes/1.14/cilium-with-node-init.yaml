@@ -5,23 +5,17 @@ metadata:
   name: cilium-config
   namespace: cilium
 data:
-  # This etcd-config contains the etcd endpoints of your cluster. If you use
-  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
-  etcd-config: |-
-    ---
-    endpoints:
-      - https://cilium-etcd-client.cilium.svc:2379
-    #
-    # In case you want to use TLS in etcd, uncomment the 'ca-file' line
-    # and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
-    #
-    # In case you want client to server authentication, uncomment the following
-    # lines and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    key-file: '/var/lib/etcd-secrets/etcd-client.key'
-    cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
+  # Identity allocation mode selects how identities are shared between cilium
+  # nodes by setting how they are stored. The options are "crd" or "kvstore".
+  # - "crd" stores identities in kubernetes as CRDs (custom resource definition).
+  #   These can be queried with:
+  #     kubectl get ciliumid
+  # - "kvstore" stores identities in a kvstore, etcd or consul, that is
+  #   configured below. Cilium versions before 1.6 supported only the kvstore
+  #   backend. Upgrades from these older cilium versions should continue using
+  #   the kvstore by commenting out the identity-allocation-mode below, or
+  #   setting it to "kvstore".
+  identity-allocation-mode: "crd"
 
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
@@ -215,8 +209,6 @@ spec:
     spec:
       containers:
       - args:
-        - --kvstore=etcd
-        - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
@@ -231,6 +223,23 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: CILIUM_IDENTITY_ALLOCATION_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: identity-allocation-mode
+              name: cilium-config
+        - name: CILIUM_KVSTORE
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore
+              name: cilium-config
+              optional: true
+        - name: CILIUM_KVSTORE_OPT
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore-opt
+              name: cilium-config
+              optional: true
         - name: CILIUM_FLANNEL_MASTER_DEVICE
           valueFrom:
             configMapKeyRef:
