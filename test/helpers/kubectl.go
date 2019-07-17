@@ -580,7 +580,45 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
-	return kub.WaitforNPods(namespace, filter, 0, timeout)
+	return kub.waitForNPods(checkReady, namespace, filter, 0, timeout)
+}
+
+// checkPodStatusFunc returns true if the pod is in the desired state, or false
+// otherwise.
+type checkPodStatusFunc func(v1.Pod) bool
+
+// checkRunning checks that the pods are running, but not necessarily ready.
+func checkRunning(pod v1.Pod) bool {
+	if pod.Status.Phase != v1.PodRunning || pod.ObjectMeta.DeletionTimestamp != nil {
+		return false
+	}
+	return true
+}
+
+// checkReady determines whether the pods are running and ready.
+func checkReady(pod v1.Pod) bool {
+	if !checkRunning(pod) {
+		return false
+	}
+
+	for _, container := range pod.Status.ContainerStatuses {
+		if !container.Ready {
+			return false
+		}
+	}
+	return true
+}
+
+// WaitforNPodsRunning waits up until timeout seconds have elapsed for at least
+// minRequired pods in the specified namespace that match the provided JSONPath
+// filter to have their containterStatuses equal to "running".
+// Returns no error if minRequired pods achieve the aforementioned desired
+// state within timeout seconds. Returns an error if the command failed or the
+// timeout was exceeded.
+// When minRequired is 0, the function will derive required pod count from number
+// of pods in the cluster for every iteration.
+func (kub *Kubectl) WaitforNPodsRunning(namespace string, filter string, minRequired int, timeout time.Duration) error {
+	return kub.waitForNPods(checkRunning, namespace, filter, minRequired, timeout)
 }
 
 // WaitforNPods waits up until timeout seconds have elapsed for at least
@@ -592,6 +630,10 @@ func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Du
 // When minRequired is 0, the function will derive required pod count from number
 // of pods in the cluster for every iteration.
 func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired int, timeout time.Duration) error {
+	return kub.waitForNPods(checkReady, namespace, filter, minRequired, timeout)
+}
+
+func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace string, filter string, minRequired int, timeout time.Duration) error {
 	body := func() bool {
 		podList := &v1.PodList{}
 		err := kub.GetPods(namespace, filter).Unmarshal(podList)
@@ -618,19 +660,10 @@ func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired in
 		//  - All containers in the pod have passed the liveness check via
 		//  containerStatuses.Ready
 		currScheduled := 0
-	perPod:
 		for _, pod := range podList.Items {
-			if pod.Status.Phase != v1.PodRunning || pod.ObjectMeta.DeletionTimestamp != nil {
-				continue perPod
+			if checkStatus(pod) {
+				currScheduled++
 			}
-
-			for _, container := range pod.Status.ContainerStatuses {
-				if !container.Ready {
-					continue perPod
-				}
-			}
-
-			currScheduled++
 		}
 
 		return currScheduled >= required
