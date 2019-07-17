@@ -174,6 +174,10 @@ const (
 	// KVstoreConnectivityTimeout is the timeout when performing kvstore operations
 	KVstoreConnectivityTimeout = 2 * time.Minute
 
+	// KVStoreStaleLockTimeout is the timeout for when a lock is held for
+	// a kvstore path for too long.
+	KVStoreStaleLockTimeout = 30 * time.Second
+
 	// IPAllocationTimeout is the timeout when allocating CIDRs
 	IPAllocationTimeout = 2 * time.Minute
 

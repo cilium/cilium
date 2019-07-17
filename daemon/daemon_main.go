@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
@@ -1256,6 +1257,16 @@ func (d *Daemon) initKVStore() {
 	goopts := &kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
+
+	controller.NewManager().UpdateController("kvstore-locks-gc",
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) error {
+				kvstore.RunLockGC()
+				return nil
+			},
+			RunInterval: defaults.KVStoreStaleLockTimeout,
+		},
+	)
 
 	// If K8s is enabled we can do the service translation automagically by
 	// looking at services from k8s and retrieve the service IP from that.

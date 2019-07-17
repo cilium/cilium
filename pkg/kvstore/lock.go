@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/debug"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	uuidfactor "github.com/cilium/cilium/pkg/uuid"
 
@@ -38,7 +39,7 @@ var (
 	// released lock. The only possibility of concurrent access is if a
 	// consumer is *still* holding the lock but this is highly unlikely
 	// given the duration of this timeout.
-	staleLockTimeout = time.Duration(30) * time.Second
+	staleLockTimeout = defaults.KVStoreStaleLockTimeout
 )
 
 type KVLocker interface {
@@ -65,13 +66,6 @@ type pathLocks struct {
 }
 
 func init() {
-	go func() {
-		for {
-			kvstoreLocks.runGC()
-			time.Sleep(staleLockTimeout)
-		}
-	}()
-
 	debug.RegisterStatusObject("kvstore-locks", &kvstoreLocks)
 }
 
@@ -154,6 +148,13 @@ func LockPath(ctx context.Context, path string) (l *Lock, err error) {
 
 	Trace("Successful lock", err, logrus.Fields{fieldKey: path})
 	return &Lock{kvLock: lock, path: path, id: id}, err
+}
+
+// RunLockGC inspects all local kvstore locks to determine whether they have
+// been held longer than the stale lock timeout, and if so, unlocks them
+// forceably.
+func RunLockGC() {
+	kvstoreLocks.runGC()
 }
 
 // Unlock unlocks a lock
