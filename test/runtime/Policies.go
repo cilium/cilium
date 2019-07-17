@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -1903,39 +1901,6 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 			res = vm.PolicyDelAll()
 			res.ExpectSuccess("deleting all policy rules should not fail even if no rules are imported to cilium")
 		})
-	})
-
-	It("Check Endpoint PolicyMap Generation", func() {
-		endpointIDMap, err := vm.GetEndpointsIds()
-		Expect(err).Should(BeNil(), "Unable to get endpoint IDs")
-
-		for _, endpointID := range endpointIDMap {
-			epID, _ := strconv.Atoi(endpointID)
-			By("Checking that endpoint policy map exists for endpoint %s", endpointID)
-			epPolicyMap := fmt.Sprintf("/sys/fs/bpf/tc/globals/cilium_policy_%05d", epID)
-			vm.Exec(fmt.Sprintf("test -f %s", epPolicyMap)).ExpectSuccess(fmt.Sprintf("Endpoint policy map %s does not exist", epPolicyMap))
-		}
-
-		vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
-
-		areEndpointsDeleted := vm.WaitEndpointsDeleted()
-		Expect(areEndpointsDeleted).To(BeTrue())
-
-		By("Getting ID of cilium-health endpoint")
-		res := vm.Exec(`cilium endpoint list -o jsonpath="{[?(@.status.labels.security-relevant[0]=='reserved:health')].id}"`)
-		Expect(res).Should(Not(BeNil()), "Unable to get cilium-health ID")
-
-		healthID := strings.TrimSpace(res.GetStdOut())
-
-		expected := "/sys/fs/bpf/tc/globals/cilium_policy"
-
-		policyMapsInVM := vm.Exec(fmt.Sprintf("find /sys/fs/bpf/tc/globals/cilium_policy* | grep -v reserved | grep -v %s", healthID))
-
-		By("Checking that all policy maps for endpoints have been deleted")
-		Expect(strings.TrimSpace(policyMapsInVM.GetStdOut())).To(Equal(expected), "Only %s PolicyMap should be present", expected)
-
-		By("Creating endpoints after deleting them to restore test state")
-		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 	})
 
 	It("checks policy trace output", func() {
