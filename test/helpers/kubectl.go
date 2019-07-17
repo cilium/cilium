@@ -1897,7 +1897,7 @@ func (kub *Kubectl) ciliumPreFlightCheck() error {
 		return fmt.Errorf("status is unhealthy: %s", err)
 	}
 
-	err := kub.ciliumControllersPreFlightCheck()
+	err = kub.ciliumControllersPreFlightCheck()
 	if err != nil {
 		return fmt.Errorf("controllers are failing: %s", err)
 	}
