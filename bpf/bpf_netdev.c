@@ -187,7 +187,8 @@ drop_err:
 }
 
 /* See nodeport_lb4(). */
-static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
+static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity,
+			       bool *found_nodeport)
 {
 	int ret, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -254,6 +255,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
+	*found_nodeport = true;
 	backend_local = lookup_ip6_endpoint(ip6);
 
 	switch (ret) {
@@ -303,13 +305,14 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 	__u32 secctx;
+	bool found_nodeport;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
 	if (!tc_index_skip_nodeport(skb)) {
-		int ret = nodeport_lb6(skb, src_identity);
+		int ret = nodeport_lb6(skb, src_identity, &found_nodeport);
 		if (ret < 0)
 			return ret;
 	}
@@ -375,6 +378,12 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
 			return TC_ACT_OK;
+
+#ifdef ENABLE_NODEPORT
+		if (!found_nodeport) {
+			return TC_ACT_OK;
+		}
+#endif /* ENABLE_NODEPORT */
 
 		return ipv6_local_delivery(skb, l3_off, l4_off, secctx, ip6, nexthdr, ep, METRIC_INGRESS);
 	}
@@ -535,7 +544,8 @@ drop_err:
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
  */
-static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
+static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity,
+			       bool *found_nodeport)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -598,6 +608,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+	*found_nodeport = true;
 	backend_local = lookup_ip4_endpoint(ip4);
 
 	switch (ret) {
@@ -645,13 +656,14 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 	struct iphdr *ip4;
 	int l4_off;
 	__u32 secctx;
+	bool found_nodeport;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
 	if (!tc_index_skip_nodeport(skb)) {
-		int ret = nodeport_lb4(skb, src_identity);
+		int ret = nodeport_lb4(skb, src_identity, &found_nodeport);
 		if (ret < 0)
 			return ret;
 	}
@@ -719,6 +731,12 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 #else
 			return TC_ACT_OK;
 #endif
+
+#ifdef ENABLE_NODEPORT
+		if (!found_nodeport) {
+			return TC_ACT_OK;
+		}
+#endif /* ENABLE_NODEPORT */
 
 		return ipv4_local_delivery(skb, ETH_HLEN, l4_off, secctx, ip4, ep, METRIC_INGRESS);
 	}
