@@ -171,6 +171,10 @@ const (
 	// KVstorePeriodicSync is the default kvstore periodic sync interval
 	KVstorePeriodicSync = 5 * time.Minute
 
+	// KVStoreStaleLockTimeout is the timeout for when a lock is held for
+	// a kvstore path for too long.
+	KVStoreStaleLockTimeout = 30 * time.Second
+
 	// PolicyQueueSize is the default queue size for policy-related events.
 	PolicyQueueSize = 100
 
