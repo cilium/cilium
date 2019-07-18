@@ -69,6 +69,7 @@ func (e *StoreConsulSuite) SetUpTest(c *C) {
 func (e *StoreConsulSuite) TearDownTest(c *C) {
 	kvstore.DeletePrefix(testPrefix)
 	kvstore.Close()
+	time.Sleep(defaults.NodeDeleteDelay + 5*time.Second)
 }
 
 type TestType struct {
@@ -198,7 +199,7 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 	c.Assert(expect(func() bool { return localKey3.updated() == 0 }), IsNil)
 
 	store.DeleteLocalKey(&localKey1)
-	// localKey2 will be deleted 2 times, one from local key and other from
+	// localKey1 will be deleted 2 times, one from local key and other from
 	// the kvstore watcher
 	c.Assert(expect(func() bool { return localKey1.deleted() == 2 }), IsNil)
 	c.Assert(expect(func() bool { return localKey2.deleted() == 0 }), IsNil)
@@ -242,8 +243,8 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	store.DeleteLocalKey(&localKey1)
 	store.DeleteLocalKey(&localKey2)
 
-	c.Assert(expect(func() bool { return localKey1.deleted() >= 1 }), IsNil)
-	c.Assert(expect(func() bool { return localKey2.deleted() >= 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey1.deleted() == 1 }), IsNil)
+	c.Assert(expect(func() bool { return localKey2.deleted() == 1 }), IsNil)
 }
 
 func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
