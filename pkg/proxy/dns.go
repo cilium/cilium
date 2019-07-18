@@ -97,7 +97,7 @@ func (dr *dnsRedirect) UpdateRules(rules policy.L7DataMap) revert.RevertFunc {
 }
 
 // Close the redirect.
-func (dr *dnsRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
+func (dr *dnsRedirect) Close() {
 	for _, rule := range dr.rules {
 		for _, dnsRule := range rule.DNS {
 			dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
@@ -110,7 +110,6 @@ func (dr *dnsRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
 		}
 	}
 	dr.rules = nil
-	return func() {}, nil
 }
 
 // creatednsRedirect creates a redirect to the dns proxy. The redirect structure passed

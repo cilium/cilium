@@ -539,19 +539,17 @@ func (k *kafkaRedirect) UpdateRules(rules policy.L7DataMap) revert.RevertFunc {
 }
 
 // Close the redirect.
-func (k *kafkaRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
-	return func() {
-		r := k.redirect
-		log.WithField(logfields.EndpointID, r.endpointID).Debugf("Un-Registering %s port: %d",
-			r.listener.name, r.dstPort)
-		key := mapKey(r.dstPort, r.listener.ingress, uint16(r.endpointID))
+func (k *kafkaRedirect) Close() {
+	r := k.redirect
+	log.WithField(logfields.EndpointID, r.endpointID).Debugf("Un-Registering %s port: %d",
+		r.listener.name, r.dstPort)
+	key := mapKey(r.dstPort, r.listener.ingress, uint16(r.endpointID))
 
-		mutex.Lock()
-		delete(kafkaRedirects, key)
-		k.listener.count--
-		log.Debugf("Close: Listener count: %d", k.listener.count)
-		mutex.Unlock()
-	}, nil
+	mutex.Lock()
+	delete(kafkaRedirects, key)
+	k.listener.count--
+	log.Debugf("Close: Listener count: %d", k.listener.count)
+	mutex.Unlock()
 }
 
 func init() {

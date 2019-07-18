@@ -26,14 +26,15 @@ import (
 // RedirectImplementation is the generic proxy redirect interface that each
 // proxy redirect type must implement
 type RedirectImplementation interface {
-	// UpdateRules notifies the proxy implementation that the new rules in
-	// parameter 'rules' are to be applied.
-	// Initially called right after the redirect is created.
+	// UpdateRules notifies the proxy implementation that the new
+	// rules in parameter 'rules' are to be applied.  Initially
+	// called right after the redirect is created. The returned
+	// revertFunc must revert any changes done here.
 	UpdateRules(rules policy.L7DataMap) revert.RevertFunc
 
-	// Close closes and cleans up resources associated with the redirect
-	// implementation.
-	Close() (revert.FinalizeFunc, revert.RevertFunc)
+	// Close closes and cleans up resources associated with the
+	// redirect implementation.
+	Close()
 }
 
 type Redirect struct {
