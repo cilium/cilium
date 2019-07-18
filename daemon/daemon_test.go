@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -77,19 +76,17 @@ type DaemonSuite struct {
 	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
 }
 
-func (ds *DaemonSuite) SetUpTest(c *C) {
+func TestMain(m *testing.M) {
 	option.Config.Populate()
-	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
-	policy.SetPolicyEnabled(option.DefaultEnforcement)
-
-	// kvstore is initialized before generic SetUpTest so it must have been completed
-	ds.kvstoreInit = true
-
 	time.Local = time.UTC
 	tempRunDir, err := ioutil.TempDir("", "cilium-test-run")
-	c.Assert(err, IsNil)
+	if err != nil {
+		panic("TempDir() failed.")
+	}
 	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
-	c.Assert(err, IsNil)
+	if err != nil {
+		panic("Mkdir failed")
+	}
 
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
@@ -100,13 +97,22 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	// GetConfig the default labels prefix filter
 	err = labels.ParseLabelPrefixCfg(nil, "")
-	c.Assert(err, IsNil)
+	if err != nil {
+		panic("ParseLabelPrefixCfg() failed")
+	}
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 
 	// Disable restore of host IPs for unit tests. There can be arbitrary
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
+
+	os.Exit(m.Run())
+}
+
+func (ds *DaemonSuite) SetUpTest(c *C) {
+	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
+	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	d, _, err := NewDaemon(fakedatapath.NewDatapath())
 	c.Assert(err, IsNil)
@@ -152,11 +158,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	cache.Close()
 
 	ds.d.Close()
-
-	_, collectors := metrics.CreateConfiguration(common.MapStringStructToSlice(metrics.DefaultMetrics()))
-	for _, collector := range collectors {
-		metrics.Unregister(collector)
-	}
 }
 
 type DaemonEtcdSuite struct {
@@ -165,8 +166,12 @@ type DaemonEtcdSuite struct {
 
 var _ = Suite(&DaemonEtcdSuite{})
 
-func (e *DaemonEtcdSuite) SetUpTest(c *C) {
+func (e *DaemonEtcdSuite) SetUpSuite(c *C) {
 	kvstore.SetupDummy("etcd")
+	e.DaemonSuite.kvstoreInit = true
+}
+
+func (e *DaemonEtcdSuite) SetUpTest(c *C) {
 	e.DaemonSuite.SetUpTest(c)
 }
 
@@ -180,8 +185,12 @@ type DaemonConsulSuite struct {
 
 var _ = Suite(&DaemonConsulSuite{})
 
-func (e *DaemonConsulSuite) SetUpTest(c *C) {
+func (e *DaemonConsulSuite) SetUpSuite(c *C) {
 	kvstore.SetupDummy("consul")
+	e.DaemonSuite.kvstoreInit = true
+}
+
+func (e *DaemonConsulSuite) SetUpTest(c *C) {
 	e.DaemonSuite.SetUpTest(c)
 }
 
