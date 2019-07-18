@@ -57,7 +57,11 @@ const (
 var (
 	// vethName is the host-side veth link device name for cilium-health EP
 	// (veth mode only).
-	vethName = "cilium_health"
+	vethName = "lxc_health"
+
+	// legacyVethName is the host-side cilium-health EP device name used in
+	// older Cilium versions. Used for removal only.
+	legacyVethName = "cilium_health"
 
 	// epIfaceName is the endpoint-side link device name for cilium-health.
 	epIfaceName = "cilium"
@@ -191,14 +195,16 @@ func CleanupEndpoint() {
 	// namespace marked for deletion has not yet been terminated).
 	switch option.Config.DatapathMode {
 	case option.DatapathModeVeth:
-		scopedLog := log.WithField(logfields.Veth, vethName)
-		if link, err := netlink.LinkByName(vethName); err == nil {
-			err = netlink.LinkDel(link)
-			if err != nil {
-				scopedLog.WithError(err).Info("Couldn't delete cilium-health veth device")
+		for _, iface := range []string{legacyVethName, vethName} {
+			scopedLog := log.WithField(logfields.Veth, iface)
+			if link, err := netlink.LinkByName(iface); err == nil {
+				err = netlink.LinkDel(link)
+				if err != nil {
+					scopedLog.WithError(err).Info("Couldn't delete cilium-health veth device")
+				}
+			} else {
+				scopedLog.WithError(err).Debug("Didn't find existing device")
 			}
-		} else {
-			scopedLog.WithError(err).Debug("Didn't find existing device")
 		}
 	case option.DatapathModeIpvlan:
 		if err := netns.RemoveIfFromNetNSWithNameIfBothExist(netNSName, epIfaceName); err != nil {
