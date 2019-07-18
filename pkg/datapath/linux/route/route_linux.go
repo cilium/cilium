@@ -42,6 +42,9 @@ const (
 
 	// MainTable is Linux's default routing table
 	MainTable = 254
+
+	// EncryptRouteProtocol for Encryption specific routes
+	EncryptRouteProtocol = 192
 )
 
 // getNetlinkRoute returns the route configuration as netlink.Route
