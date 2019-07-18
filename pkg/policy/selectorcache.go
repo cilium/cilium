@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"bytes"
+	"encoding/json"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -54,6 +56,24 @@ type CachedSelector interface {
 
 // CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
 type CachedSelectorSlice []CachedSelector
+
+// MarshalJSON returns the CachedSelectors as JSON formatted buffer
+func (s CachedSelectorSlice) MarshalJSON() ([]byte, error) {
+	buffer := bytes.NewBufferString("[")
+	for i, selector := range s {
+		buf, err := json.Marshal(selector.String())
+		if err != nil {
+			return nil, err
+		}
+
+		buffer.Write(buf)
+		if i < len(s)-1 {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString("]")
+	return buffer.Bytes(), nil
+}
 
 func (s CachedSelectorSlice) Len() int      { return len(s) }
 func (s CachedSelectorSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
