@@ -796,7 +796,7 @@ EOF`, k, v)
 
 			By("Apply policy to web")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, helpers.ManifestGet(webPolicy),
+				helpers.DefaultNamespace, helpers.ManifestGet(webPolicy),
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply web-policy")
 
@@ -807,7 +807,7 @@ EOF`, k, v)
 
 			By("Apply policy to Redis")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicy),
+				helpers.DefaultNamespace, helpers.ManifestGet(redisPolicy),
 				helpers.KubectlApply, helpers.HelperTimeout)
 
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
@@ -820,14 +820,14 @@ EOF`, k, v)
 			testConnectivitytoRedis()
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicy),
+				helpers.DefaultNamespace, helpers.ManifestGet(redisPolicy),
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 
 			By("Apply deprecated policy to Redis")
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, helpers.ManifestGet(redisPolicyDeprecated),
+				helpers.DefaultNamespace, helpers.ManifestGet(redisPolicyDeprecated),
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot apply redis deprecated policy err: %q", err)
 
@@ -911,13 +911,13 @@ EOF`, k, v)
 			// namespace and all works as expected.
 			By("Applying Policy in %q namespace", secondNS)
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3l4PolicySecondNS, helpers.KubectlApply, helpers.HelperTimeout)
+				secondNS, l3l4PolicySecondNS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Policy cannot be applied in %q namespace", l3l4PolicySecondNS, secondNS)
 
 			By("Applying Policy in default namespace")
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l3L4Policy, helpers.KubectlApply, helpers.HelperTimeout)
+				helpers.DefaultNamespace, l3L4Policy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(),
 				"%q Policy cannot be applied in %q namespace", l3L4Policy, helpers.DefaultNamespace)
 
@@ -967,7 +967,7 @@ EOF`, k, v)
 
 			By("Applying Policy in %q namespace", secondNS)
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, netpolNsSelector, helpers.KubectlApply, helpers.HelperTimeout)
+				helpers.DefaultNamespace, netpolNsSelector, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy cannot be applied")
 
 			for _, pod := range []string{helpers.App2, helpers.App3} {
@@ -988,7 +988,7 @@ EOF`, k, v)
 
 			By("Delete Kubernetes Network Policies in %q namespace", secondNS)
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, netpolNsSelector, helpers.KubectlDelete, helpers.HelperTimeout)
+				helpers.DefaultNamespace, netpolNsSelector, helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy %q cannot be deleted", netpolNsSelector)
 
 			for _, pod := range []string{helpers.App2, helpers.App3} {
@@ -1007,7 +1007,7 @@ EOF`, k, v)
 		It("Cilium Network policy using namespace label and L7", func() {
 
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, cnpSecondNS, helpers.KubectlApply, helpers.HelperTimeout)
+				helpers.DefaultNamespace, cnpSecondNS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpSecondNS)
 
 			By("Testing connectivity in %q namespace", secondNS)

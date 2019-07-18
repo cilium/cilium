@@ -250,7 +250,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Installing the L3-L4 Policy")
 			_, err := kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, netperfPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+				helpers.DefaultNamespace, netperfPolicy, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", netperfPolicy)
 
 			restartCilium()
