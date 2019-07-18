@@ -105,19 +105,20 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup, l4 *policy.L4Filter
 
 // Close the redirect.
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	for _, rule := range dr.currentRules {
-		for _, dnsRule := range rule.DNS {
-			dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
-			dnsNameAsRE := matchpattern.ToRegexp(dnsName)
-			DefaultDNSProxy.RemoveAllowed(dnsNameAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
+	return func() {
+		for _, rule := range dr.currentRules {
+			for _, dnsRule := range rule.DNS {
+				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
+				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
+				DefaultDNSProxy.RemoveAllowed(dnsNameAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
 
-			dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
-			dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
-			DefaultDNSProxy.RemoveAllowed(dnsPatternAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
+				dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
+				dnsPatternAsRE := matchpattern.ToRegexp(dnsPattern)
+				DefaultDNSProxy.RemoveAllowed(dnsPatternAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
+			}
 		}
-	}
-	dr.currentRules = nil
-	return func() {}, nil
+		dr.currentRules = nil
+	}, nil
 }
 
 // creatednsRedirect creates a redirect to the dns proxy. The redirect structure passed
