@@ -147,8 +147,8 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		BeforeAll(func() {
-			kubectl.NamespaceCreate(namespaceForTest)
-			kubectl.Apply(demoPath, namespaceForTest)
+			Expect(kubectl.NamespaceCreate(namespaceForTest)).To(BeNil(), "could not create namespace")
+			Expect(kubectl.Apply(demoPath, namespaceForTest)).To(BeNil(), "could not create resource")
 
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
