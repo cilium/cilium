@@ -31,6 +31,7 @@ type CiliumTestConfigType struct {
 	CiliumOperatorImage string
 	ProvisionK8s        bool
 	Timeout             time.Duration
+	Kubeconfig          string
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -59,4 +60,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies whether Kubernetes should be deployed and installed via kubeadm or not")
 	flag.DurationVar(&c.Timeout, "cilium.timeout", 24*time.Hour,
 		"Specifies timeout for test run")
+	flag.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
+		"Kubeconfig to be used for k8s tests")
 }
