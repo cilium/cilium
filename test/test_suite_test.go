@@ -244,7 +244,7 @@ var _ = BeforeAll(func() {
 				}
 			}
 		}
-		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		var kubectl *helpers.Kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		kubectl.Apply(helpers.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 
