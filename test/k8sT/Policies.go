@@ -90,7 +90,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			ciliumPod        string
 			clusterIP        string
 			appPods          map[string]string
-			namespaceForTest = "basicTest"
+			namespaceForTest = "basictest"
 		)
 
 		importPolicy := func(file, name string) {
