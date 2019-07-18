@@ -498,6 +498,8 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		// it doesn't seem to handle all cases, e.g. host network pods that use
 		// the node IP which would still end up in default DENY. Similarly, for
 		// plain Docker setup, we would otherwise hit default DENY in FORWARD chain.
+		// Also, k8s 1.15 introduced "-m conntrack --ctstate INVALID -j DROP" which
+		// in the direct routing case can drop EP replies.
 		// Therefore, add both rules below to avoid having a user to manually opt-in.
 		// See also: https://github.com/kubernetes/kubernetes/issues/39823
 		if err := runProg("iptables", []string{
