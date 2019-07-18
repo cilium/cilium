@@ -596,6 +596,10 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 		oldKey = oldNode.EncryptionKey
 	}
 
+	if n.nodeConfig.EnableIPSec == false {
+		n.deleteIPsecEncryptRoute()
+	}
+
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
@@ -695,7 +699,9 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *node.Node) error {
 	if n.nodeConfig.EnableIPSec {
 		n.deleteIPsec(oldNode)
 	}
-
+	if n.nodeConfig.EncryptNode == false {
+		n.deleteIPsecEncryptRoute()
+	}
 	return nil
 }
 
@@ -823,6 +829,7 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 		Device: dev,
 		Prefix: *ip,
 		Table:  tbl,
+		Proto:  route.EncryptRouteProtocol,
 	}
 }
 
@@ -916,6 +923,26 @@ func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
 	_, err := route.Upsert(n.createNodeIPSecInRoute(ip), &n.nodeConfig.MtuConfig)
 	if err != nil {
 		log.WithError(err).Error("Unable to replace the IPSec route IN the host routing table")
+	}
+}
+
+func (n *linuxNodeHandler) deleteIPsecEncryptRoute() {
+	filter := &netlink.Route{
+		Protocol: route.EncryptRouteProtocol,
+	}
+
+	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
+		routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_PROTOCOL)
+		if err != nil {
+			log.WithError(err).Error("Unable to list direct routes")
+			return
+		}
+
+		for _, rt := range routes {
+			if err := netlink.RouteDel(&rt); err != nil {
+				log.WithError(err).Warningf("Unable to delete direct node route %s", rt.String())
+			}
+		}
 	}
 }
 
