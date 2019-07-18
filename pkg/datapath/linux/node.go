@@ -887,6 +887,7 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 		Device: dev,
 		Prefix: *ip,
 		Table:  tbl,
+		Proto:  route.EncryptRouteProtocol,
 	}
 }
 

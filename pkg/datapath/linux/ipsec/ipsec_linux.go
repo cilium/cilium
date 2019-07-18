@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/vishvananda/netlink"
 
@@ -463,4 +464,26 @@ func EnableIPv6Forwarding() error {
 	forwardingOn := "1"
 	path := filepath.Join(ip6ConfPath, device, forwarding)
 	return ioutil.WriteFile(path, []byte(forwardingOn), 0644)
+}
+
+// DeleteIPsecEncryptRoute removes nodes in main routing table by walking
+// routes and matching route protocol type.
+func DeleteIPsecEncryptRoute() {
+	filter := &netlink.Route{
+		Protocol: route.EncryptRouteProtocol,
+	}
+
+	for _, family := range []int{netlink.FAMILY_V4, netlink.FAMILY_V6} {
+		routes, err := netlink.RouteListFiltered(family, filter, netlink.RT_FILTER_PROTOCOL)
+		if err != nil {
+			log.WithError(err).Error("Unable to list direct routes")
+			return
+		}
+
+		for _, rt := range routes {
+			if err := netlink.RouteDel(&rt); err != nil {
+				log.WithError(err).Warningf("Unable to delete direct node route %s", rt.String())
+			}
+		}
+	}
 }

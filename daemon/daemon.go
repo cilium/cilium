@@ -939,6 +939,9 @@ func setupIPSec() (int, error) {
 		}
 	}
 	node.SetIPsecKeyIdentity(spi)
+	if option.Config.EncryptNode == false {
+		ipsec.DeleteIPsecEncryptRoute()
+	}
 
 	return authKeySize, nil
 }
