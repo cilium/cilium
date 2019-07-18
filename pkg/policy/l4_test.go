@@ -143,6 +143,9 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	expectedIngress := []string{`{
   "port": 80,
   "protocol": "TCP",
+  "l3-selectors": [
+    "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}"
+  ],
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
@@ -159,6 +162,9 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		`{
   "port": 9090,
   "protocol": "TCP",
+  "l3-selectors": [
+    "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}"
+  ],
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {
@@ -180,6 +186,9 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		`{
   "port": 8080,
   "protocol": "TCP",
+  "l3-selectors": [
+    "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}"
+  ],
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[],}": {

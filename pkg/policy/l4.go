@@ -117,7 +117,7 @@ type L4Filter struct {
 	// This includes selectors for destinations affected by entity-based
 	// and CIDR-based policy.
 	// Holds references to the CachedSelectors, which must be released!
-	CachedSelectors CachedSelectorSlice `json:"-"`
+	CachedSelectors CachedSelectorSlice `json:"l3-selectors,omitempty"`
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
