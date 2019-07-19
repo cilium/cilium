@@ -34,16 +34,15 @@ var (
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
 type dnsRedirect struct {
-	redirect     *Redirect
-	currentRules policy.L7DataMap
+	redirect *Redirect
+	rules    policy.L7DataMap
 }
 
 // setRules replaces old l7 rules of a redirect with new ones.
-// TODO: Get rid of the duplication between 'currentRules' and 'r.rules'
-func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) error {
+func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) {
 	var toRemove, toAdd []string
 
-	for _, rule := range dr.currentRules {
+	for _, rule := range dr.rules {
 		for _, dnsRule := range rule.DNS {
 			if len(dnsRule.MatchName) > 0 {
 				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
@@ -58,7 +57,7 @@ func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) error {
 		}
 	}
 
-	for _, rule := range dr.redirect.rules {
+	for _, rule := range newRules {
 		for _, dnsRule := range rule.DNS {
 			if len(dnsRule.MatchName) > 0 {
 				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
@@ -79,27 +78,28 @@ func (dr *dnsRedirect) setRules(newRules policy.L7DataMap) error {
 		logfields.EndpointID: dr.redirect.endpointID,
 	}).Debug("DNS Proxy updating matchNames in allowed list during UpdateRules")
 	DefaultDNSProxy.UpdateAllowed(toAdd, toRemove, fmt.Sprintf("%d", dr.redirect.endpointID))
-	dr.currentRules = copyRules(dr.redirect.rules)
-
-	return nil
+	dr.rules = newRules
 }
 
 // UpdateRules atomically replaces the proxy rules in effect for this redirect.
 // It is not aware of revision number and doesn't account for out-of-order
 // calls to UpdateRules or the returned RevertFunc.
-func (dr *dnsRedirect) UpdateRules(l4 *policy.L4Filter) (revert.RevertFunc, error) {
-	oldRules := dr.currentRules
-	err := dr.setRules(dr.redirect.rules)
-	revertFunc := func() error {
-		return dr.setRules(oldRules)
+// Called with k.redirect locked.
+func (dr *dnsRedirect) UpdateRules(rules policy.L7DataMap) revert.RevertFunc {
+	oldRules := dr.rules
+	dr.setRules(rules)
+	return func() error {
+		dr.redirect.mutex.Lock()
+		dr.setRules(oldRules)
+		dr.redirect.mutex.Unlock()
+		return nil
 	}
-	return revertFunc, err
 }
 
 // Close the redirect.
 func (dr *dnsRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
 	return func() {
-		for _, rule := range dr.currentRules {
+		for _, rule := range dr.rules {
 			for _, dnsRule := range rule.DNS {
 				dnsName := strings.ToLower(dns.Fqdn(dnsRule.MatchName))
 				dnsNameAsRE := matchpattern.ToRegexp(dnsName)
@@ -110,7 +110,7 @@ func (dr *dnsRedirect) Close() (revert.FinalizeFunc, revert.RevertFunc) {
 				DefaultDNSProxy.RemoveAllowed(dnsPatternAsRE, fmt.Sprintf("%d", dr.redirect.endpointID))
 			}
 		}
-		dr.currentRules = nil
+		dr.rules = nil
 	}, nil
 }
 
@@ -125,13 +125,5 @@ func createDNSRedirect(r *Redirect) (RedirectImplementation, error) {
 		"dnsRedirect": dr,
 	}).Debug("Creating DNS Proxy redirect")
 
-	return dr, dr.setRules(r.rules)
-}
-
-func copyRules(rules policy.L7DataMap) policy.L7DataMap {
-	currentRules := policy.L7DataMap{}
-	for key, val := range rules {
-		currentRules[key] = val
-	}
-	return currentRules
+	return dr, nil
 }

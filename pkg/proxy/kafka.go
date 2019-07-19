@@ -76,6 +76,7 @@ type kafkaRedirect struct {
 	listener *kafkaListener
 	redirect *Redirect
 	conf     kafkaConfiguration
+	rules    policy.L7DataMap
 }
 
 type srcIDLookupFunc func(mapname, remoteAddr, localAddr string, ingress bool) (uint32, error)
@@ -219,7 +220,7 @@ func (k *kafkaRedirect) canAccess(req *kafka.RequestMessage, srcIdentity identit
 	})
 
 	k.redirect.mutex.RLock()
-	rules := k.redirect.rules.GetRelevantRulesForKafka(srcIdentity)
+	rules := k.rules.GetRelevantRulesForKafka(srcIdentity)
 	k.redirect.mutex.RUnlock()
 
 	if len(rules) == 0 {
@@ -524,10 +525,17 @@ func (k *kafkaRedirect) handleResponseConnection(pair *connectionPair, correlati
 		}, remoteAddr, remoteIdentity, origDstAddr)
 }
 
-// UpdateRules is a no-op for kafka redirects, as rules are read directly
-// during request processing.
-func (k *kafkaRedirect) UpdateRules(l4 *policy.L4Filter) (revert.RevertFunc, error) {
-	return func() error { return nil }, nil
+// UpdateRules keeps a local reference to the L4 rules, which may not be modified!
+// Called with k.redirect locked.
+func (k *kafkaRedirect) UpdateRules(rules policy.L7DataMap) revert.RevertFunc {
+	oldRules := k.rules
+	k.rules = rules
+	return func() error {
+		k.redirect.mutex.Lock()
+		k.rules = oldRules
+		k.redirect.mutex.Unlock()
+		return nil
+	}
 }
 
 // Close the redirect.
