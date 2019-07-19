@@ -82,7 +82,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -114,11 +113,10 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
-	buildEndpointSem *semaphore.Weighted
-	l7Proxy          *proxy.Proxy
-	loadBalancer     *loadbalancer.LoadBalancer
-	policy           *policy.Repository
-	preFilter        *prefilter.PreFilter
+	l7Proxy      *proxy.Proxy
+	loadBalancer *loadbalancer.LoadBalancer
+	policy       *policy.Repository
+	preFilter    *prefilter.PreFilter
 	// Only used for CRI-O since it does not support events.
 	workloadsEventsCh chan<- *workloads.EventMessage
 
@@ -256,14 +254,9 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 		d.uniqueIDMU.Unlock()
 		return nil, nil
 	}
-	// Store a cancel function to the 'uniqueID' map so that we can
-	// cancel the wait when the endpoint is being deleted.
-	uniqueIDCtx, cancel := context.WithCancel(ctx)
+	_, cancel := context.WithCancel(ctx)
 	d.uniqueID[epID] = cancel
 	d.uniqueIDMU.Unlock()
-
-	// Acquire build permit. This may block.
-	err := d.buildEndpointSem.Acquire(uniqueIDCtx, 1)
 
 	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
 	// The caller may still cancel the build by calling the cancel func after we
@@ -273,26 +266,7 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 	delete(d.uniqueID, epID)
 	d.uniqueIDMU.Unlock()
 
-	if err != nil {
-		return nil, err // Acquire failed
-	}
-
-	// Acquire succeeded, but the context was canceled after?
-	if uniqueIDCtx.Err() != nil {
-		d.buildEndpointSem.Release(1)
-		return nil, uniqueIDCtx.Err()
-	}
-
-	// At this point the build permit has been acquired. It must
-	// be released by the caller by calling the returned function
-	// when the heavy lifting of the build is done.
-	// Using sync.Once to make the returned function idempotent.
-	var once sync.Once
-	doneFunc := func() {
-		once.Do(func() {
-			d.buildEndpointSem.Release(1)
-		})
-	}
+	doneFunc := func() {}
 	return doneFunc, nil
 }
 
@@ -738,7 +712,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		uniqueID:          map[uint64]context.CancelFunc{},
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
-		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
 		netConf:           netConf,
 		mtuConfig:         mtuConfig,
