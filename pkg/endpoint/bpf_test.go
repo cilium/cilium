@@ -23,13 +23,12 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/policy"
 
 	. "gopkg.in/check.v1"
 )
 
 func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
-	e := NewEndpointWithState(s.repo, 100, StateCreating)
+	e := NewEndpointWithState(s, 100, StateCreating)
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
@@ -39,8 +38,7 @@ func (s *EndpointSuite) TestWriteInformationalComments(c *C) {
 type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
-	repo := policy.NewPolicyRepository()
-	e := NewEndpointWithState(repo, 100, StateCreating)
+	e := NewEndpointWithState(&suite, 100, StateCreating)
 	dp := linux.NewDatapath(linux.DatapathConfiguration{})
 
 	targetComments := func(w io.Writer) error {

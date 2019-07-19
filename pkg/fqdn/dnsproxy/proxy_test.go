@@ -17,14 +17,22 @@
 package dnsproxy
 
 import (
+	"context"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/lock"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/miekg/dns"
 	. "gopkg.in/check.v1"
@@ -41,6 +49,53 @@ type DNSProxyTestSuite struct {
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
 }
+
+func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
+	return s.repo
+}
+
+func (s *DNSProxyTestSuite) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
+	return 0, "", nil
+}
+
+func (s *DNSProxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+	return 0, nil, nil, nil
+}
+
+func (s *DNSProxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
+}
+
+func (s *DNSProxyTestSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	return nil, nil
+}
+
+func (s *DNSProxyTestSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
+
+func (s *DNSProxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	return nil, nil
+}
+
+func (s *DNSProxyTestSuite) RemoveFromEndpointQueue(epID uint64) {}
+
+func (s *DNSProxyTestSuite) GetCompilationLock() *lock.RWMutex {
+	return nil
+}
+
+func (s *DNSProxyTestSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+	return nil
+}
+
+func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
+	return nil
+}
+
+func (s *DNSProxyTestSuite) GetNodeSuffix() string {
+	return ""
+}
+
+func (s *DNSProxyTestSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 var _ = Suite(&DNSProxyTestSuite{})
 
@@ -86,7 +141,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 
 	proxy, err := StartDNSProxy("", 0,
 		func(ip net.IP) (*endpoint.Endpoint, error) {
-			ep := endpoint.NewEndpointWithState(s.repo, 123, endpoint.StateReady)
+			ep := endpoint.NewEndpointWithState(s, 123, endpoint.StateReady)
 			return ep, nil
 		},
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error {
