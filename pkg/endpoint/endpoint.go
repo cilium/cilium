@@ -1349,7 +1349,6 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
-		// TODO: Check if network policy was created even without SecurityIdentity
 		e.owner.RemoveNetworkPolicy(e)
 		e.SecurityIdentity = nil
 	}

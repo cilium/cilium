@@ -586,6 +586,34 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
+		// Configure the new network policy with the proxies.
+		// Do this before updating the bpf policy maps, so that the proxy listeners have a chance to be
+		// ready when new traffic is redirected to them.
+		stats.proxyPolicyCalculation.Start()
+		err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
+		stats.proxyPolicyCalculation.End(err == nil)
+		if err != nil {
+			return err
+		}
+		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
+
+		// Walk the L4Policy to add new redirects and update the desired policy for existing redirects.
+		// Do this before updating the bpf policy maps, so that the proxies are ready when new traffic
+		// is redirected to them.
+		var desiredRedirects map[string]bool
+		var finalizeFunc revert.FinalizeFunc
+		var revertFunc revert.RevertFunc
+		if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil && e.desiredPolicy.L4Policy.HasRedirects() {
+			stats.proxyConfiguration.Start()
+			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(e.desiredPolicy.L4Policy)
+			stats.proxyConfiguration.End(err == nil)
+			if err != nil {
+				return err
+			}
+			datapathRegenCtxt.finalizeList.Append(finalizeFunc)
+			datapathRegenCtxt.revertStack.Push(revertFunc)
+		}
+
 		// realizedBPFConfig may be updated at any point after we figure out
 		// whether ingress/egress policy is enabled.
 		e.desiredBPFConfig = bpfconfig.GetConfig(e)
@@ -597,7 +625,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		// GH-3897 would fix this by creating a new map to do an atomic swap
 		// with the old one.
 		stats.mapSync.Start()
-		err := e.syncPolicyMap()
+		err = e.syncPolicyMap()
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -617,40 +645,15 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 			return e.bpfConfigMap.Update(e.realizedBPFConfig)
 		})
 
-		// Configure the new network policy with the proxies.
-		stats.proxyPolicyCalculation.Start()
-		var networkPolicyRevertFunc revert.RevertFunc
-		err, networkPolicyRevertFunc = e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
-		stats.proxyPolicyCalculation.End(err == nil)
-		if err != nil {
-			return err
-		}
-
-		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
-	}
-
-	stats.proxyConfiguration.Start()
-	var finalizeFunc revert.FinalizeFunc
-	var revertFunc revert.RevertFunc
-	// Walk the L4Policy to add new redirects and update the desired policy map
-	// state to set the newly allocated proxy ports.
-	var desiredRedirects map[string]bool
-	if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil {
-		desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(e.desiredPolicy.L4Policy)
-		if err != nil {
-			stats.proxyConfiguration.End(false)
-			return err
-		}
+		// At this point, traffic is no longer redirected to the proxy for
+		// now-obsolete redirects, since we synced the updated policy map above.
+		// It's now safe to remove the redirects from the proxy's configuration.
+		stats.proxyConfiguration.Start()
+		finalizeFunc, revertFunc = e.removeOldRedirects(desiredRedirects)
 		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 		datapathRegenCtxt.revertStack.Push(revertFunc)
+		stats.proxyConfiguration.End(true)
 	}
-	// At this point, traffic is no longer redirected to the proxy for
-	// now-obsolete redirects, since we synced the updated policy map above.
-	// It's now safe to remove the redirects from the proxy's configuration.
-	finalizeFunc, revertFunc = e.removeOldRedirects(desiredRedirects)
-	datapathRegenCtxt.finalizeList.Append(finalizeFunc)
-	datapathRegenCtxt.revertStack.Push(revertFunc)
-	stats.proxyConfiguration.End(true)
 
 	stats.prepareBuild.Start()
 	defer func() {
