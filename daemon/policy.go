@@ -467,7 +467,7 @@ func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.Endpoi
 	})
 
 	// Regenerate all other endpoints.
-	regenMetadata := &regeneration.ExternalRegenerationMetadata{Reason: "policy rules added"}
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{Reason: "policy rules changed"}
 	epsToRegen.ForEachGo(&enqueueWaitGroup, func(ep policy.Endpoint) {
 		if ep != nil {
 			switch e := ep.(type) {
