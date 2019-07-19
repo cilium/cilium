@@ -36,6 +36,12 @@ import (
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
 func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
+	return GlobalEndpointManager.runGC(e, ipv4, ipv6, filter)
+}
+
+// garbage collected and any failures will be logged to the endpoint log.
+// Otherwise it will garbage-collect the global map and use the global log.
+func (epMgr *EndpointManager) runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
 	var maps []*ctmap.Map
 
 	if e == nil {
@@ -103,7 +109,7 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint) *c
 }
 
 // EnableConntrackGC enables the connection tracking garbage collection.
-func EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) {
+func (epMgr *EndpointManager) EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint) {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
