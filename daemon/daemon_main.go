@@ -1216,6 +1216,49 @@ func initEnv(cmd *cobra.Command) {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
 		return
 	}
+
+	// kvstore & identity allocation validation
+	// This section needs to account for a number of scenarios:
+	// 1- identity-allocation-mode:crd with no kvstore set.
+	//    This is the new default in the example yamls. K8s will be used for
+	//    identities, node information and ipcache.
+	// 2- identity-allocation-mode unset and kvstore set.
+	//    This represents upgrades of existing clusters. These should continue
+	//    using the kvstore for identities, node info and ipcache.
+	// 3- identity-allocation-mode:crd with a kvstore set.
+	//    This uses the kvstore for ipcache and node information and k8s for
+	//    identities. This is not expected to be common.
+	// 4- identity-allocation-mode unset and kvstore unset.
+	//    This is not a misconfiguration but not very ideal. We can best-effort
+	//    recover and use k8s for identities, node info and ipcache, but only if
+	//    we are running in k8s.
+
+	// This is the default. It must be kvstore to support upgrades from versions
+	// without this flag.
+	if !viper.IsSet(IdentityAllocationMode) {
+		c.IdentityAllocationMode = IdentityAllocationModeKVstore
+	}
+	if c.IdentityAllocationMode != IdentityAllocationModeCRD || c.IdentityAllocationMode != IdentityAllocationModeKVStore {
+		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
+	}
+	// We cannot use Identity CRD when not in k8s
+	if c.IdentityAllocationMode == IdentityAllocationModeCRD && !k8s.IsEnabled() {
+		log.Fatalf("Invalid identity allocation mode %q. It must be %s in non-kubernetes environments", c.IdentityAllocationMode, IdentityAllocationModeKVstore)
+	}
+
+	if !viper.IsSet(option.KVStore) || !viper.IsSet(option.KVStoreOpt) {
+		if !k8s.IsEnabled() {
+			log.Fatal("cilium must run with a kvstore or within kubernetes")
+		}
+		if viper.IsSet(option.IdentityAllocationMode) && c.IdentityAllocationMode != IdentityAllocationModeCRD {
+			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
+			c.IdentityAllocationMode = IdentityAllocationModeCRD
+		}
+		if c.DisableCiliumEndpointCRD {
+			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
+			c.DisableCiliumEndpointCRD = false
+		}
+	}
 }
 
 // waitForHostDeviceWhenReady waits the given ifaceName to be up and ready. If

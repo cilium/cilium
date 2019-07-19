@@ -1492,6 +1492,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
+	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
 	c.KVStore = viper.GetString(KVStore)
 	c.KVstoreLeaseTTL = viper.GetDuration(KVstoreLeaseTTL)
 	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
@@ -1659,42 +1660,6 @@ func (c *DaemonConfig) Populate() {
 
 	if err := c.parseExcludedLocalAddresses(viper.GetStringSlice(ExcludeLocalAddress)); err != nil {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
-	}
-
-	// FIXME: This is copied from pkg/k8s to avoid an import loop
-	isK8s := Config.K8sAPIServer != "" ||
-		Config.K8sKubeConfigPath != "" ||
-		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
-			os.Getenv("KUBERNETES_SERVICE_PORT") != "")
-	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
-	switch {
-	// This is the default. It must be kvstore to support upgrades from versions without this flag.
-	case c.IdentityAllocationMode == "":
-		c.IdentityAllocationMode = IdentityAllocationModeKVstore
-
-	case c.IdentityAllocationMode == IdentityAllocationModeKVstore:
-		// c.IdentityAllocationMode is set above. This is valid in all cases
-
-	// We cannot use CRD when not in k8s
-	case c.IdentityAllocationMode == IdentityAllocationModeCRD && !isK8s:
-		log.Fatalf("Invalid identity allocation mode %q. It must be %s in non-kubernetes environments", c.IdentityAllocationMode, IdentityAllocationModeKVstore)
-
-	// This is valid in k8s, and we arrive here because the case above did not match
-	case c.IdentityAllocationMode == IdentityAllocationModeCRD:
-		// c.IdentityAllocationMode is set above
-
-	default:
-		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
-	}
-	if c.KVStore == "" {
-		if c.IdentityAllocationMode != IdentityAllocationModeCRD {
-			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
-			c.IdentityAllocationMode = IdentityAllocationModeCRD
-		}
-		if c.DisableCiliumEndpointCRD {
-			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
-			c.DisableCiliumEndpointCRD = false
-		}
 	}
 
 	// Hidden options
