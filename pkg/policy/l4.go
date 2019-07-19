@@ -428,6 +428,9 @@ const (
 	// RedirectTypeIngressMask is a mask of all ingress redirect types
 	RedirectTypeIngressMask = RedirectTypeKafkaIngress | RedirectTypeHTTPIngress | RedirectTypeProxylibIngress
 
+	// RedirectTypeEgressMask is a mask of all egress redirect types
+	RedirectTypeEgressMask = RedirectTypeDNSEgress | RedirectTypeKafkaEgress | RedirectTypeHTTPEgress | RedirectTypeProxylibEgress
+
 	// RedirectTypeAgentMask is a mask of all redirect types implemented in the Cilium Agent
 	RedirectTypeAgentMask = RedirectTypeDNSEgress | RedirectTypeKafkaIngress | RedirectTypeKafkaEgress
 )
@@ -520,16 +523,12 @@ func (l4 L4PolicyMap) Attach(l4Policy *L4Policy) {
 	}
 }
 
-// HasRedirect returns true if at least one L4 filter contains a port
-// redirection
-func (l4 L4PolicyMap) HasRedirect() bool {
+func (l4 L4PolicyMap) redirects() RedirectType {
+	var rTypes RedirectType
 	for _, f := range l4 {
-		if f.IsRedirect() {
-			return true
-		}
+		rTypes |= f.GetRedirectType()
 	}
-
-	return false
+	return rTypes
 }
 
 // containsAllL3L4 checks if the L4PolicyMap contains all L4 ports in `ports`.
@@ -590,6 +589,9 @@ type L4Policy struct {
 	// Revision is the repository revision used to generate this policy.
 	Revision uint64
 
+	// initialized before exposed for concurrent access
+	redirects RedirectType
+
 	// Endpoint policies using this L4Policy
 	// These are circular references, cleaned up in Detach()
 	mutex lock.RWMutex
@@ -604,6 +606,22 @@ func NewL4Policy(revision uint64) *L4Policy {
 		Revision: revision,
 		users:    make(map[*EndpointPolicy]struct{}),
 	}
+}
+
+func (l4 *L4Policy) HasRedirects() bool {
+	return l4.redirects != 0
+}
+
+func (l4 *L4Policy) HasIngressRedirects() bool {
+	return l4.redirects&RedirectTypeIngressMask != 0
+}
+
+func (l4 *L4Policy) HasEgressRedirects() bool {
+	return l4.redirects&RedirectTypeEgressMask != 0
+}
+
+func (l4 *L4Policy) HasAgentRedirects() bool {
+	return l4.redirects&RedirectTypeAgentMask != 0
 }
 
 // insertUser adds a user to the L4Policy so that incremental
@@ -656,7 +674,12 @@ func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4Policy is exposed to concurrent access.
+// The L4Policy may not be changed after this call.
 func (l4 *L4Policy) Attach() {
+	// pre-populate the redirect types
+	l4.redirects = l4.Ingress.redirects()
+	l4.redirects |= l4.Egress.redirects()
+
 	l4.Ingress.Attach(l4)
 	l4.Egress.Attach(l4)
 }
@@ -675,11 +698,6 @@ func (l4 *L4PolicyMap) IngressCoversContext(ctx *SearchContext) api.Decision {
 // Note: Only used for policy tracing
 func (l4 *L4PolicyMap) EgressCoversContext(ctx *SearchContext) api.Decision {
 	return l4.containsAllL3L4(ctx.To, ctx.DPorts)
-}
-
-// HasRedirect returns true if the L4 policy contains at least one port redirection
-func (l4 *L4Policy) HasRedirect() bool {
-	return l4 != nil && (l4.Ingress.HasRedirect() || l4.Egress.HasRedirect())
 }
 
 // RequiresConntrack returns true if if the L4 configuration requires
