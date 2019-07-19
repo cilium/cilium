@@ -102,6 +102,7 @@ static void test_lpm_lookup()
 
 int main(int argc, char *argv[])
 {
+	return 1;
 	test_lpm_lookup();
 	test_ipv6_addr_clear_suffix();
 
