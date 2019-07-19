@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -149,5 +150,18 @@ var _ = Describe("K8sDemosTest", func() {
 			helpers.CurlWithHTTPCode("-X PUT -H 'X-Has-Force: True' http://%s", exhaustPortPath))
 		By("Expecting 503 to be returned when using force header to attack the deathstar")
 		res.ExpectContains("503", "unable to access %s when policy allows it; %s", exhaustPortPath, res.Output())
+
+		if helpers.GetCurrentK8SEnv() == "v1.10" {
+			By("Checking that CRD identities are used")
+			res := kubectl.Exec("kubectl get ciliumid")
+			lines := strings.Split(res.GetStdOut(), "\n")
+			Expect(lines).Should(BeNumerically(">", 1))
+
+		} else {
+			By("Checking that CRD identities are not used")
+			res := kubectl.Exec("kubectl get ciliumid")
+			lines := strings.Split(res.GetStdOut(), "\n")
+			Expect(lines).Should(BeNumerically("<=", 1))
+		}
 	})
 })
