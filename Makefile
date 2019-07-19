@@ -6,23 +6,29 @@ ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
-GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
-TESTPKGS ?= $(subst github.com/cilium/cilium/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
+GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
+GOFILES ?= $(GOFILES_EVAL)
+TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
+TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
-BPF_FILES ?= $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
+BPF_FILES_EVAL := $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
+BPF_FILES ?= $(BPF_FILES_EVAL)
 BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
 
 SWAGGER_VERSION := v0.19.0
 SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
-COVERPKG ?= $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "$(TESTPKGS)"; fi)
+COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "$(TESTPKGS)"; fi)
+COVERPKG ?= $(COVERPKG_EVAL)
 GOTEST_BASE := -test.v -timeout 360s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
 GOTEST_PRIV_OPTS := $(GOTEST_UNIT_BASE) -tags=privileged_tests
 GOTEST_COVER_OPTS := -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
-BENCH ?= "."
-BENCHFLAGS ?= -bench=$(BENCH) -run=^$ -benchtime=10s
+BENCH_EVAL := "."
+BENCH ?= $(BENCH_EVAL)
+BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
+BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
 
 JOB_BASE_NAME ?= cilium_test
 
@@ -60,7 +66,8 @@ clean-jenkins-precheck:
 	# remove the networks
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
 
-PRIV_TEST_PKGS ?= $(shell for pkg in $(TESTPKGS); do echo $(pkg); done | xargs grep --include='*.go' -ril '+build privileged_tests' | xargs dirname | sort | uniq)
+PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $(pkg); done | xargs grep --include='*.go' -ril '+build privileged_tests' | xargs dirname | sort | uniq)
+PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(MAKE) -C bpf cilium-map-migrate
