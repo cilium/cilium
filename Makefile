@@ -117,6 +117,7 @@ generate-cov:
 
 unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C test/bpf/
+	test/bpf/unit-test
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
 	$(MAKE) govet
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
