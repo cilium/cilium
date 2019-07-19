@@ -17,7 +17,6 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cilium/cilium/pkg/revert"
 	"io"
 	"net"
 	"strconv"
@@ -33,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/optiopay/kafka/proto"
 	"github.com/sirupsen/logrus"
@@ -133,6 +133,43 @@ func (l *kafkaListener) Listen() {
 	}
 }
 
+// createKafkaListener creates a listener to the kafka proxy.
+// Once created we keep the listeners running until Cilium agent terminates.
+func createKafkaListener(p *Proxy, pp *ProxyPort, wg *completion.WaitGroup) (error, revert.RevertFunc) {
+	mutex.Lock()
+	// Start a listener if not already running
+	listener := kafkaListeners[pp.proxyPort]
+	if listener == nil {
+		marker := 0
+		testMode := p.datapathUpdater == nil
+		if !testMode {
+			marker = linux_defaults.GetMagicProxyMark(pp.ingress, 0)
+		}
+
+		// Listen needs to be in the synchronous part of this function to ensure that
+		// the proxy port is never refusing connections.
+		socket, err := listenSocket(fmt.Sprintf(":%d", pp.proxyPort), marker, !testMode)
+		if err != nil {
+			mutex.Unlock()
+			return err, nil
+		}
+		listener = &kafkaListener{
+			socket:      socket,
+			proxyPort:   pp.proxyPort,
+			ingress:     pp.ingress,
+			transparent: !testMode,
+			count:       0,
+		}
+
+		go listener.Listen()
+
+		kafkaListeners[pp.proxyPort] = listener
+	}
+	mutex.Unlock()
+	// No async errors, so no need to revert anything.
+	return nil, nil
+}
+
 // createKafkaRedirect creates a redirect to the kafka proxy. The redirect structure passed
 // in is safe to access for reading and writing.
 func createKafkaRedirect(r *Redirect, conf kafkaConfiguration) (RedirectImplementation, error) {
@@ -155,42 +192,19 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration) (RedirectImplemen
 		"Registering %s with port: %d, ingress: %v",
 		r.listener.name, dstPort, r.listener.ingress)
 	mutex.Lock()
+	// Find the listener
+	listener := kafkaListeners[r.listener.proxyPort]
+	if listener == nil {
+		mutex.Unlock()
+		return nil, fmt.Errorf("No kafka listener for proxy port %d", r.listener.proxyPort)
+	}
 	if _, ok := kafkaRedirects[key]; ok {
 		mutex.Unlock()
 		panic("Kafka redirect already exists for the given dst port and endpoint ID")
 	}
-	kafkaRedirects[key] = redir
-
-	// Start a listener if not already running
-	listener := kafkaListeners[r.listener.proxyPort]
-	if listener == nil {
-		marker := 0
-		if !conf.testMode {
-			marker = linux_defaults.GetMagicProxyMark(r.listener.ingress, 0)
-		}
-
-		// Listen needs to be in the synchronous part of this function to ensure that
-		// the proxy port is never refusing connections.
-		socket, err := listenSocket(fmt.Sprintf(":%d", r.listener.proxyPort), marker, !conf.testMode)
-		if err != nil {
-			delete(kafkaRedirects, key)
-			mutex.Unlock()
-			return nil, err
-		}
-		listener = &kafkaListener{
-			socket:      socket,
-			proxyPort:   r.listener.proxyPort,
-			ingress:     r.listener.ingress,
-			transparent: !conf.testMode,
-			count:       0,
-		}
-
-		go listener.Listen()
-
-		kafkaListeners[r.listener.proxyPort] = listener
-	}
 	listener.count++
 	redir.listener = listener
+	kafkaRedirects[key] = redir
 	mutex.Unlock()
 
 	return redir, nil
@@ -528,10 +542,6 @@ func (k *kafkaRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, re
 		delete(kafkaRedirects, key)
 		k.listener.count--
 		log.Debugf("Close: Listener count: %d", k.listener.count)
-		if k.listener.count == 0 {
-			k.listener.socket.Close()
-			delete(kafkaListeners, r.listener.proxyPort)
-		}
 		mutex.Unlock()
 	}, nil
 }
