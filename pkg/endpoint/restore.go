@@ -71,7 +71,7 @@ func ReadEPsFromDirNames(owner regeneration.Owner, basePath string, eptsDirNames
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := ParseEndpoint(owner.GetPolicyRepository(), strEp)
+		ep, err := ParseEndpoint(owner, strEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue

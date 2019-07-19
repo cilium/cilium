@@ -1047,7 +1047,7 @@ func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, er
 		Reason:            reason,
 		RegenerationLevel: regeneration.RegenerateWithDatapathLoad,
 	}
-	return endpointmanager.RegenerateAllEndpoints(d, regenRequest), nil
+	return endpointmanager.RegenerateAllEndpoints(regenRequest), nil
 }
 
 func changedOption(key string, value option.OptionSetting, data interface{}) {

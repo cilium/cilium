@@ -71,7 +71,7 @@ func (d *Daemon) policyUpdateTrigger(reasons []string) {
 	reason := strings.Join(reasons, ", ")
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{Reason: reason}
-	endpointmanager.RegenerateAllEndpoints(d, regenerationMetadata)
+	endpointmanager.RegenerateAllEndpoints(regenerationMetadata)
 }
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
@@ -474,7 +474,7 @@ func (d *Daemon) ReactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.Endpoi
 			case *endpoint.Endpoint:
 				// Do not wait for the returned channel as we want this to be
 				// ASync
-				e.RegenerateIfAlive(d, regenMetadata)
+				e.RegenerateIfAlive(regenMetadata)
 			default:
 				log.Errorf("BUG: endpoint not type of *endpoint.Endpoint, received '%s' instead", e)
 			}
