@@ -1235,28 +1235,28 @@ func initEnv(cmd *cobra.Command) {
 
 	// This is the default. It must be kvstore to support upgrades from versions
 	// without this flag.
-	if !viper.IsSet(IdentityAllocationMode) {
-		c.IdentityAllocationMode = IdentityAllocationModeKVstore
+	if !viper.IsSet(option.IdentityAllocationMode) {
+		option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	}
-	if c.IdentityAllocationMode != IdentityAllocationModeCRD || c.IdentityAllocationMode != IdentityAllocationModeKVStore {
-		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
+	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD || option.Config.IdentityAllocationMode != option.IdentityAllocationModeKVstore {
+		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", option.Config.IdentityAllocationMode, option.IdentityAllocationModeKVstore, option.IdentityAllocationModeCRD)
 	}
 	// We cannot use Identity CRD when not in k8s
-	if c.IdentityAllocationMode == IdentityAllocationModeCRD && !k8s.IsEnabled() {
-		log.Fatalf("Invalid identity allocation mode %q. It must be %s in non-kubernetes environments", c.IdentityAllocationMode, IdentityAllocationModeKVstore)
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !k8s.IsEnabled() {
+		log.Fatalf("Invalid identity allocation mode %q. It must be %s in non-kubernetes environments", option.Config.IdentityAllocationMode, option.IdentityAllocationModeKVstore)
 	}
 
 	if !viper.IsSet(option.KVStore) || !viper.IsSet(option.KVStoreOpt) {
 		if !k8s.IsEnabled() {
 			log.Fatal("cilium must run with a kvstore or within kubernetes")
 		}
-		if viper.IsSet(option.IdentityAllocationMode) && c.IdentityAllocationMode != IdentityAllocationModeCRD {
-			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
-			c.IdentityAllocationMode = IdentityAllocationModeCRD
+		if viper.IsSet(option.IdentityAllocationMode) && option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD {
+			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", option.KVStore, option.Config.KVStore, option.IdentityAllocationMode, option.IdentityAllocationModeCRD)
+			option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
 		}
-		if c.DisableCiliumEndpointCRD {
-			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
-			c.DisableCiliumEndpointCRD = false
+		if option.Config.DisableCiliumEndpointCRD {
+			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", option.KVStore, option.Config.KVStore, option.DisableCiliumEndpointCRDName, false)
+			option.Config.DisableCiliumEndpointCRD = false
 		}
 	}
 }
