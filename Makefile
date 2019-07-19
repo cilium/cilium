@@ -1,26 +1,26 @@
 include Makefile.defs
 include daemon/bpf.sha
 
-SUBDIRS_CILIUM_CONTAINER = proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health bugtool
+SUBDIRS_CILIUM_CONTAINER := proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health bugtool
 ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
-SUBDIRS = $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools
 GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v -e /vendor/ -e /contrib/))
 TESTPKGS ?= $(subst github.com/cilium/cilium/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
-GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
-GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
+GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
+GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 BPF_FILES ?= $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
-BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
+BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
 
-SWAGGER_VERSION = v0.19.0
-SWAGGER = $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+SWAGGER_VERSION := v0.19.0
+SWAGGER := $(CONTAINER_ENGINE_FULL) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) -e GOPATH=$(GOPATH) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG ?= $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "$(TESTPKGS)"; fi)
-GOTEST_BASE = -test.v -timeout 360s
-GOTEST_UNIT_BASE = $(GOTEST_BASE) -check.vv
-GOTEST_PRIV_OPTS = $(GOTEST_UNIT_BASE) -tags=privileged_tests
-GOTEST_COVER_OPTS = -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
+GOTEST_BASE := -test.v -timeout 360s
+GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
+GOTEST_PRIV_OPTS := $(GOTEST_UNIT_BASE) -tags=privileged_tests
+GOTEST_COVER_OPTS := -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
 BENCH ?= "."
 BENCHFLAGS ?= -bench=$(BENCH) -run=^$ -benchtime=10s
 
