@@ -428,6 +428,9 @@ const (
 	// RedirectTypeIngressMask is a mask of all ingress redirect types
 	RedirectTypeIngressMask = RedirectTypeKafkaIngress | RedirectTypeHTTPIngress | RedirectTypeProxylibIngress
 
+	// RedirectTypeEgressMask is a mask of all egress redirect types
+	RedirectTypeEgressMask = RedirectTypeDNSEgress | RedirectTypeKafkaEgress | RedirectTypeHTTPEgress | RedirectTypeProxylibEgress
+
 	// RedirectTypeAgentMask is a mask of all redirect types implemented in the Cilium Agent
 	RedirectTypeAgentMask = RedirectTypeDNSEgress | RedirectTypeKafkaIngress | RedirectTypeKafkaEgress
 )
@@ -664,8 +667,20 @@ func (l4 *L4Policy) Attach() {
 	l4.Egress.Attach(l4)
 }
 
-func (l4 *L4Policy) hasIngressRedirect() bool {
+func (l4 *L4Policy) HasRedirects() bool {
+	return l4.redirects != 0
+}
+
+func (l4 *L4Policy) HasIngressRedirects() bool {
 	return l4.redirects&RedirectTypeIngressMask != 0
+}
+
+func (l4 *L4Policy) HasEgressRedirects() bool {
+	return l4.redirects&RedirectTypeEgressMask != 0
+}
+
+func (l4 *L4Policy) HasAgentRedirects() bool {
+	return l4.redirects&RedirectTypeAgentMask != 0
 }
 
 // IngressCoversContext checks if the receiver's ingress L4Policy contains
