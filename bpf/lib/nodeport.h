@@ -298,17 +298,42 @@ int tail_rev_nodeport_lb6(struct __sk_buff *skb)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 {
+	int ifindex = NATIVE_DEV_IFINDEX, ret, dir = skb->cb[CB_NAT];
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.addr = IPV4_NODEPORT,
 		.force_range = true,
 	};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, dir = skb->cb[CB_NAT];
 
+	target.addr = IPV4_NODEPORT;
+#ifdef ENCAP_IFINDEX
+	if (dir == NAT_DIR_EGRESS) {
+		struct remote_endpoint_info *info;
+
+		if (!revalidate_data(skb, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+		if (info != NULL && info->tunnel_endpoint != 0) {
+			int ret = __encap_with_nodeid(skb, info->tunnel_endpoint,
+						      SECLABEL, TRACE_PAYLOAD_LEN);
+			if (ret)
+				return ret;
+
+			target.addr = IPV4_GATEWAY;
+			ifindex = ENCAP_IFINDEX;
+
+			/* fib lookup not necessary when going over tunnel. */
+			if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+				return DROP_WRITE_ERROR;
+		}
+	}
+#endif
 	ret = snat_v4_process(skb, dir, &target);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
@@ -330,13 +355,16 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		goto drop_err;
 	}
 
+	if (ifindex == ENCAP_IFINDEX)
+		goto out_send;
+
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
 	fib_params.family = AF_INET;
-	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	fib_params.ifindex = ifindex;
 	fib_params.ipv4_src = ip4->saddr;
 	fib_params.ipv4_dst = ip4->daddr;
 
@@ -355,8 +383,8 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-
-	return redirect(fib_params.ifindex, 0);
+out_send:
+	return redirect(ifindex, 0);
 drop_err:
 	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,
 				      dir == NAT_DIR_INGRESS ?
@@ -473,7 +501,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
  * tail_nodeport_nat_ipv4().
  *
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
- * of the bpf_netdev and of the bpf_lxc.
+ * of the bpf_netdev, bpf_overlay and of the bpf_lxc.
  */
 static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
 {

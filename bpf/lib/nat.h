@@ -105,7 +105,7 @@ struct ipv4_nat_entry {
 };
 
 struct ipv4_nat_target {
-	const __be32 addr;
+	__be32 addr;
 	const __u16 min_port; /* host endianess */
 	const __u16 max_port; /* host endianess */
 	/* Tells whether the port mapping /has/ to be clampled into [min_port,max_port]
