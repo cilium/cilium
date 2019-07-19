@@ -467,6 +467,37 @@ func (h *Handle) LinkSetVfVlan(link Link, vf, vlan int) error {
 	return err
 }
 
+// LinkSetVfVlanQos sets the vlan and qos priority of a vf for the link.
+// Equivalent to: `ip link set $link vf $vf vlan $vlan qos $qos`
+func LinkSetVfVlanQos(link Link, vf, vlan, qos int) error {
+	return pkgHandle.LinkSetVfVlanQos(link, vf, vlan, qos)
+}
+
+// LinkSetVfVlanQos sets the vlan and qos priority of a vf for the link.
+// Equivalent to: `ip link set $link vf $vf vlan $vlan qos $qos`
+func (h *Handle) LinkSetVfVlanQos(link Link, vf, vlan, qos int) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	data := nl.NewRtAttr(unix.IFLA_VFINFO_LIST, nil)
+	info := nl.NewRtAttrChild(data, nl.IFLA_VF_INFO, nil)
+	vfmsg := nl.VfVlan{
+		Vf:   uint32(vf),
+		Vlan: uint32(vlan),
+		Qos:  uint32(qos),
+	}
+	nl.NewRtAttrChild(info, nl.IFLA_VF_VLAN, vfmsg.Serialize())
+	req.AddData(data)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
 // LinkSetVfTxRate sets the tx rate of a vf for the link.
 // Equivalent to: `ip link set $link vf $vf rate $rate`
 func LinkSetVfTxRate(link Link, vf, rate int) error {
@@ -1130,6 +1161,11 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		req.AddData(gsoAttr)
 	}
 
+	if base.Group > 0 {
+		groupAttr := nl.NewRtAttr(unix.IFLA_GROUP, nl.Uint32Attr(base.Group))
+		req.AddData(groupAttr)
+	}
+
 	if base.Namespace != nil {
 		var attr *nl.RtAttr
 		switch ns := base.Namespace.(type) {
@@ -1577,6 +1613,8 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.NumTxQueues = int(native.Uint32(attr.Value[0:4]))
 		case unix.IFLA_NUM_RX_QUEUES:
 			base.NumRxQueues = int(native.Uint32(attr.Value[0:4]))
+		case unix.IFLA_GROUP:
+			base.Group = native.Uint32(attr.Value[0:4])
 		}
 	}
 
@@ -1739,12 +1777,18 @@ func linkSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- LinkUpdate, done <-c
 	go func() {
 		defer close(ch)
 		for {
-			msgs, err := s.Receive()
+			msgs, from, err := s.Receive()
 			if err != nil {
 				if cberr != nil {
 					cberr(err)
 				}
 				return
+			}
+			if from.Pid != nl.PidKernel {
+				if cberr != nil {
+					cberr(fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, nl.PidKernel))
+				}
+				continue
 			}
 			for _, m := range msgs {
 				if m.Header.Type == unix.NLMSG_DONE {
@@ -1882,6 +1926,35 @@ func (h *Handle) LinkSetTxQLen(link Link, qlen int) error {
 	native.PutUint32(b, uint32(qlen))
 
 	data := nl.NewRtAttr(unix.IFLA_TXQLEN, b)
+	req.AddData(data)
+
+	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
+	return err
+}
+
+// LinkSetGroup sets the link group id which can be used to perform mass actions
+// with iproute2 as well use it as a reference in nft filters.
+// Equivalent to: `ip link set $link group $id`
+func LinkSetGroup(link Link, group int) error {
+	return pkgHandle.LinkSetGroup(link, group)
+}
+
+// LinkSetGroup sets the link group id which can be used to perform mass actions
+// with iproute2 as well use it as a reference in nft filters.
+// Equivalent to: `ip link set $link group $id`
+func (h *Handle) LinkSetGroup(link Link, group int) error {
+	base := link.Attrs()
+	h.ensureIndex(base)
+	req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
+
+	msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+	msg.Index = int32(base.Index)
+	req.AddData(msg)
+
+	b := make([]byte, 4)
+	native.PutUint32(b, uint32(group))
+
+	data := nl.NewRtAttr(unix.IFLA_GROUP, b)
 	req.AddData(data)
 
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)

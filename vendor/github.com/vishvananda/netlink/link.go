@@ -44,6 +44,7 @@ type LinkAttrs struct {
 	GSOMaxSize   uint32
 	GSOMaxSegs   uint32
 	Vfs          []VfInfo // virtual functions available on link
+	Group        uint32
 }
 
 // VfInfo represents configuration of virtual function
