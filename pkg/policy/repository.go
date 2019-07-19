@@ -18,8 +18,10 @@ import (
 	"encoding/json"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -29,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/revert"
 )
 
 // Repository is a list of policy rules which in combination form the security
@@ -53,13 +56,27 @@ type Repository struct {
 	// for endpoints, etc.
 	RuleReactionQueue *eventqueue.EventQueue
 
-	// SelectorCache tracks the selectors used in the policies
+	// selectorCache tracks the selectors used in the policies
 	// resolved from the repository.
 	selectorCache *SelectorCache
 
-	// PolicyCache tracks the selector policies created from this repo
+	// policyCache tracks the selector policies created from this repo
 	policyCache *PolicyCache
+
+	// ProxyOwner manages the proxies needed for implementing the policies that
+	// apply to the local node.
+	ProxyOwner ProxyOwner
 }
+
+// ProxyOwner is anything that manages L7 proxies
+type ProxyOwner interface {
+	// StartProxies makes sure proxy for the given mask of types is running
+	StartProxies(RedirectType, *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+}
+
+const (
+	ProxyStartTimeout = 1 * time.Minute
+)
 
 // GetSelectorCache() returns the selector cache used by the Repository
 func (p *Repository) GetSelectorCache() *SelectorCache {
@@ -69,6 +86,11 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 // GetPolicyCache() returns the policy cache used by the Repository
 func (p *Repository) GetPolicyCache() *PolicyCache {
 	return p.policyCache
+}
+
+// GetProxyOwner() returns the proxy owner associated with this Repository
+func (p *Repository) GetProxyOwner() ProxyOwner {
+	return p.ProxyOwner
 }
 
 // NewPolicyRepository allocates a new policy repository
