@@ -237,10 +237,18 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	return NewDeleteServiceIDOK()
 }
 
+type errSVCNotFound struct {
+	frontend *loadbalancer.L3n4AddrID
+}
+
+func (e *errSVCNotFound) Error() string {
+	return fmt.Sprintf("Service frontend not found %+v", e.frontend)
+}
+
 func (d *Daemon) svcDeleteByFrontendLocked(frontend *loadbalancer.L3n4AddrID) error {
 	svc, ok := d.loadBalancer.SVCMap[frontend.SHA256Sum()]
 	if !ok {
-		return fmt.Errorf("Service frontend not found %+v", frontend)
+		return &errSVCNotFound{frontend}
 	}
 	return d.svcDelete(&svc)
 }
@@ -709,6 +717,10 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc))
 		svcLogger.Debug("removing service because it was not synced from Kubernetes")
 		if err := d.svcDeleteByFrontendLocked(&svc); err != nil {
+			if _, ok := err.(*errSVCNotFound); ok {
+				svcLogger.Warn(err)
+				continue
+			}
 			bpfDeleteErrors = append(bpfDeleteErrors, err)
 		}
 	}
