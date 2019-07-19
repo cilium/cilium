@@ -1238,7 +1238,7 @@ func initEnv(cmd *cobra.Command) {
 	if !viper.IsSet(option.IdentityAllocationMode) {
 		option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	}
-	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD || option.Config.IdentityAllocationMode != option.IdentityAllocationModeKVstore {
+	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD && option.Config.IdentityAllocationMode != option.IdentityAllocationModeKVstore {
 		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", option.Config.IdentityAllocationMode, option.IdentityAllocationModeKVstore, option.IdentityAllocationModeCRD)
 	}
 	// We cannot use Identity CRD when not in k8s
