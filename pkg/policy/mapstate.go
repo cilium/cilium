@@ -124,7 +124,7 @@ type MapChanges struct {
 // cases where an identity is first added and then deleted, or first
 // deleted and then added.
 func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection) {
+	port uint16, proto uint8, direction trafficdirection.TrafficDirection, proxyPort uint16) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -134,7 +134,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		TrafficDirection: direction.Uint8(),
 	}
 	value := MapStateEntry{
-		ProxyPort: 0, // Will be updated by the caller when applicable
+		ProxyPort: proxyPort,
 	}
 
 	if option.Config.Debug {

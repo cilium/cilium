@@ -315,13 +315,13 @@ func (d *policyDistillery) distillPolicy(epLabels labels.LabelArray) (MapState, 
 	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
 	for _, l4 := range l4IngressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l3: %+v), (l4: %d/%s), (l7: %+v)\n", l4.CachedSelectors, l4.Port, l4.Protocol, l4.L7RulesPerEp))
-		for _, key := range l4.ToKeys(0) {
+		proxyPort := l7RedirectNone_
+		if l4.IsRedirect() {
+			proxyPort = l7RedirectProxy
+		}
+		l4.ToMapState(result, 0, proxyPort)
+		for key := range result {
 			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, l4.IsRedirect()))
-			if l4.IsRedirect() {
-				result[key] = MapStateEntry{l7RedirectProxy}
-			} else {
-				result[key] = MapStateEntry{l7RedirectNone_}
-			}
 		}
 	}
 	l4IngressPolicy.Detach(d.Repository.GetSelectorCache())
