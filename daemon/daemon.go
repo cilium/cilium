@@ -733,6 +733,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 	}
+	d.policy.ProxyOwner = &d
 
 	if option.Config.RunMonitorAgent {
 		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
