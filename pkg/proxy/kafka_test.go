@@ -17,6 +17,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -24,14 +25,20 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/revert"
 
 	"github.com/optiopay/kafka"
 	"github.com/optiopay/kafka/proto"
@@ -54,6 +61,49 @@ var _ = Suite(&proxyTestSuite{})
 func (s *proxyTestSuite) SetUpSuite(c *C) {
 	s.repo = policy.NewPolicyRepository()
 }
+
+func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {
+	return s.repo
+}
+
+func (s *proxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+	return 0, nil, nil, nil
+}
+
+func (s *proxyTestSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
+}
+
+func (s *proxyTestSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	return nil, nil
+}
+
+func (s *proxyTestSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
+
+func (s *proxyTestSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	return nil, nil
+}
+
+func (s *proxyTestSuite) RemoveFromEndpointQueue(epID uint64) {}
+
+func (s *proxyTestSuite) GetCompilationLock() *lock.RWMutex {
+	return nil
+}
+
+func (s *proxyTestSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+	return nil
+}
+
+func (s *proxyTestSuite) Datapath() datapath.Datapath {
+	return nil
+}
+
+func (s *proxyTestSuite) GetNodeSuffix() string {
+	return ""
+}
+
+func (s *proxyTestSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 type DummySelectorCacheUser struct{}
 
@@ -216,7 +266,7 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 
 	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
 	// the EP ID by the IP.
-	ep := endpoint.NewEndpointWithState(s.repo, uint16(localEndpointMock.GetID()), endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, uint16(localEndpointMock.GetID()), endpoint.StateReady)
 	ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
 	c.Assert(err, IsNil)
 	ep.IPv4 = ipv4

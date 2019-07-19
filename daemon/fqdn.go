@@ -467,7 +467,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// this data is included in the serialized Endpoint object.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
 		if ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)) {
-			ep.SyncEndpointHeaderFile(d)
+			ep.SyncEndpointHeaderFile()
 		}
 
 		log.WithFields(logrus.Fields{

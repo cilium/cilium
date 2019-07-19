@@ -119,6 +119,8 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 // is not JSON forward compatible.
 //
 type Endpoint struct {
+	owner regeneration.Owner
+
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -404,8 +406,9 @@ func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *Endpoint {
+func NewEndpointWithState(owner regeneration.Owner, ID uint16, state string) *Endpoint {
 	ep := &Endpoint{
+		owner:         owner,
 		ID:            ID,
 		OpLabels:      pkgLabels.NewOpLabels(),
 		Status:        NewEndpointStatus(),
@@ -414,7 +417,7 @@ func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *End
 		hasBPFProgram: make(chan struct{}, 0),
 		controllers:   controller.NewManager(),
 		EventQueue:    eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
-		desiredPolicy: policy.NewEndpointPolicy(repo),
+		desiredPolicy: policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 	}
 	ep.realizedPolicy = ep.desiredPolicy
 
@@ -427,12 +430,13 @@ func NewEndpointWithState(repo *policy.Repository, ID uint16, state string) *End
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(repo *policy.Repository, base *models.EndpointChangeRequest) (*Endpoint, error) {
+func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointChangeRequest) (*Endpoint, error) {
 	if base == nil {
 		return nil, nil
 	}
 
 	ep := &Endpoint{
+		owner:            owner,
 		ID:               uint16(base.ID),
 		ContainerName:    base.ContainerName,
 		ContainerID:      base.ContainerID,
@@ -448,7 +452,7 @@ func NewEndpointFromChangeModel(repo *policy.Repository, base *models.EndpointCh
 		state:            "",
 		Status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}, 0),
-		desiredPolicy:    policy.NewEndpointPolicy(repo),
+		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
 	}
 	ep.realizedPolicy = ep.desiredPolicy
@@ -1049,7 +1053,7 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 
 // ParseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
-func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
+func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	strEpSlice := strings.Split(strEp, ":")
@@ -1057,6 +1061,7 @@ func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", strEp)
 	}
 	ep := Endpoint{
+		owner:      owner,
 		OpLabels:   pkgLabels.NewOpLabels(),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 	}
@@ -1069,7 +1074,7 @@ func ParseEndpoint(repo *policy.Repository, strEp string) (*Endpoint, error) {
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{}, 0)
-	ep.desiredPolicy = policy.NewEndpointPolicy(repo)
+	ep.desiredPolicy = policy.NewEndpointPolicy(owner.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
 
@@ -1161,7 +1166,7 @@ func (e UpdateStateChangeError) Error() string { return e.msg }
 // if there was an issue triggering policy updates for the given endpoint,
 // or if endpoint regeneration was unable to be triggered. Note that the
 // LabelConfiguration in the EndpointConfigurationSpec is *not* consumed here.
-func (e *Endpoint) Update(owner regeneration.Owner, cfg *models.EndpointConfigurationSpec) error {
+func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	om, err := EndpointMutableOptionLibrary.ValidateConfigurationMap(cfg.Options)
 	if err != nil {
 		return UpdateValidationError{err.Error()}
@@ -1220,7 +1225,7 @@ func (e *Endpoint) Update(owner regeneration.Owner, cfg *models.EndpointConfigur
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, regenCtx.Reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
-					e.Regenerate(owner, regenCtx)
+					e.Regenerate(regenCtx)
 					return nil
 				}
 				e.Unlock()
@@ -1311,15 +1316,15 @@ type DeleteConfig struct {
 // endpoints which failed to be restored. Any cleanup routine of LeaveLocked()
 // which depends on kvstore connectivity must be protected by a flag in
 // DeleteConfig and the restore logic must opt-out of it.
-func (e *Endpoint) LeaveLocked(owner regeneration.Owner, proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
+func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
 	loader.Unload(e.createEpInfoCache(""))
 
-	owner.RemoveFromEndpointQueue(uint64(e.ID))
+	e.owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
-		e.removeOldRedirects(owner, nil, proxyWaitGroup)
+		e.removeOldRedirects(nil, proxyWaitGroup)
 	}
 
 	if e.PolicyMap != nil {
@@ -1340,11 +1345,11 @@ func (e *Endpoint) LeaveLocked(owner regeneration.Owner, proxyWaitGroup *complet
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		_, err := cache.Release(releaseCtx, owner, e.SecurityIdentity)
+		_, err := cache.Release(releaseCtx, e.owner, e.SecurityIdentity)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("unable to release identity: %s", err))
 		}
-		owner.RemoveNetworkPolicy(e)
+		e.owner.RemoveNetworkPolicy(e)
 		e.SecurityIdentity = nil
 	}
 
@@ -1372,8 +1377,8 @@ func (e *Endpoint) LeaveLocked(owner regeneration.Owner, proxyWaitGroup *complet
 
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
-func (e *Endpoint) RegenerateWait(owner regeneration.Owner, reason string) error {
-	if !<-e.Regenerate(owner, &regeneration.ExternalRegenerationMetadata{Reason: reason}) {
+func (e *Endpoint) RegenerateWait(reason string) error {
+	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: reason}) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -1813,7 +1818,7 @@ func (e *Endpoint) getIDandLabels() string {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(owner regeneration.Owner, addLabels, delLabels pkgLabels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) error {
 	if err := e.LockAlive(); err != nil {
 		return err
 	}
@@ -1837,7 +1842,7 @@ func (e *Endpoint) ModifyIdentityLabels(owner regeneration.Owner, addLabels, del
 	e.Unlock()
 
 	if changed {
-		e.runLabelsResolver(context.Background(), owner, rev, false)
+		e.runLabelsResolver(context.Background(), rev, false)
 	}
 	return nil
 }
@@ -1856,7 +1861,7 @@ func (e *Endpoint) IsInit() bool {
 // If a net label changed was performed, the endpoint will receive a new
 // identity and will be regenerated. Both of these operations will happen in
 // the background.
-func (e *Endpoint) UpdateLabels(ctx context.Context, owner regeneration.Owner, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -1874,7 +1879,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, owner regeneration.Owner, i
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.Unlock()
 	if rev != 0 {
-		e.runLabelsResolver(ctx, owner, rev, blocking)
+		e.runLabelsResolver(ctx, rev, blocking)
 	}
 }
 
@@ -1889,7 +1894,7 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 }
 
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runLabelsResolver(ctx context.Context, owner regeneration.Owner, myChangeRev int, blocking bool) {
+func (e *Endpoint) runLabelsResolver(ctx context.Context, myChangeRev int, blocking bool) {
 	if err := e.RLockAlive(); err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
@@ -1907,7 +1912,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner regeneration.Own
 	if blocking || cache.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Info("Resolving identity labels (blocking)")
 
-		err := e.identityLabelsChanged(ctx, owner, myChangeRev)
+		err := e.identityLabelsChanged(ctx, myChangeRev)
 		switch err {
 		case ErrNotAlive:
 			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1925,7 +1930,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner regeneration.Own
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := e.identityLabelsChanged(ctx, owner, myChangeRev)
+				err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1939,7 +1944,7 @@ func (e *Endpoint) runLabelsResolver(ctx context.Context, owner regeneration.Own
 	)
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration.Owner, myChangeRev int) error {
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) error {
 	if err := e.RLockAlive(); err != nil {
 		return ErrNotAlive
 	}
@@ -1973,7 +1978,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
-	identity, _, err := cache.AllocateIdentity(allocateCtx, owner, newLabels)
+	identity, _, err := cache.AllocateIdentity(allocateCtx, e.owner, newLabels)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
@@ -1989,7 +1994,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
-		_, err := cache.Release(releaseCtx, owner, identity)
+		_, err := cache.Release(releaseCtx, e.owner, identity)
 		if err != nil {
 			// non fatal error as keys will expire after lease expires but log it
 			elog.WithFields(logrus.Fields{logfields.Identity: identity.ID}).
@@ -2049,7 +2054,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration
 	e.SetIdentity(identity)
 
 	if oldIdentity != nil {
-		_, err := cache.Release(releaseCtx, owner, oldIdentity)
+		_, err := cache.Release(releaseCtx, e.owner, oldIdentity)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")
@@ -2077,7 +2082,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, owner regeneration
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(owner, &regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
+		e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
 	}
 
 	return nil
@@ -2228,7 +2233,7 @@ func (e *Endpoint) PinDatapathMap() error {
 	return err
 }
 
-func (e *Endpoint) syncEndpointHeaderFile(owner regeneration.Owner, reasons []string) {
+func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 	e.BuildMutex.Lock()
 	defer e.BuildMutex.Unlock()
 
@@ -2238,7 +2243,7 @@ func (e *Endpoint) syncEndpointHeaderFile(owner regeneration.Owner, reasons []st
 	}
 	defer e.Unlock()
 
-	if err := e.writeHeaderfile(e.StateDirectoryPath(), owner); err != nil {
+	if err := e.writeHeaderfile(e.StateDirectoryPath()); err != nil {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Reason: reasons,
 		}).WithError(err).Warning("could not sync header file")
@@ -2247,7 +2252,7 @@ func (e *Endpoint) syncEndpointHeaderFile(owner regeneration.Owner, reasons []st
 
 // SyncEndpointHeaderFile it bumps the current DNS History information for the
 // endpoint in the lxc_config.h file.
-func (e *Endpoint) SyncEndpointHeaderFile(owner regeneration.Owner) error {
+func (e *Endpoint) SyncEndpointHeaderFile() error {
 	if err := e.LockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return
 		return nil
@@ -2258,7 +2263,7 @@ func (e *Endpoint) SyncEndpointHeaderFile(owner regeneration.Owner) error {
 		t, err := trigger.NewTrigger(trigger.Parameters{
 			Name:        "sync_endpoint_header_file",
 			MinInterval: 5 * time.Second,
-			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(owner, reasons) },
+			TriggerFunc: func(reasons []string) { e.syncEndpointHeaderFile(reasons) },
 		})
 		if err != nil {
 			return fmt.Errorf(

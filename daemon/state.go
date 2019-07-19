@@ -359,7 +359,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
 				Reason: "syncing state to host",
 			}
-			if buildSuccess := <-ep.Regenerate(d, regenerationMetadata); !buildSuccess {
+			if buildSuccess := <-ep.Regenerate(regenerationMetadata); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")
 				epRegenerated <- false
 				return

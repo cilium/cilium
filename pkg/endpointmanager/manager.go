@@ -397,7 +397,7 @@ func updateReferences(ep *endpoint.Endpoint) {
 // list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
-func RegenerateAllEndpoints(owner regeneration.Owner, regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
+func RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	eps := GetEndpoints()
@@ -406,7 +406,7 @@ func RegenerateAllEndpoints(owner regeneration.Owner, regenMetadata *regeneratio
 	log.WithFields(logrus.Fields{"reason": regenMetadata.Reason}).Info("regenerating all endpoints")
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			<-ep.RegenerateIfAlive(owner, regenMetadata)
+			<-ep.RegenerateIfAlive(regenMetadata)
 			wg.Done()
 		}(ep)
 	}
@@ -449,7 +449,7 @@ func GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
+func AddEndpoint(ep *endpoint.Endpoint, reason string) (err error) {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	ep.SetDesiredIngressPolicyEnabled(alwaysEnforce)
 	ep.SetDesiredEgressPolicyEnabled(alwaysEnforce)

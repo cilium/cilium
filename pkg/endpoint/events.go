@@ -15,13 +15,11 @@
 package endpoint
 
 import (
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 )
 
 // EndpointRegenerationEvent contains all fields necessary to regenerate an endpoint.
 type EndpointRegenerationEvent struct {
-	owner        regeneration.Owner
 	regenContext *regenerationContext
 	ep           *Endpoint
 }
@@ -29,7 +27,6 @@ type EndpointRegenerationEvent struct {
 // Handle handles the regeneration event for the endpoint.
 func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	e := ev.ep
-	owner := ev.owner
 	regenContext := ev.regenContext
 
 	err := e.RLockAlive()
@@ -46,7 +43,7 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	// We should only queue the request after we use all the endpoint's
 	// lock/unlock. Otherwise this can get a deadlock if the endpoint is
 	// being deleted at the same time. More info PR-1777.
-	doneFunc, err := owner.QueueEndpointBuild(regenContext.parentContext, uint64(e.ID))
+	doneFunc, err := e.owner.QueueEndpointBuild(regenContext.parentContext, uint64(e.ID))
 	if err != nil {
 		e.getLogger().WithError(err).Warning("unable to queue endpoint build")
 	} else if doneFunc != nil {
@@ -54,10 +51,10 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 
 		regenContext.DoneFunc = doneFunc
 
-		err = ev.ep.regenerate(ev.owner, ev.regenContext)
+		err = ev.ep.regenerate(ev.regenContext)
 
 		doneFunc()
-		e.notifyEndpointRegeneration(owner, err)
+		e.notifyEndpointRegeneration(err)
 	} else {
 		// If another build has been queued for the endpoint, that means that
 		// that build will be able to take care of all of the work needed to

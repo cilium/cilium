@@ -128,7 +128,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	return fw.Flush()
 }
 
-func (e *Endpoint) writeHeaderfile(prefix string, owner regeneration.Owner) error {
+func (e *Endpoint) writeHeaderfile(prefix string) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Path: headerPath,
@@ -143,14 +143,14 @@ func (e *Endpoint) writeHeaderfile(prefix string, owner regeneration.Owner) erro
 	if err = e.writeInformationalComments(f); err != nil {
 		return err
 	}
-	return owner.Datapath().WriteEndpointConfig(f, e)
+	return e.owner.Datapath().WriteEndpointConfig(f, e)
 }
 
 // addNewRedirectsFromMap must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error  indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromMap(m policy.L4PolicyMap, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil, nil
 	}
@@ -171,7 +171,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
-				redirectPort, err, finalizeFunc, revertFunc = owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
+				redirectPort, err, finalizeFunc, revertFunc = e.owner.UpdateProxyRedirect(e, l4, proxyWaitGroup)
 				if err != nil {
 					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
 					return err, nil, nil
@@ -253,7 +253,7 @@ func (e *Endpoint) addNewRedirectsFromMap(owner regeneration.Owner, m policy.L4P
 // The returned map contains the exact set of IDs of proxy redirects that is
 // required to implement the given L4 policy.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) addNewRedirects(owner regeneration.Owner, m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
+func (e *Endpoint) addNewRedirects(m *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (desiredRedirects map[string]bool, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	desiredRedirects = make(map[string]bool)
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
@@ -261,14 +261,14 @@ func (e *Endpoint) addNewRedirects(owner regeneration.Owner, m *policy.L4Policy,
 	var ff revert.FinalizeFunc
 	var rf revert.RevertFunc
 
-	err, ff, rf = e.addNewRedirectsFromMap(owner, m.Ingress, desiredRedirects, proxyWaitGroup)
+	err, ff, rf = e.addNewRedirectsFromMap(m.Ingress, desiredRedirects, proxyWaitGroup)
 	if err != nil {
 		return desiredRedirects, fmt.Errorf("unable to allocate ingress redirects: %s", err), nil, nil
 	}
 	finalizeList.Append(ff)
 	revertStack.Push(rf)
 
-	err, ff, rf = e.addNewRedirectsFromMap(owner, m.Egress, desiredRedirects, proxyWaitGroup)
+	err, ff, rf = e.addNewRedirectsFromMap(m.Egress, desiredRedirects, proxyWaitGroup)
 	if err != nil {
 		revertStack.Revert() // Ignore errors while reverting. This is best-effort.
 		return desiredRedirects, fmt.Errorf("unable to allocate egress redirects: %s", err), nil, nil
@@ -288,7 +288,7 @@ func (e *Endpoint) addNewRedirects(owner regeneration.Owner, m *policy.L4Policy,
 }
 
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) removeOldRedirects(owner regeneration.Owner, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if option.Config.DryMode {
 		return nil, nil
 	}
@@ -304,7 +304,7 @@ func (e *Endpoint) removeOldRedirects(owner regeneration.Owner, desiredRedirects
 			continue
 		}
 
-		err, finalizeFunc, revertFunc := owner.RemoveProxyRedirect(e, id, proxyWaitGroup)
+		err, finalizeFunc, revertFunc := e.owner.RemoveProxyRedirect(e, id, proxyWaitGroup)
 		if err != nil {
 			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
 			continue
@@ -359,7 +359,7 @@ func (e *Endpoint) removeOldRedirects(owner regeneration.Owner, desiredRedirects
 // Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
-func (e *Endpoint) regenerateBPF(owner regeneration.Owner, regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
+func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
 	var (
 		err                 error
 		compilationExecuted bool
@@ -372,14 +372,14 @@ func (e *Endpoint) regenerateBPF(owner regeneration.Owner, regenContext *regener
 
 	// Make sure that owner is not compiling base programs while we are
 	// regenerating an endpoint.
-	owner.GetCompilationLock().RLock()
+	e.owner.GetCompilationLock().RLock()
 	stats.waitingForLock.End(true)
-	defer owner.GetCompilationLock().RUnlock()
+	defer e.owner.GetCompilationLock().RUnlock()
 
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
-	err = e.runPreCompilationSteps(owner, regenContext)
+	err = e.runPreCompilationSteps(regenContext)
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -521,7 +521,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 // runPreCompilationSteps runs all of the regeneration steps that are necessary
 // right before compiling the BPF for the given endpoint.
 // The endpoint mutex must not be held.
-func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext *regenerationContext) (preCompilationError error) {
+func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (preCompilationError error) {
 	stats := &regenContext.Stats
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
@@ -563,7 +563,7 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 	if option.Config.DryMode {
 
 		// Compute policy for this endpoint.
-		if err = e.regeneratePolicy(owner); err != nil {
+		if err = e.regeneratePolicy(); err != nil {
 			return fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
@@ -571,11 +571,11 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 
 		// Dry mode needs Network Policy Updates, but the proxy wait group must
 		// not be initialized, as there is no proxy ACKing the changes.
-		if err, _ = e.updateNetworkPolicy(owner, nil); err != nil {
+		if err, _ = e.updateNetworkPolicy(nil); err != nil {
 			return err
 		}
 
-		if err = e.writeHeaderfile(nextDir, owner); err != nil {
+		if err = e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("Unable to write header file: %s", err)
 		}
 
@@ -614,7 +614,7 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 	// this endpoint.
 	if e.SecurityIdentity != nil {
 		stats.policyCalculation.Start()
-		err = e.regeneratePolicy(owner)
+		err = e.regeneratePolicy()
 		stats.policyCalculation.End(err == nil)
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
@@ -626,7 +626,7 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 		// Do this before updating the bpf policy maps, so that the proxy listeners have a chance to be
 		// ready when new traffic is redirected to them.
 		stats.proxyPolicyCalculation.Start()
-		err, networkPolicyRevertFunc := e.updateNetworkPolicy(owner, datapathRegenCtxt.proxyWaitGroup)
+		err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			return err
@@ -641,7 +641,7 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 		var revertFunc revert.RevertFunc
 		if e.desiredPolicy != nil && e.desiredPolicy.L4Policy != nil && e.desiredPolicy.L4Policy.HasRedirect() {
 			stats.proxyConfiguration.Start()
-			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(owner, e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
+			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(e.desiredPolicy.L4Policy, datapathRegenCtxt.proxyWaitGroup)
 			stats.proxyConfiguration.End(err == nil)
 			if err != nil {
 				return err
@@ -685,7 +685,7 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 		// now-obsolete redirects, since we synced the updated policy map above.
 		// It's now safe to remove the redirects from the proxy's configuration.
 		stats.proxyConfiguration.Start()
-		finalizeFunc, revertFunc = e.removeOldRedirects(owner, desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
+		finalizeFunc, revertFunc = e.removeOldRedirects(desiredRedirects, datapathRegenCtxt.proxyWaitGroup)
 		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 		datapathRegenCtxt.revertStack.Push(revertFunc)
 		stats.proxyConfiguration.End(true)
@@ -711,7 +711,7 @@ func (e *Endpoint) runPreCompilationSteps(owner regeneration.Owner, regenContext
 	}
 	if changed {
 		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapathRewrite
-		if err = e.writeHeaderfile(nextDir, owner); err != nil {
+		if err = e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("unable to write header file: %s", err)
 		}
 	}

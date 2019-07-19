@@ -24,10 +24,17 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/lock"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/revert"
 
 	. "gopkg.in/check.v1"
 )
@@ -39,7 +46,54 @@ type EndpointManagerSuite struct {
 	repo *policy.Repository
 }
 
-var _ = Suite(&EndpointManagerSuite{repo: policy.NewPolicyRepository()})
+var _ = Suite(&EndpointManagerSuite{})
+
+func (s *EndpointManagerSuite) SetUpSuite(c *C) {
+	s.repo = policy.NewPolicyRepository()
+}
+
+func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {
+	return s.repo
+}
+
+func (s *EndpointManagerSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {
+	return 0, nil, nil, nil
+}
+
+func (s *EndpointManagerSuite) RemoveProxyRedirect(e regeneration.EndpointInfoSource, id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+	return nil, nil, nil
+}
+
+func (s *EndpointManagerSuite) UpdateNetworkPolicy(e regeneration.EndpointUpdater, policy *policy.L4Policy,
+	proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc) {
+	return nil, nil
+}
+
+func (s *EndpointManagerSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {}
+
+func (s *EndpointManagerSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
+	return nil, nil
+}
+
+func (s *EndpointManagerSuite) RemoveFromEndpointQueue(epID uint64) {}
+
+func (s *EndpointManagerSuite) GetCompilationLock() *lock.RWMutex {
+	return nil
+}
+
+func (s *EndpointManagerSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+	return nil
+}
+
+func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
+	return nil
+}
+
+func (s *EndpointManagerSuite) GetNodeSuffix() string {
+	return ""
+}
+
+func (s *EndpointManagerSuite) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 type DummyRuleCacheOwner struct{}
 
@@ -48,7 +102,7 @@ func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
 }
 
 func (s *EndpointManagerSuite) TestLookup(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 10, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 10, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id string
@@ -294,7 +348,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 2, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 2, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id uint16
@@ -361,7 +415,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 3, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 3, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		id string
@@ -428,7 +482,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 4, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 4, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ip string
@@ -497,7 +551,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 5, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 5, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		podName string
@@ -565,7 +619,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 6, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 6, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ep *endpoint.Endpoint
@@ -645,7 +699,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestRemove(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 7, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 7, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 	}
@@ -685,7 +739,7 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ep *endpoint.Endpoint
@@ -748,7 +802,7 @@ func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 }
 
 func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
-	ep := endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+	ep := endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
 	ep.UpdateLogger(nil)
 	type args struct {
 		ctx    context.Context
@@ -787,7 +841,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -813,7 +867,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
 			},
 		},
 		{
@@ -839,7 +893,7 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep = endpoint.NewEndpointWithState(s.repo, 1, endpoint.StateReady)
+				ep = endpoint.NewEndpointWithState(s, 1, endpoint.StateReady)
 			},
 		},
 	}
