@@ -10,7 +10,7 @@ GOFILES ?= $(subst _$(ROOT_DIR)/,,$(shell $(CGO_DISABLED) $(GO) list ./... | gre
 TESTPKGS ?= $(subst github.com/cilium/cilium/,,$(shell $(CGO_DISABLED) $(GO) list ./... | grep -v '/api/v1\|/vendor\|/contrib' | grep -v -P 'test(?!/helpers/logutils)'))
 GOLANGVERSION = $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES=$(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
-BPF_FILES ?= $(shell git ls-files ../bpf/ | grep -v .gitignore | tr "\n" ' ')
+BPF_FILES ?= $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
 BPF_SRCFILES=$(subst ../,,$(BPF_FILES))
 
 SWAGGER_VERSION = v0.19.0
