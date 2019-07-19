@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
@@ -83,10 +84,6 @@ type ProxyPort struct {
 type Proxy struct {
 	*envoy.XDSServer
 
-	// stateDir is the path of the directory where the state of L7 proxies is
-	// stored.
-	stateDir string
-
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -110,9 +107,14 @@ type Proxy struct {
 
 // StartProxySupport starts the servers to support L7 proxies: xDS GRPC server
 // and access log server.
-func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
-	accessLogFile string, accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
-	datapathUpdater DatapathUpdater) *Proxy {
+func StartProxySupport(accessLogNotifier logger.LogRecordNotifier, datapathUpdater DatapathUpdater) *Proxy {
+	// FIXME: Make the port range configurable.
+	minPort := uint16(10000)
+	maxPort := uint16(20000)
+	stateDir := option.Config.RunDir
+	accessLogFile := option.Config.AccessLog
+	accessLogMetadata := option.Config.AgentLabels
+
 	xdsServer := envoy.StartXDSServer(stateDir)
 
 	if accessLogFile != "" {
@@ -134,7 +136,6 @@ func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 
 	return &Proxy{
 		XDSServer:       xdsServer,
-		stateDir:        stateDir,
 		rangeMin:        minPort,
 		rangeMax:        maxPort,
 		redirects:       make(map[string]*Redirect),
@@ -483,9 +484,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
 
 		case policy.ParserTypeHTTP:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
+			redir.implementation, err = p.createEnvoyRedirect(redir, wg)
 		default:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
+			redir.implementation, err = p.createEnvoyRedirect(redir, wg)
 		}
 
 		if err == nil {
