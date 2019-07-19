@@ -3,7 +3,11 @@ metadata:
   namespace: kube-system
 data:
   identity-allocation-mode: "kvstore"
+  kvstore: etcd
+  kvstore-opt: etcd.config=/var/lib/etcd-config/etcd.config
 
+  # This etcd-config contains the etcd endpoints of your cluster. If you use
+  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
   etcd-config: |-
     ---
     endpoints:

@@ -17,24 +17,6 @@ data:
   #   setting it to "kvstore".
   identity-allocation-mode: "crd"
 
-  # This etcd-config contains the etcd endpoints of your cluster. If you use
-  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
-  etcd-config: |-
-    ---
-    endpoints:
-      - https://cilium-etcd-client.kube-system.svc:2379
-    #
-    # In case you want to use TLS in etcd, uncomment the 'ca-file' line
-    # and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
-    #
-    # In case you want client to server authentication, uncomment the following
-    # lines and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    key-file: '/var/lib/etcd-secrets/etcd-client.key'
-    cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
-
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
 
@@ -227,8 +209,6 @@ spec:
     spec:
       containers:
       - args:
-        - --kvstore=etcd
-        - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
         - --config-dir=/tmp/cilium/config-map
         command:
         - cilium-agent
@@ -247,6 +227,17 @@ spec:
           valueFrom:
             configMapKeyRef:
               key: identity-allocation-mode
+              name: cilium-config
+        - name: CILIUM_KVSTORE
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore
+              name: cilium-config
+              optional: true
+        - name: CILIUM_KVSTORE_OPT
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore-opt
               name: cilium-config
               optional: true
         - name: CILIUM_FLANNEL_MASTER_DEVICE
