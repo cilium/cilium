@@ -47,7 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
@@ -1360,8 +1359,6 @@ func runDaemon() {
 	endpointmanager.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
 		restoredEndpoints.restored)
 	bootstrapStats.enableConntrack.End(true)
-
-	endpointmanager.EndpointSynchronizer = &endpointsynchronizer.EndpointSynchronizer{}
 
 	bootstrapStats.k8sInit.Start()
 

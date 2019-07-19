@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/endpointsynchronizer"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -180,6 +181,8 @@ type Daemon struct {
 	ipam *ipam.IPAM
 
 	netConf *cnitypes.NetConf
+
+	endpointManager *endpointmanager.EndpointManager
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -744,7 +747,10 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+		//endpointManager:   endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{}),
 	}
+
+	endpointmanager.GlobalEndpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
 
 	if option.Config.RunMonitorAgent {
 		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
