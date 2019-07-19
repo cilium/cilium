@@ -485,6 +485,9 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
 	POLICY_MAP="cilium_policy_reserved_${ID_WORLD}"
 	COPTS="-DSECLABEL=${ID_WORLD} -DPOLICY_MAP=${POLICY_MAP}"
+	if [ "$NODE_PORT" = "true" ]; then
+		COPTS="${COPTS} -DLB_L3 -DLB_L4"
+	fi
 	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 else
 	# Remove eventual existing encapsulation device from previous run
@@ -492,7 +495,7 @@ else
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
-if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ]; then
+if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ]; then
 	if [ -z "$NATIVE_DEV" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else

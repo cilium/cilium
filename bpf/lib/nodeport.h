@@ -19,10 +19,13 @@
 #ifndef __NODEPORT_H_
 #define __NODEPORT_H_
 
+#include <bpf/api.h>
+
 #include "nat.h"
 #include "lb.h"
 #include "conntrack.h"
 #include "csum.h"
+#include "encap.h"
 
 #define CB_SRC_IDENTITY	0
 
@@ -472,7 +475,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_netdev and of the bpf_lxc.
  */
-static inline int rev_nodeport_lb4(struct __sk_buff *skb)
+static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -505,9 +508,31 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb)
 
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
+#ifdef ENCAP_IFINDEX
+		{
+			struct remote_endpoint_info *info;
 
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+			if (info != NULL && info->tunnel_endpoint != 0) {
+				int ret = __encap_with_nodeid(skb, info->tunnel_endpoint,
+							      SECLABEL, TRACE_PAYLOAD_LEN);
+				if (ret)
+					return ret;
+
+				*ifindex = ENCAP_IFINDEX;
+
+				/* fib lookup not necessary when going over tunnel. */
+				if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+					return DROP_WRITE_ERROR;
+				if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+					return DROP_WRITE_ERROR;
+
+				return TC_ACT_OK;
+			}
+		}
+#endif
 		fib_params.family = AF_INET;
-		fib_params.ifindex = NATIVE_DEV_IFINDEX;
+		fib_params.ifindex = *ifindex;
 
 		fib_params.ipv4_src = ip4->saddr;
 		fib_params.ipv4_dst = ip4->daddr;
@@ -529,10 +554,10 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb4(struct __sk_buff *skb)
 {
-	int ret = rev_nodeport_lb4(skb);
+	int ifindex = NATIVE_DEV_IFINDEX, ret = rev_nodeport_lb4(skb, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
-	return redirect(NATIVE_DEV_IFINDEX, 0);
+	return redirect(ifindex, 0);
 }
 #endif /* ENABLE_IPV4 */
 #endif /* ENABLE_NODEPORT */

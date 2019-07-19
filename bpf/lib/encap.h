@@ -65,8 +65,8 @@ encap_and_redirect_ipsec(struct __sk_buff *skb, __u32 tunnel_endpoint, __u8 key,
 #endif
 
 static inline int __inline__
-__encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
-				 __u32 seclabel, __u32 monitor)
+__encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
+		    __u32 seclabel, __u32 monitor)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 node_id;
@@ -84,7 +84,16 @@ __encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 
 	send_trace_notify(skb, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
 			  0, monitor);
+	return 0;
+}
 
+static inline int __inline__
+__encap_and_redirect_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
+				 __u32 seclabel, __u32 monitor)
+{
+	int ret = __encap_with_nodeid(skb, tunnel_endpoint, seclabel, monitor);
+	if (ret != 0)
+		return ret;
 	return redirect(ENCAP_IFINDEX, 0);
 }
 
