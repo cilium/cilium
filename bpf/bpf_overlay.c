@@ -35,6 +35,7 @@
 #include "lib/l3.h"
 #include "lib/drop.h"
 #include "lib/policy.h"
+#include "lib/nodeport.h"
 
 #ifdef ENABLE_IPV6
 static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
@@ -46,10 +47,10 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 	int l4_off, l3_off = ETH_HLEN, hdrlen;
 	bool decrypted;
 
-	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
+	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
 		*identity = get_identity(skb);
 	} else {
@@ -135,10 +136,20 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 	bool decrypted;
 	int l4_off;
 
-	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	/* verifier workaround (dereference of modified ctx ptr) */
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+#ifdef ENABLE_NODEPORT
+	if (!tc_index_skip_nodeport(skb)) {
+		int ret = nodeport_lb4(skb, *identity);
+		if (ret < 0)
+			return ret;
+	}
+#endif
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
 		*identity = get_identity(skb);
@@ -226,6 +237,7 @@ int from_overlay(struct __sk_buff *skb)
 	int ret;
 
 	bpf_clear_cb(skb);
+	tc_index_clear_nodeport(skb);
 
 #ifdef ENABLE_IPSEC
 	if ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {

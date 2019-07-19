@@ -149,6 +149,10 @@ func (d *Daemon) compileBase() error {
 		}
 
 		args[initArgMode] = mode
+		if option.Config.EnableNodePort &&
+			strings.ToLower(option.Config.Tunnel) != "disabled" {
+			args[initArgMode] = option.Config.Tunnel
+		}
 		args[initArgDevice] = option.Config.Device
 	} else {
 		if option.Config.IsLBEnabled() && strings.ToLower(option.Config.Tunnel) != "disabled" {
