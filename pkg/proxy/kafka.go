@@ -47,12 +47,11 @@ const (
 // to be used from multiple goroutines and the other fields below are
 // immutable after initialization.
 type kafkaListener struct {
-	socket               *proxySocket
-	proxyPort            uint16
-	endpointInfoRegistry logger.EndpointInfoRegistry
-	ingress              bool
-	transparent          bool
-	count                int
+	socket      *proxySocket
+	proxyPort   uint16
+	ingress     bool
+	transparent bool
+	count       int
 }
 
 var (
@@ -74,10 +73,9 @@ func mapKey(dstPort uint16, ingress bool, eID uint16) uint64 {
 // 'listener' is shared across multiple kafkaRedirects
 // 'redirect' is unique for this kafkaRedirect
 type kafkaRedirect struct {
-	listener             *kafkaListener
-	redirect             *Redirect
-	endpointInfoRegistry logger.EndpointInfoRegistry
-	conf                 kafkaConfiguration
+	listener *kafkaListener
+	redirect *Redirect
+	conf     kafkaConfiguration
 }
 
 type srcIDLookupFunc func(mapname, remoteAddr, localAddr string, ingress bool) (uint32, error)
@@ -116,7 +114,7 @@ func (l *kafkaListener) Listen() {
 			}
 		}
 		var epinfo accesslog.EndpointInfo
-		if !l.endpointInfoRegistry.FillEndpointIdentityByIP(net.ParseIP(endpointIPStr), &epinfo) {
+		if !DefaultEndpointInfoRegistry.FillEndpointIdentityByIP(net.ParseIP(endpointIPStr), &epinfo) {
 			log.WithField(logfields.Port, l.proxyPort).Errorf("Can't find endpoint with IP %s", endpointIPStr)
 			continue
 		}
@@ -137,11 +135,10 @@ func (l *kafkaListener) Listen() {
 
 // createKafkaRedirect creates a redirect to the kafka proxy. The redirect structure passed
 // in is safe to access for reading and writing.
-func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
+func createKafkaRedirect(r *Redirect, conf kafkaConfiguration) (RedirectImplementation, error) {
 	redir := &kafkaRedirect{
-		redirect:             r,
-		conf:                 conf,
-		endpointInfoRegistry: endpointInfoRegistry,
+		redirect: r,
+		conf:     conf,
 	}
 
 	if redir.conf.lookupSrcID == nil {
@@ -181,12 +178,11 @@ func createKafkaRedirect(r *Redirect, conf kafkaConfiguration, endpointInfoRegis
 			return nil, err
 		}
 		listener = &kafkaListener{
-			socket:               socket,
-			proxyPort:            r.listener.proxyPort,
-			endpointInfoRegistry: endpointInfoRegistry,
-			ingress:              r.listener.ingress,
-			transparent:          !conf.testMode,
-			count:                0,
+			socket:      socket,
+			proxyPort:   r.listener.proxyPort,
+			ingress:     r.listener.ingress,
+			transparent: !conf.testMode,
+			count:       0,
 		}
 
 		go listener.Listen()
@@ -246,7 +242,7 @@ func apiKeyToString(apiKey int16) string {
 
 func (k *kafkaRedirect) newLogRecordFromRequest(req *kafka.RequestMessage) kafkaLogRecord {
 	return kafkaLogRecord{
-		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.localEndpoint,
+		LogRecord: logger.NewLogRecord(DefaultEndpointInfoRegistry, k.redirect.localEndpoint,
 			accesslog.TypeRequest, k.redirect.listener.ingress,
 			logger.LogTags.Kafka(&accesslog.LogRecordKafka{
 				APIVersion:    req.GetVersion(),
@@ -260,7 +256,7 @@ func (k *kafkaRedirect) newLogRecordFromRequest(req *kafka.RequestMessage) kafka
 
 func (k *kafkaRedirect) newLogRecordFromResponse(res *kafka.ResponseMessage, req *kafka.RequestMessage) kafkaLogRecord {
 	lr := kafkaLogRecord{
-		LogRecord: logger.NewLogRecord(k.endpointInfoRegistry, k.redirect.localEndpoint,
+		LogRecord: logger.NewLogRecord(DefaultEndpointInfoRegistry, k.redirect.localEndpoint,
 			accesslog.TypeResponse, k.redirect.listener.ingress, logger.LogTags.Kafka(&accesslog.LogRecordKafka{})),
 		localEndpoint: k.redirect.localEndpoint,
 	}
