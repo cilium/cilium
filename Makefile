@@ -43,9 +43,13 @@ TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddres
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
 	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890"
+
+# If you want to change the logging level of all unit tests below, you can change
+# the value of github.com/cilium/cilium/pkg/logging.DefaultLogLevelStr.
 TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyConfigFile=/tmp/cilium-consul-certs/cilium-consul.yaml \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
-	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890"
+	-X github.com/cilium/cilium/pkg/datapath.DatapathSHA=1234567890abcdef7890 \
+	-X github.com/cilium/cilium/pkg/logging.DefaultLogLevelStr=error"
 
 all: precheck build postcheck
 	@echo "Build finished."

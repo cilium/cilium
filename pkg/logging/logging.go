@@ -42,6 +42,11 @@ var (
 	// DefaultLogLevel is the alternative we provide to Debug
 	DefaultLogLevel = logrus.InfoLevel
 
+	// DefaultLogLevelStr is the string representation of DefaultLogLevel. It
+	// is used to allow for injection of the logging level via go's ldflags in
+	// unit tests, as only injection with strings via ldflags is allowed.
+	DefaultLogLevelStr = "info"
+
 	// syslogOpts is the set of supported options for syslog configuration.
 	syslogOpts = map[string]bool{
 		"syslog.level": true,
@@ -56,12 +61,23 @@ var (
 		logrus.InfoLevel:  syslog.LOG_INFO,
 		logrus.DebugLevel: syslog.LOG_DEBUG,
 	}
+
+	// LevelStringToLogrusLevel maps string representations of logrus.Level into
+	// their corresponding logrus.Level.
+	LevelStringToLogrusLevel = map[string]logrus.Level{
+		"panic":   logrus.PanicLevel,
+		"error":   logrus.ErrorLevel,
+		"warning": logrus.WarnLevel,
+		"info":    logrus.InfoLevel,
+		"debug":   logrus.DebugLevel,
+	}
 )
 
 // InitializeDefaultLogger returns a logrus Logger with a custom text formatter.
 func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
 	logger.Formatter = setupFormatter()
+	logger.SetLevel(LevelStringToLogrusLevel[DefaultLogLevelStr])
 	return logger
 }
 
@@ -74,7 +90,6 @@ func SetupLogging(loggers []string, logOpts map[string]string, tag string, debug
 		logrus.SetOutput(os.Stdout)
 	}
 
-	SetLogLevel(DefaultLogLevel)
 	ToggleDebugLogs(debug)
 
 	// always suppress the default logger so libraries don't print things

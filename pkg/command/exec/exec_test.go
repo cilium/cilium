@@ -106,6 +106,8 @@ func (h *LoggingHook) Fire(entry *logrus.Entry) error {
 func (s *ExecTestSuite) TestWithFilters(c *C) {
 	hook := &LoggingHook{}
 	logging.DefaultLogger.Hooks.Add(hook)
+	logging.DefaultLogger.SetLevel(logrus.WarnLevel)
+	defer logging.DefaultLogger.SetLevel(logging.LevelStringToLogrusLevel[logging.DefaultLogLevelStr])
 
 	// This command will print the following output to stderr:
 	//
