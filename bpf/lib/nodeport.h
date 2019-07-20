@@ -142,6 +142,7 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
+	ifindex = fib_params.ifindex;
 out_send:
 	return redirect(ifindex, 0);
 drop_err:
@@ -435,6 +436,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
+	ifindex = fib_params.ifindex;
 out_send:
 	return redirect(ifindex, 0);
 drop_err:
