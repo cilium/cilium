@@ -161,7 +161,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC()...)
 
 			// cleanup caches for all existing endpoints as well.
-			endpoints := endpointmanager.GetEndpoints()
+			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
 				namesToClean = append(namesToClean, ep.DNSHistory.GC()...)
 			}
@@ -320,7 +320,7 @@ func (d *Daemon) pollerResponseNotify(lookupTime time.Time, qname string, respon
 
 // lookupEPByIP returns the endpoint that this IP belongs to
 func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, err error) {
-	e := endpointmanager.LookupIP(endpointIP)
+	e := d.endpointManager.LookupIP(endpointIP)
 	if e == nil {
 		return nil, fmt.Errorf("Cannot find endpoint with IP %s", endpointIP.String())
 	}
@@ -428,7 +428,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 			// When the server is an endpoint, get all the data for it.
 			// When external, use the ipcache to fill in the SecID
-			if serverEP := endpointmanager.LookupIPv4(serverIP); serverEP != nil {
+			if serverEP := d.endpointManager.LookupIPv4(serverIP); serverEP != nil {
 				lr.LogRecord.DestinationEndpoint = accesslog.EndpointInfo{
 					ID:           serverEP.GetID(),
 					IPv4:         serverEP.GetIPv4Address(),
@@ -499,7 +499,7 @@ func NewGetFqdnCacheHandler(d *Daemon) GetFqdnCacheHandler {
 
 func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
 	// endpoints we want data from
-	endpoints := endpointmanager.GetEndpoints()
+	endpoints := h.daemon.endpointManager.GetEndpoints()
 
 	CIDRStr := ""
 	if params.Cidr != nil {
@@ -532,7 +532,7 @@ func NewDeleteFqdnCacheHandler(d *Daemon) DeleteFqdnCacheHandler {
 
 func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Responder {
 	// endpoints we want to modify
-	endpoints := endpointmanager.GetEndpoints()
+	endpoints := h.daemon.endpointManager.GetEndpoints()
 
 	matchPatternStr := ""
 	if params.Matchpattern != nil {
@@ -563,7 +563,7 @@ func NewGetFqdnCacheIDHandler(d *Daemon) GetFqdnCacheIDHandler {
 func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responder {
 	var endpoints []*endpoint.Endpoint
 	if params.ID != "" {
-		ep, err := endpointmanager.Lookup(params.ID)
+		ep, err := h.daemon.endpointManager.Lookup(params.ID)
 		switch {
 		case err != nil:
 			return api.Error(GetFqdnCacheIDBadRequestCode, err)

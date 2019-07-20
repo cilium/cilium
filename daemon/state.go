@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -250,7 +249,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
 
-		if err := endpointmanager.Insert(ep); err != nil {
+		if err := d.endpointManager.Insert(ep); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
 			state.restored = append(state.restored[:i], state.restored[i+1:]...)

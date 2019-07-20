@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -77,7 +76,7 @@ func (d *Daemon) initHealth() {
 				if client == nil || err != nil {
 					var launchErr error
 					d.cleanupHealthEndpoint()
-					client, launchErr = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig)
+					client, launchErr = health.LaunchAsEndpoint(ctx, d, &d.nodeDiscovery.LocalNode, d.mtuConfig, d.endpointManager)
 					if launchErr != nil {
 						if err != nil {
 							return fmt.Errorf("failed to restart endpoint (check failed: %q): %s", err, launchErr)
@@ -113,10 +112,10 @@ func (d *Daemon) cleanupHealthEndpoint() {
 	// Clean up agent resources
 	var ep *endpoint.Endpoint
 	if localNode.IPv4HealthIP != nil {
-		ep = endpointmanager.LookupIPv4(localNode.IPv4HealthIP.String())
+		ep = d.endpointManager.LookupIPv4(localNode.IPv4HealthIP.String())
 	}
 	if ep == nil && localNode.IPv6HealthIP != nil {
-		ep = endpointmanager.LookupIPv6(localNode.IPv6HealthIP.String())
+		ep = d.endpointManager.LookupIPv6(localNode.IPv6HealthIP.String())
 	}
 	if ep == nil {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
