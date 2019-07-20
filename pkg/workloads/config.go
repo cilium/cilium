@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 )
 
 // setOpts validates the specified options against the selected workload runtime
@@ -78,7 +79,7 @@ var (
 	allocator allocatorInterface
 )
 
-func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string) error {
+func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string, epMgr *endpointmanager.EndpointManager) error {
 	workloadMod := getWorkload(workloadRuntime)
 	if workloadMod == nil {
 		return fmt.Errorf("unknown workloadRuntime runtime type %s", workloadRuntime)
@@ -88,7 +89,7 @@ func setupWorkload(workloadRuntime WorkloadRuntimeType, opts map[string]string) 
 		return err
 	}
 
-	return initClient(workloadMod)
+	return initClient(workloadMod, epMgr)
 }
 
 type allocatorInterface interface {
@@ -97,11 +98,11 @@ type allocatorInterface interface {
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
-	return setup(a, workloadRuntimes, opts, false)
+func Setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, epMgr *endpointmanager.EndpointManager) error {
+	return setup(a, workloadRuntimes, opts, false, epMgr)
 }
 
-func setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
+func setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool, epMgr *endpointmanager.EndpointManager) error {
 	var (
 		st  *models.Status
 		err error
@@ -138,7 +139,7 @@ func setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRun
 				case Auto:
 					var setupErr error
 					for _, rt := range []WorkloadRuntimeType{Docker, ContainerD, CRIO} {
-						setupErr = setupWorkload(rt, opts[rt])
+						setupErr = setupWorkload(rt, opts[rt], epMgr)
 						if !bypassStatusCheck {
 							st = Status()
 						}
@@ -149,7 +150,7 @@ func setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRun
 					err = setupErr
 					return
 				default:
-					err = setupWorkload(crt, opts[crt])
+					err = setupWorkload(crt, opts[crt], epMgr)
 					return
 				}
 			}

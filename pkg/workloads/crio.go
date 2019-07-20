@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 )
 
 const (
@@ -64,15 +65,15 @@ func (c *criOModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *criOModule) newClient() (WorkloadRuntime, error) {
-	return newCRIOClient(c.opts)
+func (c *criOModule) newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
+	return newCRIOClient(c.opts, epMgr)
 }
 
 type criOClient struct {
 	cri *criClient
 }
 
-func newCRIOClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
+func newCRIOClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
 	ep := string(opts[EpOpt].value)
 	p, err := url.Parse(ep)
 	if err != nil {
@@ -81,7 +82,7 @@ func newCRIOClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 	if p.Scheme == "" {
 		ep = "unix://" + ep
 	}
-	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep))
+	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep), epMgr)
 	return &criOClient{rsc}, err
 }
 

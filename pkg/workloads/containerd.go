@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/containerd/containerd"
@@ -85,8 +86,8 @@ func (c *containerDModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *containerDModule) newClient() (WorkloadRuntime, error) {
-	return newContainerDClient(c.opts)
+func (c *containerDModule) newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
+	return newContainerDClient(c.opts, epMgr)
 }
 
 type containerDClient struct {
@@ -94,7 +95,7 @@ type containerDClient struct {
 	cri *criClient
 }
 
-func newContainerDClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
+func newContainerDClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
 	ep := string(opts[EpOpt].value)
 	c, err := containerd.New(ep)
 	if err != nil {
@@ -107,7 +108,7 @@ func newContainerDClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 	if p.Scheme == "" {
 		ep = "unix://" + ep
 	}
-	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep))
+	rsc, err := newCRIClient(context.WithValue(context.Background(), EpOpt, ep), epMgr)
 	return &containerDClient{c, rsc}, err
 }
 
