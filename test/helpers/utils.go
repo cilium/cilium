@@ -313,24 +313,33 @@ func reportMapContext(ctx context.Context, path string, reportCmds map[string]st
 // ManifestGet returns the full path of the given manifest corresponding to the
 // Kubernetes version being tested, if such a manifest exists, if not it
 // returns the global manifest file.
+// The paths are checked in order:
+// 1- base_path/integration/filename
+// 2- base_path/k8s_version/integration/filename
+// 3- base_path/k8s_version/filename
+// 4- base_path/filename
 func ManifestGet(manifestFilename string) string {
-	// try dependent integration file
-	fullPath := filepath.Join(manifestsPath, GetCurrentIntegration(), manifestFilename)
-	_, err := os.Stat(fullPath)
-	if err == nil {
-		return filepath.Join(BasePath, fullPath)
-	}
+	// Try dependent integration file only if we have one configured. This is
+	// needed since no integration is "" and that causes us to find the
+	// base_path/filename before we check the base_path/k8s_version/filename
+	if integration := GetCurrentIntegration(); integration != "" {
+		fullPath := filepath.Join(manifestsPath, integration, manifestFilename)
+		_, err := os.Stat(fullPath)
+		if err == nil {
+			return filepath.Join(BasePath, fullPath)
+		}
 
-	// try dependent k8s version and integration file
-	fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), GetCurrentIntegration(), manifestFilename)
-	_, err = os.Stat(fullPath)
-	if err == nil {
-		return filepath.Join(BasePath, fullPath)
+		// try dependent k8s version and integration file
+		fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), integration, manifestFilename)
+		_, err = os.Stat(fullPath)
+		if err == nil {
+			return filepath.Join(BasePath, fullPath)
+		}
 	}
 
 	// try dependent k8s version
-	fullPath = filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
-	_, err = os.Stat(fullPath)
+	fullPath := filepath.Join(manifestsPath, GetCurrentK8SEnv(), manifestFilename)
+	_, err := os.Stat(fullPath)
 	if err == nil {
 		return filepath.Join(BasePath, fullPath)
 	}
