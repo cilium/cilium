@@ -55,6 +55,7 @@ static inline bool __inline__ tc_index_skip_nodeport(struct __sk_buff *skb)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 {
+	int ifindex = NATIVE_DEV_IFINDEX, ret, dir = skb->cb[CB_NAT];
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -63,10 +64,35 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 	};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, dir = skb->cb[CB_NAT];
 
 	BPF_V6(target.addr, IPV6_NODEPORT);
+#ifdef ENCAP_IFINDEX
+	if (dir == NAT_DIR_EGRESS) {
+		struct remote_endpoint_info *info;
+		union v6addr *dst;
 
+		if (!revalidate_data(skb, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		dst = (union v6addr *)&ip6->daddr;
+		info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+		if (info != NULL && info->tunnel_endpoint != 0) {
+			int ret = __encap_with_nodeid(skb, info->tunnel_endpoint,
+						      SECLABEL, TRACE_PAYLOAD_LEN);
+			if (ret)
+				return ret;
+
+			BPF_V6(target.addr, HOST_IP);
+			ifindex = ENCAP_IFINDEX;
+
+			/* fib lookup not necessary when going over tunnel. */
+			if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+				return DROP_WRITE_ERROR;
+		}
+	}
+#endif
 	ret = snat_v6_process(skb, dir, &target);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
@@ -88,13 +114,16 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 		goto drop_err;
 	}
 
+	if (ifindex == ENCAP_IFINDEX)
+		goto out_send;
+
 	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
 	fib_params.family = AF_INET6;
-	fib_params.ifindex = NATIVE_DEV_IFINDEX;
+	fib_params.ifindex = ifindex;
 	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
 	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
 
@@ -113,8 +142,8 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-
-	return redirect(fib_params.ifindex, 0);
+out_send:
+	return redirect(ifindex, 0);
 drop_err:
 	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT,
 				      dir == NAT_DIR_INGRESS ?
@@ -227,7 +256,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 }
 
 /* See comment in tail_rev_nodeport_lb4(). */
-static inline int rev_nodeport_lb6(struct __sk_buff *skb)
+static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex)
 {
 	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -263,9 +292,32 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb)
 
 		if (!revalidate_data(skb, &data, &data_end, &ip6))
 			return DROP_INVALID;
+#ifdef ENCAP_IFINDEX
+		{
+			union v6addr *dst = (union v6addr *)&ip6->daddr;
+			struct remote_endpoint_info *info;
 
+			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+			if (info != NULL && info->tunnel_endpoint != 0) {
+				int ret = __encap_with_nodeid(skb, info->tunnel_endpoint,
+							      SECLABEL, TRACE_PAYLOAD_LEN);
+				if (ret)
+					return ret;
+
+				*ifindex = ENCAP_IFINDEX;
+
+				/* fib lookup not necessary when going over tunnel. */
+				if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+					return DROP_WRITE_ERROR;
+				if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+					return DROP_WRITE_ERROR;
+
+				return TC_ACT_OK;
+			}
+		}
+#endif
 		fib_params.family = AF_INET6;
-		fib_params.ifindex = NATIVE_DEV_IFINDEX;
+		fib_params.ifindex = *ifindex;
 
 		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, &tuple.saddr);
 		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, &tuple.daddr);
@@ -287,10 +339,10 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __sk_buff *skb)
 {
-	int ret = rev_nodeport_lb6(skb);
+	int ifindex = NATIVE_DEV_IFINDEX, ret = rev_nodeport_lb6(skb, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
-	return redirect(NATIVE_DEV_IFINDEX, 0);
+	return redirect(ifindex, 0);
 }
 #endif /* ENABLE_IPV6 */
 

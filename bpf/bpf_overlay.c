@@ -47,6 +47,16 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 	int l4_off, l3_off = ETH_HLEN, hdrlen;
 	bool decrypted;
 
+	/* verifier workaround (dereference of modified ctx ptr) */
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+#ifdef ENABLE_NODEPORT
+	if (!tc_index_skip_nodeport(skb)) {
+		int ret = nodeport_lb6(skb, *identity);
+		if (ret < 0)
+			return ret;
+	}
+#endif
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
