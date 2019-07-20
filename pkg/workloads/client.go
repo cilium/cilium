@@ -17,6 +17,7 @@ package workloads
 import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 )
 
 var (
@@ -24,8 +25,8 @@ var (
 	defaultClient WorkloadRuntime
 )
 
-func initClient(module workloadModule) error {
-	c, err := module.newClient()
+func initClient(module workloadModule, epMgr *endpointmanager.EndpointManager) error {
+	c, err := module.newClient(epMgr)
 	if err != nil {
 		return err
 	}

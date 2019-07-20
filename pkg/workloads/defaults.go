@@ -59,7 +59,7 @@ func getFilteredLabels(containerID string, allLabels map[string]string) (identit
 	return labels.FilterLabels(combinedLabels)
 }
 
-func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string) {
+func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels map[string]string, epMgr *endpointmanager.EndpointManager) {
 	ep.SetContainerID(containerID)
 
 	// FIXME: Remove this in 2019-06: GH-6526
@@ -70,7 +70,7 @@ func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels 
 
 	// Update map allowing to lookup endpoint by endpoint
 	// attributes with new attributes set on endpoint
-	endpointmanager.UpdateReferences(ep)
+	epMgr.UpdateReferences(ep)
 
 	identityLabels, informationLabels := getFilteredLabels(containerID, allLabels)
 	ep.UpdateLabels(context.Background(), identityLabels, informationLabels, false)

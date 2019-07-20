@@ -59,15 +59,20 @@ func getGRPCCLient(ctx context.Context) (*grpc.ClientConn, error) {
 
 type criClient struct {
 	criRuntime.RuntimeServiceClient
+
+	endpointManager *endpointmanager.EndpointManager
 }
 
-func newCRIClient(ctx context.Context) (*criClient, error) {
+func newCRIClient(ctx context.Context, epMgr *endpointmanager.EndpointManager) (*criClient, error) {
 	cc, err := getGRPCCLient(ctx)
 	if err != nil {
 		return nil, err
 	}
 	rsc := criRuntime.NewRuntimeServiceClient(cc)
-	return &criClient{rsc}, nil
+	return &criClient{
+		RuntimeServiceClient: rsc,
+		endpointManager:      epMgr,
+	}, nil
 }
 
 // IsRunning returns false if the provided endpoint cannot be associated with a
@@ -177,7 +182,7 @@ func (c *criClient) getEndpointByPodIP(pod *criRuntime.PodSandboxStatus) *endpoi
 
 	if ciliumIP := c.getCiliumIP(pod); ciliumIP != nil {
 		id := endpointid.NewIPPrefixID(ciliumIP.IP())
-		if ep, err := endpointmanager.Lookup(id); err != nil {
+		if ep, err := c.endpointManager.Lookup(id); err != nil {
 			log.WithError(err).Warning("Unable to lookup endpoint by IP prefix")
 		} else if ep != nil {
 			return ep
@@ -236,7 +241,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 			retryLog.Warn("Container name not set in event from containerD")
 		}
 
-		ep := endpointmanager.LookupContainerID(id)
+		ep := c.endpointManager.LookupContainerID(id)
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint
 			// via one of the IP addresses assigned.
@@ -257,7 +262,7 @@ func (c *criClient) handleCreateWorkload(id string, retry bool) {
 			logfields.EndpointID: ep.ID,
 		}).Debug("Associated container event with endpoint")
 
-		processCreateWorkload(ep, id, pod.Labels)
+		processCreateWorkload(ep, id, pod.Labels, c.endpointManager)
 		return
 	}
 
