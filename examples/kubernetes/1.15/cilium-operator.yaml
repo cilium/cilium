@@ -30,8 +30,6 @@ spec:
       containers:
       - args:
         - --debug=$(CILIUM_DEBUG)
-        - --kvstore=etcd
-        - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
         command:
         - cilium-operator
         env:
