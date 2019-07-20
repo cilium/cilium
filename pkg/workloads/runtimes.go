@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 )
 
 // WorkloadOwner is the interface that the owner of workloads must implement.
@@ -90,7 +91,7 @@ type workloadModule interface {
 
 	// newClient must initializes the workload and create a new kvstore
 	// client which implements the WorkloadRuntime interface
-	newClient() (WorkloadRuntime, error)
+	newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error)
 }
 
 // WorkloadRuntimeType is the type of a container runtime

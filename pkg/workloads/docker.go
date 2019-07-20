@@ -93,16 +93,17 @@ func (c *dockerModule) getConfig() map[string]string {
 	return getOpts(c.opts)
 }
 
-func (c *dockerModule) newClient() (WorkloadRuntime, error) {
-	return newDockerClient(c.opts)
+func (c *dockerModule) newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
+	return newDockerClient(c.opts, epMgr)
 }
 
 type dockerClient struct {
 	*client.Client
-	datapathMode string
+	datapathMode    string
+	endpointManager *endpointmanager.EndpointManager
 }
 
-func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
+func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	ep := opts[EpOpt]
 	c, err := client.NewClient(ep.value, "v1.21", nil, defaultHeaders)
@@ -114,7 +115,11 @@ func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 		return nil, fmt.Errorf("'%s' option not found", DatapathModeOpt)
 	}
 
-	return &dockerClient{Client: c, datapathMode: dpMode.value}, nil
+	return &dockerClient{
+		Client:          c,
+		datapathMode:    dpMode.value,
+		endpointManager: epMgr,
+	}, nil
 }
 
 func newDockerClientMock(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
@@ -356,7 +361,7 @@ func (d *dockerClient) getEndpointByIP(cont *dTypes.ContainerJSON) *endpoint.End
 
 		if contNetwork.GlobalIPv6Address != "" {
 			id := endpointid.NewID(endpointid.IPv6Prefix, contNetwork.GlobalIPv6Address)
-			if ep, err := endpointmanager.Lookup(id); err != nil {
+			if ep, err := d.endpointManager.Lookup(id); err != nil {
 				log.WithError(err).WithField(logfields.V6Prefix, id).Warning("Unable to lookup endpoint by IP prefix")
 			} else if ep != nil {
 				return ep
@@ -365,7 +370,7 @@ func (d *dockerClient) getEndpointByIP(cont *dTypes.ContainerJSON) *endpoint.End
 
 		if contNetwork.IPAddress != "" {
 			id := endpointid.NewID(endpointid.IPv4Prefix, contNetwork.IPAddress)
-			if ep, err := endpointmanager.Lookup(id); err != nil {
+			if ep, err := d.endpointManager.Lookup(id); err != nil {
 				log.WithError(err).WithField(logfields.V4Prefix, id).Warning("Unable to lookup endpoint by IP prefix")
 			} else if ep != nil {
 				return ep
@@ -430,7 +435,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			retryLog.Warn("Container name not set in event from docker")
 		}
 
-		ep := endpointmanager.LookupContainerID(id)
+		ep := d.endpointManager.LookupContainerID(id)
 		if ep == nil {
 			// Container ID is not yet known; try and find endpoint via
 			// the IP address assigned.
@@ -478,7 +483,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 			allLabels = dockerContainer.Config.Labels
 		}
 
-		processCreateWorkload(ep, id, allLabels)
+		processCreateWorkload(ep, id, allLabels, d.endpointManager)
 
 		return
 	}
