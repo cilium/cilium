@@ -34,6 +34,10 @@ const (
 	// Kubernetes is the source used for state derived from Kubernetes
 	Kubernetes Source = "k8s"
 
+	// CustomResource is the source used for state derived from Kubernetes
+	// custom resources
+	CustomResource Source = "custom-resource"
+
 	// Generated is the source used for generated state which can be
 	// overwritten by all other sources
 	Generated Source = "generated"
@@ -48,6 +52,11 @@ func AllowOverwrite(existing, new Source) bool {
 	// and unspecified state
 	case Kubernetes:
 		return new != Generated && new != Unspec
+
+	// Custom-resource state can be overwritten everything except
+	// generated, unspecified and Kuberntes (non-CRD) state
+	case CustomResource:
+		return new != Generated && new != Unspec && new != Kubernetes
 
 	// KVStore can be overwritten by other kvstore or local state
 	case KVStore:

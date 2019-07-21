@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
@@ -37,6 +38,45 @@ type Identity struct {
 // String returns the string representation on NodeIdentity.
 func (nn Identity) String() string {
 	return path.Join(nn.Cluster, nn.Name)
+}
+
+// ParseCiliumNode parses a CiliumNode custom resource and returns a Node
+// instance. Invalid IP and CIDRs are silently ignored
+func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
+	node = Node{
+		Name:          n.Name,
+		EncryptionKey: uint8(n.Spec.Encryption.Key),
+		Cluster:       option.Config.ClusterName,
+		ClusterID:     option.Config.ClusterID,
+		Source:        source.CustomResource,
+	}
+
+	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
+		ipnet, err := cidr.ParseCIDR(cidrString)
+		if err == nil {
+			if ipnet.IP.To4() != nil {
+				node.IPv4AllocCIDR = ipnet
+			} else {
+				node.IPv6AllocCIDR = ipnet
+			}
+		}
+	}
+
+	if healthIP := n.Spec.HealthAddressing.IPv4; healthIP != "" {
+		node.IPv4HealthIP = net.ParseIP(healthIP)
+	}
+
+	if healthIP := n.Spec.HealthAddressing.IPv6; healthIP != "" {
+		node.IPv6HealthIP = net.ParseIP(healthIP)
+	}
+
+	for _, address := range n.Spec.Addresses {
+		if ip := net.ParseIP(address.IP); ip != nil {
+			node.IPAddresses = append(node.IPAddresses, Address{Type: address.Type, IP: ip})
+		}
+	}
+
+	return
 }
 
 // Node contains the nodes name, the list of addresses to this address
