@@ -30,6 +30,7 @@ import (
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 const (
@@ -93,7 +94,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
 		},
 		LocalNode: node.Node{
-			Source: node.FromLocalNode,
+			Source: source.Local,
 		},
 		Registered: make(chan struct{}),
 	}

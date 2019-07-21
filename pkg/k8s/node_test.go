@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/node"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/source"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -43,7 +43,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		SpecPodCIDR: "10.1.0.0/16",
 	}
 
-	n := ParseNode(k8sNode, node.FromAgentLocal)
+	n := ParseNode(k8sNode, source.Local)
 	c.Assert(n.Name, Equals, "node1")
 	c.Assert(n.IPv4AllocCIDR, NotNil)
 	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
@@ -61,7 +61,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		SpecPodCIDR: "10.1.0.0/16",
 	}
 
-	n = ParseNode(k8sNode, node.FromAgentLocal)
+	n = ParseNode(k8sNode, source.Local)
 	c.Assert(n.Name, Equals, "node2")
 	c.Assert(n.IPv4AllocCIDR, NotNil)
 	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
@@ -78,7 +78,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		SpecPodCIDR: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
 	}
 
-	n = ParseNode(k8sNode, node.FromAgentLocal)
+	n = ParseNode(k8sNode, source.Local)
 	c.Assert(n.Name, Equals, "node2")
 	c.Assert(n.IPv4AllocCIDR, NotNil)
 	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.254.0.0/16")

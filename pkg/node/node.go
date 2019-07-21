@@ -25,26 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
-)
-
-// Source is the description of the source of an identity
-type Source string
-
-const (
-	// FromKubernetes is the source used for identities derived from k8s
-	// resources (pods)
-	FromKubernetes Source = "k8s"
-
-	// FromKVStore is the source used for identities derived from the
-	// kvstore
-	FromKVStore Source = "kvstore"
-
-	// FromAgentLocal is the source used for identities derived during the
-	// agent bootup process. This includes identities for endpoint IPs.
-	FromAgentLocal Source = "agent-local"
-
-	// FromLocalNode is the source used for the local node
-	FromLocalNode Source = "local-node"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // Identity represents the node identity of a node.
@@ -90,7 +71,7 @@ type Node struct {
 	ClusterID int
 
 	// Source is the source where the node configuration was generated / created.
-	Source Source
+	Source source.Source
 
 	// Key index used for transparent encryption or 0 for no encryption
 	EncryptionKey uint8

@@ -33,6 +33,7 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/source"
 
 	"k8s.io/api/core/v1"
 	core_v1 "k8s.io/api/core/v1"
@@ -70,7 +71,7 @@ func runNodeWatcher() error {
 			AddFunc: func(obj interface{}) {
 				if n := k8s.CopyObjToV1Node(obj); n != nil {
 					serNodes.Enqueue(func() error {
-						nodeNew := k8s.ParseNode(n, node.FromKubernetes)
+						nodeNew := k8s.ParseNode(n, source.Kubernetes)
 						ciliumNodeStore.UpdateKeySync(nodeNew)
 						return nil
 					}, serializer.NoRetry)
@@ -84,7 +85,7 @@ func runNodeWatcher() error {
 						}
 
 						serNodes.Enqueue(func() error {
-							newNode := k8s.ParseNode(newNode, node.FromKubernetes)
+							newNode := k8s.ParseNode(newNode, source.Kubernetes)
 							ciliumNodeStore.UpdateKeySync(newNode)
 							return nil
 						}, serializer.NoRetry)
@@ -107,7 +108,7 @@ func runNodeWatcher() error {
 					}
 				}
 				serNodes.Enqueue(func() error {
-					deletedNode := k8s.ParseNode(n, node.FromKubernetes)
+					deletedNode := k8s.ParseNode(n, source.Kubernetes)
 					ciliumNodeStore.DeleteLocalKey(deletedNode)
 					deleteCiliumNode(n.Name)
 					return nil

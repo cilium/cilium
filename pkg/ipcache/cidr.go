@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
@@ -89,7 +90,7 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 	for prefixString, id := range newlyAllocatedIdentities {
 		IPIdentityCache.Upsert(prefixString, nil, 0, Identity{
 			ID:     id.ID,
-			Source: FromCIDR,
+			Source: source.Generated,
 		})
 	}
 
@@ -118,7 +119,7 @@ func ReleaseCIDRs(prefixes []*net.IPNet) {
 			}
 
 			if released {
-				IPIdentityCache.Delete(prefix.String(), FromCIDR)
+				IPIdentityCache.Delete(prefix.String(), source.Generated)
 			}
 		} else {
 			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
