@@ -113,6 +113,8 @@ func (c *cache) OnListDone() {
 	c.keyCache = c.nextKeyCache
 	c.mutex.Unlock()
 
+	log.Debug("Initial list of identities received")
+
 	// report that the list operation has
 	// been completed and the allocator is
 	// ready to use
