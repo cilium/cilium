@@ -67,28 +67,30 @@ import (
 )
 
 const (
-	k8sAPIGroupCRD              = "CustomResourceDefinition"
-	k8sAPIGroupNodeV1Core       = "core/v1::Node"
-	k8sAPIGroupNamespaceV1Core  = "core/v1::Namespace"
-	k8sAPIGroupServiceV1Core    = "core/v1::Service"
-	k8sAPIGroupEndpointV1Core   = "core/v1::Endpoint"
-	k8sAPIGroupPodV1Core        = "core/v1::Pods"
-	k8sAPIGroupNetworkingV1Core = "networking.k8s.io/v1::NetworkPolicy"
-	k8sAPIGroupIngressV1Beta1   = "extensions/v1beta1::Ingress"
-	k8sAPIGroupCiliumV2         = "cilium/v2::CiliumNetworkPolicy"
-	cacheSyncTimeout            = time.Duration(3 * time.Minute)
+	k8sAPIGroupCRD                   = "CustomResourceDefinition"
+	k8sAPIGroupNodeV1Core            = "core/v1::Node"
+	k8sAPIGroupNamespaceV1Core       = "core/v1::Namespace"
+	k8sAPIGroupServiceV1Core         = "core/v1::Service"
+	k8sAPIGroupEndpointV1Core        = "core/v1::Endpoint"
+	k8sAPIGroupPodV1Core             = "core/v1::Pods"
+	k8sAPIGroupNetworkingV1Core      = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupIngressV1Beta1        = "extensions/v1beta1::Ingress"
+	k8sAPIGroupCiliumNetworkPolicyV2 = "cilium/v2::CiliumNetworkPolicy"
+	k8sAPIGroupCiliumNodeV2          = "cilium/v2::CiliumNode"
+	cacheSyncTimeout                 = time.Duration(3 * time.Minute)
 
-	metricCNP      = "CiliumNetworkPolicy"
-	metricEndpoint = "Endpoint"
-	metricIngress  = "Ingress"
-	metricKNP      = "NetworkPolicy"
-	metricNS       = "Namespace"
-	metricNode     = "Node"
-	metricPod      = "Pod"
-	metricService  = "Service"
-	metricCreate   = "create"
-	metricDelete   = "delete"
-	metricUpdate   = "update"
+	metricCNP        = "CiliumNetworkPolicy"
+	metricEndpoint   = "Endpoint"
+	metricIngress    = "Ingress"
+	metricKNP        = "NetworkPolicy"
+	metricNS         = "Namespace"
+	metricNode       = "Node"
+	metricCiliumNode = "CiliumNode"
+	metricPod        = "Pod"
+	metricService    = "Service"
+	metricCreate     = "create"
+	metricDelete     = "delete"
+	metricUpdate     = "update"
 )
 
 var (
@@ -317,7 +319,9 @@ func (d *Daemon) initK8sSubsystem() <-chan struct{} {
 			// We need all network policies in place before restoring to make sure
 			// we are enforcing the correct policies for each endpoint before
 			// restarting.
-			k8sAPIGroupCiliumV2,
+			k8sAPIGroupCiliumNetworkPolicyV2,
+			// We we need to know about all other nodes
+			k8sAPIGroupCiliumNodeV2,
 			// We need all network policies in place before restoring to make sure
 			// we are enforcing the correct policies for each endpoint before
 			// restarting.
@@ -741,11 +745,110 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		cnpConverterFunc,
 		cnpStore,
 	)
-	d.blockWaitGroupToSyncResources(wait.NeverStop, ciliumV2Controller, k8sAPIGroupCiliumV2)
+	d.blockWaitGroupToSyncResources(wait.NeverStop, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
-	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumV2)
+	d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 
 	asyncControllers := sync.WaitGroup{}
+	asyncControllers.Add(1)
+
+	// CiliumNode objects are used for node discovery until the key-value
+	// store is connected
+	go func() {
+		var once sync.Once
+		for {
+			_, ciliumNodeInformer := informer.NewInformer(
+				cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
+					"ciliumnodes", v1.NamespaceAll, fields.Everything()),
+				&cilium_v2.CiliumNode{},
+				0,
+				cache.ResourceEventHandlerFuncs{
+					AddFunc: func(obj interface{}) {
+						var valid, equal bool
+						defer func() { d.K8sEventReceived(metricCiliumNode, metricCreate, valid, equal) }()
+						if ciliumNode, ok := obj.(*cilium_v2.CiliumNode); ok {
+							valid = true
+							n := node.ParseCiliumNode(ciliumNode)
+							if n.IsLocal() {
+								return
+							}
+							serNodes.Enqueue(func() error {
+								d.nodeDiscovery.Manager.NodeUpdated(n)
+								d.K8sEventProcessed(metricCiliumNode, metricCreate, true)
+								return nil
+							}, serializer.NoRetry)
+						}
+					},
+					UpdateFunc: func(oldObj, newObj interface{}) {
+						var valid, equal bool
+						defer func() { d.K8sEventReceived(metricCiliumNode, metricUpdate, valid, equal) }()
+						if ciliumNode, ok := newObj.(*cilium_v2.CiliumNode); ok {
+							valid = true
+							n := node.ParseCiliumNode(ciliumNode)
+							if n.IsLocal() {
+								return
+							}
+							serNodes.Enqueue(func() error {
+								d.nodeDiscovery.Manager.NodeUpdated(n)
+								d.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
+								return nil
+							}, serializer.NoRetry)
+						}
+					},
+					DeleteFunc: func(obj interface{}) {
+						var valid, equal bool
+						defer func() { d.K8sEventReceived(metricCiliumNode, metricDelete, valid, equal) }()
+						ciliumNode := k8s.CopyObjToCiliumNode(obj)
+						if ciliumNode == nil {
+							deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+							if !ok {
+								return
+							}
+							// Delete was not observed by the watcher but is
+							// removed from kube-apiserver. This is the last
+							// known state and the object no longer exists.
+							ciliumNode = k8s.CopyObjToCiliumNode(deletedObj.Obj)
+							if ciliumNode == nil {
+								return
+							}
+						}
+						valid = true
+						n := node.ParseCiliumNode(ciliumNode)
+						serNodes.Enqueue(func() error {
+							d.nodeDiscovery.Manager.NodeDeleted(n)
+							return nil
+						}, serializer.NoRetry)
+					},
+				},
+				k8s.ConvertToCiliumNode,
+			)
+			isConnected := make(chan struct{})
+			// once isConnected is closed, it will stop waiting on caches to be
+			// synchronized.
+			d.blockWaitGroupToSyncResources(isConnected, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
+
+			once.Do(func() {
+				// Signalize that we have put node controller in the wait group
+				// to sync resources.
+				asyncControllers.Done()
+			})
+			d.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNodeV2)
+			go ciliumNodeInformer.Run(isConnected)
+
+			<-kvstore.Client().Connected()
+			close(isConnected)
+
+			log.Info("Connected to key-value store, stopping CiliumNode watcher")
+
+			d.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumNodeV2)
+			// Create a new node controller when we are disconnected with the
+			// kvstore
+			<-kvstore.Client().Disconnected()
+
+			log.Info("Disconnected from key-value store, restarting CiliumNode watcher")
+		}
+	}()
+
 	asyncControllers.Add(1)
 	go func() {
 		var once sync.Once
