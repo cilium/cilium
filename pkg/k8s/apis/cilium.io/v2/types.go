@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/go-openapi/swag"
@@ -620,8 +621,33 @@ type CiliumNode struct {
 	Status NodeStatus `json:"status"`
 }
 
+// NodeAddress is a node address
+type NodeAddress struct {
+	// Type is the type of the node address
+	Type addressing.AddressType `json:"type,omitempty"`
+
+	// IP is an IP of a node
+	IP string `json:"ip,omitempty"`
+}
+
 // NodeSpec is the configuration specific to a node
 type NodeSpec struct {
+	// Addresses is the list of all node addresses
+	//
+	// +optional
+	Addresses []NodeAddress `json:"addresses,omitempty"`
+
+	// HealthAddressing is the addressing information for health
+	// connectivity checking
+	//
+	// +optional
+	HealthAddressing HealthAddressingSpec `json:"health,omitempty"`
+
+	// Encryption is the encryption configuration of the node
+	//
+	// +optional
+	Encryption EncryptionSpec `json:"encryption,omitempty"`
+
 	// ENI is the AWS ENI specific configuration
 	//
 	// +optional
@@ -633,6 +659,29 @@ type NodeSpec struct {
 	//
 	// +optional
 	IPAM IPAMSpec `json:"ipam,omitempty"`
+}
+
+// HealthAddressingSpec is the addressing information required to do
+// connectivity health checking
+type HealthAddressingSpec struct {
+	// IPv4 is the IPv4 address of the IPv4 health endpoint
+	//
+	// +optional
+	IPv4 string `json:"ipv4,omitempty"`
+
+	// IPv6 is the IPv6 address of the IPv4 health endpoint
+	//
+	// +optional
+	IPv6 string `json:"ipv6,omitempty"`
+}
+
+// EncryptionSpec defines the encryption relevant configuration of a node
+type EncryptionSpec struct {
+	// Key is the index to the key to use for encryption or 0 if encryption
+	// is disabled
+	//
+	// +optional
+	Key int `json:"key,omitempty"`
 }
 
 // ENISpec is the ENI specification of a node. This specification is considered
@@ -720,6 +769,12 @@ type IPAMSpec struct {
 	//
 	// +optional
 	Pool map[string]AllocationIP `json:"pool,omitempty"`
+
+	// PodCIDRs is the list of CIDRs available to the node for allocation.
+	// When an IP is used, the IP will be added to Status.IPAM.Used
+	//
+	// +optional
+	PodCIDRs []string `json:"podCIDRs,omitempty"`
 }
 
 // NodeStatus is the status of a node

@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -210,10 +210,15 @@ func (n *NodeDiscovery) createCiliumNodeResource(conf Configuration) {
 
 	ciliumClient := k8s.CiliumClient()
 
-	nodeResource := &ciliumv2.CiliumNode{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: node.GetName(),
-		},
+	performUpdate := true
+	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(node.GetName(), metav1.GetOptions{})
+	if err != nil {
+		performUpdate = false
+		nodeResource = &ciliumv2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: node.GetName(),
+			},
+		}
 	}
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
@@ -229,6 +234,36 @@ func (n *NodeDiscovery) createCiliumNodeResource(conf Configuration) {
 		}}
 	}
 
+	nodeResource.Spec.Addresses = []ciliumv2.NodeAddress{}
+	for _, address := range n.LocalNode.IPAddresses {
+		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+			Type: address.Type,
+			IP:   address.IP.String(),
+		})
+	}
+
+	nodeResource.Spec.IPAM.PodCIDRs = []string{}
+	if cidr := node.GetIPv4AllocRange(); cidr != nil {
+		nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+	}
+
+	if cidr := node.GetIPv6AllocRange(); cidr != nil {
+		nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
+	}
+
+	nodeResource.Spec.Encryption.Key = int(node.GetIPsecKeyIdentity())
+
+	nodeResource.Spec.HealthAddressing.IPv4 = ""
+	if ip := n.LocalNode.IPv4HealthIP; ip != nil {
+		nodeResource.Spec.HealthAddressing.IPv4 = ip.String()
+	}
+
+	nodeResource.Spec.HealthAddressing.IPv6 = ""
+	if ip := n.LocalNode.IPv6HealthIP; ip != nil {
+		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
+	}
+
+	nodeResource.Spec.ENI = ciliumv2.ENISpec{}
 	if option.Config.IPAM == option.IPAMENI {
 		instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
 		if err != nil {
@@ -273,8 +308,15 @@ func (n *NodeDiscovery) createCiliumNodeResource(conf Configuration) {
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
 	}
 
-	_, err := ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource)
-	if err != nil {
-		log.WithError(err).Fatal("Unable to create CiliumNode resource")
+	if performUpdate {
+		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(nodeResource)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to update CiliumNode resource")
+		}
+	} else {
+		_, err = ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to create CiliumNode resource")
+		}
 	}
 }
