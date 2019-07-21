@@ -17,14 +17,11 @@ package store
 import (
 	"path"
 
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -61,37 +58,6 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = source.KVStore
 		o.manager.NodeUpdated(*nodeCopy)
-
-		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
-		if ciliumIPv4 != nil {
-			hostIP := nodeCopy.GetNodeIP(false)
-			hostKey := node.GetIPsecKeyIdentity()
-			ipcache.IPIdentityCache.Upsert(ciliumIPv4.String(), hostIP, hostKey, ipcache.Identity{
-				ID:     identity.ReservedIdentityHost,
-				Source: source.KVStore,
-			})
-		}
-
-		if option.Config.EncryptNode {
-			hostIP := nodeCopy.GetNodeIP(false)
-			if hostIP != nil {
-				hostKey := node.GetIPsecKeyIdentity()
-				ipcache.IPIdentityCache.Upsert(hostIP.String(), hostIP, hostKey, ipcache.Identity{
-					ID:     identity.ReservedIdentityHost,
-					Source: source.KVStore,
-				})
-			}
-		}
-
-		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
-		if ciliumIPv6 != nil {
-			hostIP := nodeCopy.GetNodeIP(true)
-			hostKey := node.GetIPsecKeyIdentity()
-			ipcache.IPIdentityCache.Upsert(ciliumIPv6.String(), hostIP, hostKey, ipcache.Identity{
-				ID:     identity.ReservedIdentityHost,
-				Source: source.KVStore,
-			})
-		}
 	}
 }
 
@@ -99,17 +65,7 @@ func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*node.Node); ok {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = source.KVStore
-
 		o.manager.NodeDeleted(*nodeCopy)
-
-		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
-		if ciliumIPv4 != nil {
-			ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), source.KVStore)
-		}
-		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
-		if ciliumIPv6 != nil {
-			ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), source.KVStore)
-		}
 	}
 }
 
@@ -120,10 +76,6 @@ type NodeRegistrar struct {
 
 // NodeManager is the interface that the manager of nodes has to implement
 type NodeManager interface {
-	// NodeSoftUpdated is called when the store detects a change in the
-	// node that does not require datapath updates.
-	NodeSoftUpdated(n node.Node)
-
 	// NodeUpdated is called when the store detects a change in node
 	// information
 	NodeUpdated(n node.Node)

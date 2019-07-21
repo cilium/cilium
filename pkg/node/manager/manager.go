@@ -16,12 +16,17 @@ package manager
 
 import (
 	"math"
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -266,24 +271,41 @@ func (m *Manager) backgroundSync() {
 	}
 }
 
-// NodeSoftUpdated is called after the information of a node has be upated but
-// unlike a NodeUpdated does not require the datapath to be updated.
-func (m *Manager) NodeSoftUpdated(n node.Node) {
-	log.Debugf("Received soft node update event from %s: %#v", n.Source, n)
-	m.nodeUpdated(n, false)
-}
-
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
 func (m *Manager) NodeUpdated(n node.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
-	m.nodeUpdated(n, true)
-}
-
-func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 	nodeIdentity := n.Identity()
+	dpUpdate := true
+
+	for _, address := range n.IPAddresses {
+		var nodeIP net.IP
+
+		// Map the Cilium internal IP to the reachable node IP so it
+		// can be routed via the overlay
+		if address.Type == addressing.NodeCiliumInternalIP {
+			nodeIP = n.GetNodeIP(address.IP.To4() == nil)
+		} else if !option.Config.EncryptNode {
+			// When node encryption is disabled, only the internal
+			// IP of the cilium device has to be added.
+			continue
+		}
+
+		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, ipcache.Identity{
+			ID:     identity.ReservedIdentityHost,
+			Source: n.Source,
+		})
+
+		// Upsert() will return true if the ipcache entry is owned by
+		// the source of the node update that triggered this node
+		// update (kvstore, k8s, ...) The datapath is only updated if
+		// that source of truth is updated.
+		if !isOwning {
+			dpUpdate = false
+		}
+	}
 
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
@@ -353,6 +375,10 @@ func (m *Manager) NodeDeleted(n node.Node) {
 				n.Name, n.Source, entry.node.Source)
 		}
 		return
+	}
+
+	for _, address := range entry.node.IPAddresses {
+		ipcache.IPIdentityCache.Delete(address.IP.String(), n.Source)
 	}
 
 	m.metricNumNodes.Dec()
