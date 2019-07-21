@@ -553,3 +553,42 @@ func ConvertToCiliumNode(obj interface{}) interface{} {
 		return obj
 	}
 }
+
+// ConvertToCiliumEndpoint converts a *cilium_v2.CiliumEndpoint into a
+// *types.CiliumEndpoint or a cache.DeletedFinalStateUnknown into a
+// cache.DeletedFinalStateUnknown with a *types.CiliumEndpoint in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumEndpoint nor
+// cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumEndpoint(obj interface{}) interface{} {
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumEndpoint:
+		p := &types.CiliumEndpoint{
+			TypeMeta:   concreteObj.TypeMeta,
+			ObjectMeta: concreteObj.ObjectMeta,
+			Encryption: concreteObj.Status.Encryption.DeepCopy(),
+			Identity:   concreteObj.Status.Identity.DeepCopy(),
+			Networking: concreteObj.Status.Networking.DeepCopy(),
+		}
+		*concreteObj = cilium_v2.CiliumEndpoint{}
+		return p
+	case cache.DeletedFinalStateUnknown:
+		ciliumEndpoint, ok := concreteObj.Obj.(*cilium_v2.CiliumEndpoint)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &types.CiliumEndpoint{
+				TypeMeta:   ciliumEndpoint.TypeMeta,
+				ObjectMeta: ciliumEndpoint.ObjectMeta,
+				Encryption: ciliumEndpoint.Status.Encryption.DeepCopy(),
+				Identity:   ciliumEndpoint.Status.Identity.DeepCopy(),
+				Networking: ciliumEndpoint.Status.Networking.DeepCopy(),
+			},
+		}
+		*ciliumEndpoint = cilium_v2.CiliumEndpoint{}
+		return dfsu
+	default:
+		return obj
+	}
+}

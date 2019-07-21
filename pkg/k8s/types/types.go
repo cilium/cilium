@@ -89,3 +89,12 @@ func ConvertToIdentity(obj interface{}) interface{} {
 		CiliumIdentity: identity,
 	}
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type CiliumEndpoint struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+	Identity   *v2.EndpointIdentity
+	Networking *v2.EndpointNetworking
+	Encryption *v2.EncryptionSpec
+}

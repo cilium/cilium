@@ -24,6 +24,8 @@ import (
 	identitycache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
@@ -124,6 +126,13 @@ func getEndpointNetworking(status *models.EndpointStatus) (networking *cilium_v2
 		networking = &cilium_v2.EndpointNetworking{
 			Addressing: make(cilium_v2.AddressPairList, len(status.Networking.Addressing)),
 		}
+
+		if option.Config.EnableIPv4 {
+			networking.NodeIP = node.GetExternalIPv4().String()
+		} else {
+			networking.NodeIP = node.GetIPv6().String()
+		}
+
 		i := 0
 		for _, pair := range status.Networking.Addressing {
 			networking.Addressing[i] = &cilium_v2.AddressPair{
@@ -293,6 +302,7 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		Health:              modelStatus.Health,
 		State:               string(modelStatus.State),
 		Policy:              e.getEndpointPolicy(),
+		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
 
 		// Scheduled for deprecation in 1.5
 		//

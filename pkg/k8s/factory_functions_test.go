@@ -1444,3 +1444,63 @@ func (s *K8sSuite) Test_ConvertToCiliumNode(c *C) {
 		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
+
+func (s *K8sSuite) Test_ConvertToCiliumEndpoint(c *C) {
+	type args struct {
+		obj interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{
+			name: "normal conversion",
+			args: args{
+				obj: &v2.CiliumEndpoint{},
+			},
+			want: &types.CiliumEndpoint{
+				Encryption: &v2.EncryptionSpec{},
+			},
+		},
+		{
+			name: "delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: &v2.CiliumEndpoint{},
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: &types.CiliumEndpoint{
+					Encryption: &v2.EncryptionSpec{},
+				},
+			},
+		},
+		{
+			name: "unknown object type in delete final state unknown conversion",
+			args: args{
+				obj: cache.DeletedFinalStateUnknown{
+					Key: "foo",
+					Obj: 100,
+				},
+			},
+			want: cache.DeletedFinalStateUnknown{
+				Key: "foo",
+				Obj: 100,
+			},
+		},
+		{
+			name: "unknown object type in conversion",
+			args: args{
+				obj: 100,
+			},
+			want: 100,
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToCiliumEndpoint(tt.args.obj)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
