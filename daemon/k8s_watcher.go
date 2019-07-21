@@ -857,7 +857,10 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 						if Node := k8s.CopyObjToV1Node(obj); Node != nil {
 							valid = true
 							serNodes.Enqueue(func() error {
-								err := d.addK8sNodeV1(Node)
+								err := d.updateK8sNode(nil, Node)
+								if err != nil {
+									log.WithError(err).Warning("Unable to process node addition")
+								}
 								d.K8sEventProcessed(metricNode, metricCreate, err == nil)
 								return nil
 							}, serializer.NoRetry)
@@ -875,7 +878,10 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 								}
 
 								serNodes.Enqueue(func() error {
-									err := d.updateK8sNodeV1(oldNode, newNode)
+									err := d.updateK8sNode(oldNode, newNode)
+									if err != nil {
+										log.WithError(err).Warning("Unable to process node update")
+									}
 									d.K8sEventProcessed(metricNode, metricUpdate, err == nil)
 									return nil
 								}, serializer.NoRetry)
@@ -1788,7 +1794,7 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	return nil
 }
 
-func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) error {
+func (d *Daemon) updateK8sNode(k8sNodeOld, k8sNodeNew *types.Node) error {
 	nodeNew := k8s.ParseNode(k8sNodeNew, source.Kubernetes)
 	// Ignore own node
 	if nodeNew.Name == node.GetName() {
@@ -1849,35 +1855,11 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 		}
 	}
 
-	hostKey := node.GetIPsecKeyIdentity()
-	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, hostIPNew, hostKey, ipcache.Identity{
-		ID:     identity.ReservedIdentityHost,
-		Source: source.Kubernetes,
-	})
-	if !selfOwned {
-		d.nodeDiscovery.Manager.NodeSoftUpdated(*nodeNew)
-		return errIPCacheOwnedByNonK8s
-	}
+	// Kubernetes node resource does not carry the encryption, refer to the
+	// local key configured.
+	nodeNew.EncryptionKey = node.GetIPsecKeyIdentity()
 
-	nodeNew.EncryptionKey = hostKey
 	d.nodeDiscovery.Manager.NodeUpdated(*nodeNew)
-
-	return nil
-}
-
-func (d *Daemon) addK8sNodeV1(k8sNode *types.Node) error {
-	if err := d.updateK8sNodeTunneling(nil, k8sNode); err != nil {
-		log.WithError(err).Warning("Unable to add ipcache entry of Kubernetes node")
-		return err
-	}
-	return nil
-}
-
-func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *types.Node) error {
-	if err := d.updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew); err != nil {
-		log.WithError(err).Warning("Unable to update ipcache entry of Kubernetes node")
-		return err
-	}
 	return nil
 }
 
@@ -1888,36 +1870,8 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *types.Node) error {
 		return nil
 	}
 
-	ip := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
-
-	logger := log.WithFields(logrus.Fields{
-		"K8sNodeName":    k8sNode.ObjectMeta.Name,
-		logfields.IPAddr: ip,
-	})
-
 	d.nodeDiscovery.Manager.NodeDeleted(*oldNode)
 
-	id, exists := ipcache.IPIdentityCache.LookupByIP(ip)
-	if !exists {
-		logger.Debug("identity for Cilium IP not found")
-		return nil
-	}
-
-	// The ipcache entry ownership may have been taken over by a kvstore
-	// based entry in which case we should ignore the delete event and wait
-	// for the kvstore delete event.
-	if id.Source != source.Kubernetes {
-		logger.Debug("ipcache entry for Cilium IP no longer owned by Kubernetes")
-		return nil
-	}
-
-	ipcache.IPIdentityCache.Delete(ip, source.Kubernetes)
-
-	ciliumIP := net.ParseIP(ip)
-	if ciliumIP == nil {
-		logger.Warning("Unable to parse Cilium IP")
-		return nil
-	}
 	return nil
 }
 
