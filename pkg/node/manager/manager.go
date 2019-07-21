@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -265,31 +266,6 @@ func (m *Manager) backgroundSync() {
 	}
 }
 
-// overwriteAllowed returns true if an update from newSource can overwrite a node owned by oldSource.
-func overwriteAllowed(oldSource, newSource node.Source) bool {
-	switch newSource {
-	// the local node always takes precedence
-	case node.FromLocalNode:
-		return true
-
-	// agent local updates can overwrite everything except for the local
-	// node
-	case node.FromAgentLocal:
-		return oldSource != node.FromLocalNode
-
-	// kvstore updates can overwrite everything except agent local updates and local node
-	case node.FromKVStore:
-		return oldSource != node.FromAgentLocal && oldSource != node.FromLocalNode
-
-	// kubernetes updates can only overwrite kubernetes nodes
-	case node.FromKubernetes:
-		return oldSource != node.FromAgentLocal && oldSource != node.FromLocalNode && oldSource != node.FromKVStore
-
-	default:
-		return false
-	}
-}
-
 // NodeSoftUpdated is called after the information of a node has be upated but
 // unlike a NodeUpdated does not require the datapath to be updated.
 func (m *Manager) NodeSoftUpdated(n node.Node) {
@@ -314,7 +290,7 @@ func (m *Manager) nodeUpdated(n node.Node, dpUpdate bool) {
 	if oldNodeExists {
 		m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
-		if !overwriteAllowed(entry.node.Source, n.Source) {
+		if !source.AllowOverwrite(entry.node.Source, n.Source) {
 			m.mutex.Unlock()
 			return
 		}
@@ -369,7 +345,7 @@ func (m *Manager) NodeDeleted(n node.Node) {
 	// the agent gracefully in this case.
 	if n.Source != entry.node.Source {
 		m.mutex.Unlock()
-		if n.IsLocal() && n.Source == node.FromKubernetes {
+		if n.IsLocal() && n.Source == source.Kubernetes {
 			log.Debugf("Kubernetes is deleting local node, close manager")
 			m.Close()
 		} else {

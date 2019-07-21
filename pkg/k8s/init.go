@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -82,7 +83,9 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 	}
 	typesNode := nodeInterface.(*types.Node)
 
-	n := ParseNode(typesNode, node.FromAgentLocal)
+	// The source is left unspecified as this node resource should never be
+	// used to update state
+	n := ParseNode(typesNode, source.Unspec)
 	log.WithField(logfields.NodeName, n.Name).Info("Retrieved node information from kubernetes")
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {

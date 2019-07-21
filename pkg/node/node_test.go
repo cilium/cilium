@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/source"
 
 	. "gopkg.in/check.v1"
 )
@@ -83,7 +84,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 		IPv4HealthIP  net.IP
 		IPv6HealthIP  net.IP
 		ClusterID     int
-		Source        Source
+		Source        source.Source
 	}
 	type args struct {
 		o *Node
@@ -108,7 +109,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
-				Source:        FromKubernetes,
+				Source:        source.Kubernetes,
 				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: addressing.NodeHostName}},
 				IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 				IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
@@ -120,7 +121,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
-					Source:        FromKubernetes,
+					Source:        source.Kubernetes,
 					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: addressing.NodeHostName}},
 					IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 					IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
@@ -136,7 +137,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
-				Source:        FromKubernetes,
+				Source:        source.Kubernetes,
 				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: addressing.NodeHostName}},
 				IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 				IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
@@ -148,7 +149,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
-					Source:        FromKubernetes,
+					Source:        source.Kubernetes,
 					IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 					IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
 				},
@@ -163,7 +164,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
-				Source:        FromKubernetes,
+				Source:        source.Kubernetes,
 				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: addressing.NodeHostName}},
 				IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 				IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
@@ -175,7 +176,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
-					Source:        FromKubernetes,
+					Source:        source.Kubernetes,
 					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), Type: addressing.NodeHostName}},
 					IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
 				},
@@ -190,7 +191,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
-				Source:        FromKubernetes,
+				Source:        source.Kubernetes,
 				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: addressing.NodeHostName}},
 				IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 				IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
@@ -202,7 +203,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
-					Source:        FromKubernetes,
+					Source:        source.Kubernetes,
 					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), Type: addressing.NodeHostName}},
 					IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 				},
@@ -217,7 +218,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 				IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 				IPv6HealthIP:  net.ParseIP("fd00::1"),
 				ClusterID:     1,
-				Source:        FromKubernetes,
+				Source:        source.Kubernetes,
 				IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.1"), Type: addressing.NodeHostName}},
 				IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 				IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),
@@ -228,7 +229,7 @@ func (s *NodeSuite) TestPublicAttrEquals(c *C) {
 					IPv4HealthIP:  net.ParseIP("1.1.1.1"),
 					IPv6HealthIP:  net.ParseIP("fd00::1"),
 					ClusterID:     1,
-					Source:        FromKubernetes,
+					Source:        source.Kubernetes,
 					IPAddresses:   []Address{{IP: net.ParseIP("1.1.1.0"), Type: addressing.NodeHostName}},
 					IPv4AllocCIDR: cidr.MustParseCIDR("1.1.1.1/24"),
 					IPv6AllocCIDR: cidr.MustParseCIDR("fd00::1/64"),

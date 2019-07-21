@@ -74,6 +74,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/sockops"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -619,7 +620,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		// and we specifically don't want to do so.
 		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
 			ID:     ipIDPair.ID,
-			Source: ipcache.FromAgentLocal,
+			Source: source.Local,
 		})
 	}
 
@@ -633,7 +634,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			ipcache.IPIdentityCache.Delete(hostIP, ipcache.FromAgentLocal)
+			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
 		}
 	}
 

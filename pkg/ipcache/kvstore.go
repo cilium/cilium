@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 )
@@ -268,7 +269,7 @@ restart:
 
 				IPIdentityCache.Upsert(ip, ipIDPair.HostIP, ipIDPair.Key, Identity{
 					ID:     ipIDPair.ID,
-					Source: FromKVStore,
+					Source: source.KVStore,
 				})
 
 			case kvstore.EventTypeDelete:
@@ -301,7 +302,7 @@ restart:
 					// The key no longer exists in the
 					// local cache, it is safe to remove
 					// from the datapath ipcache.
-					IPIdentityCache.Delete(ip, FromKVStore)
+					IPIdentityCache.Delete(ip, source.KVStore)
 				}
 			}
 

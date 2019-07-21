@@ -52,6 +52,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/service"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
@@ -1618,7 +1619,7 @@ func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
 	// If the endpoint remains unmanaged, the identity remains untouched.
 	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, ipcache.Identity{
 		ID:     identity.ReservedIdentityUnmanaged,
-		Source: ipcache.FromKubernetes,
+		Source: source.Kubernetes,
 	})
 	if !selfOwned {
 		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
@@ -1645,11 +1646,11 @@ func (d *Daemon) deletePodHostIP(pod *types.Pod) (bool, error) {
 		return true, fmt.Errorf("identity for IP does not exist in case")
 	}
 
-	if id.Source != ipcache.FromKubernetes {
+	if id.Source != source.Kubernetes {
 		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
 	}
 
-	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, ipcache.FromKubernetes)
+	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, source.Kubernetes)
 
 	return false, nil
 }
@@ -1788,7 +1789,7 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 }
 
 func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) error {
-	nodeNew := k8s.ParseNode(k8sNodeNew, node.FromKubernetes)
+	nodeNew := k8s.ParseNode(k8sNodeNew, source.Kubernetes)
 	// Ignore own node
 	if nodeNew.Name == node.GetName() {
 		return nil
@@ -1825,7 +1826,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 	}
 
 	if k8sNodeOld != nil {
-		nodeOld := k8s.ParseNode(k8sNodeOld, node.FromKubernetes)
+		nodeOld := k8s.ParseNode(k8sNodeOld, source.Kubernetes)
 		var (
 			err            error
 			ciliumIPStrOld string
@@ -1851,7 +1852,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 	hostKey := node.GetIPsecKeyIdentity()
 	selfOwned := ipcache.IPIdentityCache.Upsert(ciliumIPStrNew, hostIPNew, hostKey, ipcache.Identity{
 		ID:     identity.ReservedIdentityHost,
-		Source: ipcache.FromKubernetes,
+		Source: source.Kubernetes,
 	})
 	if !selfOwned {
 		d.nodeDiscovery.Manager.NodeSoftUpdated(*nodeNew)
@@ -1881,7 +1882,7 @@ func (d *Daemon) updateK8sNodeV1(k8sNodeOld, k8sNodeNew *types.Node) error {
 }
 
 func (d *Daemon) deleteK8sNodeV1(k8sNode *types.Node) error {
-	oldNode := k8s.ParseNode(k8sNode, node.FromKubernetes)
+	oldNode := k8s.ParseNode(k8sNode, source.Kubernetes)
 	// Ignore own node
 	if oldNode.Name == node.GetName() {
 		return nil
@@ -1905,12 +1906,12 @@ func (d *Daemon) deleteK8sNodeV1(k8sNode *types.Node) error {
 	// The ipcache entry ownership may have been taken over by a kvstore
 	// based entry in which case we should ignore the delete event and wait
 	// for the kvstore delete event.
-	if id.Source != ipcache.FromKubernetes {
+	if id.Source != source.Kubernetes {
 		logger.Debug("ipcache entry for Cilium IP no longer owned by Kubernetes")
 		return nil
 	}
 
-	ipcache.IPIdentityCache.Delete(ip, ipcache.FromKubernetes)
+	ipcache.IPIdentityCache.Delete(ip, source.Kubernetes)
 
 	ciliumIP := net.ParseIP(ip)
 	if ciliumIP == nil {

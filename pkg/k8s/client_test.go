@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/source"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
@@ -78,7 +79,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		})
 
 	node1Slim := ConvertToNode(node1.DeepCopy()).(*types.Node)
-	node1Cilium := ParseNode(node1Slim, node.FromAgentLocal)
+	node1Cilium := ParseNode(node1Slim, source.Unspec)
 
 	useNodeCIDR(node1Cilium)
 	c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
@@ -147,7 +148,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 		})
 
 	node2Slim := ConvertToNode(node2.DeepCopy()).(*types.Node)
-	node2Cilium := ParseNode(node2Slim, node.FromAgentLocal)
+	node2Cilium := ParseNode(node2Slim, source.Unspec)
 	useNodeCIDR(node2Cilium)
 
 	// We use the node's annotation for the IPv4 and the PodCIDR for the

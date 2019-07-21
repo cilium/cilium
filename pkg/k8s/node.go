@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -50,7 +51,7 @@ func ParseNodeAddressType(k8sAddress v1.NodeAddressType) (addressing.AddressType
 }
 
 // ParseNode parses a kubernetes node to a cilium node
-func ParseNode(k8sNode *types.Node, source node.Source) *node.Node {
+func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:  k8sNode.Name,
 		logfields.K8sNodeID: k8sNode.UID,

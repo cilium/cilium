@@ -31,6 +31,7 @@ import (
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 )
@@ -154,7 +155,7 @@ func updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.Dum
 		// Don't RLock as part of the same goroutine.
 		if i, exists := ipcache.IPIdentityCache.LookupByPrefixRLocked(keyToIP); !exists {
 			switch i.Source {
-			case ipcache.FromKVStore, ipcache.FromAgentLocal:
+			case source.KVStore, source.Local:
 				// Cannot delete from map during callback because DumpWithCallback
 				// RLocks the map.
 				keysToRemove[keyToIP] = k.DeepCopy()

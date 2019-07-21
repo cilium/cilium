@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/source"
 
 	"gopkg.in/check.v1"
 )
@@ -168,7 +169,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	c.Assert(err, check.IsNil)
 	defer mngr.Close()
 
-	n1k8s := node.Node{Name: "node1", Cluster: "c1", Source: node.FromKubernetes}
+	n1k8s := node.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes}
 	mngr.NodeUpdated(n1k8s)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
@@ -182,25 +183,11 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	}
 
 	// agent can overwrite kubernetes
-	n1agent := node.Node{Name: "node1", Cluster: "c1", Source: node.FromAgentLocal}
+	n1agent := node.Node{Name: "node1", Cluster: "c1", Source: source.Local}
 	mngr.NodeUpdated(n1agent)
 	select {
 	case nodeEvent := <-dp.NodeUpdateEvent:
 		c.Assert(nodeEvent, checker.DeepEquals, n1agent)
-	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeUpdate() event for node1")
-	}
-
-	// local node can overwrite agent
-	n1local := node.Node{Name: "node1", Cluster: "c1", Source: node.FromLocalNode}
-	mngr.NodeUpdated(n1local)
-	select {
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1local)
 	case nodeEvent := <-dp.NodeAddEvent:
 		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
@@ -233,67 +220,16 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	mngr.NodeDeleted(n1local)
+	mngr.NodeDeleted(n1agent)
 	select {
 	case nodeEvent := <-dp.NodeAddEvent:
 		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeUpdateEvent:
 		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
 	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n1local)
+		c.Assert(nodeEvent, checker.DeepEquals, n1agent)
 	case <-time.After(3 * time.Second):
 		c.Errorf("timeout while waiting for NodeDelete() event for node1")
-	}
-}
-
-func (s *managerTestSuite) TestOverwriteAllowed(c *check.C) {
-	type testExpectation struct {
-		old    node.Source
-		new    node.Source
-		result bool
-	}
-
-	expectations := []testExpectation{
-		// FromLocalNode -> [*]
-		{old: node.FromLocalNode, new: node.FromLocalNode, result: true},
-		{old: node.FromLocalNode, new: node.FromAgentLocal, result: false},
-		{old: node.FromLocalNode, new: node.FromKVStore, result: false},
-		{old: node.FromLocalNode, new: node.FromKubernetes, result: false},
-		{old: node.FromLocalNode, new: "unknown", result: false},
-
-		// FromAgentLocal -> [*]
-		{old: node.FromAgentLocal, new: node.FromLocalNode, result: true},
-		{old: node.FromAgentLocal, new: node.FromAgentLocal, result: true},
-		{old: node.FromAgentLocal, new: node.FromKVStore, result: false},
-		{old: node.FromAgentLocal, new: node.FromKubernetes, result: false},
-		{old: node.FromAgentLocal, new: "unknown", result: false},
-
-		// FromKVStore -> [*]
-		{old: node.FromAgentLocal, new: node.FromLocalNode, result: true},
-		{old: node.FromKVStore, new: node.FromAgentLocal, result: true},
-		{old: node.FromKVStore, new: node.FromKVStore, result: true},
-		{old: node.FromKVStore, new: node.FromKubernetes, result: false},
-		{old: node.FromKVStore, new: "unknown", result: false},
-
-		// FromKubernetes -> [*]
-		{old: node.FromAgentLocal, new: node.FromLocalNode, result: true},
-		{old: node.FromKubernetes, new: node.FromAgentLocal, result: true},
-		{old: node.FromKubernetes, new: node.FromKVStore, result: true},
-		{old: node.FromKubernetes, new: node.FromKubernetes, result: true},
-		{old: node.FromKubernetes, new: "unknown", result: false},
-
-		// Unknown -> [*]
-		{old: "unknown", new: node.FromLocalNode, result: true},
-		{old: "unknown", new: node.FromAgentLocal, result: true},
-		{old: "unknown", new: node.FromKVStore, result: true},
-		{old: "unknown", new: node.FromKubernetes, result: true},
-		{old: "unknown", new: "unknown", result: false},
-	}
-
-	for _, e := range expectations {
-		if overwriteAllowed(e.old, e.new) != e.result {
-			c.Errorf("Unexpected result of overwriteAllowed(%s, %s) == %t", e.old, e.new, e.result)
-		}
 	}
 }
 
@@ -304,12 +240,12 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: node.FromAgentLocal}
+		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeUpdated(n)
 	}
 
 	for i := 0; i < c.N; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: node.FromAgentLocal}
+		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeDeleted(n)
 	}
 	c.StopTimer()
@@ -323,7 +259,7 @@ func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	prevInterval := time.Nanosecond
 
 	for i := 0; i < 1000; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: node.FromAgentLocal}
+		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
 		mngr.NodeUpdated(n)
 		newInterval := mngr.ClusterSizeDependantInterval(time.Minute)
 		c.Assert(newInterval > prevInterval, check.Equals, true)
@@ -367,7 +303,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	}()
 
 	for i := 0; i < numNodes; i++ {
-		n := node.Node{Name: fmt.Sprintf("%d", i), Source: node.FromKubernetes}
+		n := node.Node{Name: fmt.Sprintf("%d", i), Source: source.Kubernetes}
 		mngr.NodeUpdated(n)
 	}
 

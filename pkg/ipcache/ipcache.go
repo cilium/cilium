@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,34 +34,13 @@ var (
 	IPIdentityCache = NewIPCache()
 )
 
-// Source is the description of the source of an identity
-type Source string
-
-const (
-	// FromKubernetes is the source used for identities derived from k8s
-	// resources (pods)
-	FromKubernetes Source = "k8s"
-
-	// FromKVStore is the source used for identities derived from the
-	// kvstore
-	FromKVStore Source = "kvstore"
-
-	// FromAgentLocal is the source used for identities derived during the
-	// agent bootup process. This includes identities for endpoint IPs.
-	FromAgentLocal Source = "agent-local"
-
-	// FromCIDR is the source used for identities that have been derived
-	// from local CIDR representations
-	FromCIDR Source = "cidr"
-)
-
 // Identity is the identity representation of an IP<->Identity cache.
 type Identity struct {
 	// ID is the numeric identity
 	ID identity.NumericIdentity
 
 	// Source is the source of the identity in the cache
-	Source Source
+	Source source.Source
 }
 
 // IPKeyPair is the (IP, key) pair used of the identity
@@ -207,21 +187,6 @@ func unrefPrefixLength(prefixLengths map[int]int, length int) {
 	}
 }
 
-func allowOverwrite(existing, new Source) bool {
-	switch existing {
-	case FromKubernetes:
-		return new != FromCIDR
-	case FromKVStore:
-		return new == FromKVStore || new == FromAgentLocal
-	case FromAgentLocal:
-		return new == FromAgentLocal
-	case FromCIDR:
-		return true
-	}
-
-	return true
-}
-
 // endpointIPToCIDR converts the endpoint IP into an equivalent full CIDR.
 func endpointIPToCIDR(ip net.IP) *net.IPNet {
 	bits := net.IPv6len * 8
@@ -244,9 +209,9 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 //
 // Returns false if the entry is not owned by the self declared source, i.e.
 // returns false if the kubernetes layer is trying to upsert an entry now
-// managed by the kvstore layer. See allowOverwrite() for rules on ownership.
-// hostIP is the location of the given IP. It is optional (may be nil) and is
-// propagated to the listeners.
+// managed by the kvstore layer. See source.AllowOverwrite() for rules on
+// ownership. hostIP is the location of the given IP. It is optional (may be
+// nil) and is propagated to the listeners.
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity Identity) bool {
 	scopedLog := log
 	if option.Config.Debug {
@@ -268,7 +233,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, newIdentity 
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
-		if !allowOverwrite(cachedIdentity.Source, newIdentity.Source) {
+		if !source.AllowOverwrite(cachedIdentity.Source, newIdentity.Source) {
 			return false
 		}
 
@@ -380,7 +345,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 
 // deleteLocked removes the provided IP-to-security-identity mapping
 // from ipc with the assumption that the IPCache's mutex is held.
-func (ipc *IPCache) deleteLocked(ip string, source Source) {
+func (ipc *IPCache) deleteLocked(ip string, source source.Source) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr: ip,
 	})
@@ -473,7 +438,7 @@ func (ipc *IPCache) deleteLocked(ip string, source Source) {
 }
 
 // Delete removes the provided IP-to-security-identity mapping from the IPCache.
-func (ipc *IPCache) Delete(IP string, source Source) {
+func (ipc *IPCache) Delete(IP string, source source.Source) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
 	ipc.deleteLocked(IP, source)

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 var (
@@ -58,7 +59,7 @@ func NewNodeObserver(manager NodeManager) *NodeObserver {
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*node.Node); ok {
 		nodeCopy := n.DeepCopy()
-		nodeCopy.Source = node.FromKVStore
+		nodeCopy.Source = source.KVStore
 		o.manager.NodeUpdated(*nodeCopy)
 
 		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
@@ -67,7 +68,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 			hostKey := node.GetIPsecKeyIdentity()
 			ipcache.IPIdentityCache.Upsert(ciliumIPv4.String(), hostIP, hostKey, ipcache.Identity{
 				ID:     identity.ReservedIdentityHost,
-				Source: ipcache.FromKVStore,
+				Source: source.KVStore,
 			})
 		}
 
@@ -77,7 +78,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 				hostKey := node.GetIPsecKeyIdentity()
 				ipcache.IPIdentityCache.Upsert(hostIP.String(), hostIP, hostKey, ipcache.Identity{
 					ID:     identity.ReservedIdentityHost,
-					Source: ipcache.FromKVStore,
+					Source: source.KVStore,
 				})
 			}
 		}
@@ -88,7 +89,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 			hostKey := node.GetIPsecKeyIdentity()
 			ipcache.IPIdentityCache.Upsert(ciliumIPv6.String(), hostIP, hostKey, ipcache.Identity{
 				ID:     identity.ReservedIdentityHost,
-				Source: ipcache.FromKVStore,
+				Source: source.KVStore,
 			})
 		}
 	}
@@ -97,17 +98,17 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*node.Node); ok {
 		nodeCopy := n.DeepCopy()
-		nodeCopy.Source = node.FromKVStore
+		nodeCopy.Source = source.KVStore
 
 		o.manager.NodeDeleted(*nodeCopy)
 
 		ciliumIPv4 := nodeCopy.GetCiliumInternalIP(false)
 		if ciliumIPv4 != nil {
-			ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), ipcache.FromKVStore)
+			ipcache.IPIdentityCache.Delete(ciliumIPv4.String(), source.KVStore)
 		}
 		ciliumIPv6 := nodeCopy.GetCiliumInternalIP(true)
 		if ciliumIPv6 != nil {
-			ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), ipcache.FromKVStore)
+			ipcache.IPIdentityCache.Delete(ciliumIPv6.String(), source.KVStore)
 		}
 	}
 }
