@@ -25,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -84,7 +83,6 @@ const (
 	metricIngress    = "Ingress"
 	metricKNP        = "NetworkPolicy"
 	metricNS         = "Namespace"
-	metricNode       = "Node"
 	metricCiliumNode = "CiliumNode"
 	metricPod        = "Pod"
 	metricService    = "Service"
@@ -944,113 +942,6 @@ func (d *Daemon) EnableK8sWatcher(queueSize uint) error {
 		}
 	}()
 
-	asyncControllers.Add(1)
-	go func() {
-		var once sync.Once
-		for {
-			_, nodeController := informer.NewInformer(
-				cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-					"nodes", v1.NamespaceAll, fields.Everything()),
-				&v1.Node{},
-				0,
-				cache.ResourceEventHandlerFuncs{
-					AddFunc: func(obj interface{}) {
-						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricNode, metricCreate, valid, equal) }()
-						if Node := k8s.CopyObjToV1Node(obj); Node != nil {
-							valid = true
-							serNodes.Enqueue(func() error {
-								err := d.updateK8sNode(nil, Node)
-								if err != nil {
-									log.WithError(err).Warning("Unable to process node addition")
-								}
-								d.K8sEventProcessed(metricNode, metricCreate, err == nil)
-								return nil
-							}, serializer.NoRetry)
-						}
-					},
-					UpdateFunc: func(oldObj, newObj interface{}) {
-						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricNode, metricUpdate, valid, equal) }()
-						if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
-							valid = true
-							if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
-								if k8s.EqualV1Node(oldNode, newNode) {
-									equal = true
-									return
-								}
-
-								serNodes.Enqueue(func() error {
-									err := d.updateK8sNode(oldNode, newNode)
-									if err != nil {
-										log.WithError(err).Warning("Unable to process node update")
-									}
-									d.K8sEventProcessed(metricNode, metricUpdate, err == nil)
-									return nil
-								}, serializer.NoRetry)
-							}
-						}
-					},
-					DeleteFunc: func(obj interface{}) {
-						var valid, equal bool
-						defer func() { d.K8sEventReceived(metricNode, metricDelete, valid, equal) }()
-						node := k8s.CopyObjToV1Node(obj)
-						if node == nil {
-							deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-							if !ok {
-								return
-							}
-							// Delete was not observed by the watcher but is
-							// removed from kube-apiserver. This is the last
-							// known state and the object no longer exists.
-							node = k8s.CopyObjToV1Node(deletedObj.Obj)
-							if node == nil {
-								return
-							}
-						}
-						valid = true
-						serNodes.Enqueue(func() error {
-							err := d.deleteK8sNodeV1(node)
-							d.K8sEventProcessed(metricNode, metricDelete, err == nil)
-							return nil
-						}, serializer.NoRetry)
-					},
-				},
-				k8s.ConvertToNode,
-			)
-			isConnected := make(chan struct{})
-			// once isConnected is closed, it will stop waiting on caches to be
-			// synchronized.
-			d.blockWaitGroupToSyncResources(isConnected, nodeController, k8sAPIGroupNodeV1Core)
-
-			once.Do(func() {
-				// Signalize that we have put node controller in the wait group
-				// to sync resources.
-				asyncControllers.Done()
-			})
-			d.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
-			go nodeController.Run(isConnected)
-			// TODO: do we really need to wait until etcd watcher signalizes
-			// "listDone" or connected to it is sufficient?
-
-			if !option.Config.K8sEventHandover {
-				return
-			}
-
-			<-kvstore.Client().Connected()
-			close(isConnected)
-
-			log.Info("Connected to KVStore, stopping k8s node watcher")
-
-			d.k8sAPIGroups.removeAPI(k8sAPIGroupNodeV1Core)
-			// Create a new node controller when we are disconnected with the
-			// kvstore
-			<-kvstore.Client().Disconnected()
-
-			log.Info("Disconnected from KVStore, restarting k8s node watcher")
-		}
-	}()
-
 	_, namespaceController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
@@ -1894,87 +1785,6 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	if failed {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
-	return nil
-}
-
-func (d *Daemon) updateK8sNode(k8sNodeOld, k8sNodeNew *types.Node) error {
-	nodeNew := k8s.ParseNode(k8sNodeNew, source.Kubernetes)
-	// Ignore own node
-	if nodeNew.Name == node.GetName() {
-		return nil
-	}
-
-	getIDs := func(node *node.Node, k8sNode *types.Node) (string, net.IP, error) {
-		if node == nil {
-			return "", nil, nil
-		}
-		hostIP := node.GetNodeIP(false)
-		if ip4 := hostIP.To4(); ip4 == nil {
-			return "", nil, fmt.Errorf("HostIP is not an IPv4 address: %s", hostIP)
-		}
-
-		ciliumIPStr := k8sNode.GetAnnotations()[annotation.CiliumHostIP]
-		if ciliumIPStr == "" {
-			// Don't return an error here, as the node may not have been
-			// annotated yet by the Cilium agent on it. If the node is annotated
-			// later, we will receive an event via the K8s watcher.
-			log.Debugf("not updating ipcache entry for node %s because it does not have the CiliumHostIP annotation yet", k8sNode.Name)
-			return "", nil, nil
-		}
-		ciliumIP := net.ParseIP(ciliumIPStr)
-		if ciliumIP == nil {
-			return "", nil, fmt.Errorf("no/invalid Cilium-Host IP for host %s: %s", hostIP, ciliumIPStr)
-		}
-
-		return ciliumIPStr, hostIP, nil
-	}
-
-	ciliumIPStrNew, hostIPNew, err := getIDs(nodeNew, k8sNodeNew)
-	if err != nil || ciliumIPStrNew == "" || hostIPNew == nil {
-		return err
-	}
-
-	if k8sNodeOld != nil {
-		nodeOld := k8s.ParseNode(k8sNodeOld, source.Kubernetes)
-		var (
-			err            error
-			ciliumIPStrOld string
-		)
-		ciliumIPStrOld, _, err = getIDs(nodeOld, k8sNodeOld)
-		if err != nil {
-			return err
-		}
-
-		if nodeNew.PublicAttrEquals(nodeOld) {
-			// Ignore updates for the same node.
-			return nil
-		}
-
-		// If the annotation of the node resource has changed, the old
-		// ipcache has to be removed manually as Upsert() only handes
-		// updates if the key itself is unchanged.
-		if ciliumIPStrNew != ciliumIPStrOld {
-			d.deleteK8sNodeV1(k8sNodeOld)
-		}
-	}
-
-	// Kubernetes node resource does not carry the encryption, refer to the
-	// local key configured.
-	nodeNew.EncryptionKey = node.GetIPsecKeyIdentity()
-
-	d.nodeDiscovery.Manager.NodeUpdated(*nodeNew)
-	return nil
-}
-
-func (d *Daemon) deleteK8sNodeV1(k8sNode *types.Node) error {
-	oldNode := k8s.ParseNode(k8sNode, source.Kubernetes)
-	// Ignore own node
-	if oldNode.Name == node.GetName() {
-		return nil
-	}
-
-	d.nodeDiscovery.Manager.NodeDeleted(*oldNode)
-
 	return nil
 }
 
