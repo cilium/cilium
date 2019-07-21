@@ -307,7 +307,14 @@ type EndpointStatus struct {
 	Log []*models.EndpointStatusChange `json:"log,omitempty"`
 
 	// Networking properties of the endpoint
+	//
+	// +optional
 	Networking *EndpointNetworking `json:"networking,omitempty"`
+
+	// Encryption is the encryption configuration of the node
+	//
+	// +optional
+	Encryption EncryptionSpec `json:"encryption,omitempty"`
 
 	Policy *EndpointPolicy `json:"policy,omitempty"`
 
@@ -447,7 +454,6 @@ type DeprecatedEndpointStatus struct {
 }
 
 // EndpointIdentity is the identity information of an endpoint
-// +k8s:deepcopy-gen=false
 type EndpointIdentity struct {
 	// ID is the numeric identity of the endpoint
 	ID int64 `json:"id,omitempty"`
@@ -534,10 +540,13 @@ func (a AddressPairList) Sort() {
 }
 
 // EndpointNetworking is the addressing information of an endpoint
-// +k8s:deepcopy-gen=false
 type EndpointNetworking struct {
 	// IP4/6 addresses assigned to this Endpoint
 	Addressing AddressPairList `json:"addressing"`
+
+	// NodeIP is the IP of the node the endpoint is running on. The IP must
+	// be reachable between nodes.
+	NodeIP string `json:"node,omitempty"`
 
 	// Deprecated fields
 	HostAddressing *models.NodeAddressing `json:"host-addressing,omitempty"`
