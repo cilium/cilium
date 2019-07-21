@@ -30,7 +30,7 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	v := k.use(key.GetKey())
 	c.Assert(v, Equals, idpool.NoID)
 
-	v, err := k.allocate(key, val) // refcnt=1
+	v, err := k.allocate(key.GetKey(), key, val) // refcnt=1
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val)
 
@@ -40,11 +40,11 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	c.Assert(v, Equals, val)
 	k.release(key.GetKey()) // refcnt=1
 
-	v, err = k.allocate(key, val) // refcnt=2
+	v, err = k.allocate(key.GetKey(), key, val) // refcnt=2
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val)
 
-	v, err = k.allocate(key2, val2) // refcnt=1
+	v, err = k.allocate(key2.GetKey(), key2, val2) // refcnt=1
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val2)
 
@@ -53,7 +53,7 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	c.Assert(len(ids), Equals, 1)
 
 	// allocate with different value must fail
-	_, err = k.allocate(key2, val)
+	_, err = k.allocate(key2.GetKey(), key2, val)
 	c.Assert(err, Not(IsNil))
 
 	k.release(key.GetKey()) // refcnt=1

@@ -36,19 +36,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// globalIdentity is the structure used to store an identity in the kvstore
+// globalIdentity is the structure used to store an identity
 type globalIdentity struct {
 	labels.LabelArray
 }
 
-// GetKey() encodes a globalIdentity as string to be used as key-value store key.
-// LabelArray is already sorted, so the key will be generated in sorted order.
-func (gi globalIdentity) GetKey() string {
-	str := ""
+// GetKey() encodes an Identity as string
+func (gi globalIdentity) GetKey() (str string) {
 	for _, l := range gi.LabelArray {
 		str += l.FormatForKVStore()
 	}
-	return kvstore.Encode([]byte(str))
+	return
 }
 
 // GetAsMap() encodes a globalIdentity a map of keys to values. The keys will
@@ -57,16 +55,12 @@ func (gi globalIdentity) GetAsMap() map[string]string {
 	return gi.StringMap()
 }
 
-// PutKey() decodes a globalIdentity from its string representation
-func (gi globalIdentity) PutKey(v string) (allocator.AllocatorKey, error) {
-	b, err := kvstore.Decode(v)
-	if err != nil {
-		return nil, err
-	}
-	return globalIdentity{labels.NewLabelArrayFromSortedList(string(b))}, nil
+// PutKey() decodes an Identity from its string representation
+func (gi globalIdentity) PutKey(v string) allocator.AllocatorKey {
+	return globalIdentity{labels.NewLabelArrayFromSortedList(v)}
 }
 
-// PutKeyFromMap() decodes a globalIdentity from a map of key to value. Output
+// PutKeyFromMap() decodes an Identity from a map of key to value. Output
 // from GetAsMap can be parsed.
 // Note: NewLabelArrayFromMap will parse the ':' separated label source from
 // the keys because the source parameter is ""

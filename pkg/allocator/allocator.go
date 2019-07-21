@@ -179,6 +179,10 @@ type Backend interface {
 	// DeleteAllKeys will delete all keys. It is used in tests.
 	DeleteAllKeys()
 
+	// Encode encodes a key string as required to conform to the key
+	// restrictions of the backend
+	Encode(string) string
+
 	// AllocateID creates a new key->ID association. This is expected to be a
 	// create-only operation, and the ID may be allocated by another node. An
 	// error in that case is not expected to be fatal. The actual ID is obtained
@@ -415,7 +419,7 @@ type AllocatorKey interface {
 
 	// PutKey stores the information in v into the key. This is is the inverse
 	// operation to GetKey
-	PutKey(v string) (AllocatorKey, error)
+	PutKey(v string) AllocatorKey
 
 	// GetAsMap returns the key as a collection of "labels" with a key and value.
 	// This is the inverse operation to PutKeyFromMap.
@@ -426,10 +430,14 @@ type AllocatorKey interface {
 	PutKeyFromMap(v map[string]string) AllocatorKey
 }
 
+func (a *Allocator) encodeKey(key AllocatorKey) string {
+	return a.backend.Encode(key.GetKey())
+}
+
 func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, error) {
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
-	k := key.GetKey()
+	k := a.encodeKey(key)
 	lock, err := a.backend.Lock(ctx, key)
 	if err != nil {
 		return 0, false, err
@@ -461,7 +469,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 			}
 		}
 	} else {
-		_, err := a.localKeys.allocate(key, value)
+		_, err := a.localKeys.allocate(k, key, value)
 		if err != nil {
 			return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
 		}
@@ -496,7 +504,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		a.idPool.Release(unmaskedID) // This returns this ID to be re-used for other keys
 	}
 
-	oldID, err := a.localKeys.allocate(key, id)
+	oldID, err := a.localKeys.allocate(k, key, id)
 	if err != nil {
 		a.idPool.Release(unmaskedID)
 		return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
@@ -562,7 +570,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		err   error
 		value idpool.ID
 		isNew bool
-		k     = key.GetKey()
+		k     = a.encodeKey(key)
 	)
 
 	log.WithField(fieldKey, key).Debug("Allocating key")
@@ -624,7 +632,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 // has been allocated to this key yet if the client is still holding the given
 // lock.
 func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
-	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
+	if id := a.mainCache.get(a.encodeKey(key)); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -634,7 +642,7 @@ func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvst
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
 func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
+	if id := a.mainCache.get(a.encodeKey(key)); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -669,7 +677,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 		return false, fmt.Errorf("release was cancelled while waiting for initial key list to be received: %s", ctx.Err())
 	}
 
-	k := key.GetKey()
+	k := a.encodeKey(key)
 
 	a.slaveKeysMutex.Lock()
 	defer a.slaveKeysMutex.Unlock()
