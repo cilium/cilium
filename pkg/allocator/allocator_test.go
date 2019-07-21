@@ -53,6 +53,10 @@ func newDummyBackend() Backend {
 	}
 }
 
+func (d *dummyBackend) Encode(v string) string {
+	return v
+}
+
 func (d *dummyBackend) DeleteAllKeys() {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
@@ -183,8 +187,8 @@ type TestAllocatorKey string
 func (t TestAllocatorKey) GetKey() string              { return string(t) }
 func (t TestAllocatorKey) GetAsMap() map[string]string { return map[string]string{string(t): string(t)} }
 func (t TestAllocatorKey) String() string              { return string(t) }
-func (t TestAllocatorKey) PutKey(v string) (AllocatorKey, error) {
-	return TestAllocatorKey(v), nil
+func (t TestAllocatorKey) PutKey(v string) AllocatorKey {
+	return TestAllocatorKey(v)
 }
 func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) AllocatorKey {
 	for _, v := range m {
@@ -258,7 +262,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		c.Assert(new, Equals, true)
 
 		// refcnt must be 1
-		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
+		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
 	}
 
 	saved := allocator.backoffTemplate.Factor
@@ -280,7 +284,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		c.Assert(new, Equals, false)
 
 		// refcnt must now be 2
-		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(2))
+		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(2))
 	}
 
 	// Create a 2nd allocator, refill it
@@ -296,7 +300,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
 
-		localKey := allocator2.localKeys.keys[key.GetKey()]
+		localKey := allocator2.localKeys.keys[allocator.encodeKey(key)]
 		c.Assert(localKey, Not(IsNil))
 
 		// refcnt in the 2nd allocator is 1
@@ -313,7 +317,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// refcnt should be back to 1
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		c.Assert(allocator.localKeys.keys[key.GetKey()].refcnt, Equals, uint64(1))
+		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
 	}
 
 	// running the GC should not evict any entries
@@ -326,7 +330,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		c.Assert(allocator.localKeys.keys[key.GetKey()], IsNil)
+		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)], IsNil)
 	}
 
 	// running the GC should evict all entries

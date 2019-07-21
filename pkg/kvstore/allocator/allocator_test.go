@@ -77,8 +77,8 @@ type TestAllocatorKey string
 func (t TestAllocatorKey) GetKey() string              { return string(t) }
 func (t TestAllocatorKey) GetAsMap() map[string]string { return map[string]string{string(t): string(t)} }
 func (t TestAllocatorKey) String() string              { return string(t) }
-func (t TestAllocatorKey) PutKey(v string) (allocator.AllocatorKey, error) {
-	return TestAllocatorKey(v), nil
+func (t TestAllocatorKey) PutKey(v string) allocator.AllocatorKey {
+	return TestAllocatorKey(v)
 }
 func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) allocator.AllocatorKey {
 	for _, v := range m {

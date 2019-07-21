@@ -444,3 +444,7 @@ func (c *crdBackend) ListAndWatch(handler allocator.CacheMutations, stopChan cha
 func (c *crdBackend) Status() (string, error) {
 	return "OK", nil
 }
+
+func (c *crdBackend) Encode(v string) string {
+	return v
+}

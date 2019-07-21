@@ -127,7 +127,7 @@ func (c *cache) OnAdd(id idpool.ID, key AllocatorKey) {
 
 	c.nextCache[id] = key
 	if key != nil {
-		c.nextKeyCache[key.GetKey()] = id
+		c.nextKeyCache[c.allocator.encodeKey(key)] = id
 	}
 	c.allocator.idPool.Remove(id)
 
@@ -139,12 +139,12 @@ func (c *cache) OnModify(id idpool.ID, key AllocatorKey) {
 	defer c.mutex.Unlock()
 
 	if k, ok := c.nextCache[id]; ok {
-		delete(c.nextKeyCache, k.GetKey())
+		delete(c.nextKeyCache, c.allocator.encodeKey(k))
 	}
 
 	c.nextCache[id] = key
 	if key != nil {
-		c.nextKeyCache[key.GetKey()] = id
+		c.nextKeyCache[c.allocator.encodeKey(key)] = id
 	}
 
 	c.sendEvent(kvstore.EventTypeModify, id, key)
@@ -165,7 +165,7 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 	}
 
 	if k, ok := c.nextCache[id]; ok && k != nil {
-		delete(c.nextKeyCache, k.GetKey())
+		delete(c.nextKeyCache, c.allocator.encodeKey(k))
 	}
 
 	delete(c.nextCache, id)
@@ -234,6 +234,6 @@ func (c *cache) foreach(cb RangeFunc) {
 func (c *cache) insert(key AllocatorKey, val idpool.ID) {
 	c.mutex.Lock()
 	c.nextCache[val] = key
-	c.nextKeyCache[key.GetKey()] = val
+	c.nextKeyCache[c.allocator.encodeKey(key)] = val
 	c.mutex.Unlock()
 }
