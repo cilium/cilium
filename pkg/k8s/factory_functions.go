@@ -553,3 +553,15 @@ func ConvertToCiliumNode(obj interface{}) interface{} {
 		return obj
 	}
 }
+
+// CopyObjToCiliumNode attempts to cast object to a CiliumNode object and
+// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+func CopyObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
+	cn, ok := obj.(*cilium_v2.CiliumNode)
+	if !ok {
+		log.WithField(logfields.Object, logfields.Repr(obj)).
+			Warn("Ignoring invalid CiliumNode")
+		return nil
+	}
+	return cn.DeepCopy()
+}

@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,14 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/source"
 
 	. "gopkg.in/check.v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -72,6 +75,50 @@ func (s *NodeSuite) TestGetNodeIP(c *C) {
 	// Should still return NodeInternalIP and IPv4
 	c.Assert(ip.Equal(net.ParseIP("198.51.100.2")), Equals, true)
 
+}
+
+func (s *NodeSuite) TestParseCiliumNode(c *C) {
+	nodeResource := &ciliumv2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+		Spec: ciliumv2.NodeSpec{
+			Addresses: []ciliumv2.NodeAddress{
+				{Type: addressing.NodeInternalIP, IP: "2.2.2.2"},
+				{Type: addressing.NodeExternalIP, IP: "3.3.3.3"},
+				{Type: addressing.NodeInternalIP, IP: "c0de::1"},
+				{Type: addressing.NodeExternalIP, IP: "c0de::2"},
+			},
+			Encryption: ciliumv2.EncryptionSpec{
+				Key: 10,
+			},
+			IPAM: ciliumv2.IPAMSpec{
+				PodCIDRs: []string{
+					"10.10.0.0/16",
+					"c0de::/96",
+				},
+			},
+			HealthAddressing: ciliumv2.HealthAddressingSpec{
+				IPv4: "1.1.1.1",
+				IPv6: "c0de::1",
+			},
+		},
+	}
+
+	n := ParseCiliumNode(nodeResource)
+	c.Assert(n, checker.DeepEquals, Node{
+		Name:   "foo",
+		Source: source.CustomResource,
+		IPAddresses: []Address{
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("2.2.2.2")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("3.3.3.3")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("c0de::1")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("c0de::2")},
+		},
+		EncryptionKey: uint8(10),
+		IPv4AllocCIDR: cidr.MustParseCIDR("10.10.0.0/16"),
+		IPv6AllocCIDR: cidr.MustParseCIDR("c0de::/96"),
+		IPv4HealthIP:  net.ParseIP("1.1.1.1"),
+		IPv6HealthIP:  net.ParseIP("c0de::1"),
+	})
 }
 
 func (s *NodeSuite) TestPublicAttrEquals(c *C) {
