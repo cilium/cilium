@@ -18,10 +18,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/k8s"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -31,6 +34,9 @@ import (
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -100,10 +106,18 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration)
 	}
 }
 
+// Configuration is the configuration interface that must be implemented in
+// order to manage node discovery
+type Configuration interface {
+	// GetNetConf must return the CNI configuration as passed in by the
+	// user
+	GetNetConf() *cnitypes.NetConf
+}
+
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
-func (n *NodeDiscovery) StartDiscovery(nodeName string) {
+func (n *NodeDiscovery) StartDiscovery(nodeName string, conf Configuration) {
 	n.LocalNode.Name = nodeName
 	n.LocalNode.Cluster = option.Config.ClusterName
 	n.LocalNode.IPAddresses = []node.Address{}
@@ -163,6 +177,12 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		}
 	}()
 
+	if k8s.IsEnabled() {
+		// Creation of the CiliumNode can be done in the background,
+		// nothing depends on the completion of this.
+		go n.createCiliumNodeResource(conf)
+	}
+
 	go func() {
 		<-n.Registered
 		controller.NewManager().UpdateController("propagating local node change to kv-store",
@@ -181,4 +201,80 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 // Close shuts down the node discovery engine
 func (n *NodeDiscovery) Close() {
 	n.Manager.Close()
+}
+
+func (n *NodeDiscovery) createCiliumNodeResource(conf Configuration) {
+	if !option.Config.AutoCreateCiliumNodeResource {
+		return
+	}
+
+	ciliumClient := k8s.CiliumClient()
+
+	nodeResource := &ciliumv2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: node.GetName(),
+		},
+	}
+
+	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
+	// Kubernetes node
+	if k8sNode, err := k8s.GetNode(k8s.Client(), node.GetName()); err != nil {
+		log.Warning("Kubernetes node resource representing own node is not available, cannot set OwnerReference")
+	} else {
+		nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "Node",
+			Name:       node.GetName(),
+			UID:        k8sNode.UID,
+		}}
+	}
+
+	if option.Config.IPAM == option.IPAMENI {
+		instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
+		}
+
+		nodeResource.Spec.ENI.VpcID = vpcID
+		nodeResource.Spec.ENI.FirstInterfaceIndex = 1
+		nodeResource.Spec.ENI.DeleteOnTermination = true
+		nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
+
+		if c := conf.GetNetConf(); c != nil {
+			if c.ENI.MinAllocate != 0 {
+				nodeResource.Spec.ENI.MinAllocate = c.ENI.MinAllocate
+			}
+
+			if c.ENI.PreAllocate != 0 {
+				nodeResource.Spec.ENI.PreAllocate = c.ENI.PreAllocate
+			}
+
+			if c.ENI.FirstInterfaceIndex != 0 {
+				nodeResource.Spec.ENI.FirstInterfaceIndex = c.ENI.FirstInterfaceIndex
+			}
+
+			if len(c.ENI.SecurityGroups) > 0 {
+				nodeResource.Spec.ENI.SecurityGroups = c.ENI.SecurityGroups
+			}
+
+			if len(c.ENI.SubnetTags) > 0 {
+				nodeResource.Spec.ENI.SubnetTags = c.ENI.SubnetTags
+			}
+
+			if c.ENI.VpcID != "" {
+				nodeResource.Spec.ENI.VpcID = c.ENI.VpcID
+			}
+
+			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
+		}
+
+		nodeResource.Spec.ENI.InstanceID = instanceID
+		nodeResource.Spec.ENI.InstanceType = instanceType
+		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
+	}
+
+	_, err := ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource)
+	if err != nil {
+		log.WithError(err).Fatal("Unable to create CiliumNode resource")
+	}
 }

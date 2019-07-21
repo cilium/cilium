@@ -21,16 +21,11 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	. "gopkg.in/check.v1"
 )
 
 type ownerMock struct{}
-
-func (o *ownerMock) GetNetConf() *cnitypes.NetConf {
-	return nil
-}
 
 func (o *ownerMock) K8sEventReceived(scope string, action string, valid, equal bool) {}
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool)      {}

@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -60,10 +59,6 @@ type Configuration struct {
 
 // Owner is the interface the owner of an IPAM allocator has to implement
 type Owner interface {
-	// GetNetConf must return the CNI configuration as passed in by the
-	// user
-	GetNetConf() *cnitypes.NetConf
-
 	// K8sEventReceived is called to do metrics accounting for received
 	// Kubernetes events
 	K8sEventReceived(scope string, action string, valid, equal bool)

@@ -863,7 +863,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		log.Debug("Annotate k8s node is disabled.")
 	}
 
-	d.nodeDiscovery.StartDiscovery(node.GetName())
+	d.nodeDiscovery.StartDiscovery(node.GetName(), &d)
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
