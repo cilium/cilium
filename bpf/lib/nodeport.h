@@ -113,10 +113,10 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
 	}
-
+#ifdef ENCAP_IFINDEX
 	if (ifindex == ENCAP_IFINDEX)
 		goto out_send;
-
+#endif
 	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -407,10 +407,10 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
 	}
-
+#ifdef ENCAP_IFINDEX
 	if (ifindex == ENCAP_IFINDEX)
 		goto out_send;
-
+#endif
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
