@@ -1702,9 +1702,11 @@ func (d *Daemon) updatePodHostIP(pod *types.Pod) (bool, error) {
 		return true, fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
 	}
 
-	podIP := net.ParseIP(pod.StatusPodIP)
-	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
+	if pod.StatusPodIP != "" {
+		podIP := net.ParseIP(pod.StatusPodIP)
+		if podIP == nil {
+			return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
+		}
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
