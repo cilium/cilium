@@ -12,6 +12,7 @@ pipeline {
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
         CNI_INTEGRATION="flannel"
+        GINKGO_TIMEOUT="73m"
     }
 
     options {
@@ -83,11 +84,11 @@ pipeline {
                     parallel(
                         "K8s-1.10":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant provision k8s1-1.10; K8S_VERSION=1.10 vagrant provision k8s2-1.10'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         "K8s-1.13":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.13 vagrant provision k8s1-1.13; K8S_VERSION=1.13 vagrant provision k8s2-1.13'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.13 ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
