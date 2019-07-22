@@ -2403,3 +2403,12 @@ func getK8sEndpointAddresses(ep v1.Endpoints) []*models.BackendAddress {
 func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
 	return *addr1.IP == *addr2.IP && addr1.Port == addr2.Port
 }
+
+// GenerateNamespaceForTest generates a namespace based off of the current test
+// which is running.
+func GenerateNamespaceForTest() string {
+	lowered := strings.ToLower(ginkgoext.CurrentGinkgoTestDescription().FullTestText)
+	// K8s namespaces cannot have spaces.
+	replaced := strings.Replace(lowered, " ", "", -1)
+	return replaced
+}

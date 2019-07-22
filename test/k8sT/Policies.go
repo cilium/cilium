@@ -90,7 +90,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			ciliumPod        string
 			clusterIP        string
 			appPods          map[string]string
-			namespaceForTest = "basictest"
+			namespaceForTest string
 		)
 
 		importPolicy := func(file, name string) {
@@ -147,6 +147,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		BeforeAll(func() {
+			namespaceForTest = helpers.GenerateNamespaceForTest()
 			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
 			kubectl.Apply(demoPath, namespaceForTest).ExpectSuccess("could not create resource")
 
