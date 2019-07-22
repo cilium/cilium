@@ -183,19 +183,21 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string, conf Configuration) {
 		go n.createCiliumNodeResource(conf)
 	}
 
-	go func() {
-		<-n.Registered
-		controller.NewManager().UpdateController("propagating local node change to kv-store",
-			controller.ControllerParams{
-				DoFunc: func(ctx context.Context) error {
-					err := n.Registrar.UpdateLocalKeySync(&n.LocalNode)
-					if err != nil {
-						log.WithError(err).Error("Unable to propagate local node change to kvstore")
-					}
-					return err
-				},
-			})
-	}()
+	if option.Config.KVStore != "" {
+		go func() {
+			<-n.Registered
+			controller.NewManager().UpdateController("propagating local node change to kv-store",
+				controller.ControllerParams{
+					DoFunc: func(ctx context.Context) error {
+						err := n.Registrar.UpdateLocalKeySync(&n.LocalNode)
+						if err != nil {
+							log.WithError(err).Error("Unable to propagate local node change to kvstore")
+						}
+						return err
+					},
+				})
+		}()
+	}
 }
 
 // Close shuts down the node discovery engine
