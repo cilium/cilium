@@ -170,7 +170,11 @@ func initConfig() {
 	viper.SetConfigName("cilium-operator")
 }
 
-func requiresKVstore() bool {
+func kvstoreEnabled() bool {
+	if option.Config.KVStore == "" {
+		return false
+	}
+
 	return identityAllocationMode == option.IdentityAllocationModeKVstore ||
 		synchronizeServices ||
 		synchronizeNodes
@@ -223,11 +227,11 @@ func runOperator(cmd *cobra.Command) {
 		startSynchronizingCiliumNodes()
 	}
 
-	if synchronizeServices {
-		startSynchronizingServices()
-	}
+	if kvstoreEnabled() {
+		if synchronizeServices {
+			startSynchronizingServices()
+		}
 
-	if requiresKVstore() {
 		var goopts *kvstore.ExtraOptions
 		scopedLog := log.WithFields(logrus.Fields{
 			"kvstore": kvStore,
@@ -277,6 +281,12 @@ func runOperator(cmd *cobra.Command) {
 		if err := kvstore.Setup(kvStore, kvStoreOpts, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
+
+		if synchronizeNodes {
+			if err := runNodeWatcher(); err != nil {
+				log.WithError(err).Error("Unable to setup node watcher")
+			}
+		}
 	}
 
 	if identityAllocationMode == option.IdentityAllocationModeCRD {
@@ -289,12 +299,6 @@ func runOperator(cmd *cobra.Command) {
 
 	if enableCepGC {
 		enableCiliumEndpointSyncGC()
-	}
-
-	if synchronizeNodes {
-		if err := runNodeWatcher(); err != nil {
-			log.WithError(err).Error("Unable to setup node watcher")
-		}
 	}
 
 	if identityGCInterval != time.Duration(0) {
