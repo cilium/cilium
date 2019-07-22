@@ -104,6 +104,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNetworkPolicy{},
 		&CiliumNetworkPolicyList{},
 		&CiliumEndpoint{},
+		&CiliumEndpointList{},
 		&CiliumNode{},
 		&CiliumNodeList{},
 		&CiliumIdentity{},
