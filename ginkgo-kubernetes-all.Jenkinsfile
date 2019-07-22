@@ -153,7 +153,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=98m --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -179,7 +179,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=98m --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -278,7 +278,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=98m --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -304,7 +304,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=98m --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {

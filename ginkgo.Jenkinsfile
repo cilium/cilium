@@ -175,7 +175,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; ginkgo --timeout=108m --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -202,7 +202,7 @@ pipeline {
                         NETNEXT="true"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --timeout=108m --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -228,7 +228,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --timeout=108m --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
