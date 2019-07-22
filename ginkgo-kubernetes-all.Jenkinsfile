@@ -39,6 +39,7 @@ pipeline {
         SERVER_BOX = "cilium/ubuntu"
         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
+        GINKGO_TIMEOUT="98m"
     }
 
     options {
@@ -154,7 +155,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -180,7 +181,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -279,7 +280,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -305,7 +306,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=${TESTED_SUITE} ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {

@@ -10,6 +10,7 @@ pipeline {
         MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
         NETNEXT=setIfLabel("ci/net-next", "true", "false")
+        GINKGO_TIMEOUT="108m"
     }
 
     options {
@@ -174,7 +175,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" Runtime*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -200,7 +201,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.8 ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
@@ -226,7 +227,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.14 ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
                     }
                     post {
                         always {
