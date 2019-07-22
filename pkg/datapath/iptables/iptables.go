@@ -33,10 +33,13 @@ import (
 )
 
 const (
+	ciliumInputChain       = "CILIUM_INPUT"
 	ciliumOutputChain      = "CILIUM_OUTPUT"
 	ciliumOutputRawChain   = "CILIUM_OUTPUT_raw"
-	ciliumPostNatChain     = "CILIUM_POST"
 	ciliumPostNatKubeChain = "CILIUM_POST_KUBE"
+	ciliumPostNatChain     = "CILIUM_POST_nat"
+	ciliumOutputNatChain   = "CILIUM_OUTPUT_nat"
+	ciliumPreNatChain      = "CILIUM_PRE_nat"
 	ciliumPostMangleChain  = "CILIUM_POST_mangle"
 	ciliumPreMangleChain   = "CILIUM_PRE_mangle"
 	ciliumPreRawChain      = "CILIUM_PRE_raw"
@@ -186,6 +189,13 @@ func (c *customChain) installFeeder() error {
 // flushing and removing the custom chains will fail.
 var ciliumChains = []customChain{
 	{
+		name:       ciliumInputChain,
+		table:      "filter",
+		hook:       "INPUT",
+		feederArgs: []string{""},
+	},
+
+	{
 		name:       ciliumOutputChain,
 		table:      "filter",
 		hook:       "OUTPUT",
@@ -204,6 +214,18 @@ var ciliumChains = []customChain{
 		feederArgs:  []string{""},
 		ipv6:        true,
 		appendFixed: true,
+	},
+	{
+		name:       ciliumOutputNatChain,
+		table:      "nat",
+		hook:       "OUTPUT",
+		feederArgs: []string{""},
+	},
+	{
+		name:       ciliumPreNatChain,
+		table:      "nat",
+		hook:       "PREROUTING",
+		feederArgs: []string{""},
 	},
 	{
 		name:       ciliumPostMangleChain,
@@ -517,8 +539,14 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		}
 	}
 
-	if err := addCiliumXfrmRules(); err != nil {
-		return fmt.Errorf("cannot install xfrm rules: %s", err)
+	if option.Config.EnableIPSec {
+		if err := addCiliumAcceptXfrmRules(); err != nil {
+			return fmt.Errorf("cannot install xfrm rules: %s", err)
+		}
+
+		if err := addCiliumNoTrackXfrmRules(); err != nil {
+			return fmt.Errorf("cannot install xfrm rules: %s", err)
+		}
 	}
 
 	for _, c := range ciliumChains {
@@ -530,7 +558,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	return nil
 }
 
-func ciliumXfrmRules(prog, input string) error {
+func ciliumNoTrackXfrmRules(prog, input string) error {
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
@@ -551,9 +579,60 @@ func ciliumXfrmRules(prog, input string) error {
 	return nil
 }
 
-func addCiliumXfrmRules() error {
+// Exclude crypto traffic from the filter and nat table rules.
+// This avoids encryption bits and keyID, 0x*d00 for decryption
+// and 0x*e00 for encryption, colliding with existing rules. Needed
+// for kube-proxy for example.
+func addCiliumAcceptXfrmRules() error {
+	if option.Config.EnableIPSec == false {
+		return nil
+	}
+	insertAcceptXfrm := func(table, chain string) error {
+		matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
+		matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+
+		comment := "exclude xfrm marks from " + table + " " + chain + " chain"
+
+		if err := runProg("iptables", []string{
+			"-t", table,
+			"-A", chain,
+			"-m", "mark", "--mark", matchFromIPSecEncrypt,
+			"-m", "comment", "--comment", comment,
+			"-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
+
+		return runProg("iptables", []string{
+			"-t", table,
+			"-A", chain,
+			"-m", "mark", "--mark", matchFromIPSecDecrypt,
+			"-m", "comment", "--comment", comment,
+			"-j", "ACCEPT"}, false)
+	}
+	if err := insertAcceptXfrm("filter", ciliumInputChain); err != nil {
+		return err
+	}
+	if err := insertAcceptXfrm("filter", ciliumOutputChain); err != nil {
+		return err
+	}
+	if err := insertAcceptXfrm("filter", ciliumForwardChain); err != nil {
+		return err
+	}
+	if err := insertAcceptXfrm("nat", ciliumPostNatChain); err != nil {
+		return err
+	}
+	if err := insertAcceptXfrm("nat", ciliumPreNatChain); err != nil {
+		return err
+	}
+	if err := insertAcceptXfrm("nat", ciliumOutputNatChain); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addCiliumNoTrackXfrmRules() error {
 	if option.Config.EnableIPv4 {
-		return ciliumXfrmRules("iptables", "-I")
+		return ciliumNoTrackXfrmRules("iptables", "-I")
 	}
 	return nil
 }
