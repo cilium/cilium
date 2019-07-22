@@ -239,7 +239,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
-		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
+		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "43835"
 	}
 
 	// Since golang maps are unordered, we sort the keys in the map

@@ -42,6 +42,7 @@ package linux_defaults
 // 1 1 0 0 From host
 // 0 0 1 0 To Ingress Proxy
 // 0 0 1 1 To Egress proxy
+// 0 1 0 1 BPF SNAT done
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
 	// bits from a mark.
