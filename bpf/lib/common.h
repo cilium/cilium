@@ -339,6 +339,9 @@ enum {
 
 #define MARK_MAGIC_KEY_ID		0xF000
 #define MARK_MAGIC_KEY_MASK		0xFF00
+
+#define MARK_MAGIC_SNAT_DONE		0x0500
+
 /**
  * get_identity - returns source identity from the mark field
  */
@@ -434,6 +437,12 @@ enum {
 #define CT_EGRESS 0
 #define CT_INGRESS 1
 #define CT_SERVICE 2
+
+#ifdef ENABLE_NODEPORT
+#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN
+#else
+#define NAT_MIN_EGRESS		EPHERMERAL_MIN
+#endif
 
 enum {
 	CT_NEW,
