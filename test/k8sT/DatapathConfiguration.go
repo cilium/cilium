@@ -31,11 +31,13 @@ var _ = Describe("K8sDatapathConfig", func() {
 	var kubectl *helpers.Kubectl
 	var demoDSPath string
 	var ipsecDSPath string
+	var l7PolicyPath string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 		ipsecDSPath = helpers.ManifestGet("ipsec_ds.yaml")
+		l7PolicyPath = helpers.ManifestGet("l7-policy-demo.yaml")
 
 		kubectl.Exec("kubectl -n kube-system delete ds cilium")
 
@@ -45,12 +47,14 @@ var _ = Describe("K8sDatapathConfig", func() {
 	BeforeEach(func() {
 		kubectl.Apply(demoDSPath).ExpectSuccess("cannot install Demo application")
 		kubectl.Apply(ipsecDSPath).ExpectSuccess("cannot install IPsec keys")
+		kubectl.Apply(l7PolicyPath).ExpectSuccess("cannot install L7 demo policy")
 		kubectl.NodeCleanMetadata()
 	})
 
 	AfterEach(func() {
 		kubectl.Delete(demoDSPath)
 		kubectl.Delete(ipsecDSPath)
+		kubectl.Delete(l7PolicyPath)
 		ExpectAllPodsTerminated(kubectl)
 
 		// Do not assert on success in AfterEach intentionally to avoid

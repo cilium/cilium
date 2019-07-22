@@ -15,6 +15,7 @@ spec:
         - "--pprof=true"
         - "--log-system-load"
         - "--config-dir=/tmp/cilium/config-map"
+        - "--debug-verbose=flow"
       volumes:
       - name: etcd-secrets
         secret:
