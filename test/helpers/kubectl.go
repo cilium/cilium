@@ -965,11 +965,11 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 		// debugYaml only dumps the full created yaml file to the test output if
 		// the cilium manifest can not be created correctly.
 		debugYaml := func(original string) {
-			_ = kub.ExecShort(fmt.Sprintf("kubectl apply --filename='%s' --dry-run -o yaml", original))
+			_ = kub.ExecMiddle(fmt.Sprintf("kubectl apply --filename='%s' --dry-run -o yaml", original))
 		}
 
 		// validation 1st
-		res := kub.ExecShort(fmt.Sprintf("kubectl apply --filename='%s' --dry-run", original))
+		res := kub.ExecMiddle(fmt.Sprintf("kubectl apply --filename='%s' --dry-run", original))
 		if !res.WasSuccessful() {
 			debugYaml(original)
 			return res.GetErr("Cilium manifest validation fails")
