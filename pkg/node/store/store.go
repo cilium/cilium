@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -89,6 +90,9 @@ type NodeManager interface {
 
 // RegisterNode registers the local node in the cluster
 func (nr *NodeRegistrar) RegisterNode(n *node.Node, manager NodeManager) error {
+	if option.Config.KVStore == "" {
+		return nil
+	}
 
 	// Join the shared store holding node information of entire cluster
 	store, err := store.JoinSharedStore(store.Configuration{
