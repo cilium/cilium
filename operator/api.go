@@ -60,7 +60,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 // checkStatus checks the connection status to the kvstore and
 // k8s apiserver and returns an error if any of them is unhealthy
 func checkStatus() error {
-	if requiresKVstore() {
+	if kvstoreEnabled() {
 		if client := kvstore.Client(); client == nil {
 			return fmt.Errorf("kvstore client not configured")
 		} else if _, err := client.Status(); err != nil {
