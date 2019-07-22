@@ -32,9 +32,10 @@
 /* No nodeport on cilium_host interface. */
 #ifdef FROM_HOST
 # undef ENABLE_NODEPORT
+# undef ENABLE_MASQUERADE
 #endif
 
-static inline void tc_index_clear_nodeport(struct __sk_buff *skb)
+static inline void bpf_clear_nodeport(struct __sk_buff *skb)
 {
 #ifdef ENABLE_NODEPORT
 	skb->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
@@ -42,16 +43,57 @@ static inline void tc_index_clear_nodeport(struct __sk_buff *skb)
 }
 
 #ifdef ENABLE_NODEPORT
-static inline bool __inline__ tc_index_skip_nodeport(struct __sk_buff *skb)
+static inline bool __inline__ bpf_skip_nodeport(struct __sk_buff *skb)
 {
 	volatile __u32 tc_index = skb->tc_index;
-	tc_index_clear_nodeport(skb);
+	skb->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
 	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
 }
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV6
+static __always_inline bool nodeport_nat_ipv6_needed(struct __sk_buff *skb,
+						     union v6addr *addr, int dir)
+{
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return false;
+	/* See nodeport_nat_ipv4_needed(). */
+	if (dir == NAT_DIR_EGRESS)
+		return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
+	else
+		return !ipv6_addrcmp((union v6addr *)&ip6->daddr, addr);
+	return false;
+}
+
+#define NODEPORT_DO_NAT_IPV6(ADDR, NDIR)					\
+	({									\
+		struct ipv6_nat_target target = {				\
+			.min_port = NODEPORT_PORT_MAX_NAT + 1,			\
+			.max_port = 65535,					\
+			.force_range = true,					\
+		};								\
+		ipv6_addr_copy(&target.addr, (ADDR));				\
+		int ____ret = nodeport_nat_ipv6_needed(skb, (ADDR), (NDIR)) ?	\
+			      snat_v6_process(skb, (NDIR), &target) : TC_ACT_OK;\
+		____ret;							\
+	})
+
+static __always_inline int nodeport_nat_ipv6_fwd(struct __sk_buff *skb,
+						 union v6addr *addr)
+{
+	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_EGRESS);
+}
+
+static __always_inline int nodeport_nat_ipv6_rev(struct __sk_buff *skb,
+						 union v6addr *addr)
+{
+	return NODEPORT_DO_NAT_IPV6(addr, NAT_DIR_INGRESS);
+}
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 {
@@ -108,6 +150,7 @@ int tail_nodeport_nat_ipv6(struct __sk_buff *skb)
 		goto drop_err;
 	}
 
+	skb->mark |= MARK_MAGIC_SNAT_DONE;
 	if (dir == NAT_DIR_INGRESS) {
 		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 		ret = DROP_MISSED_TAIL_CALL;
@@ -293,6 +336,8 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex)
 
 		if (!revalidate_data(skb, &data, &data_end, &ip6))
 			return DROP_INVALID;
+
+		skb->mark |= MARK_MAGIC_SNAT_DONE;
 #ifdef ENCAP_IFINDEX
 		{
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
@@ -348,6 +393,50 @@ int tail_rev_nodeport_lb6(struct __sk_buff *skb)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+static __always_inline bool nodeport_nat_ipv4_needed(struct __sk_buff *skb,
+						     __be32 addr, int dir)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return false;
+	/* Basic minimum is to only NAT when there is a potential of
+	 * overlapping tuples, e.g. applications in hostns reusing
+	 * source IPs we SNAT in node-port.
+	 */
+	if (dir == NAT_DIR_EGRESS)
+		return ip4->saddr == addr;
+	else
+		return ip4->daddr == addr;
+	return false;
+}
+
+#define NODEPORT_DO_NAT_IPV4(ADDR, NDIR)					\
+	({									\
+		struct ipv4_nat_target target = {				\
+			.min_port = NODEPORT_PORT_MAX_NAT + 1,			\
+			.max_port = 65535,					\
+			.addr = (ADDR),						\
+			.force_range = true,					\
+		};								\
+		int ____ret = nodeport_nat_ipv4_needed(skb, (ADDR), (NDIR)) ?	\
+			      snat_v4_process(skb, (NDIR), &target) : TC_ACT_OK;\
+		____ret;							\
+	})
+
+static __always_inline int nodeport_nat_ipv4_fwd(struct __sk_buff *skb,
+						 const __be32 addr)
+{
+	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_EGRESS);
+}
+
+static __always_inline int nodeport_nat_ipv4_rev(struct __sk_buff *skb,
+						 const __be32 addr)
+{
+	return NODEPORT_DO_NAT_IPV4(addr, NAT_DIR_INGRESS);
+}
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 {
@@ -402,6 +491,7 @@ int tail_nodeport_nat_ipv4(struct __sk_buff *skb)
 		goto drop_err;
 	}
 
+	skb->mark |= MARK_MAGIC_SNAT_DONE;
 	if (dir == NAT_DIR_INGRESS) {
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 		ret = DROP_MISSED_TAIL_CALL;
@@ -590,6 +680,8 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
 
 		if (!revalidate_data(skb, &data, &data_end, &ip4))
 			return DROP_INVALID;
+
+		skb->mark |= MARK_MAGIC_SNAT_DONE;
 #ifdef ENCAP_IFINDEX
 		{
 			struct remote_endpoint_info *info;
@@ -642,5 +734,81 @@ int tail_rev_nodeport_lb4(struct __sk_buff *skb)
 	return redirect(ifindex, 0);
 }
 #endif /* ENABLE_IPV4 */
+
+static __always_inline int nodeport_nat_fwd(struct __sk_buff *skb,
+					    const bool encap)
+{
+	__u16 proto;
+
+	if (!validate_ethertype(skb, &proto))
+		return TC_ACT_OK;
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP): {
+		__be32 addr;
+#ifdef ENCAP_IFINDEX
+		if (encap)
+			addr = IPV4_GATEWAY;
+		else
+#endif
+			addr = IPV4_NODEPORT;
+		return nodeport_nat_ipv4_fwd(skb, addr);
+	}
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6): {
+		union v6addr addr;
+#ifdef ENCAP_IFINDEX
+		if (encap)
+			BPF_V6(addr, HOST_IP);
+		else
+#endif
+			BPF_V6(addr, IPV6_NODEPORT);
+		return nodeport_nat_ipv6_fwd(skb, &addr);
+	}
+#endif /* ENABLE_IPV6 */
+	default:
+		break;
+	}
+	return TC_ACT_OK;
+}
+
+static __always_inline int nodeport_nat_rev(struct __sk_buff *skb,
+					    const bool encap)
+{
+	__u16 proto;
+
+	if (!validate_ethertype(skb, &proto))
+		return TC_ACT_OK;
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP): {
+		__be32 addr;
+#ifdef ENCAP_IFINDEX
+		if (encap)
+			addr = IPV4_GATEWAY;
+		else
+#endif
+			addr = IPV4_NODEPORT;
+		return nodeport_nat_ipv4_rev(skb, addr);
+	}
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6): {
+		union v6addr addr;
+#ifdef ENCAP_IFINDEX
+		if (encap)
+			BPF_V6(addr, HOST_IP);
+		else
+#endif
+			BPF_V6(addr, IPV6_NODEPORT);
+		return nodeport_nat_ipv6_rev(skb, &addr);
+	}
+#endif /* ENABLE_IPV6 */
+	default:
+		break;
+	}
+	return TC_ACT_OK;
+}
 #endif /* ENABLE_NODEPORT */
 #endif /* __NODEPORT_H_ */

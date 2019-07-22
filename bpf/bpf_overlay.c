@@ -51,7 +51,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
-	if (!tc_index_skip_nodeport(skb)) {
+	if (!bpf_skip_nodeport(skb)) {
 		int ret = nodeport_lb6(skb, *identity);
 		if (ret < 0)
 			return ret;
@@ -160,7 +160,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
-	if (!tc_index_skip_nodeport(skb)) {
+	if (!bpf_skip_nodeport(skb)) {
 		int ret = nodeport_lb4(skb, *identity);
 		if (ret < 0)
 			return ret;
@@ -255,7 +255,21 @@ int from_overlay(struct __sk_buff *skb)
 	int ret;
 
 	bpf_clear_cb(skb);
-	tc_index_clear_nodeport(skb);
+	bpf_clear_nodeport(skb);
+
+	if (!validate_ethertype(skb, &proto)) {
+		/* Pass unknown traffic to the stack */
+		ret = TC_ACT_OK;
+		goto out;
+	}
+
+#ifdef ENABLE_NODEPORT
+	ret = nodeport_nat_rev(skb, true);
+	if (IS_ERR(ret) &&
+	    ret != DROP_NAT_NO_MAPPING &&
+	    ret != DROP_NAT_UNSUPP_PROTO)
+		goto out;
+#endif
 
 #ifdef ENABLE_IPSEC
 	if ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
@@ -267,12 +281,6 @@ int from_overlay(struct __sk_buff *skb)
 	{
 		send_trace_notify(skb, TRACE_FROM_OVERLAY, 0, 0, 0,
 				  skb->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
-	}
-
-	if (!validate_ethertype(skb, &proto)) {
-		/* Pass unknown traffic to the stack */
-		ret = TC_ACT_OK;
-		goto out;
 	}
 
 	switch (proto) {
@@ -298,12 +306,27 @@ int from_overlay(struct __sk_buff *skb)
 		/* Pass unknown traffic to the stack */
 		ret = TC_ACT_OK;
 	}
-
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
-	else
-		return ret;
+	return ret;
+}
+
+__section("to-overlay")
+int to_overlay(struct __sk_buff *skb)
+{
+	/* Cannot compile the section out entriely, test/bpf/verifier-test.sh
+	 * workaround.
+	 */
+	int ret = TC_ACT_OK;
+#ifdef ENABLE_NODEPORT
+	if ((skb->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
+		return TC_ACT_OK;
+	ret = nodeport_nat_fwd(skb, true);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
+#endif
+	return ret;
 }
 
 BPF_LICENSE("GPL");

@@ -115,7 +115,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!tc_index_skip_nodeport(skb)) {
+	if (!bpf_skip_nodeport(skb)) {
 		int ret = nodeport_lb6(skb, src_identity);
 		if (ret < 0)
 			return ret;
@@ -287,7 +287,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!tc_index_skip_nodeport(skb)) {
+	if (!bpf_skip_nodeport(skb)) {
 		int ret = nodeport_lb4(skb, src_identity);
 		if (ret < 0)
 			return ret;
@@ -556,7 +556,16 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 	}
 #endif
 	bpf_clear_cb(skb);
-	tc_index_clear_nodeport(skb);
+	bpf_clear_nodeport(skb);
+
+#ifdef ENABLE_NODEPORT
+	ret = nodeport_nat_rev(skb, false);
+	if (IS_ERR(ret) &&
+	    ret != DROP_NAT_NO_MAPPING &&
+	    ret != DROP_NAT_UNSUPP_PROTO)
+		return send_drop_notify_error(skb, identity, ret,
+					      TC_ACT_OK, METRIC_INGRESS);
+#endif
 
 #ifdef FROM_HOST
 	if (1) {
@@ -616,8 +625,8 @@ static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
 {
+	int ret = ret;
 	__u16 proto;
-	int ret;
 
 	if (!validate_ethertype(skb, &proto))
 		/* Pass unknown traffic to the stack */
@@ -638,20 +647,28 @@ int from_netdev(struct __sk_buff *skb)
 __section("to-netdev")
 int to_netdev(struct __sk_buff *skb)
 {
+	/* Cannot compile the section out entriely, test/bpf/verifier-test.sh
+	 * workaround.
+	 */
 	int ret = TC_ACT_OK;
+#if defined(ENABLE_NODEPORT) || defined(ENABLE_MASQUERADE)
+#ifdef ENABLE_NODEPORT
+	if ((skb->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
+		return TC_ACT_OK;
+	ret = nodeport_nat_fwd(skb, false);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
+#else
 	__u16 proto;
-
 	if (!validate_ethertype(skb, &proto))
 		/* Pass unknown traffic to the stack */
 		return TC_ACT_OK;
-
-#ifdef ENABLE_MASQUERADE
 	cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_PRE, skb->ifindex);
 	ret = snat_process(skb, BPF_PKT_DIR);
 	if (!ret)
 		cilium_dbg_capture(skb, DBG_CAPTURE_SNAT_POST, skb->ifindex);
-#endif /* ENABLE_MASQUERADE */
-
+#endif /* ENABLE_NODEPORT */
+#endif /* ENABLE_NODEPORT || ENABLE_MASQUERADE */
 	return ret;
 }
 
