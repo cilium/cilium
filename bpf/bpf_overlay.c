@@ -133,10 +133,20 @@ to_host:
 	return TC_ACT_OK;
 #endif
 }
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC) int tail_handle_ipv6(struct __sk_buff *skb)
+{
+	__u32 src_identity = 0;
+	int ret = handle_ipv6(skb, &src_identity);
+
+	if (IS_ERR(ret))
+		return send_drop_notify_error(skb, src_identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	return ret;
+}
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-
 static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 {
 	void *data_end, *data;
@@ -236,13 +246,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 
 	return ret;
 }
-
-#endif
+#endif /* ENABLE_IPV4 */
 
 __section("from-overlay")
 int from_overlay(struct __sk_buff *skb)
 {
-	__u32 src_identity = 0;
 	__u16 proto;
 	int ret;
 
@@ -270,8 +278,8 @@ int from_overlay(struct __sk_buff *skb)
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
 #ifdef ENABLE_IPV6
-		/* This is considered the fast path, no tail call */
-		ret = handle_ipv6(skb, &src_identity);
+		ep_tail_call(skb, CILIUM_CALL_IPV6_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 #else
 		ret = DROP_UNKNOWN_L3;
 #endif
@@ -293,7 +301,7 @@ int from_overlay(struct __sk_buff *skb)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(skb, src_identity, ret, TC_ACT_SHOT, METRIC_INGRESS);
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
 	else
 		return ret;
 }
