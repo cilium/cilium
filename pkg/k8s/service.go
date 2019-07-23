@@ -119,10 +119,11 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 			svcInfo.Ports[portName] = p
 		}
 		// This is a hack;-( In the case of NodePort service, we need to create
-		// two surrogate frontends per IP protocol - one with a zero IP addr used
-		// by the host-lb, another with a public iface IP addr. For each frontend
-		// we will need to store a service ID used for a reverse NAT translation
-		// and for deleting a service.
+		// three surrogate frontends per IP protocol - one with a zero IP addr used
+		// by the host-lb, one with a public iface IP addr and one with cilium_host
+		// IP addr.
+		// For each frontend we will need to store a service ID used for a reverse
+		// NAT translation and for deleting a service.
 		// Unfortunately, doing this in daemon/{loadbalancer,k8s_watcher}.go
 		// would introduce more complexity in already too complex LB codebase,
 		// so for now (until we have refactored the LB code) keep NodePort
@@ -142,17 +143,18 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 				case option.Config.EnableIPv4 &&
 					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":"):
 
-					nodePortFE := loadbalancer.NewL3n4AddrID(proto, net.IPv4(0, 0, 0, 0), port, id)
-					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
-					nodePortFE = loadbalancer.NewL3n4AddrID(proto, node.GetExternalIPv4(), port, id)
-					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+					for _, ip := range []net.IP{net.IPv4(0, 0, 0, 0), node.GetNodePortIPv4(), node.GetInternalIPv4()} {
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
+						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+
+					}
 				case option.Config.EnableIPv6 &&
 					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":"):
 
-					nodePortFE := loadbalancer.NewL3n4AddrID(proto, net.IPv6zero, port, id)
-					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
-					nodePortFE = loadbalancer.NewL3n4AddrID(proto, node.GetIPv6(), port, id)
-					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+					for _, ip := range []net.IP{net.IPv6zero, node.GetNodePortIPv6(), node.GetIPv6()} {
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
+						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
+					}
 				}
 			}
 		}
