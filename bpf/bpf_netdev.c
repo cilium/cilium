@@ -450,7 +450,9 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
 	__be32 sum;
 	int ret;
 #endif
-
+#ifdef ENCRYPT_NODE
+	int encrypt_iface = ENCRYPT_IFACE;
+#endif
 	seclabel = get_identity(skb);
 	tunnel_endpoint = skb->cb[4];
 	skb->mark = 0;
@@ -527,12 +529,13 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
+	encrypt_iface = fib_params.ifindex;
 	}
 #endif
 #endif
 	bpf_clear_cb(skb);
 #ifdef ENCRYPT_NODE
-	return redirect(ENCRYPT_IFACE, 0);
+	return redirect(encrypt_iface, 0);
 #else
 	return TC_ACT_OK;
 #endif
