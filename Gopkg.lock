@@ -1490,7 +1490,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.0"
+  revision = "kubernetes-1.15.1"
 
 [[projects]]
   digest = "1:2c1e111c1b0793e7b2e3bfe64743ce68c02035d30fd7bf540edfbd7b9ae318e0"
@@ -1504,7 +1504,7 @@
     "pkg/features",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.0"
+  revision = "kubernetes-1.15.1"
 
 [[projects]]
   digest = "1:81e06243f0372a0dd83e81fdca810b2128321e578f494f00b150d500fe504abb"
@@ -1555,7 +1555,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.0"
+  revision = "kubernetes-1.15.1"
 
 [[projects]]
   digest = "1:2e3f244d6f43f038d3fa4450be13ca29574df19f32f64f358a75c24770d5f002"
@@ -1565,7 +1565,7 @@
     "pkg/util/feature",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.0"
+  revision = "kubernetes-1.15.1"
 
 [[projects]]
   digest = "1:de42297763aabde3e66c7880eec6c5338344d1aa94cf96be7614fa9ea7ad9c4e"
@@ -1695,7 +1695,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.15.0"
+  revision = "kubernetes-1.15.1"
 
 [[projects]]
   branch = "master"
@@ -1710,7 +1710,7 @@
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.15.0"
+  revision = "kubernetes-1.15.1"
 
 [[projects]]
   digest = "1:61024ed77a53ac618effed55043bf6a9afbdeb64136bd6a5b0c992d4c0363766"
@@ -1756,7 +1756,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.15.0"
+  revision = "v1.15.1"
 
 [[projects]]
   branch = "master"
