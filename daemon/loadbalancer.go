@@ -708,7 +708,7 @@ func (d *Daemon) syncLBMapsWithK8s() error {
 	for _, svc := range k8sDeletedServices {
 		svcLogger := log.WithField(logfields.Object, logfields.Repr(svc))
 		svcLogger.Debug("removing service because it was not synced from Kubernetes")
-		if err := d.svcDeleteByFrontendLocked(&svc); err != nil {
+		if err := d.svcDeleteBPF(svc); err != nil {
 			bpfDeleteErrors = append(bpfDeleteErrors, err)
 		}
 	}
