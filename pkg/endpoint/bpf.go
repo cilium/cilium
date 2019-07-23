@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -909,8 +910,14 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 		TrafficDirection: keyToDelete.TrafficDirection,
 	}
 
-	err := e.PolicyMap.DeleteKey(policymapKey)
-	if err != nil {
+	// Do not error out if the map entry was already deleted from the bpf map.
+	// Incremental updates depend on this being OK in cases where identity change
+	// events overlap with full policy computation.
+	// In other cases we only delete entries that exist, but even in that case it
+	// is better to not error out if somebody else has deleted the map entry in the
+	// meanwhile.
+	err, errno := e.PolicyMap.DeleteKeyWithErrno(policymapKey)
+	if err != nil && errno != syscall.ENOENT {
 		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
 		return false
 	}
