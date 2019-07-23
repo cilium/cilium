@@ -307,6 +307,7 @@ function bpf_load()
 	fi
 	cilium-map-migrate -s $OUT
 	set +e
+	tc filter del dev $DEV $WHERE 2> /dev/null || true
 	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 	RETCODE=$?
 	set -e
@@ -598,8 +599,12 @@ fi
 bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP "no_qdisc_reset"
 
+IPSEC_LOAD_OPT=""
+if [ "$HOST_DEV1" == "$HOST_DEV2" ]; then
+	IPSEC_LOAD_OPT="no_qdisc_reset"
+fi
 # bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
-bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP $IPSEC_LOAD_OPT
 if [ "$IPSEC" == "true" ]; then
 	if [ $ENCRYPT_DEV != "" ]; then
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
