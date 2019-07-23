@@ -120,10 +120,6 @@ var (
 	bootstrapStats = bootstrapStatistics{}
 )
 
-func init() {
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
-}
-
 func daemonMain() {
 	bootstrapStats.overall.Start()
 
@@ -889,6 +885,9 @@ func initConfig() {
 func initEnv(cmd *cobra.Command) {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate()
+
+	// add hooks after setting up metrics in the option.Confog
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	logging.SetupLogging(option.Config.LogDriver, option.Config.LogOpt, "cilium-agent", option.Config.Debug)
