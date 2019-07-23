@@ -146,7 +146,15 @@ kubernetes clusters (>1000 nodes). The responsibilities of Cilium operator
 include:
 
 * Synchronizing kubernetes services with etcd for :ref:`Cluster Mesh`
+
 * Synchronizing node resources with etcd
+
 * Ensuring that DNS pods are managed by Cilium
-* Garbage-collection of Cilium Endpoints resources
+
+* Garbage-collection of Cilium Endpoints resources, unused security identities
+  from the key-value store, and status of deleted nodes from CiliumNetworkPolicy
+
+* Translation of ``toGroups`` policy
+
+* Interaction with the AWS API for managing :ref:`ipam_eni`
 
