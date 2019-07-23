@@ -312,19 +312,21 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_NODEPORT
 __section("to-overlay")
 int to_overlay(struct __sk_buff *skb)
 {
-	int ret;
-
+	/* Cannot compile the section out entriely, test/bpf/verifier-test.sh
+	 * workaround.
+	 */
+	int ret = TC_ACT_OK;
+#ifdef ENABLE_NODEPORT
 	if (skb->mark & MARK_MAGIC_SNAT_DONE)
 		return TC_ACT_OK;
 	ret = nodeport_nat_fwd(skb, true);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
+#endif
 	return ret;
 }
-#endif
 
 BPF_LICENSE("GPL");

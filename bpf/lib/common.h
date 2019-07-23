@@ -438,6 +438,12 @@ enum {
 #define CT_INGRESS 1
 #define CT_SERVICE 2
 
+#ifdef ENABLE_NODEPORT
+#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN
+#else
+#define NAT_MIN_EGRESS		EPHERMERAL_MIN
+#endif
+
 enum {
 	CT_NEW,
 	CT_ESTABLISHED,

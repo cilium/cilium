@@ -424,12 +424,11 @@ static __always_inline int snat_v4_rewrite_ingress(struct __sk_buff *skb,
 static __always_inline bool snat_v4_can_skip(const struct ipv4_nat_target *target,
 					     const struct ipv4_ct_tuple *tuple, int dir)
 {
-	__u16 dport;
+	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	if (dir != NAT_DIR_INGRESS)
-		return false;
-	dport = bpf_ntohs(tuple->dport);
-	if (dport < target->min_port || dport > target->max_port)
+	if (dir == NAT_DIR_EGRESS && sport < NAT_MIN_EGRESS)
+		return true;
+	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
 		return true;
 	return false;
 }
@@ -828,12 +827,11 @@ static __always_inline int snat_v6_rewrite_ingress(struct __sk_buff *skb,
 static __always_inline bool snat_v6_can_skip(const struct ipv6_nat_target *target,
 					     const struct ipv6_ct_tuple *tuple, int dir)
 {
-	__u16 dport;
+	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
-	if (dir != NAT_DIR_INGRESS)
-		return false;
-	dport = bpf_ntohs(tuple->dport);
-	if (dport < target->min_port || dport > target->max_port)
+	if (dir == NAT_DIR_EGRESS && sport < NAT_MIN_EGRESS)
+		return true;
+	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
 		return true;
 	return false;
 }
