@@ -573,25 +573,14 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					return err
 				}
 			} else {
-				rule := []string{
+				if err := runProg("iptables", []string{
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
 					"-s", node.GetIPv4AllocRange().String(),
 					"!", "-d", remoteSnatDstAddrExclusion(),
 					"!", "-o", "cilium_+",
-				}
-				if option.Config.EnableNodePort {
-					replyMark := fmt.Sprintf("%#08x/%#08x",
-						linux_defaults.MagicMarkReply,
-						linux_defaults.MagicMarkReply)
-					rule = append(rule,
-						"-m", "mark", "!", "--mark", replyMark)
-				}
-				rule = append(rule,
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
-					"-j", "MASQUERADE")
-
-				if err := runProg("iptables", rule, false); err != nil {
+					"-j", "MASQUERADE"}, false); err != nil {
 					return err
 				}
 			}
