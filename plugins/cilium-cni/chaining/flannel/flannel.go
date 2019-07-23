@@ -138,7 +138,7 @@ func (f *flannelChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCo
 
 	pluginCtx.Logger.WithFields(logrus.Fields{
 		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
-	return &cniTypesVer.Result{}, nil
+	return r, nil
 }
 
 func (f *flannelChainer) ImplementsDelete() bool {
