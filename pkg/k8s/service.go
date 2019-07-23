@@ -137,13 +137,18 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 				port := uint16(port.NodePort)
 				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
 
-				if option.Config.EnableIPv4 {
+				// TODO(brb) switch to if-clause when dual stack is supported
+				switch {
+				case option.Config.EnableIPv4 &&
+					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":"):
+
 					nodePortFE := loadbalancer.NewL3n4AddrID(proto, net.IPv4(0, 0, 0, 0), port, id)
 					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					nodePortFE = loadbalancer.NewL3n4AddrID(proto, node.GetExternalIPv4(), port, id)
 					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
-				}
-				if option.Config.EnableIPv6 {
+				case option.Config.EnableIPv6 &&
+					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":"):
+
 					nodePortFE := loadbalancer.NewL3n4AddrID(proto, net.IPv6zero, port, id)
 					svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					nodePortFE = loadbalancer.NewL3n4AddrID(proto, node.GetIPv6(), port, id)
