@@ -69,9 +69,16 @@ static inline int __inline__
 skb_redirect_to_proxy(struct __sk_buff *skb, __be16 proxy_port)
 {
 	skb->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
-	skb_change_type(skb, PACKET_HOST); // Required ingress packets from overlay
+
 	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_PRE, proxy_port);
+
+#ifdef HOST_REDIRECT_TO_INGRESS
+	return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+#else
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, proxy_port);
+	skb_change_type(skb, PACKET_HOST); // Required ingress packets from overlay
 	return TC_ACT_OK;
+#endif
 }
 
 /**
