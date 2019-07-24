@@ -65,6 +65,35 @@ static inline int is_valid_lxc_src_ipv4(struct iphdr *ip4)
 }
 #endif
 
+/**
+ * skb_redirect_to_proxy configures the skb with the proxy mark and proxy port
+ * number to ensure that the stack redirects the packet into the proxy.
+ *
+ * It is called from both ingress and egress side of endpoint devices.
+ *
+ * In regular veth mode:
+ * * To apply egress policy, the egressing endpoint configures the mark,
+ *   which returns TC_ACT_OK to pass the packet to the stack in the context
+ *   of the source device (stack ingress).
+ * * To apply ingress policy, the egressing endpoint or netdev program tail
+ *   calls into the policy program which configures the mark here, which
+ *   returns TC_ACT_OK to pass the packet to the stack in the context of the
+ *   source device (netdev or egress endpoint device, stack ingress).
+ *
+ * In chaining mode with bridged endpoint devices:
+ * * To apply egress policy, the egressing endpoint configures the mark,
+ *   which is propagated to skb->cb[] in the caller. The redirect() call here
+ *   redirects the packet to the ingress TC filter configured on the bridge
+ *   master device.
+ * * To apply ingress policy, the stack transmits the packet into the bridge
+ *   master device which tail calls into the policy program for the ingress
+ *   endpoint, which configures mark and cb[] as described for the egress path.
+ *   The redirect() call here redirects the packet to the ingress TC filter
+ *   configured on the bridge master device.
+ * * In both cases for bridged endpoint devices, the bridge master device has
+ *   a BPF program configured upon ingress to transfer the cb[] to the mark
+ *   before passing the traffic up to the stack towards the proxy.
+ */
 static inline int __inline__
 skb_redirect_to_proxy(struct __sk_buff *skb, __be16 proxy_port)
 {
