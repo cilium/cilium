@@ -469,6 +469,7 @@ rebase
 rebased
 recompiles
 recv
+recvmsg
 Redis
 refactor
 refactoring
@@ -505,6 +506,7 @@ seccomp
 sed
 selftest
 selftests
+sendmsg
 Sep
 setrlimit
 sfc
