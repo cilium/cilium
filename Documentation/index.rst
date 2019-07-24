@@ -87,7 +87,8 @@ The documentation is divided into the following sections:
    :maxdepth: 2
    :caption: For Developers
 
-   contributing
+   contributing/contributing
+   contributing/release
    bpf
    api
 
@@ -100,3 +101,4 @@ The documentation is divided into the following sections:
    kvstore
    further_reading
    glossary
+
