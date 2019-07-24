@@ -515,5 +515,14 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
+deps-image:
+	$(CONTAINER_ENGINE_FULL) build -t cilium/dep -f ./contrib/deps/deps.Dockerfile ./contrib/deps
+
+update-deps:
+	# Need to mount \$GOPATH/pkg/dep as that is where dep's cache is located.
+	# Otherwise, builds would be very slow.
+	# See: https://github.com/golang/dep/blob/master/docs/FAQ.md#why-is-dep-slow
+	$(CONTAINER_ENGINE_FULL) run  --rm -v $$(pwd):/go/src/github.com/cilium/cilium -v $(GOPATH)/pkg/dep:/go/pkg/dep -w /go/src/github.com/cilium/cilium cilium/dep:latest
+
 .PHONY: force generate-api generate-health-api
 force :;
