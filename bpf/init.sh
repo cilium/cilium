@@ -436,6 +436,11 @@ case "${MODE}" in
 			sed -i '/^#.*NATIVE_DEV_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 			NATIVE_DEV_IDX=$(cat /sys/class/net/${NATIVE_DEV}/ifindex)
 			echo "#define NATIVE_DEV_IFINDEX $NATIVE_DEV_IDX" >> $RUNDIR/globals/node_config.h
+			sed -i '/^#.*NATIVE_DEV_MAC.*$/d' $RUNDIR/globals/node_config.h
+			NATIVE_DEV_MAC=$(ip link show $NATIVE_DEV | grep ether | awk '{print $2}')
+			NATIVE_DEV_MAC=$(mac2array $NATIVE_DEV_MAC)
+			echo "#define NATIVE_DEV_MAC { .addr = ${NATIVE_DEV_MAC}}" >> $RUNDIR/globals/node_config.h
+
 		fi
 esac
 
