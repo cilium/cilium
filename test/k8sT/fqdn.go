@@ -144,7 +144,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		fqndProxyPolicy := helpers.ManifestGet("fqdn-proxy-policy.yaml")
 
 		_, err := kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, fqndProxyPolicy,
+			helpers.DefaultNamespace, fqndProxyPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
@@ -211,7 +211,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		world2Target := "http://world2.cilium.test"
 
 		_, err := kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, fqdnPolicy,
+			helpers.DefaultNamespace, fqdnPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
