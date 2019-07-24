@@ -786,7 +786,7 @@ All in all, the following example counts as seven unique prefix lengths in IPv4:
 * ``/12`` (from ``toCIDRSet``)
 * ``/11`` (from ``toCIDRSet``)
 * ``/10`` (from ``toCIDRSet``)
-* ``o9`` (from ``toCIDRSet``)
+* ``/9`` (from ``toCIDRSet``)
 * ``/8`` (from cluster prefix)
 * ``/0`` (from default prefix)
 
@@ -812,27 +812,16 @@ Affected versions
 When a CIDR policy with too many unique prefix lengths is imported, Cilium will
 reject the policy with a message like the following:
 
-.. tabs::
-  .. group-tab:: Cilium 1.0
+.. code-block:: shell-session
 
-    .. code-block:: shell-session
-
-     $ cilium policy import too_many_cidrs.json
-     Error: Cannot import policy: [PUT /policy][500] putPolicyFailure  too many
-     egress CIDR prefix lengths (128/40)
-
-  .. group-tab:: Cilium 1.1 or later
-
-     .. code-block:: shell-session
-
-        $ cilium policy import too_many_cidrs.json
-        Error: Cannot import policy: [PUT /policy][500] putPolicyFailure  Adding
-        specified prefixes would result in too many prefix lengths (current: 3,
-        result: 32, max: 18)
+  $ cilium policy import too_many_cidrs.json
+  Error: Cannot import policy: [PUT /policy][500] putPolicyFailure  Adding
+  specified prefixes would result in too many prefix lengths (current: 3,
+  result: 32, max: 18)
 
 The supported count of unique prefix lengths may differ between Cilium minor
-releases, for example Cilium 1.1 supports 20 unique prefix lengths on Linux
-4.10 or older, while Cilium 1.2 only supports 18 (for IPv4) or 4 (for IPv6).
+releases, for example Cilium 1.1 supported 20 unique prefix lengths on Linux
+4.10 or older, while Cilium 1.2 only supported 18 (for IPv4) or 4 (for IPv6).
 
 Mitigation
 ~~~~~~~~~~
