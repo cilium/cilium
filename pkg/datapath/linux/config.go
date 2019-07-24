@@ -240,6 +240,13 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "43835"
+
+		if option.Config.EnableIPv4 {
+			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
+		}
+		if option.Config.EnableIPv6 {
+			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
+		}
 	}
 
 	// Since golang maps are unordered, we sort the keys in the map

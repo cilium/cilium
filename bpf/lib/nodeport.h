@@ -35,6 +35,30 @@
 # undef ENABLE_MASQUERADE
 #endif
 
+#ifdef ENABLE_NODEPORT
+
+#ifdef ENABLE_IPV4
+struct bpf_elf_map __section_maps NODEPORT_NEIGH4 = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(__be32),		// ipv4 addr
+	.size_value	= sizeof(union macaddr),	// hw addr
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 256 * 1024,
+};
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
+	.type		= BPF_MAP_TYPE_LRU_HASH,
+	.size_key	= sizeof(union v6addr),		// ipv6 addr
+	.size_value	= sizeof(union macaddr),	// hw addr
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 256 * 1024,
+};
+#endif /* ENABLE_IPV6 */
+
+#endif /* ENABLE_NODEPORT */
+
 static inline void bpf_clear_nodeport(struct __sk_buff *skb)
 {
 #ifdef ENABLE_NODEPORT
@@ -209,6 +233,7 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 	bool backend_local;
 	__u32 monitor = 0;
 	__u16 service_port;
+	union macaddr smac;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -290,6 +315,15 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_UNKNOWN_CT;
 	}
 
+	if (!revalidate_data(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
+	if (eth_load_saddr(skb, &smac.addr, 0) < 0)
+		return DROP_INVALID;
+	ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr, &smac, 0);
+	if (ret < 0) {
+		return ret;
+	}
+
 	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV6_NODEPORT_NAT);
@@ -300,7 +334,8 @@ static inline int nodeport_lb6(struct __sk_buff *skb, __u32 src_identity)
 }
 
 /* See comment in tail_rev_nodeport_lb4(). */
-static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex)
+static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex,
+                                    union macaddr *mac)
 {
 	int ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
@@ -309,6 +344,7 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex)
 	struct csum_offset csum_off = {};
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
+	union macaddr *dmac;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
@@ -362,21 +398,31 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex)
 			}
 		}
 #endif
-		fib_params.family = AF_INET6;
-		fib_params.ifindex = *ifindex;
 
-		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, &tuple.saddr);
-		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, &tuple.daddr);
+		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &tuple.daddr);
+		if (dmac) {
+			if (eth_store_daddr(skb, &dmac->addr, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(skb, &mac->addr, 0) < 0)
+				return DROP_WRITE_ERROR;
+		} else {
+			fib_params.family = AF_INET6;
+			fib_params.ifindex = *ifindex;
 
-		int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
-				    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		if (rc != 0)
-			return DROP_NO_FIB;
+			ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, &tuple.saddr);
+			ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, &tuple.daddr);
 
-		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
-			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
-			return DROP_WRITE_ERROR;
+			int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
+					BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+			if (rc != 0)
+				return DROP_NO_FIB;
+
+			if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+				return DROP_WRITE_ERROR;
+			if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+				return DROP_WRITE_ERROR;
+		}
+
 	}
 
 	return TC_ACT_OK;
@@ -385,7 +431,11 @@ static inline int rev_nodeport_lb6(struct __sk_buff *skb, int *ifindex)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __sk_buff *skb)
 {
-	int ifindex = NATIVE_DEV_IFINDEX, ret = rev_nodeport_lb6(skb, &ifindex);
+	int ifindex = NATIVE_DEV_IFINDEX;
+	union macaddr mac = NATIVE_DEV_MAC;
+	int ret = 0;
+
+	ret = rev_nodeport_lb6(skb, &ifindex, &mac);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
 	return redirect(ifindex, 0);
@@ -553,6 +603,7 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 	bool backend_local;
 	__u32 monitor = 0;
 	__u16 service_port;
+	union macaddr smac;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -630,6 +681,15 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
 		return DROP_UNKNOWN_CT;
 	}
 
+	if (!revalidate_data(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
+	if (eth_load_saddr(skb, &smac.addr, 0) < 0)
+		return DROP_INVALID;
+	ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
+	if (ret < 0) {
+		return ret;
+	}
+
 	if (!backend_local) {
 		skb->cb[CB_NAT] = NAT_DIR_EGRESS;
 		ep_tail_call(skb, CILIUM_CALL_IPV4_NODEPORT_NAT);
@@ -647,7 +707,8 @@ static inline int nodeport_lb4(struct __sk_buff *skb, __u32 src_identity)
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_netdev, bpf_overlay and of the bpf_lxc.
  */
-static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
+static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex,
+				   union macaddr *mac)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -656,6 +717,7 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
 	int ret, ret2, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct bpf_fib_lookup fib_params = {};
+	union macaddr *dmac;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4))
@@ -705,21 +767,30 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
 			}
 		}
 #endif
-		fib_params.family = AF_INET;
-		fib_params.ifindex = *ifindex;
 
-		fib_params.ipv4_src = ip4->saddr;
-		fib_params.ipv4_dst = ip4->daddr;
+		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
+		if (dmac) {
+		    if (eth_store_daddr(skb, &dmac->addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+		    if (eth_store_saddr(skb, &mac->addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+		} else {
+		    fib_params.family = AF_INET;
+		    fib_params.ifindex = *ifindex;
 
-		int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
-				    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-		if (rc != 0)
+		    fib_params.ipv4_src = ip4->saddr;
+		    fib_params.ipv4_dst = ip4->daddr;
+
+		    int rc = fib_lookup(skb, &fib_params, sizeof(fib_params),
+				BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		    if (rc != 0)
 			return DROP_NO_FIB;
 
-		if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
+		    if (eth_store_daddr(skb, fib_params.dmac, 0) < 0)
 			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
+		    if (eth_store_saddr(skb, fib_params.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
+		}
 	}
 
 	return TC_ACT_OK;
@@ -728,7 +799,11 @@ static inline int rev_nodeport_lb4(struct __sk_buff *skb, int *ifindex)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb4(struct __sk_buff *skb)
 {
-	int ifindex = NATIVE_DEV_IFINDEX, ret = rev_nodeport_lb4(skb, &ifindex);
+	int ifindex = NATIVE_DEV_IFINDEX;
+	union macaddr mac = NATIVE_DEV_MAC;
+	int ret = 0;
+
+	ret = rev_nodeport_lb4(skb, &ifindex, &mac);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_EGRESS);
 	return redirect(ifindex, 0);
