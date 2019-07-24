@@ -57,6 +57,7 @@ Advanced Networking
    flannel-integration
    ipvlan
    encryption
+   host-services
    kata-gce
    ipam
 
