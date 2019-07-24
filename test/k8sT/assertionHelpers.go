@@ -125,6 +125,7 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
 		ExpectCiliumRunning(vm)
+		By("Installing Flannel")
 		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
 	default:
 	}
