@@ -358,10 +358,9 @@ func egressProxyRule(cmd, l4Match, markMatch, mark, port, name string) []string 
 	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
-		"-i", option.Config.EndpointInterfaceNamePrefix,
 		"-p", l4Match,
 		"-m", "mark", "--mark", markMatch,
-		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy on " + option.Config.EndpointInterfaceNamePrefix,
+		"-m", "comment", "--comment", "cilium: TPROXY to host " + name + " proxy",
 		"-j", "TPROXY",
 		"--tproxy-mark", mark,
 		"--on-port", port}
