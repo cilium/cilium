@@ -55,7 +55,7 @@ struct nat_entry {
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 						      __u16 val)
 {
-	return (val % (end - start)) + start;
+	return (val % (__u16)(end - start)) + start;
 }
 
 #define GOLDEN_RATIO_32 0x61C88647
