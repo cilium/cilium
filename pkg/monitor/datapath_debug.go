@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ const (
 	DbgIPIDMapSucceed4
 	DbgIPIDMapSucceed6
 	DbgLbStaleCT
+	DbgInheritIdentity
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -358,6 +359,8 @@ func (n *DebugMsg) subTypeString() string {
 		return fmt.Sprintf("Successfully mapped daddr.p4=[::%s] to identity=%d", ip6Str(n.Arg1), n.Arg2)
 	case DbgLbStaleCT:
 		return fmt.Sprintf("Stale CT entry found stale_ct.rev_nat_id=%d, svc.rev_nat_id=%d", n.Arg2, n.Arg1)
+	case DbgInheritIdentity:
+		return fmt.Sprintf("Inheriting identity=%d from stack", n.Arg1)
 	default:
 		return fmt.Sprintf("Unknown message type=%d arg1=%d arg2=%d", n.SubType, n.Arg1, n.Arg2)
 	}

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2017 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,6 +114,8 @@ enum {
 	DBG_LB_STALE_CT,	/* arg1: svc rev_nat_id
 				   arg2: stale CT rev_nat_id
 				   arg3: unused */
+	DBG_INHERIT_IDENTITY	/* arg1: skb->mark
+				 * arg2: unused */
 };
 
 /* Capture types */

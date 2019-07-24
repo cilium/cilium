@@ -19,6 +19,7 @@
 #define __LIB_POLICY_H_
 
 #include "drop.h"
+#include "dbg.h"
 #include "eps.h"
 #include "maps.h"
 
@@ -47,6 +48,7 @@ static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, 
 
 	/* Reset packet mark to avoid hitting routing rules again */
 	skb->mark = 0;
+	cilium_dbg(skb, DBG_INHERIT_IDENTITY, *identity, 0);
 
 	return from_proxy;
 }
