@@ -43,7 +43,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 	applyPolicy := func(path string) {
 		By(fmt.Sprintf("Applying policy %s", path))
-		_, err := kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
+		_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, path, helpers.KubectlApply, helpers.HelperTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 	}
 
@@ -485,7 +485,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			By("Importing policy")
 
-			_, err = kubectl.CiliumPolicyAction(helpers.KubeSystemNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
+			_, err = kubectl.CiliumPolicyAction(helpers.DefaultNamespace, policyPath, helpers.KubectlCreate, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Error creating policy %q", policyPath)
 
 			By("Checking that policies were correctly imported into Cilium")

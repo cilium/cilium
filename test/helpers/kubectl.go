@@ -516,6 +516,7 @@ func (kub *Kubectl) NodeCleanMetadata() error {
 
 // NamespaceCreate creates a new Kubernetes namespace with the given name
 func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
+	ginkgoext.By("Creating namespace %s", name)
 	return kub.Exec(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
 }
 
@@ -625,16 +626,28 @@ func (kub *Kubectl) WaitForServiceEndpoints(namespace string, filter string, ser
 
 // Action performs the specified ResourceLifeCycleAction on the Kubernetes
 // manifest located at path filepath in the given namespace
-func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string) *CmdRes {
-	kub.logger.Debugf("performing '%v' on '%v'", action, filePath)
-	return kub.Exec(fmt.Sprintf("%s %s -f %s", KubectlCmd, action, filePath))
+func (kub *Kubectl) Action(action ResourceLifeCycleAction, filePath string, namespace ...string) *CmdRes {
+	if len(namespace) == 0 {
+		kub.logger.Debugf("performing '%v' on '%v'", action, filePath)
+		return kub.Exec(fmt.Sprintf("%s %s -f %s", KubectlCmd, action, filePath))
+	}
+
+	kub.logger.Debugf("performing '%v' on '%v' in namespace '%v'", action, filePath, namespace[0])
+	return kub.Exec(fmt.Sprintf("%s %s -f %s -n %s", KubectlCmd, action, filePath, namespace[0]))
 }
 
 // Apply applies the Kubernetes manifest located at path filepath.
-func (kub *Kubectl) Apply(filePath string) *CmdRes {
-	kub.logger.Debugf("applying %s", filePath)
+func (kub *Kubectl) Apply(filePath string, namespace ...string) *CmdRes {
+	if len(namespace) == 0 {
+		kub.logger.Debugf("applying %s", filePath)
+		return kub.Exec(
+			fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
+	}
+	namespaceToApply := namespace[0]
+	kub.logger.Debugf("applying %s in namespace %s", filePath, namespaceToApply)
 	return kub.Exec(
-		fmt.Sprintf("%s apply -f  %s", KubectlCmd, filePath))
+		fmt.Sprintf("%s apply -f  %s -n %s", KubectlCmd, filePath, namespaceToApply))
+
 }
 
 // Create creates the Kubernetes kanifest located at path filepath.
@@ -1289,7 +1302,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		KubectlPolicyNameLabel, KubectlPolicyNameSpaceLabel)
 	kub.logger.Infof("Performing %s action on resource '%s'", action, filepath)
 
-	if status := kub.Action(action, filepath); !status.WasSuccessful() {
+	if status := kub.Action(action, filepath, namespace); !status.WasSuccessful() {
 		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resorce '%s'", action, filepath))
 	}
 
@@ -1342,7 +1355,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			return true
 		}
 
-		pods, err := kub.GetCiliumPods(namespace)
+		pods, err := kub.GetCiliumPods(KubeSystemNamespace)
 		if err != nil {
 			kub.logger.WithError(err).Error("cannot retrieve cilium pods")
 			return false
