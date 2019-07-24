@@ -72,7 +72,10 @@ func ExpectETCDOperatorReady(vm *helpers.Kubectl) {
 	// This is to avoid cases where a few pods are ready, but the
 	// new one is not created yet.
 	By("Waiting for all etcd-operator pods are ready")
-	ExpectDeployReady(vm, "kube-system", "cilium-etcd-operator", longTimeout)
+	ExpectDeployReady(vm, "kube-system", "cilium-etcd-operator", helpers.MidCommandTimeout)
+	ExpectDeployReady(vm, "kube-system", "etcd-operator", helpers.HelperTimeout)
+	err := vm.WaitForEtcdCRDReady("kube-system", "cilium-etcd", 3, longTimeout)
+	Expect(err).To(BeNil(), fmt.Sprintf("etcdcluster not ready after timeout"))
 }
 
 // ExpectCiliumPreFlightInstallReady is a wrapper around helpers/WaitForNPods.
