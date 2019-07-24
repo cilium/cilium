@@ -89,6 +89,7 @@ The documentation is divided into the following sections:
 
    contributing/contributing
    contributing/release
+   contributing/ci
    bpf
    api
 
