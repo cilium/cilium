@@ -132,7 +132,7 @@ var _ = Describe("K8sDemosTest", func() {
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
 		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l7PolicyYAMLLink, helpers.KubectlApply, helpers.HelperTimeout)
+			helpers.DefaultNamespace, l7PolicyYAMLLink, helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).Should(BeNil(), "Unable to apply %s", l7PolicyYAMLLink)
 
 		By("Waiting for endpoints to be ready after importing policy")
