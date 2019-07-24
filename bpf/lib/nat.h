@@ -202,6 +202,7 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 					       struct ipv4_nat_entry *ostate,
 					       const struct ipv4_nat_target *target)
 {
+	bool initial_port_in_range = !target->force_range;
 	struct ipv4_nat_entry rstate;
 	struct ipv4_ct_tuple rtuple;
 	int ret, retries;
@@ -224,9 +225,13 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 		rstate.common.host_local = ostate->common.host_local;
 	}
 
+	port = bpf_ntohs(rtuple.dport);
+	if (target->force_range &&
+	    port >= target->min_port && port <= target->max_port)
+		initial_port_in_range = true;
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		if (target->force_range && retries == 0)
+		if (retries == 0 && !initial_port_in_range)
 			goto select_port;
 		if (!snat_v4_lookup(&rtuple)) {
 			ostate->common.created = bpf_ktime_get_nsec();
@@ -617,6 +622,7 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target)
 {
+	bool initial_port_in_range = !target->force_range;
 	struct ipv6_nat_entry rstate;
 	struct ipv6_ct_tuple rtuple;
 	int ret, retries;
@@ -639,9 +645,13 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 		rstate.common.host_local = ostate->common.host_local;
 	}
 
+	port = bpf_ntohs(rtuple.dport);
+	if (target->force_range &&
+	    port >= target->min_port && port <= target->max_port)
+		initial_port_in_range = true;
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		if (target->force_range && retries == 0)
+		if (retries == 0 && !initial_port_in_range)
 			goto select_port;
 		if (!snat_v6_lookup(&rtuple)) {
 			ostate->common.created = bpf_ktime_get_nsec();
