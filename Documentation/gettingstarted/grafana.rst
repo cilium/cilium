@@ -24,21 +24,42 @@ The default installation contains:
 
  .. parsed-literal::
 
-        $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/monitoring-example.yaml
-	configmap/cilium-metrics-config created
-	namespace/monitoring created
-	configmap/prometheus created
-	deployment.extensions/prometheus created
-	service/prometheus created
-	service/prometheus-open created
-	clusterrolebinding.rbac.authorization.k8s.io/prometheus created
-	clusterrole.rbac.authorization.k8s.io/prometheus created
-	serviceaccount/prometheus-k8s created
-	configmap/grafana-config created
-	deployment.extensions/grafana created
-	service/grafana created
-	configmap/grafana-dashboards created
-	job.batch/grafana-dashboards-import created
+    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/monitoring-example.yaml
+    configmap/cilium-metrics-config created
+    namespace/cilium-monitoring created
+    configmap/prometheus created
+    deployment.extensions/prometheus created
+    clusterrolebinding.rbac.authorization.k8s.io/prometheus created
+    clusterrole.rbac.authorization.k8s.io/prometheus created
+    serviceaccount/prometheus-k8s created
+    service/prometheus created
+    deployment.extensions/grafana created
+    service/grafana created
+    configmap/grafana-config created
+
+How to enable metrics
+=====================
+
+Both ``cilium-agent`` and ``cilium-operator`` do not expose metrics by
+default. Enabling metrics for these services will open ports ``9090``
+and ``6942`` on all nodes of your cluster where these components are running.
+
+To enable metrics for ``cilium-agent`` for the default installation, set the
+``prometheus-serve-addr`` option as follows:
+
+.. parsed-literal::
+    $ kubectl patch -n kube-system configmap cilium-config --type merge --patch '{"data":{"prometheus-serve-addr":":9090"}}'
+    configmap/cilium-config patched
+
+As with any changes to the config map, you will have to restart any existing
+Cilium pods in order for this change to take effect.
+
+For ``cilium-operator``, append the ``--enable-metrics`` command-line
+argument to the ``cilium-operator`` deployment:
+
+.. parsed-literal::
+    $ kubectl patch -n kube-system deployment cilium-operator --type=json -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-metrics"}]'
+    deployment.extensions/cilium-operator patched
 
 How to access Grafana
 =====================
