@@ -192,7 +192,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			By("Apply L7 kafka policy and wait")
 
 			_, err = kubectl.CiliumPolicyAction(
-				helpers.KubeSystemNamespace, l7Policy,
+				helpers.DefaultNamespace, l7Policy,
 				helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "L7 policy cannot be imported correctly")
 
