@@ -218,7 +218,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectKubeDNSReady(kubectl)
 
 		_, err = kubectl.CiliumPolicyAction(
-			helpers.KubeSystemNamespace, l7Policy, helpers.KubectlApply, timeout)
+			helpers.DefaultNamespace, l7Policy, helpers.KubectlApply, timeout)
 		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
 		validateEndpointsConnection()

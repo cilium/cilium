@@ -674,7 +674,7 @@ func (t *TestSpec) NetworkPolicyApply() error {
 	}
 
 	_, err = t.Kub.CiliumPolicyAction(
-		helpers.KubeSystemNamespace,
+		helpers.DefaultNamespace,
 		fmt.Sprintf("%s/%s", helpers.BasePath, t.NetworkPolicyName()),
 		helpers.KubectlApply,
 		helpers.HelperTimeout)
