@@ -806,6 +806,10 @@ static __always_inline int nodeport_nat_rev(struct __sk_buff *skb,
 	}
 #endif /* ENABLE_IPV6 */
 	default:
+		build_bug_on(!(NODEPORT_PORT_MIN_NAT < NODEPORT_PORT_MAX_NAT));
+		build_bug_on(!(NODEPORT_PORT_MIN     < NODEPORT_PORT_MAX));
+		build_bug_on(!(NODEPORT_PORT_MAX     < NODEPORT_PORT_MIN_NAT));
+		build_bug_on(!(NODEPORT_PORT_MAX     < EPHERMERAL_MIN));
 		break;
 	}
 	return TC_ACT_OK;
