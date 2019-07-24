@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #include "lib/common.h"
+#include "lib/dbg.h"
 
 __section("from-netdev")
 int from_netdev(struct __sk_buff *skb)
@@ -36,8 +37,11 @@ int from_netdev(struct __sk_buff *skb)
 		// Upper 16 bits may carry proxy port number, clear it out
 		__u32 magic = skb->cb[0] & 0xFFFF;
 		if (magic == MARK_MAGIC_TO_PROXY) {
+			__be16 port = skb->cb[0] >> 16;
+
 			skb->mark = skb->cb[0];
 			skb_change_type(skb, PACKET_HOST);
+			cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, port);
 		}
 	}
 	return TC_ACT_OK;

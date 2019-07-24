@@ -70,7 +70,7 @@ skb_redirect_to_proxy(struct __sk_buff *skb, __be16 proxy_port)
 {
 	skb->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 	skb_change_type(skb, PACKET_HOST); // Required ingress packets from overlay
-	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, proxy_port);	
+	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_PRE, proxy_port);
 	return TC_ACT_OK;
 }
 
