@@ -920,7 +920,7 @@ func setupIPSec() (int, error) {
 		var spi uint8
 		var err error
 
-		authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+		authKeySize, spi, err = ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
 		if err != nil {
 			return authKeySize, err
 		}
