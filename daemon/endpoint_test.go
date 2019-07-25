@@ -24,10 +24,13 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	apiEndpoint "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 
 	. "gopkg.in/check.v1"
 )
@@ -108,4 +111,109 @@ func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {
 	code, err := ds.d.modifyEndpointIdentityLabelsFromAPI("1", lbls, nil)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PatchEndpointIDLabelsUpdateFailedCode)
+}
+
+type EndpointDeadlockEvent struct {
+	ep           *endpoint.Endpoint
+	deadlockChan chan struct{}
+}
+
+var (
+	deadlockTimeout     = 2 * time.Second
+	deadlockTestTimeout = 3*deadlockTimeout + 1*time.Second
+)
+
+func (n *EndpointDeadlockEvent) Handle(ifc chan interface{}) {
+	// We need to sleep here so that we are consuming an event off the queue,
+	// but not acquiring the lock yet.
+	// There isn't much of a better way to ensure that an Event is being
+	// processed off of the EventQueue, but hasn't acquired the Endpoint's
+	// lock *before* we call deleteEndpointQuiet (see below test).
+	close(n.deadlockChan)
+	time.Sleep(deadlockTimeout)
+	n.ep.UnconditionalLock()
+	n.ep.Unlock()
+}
+
+// This unit test is a bit weird - see
+// https://github.com/cilium/cilium/pull/8687 .
+func (ds *DaemonSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
+	// Need to modify global configuration (hooray!), change back when test is
+	// done.
+	oldQueueSize := option.Config.EndpointQueueSize
+	option.Config.EndpointQueueSize = 1
+	defer func() {
+		option.Config.EndpointQueueSize = oldQueueSize
+	}()
+
+	// Create the endpoint without any labels.
+	epTemplate := getEPTemplate(c, ds.d)
+	ep, _, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	c.Assert(err, IsNil)
+	c.Assert(ep, Not(IsNil))
+
+	// In case deadlock occurs, provide a timeout of 3 (number of events) *
+	// deadlockTimeout + 1 seconds to ensure that we are actually testing for
+	// deadlock, and not prematurely exiting, and also so the test suite doesn't
+	// hang forever.
+	ctx, cancel := context.WithTimeout(context.Background(), deadlockTestTimeout)
+	defer cancel()
+
+	// Create three events that go on the endpoint's EventQueue. We need three
+	// events because the first event enqueued immediately is consumed off of
+	// the queue; the second event is put onto the queue (which has length of
+	// one), and the third queue is waiting for the queue's buffer to not be
+	// full (e.g., the first event is finished processing). If the first event
+	// gets stuck processing forever due to deadlock, then the third event
+	// will never be consumed, and the endpoint's EventQueue will never be
+	// closed because Enqueue gets stuck.
+	ev1Ch := make(chan struct{})
+	ev2Ch := make(chan struct{})
+	ev3Ch := make(chan struct{})
+
+	ev := eventqueue.NewEvent(&EndpointDeadlockEvent{
+		ep:           ep,
+		deadlockChan: ev1Ch,
+	})
+
+	ev2 := eventqueue.NewEvent(&EndpointDeadlockEvent{
+		ep:           ep,
+		deadlockChan: ev2Ch,
+	})
+
+	ev3 := eventqueue.NewEvent(&EndpointDeadlockEvent{
+		ep:           ep,
+		deadlockChan: ev3Ch,
+	})
+
+	ev2EnqueueCh := make(chan struct{})
+
+	go func() {
+		ep.EventQueue.Enqueue(ev)
+		ep.EventQueue.Enqueue(ev2)
+		close(ev2EnqueueCh)
+		ep.EventQueue.Enqueue(ev3)
+	}()
+
+	// Ensure that the second event is enqueued before proceeding further, as
+	// we need to assume that at least one event is being processed, and another
+	// one is pushed onto the endpoint's EventQueue.
+	<-ev2EnqueueCh
+	epDelComplete := make(chan struct{})
+
+	// Launch endpoint deletion async so that we do not deadlock (which is what
+	// this unit test is designed to test).
+	go func(ch chan struct{}) {
+		errors := ds.d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{})
+		c.Assert(errors, Not(IsNil))
+		epDelComplete <- struct{}{}
+	}(epDelComplete)
+
+	select {
+	case <-ctx.Done():
+		c.Log("endpoint deletion did not complete in time")
+		c.Fail()
+	case <-epDelComplete:
+		// Success, do nothing.
+	}
 }
