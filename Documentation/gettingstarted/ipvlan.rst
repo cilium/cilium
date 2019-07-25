@@ -72,9 +72,8 @@ First step is to download the Cilium Kubernetes descriptor:
 
       curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
 
-Edit the ``cilium-config`` ConfigMap in that file with the etcd server
-that is running in your cluster and set the option ``datapath-mode`` to
-``"ipvlan"``.
+Edit the ``cilium-config`` ConfigMap in that file and set the option
+``datapath-mode`` to ``"ipvlan"``.
 
 It is also required to specify the ipvlan master device which typically
 points to a networking device that is facing the external network. This
