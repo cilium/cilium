@@ -1053,6 +1053,8 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 
 // ParseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
+// Note that the parse'd endpoint's identity is only partially restored. The
+// caller must call `SetIdentity()` to make the returned endpoint's identity useful.
 func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
@@ -1086,11 +1088,12 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 		ep.Status = NewEndpointStatus()
 	}
 
+	// Make sure the endpoint has an identity, using the 'init' identity if none.
 	if ep.SecurityIdentity == nil {
-		ep.SetIdentity(identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit))
-	} else {
-		ep.SecurityIdentity.Sanitize()
+		ep.SecurityIdentity = identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit)
 	}
+	ep.SecurityIdentity.Sanitize()
+
 	ep.UpdateLogger(nil)
 
 	ep.SetStateLocked(StateRestoring, "Endpoint restoring")
@@ -2053,7 +2056,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	e.SetIdentity(identity)
+	e.SetIdentity(identity, false)
 
 	if oldIdentity != nil {
 		_, err := cache.Release(releaseCtx, e.owner, oldIdentity)
