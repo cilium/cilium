@@ -579,7 +579,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
 // Called with e.Mutex Locked
-func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
+func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
 
 	// Set a boolean flag to indicate whether the endpoint has been injected by
 	// Istio with a Cilium-compatible sidecar proxy.
@@ -596,7 +596,11 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) {
 	// Current security identity for endpoint is its old identity - delete its
 	// reference from global identity manager, add add a reference to the new
 	// identity for the endpoint.
-	identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
+	if newEndpoint {
+		identitymanager.Add(identity)
+	} else {
+		identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
+	}
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(identity.Labels)
 
