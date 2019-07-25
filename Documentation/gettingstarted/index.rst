@@ -58,6 +58,7 @@ Advanced Networking
    ipvlan
    encryption
    host-services
+   nodeport
    kata-gce
    ipam
 
