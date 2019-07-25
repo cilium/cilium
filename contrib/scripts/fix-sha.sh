@@ -10,3 +10,4 @@ fi
 echo "GO_BINDATA_SHA1SUM=01234567890abcdef78901234567890abcdef789" > "$SHA_PATH"
 echo "BPF_FILES=../bpf/.gitignore" >> "$SHA_PATH"
 ${MAKE} -C daemon apply-bindata
+${MAKE} -C daemon apply-bindata

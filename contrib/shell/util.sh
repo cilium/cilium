@@ -94,6 +94,9 @@ function rebase-bindata
 {
     (
         local dir
+        if ! git rebase --show-current-patch ; then
+            return
+        fi
         set -x
         while ! git rebase --continue ; do
             dir=$(cd $(dirname ${BASH_SOURCE})/../.. && pwd)
