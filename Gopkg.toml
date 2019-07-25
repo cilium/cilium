@@ -287,7 +287,7 @@ required = [
 
 [[constraint]]
   name = "github.com/kevinburke/ssh_config"
-  revision = "0.5"
+  version = "1.0"
 
   # main-usage = "only in integration tests"
   # on-revision = ""

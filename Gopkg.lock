@@ -754,11 +754,12 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
-  digest = "1:29e44e9481a689be0093a0033299b95741d394a97b28e0273c21afe697873a22"
+  digest = "1:dae921a7328d7e20912287d561a899398e4d943cfbeb4122dd99333b052400e0"
   name = "github.com/kevinburke/ssh_config"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "0.5"
+  revision = "6cfae18c12b8934b1afba3ce8159476fdef666ba"
+  version = "1.0"
 
 [[projects]]
   digest = "1:4059c14e87a2de3a434430340521b5feece186c1469eff0834c29a63870de3ed"
@@ -989,14 +990,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "v1.2.0"
-
-[[projects]]
-  digest = "1:cf254277d898b713195cc6b4a3fac8bf738b9f1121625df27843b52b267eec6c"
-  name = "github.com/pelletier/go-buffruneio"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "c37440a7cf42ac63b919c752ca73a85067e05992"
-  version = "v0.2.0"
 
 [[projects]]
   digest = "1:51ea800cff51752ff68e12e04106f5887b4daec6f9356721238c28019f0b42db"
