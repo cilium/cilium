@@ -353,7 +353,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			// The identity of a freshly restored endpoint is incomplete due to some
 			// parts of the identity not being marshaled to JSON. Hence we must set
 			// the identity even if has not changed.
-			ep.SetIdentity(identity)
+			ep.SetIdentity(identity, true)
 			ep.Unlock()
 
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{

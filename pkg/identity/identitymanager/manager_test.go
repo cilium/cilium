@@ -38,6 +38,7 @@ var (
 	idFooSelectLabels = labels.NewLabelsFromModel([]string{"id=foo"})
 	idBarSelectLabels = labels.NewLabelsFromModel([]string{"id=bar"})
 	fooIdentity       = identity.NewIdentity(identity.NumericIdentity(12345), idFooSelectLabels)
+	fooIdentity2      = identity.NewIdentity(identity.NumericIdentity(12345), idFooSelectLabels)
 	barIdentity       = identity.NewIdentity(identity.NumericIdentity(54321), idBarSelectLabels)
 )
 
@@ -79,8 +80,10 @@ func (s *IdentityManagerTestSuite) TestIdentityManagerLifecycle(c *C) {
 	c.Assert(exists, Equals, false)
 	_, exists = idm.identities[barIdentity.ID]
 	c.Assert(exists, Equals, true)
+	c.Assert(idm.identities[barIdentity.ID].refCount, Equals, uint(1))
 
 	idm.RemoveOldAddNew(nil, barIdentity)
+	c.Assert(idm.identities[barIdentity.ID].refCount, Equals, uint(2))
 }
 
 type identityManagerObserver struct {
@@ -109,50 +112,74 @@ func (i *identityManagerObserver) LocalEndpointIdentityRemoved(identity *identit
 
 func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityAdded(c *C) {
 	idm := NewIdentityManager()
-	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, nil)
+	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
 	idm.subscribe(observer)
 
 	// No-op: nil Identity.
 	idm.Add(nil)
+	expectedObserver := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
 
 	// First add triggers an "IdentityAdded" event.
 	idm.Add(fooIdentity)
-	expectedObserver := newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID}, nil)
+	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID}, []identity.NumericIdentity{})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 
 	// Second does not.
 	idm.Add(fooIdentity)
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
+	c.Assert(idm.identities[fooIdentity.ID].refCount, Equals, uint(2))
+
+	// Duplicate identity with the same ID does not trigger events.
+	idm.Add(fooIdentity2)
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+	c.Assert(idm.identities[fooIdentity.ID].refCount, Equals, uint(3))
 
 	// Unrelated add should also trigger.
 	idm.Add(barIdentity)
-	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID}, nil)
+	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID}, []identity.NumericIdentity{})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
+	c.Assert(idm.identities[barIdentity.ID].refCount, Equals, uint(1))
 
 	// Removing both then re-adding should trigger the event again.
 	idm.Remove(fooIdentity)
+	c.Assert(idm.identities[fooIdentity.ID].refCount, Equals, uint(2))
 	idm.Remove(fooIdentity)
+	c.Assert(idm.identities[fooIdentity.ID].refCount, Equals, uint(1))
+	idm.Remove(fooIdentity)
+	c.Assert(observer.added, HasLen, 2)
+	c.Assert(observer.removed, HasLen, 1)
 	idm.Add(fooIdentity)
-	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID, fooIdentity.ID}, nil)
+	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID, fooIdentity.ID}, []identity.NumericIdentity{fooIdentity.ID})
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+
+	// RemoveOldAddNew with the same ID is a no-op
+	idm.RemoveOldAddNew(fooIdentity, fooIdentity2)
+	c.Assert(observer, checker.DeepEquals, expectedObserver)
+
+	// RemoveOldAddNew from an existing ID to another triggers removal of the old
+	idm.RemoveOldAddNew(barIdentity, fooIdentity)
+	expectedObserver = newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID, barIdentity.ID, fooIdentity.ID}, []identity.NumericIdentity{fooIdentity.ID, barIdentity.ID})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 }
 
 func (s *IdentityManagerTestSuite) TestLocalEndpointIdentityRemoved(c *C) {
 	idm := NewIdentityManager()
 	c.Assert(idm.identities, NotNil)
-	observer := newIdentityManagerObserver(nil, []identity.NumericIdentity{})
+	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
 	idm.subscribe(observer)
 
 	// No-ops:
 	// - nil Identity.
 	// - Identity that isn't managed
 	idm.Remove(nil)
+	// This will log a warnign!
 	idm.Remove(fooIdentity)
 
 	// Basic remove
 	idm.Add(fooIdentity)
 	idm.Remove(fooIdentity)
-	expectedObserver := newIdentityManagerObserver(nil, []identity.NumericIdentity{fooIdentity.ID})
+	expectedObserver := newIdentityManagerObserver([]identity.NumericIdentity{fooIdentity.ID}, []identity.NumericIdentity{fooIdentity.ID})
 	c.Assert(observer, checker.DeepEquals, expectedObserver)
 
 	idm = NewIdentityManager()

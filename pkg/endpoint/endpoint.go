@@ -1087,7 +1087,7 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	}
 
 	if ep.SecurityIdentity == nil {
-		ep.SetIdentity(identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit))
+		ep.SetIdentity(identityPkg.LookupReservedIdentity(identityPkg.ReservedIdentityInit), true)
 	} else {
 		ep.SecurityIdentity.Sanitize()
 	}
@@ -2051,7 +2051,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	elog.WithFields(logrus.Fields{logfields.Identity: identity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	e.SetIdentity(identity)
+	e.SetIdentity(identity, false)
 
 	if oldIdentity != nil {
 		_, err := cache.Release(releaseCtx, e.owner, oldIdentity)

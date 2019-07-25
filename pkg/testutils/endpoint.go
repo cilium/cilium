@@ -80,7 +80,7 @@ func (e *TestEndpoint) Logger(subsystem string) *logrus.Entry {
 	return log
 }
 
-func (e *TestEndpoint) SetIdentity(secID int64) {
+func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
 	e.Identity = identity.NewIdentityFromModel(&identityMdl.Identity{
 		ID:     secID,
 		Labels: []string{"bar"},
