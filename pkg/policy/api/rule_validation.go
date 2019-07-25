@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,6 +68,18 @@ func (r Rule) Sanitize() error {
 	return nil
 }
 
+func countL7Rules(ports []PortRule) map[string]int {
+	result := make(map[string]int)
+	for _, port := range ports {
+		if !port.Rules.IsEmpty() {
+			result["DNS"] += len(port.Rules.DNS)
+			result["HTTP"] += len(port.Rules.HTTP)
+			result["Kafka"] += len(port.Rules.Kafka)
+		}
+	}
+	return result
+}
+
 func (i *IngressRule) sanitize() error {
 	l3Members := map[string]int{
 		"FromEndpoints": len(i.FromEndpoints),
@@ -81,6 +93,12 @@ func (i *IngressRule) sanitize() error {
 		"FromCIDRSet":   false,
 		"FromEntities":  true,
 	}
+	l7Members := countL7Rules(i.ToPorts)
+	l7IngressSupport := map[string]bool{
+		"DNS":   false,
+		"Kafka": true,
+		"HTTP":  true,
+	}
 
 	for m1 := range l3Members {
 		for m2 := range l3Members {
@@ -92,6 +110,11 @@ func (i *IngressRule) sanitize() error {
 	for member := range l3Members {
 		if l3Members[member] > 0 && len(i.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+		}
+	}
+	for member := range l7Members {
+		if l7Members[member] > 0 && !l7IngressSupport[member] {
+			return fmt.Errorf("L7 protocol %s is not supported on ingress yet", member)
 		}
 	}
 
@@ -167,6 +190,13 @@ func (e *EgressRule) sanitize() error {
 		"ToFQDNs":     true,
 		"ToGroups":    true,
 	}
+	l7Members := countL7Rules(e.ToPorts)
+	l7EgressSupport := map[string]bool{
+		"DNS":   true,
+		"Kafka": false,
+		"HTTP":  true,
+	}
+
 	for m1 := range l3Members {
 		for m2 := range l3Members {
 			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
@@ -177,6 +207,11 @@ func (e *EgressRule) sanitize() error {
 	for member := range l3Members {
 		if l3Members[member] > 0 && len(e.ToPorts) > 0 && !l3DependentL4Support[member] {
 			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
+		}
+	}
+	for member := range l7Members {
+		if l7Members[member] > 0 && !l7EgressSupport[member] {
+			return fmt.Errorf("L7 protocol %s is not supported on egress yet", member)
 		}
 	}
 
