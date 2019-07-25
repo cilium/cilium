@@ -61,7 +61,7 @@ func newTestEP() *testEP {
 }
 
 func (ep *testEP) WithIdentity(id int64) *testEP {
-	ep.SetIdentity(id)
+	ep.SetIdentity(id, true)
 	return ep
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 )
@@ -65,6 +66,10 @@ func Remove(identity *identity.Identity) {
 // already in the identity manager, the reference count for the identity is
 // incremented.
 func (idm *IdentityManager) Add(identity *identity.Identity) {
+	log.WithFields(logrus.Fields{
+		logfields.Identity: identity,
+	}).Debug("Adding identity to the identity manager")
+
 	idm.mutex.Lock()
 	defer idm.mutex.Unlock()
 	idm.add(identity)
@@ -92,9 +97,18 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 
 // RemoveOldAddNew removes old from the identity manager and inserts new
 // into the IdentityManager.
+// Caller must have previously added the old identity with Add().
+// This is a no-op if both identities have the same numeric ID.
 func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 	idm.mutex.Lock()
 	defer idm.mutex.Unlock()
+
+	if old == nil && new == nil {
+		return
+	}
+	if old != nil && new != nil && old.ID == new.ID {
+		return
+	}
 
 	log.WithFields(logrus.Fields{
 		"old": old,
@@ -116,6 +130,10 @@ func RemoveOldAddNew(old, new *identity.Identity) {
 // decremented. If the identity is not in the cache, this is a no-op. If the
 // ref count becomes zero, the identity is removed from the cache.
 func (idm *IdentityManager) Remove(identity *identity.Identity) {
+	log.WithFields(logrus.Fields{
+		logfields.Identity: identity,
+	}).Debug("Removing identity from the identity manager")
+
 	idm.mutex.Lock()
 	defer idm.mutex.Unlock()
 	idm.remove(identity)
@@ -129,6 +147,9 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 
 	idMeta, exists := idm.identities[identity.ID]
 	if !exists {
+		log.WithFields(logrus.Fields{
+			logfields.Identity: identity,
+		}).Error("removing identity not added to the identity manager!")
 		return
 	}
 	idMeta.refCount--

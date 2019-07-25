@@ -140,7 +140,7 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 		e.LXCMAC = ProdHardAddr
 		e.SetNodeMACLocked(ProdHardAddr)
 	}
-	e.SetIdentity(identity)
+	e.SetIdentity(identity, true)
 
 	e.UnconditionalLock()
 	ready := e.SetStateLocked(endpoint.StateWaitingToRegenerate, "test")
