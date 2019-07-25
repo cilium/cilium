@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -522,4 +522,58 @@ func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
 	}
 	err := tooManyPortsRule.Sanitize()
 	c.Assert(err, NotNil)
+}
+
+// This test ensures that PortRules aren't configured in the wrong direction,
+// which ends up being a no-op with only vague error messages rather than a
+// clear indication that something is wrong in the policy.
+func (s *PolicyAPITestSuite) TestL7RuleDirectionalitySupport(c *C) {
+
+	// Kafka egress is not supported.
+	invalidKafkaRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+						{Port: "81", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						Kafka: []PortRuleKafka{{
+							Role:  "consume",
+							Topic: "deathstar-plans",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	err := invalidKafkaRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+
+	// DNS ingress is not supported.
+	invalidDNSRule := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "53", Protocol: ProtoTCP},
+						{Port: "53", Protocol: ProtoUDP},
+					},
+					Rules: &L7Rules{
+						DNS: []PortRuleDNS{{
+							MatchName: "empire.gov",
+						}},
+					},
+				}},
+			},
+		},
+	}
+
+	err = invalidDNSRule.Sanitize()
+	c.Assert(err, Not(IsNil))
+
 }
