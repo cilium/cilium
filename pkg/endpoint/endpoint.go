@@ -1319,7 +1319,9 @@ type DeleteConfig struct {
 func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
-	loader.Unload(e.createEpInfoCache(""))
+	if !option.Config.DryMode {
+		loader.Unload(e.createEpInfoCache(""))
+	}
 
 	e.owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {

@@ -556,6 +556,18 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 
 	errs := []error{}
 
+	// Since the endpoint is being deleted, we no longer need to run events
+	// in its event queue. This is a no-op if the queue has already been
+	// closed elsewhere.
+	ep.EventQueue.Stop()
+
+	// Wait for the queue to be drained in case an event which is currently
+	// running for the endpoint tries to acquire the lock - we cannot be sure
+	// what types of events will be pushed onto the EventQueue for an endpoint
+	// and when they will happen. After this point, no events for the endpoint
+	// will be processed on its EventQueue, specifically regenerations.
+	ep.EventQueue.WaitToBeDrained()
+
 	// Wait for existing builds to complete and prevent further builds
 	ep.BuildMutex.Lock()
 
@@ -575,10 +587,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 		return []error{}
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
-
-	// Since the endpoint is being deleted, we no longer need to run events
-	// in its event queue.
-	ep.EventQueue.Stop()
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
