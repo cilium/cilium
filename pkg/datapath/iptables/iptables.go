@@ -134,22 +134,32 @@ func removeCiliumRules(table, prog string) {
 
 func (c *customChain) remove() {
 	if option.Config.EnableIPv4 {
-		runProg("iptables", []string{
-			"-t", c.table,
-			"-F", c.name}, true)
+		prog := "iptables"
+		args := []string{"-t", c.table, "-F", c.name}
+		err := runProg(prog, args, true)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
+		}
 
-		runProg("iptables", []string{
-			"-t", c.table,
-			"-X", c.name}, true)
+		args = []string{"-t", c.table, "-X", c.name}
+		err = runProg(prog, args, true)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
+		}
 	}
 	if option.Config.EnableIPv6 && c.ipv6 == true {
-		runProg("ip6tables", []string{
-			"-t", c.table,
-			"-F", c.name}, true)
+		prog := "ip6tables"
+		args := []string{"-t", c.table, "-F", c.name}
+		err := runProg(prog, args, true)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
+		}
 
-		runProg("ip6tables", []string{
-			"-t", c.table,
-			"-X", c.name}, true)
+		args = []string{"-t", c.table, "-X", c.name}
+		err = runProg(prog, args, true)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
+		}
 	}
 }
 
