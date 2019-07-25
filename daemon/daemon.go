@@ -914,23 +914,21 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 }
 
 func setupIPSec() (int, error) {
-	var authKeySize int
-
-	if option.Config.EnableIPSec {
-		var spi uint8
-		var err error
-
-		authKeySize, spi, err = ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
-		if err != nil {
-			return authKeySize, err
-		}
-		if option.Config.EnableIPv6 {
-			if err := ipsec.EnableIPv6Forwarding(); err != nil {
-				return authKeySize, err
-			}
-		}
-		node.SetIPsecKeyIdentity(spi)
+	if !option.Config.EnableIPSec {
+		return 0, nil
 	}
+
+	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
+	if err != nil {
+		return 0, err
+	}
+	if option.Config.EnableIPv6 {
+		if err := ipsec.EnableIPv6Forwarding(); err != nil {
+			return 0, err
+		}
+	}
+	node.SetIPsecKeyIdentity(spi)
+
 	return authKeySize, nil
 }
 
