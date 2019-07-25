@@ -107,7 +107,7 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
-  digest = "1:603699103242f195a508fcd06d9d1affa4f99026ef64fcfed26ecd421becd1b2"
+  digest = "1:813b38ef06b8eea9552d7a0e4961efb0f731d8d2a0fee3059cb2c76d73e2fa8c"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -126,7 +126,7 @@
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "65d28965559996499584fba97769c8c3bf615fa1"
+  revision = "74a21763dce81def53aef3a76ccc794bd9a062ad"
 
 [[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
