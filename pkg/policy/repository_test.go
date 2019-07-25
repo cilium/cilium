@@ -1030,7 +1030,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
-	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
+	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l3Rule := api.Rule{
@@ -1046,27 +1046,27 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	_, _, err := repo.Add(l3Rule, []Endpoint{})
 	c.Assert(err, IsNil)
 
-	kafkaRule := api.Rule{
+	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				ToEndpoints: []api.EndpointSelector{selBar2},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
+						{Port: "53", Protocol: api.ProtoUDP},
 					},
 					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
-							{APIKey: "produce"},
+						DNS: []api.PortRuleDNS{
+							{MatchName: "empire.gov"},
 						},
 					},
 				}},
 			},
 		},
-		Labels: labelsKafka,
+		Labels: labelsDNS,
 	}
-	kafkaRule.Sanitize()
-	_, _, err = repo.Add(kafkaRule, []Endpoint{})
+	dnsRule.Sanitize()
+	_, _, err = repo.Add(dnsRule, []Endpoint{})
 	c.Assert(err, IsNil)
 
 	httpRule := api.Rule{
@@ -1102,22 +1102,22 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	c.Assert(err, IsNil)
 
 	expectedPolicy := L4PolicyMap{
-		"9092/TCP": {
-			Port:            9092,
-			Protocol:        api.ProtoTCP,
-			U8Proto:         0x6,
+		"53/UDP": {
+			Port:            53,
+			Protocol:        api.ProtoUDP,
+			U8Proto:         0x11,
 			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorBar1},
-			L7Parser:        ParserTypeKafka,
+			L7Parser:        ParserTypeDNS,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
 				cachedSelectorBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
+					DNS: []api.PortRuleDNS{{MatchPattern: "*"}},
 				},
 				cachedSelectorBar2: api.L7Rules{
-					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
+					DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsKafka, labelsL4},
+			DerivedFromRules: labels.LabelArrayList{labelsDNS, labelsL4},
 		},
 		"80/TCP": {
 			Port:            80,
@@ -1161,48 +1161,48 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
-	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
+	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
-	l49092Rule := api.Rule{
+	l453Rule := api.Rule{
 		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				ToEndpoints: []api.EndpointSelector{selBar1},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
+						{Port: "53", Protocol: api.ProtoUDP},
 					},
 				}},
 			},
 		},
 		Labels: labelsL3,
 	}
-	l49092Rule.Sanitize()
-	_, _, err := repo.Add(l49092Rule, []Endpoint{})
+	l453Rule.Sanitize()
+	_, _, err := repo.Add(l453Rule, []Endpoint{})
 	c.Assert(err, IsNil)
 
-	kafkaRule := api.Rule{
+	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				ToEndpoints: []api.EndpointSelector{selBar2},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
+						{Port: "53", Protocol: api.ProtoUDP},
 					},
 					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
-							{APIKey: "produce"},
+						DNS: []api.PortRuleDNS{
+							{MatchName: "empire.gov"},
 						},
 					},
 				}},
 			},
 		},
-		Labels: labelsKafka,
+		Labels: labelsDNS,
 	}
-	kafkaRule.Sanitize()
-	_, _, err = repo.Add(kafkaRule, []Endpoint{})
+	dnsRule.Sanitize()
+	_, _, err = repo.Add(dnsRule, []Endpoint{})
 	c.Assert(err, IsNil)
 
 	l480Rule := api.Rule{
@@ -1273,22 +1273,22 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsHTTP, labelsL3},
 		},
-		"9092/TCP": {
-			Port:            9092,
-			Protocol:        api.ProtoTCP,
-			U8Proto:         0x6,
+		"53/UDP": {
+			Port:            53,
+			Protocol:        api.ProtoUDP,
+			U8Proto:         0x11,
 			CachedSelectors: CachedSelectorSlice{cachedSelectorBar1, cachedSelectorBar2},
-			L7Parser:        ParserTypeKafka,
+			L7Parser:        ParserTypeDNS,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
 				cachedSelectorBar1: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
+					DNS: []api.PortRuleDNS{{MatchPattern: "*"}},
 				},
 				cachedSelectorBar2: api.L7Rules{
-					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
+					DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsKafka, labelsL3},
+			DerivedFromRules: labels.LabelArrayList{labelsL3, labelsDNS, labelsL3},
 		},
 	}
 	c.Assert(policy, checker.Equals, expectedPolicy)
@@ -1439,7 +1439,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	selBar2 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
-	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
+	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
 	l3Rule := api.Rule{
@@ -1455,27 +1455,27 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 	_, _, err := repo.Add(l3Rule, []Endpoint{})
 	c.Assert(err, IsNil)
 
-	kafkaRule := api.Rule{
+	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
 		Egress: []api.EgressRule{
 			{
 				ToEndpoints: []api.EndpointSelector{selBar2},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
-						{Port: "9092", Protocol: api.ProtoTCP},
+						{Port: "53", Protocol: api.ProtoUDP},
 					},
 					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
-							{APIKey: "produce"},
+						DNS: []api.PortRuleDNS{
+							{MatchName: "empire.gov"},
 						},
 					},
 				}},
 			},
 		},
-		Labels: labelsKafka,
+		Labels: labelsDNS,
 	}
-	kafkaRule.Sanitize()
-	_, _, err = repo.Add(kafkaRule, []Endpoint{})
+	dnsRule.Sanitize()
+	_, _, err = repo.Add(dnsRule, []Endpoint{})
 	c.Assert(err, IsNil)
 
 	httpRule := api.Rule{
@@ -1527,22 +1527,22 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			Ingress:          false,
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
-		"9092/TCP": {
-			Port:            9092,
-			Protocol:        api.ProtoTCP,
-			U8Proto:         0x6,
+		"53/UDP": {
+			Port:            53,
+			Protocol:        api.ProtoUDP,
+			U8Proto:         0x11,
 			CachedSelectors: CachedSelectorSlice{cachedSelectorBar2, cachedSelectorWorld},
-			L7Parser:        ParserTypeKafka,
+			L7Parser:        ParserTypeDNS,
 			Ingress:         false,
 			L7RulesPerEp: L7DataMap{
 				cachedSelectorWorld: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{}},
+					DNS: []api.PortRuleDNS{{MatchPattern: "*"}},
 				},
 				cachedSelectorBar2: api.L7Rules{
-					Kafka: []api.PortRuleKafka{kafkaRule.Egress[0].ToPorts[0].Rules.Kafka[0]},
+					DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 				},
 			},
-			DerivedFromRules: labels.LabelArrayList{labelsKafka, labelsL3},
+			DerivedFromRules: labels.LabelArrayList{labelsDNS, labelsL3},
 		},
 		"80/TCP": {
 			Port:            80,
