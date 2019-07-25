@@ -94,7 +94,7 @@ func (d *Daemon) compileBase() error {
 		args[initArgIPv6NodeIP] = "<nil>"
 	}
 
-	args[initArgMTU] = fmt.Sprintf("%d", d.mtuConfig.GetDeviceMTU())
+	args[initArgMTU] = fmt.Sprintf("%d", d.mtuConfig.GetRouteMTU())
 
 	if option.Config.EnableIPSec {
 		args[initArgIPSec] = "true"
