@@ -64,11 +64,10 @@ First step is to download the Cilium Kubernetes descriptor:
 
       curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
 
-Edit the ``cilium-config`` ConfigMap in that file with the etcd server
-that is running in your cluster and set the option ``enable-host-reachable-services``
-to ``"true"``. This is all which is required to expose services to the
-host namespace. A Linux kernel of v4.19.57, v5.1.16, v5.2.0 or more
-recent is needed for exposing both TCP and UDP-based services.
+Edit the ``cilium-config`` ConfigMap in that file and set the option
+``enable-host-reachable-services`` to ``"true"``. This is all which is required
+to expose services to the host namespace. A Linux kernel of v4.19.57, v5.1.16,
+v5.2.0 or more recent is needed for exposing both TCP and UDP-based services.
 
 The basic minimum required for host-reachable services is a Linux kernel
 v4.17.0. This allows to only enable TCP-based services to the host, but
