@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-gatherer
+  namespace: kube-system
+  labels:
+    k8s-app: cilium-test-logs
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-test-logs
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        k8s-app: cilium-test-logs
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+      - args:
+        - "10000"
+        command:
+        - sleep
+        image: nebril/systemd:latest #TODO: move to cilium org
+        imagePullPolicy: Always
+        name: log-gatherer
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_MODULE
+            - SYS_ADMIN
+          privileged: true
+        volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: bpf-maps
+        - mountPath: /var/log/hostjournal
+          name: journald
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: false
+      priorityClassName: system-node-critical
+      restartPolicy: Always
+      serviceAccount: cilium
+      serviceAccountName: cilium
+      terminationGracePeriodSeconds: 1
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+        name: bpf-maps
+      - hostPath:
+          path: /var/log/journal
+          type: DirectoryOrCreate
+        name: journald

@@ -62,6 +62,9 @@ const (
 	// CIIntegrationFlannel contains the constant to be used when flannel is
 	// used in the CI.
 	CIIntegrationFlannel = "flannel"
+
+	logGathererSelector  = "k8s-app=cilium-test-logs"
+	logGathererNamespace = "kube-system"
 )
 
 var (
@@ -142,7 +145,7 @@ func CreateKubectl(vmName string, log *logrus.Entry) *Kubectl {
 		Executor: exec,
 	}
 
-	res := k.GetPods("default", "")
+	res := k.Apply(filepath.Join(manifestsPath, "log-gatherer.yaml"), "kube-system")
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 		return nil
@@ -1814,6 +1817,25 @@ func (kub *Kubectl) GatherCiliumCoreDumps(ctx context.Context, ciliumPod string)
 	}
 }
 
+// ExecInPods runs given command on all pods in given namespace that match selector and returns map pod-name->CmdRes
+func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd string, wait bool, options ...ExecOptions) (results map[string]*CmdRes, err error) {
+	if wait {
+		kub.WaitforPods(namespace, "-l "+selector, HelperTimeout)
+	}
+	names, err := kub.GetPodNamesContext(ctx, namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+
+	results = make(map[string]*CmdRes)
+	for _, name := range names {
+		command := fmt.Sprintf("%s exec -n kube-system %s -- %s", KubectlCmd, name, cmd)
+		results[name] = kub.ExecContext(ctx, command)
+	}
+
+	return results, nil
+}
+
 // DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
 // TestResultsPath
 func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace string) {
@@ -1835,9 +1857,8 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 			return reportCmds
 		}
 
-		//TODO: do this via kubectl
-		//reportCmds := genReportCmds(ciliumKubCLICommands)
-		//reportMapContext(ctx, testPath, reportCmds, kub.SSHMeta)
+		reportCmds := genReportCmds(ciliumKubCLICommands)
+		kub.reportMapContext(ctx, testPath, reportCmds, logGathererNamespace, logGathererSelector)
 
 		logsPath := filepath.Join(BasePath, testPath)
 
@@ -1897,7 +1918,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 		kvstoreCmdCtx, cancel := context.WithTimeout(ctx, MidCommandTimeout)
 		defer cancel()
 		reportCmds = genReportCmds(ciliumKubCLICommandsKVStore)
-		reportMapContext(kvstoreCmdCtx, testPath, reportCmds, kub.SSHMeta)
+		kub.reportMapContext(kvstoreCmdCtx, testPath, reportCmds, logGathererNamespace, logGathererSelector)
 	}
 
 	pods, err := kub.GetCiliumPodsContext(ctx, namespace)
@@ -1946,18 +1967,15 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 			"cannot create test results path '%s'", testPath)
 		return
 	}
-	//TODO: do it via kubectl
-	//reportMap(testPath, reportCmds, kub.SSHMeta)
+	kub.reportMap(testPath, reportCmds, logGathererNamespace, logGathererSelector)
 
-	for _, node := range []string{K8s1VMName(), K8s2VMName()} {
-		vm := GetVagrantSSHMeta(node)
-		reportCmds := map[string]string{
-			"journalctl --no-pager -au kubelet": fmt.Sprintf("kubelet-%s.log", node),
-			"sudo top -n 1 -b":                  fmt.Sprintf("top-%s.log", node),
-			"sudo ps aux":                       fmt.Sprintf("ps-%s.log", node),
-		}
-		reportMapContext(ctx, testPath, reportCmds, vm)
+	reportCmds = map[string]string{
+		"journalctl --no-pager -au kubelet": "kubelet.log",
+		"sudo top -n 1 -b":                  "top.log",
+		"sudo ps aux":                       "ps.log",
 	}
+
+	kub.reportMapContext(ctx, testPath, reportCmds, logGathererNamespace, logGathererSelector)
 }
 
 // GeneratePodLogGatheringCommands generates the commands to gather logs for
@@ -2385,6 +2403,37 @@ func (kub *Kubectl) DeleteETCDOperator() {
 
 	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-sa", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
 		log.Warningf("Unable to delete cilium-etcd-sa ServiceAccount: %s", res.OutputPrettyPrint())
+	}
+}
+
+// reportMap saves the output of the given commands to the specified filename.
+// Function needs a directory path where the files are going to be written
+// commands are run on all pods matching selector in given namespace
+func (kub *Kubectl) reportMap(path string, reportCmds map[string]string, ns, selector string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	kub.reportMapContext(ctx, path, reportCmds, ns, selector)
+}
+
+// reportMapContext saves the output of the given commands to the specified filename.
+// Function needs a directory path where the files are going to be written
+// commands are run on all pods matching selector
+func (kub *Kubectl) reportMapContext(ctx context.Context, path string, reportCmds map[string]string, ns, selector string) {
+	for cmd, logfile := range reportCmds {
+		results, err := kub.ExecInPods(ctx, ns, selector, cmd, true, ExecOptions{SkipLog: true})
+		if err != nil {
+			log.WithError(err).Errorf("cannot retrieve command output '%s': %s", cmd, err)
+		}
+
+		for name, res := range results {
+			err := ioutil.WriteFile(
+				fmt.Sprintf("%s/%s-%s", path, name, logfile),
+				res.CombineOutput().Bytes(),
+				LogPerm)
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test results for command '%s' from pod %s", cmd, name)
+			}
+		}
 	}
 }
 

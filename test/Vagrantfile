@@ -85,6 +85,10 @@ Vagrant.configure("2") do |config|
             server.vm.box_version = $SERVER_VERSION
             server.vm.hostname = "k8s#{i}"
             server.vm.boot_timeout = 600
+            if i == 1 then
+                server.vm.network "forwarded_port", guest: 6443, host: 9443,
+                  auto_correct: true
+            end
             server.vm.network "private_network",
                 ip: "192.168.36.1#{i}",
                 virtualbox__intnet: "cilium-k8s#{$BUILD_NUMBER}-#{$JOB_NAME}-#{$K8S_VERSION}"
