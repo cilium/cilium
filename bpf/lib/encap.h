@@ -78,7 +78,7 @@ __encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 
 	cilium_dbg(skb, DBG_ENCAP, node_id, seclabel);
 
-	ret = skb_set_tunnel_key(skb, &key, sizeof(key), 0);
+	ret = skb_set_tunnel_key(skb, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
