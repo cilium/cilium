@@ -43,7 +43,7 @@ var (
 
 	// CiliumBasePath is the absolute path to the cilium source repository
 	// in the guest VMs
-	CiliumBasePath = "/home/vagrant/go/src/github.com/cilium/cilium"
+	CiliumBasePath = "../"
 
 	// BasePath is the path in the Vagrant VMs to which the test directory
 	// is mounted
@@ -213,7 +213,7 @@ const (
 	sizeMismatch      = "size mismatch for BPF map" // from https://github.com/cilium/cilium/issues/7851
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
-	HelmTemplate = "go/src/github.com/cilium/cilium/install/kubernetes/cilium"
+	HelmTemplate = "../install/kubernetes/cilium"
 )
 
 // Re-definitions of stable constants in the API. The re-definition is on
