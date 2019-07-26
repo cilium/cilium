@@ -28,7 +28,7 @@ NOTE: If ``kubeadm`` is used, then pass ``--pod-network-cidr=10.244.0.0/16`` to
 
 .. parsed-literal::
 
-  kubectl -f  \ |SCM_WEB|\/examples/kubernetes/addons/flannel/flannel.yaml
+  kubectl apply -f  \ |SCM_WEB|\/examples/kubernetes/addons/flannel/flannel.yaml
 
 
 Wait until all pods to be in ready state before preceding to the next step.
