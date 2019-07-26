@@ -104,6 +104,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 	}
 
 	Context("Encapsulation", func() {
+		BeforeEach(func() {
+			SkipIfFlannel()
+		})
+
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
@@ -114,14 +118,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}
 
 		It("Check connectivity with transparent encryption and VXLAN encapsulation", func() {
-			switch helpers.GetCurrentIntegration() {
-			case helpers.CIIntegrationFlannel:
-				Skip(fmt.Sprintf(
-					"Cilium in %q mode is not supported with transparent encryption and VxLAN. Skipping test.",
-					helpers.CIIntegrationFlannel))
-				return
-			}
-
 			if !helpers.RunsOnNetNext() {
 				Skip("Skipping test because it is not running with the net-next kernel")
 				return
@@ -142,8 +138,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}, 600)
 
 		It("Check connectivity with VXLAN encapsulation", func() {
-			SkipIfFlannel()
-
 			deployCilium("cilium-ds-patch-vxlan.yaml")
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -151,8 +145,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		}, 600)
 
 		It("Check connectivity with Geneve encapsulation", func() {
-			SkipIfFlannel()
-
 			deployCilium("cilium-ds-patch-geneve.yaml")
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -182,6 +174,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
+			// Flannel always disables IPv6, this test is a no-op in that case.
+			SkipIfFlannel()
+
 			deployCilium("cilium-ds-patch-ipv4-only.yaml")
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
@@ -190,6 +185,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("PerEndpointRoute", func() {
 		It("Check connectivity with IPv6 disabled", func() {
+			// Flannel always disables IPv6, this test is a no-op in that case.
+			SkipIfFlannel()
+
 			deployCilium("cilium-ds-patch-per-endpoint-route.yaml")
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
