@@ -167,6 +167,8 @@ spec:
         - mountPath: /lib/modules
           name: lib-modules
           readOnly: true
+        - mountPath: /run/xtables.lock
+          name: xtables-lock
 {{- if .Values.global.encryption.enabled }}
         - mountPath: {{ .Values.global.encryption.mountPath }}
           name: cilium-ipsec-secrets
@@ -287,6 +289,11 @@ spec:
       - hostPath:
           path: /lib/modules
         name: lib-modules
+        # To access iptables concurrently with other processes (e.g. kube-proxy)
+      - hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+        name: xtables-lock
 {{- if .Values.global.etcd.enabled }}
         # To read the etcd config stored in config maps
       - configMap:
