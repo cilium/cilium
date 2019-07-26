@@ -107,6 +107,13 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 // ProvisionInfraPods deploys DNS, etcd-operator, and cilium into the kubernetes
 // cluster of which vm is a member.
 func ProvisionInfraPods(vm *helpers.Kubectl) {
+	ProvisionInfraPodsWithCilium(vm, helpers.CiliumDefaultDSPatch, true)
+}
+
+// ProvisionInfraPodsWithCilium deploys DNS, etcd-operator cilium into the
+// kubernetes cluster, optionally deploying cilium-operator, and defining the
+// Cilium DaemonSet using the specified patch YAML path.
+func ProvisionInfraPodsWithCilium(vm *helpers.Kubectl, daemonSetPatch string, deployOperator bool) {
 	By("Installing DNS Deployment")
 	_ = vm.Apply(helpers.DNSDeployment())
 
@@ -115,12 +122,15 @@ func ProvisionInfraPods(vm *helpers.Kubectl) {
 	Expect(err).To(BeNil(), "Unable to deploy etcd operator")
 
 	By("Installing Cilium")
-	err = vm.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+	err = vm.CiliumInstall(daemonSetPatch, helpers.CiliumConfigMapPatch)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
-	By("Installing Cilium-Operator")
-	operatorIsInstalled, err := vm.CiliumOperatorInstall("head")
-	Expect(err).To(BeNil(), "Cannot install Cilium Operator")
+	operatorIsInstalled := false
+	if deployOperator {
+		By("Installing Cilium-Operator")
+		operatorIsInstalled, err = vm.CiliumOperatorInstall("head")
+		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
+	}
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
