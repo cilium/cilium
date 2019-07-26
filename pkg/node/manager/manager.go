@@ -307,6 +307,20 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		}
 	}
 
+	for _, address := range []net.IP{n.IPv4HealthIP, n.IPv6HealthIP} {
+		if address == nil {
+			continue
+		}
+		isIPv6 := address.To4() == nil
+		isOwning := ipcache.IPIdentityCache.Upsert(address.String(), n.GetNodeIP(isIPv6), n.EncryptionKey, ipcache.Identity{
+			ID:     identity.ReservedIdentityHealth,
+			Source: n.Source,
+		})
+		if !isOwning {
+			dpUpdate = false
+		}
+	}
+
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
 	if oldNodeExists {
