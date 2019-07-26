@@ -93,6 +93,7 @@ kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 token: "{{ .TOKEN }}"
 networking:
   podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+controlPlaneEndpoint: "k8s1:6443"
 EOF
 )
 
@@ -115,6 +116,7 @@ networking:
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+controlPlaneEndpoint: "k8s1:6443"
 EOF
 )
 
@@ -142,6 +144,7 @@ networking:
   dnsDomain: cluster.local
   podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
+controlPlaneEndpoint: "k8s1:6443"
 EOF
 )
 
@@ -282,7 +285,9 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     $PROVISIONSRC/compile.sh
 else
-    kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
+    sudo -E bash -c 'echo "${KUBEADM_ADDR} k8s1" >> /etc/hosts'
+
+    kubeadm join --token=$TOKEN k8s1:6443 \
         ${KUBEADM_SLAVE_OPTIONS}
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest

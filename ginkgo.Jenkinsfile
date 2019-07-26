@@ -115,13 +115,20 @@ pipeline {
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         NETNEXT="true"
+                        K8S_VERSION="1.10"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant destroy k8s1-1.10 k8s2-1.10 --force'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.10 vagrant up k8s1-1.10 k8s2-1.10 --provision'
+                            dir("${TESTDIR}") {
+                                sh 'vagrant destroy k8s1-1.10 k8s2-1.10 --force'
+                                sh 'vagrant up k8s1-1.10 k8s2-1.10 --provision'
+                                sh 'vagrant ssh k8s1-1.10 -- sudo cat /etc/kubernetes/admin.conf > vagrant-kubeconfig'
+                                sh """#!/bin/bash/
+                                   sed -i "s/6443/\$(vboxmanage list runningvms | grep k8s1-110 | awk '{print \$1}' | xargs vboxmanage showvminfo --machinereadable | grep 'Forwarding.*6443' | awk -F ',' '{print \$4}')/" vagrant-kubeconfig'
+                                """
+                            }
                         }
                     }
                     post {
@@ -139,13 +146,14 @@ pipeline {
                         TESTED_SUITE="k8s-1.15"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        K8S_VERSION="1.15"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant destroy k8s1-1.15 k8s2-1.15 --force'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant up k8s1-1.15 k8s2-1.15 --provision'
+                            sh 'cd ${TESTDIR}; vagrant destroy k8s1-1.15 k8s2-1.15 --force'
+                            sh 'cd ${TESTDIR}; vagrant up k8s1-1.15 k8s2-1.15 --provision'
                         }
                     }
                     post {
@@ -203,7 +211,7 @@ pipeline {
                         NETNEXT="true"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false'
+                        sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --timeout=${GINKGO_TIMEOUT} --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig'
                     }
                     post {
                         always {
