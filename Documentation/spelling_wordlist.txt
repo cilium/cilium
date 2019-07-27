@@ -194,8 +194,10 @@ Gartrell
 gcc
 GCE
 gcloud
+geneve
 Geneve
 gettingstarted
+getpeername
 github
 Github
 githubusercontent
