@@ -73,8 +73,11 @@ device which has a default route on the host. To change a device, set its name
 in the ``device`` option.
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service
-can be accessed from a host or a Pod within a cluster via
-``127.0.0.1:$NODE_PORT``.
+can be accessed from a host or a Pod within a cluster via it's public,
+cilium_host device or loopback address, e.g. ``127.0.0.1:$NODE_PORT``.
+
+Cilium's BPF-based NodePort implementation is supported in direct routing as
+well as in tunneling mode.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``node-port-range``
