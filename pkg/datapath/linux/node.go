@@ -880,6 +880,7 @@ func (n *linuxNodeHandler) createNodeIPSecOutRoute(ip *net.IPNet) route.Route {
 func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt bool) route.Route {
 	var tbl int
 	var dev string
+	var local net.IP
 
 	if dflt {
 		dev = n.datapathConfig.HostDevice
@@ -888,9 +889,18 @@ func (n *linuxNodeHandler) createNodeExternalIPSecOutRoute(ip *net.IPNet, dflt b
 		dev = n.datapathConfig.HostDevice
 	}
 
+	link, err := netlink.LinkByName(option.Config.EncryptInterface)
+	if err == nil {
+		addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
+		if err == nil {
+			local = addr[0].IPNet.IP
+		}
+	}
+
 	return route.Route{
 		Device: dev,
 		Prefix: *ip,
+		Local:  local,
 		Table:  tbl,
 		Proto:  route.EncryptRouteProtocol,
 	}
