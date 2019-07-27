@@ -278,18 +278,18 @@ func (m *Manager) backgroundSync() {
 func (m *Manager) NodeUpdated(n node.Node) {
 	log.Debugf("Received node update event from %s: %#v", n.Source, n)
 	nodeIdentity := n.Identity()
+	var nodeIP, nodeIP4 net.IP
 	dpUpdate := true
 
 	for _, address := range n.IPAddresses {
-		var nodeIP net.IP
-
 		// Map the Cilium internal IP to the reachable node IP so it
 		// can be routed via the overlay
 		if address.Type == addressing.NodeCiliumInternalIP {
 			nodeIP = n.GetNodeIP(address.IP.To4() == nil)
-		} else if !option.Config.EncryptNode {
-			// When node encryption is disabled, only the internal
-			// IP of the cilium device has to be added.
+			if address.IP.To4() != nil {
+				nodeIP4 = nodeIP
+			}
+		} else {
 			continue
 		}
 
@@ -304,6 +304,21 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		// that source of truth is updated.
 		if !isOwning {
 			dpUpdate = false
+		}
+	}
+	if option.Config.EncryptNode {
+		for _, address := range n.IPAddresses {
+			if address.Type == addressing.NodeCiliumInternalIP {
+				continue
+			}
+
+			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, ipcache.Identity{
+				ID:     identity.ReservedIdentityHost,
+				Source: n.Source,
+			})
+			if !isOwning {
+				dpUpdate = false
+			}
 		}
 	}
 
