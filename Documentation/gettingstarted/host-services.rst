@@ -107,5 +107,13 @@ has come up correctly:
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 
-For further information on Cilium's host reachable services setting,
-see :ref:`arch_guide`.
+Limitations
+###########
+
+    * The kernel BPF cgroup hooks operate at connect(2), sendmsg(2) and
+      recvmsg(2) system call layers for connecting the application to one
+      of the service backends. Currently getpeername(2) does not yet have
+      a BPF hook for rewriting sock addresses before copying them into
+      user space in which case the application will see the backend address
+      instead of the service address. This limitation will be resolved in
+      future kernels.
