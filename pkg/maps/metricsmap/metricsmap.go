@@ -223,20 +223,29 @@ func updatePrometheusMetrics(key *Key, val *Value) {
 func SyncMetricsMap(ctx context.Context) error {
 	entry := make([]Value, possibleCpus)
 	file := bpf.MapPath(MapName)
-	metricsmap, err := bpf.OpenMap(file)
 
-	if err != nil {
-		return fmt.Errorf("unable to open metrics map: %s", err)
+	var err error
+	metricsMap := bpf.GetMap(file)
+	if metricsMap == nil {
+		// Open the map and leave it open, since SyncMetricsMap is called
+		// periodically and it makes sense to use an already opened map rather
+		// than opening the map again and again.
+		// This also prevents the constant registration and unregistration of the
+		// Map.
+		metricsMap, err = bpf.OpenMap(file)
+
+		if err != nil {
+			return fmt.Errorf("Unable to open metrics map: %s", err)
+		}
 	}
-	defer metricsmap.Close()
 
 	var key, nextKey Key
 	for {
-		err := bpf.GetNextKey(metricsmap.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
+		err := bpf.GetNextKey(metricsMap.GetFd(), unsafe.Pointer(&key), unsafe.Pointer(&nextKey))
 		if err != nil {
 			break
 		}
-		err = bpf.LookupElement(metricsmap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry[0]))
+		err = bpf.LookupElement(metricsMap.GetFd(), unsafe.Pointer(&nextKey), unsafe.Pointer(&entry[0]))
 		if err != nil {
 			return fmt.Errorf("unable to lookup metrics map: %s", err)
 		}
