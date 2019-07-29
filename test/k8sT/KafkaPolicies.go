@@ -146,7 +146,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			Expect(err).To(BeNil(), "Timeout: Kafka cluster failed to come up correctly")
 		})
 
-		It("KafkaPolicies", func() {
+		FIt("KafkaPolicies", func() {
 			By("Creating new kafka topic %s", topicEmpireAnnounce)
 			err := createTopic(topicEmpireAnnounce, appPods[kafkaApp])
 			Expect(err).Should(BeNil(), "Failed to create topic empire-announce")

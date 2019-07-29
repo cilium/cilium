@@ -84,11 +84,11 @@ pipeline {
                     parallel(
                         "K8s-1.11":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.11 vagrant provision k8s1-1.11; K8S_VERSION=1.11 vagrant provision k8s2-1.11'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo  --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.11 ginkgo  --focus=" K8sKafkaPolicyTest" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                         },
                         "K8s-1.15":{
                             sh 'cd ${TESTDIR}; K8S_VERSION=1.15 vagrant provision k8s1-1.15; K8S_VERSION=1.15 vagrant provision k8s2-1.15'
-                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                            sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8sKafkaPolicyTest" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                         },
                         failFast: "${FAILFAST}".toBoolean()
                     )
