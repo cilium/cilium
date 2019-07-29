@@ -5,13 +5,18 @@ import (
 	"sync"
 )
 
-// ReadSeekCloser wraps a io.Reader returning a ReaderSeekerCloser. Should
-// only be used with an io.Reader that is also an io.Seeker. Doing so may
-// cause request signature errors, or request body's not sent for GET, HEAD
-// and DELETE HTTP methods.
+// ReadSeekCloser wraps a io.Reader returning a ReaderSeekerCloser. Allows the
+// SDK to accept an io.Reader that is not also an io.Seeker for unsigned
+// streaming payload API operations.
 //
-// Deprecated: Should only be used with io.ReadSeeker. If using for
-// S3 PutObject to stream content use s3manager.Uploader instead.
+// A readSeekCloser wrapping an nonseekable io.Reader used in an API operation's
+// input will prevent that operation being retried in the case of
+// network errors, and cause operation requests to fail if yhe operation
+// requires payload signing.
+//
+// Note: If using with S3 PutObject to stream an object upload. The SDK's S3
+// Upload Manager(s3manager.Uploader) provides support for streaming
+// with the ability to retry network errors.
 func ReadSeekCloser(r io.Reader) ReaderSeekerCloser {
 	return ReaderSeekerCloser{r}
 }
@@ -22,10 +27,92 @@ type ReaderSeekerCloser struct {
 	r io.Reader
 }
 
+// IsReaderSeekable returns if the underlying reader type can be seeked. A
+// io.Reader might not actually be seekable if it is the ReaderSeekerCloser
+// type.
+func IsReaderSeekable(r io.Reader) bool {
+	switch v := r.(type) {
+	case ReaderSeekerCloser:
+		return v.IsSeeker()
+	case *ReaderSeekerCloser:
+		return v.IsSeeker()
+	case io.ReadSeeker:
+		return true
+	default:
+		return false
+	}
+}
+
+// SeekerLen attempts to get the number of bytes remaining at the seeker's
+// current position.  Returns the number of bytes remaining or error.
+func SeekerLen(s io.Seeker) (int64, error) {
+	// Determine if the seeker is actually seekable. ReaderSeekerCloser
+	// hides the fact that a io.Readers might not actually be seekable.
+	switch v := s.(type) {
+	case ReaderSeekerCloser:
+		return v.GetLen()
+	case *ReaderSeekerCloser:
+		return v.GetLen()
+	}
+
+	return seekerLen(s)
+}
+
+// GetLen returns the length of the bytes remaining in the underlying reader.
+// Checks first for Len(), then io.Seeker to determine the size of the
+// underlying reader.
+//
+// Will return -1 if the length cannot be determined.
+func (r ReaderSeekerCloser) GetLen() (int64, error) {
+	if l, ok := r.HasLen(); ok {
+		return int64(l), nil
+	}
+
+	if s, ok := r.r.(io.Seeker); ok {
+		return seekerLen(s)
+	}
+
+	return -1, nil
+}
+
+func seekerLen(s io.Seeker) (int64, error) {
+	curOffset, err := s.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+
+	endOffset, err := s.Seek(0, io.SeekEnd)
+	if err != nil {
+		return 0, err
+	}
+
+	_, err = s.Seek(curOffset, io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
+
+	return endOffset - curOffset, nil
+}
+
+// HasLen returns the length of the underlying reader if the value implements
+// the Len() int method.
+func (r ReaderSeekerCloser) HasLen() (int, bool) {
+	type lenner interface {
+		Len() int
+	}
+
+	if lr, ok := r.r.(lenner); ok {
+		return lr.Len(), true
+	}
+
+	return 0, false
+}
+
 // Read reads from the reader up to size of p. The number of bytes read, and
 // error if it occurred will be returned.
 //
-// If the reader is not an io.Reader zero bytes read, and nil error will be returned.
+// If the reader is not an io.Reader zero bytes read, and nil error will be
+// returned.
 //
 // Performs the same functionality as io.Reader Read
 func (r ReaderSeekerCloser) Read(p []byte) (int, error) {

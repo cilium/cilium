@@ -40,9 +40,19 @@ var BuildContentLengthHandler = aws.NamedHandler{Name: "core.BuildContentLengthH
 		case lener:
 			length = int64(body.Len())
 		case io.Seeker:
-			r.BodyStart, _ = body.Seek(0, 1)
-			end, _ := body.Seek(0, 2)
-			body.Seek(r.BodyStart, 0) // make sure to seek back to original location
+			var err error
+			r.BodyStart, err = body.Seek(0, io.SeekCurrent)
+			if err != nil {
+				r.Error = awserr.New(aws.ErrCodeSerialization, "failed to determine start of the request body", err)
+			}
+			end, err := body.Seek(0, io.SeekEnd)
+			if err != nil {
+				r.Error = awserr.New(aws.ErrCodeSerialization, "failed to determine end of the request body", err)
+			}
+			_, err = body.Seek(r.BodyStart, io.SeekStart) // make sure to seek back to original location
+			if err != nil {
+				r.Error = awserr.New(aws.ErrCodeSerialization, "failed to seek back to the original location", err)
+			}
 			length = end - r.BodyStart
 		default:
 			panic("Cannot get length of body, must provide `ContentLength`")
@@ -91,12 +101,10 @@ var ValidateReqSigHandler = aws.NamedHandler{
 var SendHandler = aws.NamedHandler{
 	Name: "core.SendHandler",
 	Fn: func(r *aws.Request) {
-		sender := sendFollowRedirects
-		if r.DisableFollowRedirects {
-			sender = sendWithoutFollowRedirects
-		}
 
-		if aws.NoBody == r.HTTPRequest.Body {
+		// TODO remove this complexity the SDK's built http.Request should
+		// set Request.Body to nil, if there is no body to send. #318
+		if http.NoBody == r.HTTPRequest.Body {
 			// Strip off the request body if the NoBody reader was used as a
 			// place holder for a request body. This prevents the SDK from
 			// making requests with a request body when it would be invalid
@@ -113,24 +121,11 @@ var SendHandler = aws.NamedHandler{
 		}
 
 		var err error
-		r.HTTPResponse, err = sender(r)
+		r.HTTPResponse, err = r.Config.HTTPClient.Do(r.HTTPRequest)
 		if err != nil {
 			handleSendError(r, err)
 		}
 	},
-}
-
-func sendFollowRedirects(r *aws.Request) (*http.Response, error) {
-	return r.Config.HTTPClient.Do(r.HTTPRequest)
-}
-
-func sendWithoutFollowRedirects(r *aws.Request) (*http.Response, error) {
-	transport := r.Config.HTTPClient.Transport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-
-	return transport.RoundTrip(r.HTTPRequest)
 }
 
 func handleSendError(r *aws.Request, err error) {
@@ -163,9 +158,10 @@ func handleSendError(r *aws.Request, err error) {
 			Body:       ioutil.NopCloser(bytes.NewReader([]byte{})),
 		}
 	}
-	// Catch all other request errors.
+
+	// Catch all request errors, and let the retryer determine
+	// if the error is retryable.
 	r.Error = awserr.New("RequestError", "send request failed", err)
-	r.Retryable = aws.Bool(true) // network errors are retryable
 
 	// Override the error with a context canceled error, if that was canceled.
 	ctx := r.Context()
@@ -188,34 +184,33 @@ var ValidateResponseHandler = aws.NamedHandler{Name: "core.ValidateResponseHandl
 
 // AfterRetryHandler performs final checks to determine if the request should
 // be retried and how long to delay.
-var AfterRetryHandler = aws.NamedHandler{Name: "core.AfterRetryHandler", Fn: func(r *aws.Request) {
-	// If one of the other handlers already set the retry state
-	// we don't want to override it based on the service's state
-	if r.Retryable == nil || r.Config.EnforceShouldRetryCheck {
-		r.Retryable = aws.Bool(r.ShouldRetry(r))
-	}
+var AfterRetryHandler = aws.NamedHandler{
+	Name: "core.AfterRetryHandler",
+	Fn: func(r *aws.Request) {
+		// set retry state based on the service's state
+		r.Retryable = aws.Bool(r.Retryer.ShouldRetry(r))
 
-	if r.WillRetry() {
-		r.RetryDelay = r.RetryRules(r)
+		if r.WillRetry() {
+			r.RetryDelay = r.Retryer.RetryRules(r)
 
-		if err := sdk.SleepWithContext(r.Context(), r.RetryDelay); err != nil {
-			r.Error = awserr.New(aws.ErrCodeRequestCanceled,
-				"request context canceled", err)
-			r.Retryable = aws.Bool(false)
-			return
+			if err := sdk.SleepWithContext(r.Context(), r.RetryDelay); err != nil {
+				r.Error = awserr.New(aws.ErrCodeRequestCanceled,
+					"request context canceled", err)
+				r.Retryable = aws.Bool(false)
+				return
+			}
+
+			// when the expired token exception occurs the credentials
+			// need to be expired locally so that the next request to
+			// get credentials will trigger a credentials refresh.
+			if p, ok := r.Config.Credentials.(sdk.Invalidator); ok && r.IsErrorExpired() {
+				p.Invalidate()
+			}
+
+			r.RetryCount++
+			r.Error = nil
 		}
-
-		// when the expired token exception occurs the credentials
-		// need to be expired locally so that the next request to
-		// get credentials will trigger a credentials refresh.
-		if p, ok := r.Config.Credentials.(sdk.Invalidator); ok && r.IsErrorExpired() {
-			p.Invalidate()
-		}
-
-		r.RetryCount++
-		r.Error = nil
-	}
-}}
+	}}
 
 // ValidateEndpointHandler is a request handler to validate a request had the
 // appropriate Region and Endpoint set. Will set r.Error if the endpoint or

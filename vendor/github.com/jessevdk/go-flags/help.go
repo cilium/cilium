@@ -72,9 +72,6 @@ func (p *Parser) getAlignmentInfo() alignmentInfo {
 	var prevcmd *Command
 
 	p.eachActiveGroup(func(c *Command, grp *Group) {
-		if !grp.showInHelp() {
-			return
-		}
 		if c != prevcmd {
 			for _, arg := range c.args {
 				ret.updateLen(arg.Name, c != p.Command)
@@ -82,7 +79,7 @@ func (p *Parser) getAlignmentInfo() alignmentInfo {
 		}
 
 		for _, info := range grp.options {
-			if !info.showInHelp() {
+			if !info.canCli() {
 				continue
 			}
 
@@ -228,12 +225,12 @@ func (p *Parser) writeHelpOption(writer *bufio.Writer, option *Option, info alig
 		}
 
 		var envDef string
-		if option.EnvKeyWithNamespace() != "" {
+		if option.EnvDefaultKey != "" {
 			var envPrintable string
 			if runtime.GOOS == "windows" {
-				envPrintable = "%" + option.EnvKeyWithNamespace() + "%"
+				envPrintable = "%" + option.EnvDefaultKey + "%"
 			} else {
-				envPrintable = "$" + option.EnvKeyWithNamespace()
+				envPrintable = "$" + option.EnvDefaultKey
 			}
 			envDef = fmt.Sprintf(" [%s]", envPrintable)
 		}
@@ -308,7 +305,7 @@ func (p *Parser) WriteHelp(writer io.Writer) {
 				}
 			} else if us, ok := allcmd.data.(Usage); ok {
 				usage = us.Usage()
-			} else if allcmd.hasHelpOptions() {
+			} else if allcmd.hasCliOptions() {
 				usage = fmt.Sprintf("[%s-OPTIONS]", allcmd.Name)
 			}
 
@@ -396,7 +393,7 @@ func (p *Parser) WriteHelp(writer io.Writer) {
 			}
 
 			for _, info := range grp.options {
-				if !info.showInHelp() {
+				if !info.canCli() || info.Hidden {
 					continue
 				}
 
@@ -491,24 +488,4 @@ func (p *Parser) WriteHelp(writer io.Writer) {
 	}
 
 	wr.Flush()
-}
-
-// WroteHelp is a helper to test the error from ParseArgs() to
-// determine if the help message was written. It is safe to
-// call without first checking that error is nil.
-func WroteHelp(err error) bool {
-	if err == nil { // No error
-		return false
-	}
-
-	flagError, ok := err.(*Error)
-	if !ok { // Not a go-flag error
-		return false
-	}
-
-	if flagError.Type != ErrHelp { // Did not print the help message
-		return false
-	}
-
-	return true
 }

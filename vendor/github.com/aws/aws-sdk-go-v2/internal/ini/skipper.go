@@ -22,21 +22,21 @@ func newSkipper() skipper {
 }
 
 func (s *skipper) ShouldSkip(tok Token) bool {
+	// should skip state will be modified only if previous token was new line (NL);
+	// and the current token is not WhiteSpace (WS).
 	if s.shouldSkip &&
 		s.prevTok.Type() == TokenNL &&
 		tok.Type() != TokenWS {
-
 		s.Continue()
 		return false
 	}
-	s.prevTok = tok
 
+	s.prevTok = tok
 	return s.shouldSkip
 }
 
 func (s *skipper) Skip() {
 	s.shouldSkip = true
-	s.prevTok = emptyToken
 }
 
 func (s *skipper) Continue() {

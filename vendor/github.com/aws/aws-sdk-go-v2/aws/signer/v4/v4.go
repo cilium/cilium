@@ -96,25 +96,25 @@ var ignoredHeaders = rules{
 var requiredSignedHeaders = rules{
 	whitelist{
 		mapRule{
-			"Cache-Control":                                               struct{}{},
-			"Content-Disposition":                                         struct{}{},
-			"Content-Encoding":                                            struct{}{},
-			"Content-Language":                                            struct{}{},
-			"Content-Md5":                                                 struct{}{},
-			"Content-Type":                                                struct{}{},
-			"Expires":                                                     struct{}{},
-			"If-Match":                                                    struct{}{},
-			"If-Modified-Since":                                           struct{}{},
-			"If-None-Match":                                               struct{}{},
-			"If-Unmodified-Since":                                         struct{}{},
-			"Range":                                                       struct{}{},
-			"X-Amz-Acl":                                                   struct{}{},
-			"X-Amz-Copy-Source":                                           struct{}{},
-			"X-Amz-Copy-Source-If-Match":                                  struct{}{},
-			"X-Amz-Copy-Source-If-Modified-Since":                         struct{}{},
-			"X-Amz-Copy-Source-If-None-Match":                             struct{}{},
-			"X-Amz-Copy-Source-If-Unmodified-Since":                       struct{}{},
-			"X-Amz-Copy-Source-Range":                                     struct{}{},
+			"Cache-Control":                         struct{}{},
+			"Content-Disposition":                   struct{}{},
+			"Content-Encoding":                      struct{}{},
+			"Content-Language":                      struct{}{},
+			"Content-Md5":                           struct{}{},
+			"Content-Type":                          struct{}{},
+			"Expires":                               struct{}{},
+			"If-Match":                              struct{}{},
+			"If-Modified-Since":                     struct{}{},
+			"If-None-Match":                         struct{}{},
+			"If-Unmodified-Since":                   struct{}{},
+			"Range":                                 struct{}{},
+			"X-Amz-Acl":                             struct{}{},
+			"X-Amz-Copy-Source":                     struct{}{},
+			"X-Amz-Copy-Source-If-Match":            struct{}{},
+			"X-Amz-Copy-Source-If-Modified-Since":   struct{}{},
+			"X-Amz-Copy-Source-If-None-Match":       struct{}{},
+			"X-Amz-Copy-Source-If-Unmodified-Since": struct{}{},
+			"X-Amz-Copy-Source-Range":               struct{}{},
 			"X-Amz-Copy-Source-Server-Side-Encryption-Customer-Algorithm": struct{}{},
 			"X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key":       struct{}{},
 			"X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key-Md5":   struct{}{},
@@ -329,8 +329,11 @@ func (v4 Signer) signWithBody(r *http.Request, body io.ReadSeeker, service, regi
 		return http.Header{}, err
 	}
 
+	aws.SanitizeHostForHeader(ctx.Request)
 	ctx.assignAmzQueryValues()
-	ctx.build(v4.DisableHeaderHoisting)
+	if err := ctx.build(v4.DisableHeaderHoisting); err != nil {
+		return nil, err
+	}
 
 	// If the request is not presigned the body should be attached to it. This
 	// prevents the confusion of wanting to send a signed request without
@@ -483,11 +486,13 @@ func (v4 *Signer) logSigningInfo(ctx *signingCtx) {
 	v4.Logger.Log(msg)
 }
 
-func (ctx *signingCtx) build(disableHeaderHoisting bool) {
+func (ctx *signingCtx) build(disableHeaderHoisting bool) error {
 	ctx.buildTime()             // no depends
 	ctx.buildCredentialString() // no depends
 
-	ctx.buildBodyDigest()
+	if err := ctx.buildBodyDigest(); err != nil {
+		return err
+	}
 
 	unsignedHeaders := ctx.Request.Header
 	if ctx.isPresign {
@@ -515,6 +520,7 @@ func (ctx *signingCtx) build(disableHeaderHoisting bool) {
 		}
 		ctx.Request.Header.Set("Authorization", strings.Join(parts, ", "))
 	}
+	return nil
 }
 
 func (ctx *signingCtx) buildTime() {
@@ -641,7 +647,7 @@ func (ctx *signingCtx) buildSignature() {
 	ctx.signature = hex.EncodeToString(signature)
 }
 
-func (ctx *signingCtx) buildBodyDigest() {
+func (ctx *signingCtx) buildBodyDigest() error {
 	hash := ctx.Request.Header.Get("X-Amz-Content-Sha256")
 	if hash == "" {
 		includeSHA256Header := ctx.unsignedPayload ||
@@ -656,7 +662,15 @@ func (ctx *signingCtx) buildBodyDigest() {
 		} else if ctx.Body == nil {
 			hash = emptyStringSHA256
 		} else {
-			hash = hex.EncodeToString(makeSha256Reader(ctx.Body))
+
+			if !aws.IsReaderSeekable(ctx.Body) {
+				return fmt.Errorf("cannot use unseekable request body %T, for signed request with body", ctx.Body)
+			}
+			hashBytes, err := makeSha256Reader(ctx.Body)
+			if err != nil {
+				return err
+			}
+			hash = hex.EncodeToString(hashBytes)
 		}
 
 		if includeSHA256Header {
@@ -664,6 +678,7 @@ func (ctx *signingCtx) buildBodyDigest() {
 		}
 	}
 	ctx.bodyDigest = hash
+	return nil
 }
 
 // isRequestSigned returns if the request is currently signed or presigned
@@ -701,13 +716,19 @@ func makeSha256(data []byte) []byte {
 	return hash.Sum(nil)
 }
 
-func makeSha256Reader(reader io.ReadSeeker) []byte {
+func makeSha256Reader(reader io.ReadSeeker) (hashBytes []byte, err error) {
 	hash := sha256.New()
-	start, _ := reader.Seek(0, 1)
-	defer reader.Seek(start, 0)
+	start, err := reader.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// ensure error is return if unable to seek back to start if payload
+		_, err = reader.Seek(start, io.SeekStart)
+	}()
 
 	io.Copy(hash, reader)
-	return hash.Sum(nil)
+	return hash.Sum(nil), nil
 }
 
 const doubleSpace = "  "

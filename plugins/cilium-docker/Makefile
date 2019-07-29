@@ -15,7 +15,7 @@ run:
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)$(GO) clean
+	$(QUIET)$(GO) clean $(GOCLEAN)
 	-$(QUIET) rm -f $(TARGET)
 
 install:

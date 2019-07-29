@@ -171,8 +171,6 @@ import (
 	{{ range $_, $partition := . }}
 		{{ template "partition region consts" $partition }}
 	{{ end }}
-
-	{{ template "service consts" . }}
 	
 	{{ template "endpoint resolvers" . }}
 {{- end }}
@@ -191,16 +189,6 @@ import (
 	const (
 		{{ range $id, $region := .Regions -}}
 			{{ ToSymbol $id }}RegionID = {{ QuoteString $id }} // {{ $region.Description }}.
-		{{ end -}}
-	)
-{{- end }}
-
-{{ define "service consts" }}
-	// Service identifiers
-	const (
-		{{ $serviceSet := ServicesSet . -}}
-		{{ range $id, $_ := $serviceSet -}}
-			{{ ToSymbol $id }}ServiceID = {{ QuoteString $id }} // {{ ToSymbol $id }}.
 		{{ end -}}
 	)
 {{- end }}

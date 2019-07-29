@@ -2457,6 +2457,16 @@ type SFlowPORTNAME struct {
 	Str string
 }
 
+func decodeString(data *[]byte) (len uint32, str string) {
+	*data, len = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	str = string((*data)[:len])
+	if (len % 4) != 0 {
+		len += 4 - len%4
+	}
+	*data = (*data)[len:]
+	return
+}
+
 func decodePortnameCounters(data *[]byte) (SFlowPORTNAME, error) {
 	pn := SFlowPORTNAME{}
 	var cdf SFlowCounterDataFormat
@@ -2464,8 +2474,7 @@ func decodePortnameCounters(data *[]byte) (SFlowPORTNAME, error) {
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	pn.EnterpriseID, pn.Format = cdf.decode()
 	*data, pn.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, pn.Len = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	*data, pn.Str = (*data)[8:], string(binary.BigEndian.Uint64((*data)[:8]))
+	pn.Len, pn.Str = decodeString(data)
 
 	return pn, nil
 }
