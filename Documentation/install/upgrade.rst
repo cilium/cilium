@@ -12,18 +12,18 @@ Upgrade Guide
 
 .. _upgrade_general:
 
-This upgrade guide is intended for Cilium 1.4 or later running on Kubernetes.
-It is assuming that Cilium has been deployed using standard procedures as
-described in the :ref:`k8s_concepts_deployment`. If you have installed Cilium
-using the guide :ref:`ds_deploy`, then this is automatically the case. If you 
-are looking for instructions for upgrading from a version of Cilium prior to 
-1.4, then please consult the documentation from that release.
+This upgrade guide is intended for Cilium running on Kubernetes. If you have
+questions, feel free to ping us on the `Slack channel`.
+
+.. warning::
+
+   Do not upgrade to 1.6.0 before reading the section
+   :ref:`1.6_required_changes`.
 
 .. _pre_flight:
 
-Running a pre-flight DaemonSet
-==============================
-
+Running a pre-flight DaemonSet (Optional)
+=========================================
 
 When rolling out an upgrade with Kubernetes, Kubernetes will first terminate the
 pod followed by pulling the new image version and then finally spin up the new
@@ -31,43 +31,16 @@ image. In order to reduce the downtime of the agent, the new image version can
 be pre-pulled. It also verifies that the new image version can be pulled and
 avoids ErrImagePull errors during the rollout.
 
-.. tabs::
-  .. group-tab:: K8s 1.10
+.. code:: bash
 
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-pre-flight.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-pre-flight.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-pre-flight.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-pre-flight.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-pre-flight.yaml
-
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-pre-flight.yaml
-
+    helm template cilium \
+      --namespace=kubesystem \
+      --set preflight.enabled=true \
+      --set agent.enabled=false \
+      --set config.enabled=false \
+      --set operator.enabled=false \
+      > cilium-preflight.yaml
+    kubectl create cilium-preflight.yaml
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
@@ -84,7 +57,7 @@ Once the number of READY pods are the same, you can delete cilium-pre-flight-che
 
 .. code-block:: shell-session
 
-      kubectl -n kube-system delete ds cilium-pre-flight-check
+      kubectl delete -f cilium-preflight.yaml
 
 .. _upgrade_micro:
 
@@ -115,6 +88,12 @@ Kubernetes will automatically restart all Cilium according to the
 Upgrading Minor Versions
 ========================
 
+.. warning::
+
+   Do not upgrade to 1.6.y before reading the section
+   :ref:`1.6_required_changes` and completing the required steps. Skipping to
+   apply the changes may lead to an non-functional upgrade.
+
 Step 1: Upgrade to latest micro version (Recommended)
 -----------------------------------------------------
 
@@ -123,98 +102,65 @@ to 1.y, it is recommended to first upgrade to the latest micro release
 as documented in (:ref:`upgrade_micro`). This ensures that downgrading by rolling back
 on a failed minor release upgrade is always possible and seamless.
 
-Step 2: Upgrade the ConfigMap (Optional)
-----------------------------------------
+Step 2: Option A: Generate YAML using Helm (Recommended)
+--------------------------------------------------------
 
-The configuration of Cilium is stored in a `ConfigMap` called
-``cilium-config``.  The format is compatible between minor releases so
-configuration parameters are automatically preserved across upgrades.  However,
+Since Cilium version 1.6, `Helm` is used to generate the YAML file for
+deployment. This allows to regenerate the entire YAML from scratch using the
+same option sets as used for the initial deployment while ensuring that all
+Kubernetes resources are updated accordingly to version you are upgrading to:
+
+.. include:: k8s-install-download-release.rst
+
+Generate the required YAML file and deploy it:
+
+.. code:: bash
+
+   helm template cilium \
+     --namespace kube-system \
+     > cilium.yaml
+   kubectl apply -f cilium.yaml
+
+.. note::
+
+   Make sure that you are using the same options as for the initial deployment.
+   Instead of using ``--set``, you can also modify the ``values.yaml` in
+   ``install/kubernetes/cilium/values.yaml`` and use it to regenerate the YAML
+   for the latest version.
+
+Step 2: Option B: Preserve ConfigMap
+------------------------------------
+
+Alternatively, you can use `Helm` to regenerate all Kubernetes resources except
+for the `ConfigMap`. The configuration of Cilium is stored in a `ConfigMap`
+called ``cilium-config``. The format is compatible between minor releases so
+configuration parameters are automatically preserved across upgrades. However,
 new minor releases may introduce new functionality that require opt-in via the
 `ConfigMap`. Refer to the :ref:`upgrade_version_specifics` for a list of new
 configuration options for each minor version.
 
-Refer to the section :ref:`upgrade_configmap` for instructions on how to
-upgrade a `ConfigMap` to the latest template while preserving your
-configuration parameters.
+.. include:: k8s-install-download-release.rst
 
-Step 3: Apply new RBAC and DaemonSet definitions
-------------------------------------------------
+Generate the required YAML file and deploy it:
 
-As minor versions typically introduce new functionality which require changes
-to the `DaemonSet` and `RBAC` definitions, the YAML definitions have to be
-upgraded. The following links refer to version specific DaemonSet files which
-automatically
+.. code:: bash
 
-Both files are dedicated to "\ |SCM_BRANCH|" for each Kubernetes version.
+   helm template cilium \
+     --namespace kube-system \
+     --set config.enabled=false \
+     > cilium.yaml
+   kubectl apply -f cilium.yaml
 
-.. tabs::
-  .. group-tab:: K8s 1.10
+.. note::
 
-    .. parsed-literal::
+   The above variant can not be used in combination with ``--set`` or providing
+   ``values.yaml`` because all options are fed into the DaemonSets and
+   Deployments using the `ConfigMap` which is not generated if
+   ``config.enabled=false`` is set. The above command *only* generates the
+   DaemonSet, Deployment and RBAC definitions.
 
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-operator-sa.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-operator.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-operator-sa.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-operator.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-operator-sa.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-operator.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-operator-sa.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-operator.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator-sa.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-operator.yaml
-
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-rbac.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-ds.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-operator-sa.yaml
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-operator.yaml
-
-
-Below we will show examples of how Cilium should be upgraded using Kubernetes
-rolling upgrade functionality in order to preserve any existing Cilium
-configuration changes (e.g., etc configuration) and minimize network
-disruptions for running workloads. These instructions upgrade Cilium to version
-"\ |SCM_BRANCH|" by updating the ``ConfigMap``, ``RBAC`` rules and
-``DaemonSet`` files separately. Rather than installing all configuration in one
-``cilium.yaml`` file, which could override any custom ``ConfigMap``
-configuration, installing these files separately allows upgrade to be staged
-and for user configuration to not be affected by the upgrade.
-
-Rolling Back
-============
+Step 3: Rolling Back
+====================
 
 Occasionally, it may be necessary to undo the rollout because a step was missed
 or something went wrong during upgrade. To undo the rollout, change the image
@@ -285,6 +231,39 @@ Annotations:
 1.6 Upgrade Notes
 -----------------
 
+.. _1.6_required_changes:
+
+IMPORTANT: Changes required before upgrading to 1.6.0
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. warning::
+
+   Do not upgrade to 1.6.0 before reading the following section and completing
+   the required steps.
+
+* The ``kvstore`` and ``kvstore-opt`` options have been moved from the
+  `DaemonSet` into the `ConfigMap`. For many users, the DaemonSet definition
+  was not considered to be under user control as the upgrade guide requests to
+  apply the latest definition. Doing so for 1.6.0 without adding these options
+  to the `ConfigMap` which is under user control would result in those settings
+  to refer back to its default values.
+
+  *Required action:*
+
+  Add the following two lines to the ``cilium-config`` `ConfigMap`:
+
+  .. code:: bash
+
+     kvstore: etcd
+     kvstore-opt: etcd.config=/var/lib/etcd-config/etcd.config
+
+  This will preserve the existing behavior of the DaemonSet. Adding the options
+  to the `ConfigMap` will not impact the ability to rollback. Cilium 1.5.y and
+  earlier are compatible with the options although their values will be ignored
+  as both options are defined in the `DaemonSet` definitions for these versions
+  which takes precedence over the `ConfigMap`.
+
+
 Upgrading from >=1.5.0 to 1.6.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -331,6 +310,11 @@ New ConfigMap Options
   * ``cni-chaining-mode`` has been added to automatically generate CNI chaining
     configurations with various other plugins. See the section
     :ref:`cni_chaining` for a list of supported CNI chaining plugins.
+
+  * ``identity-allocation-mode`` has been added to allow selecting the identity
+    allocation method. The default for new deployments is ``crd`` as per
+    default ConfigMap. Existing deployments will continue to use ``kvstore``
+    unless opted into new behavior via the ConfigMap.
 
 Deprecated options
 ~~~~~~~~~~~~~~~~~~
@@ -431,158 +415,6 @@ New Default Values
    ``conntrack-gc-interval``, and for ``bpf-ct-global-any-max`` and
    ``bpf-ct-global-tcp-max`` the amount of memory consumed.
 
-.. _1.5_new_options:
-
-New ConfigMap Options
-~~~~~~~~~~~~~~~~~~~~~
-
-  All options available in the cilium-agent can now be specified in the Cilium
-  ConfigMap without requiring to set an environment variable in the DaemonSet.
-
-  * ``enable-k8s-event-handover``: enables use of the kvstore to optimize
-    Kubernetes event handling by listening for k8s events in the operator and
-    mirroring it into the kvstore for reduced overhead in large clusters.
-
-  * ``enable-legacy-services``: enables legacy services (prior v1.5) to prevent
-    from terminating established connections to services when upgrading Cilium
-    from < v1.5 to v1.5. When the option is not disabled, legacy services are
-    enabled by default. Legacy services need to stay enabled until a user is
-    confident that they will not need to downgrade to < v1.5 anymore. Disabling
-    and then enabling legacy services is not possible without breaking the
-    established connections from `Pod` to `Service`.
-
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
-
-  * ``--conntrack-garbage-collector-interval`` has been deprecated. Please
-    use the option ``--conntrack-gc-interval`` which parses a duration as
-    string instead of a integer in seconds. Support for the deprecated option
-    will be removed in 1.6.
-
-  * ``legacy-host-allows-world`` option is now removed as planned.
-
-  * ``monitor-aggregation-level``: Superseded by ``monitor-aggregation``.
-
-  * ``ct-global-max-entries-tcp``: Superseded by ``bpf-ct-global-tcp-max``.
-
-  * ``ct-global-max-entries-other``: Superseded by ``bpf-ct-global-any-max``.
-
-  * ``prometheus-serve-addr`` from the ``cilium-metrics-config`` ConfigMap is
-    superseded by ``prometheus-serve-addr`` from the ``cilium-config`` ConfigMap.
-
-  * ``--auto-ipv6-node-routes`` was removed as planned. Use
-    ``--auto-direct-node-routes`` instead.
-
-.. _1.4_upgrade_notes:
-
-1.4 Upgrade Notes
------------------
-
-Upgrading from >=1.3.0 to 1.4.y
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#. Follow the standard procedures to perform the upgrade as described in :ref:`upgrade_minor`.
-
-.. note:: v1.3 of Cilium has reached end of life, and is no longer supported.
-          v1.4 is still supported, but will only contain critical security fixes
-          as of the release of v1.6.
-
-Changes that may require action
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
- * The ``--serve`` option was removed from cilium-bugtool in favor of a much
-   reduced binary size. If you want to continue using the option, please use an
-   older version of the cilium-bugtool binary.
-
- * The :ref:`DNS Polling` option used by ``toFQDNs.matchName`` rules is
-   disabled by default in 1.4.x due to :ref:`limitations in the implementation
-   <DNS Polling>`. It has been replaced by :ref:`DNS Proxy <DNS Proxy>` support, which must
-   be explicitly enabled via changes to the policy described below. To ease
-   upgrade, users may opt to enable the :ref:`DNS Polling` in v1.4.x by adding
-   the ``--tofqdns-enable-poller`` option to cilium-agent without changing
-   policies. For instructions on how to safely upgrade see
-   :ref:`dns_upgrade_poller`.
-
- * The DaemonSet now uses ``dnsPolicy: ClusterFirstWithHostNet`` in order for
-   Cilium to look up Kubernetes service names via DNS. This in turn requires
-   the cluster to run a cluster DNS such as kube-dns or CoreDNS. If you are not
-   running cluster DNS, remove the ``dnsPolicy`` field. This will mean that you
-   cannot use the etcd-operator.
-   More details can be found in the :ref:`k8s_req_kubedns` section.
-
-.. _1.4_new_options:
-
-New ConfigMap Options
-~~~~~~~~~~~~~~~~~~~~~
-
-  * ``enable-ipv4``: If ``true``, all endpoints are allocated an IPv4 address.
-
-  * ``enable-ipv6``: If ``true``, all endpoints are allocated an IPv6 address.
-
-  * ``preallocate-bpf-maps``: If ``true``, reduce per-packet latency at the expense
-    of up-front memory allocation for entries in BPF maps. If this value is
-    modified, then during the next Cilium startup the restore of existing
-    endpoints and tracking of ongoing connections may be disrupted. This may
-    lead to policy drops or a change in loadbalancing decisions for a
-    connection for some time. Endpoints may need to be recreated to restore
-    connectivity. If this option is set to ``false`` during an upgrade to 1.4.0
-    or later, then it may cause one-time disruptions during the upgrade.
-
-  * ``auto-direct-node-routes``: If ``true``, then enable automatic L2 routing
-    between nodes. This is useful when running in direct routing mode and can
-    be used as an alternative to running a routing daemon. Routes to other
-    Cilium managed nodes will then be installed on automatically.
-
-  * ``install-iptables-rules``: If set to ``false`` then Cilium will not
-    install any iptables rules which are mainly for interaction with
-    kube-proxy. By default it is set to ``true``.
-
-  * ``masquerade``: The agent can optionally be set up for masquerading all
-    network traffic leaving the main networking device if ``masquerade`` is
-    set to ``true``. By default it is set to ``false``.
-
-  * ``datapath-mode``: Cilium can operate in two different datapath modes,
-    that is, either based upon ``veth`` devices (default) or ``ipvlan``
-    devices (beta). The latter requires an additional setting to specify
-    the ipvlan master device.
-
-  * New ipvlan-specific CNI integration mode options (beta):
-
-    * ``ipvlan-master-device``: When running Cilium in ipvlan datapath mode,
-      an ipvlan master device must be specified. This is typically pointing
-      to a networking device that is facing the external network. Be aware
-      that this will be used by all nodes, so it is required that the device
-      name is consistent on all nodes where this is going to be deployed.
-
-  * New flannel-specific CNI integration mode options (beta):
-
-    * ``flannel-master-device``: When running Cilium with policy enforcement
-      enabled on top of Flannel, the BPF programs will be installed on the
-      network interface specified in this option and on each network interface
-      belonging to a pod.
-
-    * ``flannel-uninstall-on-exit``: If ``flannel-master-device`` is specified,
-      this determines whether Cilium should remove BPF programs from the master
-      device and interfaces belonging to pods when the Cilium `DaemonSet` is
-      deleted. If true, Cilium will remove programs from the pods.
-
-    * ``flannel-manage-existing-containers``: On startup, install a BPF
-      programs to allow for policy enforcement on pods that are currently
-      managed by Flannel. This also requires the Cilium `DaemonSet` to be
-      running with ``hostPID: true``, which is not enabled by default.
-
-Deprecated ConfigMap Options
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* ``disable-ipv4``: Superseded by ``enable-ipv4``, with the logic reversed.
-
-* ``legacy-host-allows-world``: This option allowed users to specify Cilium
-  1.0-style policies that treated traffic that is masqueraded from the outside
-  world as though it arrived from the local host. As of Cilium 1.4, the option
-  is disabled by default if not specified in the ConfigMap, and the option is
-  scheduled to be removed in Cilium 1.5 or later.
-
-
 Advanced
 ========
 
@@ -611,10 +443,10 @@ available during the upgrade:
 
 .. _upgrade_configmap:
 
-Upgrading a ConfigMap
----------------------
+Rebasing a ConfigMap
+--------------------
 
-This section describes the procedure to upgrade an existing `ConfigMap` to the
+This section describes the procedure to rebase an existing `ConfigMap` to the
 template of another version.
 
 Export the current ConfigMap
@@ -654,49 +486,17 @@ In the `ConfigMap` above, we can verify that Cilium is using ``debug`` with
 ``true``, it has a etcd endpoint running with `TLS <https://coreos.com/etcd/docs/latest/op-guide/security.html>`_,
 and the etcd is set up to have `client to server authentication <https://coreos.com/etcd/docs/latest/op-guide/security.html#example-2-client-to-server-authentication-with-https-client-certificates>`_.
 
-Download the ConfigMap with the changes for |SCM_BRANCH|
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Generate the latest ConfigMap
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. tabs::
-  .. group-tab:: K8s 1.10
+.. code:: bash
 
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-cm.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-cm.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-cm.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-cm.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-cm.yaml
-
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      $ wget \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-cm.yaml
-
-Verify its contents:
-
-.. literalinclude:: ../../examples/kubernetes/1.15/cilium-cm.yaml
+    helm template cilium \
+      --namespace=kubesystem \
+      --set agent.enabled=false \
+      --set config.enabled=true \
+      --set operator.enabled=false \
+      > cilium-configmap.yaml
 
 Add new options
 ~~~~~~~~~~~~~~~

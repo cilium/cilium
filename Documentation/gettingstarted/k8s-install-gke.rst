@@ -57,78 +57,29 @@ Create a cluster-admin-binding
 
     kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user your@google.email
 
-Prepare the Cluster Nodes
-=========================
+Prepare & Deploy Cilium
+=======================
 
-By deploying the ``cilium-node-init`` DaemonSet, GKE worker nodes are
-automatically prepared to run Cilium as they are added to the cluster. The
-DaemonSet will:
+.. include:: k8s-install-download-release.rst
 
-* Mount the BPF filesystem
-* Enable kubelet to operate in CNI mode
-* Install the Cilium CNI configuration file
-
-.. parsed-literal::
-
-     kubectl create namespace cilium
-     kubectl -n cilium apply -f \ |SCM_WEB|\/examples/kubernetes/node-init/node-init.yaml
-
-Restart kube-dns
-================
-
-kube-dns is already running but is still managed by the original GKE network
-plugin. Restart kube-dns to ensure it is managed by Cilium.
+Generate the required YAML files and deploy them:
 
 .. code:: bash
 
-     kubectl -n kube-system delete pod -l k8s-app=kube-dns
+    helm template cilium \
+      --namespace cilium \
+      --set nodeinit.enabled=true \
+      --set nodeinit.reconfigureKubelet=true \
+      --set nodeinit.removeCbrBridge=true \
+      --set global.cni.binPath=/home/kubernetes/bin \
+      > cilium.yaml
+    kubectl create -f cilium.yaml
 
+The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
+to the cluster. The NodeInit DaemonSet will perform the following actions:
 
-Deploy Cilium + cilium-etcd-operator
-====================================
-
-The following all-in-one YAML will deploy all required components to bring up
-Cilium including an etcd cluster managed by the cilium-etcd-operator.
-
-.. tabs::
-
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-with-node-init.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-with-node-init.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-with-node-init.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-with-node-init.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-with-node-init.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-with-node-init.yaml
-
-
+* Reconfigure kubelet to run in CNI mode
+* Mount the BPF filesystem
 
 Restart remaining pods
 ======================
@@ -149,3 +100,5 @@ for ``kube-dns``
     pod "kube-state-metrics-7d9774bbd5-n6m5k" deleted
     pod "l7-default-backend-6f8697844f-d2rq2" deleted
     pod "metrics-server-v0.3.1-54699c9cc8-7l5w2" deleted
+
+.. include:: k8s-install-validate.rst

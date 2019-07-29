@@ -47,96 +47,47 @@ listed as 'cilium-ipsec-keys'.
 Enable Encryption in Cilium
 ===========================
 
-First step is to download the Cilium Kubernetes descriptor:
+.. include:: k8s-install-download-release.rst
 
-.. tabs::
-
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-ds.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-ds.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-ds.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-ds.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-ds.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-ds.yaml
-
-
-You can also use your existing definition DaemonSet running in your cluster:
+Generate the required YAML files and deploy them:
 
 .. code:: bash
 
-    kubectl -n kube-system get ds cilium -o yaml > cilium-ds.yaml
+    helm template cilium \
+      --namespace cilium \
+      --set global.encryption.enabled=true \
+      --set global.encryption.nodeEncryption=false \
+      > cilium.yaml
 
-To enable encryption in Cilium, we use a patch file to update the configuration
-with the required cilium-agent options and included IPsec keys.
-
-.. parsed-literal::
-  metadata:
-    namespace: kube-system
-  spec:
-    template:
-      spec:
-        containers:
-        - name: cilium-agent
-          args:
-          - "--debug=$(CILIUM_DEBUG)"
-          - "--kvstore=etcd"
-          - "--kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config"
-          - "--enable-ipsec"
-          - "--ipsec-key-file=/etc/ipsec/keys"
-          volumeMounts:
-            - name: cilium-ipsec-secrets
-              mountPath: /etc/ipsec
-        volumes:
-        - name: cilium-ipsec-secrets
-          secret:
-            secretName: cilium-ipsec-keys
+Encryption interface
+--------------------
 
 If direct routing is being used an additional argument can be used to identify the
 network facing interface. If no interface is specified the default route link is
 chosen by inspecting the routing tables. This will work in many cases but depending
-on routing rules users may need to specify the encryption interface as follows.
+on routing rules users may need to specify the encryption interface as follows:
 
-.. parsed-literal::
-  --encrypt-interface=ethX
+.. code:: bash
 
-The above shows the ``cilium-ipsec.yaml`` used with the following ``kubectl
-patch`` command:
+    --set global.encryption.interface=ethX
 
-.. parsed-literal::
-  kubectl patch --filename='cilium-ds.yaml' --patch "$(cat cilium-ipsec.yaml)" --local -o yaml > cilium-ipsec-ds.yaml
+Node to node encryption
+-----------------------
 
-Finally, apply the file,
+In order to enable node-to-node encryption, add:
 
-.. parsed-literal::
-  kubectl apply -f cilium-ipsec-ds.yaml
+.. code:: bash
+
+    [...]
+    --set global.encryption.enabled=true \
+    --set global.encryption.nodeEncryption=true
+
+Deploy Cilium
+-------------
+
+.. code:: bash
+
+    kubectl create -f cilium.yaml
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`arch_guide`.
@@ -267,5 +218,5 @@ Troubleshooting
 Disabling Encryption
 ====================
 
-To disable the encryption, edit the DaemonSet and remove the ``--enable-ipsec``
-argument.
+To disable the encryption, regenerate the YAML with the option
+``global.encryption.enabled=false``

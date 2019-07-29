@@ -29,79 +29,25 @@ Ensure that the `aws-vpc-cni-k8s <https://github.com/aws/amazon-vpc-cni-k8s>`__
 plugin is installed. If you have set up an EKS cluster, this is automatically
 done.
 
-Prepare Cilium to use AWS-CNI chaining
-======================================
+.. include:: k8s-install-download-release.rst
 
-Download the Cilium deployment yaml:
-
-.. tabs::
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.13/cilium.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-Edit ``cilium.yaml`` and add the following configuration to the ConfigMap:
+Generate the required YAML files and deploy them:
 
 .. code:: bash
 
-      cni-chaining-mode: aws-cni
-      masquerade: "false"
-      tunnel: disabled
+   helm template cilium \
+     --namespace kube-system \
+     --set global.cni.chainingMode=aws-cni \
+     --set global.masquerade=false \
+     --set global.tunnel=disabled \
+     --set global.bpf.waitForMount=true \
+     --set nodeinit.enabled=true \
+     > cilium.yaml
+   kubectl apply -f cilium.yaml
 
 This will enable chaining with the aws-cni plugin. It will also disable
 tunneling. Tunneling is not required as ENI IP addresses can be directly routed
 in your VPC. You can also disable masquerading for the same reason.
-
-Validate your Security Groups
-=============================
-
-Validate your AWS security groups rules and ensure that ENI IP addresses as
-allocated and used by the aws-cni plugin are allowed. See the documentation of
-the `aws-vpc-cni-k8s <https://github.com/aws/amazon-vpc-cni-k8s>`__ plugin for
-more details.
-
-Deploy Cilium
-=============
-
-.. code:: bash
-
-       kubectl apply -f cilium.yaml
-
-As Cilium is deployed as a DaemonSet, it will write a new CNI configuration
-``05-cilium.conflist`` which will take precedence over the standard
-``10-aws.conflist``. Any new pod scheduled, will use the chaining configuration
-which will not also invoke Cilium.
 
 Restart existing pods
 =====================
@@ -116,25 +62,4 @@ them.
 If you are unsure if a pod is managed by Cilium or not, run ``kubectl get cep``
 in the respective namespace and see if the pod is listed.
 
-Validate the Setup
-==================
-
-Start some pods, and then run ``kubectl get cep`` in the namespace of the pods.
-You should see an entry for each pod in ``ready`` state with an ENI IP
-addresses assigned to each pod:
-
-.. code:: bash
-
-        NAME                     ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   ENDPOINT STATE   IPV4             IPV6
-        echo-775d85cfd4-7qrd4    1561          31650         false                 false                ready            192.168.61.190
-        echo-775d85cfd4-9rvfd    424           31650         false                 false                ready            192.168.43.185
-        echo-775d85cfd4-d9nfq    2197          31650         false                 false                ready            192.168.84.131
-        echo-775d85cfd4-h8qrv    352           31650         false                 false                ready            192.168.78.253
-        echo-775d85cfd4-lkq5g    1308          31650         false                 false                ready            192.168.69.202
-        probe-67cdb8c986-hpn7b   2838          13243         false                 false                ready            192.168.90.115
-        probe-67cdb8c986-mrfgf   2879          13243         false                 false                ready            192.168.35.144
-        probe-67cdb8c986-sj4j7   2673          13243         false                 false                ready            192.168.57.56
-        probe-67cdb8c986-td8qb   553           13243         false                 false                ready            192.168.67.25
-        probe-67cdb8c986-wqqzj   789           13243         false                 false                ready            192.168.52.109
-
-
+.. include:: k8s-install-validate.rst

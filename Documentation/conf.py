@@ -75,17 +75,26 @@ versionwarning_body_selector = "div.document"
 branch = os.environ.get('READTHEDOCS_VERSION')
 if branch == None or branch == 'latest':
     branch = 'HEAD'
+    archive_name = 'master'
 elif branch == 'stable':
     branch = release
+    archive_name = release
+else:
+    archive_name = branch
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + release[0:3]
+archive_filename = archive_name +'.tar.gz'
+archive_link = 'https://github.com/cilium/cilium/archive/' + archive_filename
 
 # Store variables in the epilogue so they are globally available.
 rst_epilog = """
 .. |SCM_WEB| replace:: \{s}
 .. |SCM_BRANCH| replace:: \{b}
-""".format(s = scm_web, b = branch)
+.. |SCM_ARCHIVE_NAME| replace:: \{a}
+.. |SCM_ARCHIVE_FILENAME| replace:: \{f}
+.. |SCM_ARCHIVE_LINK| replace:: \{l}
+""".format(s = scm_web, b = branch, a = archive_name, f = archive_filename, l = archive_link)
 
 extlinks = {
     'git-tree': (scm_web + "/%s", ''),

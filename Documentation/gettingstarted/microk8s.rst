@@ -57,61 +57,21 @@ Install microk8s
 
         export KUBECONFIG=/snap/microk8s/current/client.config
 
-Install etcd
-============
-
-Install etcd as a ``StatefulSet`` into your new Kubernetes cluster.
-
-.. parsed-literal::
-
-   kubectl create -f \ |SCM_WEB|\/examples/kubernetes/addons/etcd/standalone-etcd.yaml -n kube-system
-
-
 Install Cilium
 ==============
 
-Install Cilium as a `DaemonSet <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_
-into your new Kubernetes cluster. The DaemonSet will automatically install
-itself as Kubernetes CNI plugin.
+.. include:: k8s-install-download-release.rst
 
-.. tabs::
+Generate the required YAML file and deploy it:
 
-   .. group-tab:: K8s 1.15
+.. code:: bash
 
-      .. parsed-literal::
-
-         kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-microk8s.yaml
-
-   .. group-tab:: K8s 1.14
-
-      .. parsed-literal::
-
-         kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-microk8s.yaml
-
-   .. group-tab:: K8s 1.13
-
-      .. parsed-literal::
-
-         kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-microk8s.yaml
-
-   .. group-tab:: K8s 1.12
-
-      .. parsed-literal::
-
-         kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-microk8s.yaml
-
-   .. group-tab:: K8s 1.11
-
-      .. parsed-literal::
-
-         kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-microk8s.yaml
-
-   .. group-tab:: K8s 1.10
-
-      .. parsed-literal::
-
-         kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-microk8s.yaml
-
+   helm template cilium \
+     --namespace kube-system \
+     --set global.cni.confPath=/var/snap/microk8s/current/args/cni-network \
+     --set global.cni.customConf=true \
+     > cilium.yaml
+   kubectl create -f cilium.yaml
 
 Next steps
 ==========

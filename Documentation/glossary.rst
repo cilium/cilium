@@ -75,3 +75,6 @@ with words you expected to see here.
 
    HeadlessServices
      https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+
+   Helm
+     https://helm.sh/
