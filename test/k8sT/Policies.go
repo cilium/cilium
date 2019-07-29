@@ -53,7 +53,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ProvisionInfraPods(kubectl)
+		DeployCiliumAndDNS(kubectl)
 	})
 
 	AfterEach(func() {

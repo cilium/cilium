@@ -104,33 +104,14 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }
 
-// ProvisionInfraPods deploys DNS, etcd-operator, and cilium into the kubernetes
-// cluster of which vm is a member.
-func ProvisionInfraPods(vm *helpers.Kubectl) {
-	ProvisionInfraPodsWithCilium(vm, helpers.CiliumDefaultDSPatch, true)
-}
-
-// ProvisionInfraPodsWithCilium deploys DNS, etcd-operator cilium into the
-// kubernetes cluster, optionally deploying cilium-operator, and defining the
-// Cilium DaemonSet using the specified patch YAML path.
-func ProvisionInfraPodsWithCilium(vm *helpers.Kubectl, daemonSetPatch string, deployOperator bool) {
+// DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
+func DeployCiliumAndDNS(vm *helpers.Kubectl) {
 	By("Installing DNS Deployment")
 	_ = vm.Apply(helpers.DNSDeployment())
 
-	By("Deploying etcd-operator")
-	err := vm.DeployETCDOperator()
-	Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
 	By("Installing Cilium")
-	err = vm.CiliumInstall(daemonSetPatch, helpers.CiliumConfigMapPatch)
+	err := vm.CiliumInstall([]string{})
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
-
-	operatorIsInstalled := false
-	if deployOperator {
-		By("Installing Cilium-Operator")
-		operatorIsInstalled, err = vm.CiliumOperatorInstall("head")
-		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
-	}
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
@@ -140,12 +121,9 @@ func ProvisionInfraPodsWithCilium(vm *helpers.Kubectl, daemonSetPatch string, de
 	default:
 	}
 
-	ExpectETCDOperatorReady(vm)
 	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
 	ExpectCiliumReady(vm)
-	if operatorIsInstalled {
-		ExpectCiliumOperatorReady(vm)
-	}
+	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
 }
 

@@ -1,0 +1,246 @@
+# Include the cilium-agent DaemonSet
+agent:
+  enabled: true
+
+# Include the cilium-config ConfigMap
+config:
+  enabled: true
+
+# Include the cilium-operator Deployment
+operator:
+  enabled: true
+
+# Include the PreFlight DaemonSet
+preflight:
+  enabled: false
+
+# Include the node-init DaemonSet
+nodeinit:
+  enabled: false
+
+# global groups all configuration options that have effect on all sub-charts
+global:
+  # registry is the address of the registry and orgnization for all container images
+  registry: docker.io/cilium
+
+  # tag is the container image tag to use
+  tag: latest
+
+  # pullPolicy is the container image pull policy
+  pullPolicy: Always
+
+  # etcd is the etcd configuration
+  etcd:
+    # enabled enables use of etcd
+    enabled: false
+
+    # managed turns on managed etcd mode based on the cilium-etcd-operator
+    managed: false
+
+    # endpoints is the list of etcd endpoints (not needed when using
+    # managed=true)
+    endpoints:
+      - https://CHANGE-ME:2379
+
+    # ssl enables use of TLS/SSL for connectivity to etcd. (auto-enabled if
+    # managed=true)
+    ssl: false
+
+  # identityAllocationMode is the method to use for identity allocation.
+  # Supported modes:
+  #  crd: Kubernetes CRD backing
+  #  kvstore: Key-value store backend (better scalability)
+  identityAllocationMode: crd
+
+  # ipv4 is the IPv4 addressing configuration
+  ipv4:
+    enabled: true
+
+  # ipv6 is the IPv6 addressing configuration
+  ipv6:
+    enabled: false
+
+  # debug enables debugging mode
+  debug: false
+
+  # prometheus enables
+  prometheus: false
+
+  # installIptablesRules enables installation of iptables rules to allow for
+  # TPROXY (L7 proxy injection), itpables based masquerading and compatibility
+  # with kube-proxy. See documentation for details on when this can be
+  # disabled.
+  installIptablesRules: true
+
+  # masquerade enables masquerading of traffic leaving the ndoe for
+  # destinations outside of the cluster.
+  masquerade: true
+
+  # autoDirectNodeRoutes enables installation of PodCIDR routes between worker
+  # nodes if worker nodes share a common L2 network segment.
+  autoDirectNodeRoutes: false
+
+  # endpointRoutes enables use of per endpoint routes instead of routing vis
+  # the cilium_host interface
+  endpointRoutes:
+    enabled: false
+
+  # cni is the CNI configuration
+  cni:
+    # chainingMode enables chaining on top of other CNI plugins. Possible
+    # values:
+    #  - none
+    #  - generic-verth
+    #  - aws-cni
+    #  - portmap
+    chainingMode: none
+
+    # customConf skips writing of the CNI configuration. This can be used if
+    # writing of the CNI configuration is performed by external automation.
+    customConf: false
+
+    # confPath is the path to the CNI configuration directory on the host
+    confPath: /etc/cni/net.d
+
+    # binPath si the path to the CNI binary directory on the host
+    binPath: /opt/cni/bin
+
+  # cluster is the clustermesh related configuration
+  cluster:
+    # name is the human readable name of the cluster when setting up
+    # clustermesh
+    name: default
+
+    # id is a 8 bits unique cluster identifier when setting up clustermesh
+    #id: "1"
+
+  # tunnel is the encapsulation configuration for communication between nodes
+  # Possible values:
+  #   - disabled
+  #   - vxlan (default)
+  #   - geneve
+  tunnel: "vxlan"
+
+  # containerRuntime enables container runtime specific integration. Supported
+  # values:
+  # - containerd
+  # - crio
+  # - docker
+  # - none
+  # - auto (automatically detect the container runtime)
+  containerRuntime: none
+
+  # bpf is the BPF datapath specific configuration
+  bpf:
+    # waitForMount instructs the cilium-agent DaemoNSet to wait in an
+    # initContainer until the BPF filesystem has been mounted.
+    waitForMount: false
+
+    # preallocateMaps enables pre allocation of BPF map values. This increases
+    # memory usage but can reduce latency.
+    preallocateMaps: false
+
+    # ctTcpMax is the maximum number of entries in the TCP connection tracking
+    # table
+    ctTcpMax: 524288
+
+    # ctAnyMax is the maximum number of entries for the non-TCP connection
+    # tracking table
+    ctAnyMax: 262144
+
+    # montiorAggregation is the level of aggregation for datapath trace events
+    monitorAggregation: medium
+
+  # encryption is the encryption specific configuration
+  encryption:
+    # enabled enables encryption
+    enabled: false
+
+    # keyFile is the name of the key file inside the Kubernetes secret
+    # configured via secretName
+    keyFile: keys
+
+    # mountPath is the path where to mount the secret inside the Cilium pod
+    mountPath: /etc/ipsec
+
+    # secretName is the name of the Kubernetes secret containing the encryption
+    # keys
+    secretName: cilium-ipsec-keys
+
+    # nodeEncryption enables encryption for pure node to node traffic
+    nodeEncryption: false
+
+    # interface is the interface to use for encryption
+    # interface: eth0
+
+  # hostServices is the configuration for host-facing load-balancing
+  hostServices:
+    # enabled enables host-facing load-balancing
+    enabled: false
+
+    # protocols is the list of protocols to support
+    protocols: tcp,udp
+
+  # nodePort is the nodeport configuration
+  nodePort:
+    # enabled enables NodePort functionality
+    enabled: false
+
+    # range is the port range to use for NodePort
+    # range: 
+
+  # flannel is the flannel specific configuration
+  flannel:
+    # enabled enables the flannel integration
+    enabled: false
+
+    # masterDevice is the name of the flannel bridge
+    masterDevice: cni0
+
+    # uninstallOnExt enables uninstallation of Cilium BPF programs on flannel
+    # managed pods when the Cilium pod is terminated
+    uninstallOnExit: false
+
+    # manageExistingContainers enables attachment of Cilium to existing flannel
+    # managed pods when Cilium starts
+    manageExistingContainers: false
+
+  # ipvlan is the IPVLAN configuration
+  ipvlan:
+    # enabled enables use of the IPVLAN datapath
+    enabled: false
+
+    # primaryDevice is the name of the device to use to attach secondary IPVLAN
+    # devices
+    # primaryDevice: eth0
+
+  # pprof is the GO pprof configuration
+  pprof:
+    # enabled enables go pprof debugging
+    enabled: false
+
+  # logSytemLoad enables logging of system load 
+  logSystemLoad: false
+
+  # sockops is the BPF socket operations configuration
+  sockops:
+    # enabled enables installation of socket level functionality.
+    enabled: false
+
+  # k8s is the Kubernetes specific configuration
+  k8s:
+    # requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR
+    # range via the Kubernetes node resource
+    requireIPv4PodCIDR: false
+
+  # cleanState instructs the cilium-agent DaemonSet to clean all state in the
+  # initContainer
+  #
+  # WARNING: Use with care!
+  cleanState: false
+
+  # cleanBpfState instructs the cilium-agent DaemonSet to clean all BPF
+  # datapath state in the initContainer
+  #
+  # WARNING: Use with care!
+  cleanBpfState: false

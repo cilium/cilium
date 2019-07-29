@@ -1,0 +1,318 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    k8s-app: cilium
+    kubernetes.io/cluster-service: "true"
+  name: cilium
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      annotations:
+{{- if .Values.global.prometheus }}
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+{{- end }}
+        # This annotation plus the CriticalAddonsOnly toleration makes
+        # cilium to be a critical pod in the cluster, which ensures cilium
+        # gets priority scheduling.
+        # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]'
+      labels:
+        k8s-app: cilium
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+      - args:
+        - --config-dir=/tmp/cilium/config-map
+        command:
+        - cilium-agent
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: CILIUM_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: CILIUM_FLANNEL_MASTER_DEVICE
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-master-device
+              name: cilium-config
+              optional: true
+        - name: CILIUM_FLANNEL_UNINSTALL_ON_EXIT
+          valueFrom:
+            configMapKeyRef:
+              key: flannel-uninstall-on-exit
+              name: cilium-config
+              optional: true
+        - name: CILIUM_CLUSTERMESH_CONFIG
+          value: /var/lib/cilium/clustermesh/
+        - name: CILIUM_CNI_CHAINING_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: cni-chaining-mode
+              name: cilium-config
+              optional: true
+        - name: CILIUM_CUSTOM_CNI_CONF
+          valueFrom:
+            configMapKeyRef:
+              key: custom-cni-conf
+              name: cilium-config
+              optional: true
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.pullPolicy }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /cni-install.sh
+          preStop:
+            exec:
+              command:
+              - /cni-uninstall.sh
+        livenessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          failureThreshold: 10
+          # The initial delay for the liveness probe is intentionally large to
+          # avoid an endless kill & restart cycle if in the event that the initial
+          # bootstrapping takes longer than expected.
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: cilium-agent
+{{- if .Values.global.prometheus }}
+        ports:
+        - containerPort: 9090
+          hostPort: 9090
+          name: prometheus
+          protocol: TCP
+{{- end }}
+        readinessProbe:
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_MODULE
+          privileged: true
+        volumeMounts:
+{{- /* CRI-O already mounts the BPF filesystem */ -}}
+{{- if not (eq .Values.global.containerRuntime "crio") }}
+        - mountPath: /sys/fs/bpf
+          name: bpf-maps
+{{- end }}
+        - mountPath: /var/run/cilium
+          name: cilium-run
+        - mountPath: /host/opt/cni/bin
+          name: cni-path
+        - mountPath: /host/etc/cni/net.d
+          name: etc-cni-netd
+{{- if or (eq .Values.global.containerRuntime "docker") (eq .Values.global.containerRuntime "auto") }}
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
+          readOnly: true
+{{- else if eq .Values.global.containerRuntime "crio" }}
+        - mountPath: /var/run/crio/crio.sock
+          name: crio-socket
+{{- else if eq .Values.global.containerRuntime "containerd" }}
+        - mountPath: /var/run/containerd/containerd.sock
+          name: containerd-socket
+{{- end }}
+{{- if .Values.global.etcd.enabled }}
+        - mountPath: /var/lib/etcd-config
+          name: etcd-config-path
+          readOnly: true
+{{- if or .Values.global.etcd.ssl .Values.global.etcd.managed }}
+        - mountPath: /var/lib/etcd-secrets
+          name: etcd-secrets
+          readOnly: true
+{{- end }}
+{{- end }}
+        - mountPath: /var/lib/cilium/clustermesh
+          name: clustermesh-secrets
+          readOnly: true
+        - mountPath: /tmp/cilium/config-map
+          name: cilium-config-path
+          readOnly: true
+          # Needed to be able to load kernel modules
+        - mountPath: /lib/modules
+          name: lib-modules
+          readOnly: true
+{{- if .Values.global.encryption.enabled }}
+        - mountPath: {{ .Values.global.encryption.mountPath }}
+          name: cilium-ipsec-secrets
+{{- end }}
+{{- if .Values.global.etcd.managed }}
+      # In managed etcd mode, Cilium must be able to resolve the DNS name of
+      # the etcd service
+      dnsPolicy: ClusterFirstWithHostNet
+{{- end }}
+      hostNetwork: true
+{{- if .Values.global.flannel.manageExistingContainers }}
+      # Enable host PID namespace to allow the flannel integration to attach to
+      # existing containers
+      hostPID: true
+{{- end }}
+      initContainers:
+      - command:
+        - /init-container.sh
+        env:
+        - name: CILIUM_ALL_STATE
+          valueFrom:
+            configMapKeyRef:
+              key: clean-cilium-state
+              name: cilium-config
+              optional: true
+        - name: CILIUM_BPF_STATE
+          valueFrom:
+            configMapKeyRef:
+              key: clean-cilium-bpf-state
+              name: cilium-config
+              optional: true
+        - name: CILIUM_WAIT_BPF_MOUNT
+          valueFrom:
+            configMapKeyRef:
+              key: wait-bpf-mount
+              name: cilium-config
+              optional: true
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.pullPolicy }}
+        name: clean-cilium-state
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+        volumeMounts:
+{{- /* CRI-O already mounts the BPF filesystem */ -}}
+{{- if not (eq .Values.global.containerRuntime "crio") }}
+        - mountPath: /sys/fs/bpf
+          name: bpf-maps
+{{- end }}
+        - mountPath: /var/run/cilium
+          name: cilium-run
+      restartPolicy: Always
+{{- if and (eq .Release.Namespace "kube-system") (or (gt .Capabilities.KubeVersion.Minor "10") (gt .Capabilities.KubeVersion.Major "1"))}}
+      priorityClassName: system-node-critical
+{{- end }}
+      serviceAccount: cilium
+      serviceAccountName: cilium
+      terminationGracePeriodSeconds: 1
+      tolerations:
+      - operator: Exists
+      volumes:
+        # To keep state between restarts / upgrades
+      - hostPath:
+          path: /var/run/cilium
+          type: DirectoryOrCreate
+        name: cilium-run
+{{- /* CRI-O already mounts the BPF filesystem */ -}}
+{{- if not (eq .Values.global.containerRuntime "crio") }}
+        # To keep state between restarts / upgrades for bpf maps
+      - hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+        name: bpf-maps
+{{- end }}
+{{- if or (eq .Values.global.containerRuntime "docker") (eq .Values.global.containerRuntime "auto") }}
+        # To read docker events from the node
+      - hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+        name: docker-socket
+{{- else if eq .Values.global.containerRuntime "crio" }}
+      - hostPath:
+          path: /var/run/crio/crio.sock
+          type: Socket
+        name: crio-socket
+{{- else if eq .Values.global.containerRuntime "containerd" }}
+      # To read labels from containerD containers running in the host
+      - hostPath:
+          path: /var/run/containerd/containerd.sock
+          type: Socket
+        name: containerd-socket
+{{- end }}
+        # To install cilium cni plugin in the host
+      - hostPath:
+          path:  {{ .Values.global.cni.binPath }}
+          type: DirectoryOrCreate
+        name: cni-path
+        # To install cilium cni configuration in the host
+      - hostPath:
+          path: {{ .Values.global.cni.confPath }}
+          type: DirectoryOrCreate
+        name: etc-cni-netd
+        # To be able to load kernel modules
+      - hostPath:
+          path: /lib/modules
+        name: lib-modules
+{{- if .Values.global.etcd.enabled }}
+        # To read the etcd config stored in config maps
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: etcd-config
+            path: etcd.config
+          name: cilium-config
+        name: etcd-config-path
+        # To read the k8s etcd secrets in case the user might want to use TLS
+{{- if or .Values.global.etcd.ssl .Values.global.etcd.managed }}
+      - name: etcd-secrets
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: cilium-etcd-secrets
+{{- end }}
+{{- end }}
+        # To read the clustermesh configuration
+      - name: clustermesh-secrets
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: cilium-clustermesh
+        # To read the configuration from the config map
+      - configMap:
+          name: cilium-config
+        name: cilium-config-path
+{{- if .Values.global.encryption.enabled }}
+      - name: cilium-ipsec-secrets
+        secret:
+          secretName: {{ .Values.global.encryption.secretName }}
+{{- end }}
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: {{ .Values.maxUnavailable }}
+    type: RollingUpdate

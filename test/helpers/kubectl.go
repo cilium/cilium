@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/asaskevich/govalidator"
-	go_version "github.com/hashicorp/go-version"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
@@ -967,83 +966,86 @@ func (kub *Kubectl) ciliumInstall(dsPatchName, cmPatchName string, getK8sDescrip
 	if err := kub.DeployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
 		return err
 	}
+
+	cmdRes := kub.Apply(getK8sDescriptor(ciliumEtcdOperatorSA))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
+	}
+
+	cmdRes = kub.Apply(getK8sDescriptor(ciliumEtcdOperatorRBAC))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
+	}
+
+	cmdRes = kub.Apply(getK8sDescriptor(ciliumEtcdOperator))
+	if !cmdRes.WasSuccessful() {
+		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
+	}
+
+	_ = kub.Apply(getK8sDescriptor("cilium-operator-sa.yaml"))
+	err := kub.DeployPatch(getK8sDescriptor("cilium-operator.yaml"), getK8sDescriptorPatch("cilium-operator-patch.yaml"))
+	if err != nil {
+		return fmt.Errorf("Unable to deploy descriptor of cilium-operators: %s", err)
+	}
+
 	return nil
 }
 
-// CiliumOperatorInstall installs Cilium operator if it is supported/required
-// by versionTag.
-func (kub *Kubectl) CiliumOperatorInstall(versionTag string) (installed bool, err error) {
-	var (
-		ciliumOperatorSampleFile   string
-		ciliumOperatorPatchFile    string
-		ciliumOperatorSaSampleFile string
-
-		ciliumOperatorYamlName   = "cilium-operator.yaml"
-		ciliumOperatorSAYamlName = "cilium-operator-sa.yaml"
-	)
-
-	getFileFromOlderVersion := func(filename string) string {
-		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s",
-			versionTag, GetCurrentK8SEnv(), filename)
-	}
-
-	cst, _ := go_version.NewVersion("0")
-
-	if versionTag != "head" {
-		cst, err = go_version.NewVersion(versionTag)
-		if err != nil {
-			return false, fmt.Errorf("Not a valid version: %s", err)
+func addIfNotOverwritten(options []string, field, value string) []string {
+	for _, s := range options {
+		if strings.HasPrefix(s, "--set "+field) {
+			return options
 		}
 	}
 
-	switch {
-	case CiliumV1_0.Check(cst):
-		return false, nil
-	case CiliumV1_1.Check(cst):
-		return false, nil
-	case CiliumV1_2.Check(cst):
-		return false, nil
-	case CiliumV1_3.Check(cst):
-		return false, nil
-	case CiliumV1_4.Check(cst):
-		ciliumOperatorSampleFile = getFileFromOlderVersion(ciliumOperatorYamlName)
-		ciliumOperatorPatchFile = ""
-		ciliumOperatorSaSampleFile = getFileFromOlderVersion(ciliumOperatorSAYamlName)
-	default:
-		ciliumOperatorSampleFile = GetK8sDescriptor(ciliumOperatorYamlName)
-		ciliumOperatorPatchFile = ManifestGet("cilium-operator-patch.yaml")
-		ciliumOperatorSaSampleFile = GetK8sDescriptor(ciliumOperatorSAYamlName)
-	}
-
-	_ = kub.Apply(ciliumOperatorSaSampleFile)
-	if ciliumOperatorPatchFile != "" {
-		return true, kub.DeployPatch(ciliumOperatorSampleFile, ciliumOperatorPatchFile)
-	}
-	return true, kub.Apply(ciliumOperatorSampleFile).GetErr("Cannot install cilium operator")
+	options = append(options, "--set "+field+"="+value)
+	return options
 }
 
-// CiliumInstall installs all Cilium descriptors into kubernetes.
-// dsPatchName corresponds to the DaemonSet patch that will be applied to the
-// original Cilium DaemonSet descriptor.
-// cmPatchName corresponds to the ConfigMap patch that will be applied to the
-// original Cilium ConfigMap descriptor.
-// Returns an error if any patch or if any original descriptors files were not
-// found.
-func (kub *Kubectl) CiliumInstall(dsPatchName, cmPatchName string) error {
-	return kub.ciliumInstall(dsPatchName, cmPatchName, GetK8sDescriptor, ManifestGet)
+// ciliumInstallHelm installs Cilium with the Helm options provided.  Returns an
+// error if any patch or if any original descriptors files were not found.
+func (kub *Kubectl) ciliumInstallHelm(options []string) error {
+	defaultOptions := map[string]string{
+		"global.registry":               "k8s1:5000/cilium",
+		"agent.image":                   "cilium-dev",
+		"agent.tag":                     "latest",
+		"operator.image":                "operator",
+		"operator.tag":                  "latest",
+		"managed-etcd.registry":         "docker.io/cilium",
+		"global.debug":                  "true",
+		"global.k8s.requireIPv4PodCIDR": "true",
+		"global.pprof.enabled":          "true",
+		"global.logSystemLoad":          "true",
+		"global.bpf.preallocateMaps":    "true",
+		"global.etcd.leaseTTL":          "30s",
+		"global.ipv4.enabled":           "true",
+		"global.ipv6.enabled":           "true",
+	}
+
+	for key, value := range defaultOptions {
+		options = addIfNotOverwritten(options, key, value)
+	}
+
+	// TODO GH-8753: Use helm rendering library instead of shelling out to
+	// helm template
+	res := kub.ExecMiddle(fmt.Sprintf("helm template %s --namespace=kube-system %s > cilium.yaml",
+		HelmTemplate, strings.Join(options, " ")))
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to generate YAML")
+	}
+
+	res = kub.Apply("cilium.yaml")
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to apply YAML")
+	}
+
+	return nil
 }
 
-// CiliumPreFlightInstall install Cilium pre-flight DaemonSet.
-func (kub *Kubectl) CiliumPreFlightInstall(patchName string) error {
-	dsPathname := GetK8sDescriptor(CiliumDefaultPreFlight)
-	if dsPathname == "" {
-		return fmt.Errorf("Cilium Pre-flight DaemonSet descriptor not found")
-	}
-	patchFilepath := ManifestGet(patchName)
-	if patchFilepath == "" {
-		return fmt.Errorf("Cilium pre-flight DaemonSet patch not found")
-	}
-	return kub.DeployPatch(dsPathname, patchFilepath)
+// CiliumInstall installs Cilium with the provided Helm options.  Returns an
+// error if any patch or if any original descriptors files were not found.
+func (kub *Kubectl) CiliumInstall(options []string) error {
+	return kub.ciliumInstallHelm(options)
 }
 
 // CiliumInstallVersion installs all Cilium descriptors into kubernetes for
