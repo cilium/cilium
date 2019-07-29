@@ -167,6 +167,28 @@ exec -ti cilium-7cpsm -- bash`` and execute the following commands:
     15:16:21.627699 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e4), length 100
     15:16:21.628408 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e5), length 100
 
+Key Rotation
+============
+
+To replace cilium-ipsec-keys secret with a new keys,
+
+.. code-block:: shell-session
+
+    KEYID=$(kubectl get secret -n cilium cilium-ipsec-keys -o yaml|grep keys: | awk '{print $2}' | base64 -d | awk '{print $1}')
+    if [[ $KEYID -gt 15 ]]; then KEYID=0; fi
+    data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
+    kubectl patch secret -n cilium cilium-ipsec-keys -p="${data}" -v=1
+
+Then restart cilium agents to transition to the new key. During transition the
+new and old keys will be in use. The cilium agent keeps per endpoint data on
+which key is used by each endpoint and will use the correct key if either side
+has not yet been updated. In this way encryption will work as new keys are
+rolled out.
+
+The KEYID environment variable in the above example stores the current key ID
+used by Cilium. The key variable is a uint8 with value between 0-16 and should
+be monotonically increasing every re-key with a rollover from 16 to 0. The
+cilium agent will default to KEYID of zero if its not specified in the secret.
 
 Troubleshooting
 ===============
