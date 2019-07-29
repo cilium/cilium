@@ -385,6 +385,17 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
+	// Delete old proxymaps if left over from an upgrade.
+	// TODO: Remove this code when Cilium 1.6 is the oldest supported release
+	for _, name := range []string{"cilium_proxy4", "cilium_proxy6"} {
+		path := bpf.MapPath(name)
+		if _, err := os.Stat(path); err == nil {
+			if err = os.RemoveAll(path); err == nil {
+				log.Infof("removed legacy proxymap file %s", path)
+			}
+		}
+	}
+
 	if err := bpf.ConfigureResourceLimits(); err != nil {
 		log.WithError(err).Fatal("Unable to set memory resource limits")
 	}
