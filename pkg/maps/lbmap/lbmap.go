@@ -154,7 +154,7 @@ func neighAddBackends(backends []ServiceValue) error {
 		}
 		err := neigh.NeighAddAddress(option.Config.Device, b.GetAddress())
 		if err != nil {
-			return err
+			return fmt.Errorf("Neigh add for backend %s failed: %s", b, err)
 		}
 	}
 	return nil
