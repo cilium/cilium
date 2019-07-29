@@ -211,6 +211,8 @@ const (
 	NACKreceived      = "NACK received for version" // from https://github.com/cilium/cilium/issues/4003
 	RunInitFailed     = "JoinEP: "                  // from https://github.com/cilium/cilium/pull/5052
 	sizeMismatch      = "size mismatch for BPF map" // from https://github.com/cilium/cilium/issues/7851
+
+	HelmTemplate = "go/src/github.com/cilium/cilium/install/kubernetes/helm"
 )
 
 // Re-definitions of stable constants in the API. The re-definition is on
@@ -235,12 +237,6 @@ var (
 
 // CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
 const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
-
-// CiliumDefaultPreFlightPatch is the default Cilium Pre-flight DaemonSet patch to be used in all tests.
-const CiliumDefaultPreFlightPatch = "cilium-pre-flight-patch.yaml"
-
-// CiliumDefaultPreFlight is the default Cilium Pre-flight DaemonSet descriptor to be used in all tests.
-const CiliumDefaultPreFlight = "cilium-pre-flight.yaml"
 
 // CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
 const CiliumConfigMapPatch = "cilium-cm-patch.yaml"

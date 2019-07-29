@@ -117,10 +117,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectAllPodsTerminated(kubectl)
 
 		// make sure we clean everything up before doing any other test
-		err := kubectl.CiliumInstall(
-			helpers.CiliumDefaultDSPatch,
-			"cilium-cm-patch-clean-cilium-state.yaml",
-		)
+		err := kubectl.CiliumInstall([]string{
+			"--set global.cleanState=true",
+		})
+
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 		err = kubectl.WaitForCiliumInitContainerToFinish()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be clean up environment", newVersion)
@@ -145,7 +145,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		ExpectAllPodsTerminated(kubectl)
 
-		By("Installing a cleaning state of Cilium")
+		By("Installing a clean state of Cilium")
 		err = kubectl.CiliumInstallVersion(
 			helpers.CiliumDefaultDSPatch,
 			"cilium-cm-patch-clean-cilium-state.yaml",
@@ -156,24 +156,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Installing kube-dns")
 		_ = kubectl.Apply(helpers.DNSDeployment())
 
-		// Deploy the etcd operator
-		By("Deploying etcd-operator")
-		err = kubectl.DeployETCDOperator()
-		Expect(err).To(BeNil(), "Unable to deploy etcd operator")
-
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
 		By("Cilium %q is installed and running", oldVersion)
 		ExpectCiliumReady(kubectl)
 
-		By("Installing Cilium-Operator")
-		operatorIsInstalled, err := kubectl.CiliumOperatorInstall(oldVersion)
-		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
-
 		ExpectETCDOperatorReady(kubectl)
-		if operatorIsInstalled {
-			ExpectCiliumOperatorReady(kubectl)
-		}
+		ExpectCiliumOperatorReady(kubectl)
 
 		By("Installing Microscope")
 		microscopeErr, microscopeCancel := kubectl.MicroscopeStart()
@@ -303,21 +292,27 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		}
 
 		By("Install Cilium pre-flight check DaemonSet")
-		err = kubectl.CiliumPreFlightInstall(helpers.CiliumDefaultPreFlightPatch)
-		ExpectWithOffset(1, err).To(BeNil(), "Cilium pre-flight %q was not able to be deployed", newVersion)
+
+		res = kubectl.ExecMiddle("helm template " +
+			helpers.HelmTemplate + " " +
+			"--namespace=kube-system " +
+			"--set preflight.enabled=true " +
+			"--set agent.enabled=false " +
+			"--set config.enabled=false " +
+			"--set operator.enabled=false " +
+			"> cilium-preflight.yaml")
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to generate preflight YAML")
+
+		res = kubectl.Apply("cilium-preflight.yaml")
+		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "Unable to deploy preflight manifest")
 		ExpectCiliumPreFlightInstallReady(kubectl)
 
 		// Once they are installed we can remove it
 		By("Removing Cilium pre-flight check DaemonSet")
-		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
+		kubectl.Delete("cilium-preflight.yaml")
 
-		cmPatch := helpers.CiliumConfigMapPatch
-		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, cmPatch)
+		err = kubectl.CiliumInstall([]string{})
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
-
-		By("Installing Cilium-Operator")
-		operatorIsInstalled, err = kubectl.CiliumOperatorInstall("head")
-		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
 
 		err = helpers.WithTimeout(
 			waitForUpdateImage(newVersion),
@@ -331,10 +326,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 
 		validatedImage(newVersion)
 		ExpectCiliumReady(kubectl)
-
-		if operatorIsInstalled {
-			ExpectCiliumOperatorReady(kubectl)
-		}
+		ExpectCiliumOperatorReady(kubectl)
 
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
@@ -348,10 +340,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
 
-		By("Installing Cilium-Operator")
-		operatorIsInstalled, err = kubectl.CiliumOperatorInstall(oldVersion)
-		Expect(err).To(BeNil(), "Cannot install Cilium Operator")
-
 		err = helpers.WithTimeout(
 			waitForUpdateImage(oldVersion),
 			"Cilium Pods are not updating correctly",
@@ -363,9 +351,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).Should(BeNil(), "Cilium is not ready after timeout")
 
 		validatedImage(oldVersion)
-		if operatorIsInstalled {
-			ExpectCiliumOperatorReady(kubectl)
-		}
+		ExpectCiliumOperatorReady(kubectl)
 
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
