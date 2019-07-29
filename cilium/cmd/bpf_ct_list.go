@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
@@ -34,6 +35,9 @@ var bpfCtListCmd = &cobra.Command{
 	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct list")
+		if err := bpf.InitSupportedMapTypes(); err != nil {
+			Fatalf(err.Error())
+		}
 		dumpCt(args[0])
 	},
 }
