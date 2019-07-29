@@ -595,6 +595,7 @@ ubuntu
 Ubuntu
 udp
 ui
+uint
 Uncomment
 underrepresents
 uninline
