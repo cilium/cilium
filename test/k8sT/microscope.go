@@ -30,7 +30,7 @@ var _ = Describe("K8sMicroscope", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ProvisionInfraPods(kubectl)
+		DeployCiliumAndDNS(kubectl)
 	})
 
 	AfterFailed(func() {

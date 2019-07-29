@@ -48,7 +48,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ProvisionInfraPods(kubectl)
+		DeployCiliumAndDNS(kubectl)
 	})
 	deleteAll := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), endpointsTimeout)
@@ -401,7 +401,7 @@ var _ = Describe("NightlyExamples", func() {
 		)
 
 		BeforeAll(func() {
-			ProvisionInfraPods(kubectl)
+			DeployCiliumAndDNS(kubectl)
 		})
 
 		AfterAll(func() {
