@@ -14,77 +14,36 @@ documents how to do so.  For more information about HostPort, check the
 `Kubernetes hostPort-CNI plugin documentation
 <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-hostport>`_.
 
-
 .. note::
 
    Before using HostPort, read the `Kubernetes Configuration Best Practices
    <https://kubernetes.io/docs/concepts/configuration/overview/>`_ to
    understand the implications of this feature.
 
-Enable Portmap Chaining in the ConfigMap
-========================================
+Deploy Cilium with the portmap plugin enabled
+=============================================
 
-1. If you have not deployed Cilium yet, download the Cilium deployment yaml:
+.. include:: k8s-install-download-release.rst
 
-.. tabs::
-  .. group-tab:: K8s 1.15
+Generate the required YAML file and deploy it:
 
-    .. parsed-literal::
+.. code:: bash
 
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
+    helm template cilium \
+      --namespace=kube-sysetm \
+      --set global.cni.chainingMode=portmap \
+      > cilium.yaml
+    kubectl create -f cilium.yaml
 
-  .. group-tab:: K8s 1.14
+.. note::
 
-    .. parsed-literal::
+   You can combine the ``global.cni.chainingMode=portmap`` option with any of
+   the other installation guides.
 
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.13/cilium.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      curl -sLO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-2. If you are already running Cilium, extract the ConfigMap of Cilium:
-
-   .. code:: bash
-
-       kubectl -n kube-system get cm cilium-config -o yaml > cilium.yaml
-
-3. Edit ``cilium.yaml`` and add the following configuration to the ConfigMap:
-
-   .. code:: bash
-
-          cni-chaining-mode: portmap
-
-4. Deploy or update Cilium:
-
-   .. code:: bash
-
-          kubectl apply -f cilium.yaml
-
-   As Cilium is deployed as a DaemonSet, it will write a new CNI configuration
-   ``05-cilium.conflist`` and remove the standard ``05-cilium.conf``. The new
-   configuration now enables HostPort. Any new pod scheduled is now able to
-   make use of the HostPort functionality.
+As Cilium is deployed as a DaemonSet, it will write a new CNI configuration
+``05-cilium.conflist`` and remove the standard ``05-cilium.conf``. The new
+configuration now enables HostPort. Any new pod scheduled is now able to make
+use of the HostPort functionality.
 
 Restart existing pods
 =====================

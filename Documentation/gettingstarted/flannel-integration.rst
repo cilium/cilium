@@ -36,90 +36,31 @@ Wait until all pods to be in ready state before preceding to the next step.
 Cilium installation
 -------------------
 
-Download Cilium kubernetes descriptor for your Kubernetes version.
+.. include:: k8s-install-download-release.rst
 
+Generate the required YAML file and deploy it:
 
-.. tabs::
-  .. group-tab:: K8s 1.15
+.. code:: bash
 
-    .. parsed-literal::
+   helm template cilium \
+     --namespace kube-system \
+     --set global.flannel.enabled=true \
+     > cilium.yaml
 
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.13/cilium.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-Edit the ConfigMap in that file and set the option ``flannel-master-device`` with ``"cni0"``.
-
-Set ``flannel-uninstall-on-exit`` with either ``true`` or ``false``. If you
-plan to deploy Cilium and ensure that policy enforcement will persist even if
-you remove Cilium, then leave the option set to ``false``. If you plan to test
-Cilium in your cluster and remove Cilium once you have finished your tests,
-setting the option with ``true`` will make sure the Cilium will clean up all BPF
-programs generated for the host where Cilium was running.
+Set ``global.flannel.uninstallOnExit=true`` if you want Cilium to uninstall
+itself when the Cilium pod is stopped.
 
 *Optional step:*
 If your cluster has already pods being managed by Flannel, there is also
 an option available that allows Cilium to start managing those pods without
 requiring to restart them. To enable this functionality you need to set the
-value ``flannel-manage-existing-containers`` to ``true`` **and** modify
-the ``hostPID`` value in the Cilium DaemonSet to ``true``. Running
-Cilium with ``hostPID`` is required because Cilium needs to access the network
-namespaces of those already running pods in order to derive the MAC address and
-IP address which allows the generation dedicated BPF programs for those pods.
-
-
-::
-
-  # Interface to be used when running Cilium on top of a CNI plugin.
-  # For flannel, use "cni0"
-  flannel-master-device: "cni0"
-  # When running Cilium with policy enforcement enabled on top of a CNI plugin
-  # the BPF programs will be installed on the network interface specified in
-  # 'flannel-master-device' and on all network interfaces belonging to
-  # a container. When the Cilium DaemonSet is removed, the BPF programs will
-  # be kept in the interfaces unless this option is set to "true".
-  flannel-uninstall-on-exit: "false"
-  # Installs a BPF program to allow for policy enforcement in already running
-  # containers managed by Flannel.
-  # NOTE: This requires Cilium DaemonSet to be running in the hostPID.
-  # To run in this mode in Kubernetes change the value of the hostPID from
-  # false to true. Can be found under the path `spec.spec.hostPID`
-  flannel-manage-existing-containers: "false"
-
+value ``global.flannel.manageExistingContainers=true``
 
 Once you have changed the ConfigMap accordingly, you can deploy Cilium.
 
 .. parsed-literal::
 
-    kubectl create -f ./cilium.yaml
+   kubectl create -f cilium.yaml
 
 Cilium might not come up immediately on all nodes, since Flannel only sets up
 the bridge network interface that connects containers with the outside world

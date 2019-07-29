@@ -25,48 +25,16 @@ without ``kube-proxy``.
    NodePort services depend on the :ref:`host-services` feature, therefore
    a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
 
-First step is to download the Cilium Kubernetes descriptor:
+.. include:: k8s-install-download-release.rst
 
-.. tabs::
+Generate the required YAML file and deploy it:
 
-  .. group-tab:: K8s 1.15
+.. code:: bash
 
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.13/cilium.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-Next, edit the ``cilium-config`` ConfigMap in that file and set the option
-``enable-node-port`` to ``"true"``.
+   helm template cilium \
+     --namespace kube-system \
+     --set global.nodeport.enabled=true \
+     > cilium.yaml
 
 By default, a NodePort service will be accessible via an IP address of a native
 device which has a default route on the host. To change a device, set its name
@@ -80,15 +48,15 @@ Cilium's BPF-based NodePort implementation is supported in direct routing as
 well as in tunneling mode.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
-then the same range must be passed to Cilium via the ``node-port-range``
-ConfigMap option.
+then the same range must be passed to Cilium via the ``global.nodePort.range``
+option.
 
 Once configured, apply the DaemonSet file to deploy Cilium and verify that it
 has come up correctly:
 
 .. parsed-literal::
 
-    kubectl create -f ./cilium.yaml
+    kubectl create -f cilium.yaml
     kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
