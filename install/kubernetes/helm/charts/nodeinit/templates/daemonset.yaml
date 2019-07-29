@@ -1,0 +1,108 @@
+kind: DaemonSet
+apiVersion: extensions/v1beta1
+metadata:
+  name: cilium-node-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cilium-node-init
+spec:
+  template:
+    metadata:
+      labels:
+        app: cilium-node-init
+    spec:
+      tolerations:
+      - operator: Exists
+      hostPID: true
+      hostNetwork: true
+      containers:
+        - name: node-init
+          image: gcr.io/google-containers/startup-script:v1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+          # STARTUP_SCRIPT is the script run on node bootstrap. Node
+          # bootstrapping can be customized in this script.
+          - name: STARTUP_SCRIPT
+            value: |
+              #!/bin/bash
+
+              set -o errexit
+              set -o pipefail
+              set -o nounset
+
+              mount | grep "/sys/fs/bpf type bpf" || {
+                # Mount the filesystem until next reboot
+                echo "Mounting BPF filesystem..."
+                mount bpffs /sys/fs/bpf -t bpf
+              }
+        
+              echo "Installing BPF filesystem mount"
+              cat >/tmp/sys-fs-bpf.mount <<EOF
+              [Unit]
+              Description=Mount BPF filesystem (Cilium)
+              Documentation=http://docs.cilium.io/
+              DefaultDependencies=no
+              Before=local-fs.target umount.target
+              After=swap.target
+
+              [Mount]
+              What=bpffs
+              Where=/sys/fs/bpf
+              Type=bpf
+
+              [Install]
+              WantedBy=multi-user.target
+              EOF
+
+              if [ -d "/etc/systemd/system/" ]; then
+                mv /tmp/sys-fs-bpf.mount /etc/systemd/system/
+                echo "Installed sys-fs-bpf.mount to /etc/systemd/system/"
+              elif [ -d "/lib/systemd/system/" ]; then
+                mv /tmp/sys-fs-bpf.mount /lib/systemd/system/
+                echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
+              fi
+
+              # Ensure that filesystem gets mounted on next reboot
+              systemctl enable sys-fs-bpf.mount
+              systemctl start sys-fs-bpf.mount
+
+              echo "Link information:"
+              ip link
+
+              echo "Routing table:"
+              ip route
+
+              echo "Addressing:"
+              ip -4 a
+              ip -6 a
+
+{{- if .Values.removeCbrBridge }}
+              if ip link show cbr0; then
+                echo "Detected cbr0 bridge. Deleting interface..."
+                ip link del cbr0
+              fi
+{{- end }}
+
+{{- if .Values.restartPods }}
+              echo "Restarting kubenet managed pods"
+              if grep -q 'docker' /etc/crictl.yaml; then
+                # Works for COS, ubuntu
+                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do docker rm -f $(cat $f) || true; done
+              else
+                # COS-beta (with containerd)
+                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do crictl stopp $(cat $f) || true; done
+              fi
+{{- end }}
+
+{{- if .Values.reconfigureKubelet }}
+              # GKE: Alter the kubelet configuration to run in CNI mode
+              echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.global.cni.binPath }}"
+              mkdir -p {{ .Values.global.cni.binPath }}
+              sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.global.cni.binPath }}:g" /etc/default/kubelet
+              echo "Restarting kubelet..."
+              systemctl restart kubelet
+{{- end }}
+
+              echo "Node initialization complete"

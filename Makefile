@@ -515,5 +515,5 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
-.PHONY: force generate-api generate-health-api
+.PHONY: force generate-api generate-health-api install
 force :;

@@ -80,17 +80,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 			"Service is deleted")
 	}
 
-	deployCilium := func(ciliumDaemonSetPatchFile string) {
+	deployCilium := func(options []string) {
+		By("Deploying CoreDNS")
 		_ = kubectl.Apply(helpers.DNSDeployment())
 
-		err := kubectl.DeployETCDOperator()
-		ExpectWithOffset(1, err).To(BeNil(), "Unable to deploy etcd operator")
-
-		err = kubectl.CiliumInstall(ciliumDaemonSetPatchFile, helpers.CiliumConfigMapPatch)
+		By("Deploying Cilium")
+		err := kubectl.CiliumInstall(options)
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to install Cilium")
 
+		By("Waiting for Cilium to become ready")
 		ExpectCiliumReady(kubectl)
-		ExpectETCDOperatorReady(kubectl)
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")
@@ -127,7 +126,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 				return
 			}
 
-			deployCilium("cilium-ds-patch-vxlan-ipsec.yaml")
+			deployCilium([]string{
+				"--set global.encryption.enabled=true",
+			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
 			cleanService()
@@ -135,7 +136,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check connectivity with sockops and VXLAN encapsulation", func() {
 			// Note if run on kernel without sockops feature is ignored
-			deployCilium("cilium-ds-patch-vxlan-sockops.yaml")
+			deployCilium([]string{
+				"--set global.sockops.enabled=true",
+			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
@@ -144,7 +147,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check connectivity with VXLAN encapsulation", func() {
 			SkipIfFlannel()
 
-			deployCilium("cilium-ds-patch-vxlan.yaml")
+			deployCilium([]string{
+				"--set global.tunnel=vxlan",
+			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
@@ -153,7 +158,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check connectivity with Geneve encapsulation", func() {
 			SkipIfFlannel()
 
-			deployCilium("cilium-ds-patch-geneve.yaml")
+			deployCilium([]string{
+				"--set global.tunnel=geneve",
+			})
 			validateBPFTunnelMap()
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
@@ -164,17 +171,25 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check connectivity with automatic direct nodes routes", func() {
 			SkipIfFlannel()
 
-			deployCilium("cilium-ds-patch-auto-node-routes.yaml")
+			deployCilium([]string{
+				"--set global.tunnel=disabled",
+				"--set global.autoDirectNodeRoutes=true",
+			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
 	})
 
 	Context("Transparent encryption DirectRouting", func() {
-		It("Check connectivity with automatic direct nodes routes", func() {
+		It("Check connectivity with transparent encryption and direct routing", func() {
 			SkipIfFlannel()
 
-			deployCilium("cilium-ds-patch-auto-node-routes-ipsec.yaml")
+			deployCilium([]string{
+				"--set global.tunnel=disabled",
+				"--set global.autoDirectNodeRoutes=true",
+				"--set global.encryption.enabled=true",
+				"--set global.encryption.interface=enp0s8",
+			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
@@ -182,15 +197,31 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("IPv4Only", func() {
 		It("Check connectivity with IPv6 disabled", func() {
-			deployCilium("cilium-ds-patch-ipv4-only.yaml")
+			deployCilium([]string{
+				"--set global.ipv4.enabled=true",
+				"--set global.ipv6.enabled=false",
+			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
 	})
 
 	Context("PerEndpointRoute", func() {
-		It("Check connectivity with IPv6 disabled", func() {
-			deployCilium("cilium-ds-patch-per-endpoint-route.yaml")
+		It("Check connectivity with per endpoint routes", func() {
+			deployCilium([]string{
+				"--set global.endpointRoutes.enabled=true",
+			})
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+	})
+
+	Context("ManagedEtcd", func() {
+		It("Check connectivity with managed etcd", func() {
+			deployCilium([]string{
+				"--set global.etcd.enabled=true",
+				"--set global.etcd.managed=true",
+			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
