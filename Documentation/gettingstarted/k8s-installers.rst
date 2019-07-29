@@ -19,6 +19,7 @@ any installer.
 
    k8s-install-kops
    k8s-install-kubespray
+   k8s-install-kubeadm
 
 External Guides
 ===============
