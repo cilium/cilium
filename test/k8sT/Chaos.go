@@ -34,7 +34,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ProvisionInfraPods(kubectl)
+		DeployCiliumAndDNS(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -153,7 +153,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			By("Install cilium pods")
 
-			err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, helpers.CiliumConfigMapPatch)
+			err = kubectl.CiliumInstall([]string{})
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 			ExpectCiliumReady(kubectl)

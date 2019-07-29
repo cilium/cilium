@@ -86,7 +86,7 @@ var _ = Describe("K8sIstioTest", func() {
 		}
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ProvisionInfraPods(kubectl)
+		DeployCiliumAndDNS(kubectl)
 
 		By("Creating the istio-system namespace")
 		res := kubectl.NamespaceCreate(istioSystemNamespace)

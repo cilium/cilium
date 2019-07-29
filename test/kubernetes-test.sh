@@ -1,16 +1,23 @@
 #!/bin/bash
 
-KUBERNETES_MAJOR_MINOR_VER=$(kubectl version -o json | jq -r '(.serverVersion.major + "." + .serverVersion.minor)')
+helm template install/kubernetes/cilium \
+  --namespace=kube-system \
+  --set global.registry=k8s1:5000/cilium \
+  --set agent.image=cilium-dev \
+  --set agent.tag=latest \
+  --set operator.image=operator \
+  --set operator.tag=latest \
+  --set global.debug=true \
+  --set global.k8s.requireIPv4PodCIDR=true \
+  --set global.pprof.enabled=true \
+  --set global.logSystemLoad=true \
+  --set global.bpf.preallocateMaps=true \
+  --set global.etcd.leaseTTL=30s \
+  --set global.ipv4.enabled=true \
+  --set global.ipv6.enabled=true \
+  > cilium.yaml
 
-k8sDescriptorsPath="./examples/kubernetes/${KUBERNETES_MAJOR_MINOR_VER}"
-k8sManifestsPath="./test/k8sT/manifests"
-
-kubectl apply --filename="${k8sDescriptorsPath}/cilium-etcd-operator.yaml"
-kubectl apply --filename="${k8sDescriptorsPath}/cilium-etcd-operator-rbac.yaml"
-kubectl apply --filename="${k8sDescriptorsPath}/cilium-etcd-operator-sa.yaml"
-kubectl apply --filename="${k8sDescriptorsPath}/cilium-rbac.yaml"
-kubectl patch --filename="${k8sDescriptorsPath}/cilium-cm.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-cm-patch.yaml)" --local -o yaml | kubectl apply -f -
-kubectl patch --filename="${k8sDescriptorsPath}/cilium-ds.yaml" --patch "$(cat ${k8sManifestsPath}/cilium-ds-patch.yaml)" --local -o yaml | kubectl apply -f -
+kubectl apply -f cilium.yaml
 
 while true; do
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)

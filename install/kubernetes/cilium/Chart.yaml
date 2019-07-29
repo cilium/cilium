@@ -1,0 +1,11 @@
+apiVersion: v1
+name: cilium
+version: 1.6.90
+appVersion: 1.6.90
+tillerVersion: ">=2.7.2-0"
+description: Helm chart for Cilium
+keywords:
+sources:
+  - https://github.com/cilium/cilium
+engine: gotpl
+

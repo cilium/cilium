@@ -1,0 +1,5 @@
+image: cilium
+
+# Specifies the maximum number of Pods that can be unavailable during the
+# update process.
+maxUnavailable: 2

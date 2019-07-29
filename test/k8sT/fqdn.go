@@ -46,7 +46,7 @@ var _ = Describe("K8sFQDNTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		ProvisionInfraPods(kubectl)
+		DeployCiliumAndDNS(kubectl)
 
 		By("Applying bind deployment")
 		bindManifest = helpers.ManifestGet("bind_deployment.yaml")
