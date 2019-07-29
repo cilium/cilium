@@ -5,7 +5,7 @@
     http://docs.cilium.io
 
 .. _admin_install_daemonset:
-.. _k8s_install_standard:
+.. _k8s_install_etcd:
 
 *******************************
 Installation with external etcd
@@ -20,6 +20,21 @@ installation method to get started, refer to the section
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on :ref:`slack`.
 
+When do I need to use a kvstore?
+================================
+
+Unlike the section :ref:`k8s_quick_install`, this guide explains how to
+configure Cilium to use an external kvstore such as etcd. If you are unsure
+whether you need to use a kvstore at all, the following is a list of reasons
+when to use a kvstore:
+
+ * If you want to use the :ref:`Cluster Mesh` functionality.
+ * If you are running in an environment with more than 250 nodes, 5k pods, or
+   if you observe a high overhead in state propagation caused by Kubernetes
+   events.
+ * If you do not want Cilium to store state in Kubernetes custom resources
+   (CRDs).
+
 .. _ds_deploy:
 
 .. include:: requirements_intro.rst
@@ -28,62 +43,29 @@ Configure the External Etcd
 ===========================
 
 When using an external kvstore, the address of the external kvstore needs to be
-configured in the ConfigMap. Download the base YAML for the version of
-Kubernetes you are using:
+configured in the ConfigMap. Download the base YAML and configure it with
+`Helm`:
 
-.. tabs::
-  .. group-tab:: K8s 1.15
+.. include:: k8s-install-download-release.rst
 
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-external-etcd.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-external-etcd.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-external-etcd.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-external-etcd.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-external-etcd.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      wget \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-external-etcd.yaml
-
-
-1. Open ``cilium-external-etcd.yaml`` and find the ``cilium-config`` ConfigMap
-   and edit the ``endpoints:`` to include the list of all your etcd endpoints
-   or a service IP that will load-balance to all etcd endpoints.
+Change the etcd endpoints accordingly:
 
 .. code:: bash
 
-   etcd-config: |-
-     ---
-     endpoints:
-     - https://etcd1.deathstar.empire:2379
-     - https://etcd2.deathstar.empire:2379
-     - https://etcd3.deathstar.empire:2379
+    helm template cilium \
+      --namespace kube-system \
+      --set global.etcd.enabled=true \
+      --set global.etcd.endpoints[0]=https://etcd-endpoint1:2379 \
+      --set global.etcd.endpoints[1]=https://etcd-endpoint2:2379 \
+      > cilium.yaml
+    kubectl create -f cilium.yaml
 
-2. Create a Kubernetes secret with the root certificate authority, and
-   client-side key and certificate of etcd:
+
+Optional: Configure the SSL certificates
+----------------------------------------
+
+Create a Kubernetes secret with the root certificate authority, and client-side
+key and certificate of etcd:
 
 .. code:: bash
 
@@ -92,28 +74,23 @@ Kubernetes you are using:
         --from-file=etcd-client.key=client.key \
         --from-file=etcd-client.crt=client.crt
 
-3. In case you are not using a TLS-enabled etcd, comment out the configuration
-   options in the ConfigMap referring to the key locations like this:
+Adjust the helm template generation to enable SSL for etcd:
 
 .. code:: bash
 
-    # In case you want to use TLS in etcd, uncomment the 'ca-file' line
-    # and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    #ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
-    #
-    # In case you want client to server authentication, uncomment the following
-    # lines and create a kubernetes secret by following the tutorial in
-    # https://cilium.link/etcd-config
-    #key-file: '/var/lib/etcd-secrets/etcd-client.key'
-    #cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
+    helm template cilium \
+      [...]
+      --set global.etcd.ssl=true \
+      [...]
+      > cilium.yaml
+    kubectl create -f cilium.yaml
 
 Deploy Cilium
-=============
+-------------
 
 .. code:: bash
 
-    kubectl create -f cilium-external-etcd.yaml
+    kubectl create -f cilium.yaml
 
 Validate the Installation
 =========================

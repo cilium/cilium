@@ -24,56 +24,27 @@ reached from the host namespace.
    or more recent Linux kernel. For only enabling TCP-based host-reachable
    services a v4.17.0 or newer kernel is required.
 
-First step is to download the Cilium Kubernetes descriptor:
+.. include:: k8s-install-download-release.rst
 
-.. tabs::
+Generate the required YAML file and deploy it:
 
-  .. group-tab:: K8s 1.15
+.. code:: bash
 
-    .. parsed-literal::
+   helm template cilium \
+     --namespace kube-system \
+     --set global.hostServices.enabled=true \
+     > cilium.yaml
 
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.15/cilium.yaml
+If you can't run 4.19.57 but have 4.17.0 available you can restrict protocol
+support to TCP only:
 
-  .. group-tab:: K8s 1.14
+.. code:: bash
 
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.14/cilium.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.13/cilium.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.12/cilium.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.11/cilium.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      curl -LO \ |SCM_WEB|\/examples/kubernetes/1.10/cilium.yaml
-
-Edit the ``cilium-config`` ConfigMap in that file and set the option
-``enable-host-reachable-services`` to ``"true"``. This is all which is required
-to expose services to the host namespace. A Linux kernel of v4.19.57, v5.1.16,
-v5.2.0 or more recent is needed for exposing both TCP and UDP-based services.
-
-The basic minimum required for host-reachable services is a Linux kernel
-v4.17.0. This allows to only enable TCP-based services to the host, but
-not UDP-based ones due to lack of kernel features. This can be enabled
-through additionally specifying ``host-reachable-services-protos`` to
-``"tcp"``. This setting otherwise defaults to ``"tcp,udp"``.
+   helm template cilium \
+     --namespace kube-system \
+     --set global.hostServices.enabled=true \
+     --set global.hostServices.protocols=tcp \
+     > cilium.yaml
 
 Host-reachable services act transparent to Cilium's lower layer datapath
 in that upon connect system call (TCP, connected UDP) or sendmsg as well
@@ -83,26 +54,11 @@ the application is assuming its connection to the service address, the
 corresponding kernel's socket is actually connected to the backend address
 and therefore no additional lower layer NAT is required.
 
-Example ConfigMap extract for TCP and UDP host reachable services:
+Deploy Cilium:
 
-::
+.. code:: bash
 
-  enable-host-reachable-services: "true"
-
-Example ConfigMap extract for TCP-only host reachable services (only
-needed for old Linux kernels):
-
-::
-
-  enable-host-reachable-services: "true"
-  host-reachable-services-protos: "tcp"
-
-After that, apply the DaemonSet file to deploy Cilium and verify that it
-has come up correctly:
-
-.. parsed-literal::
-
-    kubectl create -f ./cilium.yaml
+    kubectl create -f cilium.yaml
     kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
