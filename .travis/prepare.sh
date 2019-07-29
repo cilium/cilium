@@ -18,3 +18,11 @@ go get -u github.com/jteeuwen/go-bindata/...
 go get golang.org/x/tools/cmd/cover
 go get github.com/mattn/goveralls
 curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+
+git clone --depth 1 git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
+cd bpf-next
+make olddefconfig
+make headers_install
+cd tools/bpf/bpftool
+make
+sudo make install
