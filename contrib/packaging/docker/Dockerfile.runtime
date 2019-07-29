@@ -53,8 +53,8 @@ cd .. && \
 #
 # bpftool
 #
-git clone --depth 1 -b master git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git && \
-cd linux/tools/bpf/bpftool/ && \
+git clone --depth 1 -b master git://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git && \
+cd bpf-next/tools/bpf/bpftool/ && \
 make -j `getconf _NPROCESSORS_ONLN` && \
 strip bpftool && \
 cd ../../../../ && \
@@ -94,7 +94,7 @@ FROM runtime-base
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /bin
 COPY --from=runtime-build /tmp/iproute2/tc/tc /tmp/iproute2/ip/ip ./
-COPY --from=runtime-build /tmp/linux/tools/bpf/bpftool/bpftool ./
+COPY --from=runtime-build /tmp/bpf-next/tools/bpf/bpftool/bpftool ./
 COPY --from=runtime-build /tmp/bpf-map ./
 COPY --from=runtime-gobuild /go/bin/gops ./
 WORKDIR /cni
