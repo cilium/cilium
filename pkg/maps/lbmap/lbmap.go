@@ -166,11 +166,16 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 	acquireBackendID func(loadbalancer.L3n4Addr) (loadbalancer.BackendID, error),
 	releaseBackendID func(loadbalancer.BackendID)) error {
 
+	scopedLog := log.WithFields(logrus.Fields{
+		"frontend": fe,
+		"backends": backends,
+	})
+
 	// Only needed for NodePort, needs to be done outside mutex
 	if option.Config.EnableNodePort {
 		err := neighAddBackends(backends)
 		if err != nil {
-			return err
+			scopedLog.WithError(err).Warning("Adding ARP neighbour entries failed")
 		}
 	}
 
@@ -209,10 +214,7 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 
 	besValuesV2 := svc.getBackendsV2()
 
-	log.WithFields(logrus.Fields{
-		"frontend": fe,
-		"backends": besValuesV2,
-	}).Debugf("Updating BPF representation of service")
+	scopedLog.Debug("Updating BPF representation of service")
 
 	// Add the new backends to the BPF maps
 	if err := updateBackendsLocked(addedBackends); err != nil {
