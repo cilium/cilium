@@ -388,8 +388,8 @@ type Cluster struct {
 	//   :ref:`trusted_ca<envoy_api_field_auth.CertificateValidationContext.trusted_ca>` to enable
 	//   verification.
 	TlsContext *auth.UpstreamTlsContext `protobuf:"bytes,11,opt,name=tls_context,json=tlsContext,proto3" json:"tls_context,omitempty"`
-	// Additional options when handling HTTP requests. These options will be applicable to both
-	// HTTP1 and HTTP2 requests.
+	// Additional options when handling HTTP requests upstream. These options will be applicable to
+	// both HTTP1 and HTTP2 requests.
 	CommonHttpProtocolOptions *core.HttpProtocolOptions `protobuf:"bytes,29,opt,name=common_http_protocol_options,json=commonHttpProtocolOptions,proto3" json:"common_http_protocol_options,omitempty"`
 	// Additional options when handling HTTP1 requests.
 	HttpProtocolOptions *core.Http1ProtocolOptions `protobuf:"bytes,13,opt,name=http_protocol_options,json=httpProtocolOptions,proto3" json:"http_protocol_options,omitempty"`

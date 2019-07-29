@@ -1,9 +1,5 @@
 package aws
 
-import (
-	"net/http"
-)
-
 // A Config provides service configuration for service clients.
 type Config struct {
 	// The region to send requests to. This parameter is required and must
@@ -24,9 +20,13 @@ type Config struct {
 	// to use based on region.
 	EndpointResolver EndpointResolver
 
-	// The HTTP client to use when sending requests. Defaults to
-	// `http.DefaultClient`.
-	HTTPClient *http.Client
+	// The HTTP Client the SDK's API clients will use to invoke HTTP requests.
+	// The SDK defaults to a BuildableHTTPClient allowing API clients to create
+	// copies of the HTTP Client for service specific customizations.
+	//
+	// Use a (*http.Client) for custom behavior. Using a custom http.Client
+	// will prevent the SDK from modifying the HTTP client.
+	HTTPClient HTTPClient
 
 	// TODO document
 	Handlers Handlers
@@ -54,15 +54,6 @@ type Config struct {
 	// The logger writer interface to write logging messages to. Defaults to
 	// standard out.
 	Logger Logger
-
-	// EnforceShouldRetryCheck is used in the AfterRetryHandler to always call
-	// ShouldRetry regardless of whether or not if request.Retryable is set.
-	// This will utilize ShouldRetry method of custom retryers. If EnforceShouldRetryCheck
-	// is not set, then ShouldRetry will only be called if request.Retryable is nil.
-	// Proper handling of the request.Retryable field is important when setting this field.
-	//
-	// TODO this config field is depercated and needs removed.
-	EnforceShouldRetryCheck bool
 
 	// DisableRestProtocolURICleaning will not clean the URL path when making
 	// rest protocol requests.  Will default to false. This would only be used

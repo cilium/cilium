@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 )
 
 // Link represents a link device from netlink. Shared link attributes
@@ -45,6 +46,12 @@ type LinkAttrs struct {
 	GSOMaxSegs   uint32
 	Vfs          []VfInfo // virtual functions available on link
 	Group        uint32
+	Slave        LinkSlave
+}
+
+// LinkSlave represents a slave device.
+type LinkSlave interface {
+	SlaveType() string
 }
 
 // VfInfo represents configuration of virtual function
@@ -749,6 +756,67 @@ func (bond *Bond) Type() string {
 	return "bond"
 }
 
+// BondSlaveState represents the values of the IFLA_BOND_SLAVE_STATE bond slave
+// attribute, which contains the state of the bond slave.
+type BondSlaveState uint8
+
+const (
+	BondStateActive = iota // Link is active.
+	BondStateBackup        // Link is backup.
+)
+
+func (s BondSlaveState) String() string {
+	switch s {
+	case BondStateActive:
+		return "ACTIVE"
+	case BondStateBackup:
+		return "BACKUP"
+	default:
+		return strconv.Itoa(int(s))
+	}
+}
+
+// BondSlaveState represents the values of the IFLA_BOND_SLAVE_MII_STATUS bond slave
+// attribute, which contains the status of MII link monitoring
+type BondSlaveMiiStatus uint8
+
+const (
+	BondLinkUp   = iota // link is up and running.
+	BondLinkFail        // link has just gone down.
+	BondLinkDown        // link has been down for too long time.
+	BondLinkBack        // link is going back.
+)
+
+func (s BondSlaveMiiStatus) String() string {
+	switch s {
+	case BondLinkUp:
+		return "UP"
+	case BondLinkFail:
+		return "GOING_DOWN"
+	case BondLinkDown:
+		return "DOWN"
+	case BondLinkBack:
+		return "GOING_BACK"
+	default:
+		return strconv.Itoa(int(s))
+	}
+}
+
+type BondSlave struct {
+	State                  BondSlaveState
+	MiiStatus              BondSlaveMiiStatus
+	LinkFailureCount       uint32
+	PermHardwareAddr       net.HardwareAddr
+	QueueId                uint16
+	AggregatorId           uint16
+	AdActorOperPortState   uint8
+	AdPartnerOperPortState uint16
+}
+
+func (b *BondSlave) SlaveType() string {
+	return "bond"
+}
+
 // Gretap devices must specify LocalIP and RemoteIP on create
 type Gretap struct {
 	LinkAttrs
@@ -801,6 +869,27 @@ func (iptun *Iptun) Attrs() *LinkAttrs {
 
 func (iptun *Iptun) Type() string {
 	return "ipip"
+}
+
+type Ip6tnl struct {
+	LinkAttrs
+	Link       uint32
+	Local      net.IP
+	Remote     net.IP
+	Ttl        uint8
+	Tos        uint8
+	EncapLimit uint8
+	Flags      uint32
+	Proto      uint8
+	FlowInfo   uint32
+}
+
+func (ip6tnl *Ip6tnl) Attrs() *LinkAttrs {
+	return &ip6tnl.LinkAttrs
+}
+
+func (ip6tnl *Ip6tnl) Type() string {
+	return "ip6tnl"
 }
 
 type Sittun struct {

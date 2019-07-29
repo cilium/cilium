@@ -1,12 +1,9 @@
 package sts
 
-import request "github.com/aws/aws-sdk-go-v2/aws"
+import "github.com/aws/aws-sdk-go-v2/aws"
 
 func init() {
-	initRequest = func(c *STS, r *request.Request) {
-		switch r.Operation.Name {
-		case opAssumeRoleWithSAML, opAssumeRoleWithWebIdentity:
-			r.Handlers.Sign.Clear() // these operations are unsigned
-		}
+	initRequest = func(c *Client, r *aws.Request) {
+		r.RetryErrorCodes = append(r.RetryErrorCodes, ErrCodeIDPCommunicationErrorException)
 	}
 }

@@ -1,5 +1,3 @@
-// +build go1.5
-
 package v4
 
 import (

@@ -2,7 +2,9 @@ package api
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -21,23 +23,11 @@ const (
 	// service proxies another service within Consul and speaks the connect
 	// protocol.
 	ServiceKindConnectProxy ServiceKind = "connect-proxy"
-)
 
-// ProxyExecMode is the execution mode for a managed Connect proxy.
-type ProxyExecMode string
-
-const (
-	// ProxyExecModeDaemon indicates that the proxy command should be long-running
-	// and should be started and supervised by the agent until it's target service
-	// is deregistered.
-	ProxyExecModeDaemon ProxyExecMode = "daemon"
-
-	// ProxyExecModeScript indicates that the proxy command should be invoke to
-	// completion on each change to the configuration of lifecycle event. The
-	// script typically fetches the config and certificates from the agent API and
-	// then configures an externally managed daemon, perhaps starting and stopping
-	// it if necessary.
-	ProxyExecModeScript ProxyExecMode = "script"
+	// ServiceKindMeshGateway is a Mesh Gateway for the Connect feature. This
+	// service will proxy connections based off the SNI header set by other
+	// connect proxies
+	ServiceKindMeshGateway ServiceKind = "mesh-gateway"
 )
 
 // UpstreamDestType is the type of upstream discovery mechanism.
@@ -80,15 +70,14 @@ type AgentService struct {
 	Meta              map[string]string
 	Port              int
 	Address           string
+	TaggedAddresses   map[string]ServiceAddress `json:",omitempty"`
 	Weights           AgentWeights
 	EnableTagOverride bool
-	CreateIndex       uint64 `json:",omitempty"`
-	ModifyIndex       uint64 `json:",omitempty"`
-	ContentHash       string `json:",omitempty"`
-	// DEPRECATED (ProxyDestination) - remove this field
-	ProxyDestination string                          `json:",omitempty"`
-	Proxy            *AgentServiceConnectProxyConfig `json:",omitempty"`
-	Connect          *AgentServiceConnect            `json:",omitempty"`
+	CreateIndex       uint64                          `json:",omitempty" bexpr:"-"`
+	ModifyIndex       uint64                          `json:",omitempty" bexpr:"-"`
+	ContentHash       string                          `json:",omitempty" bexpr:"-"`
+	Proxy             *AgentServiceConnectProxyConfig `json:",omitempty"`
+	Connect           *AgentServiceConnect            `json:",omitempty"`
 }
 
 // AgentServiceChecksInfo returns information about a Service and its checks
@@ -101,28 +90,19 @@ type AgentServiceChecksInfo struct {
 // AgentServiceConnect represents the Connect configuration of a service.
 type AgentServiceConnect struct {
 	Native         bool                      `json:",omitempty"`
-	Proxy          *AgentServiceConnectProxy `json:",omitempty"`
-	SidecarService *AgentServiceRegistration `json:",omitempty"`
-}
-
-// AgentServiceConnectProxy represents the Connect Proxy configuration of a
-// service.
-type AgentServiceConnectProxy struct {
-	ExecMode  ProxyExecMode          `json:",omitempty"`
-	Command   []string               `json:",omitempty"`
-	Config    map[string]interface{} `json:",omitempty"`
-	Upstreams []Upstream             `json:",omitempty"`
+	SidecarService *AgentServiceRegistration `json:",omitempty" bexpr:"-"`
 }
 
 // AgentServiceConnectProxyConfig is the proxy configuration in a connect-proxy
 // ServiceDefinition or response.
 type AgentServiceConnectProxyConfig struct {
-	DestinationServiceName string
+	DestinationServiceName string                 `json:",omitempty"`
 	DestinationServiceID   string                 `json:",omitempty"`
 	LocalServiceAddress    string                 `json:",omitempty"`
 	LocalServicePort       int                    `json:",omitempty"`
-	Config                 map[string]interface{} `json:",omitempty"`
-	Upstreams              []Upstream
+	Config                 map[string]interface{} `json:",omitempty" bexpr:"-"`
+	Upstreams              []Upstream             `json:",omitempty"`
+	MeshGateway            MeshGatewayConfig      `json:",omitempty"`
 }
 
 // AgentMember represents a cluster member known to the agent
@@ -155,21 +135,20 @@ type MembersOpts struct {
 
 // AgentServiceRegistration is used to register a new service
 type AgentServiceRegistration struct {
-	Kind              ServiceKind       `json:",omitempty"`
-	ID                string            `json:",omitempty"`
-	Name              string            `json:",omitempty"`
-	Tags              []string          `json:",omitempty"`
-	Port              int               `json:",omitempty"`
-	Address           string            `json:",omitempty"`
-	EnableTagOverride bool              `json:",omitempty"`
-	Meta              map[string]string `json:",omitempty"`
-	Weights           *AgentWeights     `json:",omitempty"`
+	Kind              ServiceKind               `json:",omitempty"`
+	ID                string                    `json:",omitempty"`
+	Name              string                    `json:",omitempty"`
+	Tags              []string                  `json:",omitempty"`
+	Port              int                       `json:",omitempty"`
+	Address           string                    `json:",omitempty"`
+	TaggedAddresses   map[string]ServiceAddress `json:",omitempty"`
+	EnableTagOverride bool                      `json:",omitempty"`
+	Meta              map[string]string         `json:",omitempty"`
+	Weights           *AgentWeights             `json:",omitempty"`
 	Check             *AgentServiceCheck
 	Checks            AgentServiceChecks
-	// DEPRECATED (ProxyDestination) - remove this field
-	ProxyDestination string                          `json:",omitempty"`
-	Proxy            *AgentServiceConnectProxyConfig `json:",omitempty"`
-	Connect          *AgentServiceConnect            `json:",omitempty"`
+	Proxy             *AgentServiceConnectProxyConfig `json:",omitempty"`
+	Connect           *AgentServiceConnect            `json:",omitempty"`
 }
 
 // AgentCheckRegistration is used to register a new check
@@ -274,12 +253,8 @@ type ConnectProxyConfig struct {
 	TargetServiceID   string
 	TargetServiceName string
 	ContentHash       string
-	// DEPRECATED(managed-proxies) - this struct is re-used for sidecar configs
-	// but they don't need ExecMode or Command
-	ExecMode  ProxyExecMode `json:",omitempty"`
-	Command   []string      `json:",omitempty"`
-	Config    map[string]interface{}
-	Upstreams []Upstream
+	Config            map[string]interface{} `bexpr:"-"`
+	Upstreams         []Upstream
 }
 
 // Upstream is the response structure for a proxy upstream configuration.
@@ -290,7 +265,8 @@ type Upstream struct {
 	Datacenter           string                 `json:",omitempty"`
 	LocalBindAddress     string                 `json:",omitempty"`
 	LocalBindPort        int                    `json:",omitempty"`
-	Config               map[string]interface{} `json:",omitempty"`
+	Config               map[string]interface{} `json:",omitempty" bexpr:"-"`
+	MeshGateway          MeshGatewayConfig      `json:",omitempty"`
 }
 
 // Agent can be used to query the Agent endpoints
@@ -385,7 +361,14 @@ func (a *Agent) NodeName() (string, error) {
 
 // Checks returns the locally registered checks
 func (a *Agent) Checks() (map[string]*AgentCheck, error) {
+	return a.ChecksWithFilter("")
+}
+
+// ChecksWithFilter returns a subset of the locally registered checks that match
+// the given filter expression
+func (a *Agent) ChecksWithFilter(filter string) (map[string]*AgentCheck, error) {
 	r := a.c.newRequest("GET", "/v1/agent/checks")
+	r.filterQuery(filter)
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return nil, err
@@ -401,7 +384,14 @@ func (a *Agent) Checks() (map[string]*AgentCheck, error) {
 
 // Services returns the locally registered services
 func (a *Agent) Services() (map[string]*AgentService, error) {
+	return a.ServicesWithFilter("")
+}
+
+// ServicesWithFilter returns a subset of the locally registered services that match
+// the given filter expression
+func (a *Agent) ServicesWithFilter(filter string) (map[string]*AgentService, error) {
 	r := a.c.newRequest("GET", "/v1/agent/services")
+	r.filterQuery(filter)
 	_, resp, err := requireOK(a.c.doRequest(r))
 	if err != nil {
 		return nil, err
@@ -799,31 +789,6 @@ func (a *Agent) ConnectCALeaf(serviceID string, q *QueryOptions) (*LeafCert, *Qu
 	return &out, qm, nil
 }
 
-// ConnectProxyConfig gets the configuration for a local managed proxy instance.
-//
-// Note that this uses an unconventional blocking mechanism since it's
-// agent-local state. That means there is no persistent raft index so we block
-// based on object hash instead.
-func (a *Agent) ConnectProxyConfig(proxyServiceID string, q *QueryOptions) (*ConnectProxyConfig, *QueryMeta, error) {
-	r := a.c.newRequest("GET", "/v1/agent/connect/proxy/"+proxyServiceID)
-	r.setQueryOptions(q)
-	rtt, resp, err := requireOK(a.c.doRequest(r))
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-
-	qm := &QueryMeta{}
-	parseQueryMeta(resp, qm)
-	qm.RequestTime = rtt
-
-	var out ConnectProxyConfig
-	if err := decodeBody(resp, &out); err != nil {
-		return nil, nil, err
-	}
-	return &out, qm, nil
-}
-
 // EnableServiceMaintenance toggles service maintenance mode on
 // for the given service ID.
 func (a *Agent) EnableServiceMaintenance(serviceID, reason string) error {
@@ -1000,12 +965,20 @@ func (a *Agent) updateTokenOnce(target, token string, q *WriteOptions) (*WriteMe
 	r := a.c.newRequest("PUT", fmt.Sprintf("/v1/agent/token/%s", target))
 	r.setWriteOptions(q)
 	r.obj = &AgentToken{Token: token}
-	rtt, resp, err := requireOK(a.c.doRequest(r))
+
+	rtt, resp, err := a.c.doRequest(r)
 	if err != nil {
-		return nil, resp.StatusCode, err
+		return nil, 0, err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 
 	wm := &WriteMeta{RequestTime: rtt}
+
+	if resp.StatusCode != 200 {
+		var buf bytes.Buffer
+		io.Copy(&buf, resp.Body)
+		return wm, resp.StatusCode, fmt.Errorf("Unexpected response code: %d (%s)", resp.StatusCode, buf.Bytes())
+	}
+
 	return wm, resp.StatusCode, nil
 }

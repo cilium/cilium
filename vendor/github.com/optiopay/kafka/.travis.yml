@@ -1,0 +1,33 @@
+language: go
+
+go:
+- 1.5.3
+- 1.6
+- tip
+
+sudo: required
+dist: trusty
+
+services:
+- docker
+
+
+before_install:
+- export REPOSITORY_ROOT=${TRAVIS_BUILD_DIR}
+- go get github.com/kisielk/errcheck
+
+
+before_script:
+- cd integration/kafka-docker
+- docker-compose up --build -d
+
+script:
+- go test -v -race -parallel=1 -timeout=5m github.com/optiopay/kafka/...
+- go vet github.com/optiopay/kafka/...
+- errcheck github.com/optiopay/kafka/...
+- go test -bench '.*' -benchmem -run none github.com/optiopay/kafka/...
+
+env:
+- WITH_INTEGRATION=true GOMAXPROCS=4
+
+sudo: false
