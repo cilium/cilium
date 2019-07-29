@@ -14,7 +14,7 @@ all: $(TARGET)
 clean:
 	@$(ECHO_CLEAN) $(notdir $(shell pwd))
 	-$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean
+	$(QUIET)$(GO) clean $(GOCLEAN)
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)

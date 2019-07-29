@@ -438,7 +438,7 @@ func (c *Command) match(name string) bool {
 	return false
 }
 
-func (c *Command) hasHelpOptions() bool {
+func (c *Command) hasCliOptions() bool {
 	ret := false
 
 	c.eachGroup(func(g *Group) {
@@ -447,7 +447,7 @@ func (c *Command) hasHelpOptions() bool {
 		}
 
 		for _, opt := range g.options {
-			if opt.showInHelp() {
+			if opt.canCli() {
 				ret = true
 			}
 		}

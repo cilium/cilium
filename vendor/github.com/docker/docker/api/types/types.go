@@ -146,7 +146,6 @@ type Commit struct {
 // GET "/info"
 type Info struct {
 	ID                 string
-	Builder            BuilderVersion
 	Containers         int
 	ContainersRunning  int
 	ContainersPaused   int
@@ -164,6 +163,7 @@ type Info struct {
 	CPUCfsQuota        bool `json:"CpuCfsQuota"`
 	CPUShares          bool
 	CPUSet             bool
+	PidsLimit          bool
 	IPv4Forwarding     bool
 	BridgeNfIptables   bool
 	BridgeNfIP6tables  bool `json:"BridgeNfIp6tables"`

@@ -51,6 +51,44 @@ func (s *float64SliceValue) String() string {
 	return "[" + strings.Join(out, ",") + "]"
 }
 
+func (s *float64SliceValue) fromString(val string) (float64, error) {
+	return strconv.ParseFloat(val, 64)
+}
+
+func (s *float64SliceValue) toString(val float64) string {
+	return fmt.Sprintf("%f", val)
+}
+
+func (s *float64SliceValue) Append(val string) error {
+	i, err := s.fromString(val)
+	if err != nil {
+		return err
+	}
+	*s.value = append(*s.value, i)
+	return nil
+}
+
+func (s *float64SliceValue) Replace(val []string) error {
+	out := make([]float64, len(val))
+	for i, d := range val {
+		var err error
+		out[i], err = s.fromString(d)
+		if err != nil {
+			return err
+		}
+	}
+	*s.value = out
+	return nil
+}
+
+func (s *float64SliceValue) GetSlice() []string {
+	out := make([]string, len(*s.value))
+	for i, d := range *s.value {
+		out[i] = s.toString(d)
+	}
+	return out
+}
+
 func float64SliceConv(val string) (interface{}, error) {
 	val = strings.Trim(val, "[]")
 	// Empty string would cause a slice with one (empty) entry

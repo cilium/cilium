@@ -6,7 +6,7 @@ TARGET=cilium-cni
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)$(GO) clean
+	$(QUIET)$(GO) clean $(GOCLEAN)
 	-$(QUIET)rm -f $(TARGET)
 
 SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')

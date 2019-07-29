@@ -25,7 +25,7 @@ all: $(TARGET)
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f .cilium-bugtool.config $(TARGET)
-	$(QUIET)$(GO) clean
+	$(QUIET)$(GO) clean $(GOCLEAN)
 
 install:
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)

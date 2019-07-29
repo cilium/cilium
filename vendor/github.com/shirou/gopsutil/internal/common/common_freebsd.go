@@ -28,7 +28,7 @@ func SysctlUint(mib string) (uint64, error) {
 }
 
 func DoSysctrl(mib string) ([]string, error) {
-	sysctl, err := exec.LookPath("/sbin/sysctl")
+	sysctl, err := exec.LookPath("sysctl")
 	if err != nil {
 		return []string{}, err
 	}

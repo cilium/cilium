@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"reflect"
 	"runtime/debug"
@@ -809,17 +810,37 @@ func (p *PacketSource) NextPacket() (Packet, error) {
 }
 
 // packetsToChannel reads in all packets from the packet source and sends them
-// to the given channel.  When it receives an error, it ignores it.  When it
-// receives an io.EOF, it closes the channel.
+// to the given channel. This routine terminates when a non-temporary error
+// is returned by NextPacket().
 func (p *PacketSource) packetsToChannel() {
 	defer close(p.c)
 	for {
 		packet, err := p.NextPacket()
-		if err == io.EOF || err == syscall.EBADF {
-			return
-		} else if err == nil {
+		if err == nil {
 			p.c <- packet
+			continue
 		}
+
+		// Immediately retry for temporary network errors
+		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+			continue
+		}
+
+		// Immediately retry for EAGAIN
+		if err == syscall.EAGAIN {
+			continue
+		}
+
+		// Immediately break for known unrecoverable errors
+		if err == io.EOF || err == io.ErrUnexpectedEOF ||
+			err == io.ErrNoProgress || err == io.ErrClosedPipe || err == io.ErrShortBuffer ||
+			err == syscall.EBADF ||
+			strings.Contains(err.Error(), "use of closed file") {
+			break
+		}
+
+		// Sleep briefly and try again
+		time.Sleep(time.Millisecond * time.Duration(5))
 	}
 }
 

@@ -3,6 +3,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -17,7 +18,7 @@ type QuotedValue struct {
 	ValueMarshaler
 }
 
-// BoolValue provies encoding of bool for AWS protocols.
+// BoolValue provides encoding of bool for AWS protocols.
 type BoolValue bool
 
 // MarshalValue formats the value into a string for encoding.
@@ -55,7 +56,7 @@ func (v BytesValue) MarshalValueBuf(b []byte) ([]byte, error) {
 	return b[:n], nil
 }
 
-// StringValue provies encoding of string for AWS protocols.
+// StringValue provides encoding of string for AWS protocols.
 type StringValue string
 
 // MarshalValue formats the value into a string for encoding.
@@ -89,7 +90,7 @@ func (v Int64Value) MarshalValueBuf(b []byte) ([]byte, error) {
 	return strconv.AppendInt(b, int64(v), 10), nil
 }
 
-// Float64Value provies encoding of float64 for AWS protocols.
+// Float64Value provides encoding of float64 for AWS protocols.
 type Float64Value float64
 
 // MarshalValue formats the value into a string for encoding.
@@ -132,27 +133,27 @@ func (v JSONValue) MarshalValueBuf(b []byte) ([]byte, error) {
 	return append(b, []byte(m)...), nil
 }
 
-// Time formats for protocol time fields.
-const (
-	ISO8601TimeFormat = "2006-01-02T15:04:05Z"         // ISO 8601 formated time.
-	RFC822TimeFromat  = "Mon, 2 Jan 2006 15:04:05 GMT" // RFC822 formatted time.
-	UnixTimeFormat    = "unix time format"             // Special case for Unix time
-)
-
 // TimeValue provies encoding of time.Time for AWS protocols.
 type TimeValue struct {
-	V      time.Time
-	Format string
+	V                time.Time
+	Format           string
+	QuotedFormatTime bool
 }
 
-// MarshalValue formats the value into a string givin a format for encoding.
+// MarshalValue formats the value into a string given a format for encoding.
 func (v TimeValue) MarshalValue() (string, error) {
-	t := time.Time(v.V)
 
-	if v.Format == UnixTimeFormat {
-		return strconv.FormatInt(t.UTC().Unix(), 10), nil
+	if v.Format == UnixTimeFormatName {
+		return FormatTime(v.Format, v.V)
 	}
-	return t.UTC().Format(v.Format), nil
+
+	if v.QuotedFormatTime {
+		format, err := FormatTime(v.Format, v.V)
+		return fmt.Sprintf("%q", format), err
+	}
+
+	return FormatTime(v.Format, v.V)
+
 }
 
 // MarshalValueBuf formats the value into a byte slice for encoding.

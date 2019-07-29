@@ -16,7 +16,7 @@ import (
 var CPUTick = float64(100)
 
 func init() {
-	getconf, err := exec.LookPath("/usr/bin/getconf")
+	getconf, err := exec.LookPath("getconf")
 	if err != nil {
 		return
 	}

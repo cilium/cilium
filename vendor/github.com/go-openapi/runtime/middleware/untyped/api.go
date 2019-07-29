@@ -184,7 +184,7 @@ func (d *API) AuthenticatorsFor(schemes map[string]spec.SecurityScheme) map[stri
 	return result
 }
 
-// AuthorizersFor returns the registered authorizer
+// Authorizer returns the registered authorizer
 func (d *API) Authorizer() runtime.Authorizer {
 	return d.authorizer
 }

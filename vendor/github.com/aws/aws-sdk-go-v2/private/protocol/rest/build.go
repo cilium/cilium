@@ -166,6 +166,9 @@ func buildHeader(header *http.Header, v reflect.Value, name string, tag reflect.
 		return awserr.New("SerializationError", "failed to encode REST request", err)
 	}
 
+	name = strings.TrimSpace(name)
+	str = strings.TrimSpace(str)
+
 	header.Add(name, str)
 
 	return nil
@@ -181,8 +184,10 @@ func buildHeaderMap(header *http.Header, v reflect.Value, tag reflect.StructTag)
 			return awserr.New("SerializationError", "failed to encode REST request", err)
 
 		}
+		keyStr := strings.TrimSpace(key.String())
+		str = strings.TrimSpace(str)
 
-		header.Add(prefix+key.String(), str)
+		header.Add(prefix+keyStr, str)
 	}
 	return nil
 }
@@ -317,7 +322,17 @@ func convertType(v reflect.Value, tag reflect.StructTag) (str string, err error)
 	case float64:
 		str = strconv.FormatFloat(value, 'f', -1, 64)
 	case time.Time:
-		str = value.UTC().Format(RFC822)
+		format := tag.Get("timestampFormat")
+		if len(format) == 0 {
+			format = protocol.RFC822TimeFormatName
+			if tag.Get("location") == "querystring" {
+				format = protocol.ISO8601TimeFormatName
+			}
+		}
+		str, err = protocol.FormatTime(format, value)
+		if err != nil {
+			return "", err
+		}
 	case aws.JSONValue:
 		if len(value) == 0 {
 			return "", &protocol.ErrValueNotSet{}

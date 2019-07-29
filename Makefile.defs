@@ -13,9 +13,11 @@ LIBDIR?=$(PREFIX)/lib
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
+GOLIST ?= GO111MODULE=off
 ifeq ($(GO),)
 	GO = go
 endif
+
 INSTALL = $(QUIET)install
 
 CGO_DISABLED = CGO_ENABLED=0
@@ -39,7 +41,26 @@ ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
 endif
 
-GOBUILD = -ldflags '$(GOLDFLAGS)' $(EXTRA_GOBUILD_FLAGS)
+# Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
+# A go build is being executed with go modules if:
+# * The go command is invoked with GO111MODULE=on environment variable set.
+# * The go command is invoked in a directory outside of the $GOPATH/src tree
+#   and the environment variable GO111MODULE unset (or explicitly set to 'auto').
+ifeq ($(GO111MODULE),on)
+    GOFLAGS ?= -mod=vendor
+    GOCLEAN ?= -mod=vendor
+endif
+# Compile with '-mod=vendor' if go >= 1.13
+GO_MAJOR_VERSION_GE_1 := $(shell expr `go version | grep -E 'go[0-9]{1}+' -o | sed 's/go//g'` \>= 1)
+ifeq ($(GO_MAJOR_VERSION_GE_1),1)
+    GO_MINOR_VERSION_GE_13 := $(shell expr `go version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
+    ifeq ($(GO_MINOR_VERSION_GE_13),1)
+        GOFLAGS ?= -mod=vendor
+        GOCLEAN ?= -mod=vendor
+    endif
+endif
+
+GOBUILD = $(GOFLAGS) -ldflags '$(GOLDFLAGS)' $(EXTRA_GOBUILD_FLAGS)
 
 # Uncomment to enable race detection
 #GOBUILD += -race

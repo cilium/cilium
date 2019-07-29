@@ -222,13 +222,27 @@ func unmarshalHeader(v reflect.Value, header string, tag reflect.StructTag) erro
 		}
 		v.Set(reflect.ValueOf(f))
 	case *time.Time:
-		t, err := time.Parse(RFC822, header)
+		format := tag.Get("timestampFormat")
+		if len(format) == 0 {
+			format = protocol.RFC822TimeFormatName
+			if tag.Get("location") == "querystring" {
+				format = protocol.ISO8601TimeFormatName
+			}
+		}
+		t, err := protocol.ParseTime(format, header)
 		if err != nil {
 			return err
 		}
 		v.Set(reflect.ValueOf(&t))
 	case time.Time:
-		t, err := time.Parse(RFC822, header)
+		format := tag.Get("timestampFormat")
+		if len(format) == 0 {
+			format = protocol.RFC822TimeFormatName
+			if tag.Get("location") == "querystring" {
+				format = protocol.ISO8601TimeFormatName
+			}
+		}
+		t, err := protocol.ParseTime(format, header)
 		if err != nil {
 			return err
 		}
@@ -244,7 +258,7 @@ func unmarshalHeader(v reflect.Value, header string, tag reflect.StructTag) erro
 		}
 		v.Set(reflect.ValueOf(m))
 	default:
-		err := fmt.Errorf("Unsupported value for param %v (%s)", v.Interface(), v.Type())
+		err := fmt.Errorf("unsupported value for param %v (%s)", v.Interface(), v.Type())
 		return err
 	}
 	return nil
