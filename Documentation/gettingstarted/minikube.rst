@@ -33,10 +33,18 @@ Install kubectl & minikube
 
      minikube start --network-plugin=cni --memory=4096
 
-Note that in case of installing Cilium for a specific Kubernetes version, the
-``--kubernetes-version vx.y.z`` parameter can be appended to the ``minikube start``
-command for bootstrapping the local cluster. By default, minikube will install
-the most recent version of Kubernetes.
+4. Mount the BPF filesystem
+
+::
+
+     minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf
+
+.. note::
+
+   In case of installing Cilium for a specific Kubernetes version, the
+   ``--kubernetes-version vx.y.z`` parameter can be appended to the ``minikube
+   start`` command for bootstrapping the local cluster. By default, minikube
+   will install the most recent version of Kubernetes.
 
 Install Cilium
 ==============
@@ -46,43 +54,11 @@ Install Cilium as `DaemonSet
 your new Kubernetes cluster. The DaemonSet will automatically install itself as
 Kubernetes CNI plugin.
 
-.. tabs::
+.. parsed-literal::
 
-  .. group-tab:: K8s 1.15
+    kubectl create -f \ |SCM_WEB|\/install/kubernetes/quick-install.yaml
 
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-minikube.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-minikube.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-minikube.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-minikube.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-minikube.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-minikube.yaml
+.. include:: k8s-install-validate.rst
 
 
 Next steps

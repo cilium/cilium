@@ -314,46 +314,16 @@ Container Runtimes
 CRIO
 ----
 
-If you want to use CRIO, use the following YAML instead:
+If you want to use CRIO, generate the YAML using:
 
-.. tabs::
+.. include:: ../gettingstarted/k8s-install-download-release.rst
 
-  .. group-tab:: K8s 1.15
+.. code:: bash
 
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      kubectl create -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
-
+   helm template cilium \
+     --namespace kube-system \
+     --set global.containerRuntime=crio \
+     > cilium.yaml
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the
@@ -391,8 +361,9 @@ other nodes. The default behavior of Cilium on startup when no container
 runtime has been found is to abort startup. To avoid this abort, you can run
 the ``cilium-agent`` with the following option.
 
-
 .. code:: bash
 
-    --container-runtime=none
-
+   helm template cilium \
+     --namespace kube-system \
+     --set global.containerRuntime=none \
+     > cilium.yaml

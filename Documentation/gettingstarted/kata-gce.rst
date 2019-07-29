@@ -156,91 +156,24 @@ Add ``/etc/systemd/system/kubelet.service.d/0-cri-containerd.conf``
 After you update your kubelet service based on the CRI implementation you are
 using, reload and restart kubelet.
 
-Deploy Cilium + cilium-etcd-operator
-====================================
+Deploy Cilium
+=============
 
-The following all-in-one YAML will deploy all required components to bring up
-Cilium including an etcd cluster managed by the cilium-etcd-operator.
+.. include:: k8s-install-download-release.rst
 
-For CRI-O as container runtime:
--------------------------------
+Generate the required YAML file and deploy it:
 
-.. tabs::
-  .. group-tab:: K8s 1.15
+.. code:: bash
 
-    .. parsed-literal::
+   helm template cilium \
+     --namespace kube-system \
+     --set global.containerRuntime=crio \
+     > cilium.yaml
+   kubectl create -f cilium.yaml
 
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-crio.yaml
+.. note::
 
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-crio.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-crio.yaml
-
-For containerd as container runtime:
-------------------------------------
-
-.. tabs::
-  .. group-tab:: K8s 1.15
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.15/cilium-containerd.yaml
-
-  .. group-tab:: K8s 1.14
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.14/cilium-containerd.yaml
-
-  .. group-tab:: K8s 1.13
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.13/cilium-containerd.yaml
-
-  .. group-tab:: K8s 1.12
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.12/cilium-containerd.yaml
-
-  .. group-tab:: K8s 1.11
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.11/cilium-containerd.yaml
-
-  .. group-tab:: K8s 1.10
-
-    .. parsed-literal::
-
-      kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/1.10/cilium-containerd.yaml
+   If you are using `conatinerd`, set ``global.containerRuntime=containerd``.
 
 Validate cilium
 ===============
@@ -252,7 +185,6 @@ You can monitor as Cilium and all required components are being installed:
     kubectl -n kube-system get pods --watch
     NAME                                    READY   STATUS              RESTARTS   AGE
     cilium-cvp8q                            0/1     Init:0/1            0          53s
-    cilium-etcd-operator-6d9975f5df-2vflw   0/1     ContainerCreating   0          54s
     cilium-operator-788c55554-gkpbf         0/1     ContainerCreating   0          54s
     cilium-tdzcx                            0/1     Init:0/1            0          53s
     coredns-77b578f78d-km6r4                1/1     Running             0          11m
@@ -269,13 +201,10 @@ should be healthy and ready:
    kubectl -n=kube-system get pods
    NAME                                    READY   STATUS    RESTARTS   AGE
    cilium-cvp8q                            1/1     Running   0          42s
-   cilium-etcd-operator-6d9975f5df-2vflw   1/1     Running   0          43s
-   cilium-etcd-p2ggsb22nc                  1/1     Running   0          28s
    cilium-operator-788c55554-gkpbf         1/1     Running   2          43s
    cilium-tdzcx                            1/1     Running   0          42s
    coredns-77b578f78d-2khwp                1/1     Running   0          13s
    coredns-77b578f78d-bs6rp                1/1     Running   0          13s
-   etcd-operator-7b9768bc99-294wf          1/1     Running   0          37s
    kube-proxy-l47rx                        1/1     Running   0          6m
    kube-proxy-zj6v5                        1/1     Running   0          6m
 

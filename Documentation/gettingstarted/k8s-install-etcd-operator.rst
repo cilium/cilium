@@ -6,23 +6,44 @@
 
 .. _k8s_install_etcd_operator:
 
-*********************
-Standard Installation
-*********************
+******************************
+Installation with managed etcd
+******************************
 
-This guides takes you through the steps required to set up Cilium on Kubernetes
-using the cilium-etcd-operator. The cilium-etcd-operator replaces the
-requirement for an external kvstore. You can learn more about it in the section
-:ref:`k8s_what_is_the_cilium_etcd_operator` It is suitable for small and
-medium scale deployments where etcd performance is not absolutely essential.
-Please refer to the  :ref:`k8s_etcd_operator_limitations` section below to
-learn about the exact limitations of this deployment method.
+The standard :ref:`k8s_quick_install` guide will set up Cilium to use
+Kubernetes CRDs to store and propagate state between agents. Use of CRDs can
+impose scale limitations depending on the size of your environment. Use of etcd
+optimizes the propagation of state between agents. This guide explains the
+steps required to set up Cilium with a managed etcd where etcd is managed by an
+operator which maintains an etcd cluster as part of the Kubernetes cluster.
+
+The identity allocation remains to be CRD-based which means that etcd remains
+an optional component to improve scalability. Failures in providing etcd will
+not be critical to the availability of Cilium but will reduce the efficacy of
+state propagation. This allows the managed etcd to recover while depending on
+Cilium itself to provide connectivity and security.
 
 Should you encounter any issues during the installation, please refer to the
 :ref:`troubleshooting_k8s` section and / or seek help on the `Slack channel`.
 
 .. include:: requirements_intro.rst
-.. include:: k8s-install-etcd-operator-steps.rst
+
+Deploy Cilium + cilium-etcd-operator
+====================================
+
+.. include:: k8s-install-download-release.rst
+
+Generate the required YAML file and deploy it:
+
+.. parsed-literal::
+
+   helm template cilium \
+      --namespace kube-system \
+      --set global.etcd.enabled=true \
+      --set global.etcd.managed=true \
+      > cilium.yaml
+   kubectl create -f cilium.yaml
+
 
 Validate the Installation
 =========================
@@ -87,6 +108,46 @@ Troubleshooting
    if some of the pods restart once or twice. In case any of the above pods get
    into a long ``CrashLoopBackoff``, bootstrapping can be expedited  by
    restarting the pods to reset the ``CrashLoopBackoff`` time.
+
+CoreDNS: Enable reverse lookups
+-------------------------------
+
+In order for the TLS certificates between etcd peers to work correctly, a DNS
+reverse lookup on a pod IP must map back to pod name. If you are using CoreDNS,
+check the CoreDNS ConfigMap and validate that ``in-addr.arpa`` and ``ip6.arpa``
+are listed as wildcards for the kubernetes block like this:
+
+::
+
+    kubectl -n kube-system edit cm coredns
+    [...]
+    apiVersion: v1
+    data:
+      Corefile: |
+        .:53 {
+            errors
+            health
+            kubernetes cluster.local in-addr.arpa ip6.arpa {
+              pods insecure
+              upstream
+              fallthrough in-addr.arpa ip6.arpa
+            }
+            prometheus :9153
+            proxy . /etc/resolv.conf
+            cache 30
+        }
+
+The contents can look different than the above. The specific configuration that
+matters is to make sure that ``in-addr.arpa`` and ``ip6.arpa`` are listed as
+wildcards next to ``cluster.local``.
+
+You can validate this by looking up a pod IP with the ``host`` utility from any
+pod:
+
+::
+
+    host 10.60.20.86
+    86.20.60.10.in-addr.arpa domain name pointer cilium-etcd-972nprv9dp.cilium-etcd.kube-system.svc.cluster.local.
 
 .. _k8s_what_is_the_cilium_etcd_operator:
 
