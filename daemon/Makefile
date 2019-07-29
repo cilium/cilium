@@ -28,7 +28,7 @@ links:
 clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean
+	$(QUIET)$(GO) clean $(GOCLEAN)
 	$(foreach link,$(LINKS), rm -f $(link);)
 
 ifeq ("$(PKG_BUILD)","")

@@ -278,8 +278,15 @@ func (b *xmlBuilder) buildScalar(value reflect.Value, current *XMLNode, tag refl
 	case float32:
 		str = strconv.FormatFloat(float64(converted), 'f', -1, 32)
 	case time.Time:
-		const ISO8601UTC = "2006-01-02T15:04:05Z"
-		str = converted.UTC().Format(ISO8601UTC)
+		var err error
+		format := tag.Get("timestampFormat")
+		if len(format) == 0 {
+			format = protocol.ISO8601TimeFormatName
+		}
+		str, err = protocol.FormatTime(format, converted)
+		if err != nil {
+			return err
+		}
 	default:
 		if value.Kind() != reflect.String {
 			return fmt.Errorf("unsupported value for param %s: %v (%s)",

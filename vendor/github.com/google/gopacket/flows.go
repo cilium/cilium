@@ -49,7 +49,7 @@ func (a Endpoint) Raw() []byte { return a.raw[:a.len] }
 // For some endpoints, the actual comparison may not make sense, however this
 // ordering does provide useful information for most Endpoint types.
 // Ordering is based first on endpoint type, then on raw endpoint bytes.
-// Endpoint bytes are sorted lexigraphically.
+// Endpoint bytes are sorted lexicographically.
 func (a Endpoint) LessThan(b Endpoint) bool {
 	return a.typ < b.typ || (a.typ == b.typ && bytes.Compare(a.raw[:a.len], b.raw[:b.len]) < 0)
 }

@@ -12,7 +12,7 @@ all: $(TARGET)
 clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)rm -f $(TARGET)
-	$(GO) clean
+	$(GO) clean $(GOCLEAN)
 
 install:
 	groupadd -f cilium

@@ -92,9 +92,9 @@ type SafeCredentialsProvider struct {
 
 // Retrieve returns the credentials. If the credentials have already been
 // retrieved, and not expired the cached credentials will be returned. If the
-// credentails have not been retrieved yet, or expired RetrieveFn will be called.
+// credentials have not been retrieved yet, or expired RetrieveFn will be called.
 //
-// Retruns and error if RetrieveFn returns an error.
+// Returns and error if RetrieveFn returns an error.
 func (p *SafeCredentialsProvider) Retrieve() (Credentials, error) {
 	if creds := p.getCreds(); creds != nil {
 		return *creds, nil

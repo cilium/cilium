@@ -20,7 +20,7 @@ clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
 	-$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean
+	$(QUIET)$(GO) clean $(GOCLEAN)
 
 install:
 	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i install; done

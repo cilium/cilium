@@ -15,6 +15,8 @@
 package spec
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -68,6 +70,36 @@ func (s *Swagger) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// GobEncode provides a safe gob encoder for Swagger, including extensions
+func (s Swagger) GobEncode() ([]byte, error) {
+	var b bytes.Buffer
+	raw := struct {
+		Props SwaggerProps
+		Ext   VendorExtensible
+	}{
+		Props: s.SwaggerProps,
+		Ext:   s.VendorExtensible,
+	}
+	err := gob.NewEncoder(&b).Encode(raw)
+	return b.Bytes(), err
+}
+
+// GobDecode provides a safe gob decoder for Swagger, including extensions
+func (s *Swagger) GobDecode(b []byte) error {
+	var raw struct {
+		Props SwaggerProps
+		Ext   VendorExtensible
+	}
+	buf := bytes.NewBuffer(b)
+	err := gob.NewDecoder(buf).Decode(&raw)
+	if err != nil {
+		return err
+	}
+	s.SwaggerProps = raw.Props
+	s.VendorExtensible = raw.Ext
+	return nil
+}
+
 // SwaggerProps captures the top-level properties of an Api specification
 //
 // NOTE: validation rules
@@ -91,6 +123,98 @@ type SwaggerProps struct {
 	Security            []map[string][]string  `json:"security,omitempty"`
 	Tags                []Tag                  `json:"tags,omitempty"`
 	ExternalDocs        *ExternalDocumentation `json:"externalDocs,omitempty"`
+}
+
+type swaggerPropsAlias SwaggerProps
+
+type gobSwaggerPropsAlias struct {
+	Security []map[string]struct {
+		List []string
+		Pad  bool
+	}
+	Alias           *swaggerPropsAlias
+	SecurityIsEmpty bool
+}
+
+// GobEncode provides a safe gob encoder for SwaggerProps, including empty security requirements
+func (o SwaggerProps) GobEncode() ([]byte, error) {
+	raw := gobSwaggerPropsAlias{
+		Alias: (*swaggerPropsAlias)(&o),
+	}
+
+	var b bytes.Buffer
+	if o.Security == nil {
+		// nil security requirement
+		err := gob.NewEncoder(&b).Encode(raw)
+		return b.Bytes(), err
+	}
+
+	if len(o.Security) == 0 {
+		// empty, but non-nil security requirement
+		raw.SecurityIsEmpty = true
+		raw.Alias.Security = nil
+		err := gob.NewEncoder(&b).Encode(raw)
+		return b.Bytes(), err
+	}
+
+	raw.Security = make([]map[string]struct {
+		List []string
+		Pad  bool
+	}, 0, len(o.Security))
+	for _, req := range o.Security {
+		v := make(map[string]struct {
+			List []string
+			Pad  bool
+		}, len(req))
+		for k, val := range req {
+			v[k] = struct {
+				List []string
+				Pad  bool
+			}{
+				List: val,
+			}
+		}
+		raw.Security = append(raw.Security, v)
+	}
+
+	err := gob.NewEncoder(&b).Encode(raw)
+	return b.Bytes(), err
+}
+
+// GobDecode provides a safe gob decoder for SwaggerProps, including empty security requirements
+func (o *SwaggerProps) GobDecode(b []byte) error {
+	var raw gobSwaggerPropsAlias
+
+	buf := bytes.NewBuffer(b)
+	err := gob.NewDecoder(buf).Decode(&raw)
+	if err != nil {
+		return err
+	}
+	if raw.Alias == nil {
+		return nil
+	}
+
+	switch {
+	case raw.SecurityIsEmpty:
+		// empty, but non-nil security requirement
+		raw.Alias.Security = []map[string][]string{}
+	case len(raw.Alias.Security) == 0:
+		// nil security requirement
+		raw.Alias.Security = nil
+	default:
+		raw.Alias.Security = make([]map[string][]string, 0, len(raw.Security))
+		for _, req := range raw.Security {
+			v := make(map[string][]string, len(req))
+			for k, val := range req {
+				v[k] = make([]string, 0, len(val.List))
+				v[k] = append(v[k], val.List...)
+			}
+			raw.Alias.Security = append(raw.Alias.Security, v)
+		}
+	}
+
+	*o = *(*SwaggerProps)(raw.Alias)
+	return nil
 }
 
 // Dependencies represent a dependencies property

@@ -26,7 +26,7 @@ var cpuTimesSize int
 var emptyTimes cpuTimes
 
 func init() {
-	getconf, err := exec.LookPath("/usr/bin/getconf")
+	getconf, err := exec.LookPath("getconf")
 	if err != nil {
 		return
 	}

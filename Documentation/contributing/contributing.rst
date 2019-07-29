@@ -35,8 +35,6 @@ contribute to Cilium:
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 | `go <https://golang.org/dl/>`_                                                   | 1.13.3                   | N/A (OS-specific)                                                             |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `dep <https://github.com/golang/dep/>`_                                          | >= v0.4.1                | ``curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh``  |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 | `go-bindata <https://github.com/cilium/go-bindata>`_                             | ``a0ff2567cfb``          | ``go get -u github.com/cilium/go-bindata/...``                                |
 +----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
 + `ginkgo <https://github.com/onsi/ginkgo>`__                                      | >= 1.4.0                 | ``go get -u github.com/onsi/ginkgo/ginkgo``                                   |
@@ -404,37 +402,31 @@ This shell script depends on the ``inotify-tools`` package on Linux.
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Once you have downloaded dep make sure you have version >= 0.4.1
+Lets assume we want to add ``github.com/containernetworking/cni`` version ``v0.5.2``:
 
 .. code:: bash
 
-    $ dep version
-    dep:
-     version     : v0.4.1
-     build date  : 2018-01-24
-     git hash    : 37d9ea0a
-     go version  : go1.9.1
-     go compiler : gc
-     platform    : linux/amd64
-
-After that, you can edit the ``Gopkg.toml`` file, add the library that you want
-to add. Lets assume we want to add ``github.com/containernetworking/cni``
-version ``v0.5.2``:
-
-.. code:: bash
-
-    [[constraint]]
-      name = "github.com/containernetworking/cni"
-      revision = "v0.5.2"
-
-Once you add the libraries that you need you can save the file and run
-
-.. code:: bash
-
-    $ dep ensure -v
+    $ ./contrib/go-mod/pin-dependency.sh github.com/containernetworking/cni v0.5.2
+    $ ./contrib/go-mod/update-vendor.sh
+    $ git add vendor/
 
 For a first run, it can take a while as it will download all dependencies to
 your local cache but the remaining runs will be faster.
+
+Updating k8s is a special case, for that one needs to do:
+
+.. code:: bash
+
+    $ ./contrib/go-mod/pin-dependency.sh k8s.io/kubernetes v1.16.2
+    $ # get the commit id of the tag we are updating (c97fe50)
+    $ # open go.mod and look for a line similar to '// v0.0.0-20191001043732-d647ddbd755f -> k8s v1.16.1'
+    $ # Search and replace 'v0.0.0-20191001043732-d647ddbd755f' with 'c97fe50' and close the file
+    $ # Run the update-vendor.sh and ignore the errors 'version "c97fe50" invalid: must be of the form v1.2.3'
+    $ ./contrib/go-mod/update-vendor.sh
+    $ # open go.mod again and replace 'c97fe50 -> k8s v1.16.1'
+    $ # with 'v0.0.0-20191012044237-c97fe5036ef3 -> k8s v1.16.2'
+    $ make generate-k8s-api
+    $ git add vendor/
 
 Debugging
 ~~~~~~~~~
