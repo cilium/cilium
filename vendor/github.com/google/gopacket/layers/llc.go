@@ -96,7 +96,7 @@ func (s *SNAP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 // CanDecode returns the set of layer types that this DecodingLayer can decode.
 func (s *SNAP) CanDecode() gopacket.LayerClass {
-	return LayerTypeLLC
+	return LayerTypeSNAP
 }
 
 // NextLayerType returns the layer type contained by this DecodingLayer.

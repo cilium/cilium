@@ -1,11 +1,14 @@
 package external
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/aws/defaults"
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/aws/ec2rolecreds"
@@ -31,7 +34,7 @@ func ResolveDefaultAWSConfig(cfg *aws.Config, configs Configs) error {
 // Config provider used:
 // * CustomCABundleProvider
 func ResolveCustomCABundle(cfg *aws.Config, configs Configs) error {
-	v, found, err := GetCustomCABundle(configs)
+	pemCerts, found, err := GetCustomCABundle(configs)
 	if err != nil {
 		// TODO error handling, What is the best way to handle this?
 		// capture previous errors continue. error out if all errors
@@ -41,7 +44,35 @@ func ResolveCustomCABundle(cfg *aws.Config, configs Configs) error {
 		return nil
 	}
 
-	return addHTTPClientCABundle(cfg.HTTPClient, v)
+	type withTransportOptions interface {
+		WithTransportOptions(...func(*http.Transport)) aws.HTTPClient
+	}
+
+	trOpts, ok := cfg.HTTPClient.(withTransportOptions)
+	if !ok {
+		return fmt.Errorf("unable to add custom RootCAs HTTPClient, "+
+			"has no WithTransportOptions, %T", cfg.HTTPClient)
+	}
+
+	var appendErr error
+	client := trOpts.WithTransportOptions(func(tr *http.Transport) {
+		if tr.TLSClientConfig == nil {
+			tr.TLSClientConfig = &tls.Config{}
+		}
+		if tr.TLSClientConfig.RootCAs == nil {
+			tr.TLSClientConfig.RootCAs = x509.NewCertPool()
+		}
+		if !tr.TLSClientConfig.RootCAs.AppendCertsFromPEM(pemCerts) {
+			appendErr = awserr.New("LoadCustomCABundleError",
+				"failed to load custom CA bundle PEM file", nil)
+		}
+	})
+	if appendErr != nil {
+		return appendErr
+	}
+
+	cfg.HTTPClient = client
+	return err
 }
 
 // ResolveRegion extracts the first instance of a Region from the Configs slice.
@@ -195,8 +226,6 @@ func ResolveAssumeRoleCredentials(cfg *aws.Config, configs Configs) error {
 // use EC2 Instance Role always.
 func ResolveFallbackEC2Credentials(cfg *aws.Config, configs Configs) error {
 	cfgCp := cfg.Copy()
-	cfgCp.HTTPClient = shallowCopyHTTPClient(cfgCp.HTTPClient)
-	cfgCp.HTTPClient.Timeout = 5 * time.Second
 
 	provider := ec2rolecreds.NewProvider(ec2metadata.New(cfgCp))
 	provider.ExpiryWindow = 5 * time.Minute
@@ -204,13 +233,4 @@ func ResolveFallbackEC2Credentials(cfg *aws.Config, configs Configs) error {
 	cfg.Credentials = provider
 
 	return nil
-}
-
-func shallowCopyHTTPClient(client *http.Client) *http.Client {
-	return &http.Client{
-		Transport:     client.Transport,
-		CheckRedirect: client.CheckRedirect,
-		Jar:           client.Jar,
-		Timeout:       client.Timeout,
-	}
 }

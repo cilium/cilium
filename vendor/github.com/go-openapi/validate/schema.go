@@ -174,7 +174,7 @@ func (s *SchemaValidator) Validate(data interface{}) *Result {
 }
 
 func (s *SchemaValidator) typeValidator() valueValidator {
-	return &typeValidator{Type: s.Schema.Type, Format: s.Schema.Format, In: s.in, Path: s.Path}
+	return &typeValidator{Type: s.Schema.Type, Nullable: s.Schema.Nullable, Format: s.Schema.Format, In: s.in, Path: s.Path}
 }
 
 func (s *SchemaValidator) commonValidator() valueValidator {
@@ -233,7 +233,7 @@ func (s *SchemaValidator) formatValidator() valueValidator {
 
 func (s *SchemaValidator) schemaPropsValidator() valueValidator {
 	sch := s.Schema
-	return newSchemaPropsValidator(s.Path, s.in, sch.AllOf, sch.OneOf, sch.AnyOf, sch.Not, sch.Dependencies, s.Root, s.KnownFormats)
+	return newSchemaPropsValidator(s.Path, s.in, sch.AllOf, sch.OneOf, sch.AnyOf, sch.Not, sch.Dependencies, s.Root, s.KnownFormats, s.Options.Options()...)
 }
 
 func (s *SchemaValidator) objectValidator() valueValidator {

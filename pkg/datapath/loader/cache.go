@@ -31,8 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/fsnotify.v1"
 )
 
 var (

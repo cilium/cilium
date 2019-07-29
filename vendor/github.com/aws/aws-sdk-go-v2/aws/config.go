@@ -1,9 +1,5 @@
 package aws
 
-import (
-	"net/http"
-)
-
 // A Config provides service configuration for service clients.
 type Config struct {
 	// The region to send requests to. This parameter is required and must
@@ -24,9 +20,13 @@ type Config struct {
 	// to use based on region.
 	EndpointResolver EndpointResolver
 
-	// The HTTP client to use when sending requests. Defaults to
-	// `http.DefaultClient`.
-	HTTPClient *http.Client
+	// The HTTP Client the SDK's API clients will use to invoke HTTP requests.
+	// The SDK defaults to a BuildableHTTPClient allowing API clients to create
+	// copies of the HTTP Client for service specific customizations.
+	//
+	// Use a (*http.Client) for custom behavior. Using a custom http.Client
+	// will prevent the SDK from modifying the HTTP client.
+	HTTPClient HTTPClient
 
 	// TODO document
 	Handlers Handlers

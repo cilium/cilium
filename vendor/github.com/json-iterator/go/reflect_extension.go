@@ -246,8 +246,7 @@ func getTypeDecoderFromExtension(ctx *ctx, typ reflect2.Type) ValDecoder {
 		for _, extension := range extensions {
 			decoder = extension.DecorateDecoder(typ, decoder)
 		}
-		decoder = ctx.decoderExtension.DecorateDecoder(typ, decoder)
-		for _, extension := range ctx.extraExtensions {
+		for _, extension := range ctx.extensions {
 			decoder = extension.DecorateDecoder(typ, decoder)
 		}
 	}
@@ -260,18 +259,14 @@ func _getTypeDecoderFromExtension(ctx *ctx, typ reflect2.Type) ValDecoder {
 			return decoder
 		}
 	}
-	decoder := ctx.decoderExtension.CreateDecoder(typ)
-	if decoder != nil {
-		return decoder
-	}
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		decoder := extension.CreateDecoder(typ)
 		if decoder != nil {
 			return decoder
 		}
 	}
 	typeName := typ.String()
-	decoder = typeDecoders[typeName]
+	decoder := typeDecoders[typeName]
 	if decoder != nil {
 		return decoder
 	}
@@ -291,8 +286,7 @@ func getTypeEncoderFromExtension(ctx *ctx, typ reflect2.Type) ValEncoder {
 		for _, extension := range extensions {
 			encoder = extension.DecorateEncoder(typ, encoder)
 		}
-		encoder = ctx.encoderExtension.DecorateEncoder(typ, encoder)
-		for _, extension := range ctx.extraExtensions {
+		for _, extension := range ctx.extensions {
 			encoder = extension.DecorateEncoder(typ, encoder)
 		}
 	}
@@ -306,18 +300,14 @@ func _getTypeEncoderFromExtension(ctx *ctx, typ reflect2.Type) ValEncoder {
 			return encoder
 		}
 	}
-	encoder := ctx.encoderExtension.CreateEncoder(typ)
-	if encoder != nil {
-		return encoder
-	}
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		encoder := extension.CreateEncoder(typ)
 		if encoder != nil {
 			return encoder
 		}
 	}
 	typeName := typ.String()
-	encoder = typeEncoders[typeName]
+	encoder := typeEncoders[typeName]
 	if encoder != nil {
 		return encoder
 	}
@@ -403,9 +393,7 @@ func createStructDescriptor(ctx *ctx, typ reflect2.Type, bindings []*Binding, em
 	for _, extension := range extensions {
 		extension.UpdateStructDescriptor(structDescriptor)
 	}
-	ctx.encoderExtension.UpdateStructDescriptor(structDescriptor)
-	ctx.decoderExtension.UpdateStructDescriptor(structDescriptor)
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		extension.UpdateStructDescriptor(structDescriptor)
 	}
 	processTags(structDescriptor, ctx.frozenConfig)

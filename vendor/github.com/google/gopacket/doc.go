@@ -22,7 +22,8 @@ useful, including:
 Also, if you're looking to dive right into code, see the examples subdirectory
 for numerous simple binaries built using gopacket libraries.
 
-Minimum go version required is 1.5.
+Minimum go version required is 1.5 except for pcapgo/EthernetHandle, afpacket,
+and bsdbpf which need at least 1.7 due to x/sys/unix dependencies.
 
 Basic Usage
 

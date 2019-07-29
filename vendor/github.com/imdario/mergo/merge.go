@@ -9,7 +9,6 @@
 package mergo
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -128,9 +127,6 @@ func deepMerge(dst, src reflect.Value, visited map[uintptr]*visit, depth int, co
 					if !isEmptyValue(src) && (overwrite || isEmptyValue(dst)) && !config.AppendSlice {
 						dstSlice = srcSlice
 					} else if config.AppendSlice {
-						if srcSlice.Type() != dstSlice.Type() {
-							return fmt.Errorf("cannot append two slice with different type (%s, %s)", srcSlice.Type(), dstSlice.Type())
-						}
 						dstSlice = reflect.AppendSlice(dstSlice, srcSlice)
 					}
 					dst.SetMapIndex(key, dstSlice)
@@ -154,9 +150,6 @@ func deepMerge(dst, src reflect.Value, visited map[uintptr]*visit, depth int, co
 		if !isEmptyValue(src) && (overwrite || isEmptyValue(dst)) && !config.AppendSlice {
 			dst.Set(src)
 		} else if config.AppendSlice {
-			if src.Type() != dst.Type() {
-				return fmt.Errorf("cannot append two slice with different type (%s, %s)", src.Type(), dst.Type())
-			}
 			dst.Set(reflect.AppendSlice(dst, src))
 		}
 	case reflect.Ptr:

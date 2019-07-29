@@ -21,6 +21,10 @@ func isLoopbackHost(host string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if len(addrs) == 0 {
+		return false, fmt.Errorf("no addrs found for host, %s", host)
+	}
+
 	for _, addr := range addrs {
 		if !net.ParseIP(addr).IsLoopback() {
 			return false, nil

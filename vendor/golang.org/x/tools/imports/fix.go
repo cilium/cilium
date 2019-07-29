@@ -5,7 +5,6 @@
 package imports
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -16,15 +15,20 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/internal/fastwalk"
+	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/gopathwalk"
 )
 
 // Debug controls verbose logging.
@@ -76,42 +80,32 @@ func importGroup(importPath string) int {
 	return 0
 }
 
-// importInfo is a summary of information about one import.
+// An importInfo represents a single import statement.
 type importInfo struct {
-	Path  string // full import path (e.g. "crypto/rand")
-	Alias string // import alias, if present (e.g. "crand")
+	importPath string // import path, e.g. "crypto/rand".
+	name       string // import name, e.g. "crand", or "" if none.
 }
 
-// packageInfo is a summary of features found in a package.
+// A packageInfo represents what's known about a package.
 type packageInfo struct {
-	Globals map[string]bool       // symbol => true
-	Imports map[string]importInfo // pkg base name or alias => info
-	// refs are a set of package references currently satisfied by imports.
-	// first key: either base package (e.g. "fmt") or renamed package
-	// second key: referenced package symbol (e.g. "Println")
-	Refs map[string]map[string]bool
+	name    string          // real package name, if known.
+	exports map[string]bool // known exports.
 }
 
-// dirPackageInfo exposes the dirPackageInfoFile function so that it can be overridden.
-var dirPackageInfo = dirPackageInfoFile
-
-// dirPackageInfoFile gets information from other files in the package.
-func dirPackageInfoFile(pkgName, srcDir, filename string) (*packageInfo, error) {
+// parseOtherFiles parses all the Go files in srcDir except filename, including
+// test files if filename looks like a test.
+func parseOtherFiles(fset *token.FileSet, srcDir, filename string) []*ast.File {
+	// This could use go/packages but it doesn't buy much, and it fails
+	// with https://golang.org/issue/26296 in LoadFiles mode in some cases.
 	considerTests := strings.HasSuffix(filename, "_test.go")
 
 	fileBase := filepath.Base(filename)
 	packageFileInfos, err := ioutil.ReadDir(srcDir)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
-	info := &packageInfo{
-		Globals: make(map[string]bool),
-		Imports: make(map[string]importInfo),
-		Refs:    make(map[string]map[string]bool),
-	}
-
-	visitor := collectReferences(info.Refs)
+	var files []*ast.File
 	for _, fi := range packageFileInfos {
 		if fi.Name() == fileBase || !strings.HasSuffix(fi.Name(), ".go") {
 			continue
@@ -120,45 +114,40 @@ func dirPackageInfoFile(pkgName, srcDir, filename string) (*packageInfo, error) 
 			continue
 		}
 
-		fileSet := token.NewFileSet()
-		root, err := parser.ParseFile(fileSet, filepath.Join(srcDir, fi.Name()), nil, 0)
+		f, err := parser.ParseFile(fset, filepath.Join(srcDir, fi.Name()), nil, 0)
 		if err != nil {
 			continue
 		}
 
-		for _, decl := range root.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
+		files = append(files, f)
+	}
+
+	return files
+}
+
+// addGlobals puts the names of package vars into the provided map.
+func addGlobals(f *ast.File, globals map[string]bool) {
+	for _, decl := range f.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+
+		for _, spec := range genDecl.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
 			if !ok {
 				continue
 			}
-
-			for _, spec := range genDecl.Specs {
-				valueSpec, ok := spec.(*ast.ValueSpec)
-				if !ok {
-					continue
-				}
-				info.Globals[valueSpec.Names[0].Name] = true
-			}
+			globals[valueSpec.Names[0].Name] = true
 		}
-
-		for _, imp := range root.Imports {
-			impInfo := importInfo{Path: strings.Trim(imp.Path.Value, `"`)}
-			name := path.Base(impInfo.Path)
-			if imp.Name != nil {
-				name = strings.Trim(imp.Name.Name, `"`)
-				impInfo.Alias = name
-			}
-			info.Imports[name] = impInfo
-		}
-
-		ast.Walk(visitor, root)
 	}
-	return info, nil
 }
 
-// collectReferences returns a visitor that collects all exported package
-// references
-func collectReferences(refs map[string]map[string]bool) visitFn {
+// collectReferences builds a map of selector expressions, from
+// left hand side (X) to a set of right hand sides (Sel).
+func collectReferences(f *ast.File) references {
+	refs := references{}
+
 	var visitor visitFn
 	visitor = func(node ast.Node) ast.Visitor {
 		if node == nil {
@@ -171,7 +160,11 @@ func collectReferences(refs map[string]map[string]bool) visitFn {
 				break
 			}
 			if xident.Obj != nil {
-				// if the parser can resolve it, it's not a package ref
+				// If the parser can resolve it, it's not a package ref.
+				break
+			}
+			if !ast.IsExported(v.Sel.Name) {
+				// Whatever this is, it's not exported from a package.
 				break
 			}
 			pkgName := xident.Name
@@ -180,119 +173,522 @@ func collectReferences(refs map[string]map[string]bool) visitFn {
 				r = make(map[string]bool)
 				refs[pkgName] = r
 			}
-			if ast.IsExported(v.Sel.Name) {
-				r[v.Sel.Name] = true
-			}
+			r[v.Sel.Name] = true
 		}
 		return visitor
 	}
-	return visitor
+	ast.Walk(visitor, f)
+	return refs
 }
 
-func fixImports(fset *token.FileSet, f *ast.File, filename string) (added []string, err error) {
-	// refs are a set of possible package references currently unsatisfied by imports.
-	// first key: either base package (e.g. "fmt") or renamed package
-	// second key: referenced package symbol (e.g. "Println")
-	refs := make(map[string]map[string]bool)
+// collectImports returns all the imports in f, keyed by their package name as
+// determined by pathToName. Unnamed imports (., _) and "C" are ignored.
+func collectImports(f *ast.File) []*importInfo {
+	var imports []*importInfo
+	for _, imp := range f.Imports {
+		var name string
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		if imp.Path.Value == `"C"` || name == "_" || name == "." {
+			continue
+		}
+		path := strings.Trim(imp.Path.Value, `"`)
+		imports = append(imports, &importInfo{
+			name:       name,
+			importPath: path,
+		})
+	}
+	return imports
+}
 
-	// decls are the current package imports. key is base package or renamed package.
-	decls := make(map[string]*ast.ImportSpec)
+// findMissingImport searches pass's candidates for an import that provides
+// pkg, containing all of syms.
+func (p *pass) findMissingImport(pkg string, syms map[string]bool) *importInfo {
+	for _, candidate := range p.candidates {
+		pkgInfo, ok := p.knownPackages[candidate.importPath]
+		if !ok {
+			continue
+		}
+		if p.importIdentifier(candidate) != pkg {
+			continue
+		}
 
+		allFound := true
+		for right := range syms {
+			if !pkgInfo.exports[right] {
+				allFound = false
+				break
+			}
+		}
+
+		if allFound {
+			return candidate
+		}
+	}
+	return nil
+}
+
+// references is set of references found in a Go file. The first map key is the
+// left hand side of a selector expression, the second key is the right hand
+// side, and the value should always be true.
+type references map[string]map[string]bool
+
+// A pass contains all the inputs and state necessary to fix a file's imports.
+// It can be modified in some ways during use; see comments below.
+type pass struct {
+	// Inputs. These must be set before a call to load, and not modified after.
+	fset                 *token.FileSet // fset used to parse f and its siblings.
+	f                    *ast.File      // the file being fixed.
+	srcDir               string         // the directory containing f.
+	fixEnv               *fixEnv        // the environment to use for go commands, etc.
+	loadRealPackageNames bool           // if true, load package names from disk rather than guessing them.
+	otherFiles           []*ast.File    // sibling files.
+
+	// Intermediate state, generated by load.
+	existingImports map[string]*importInfo
+	allRefs         references
+	missingRefs     references
+
+	// Inputs to fix. These can be augmented between successive fix calls.
+	lastTry       bool                    // indicates that this is the last call and fix should clean up as best it can.
+	candidates    []*importInfo           // candidate imports in priority order.
+	knownPackages map[string]*packageInfo // information about all known packages.
+}
+
+// loadPackageNames saves the package names for everything referenced by imports.
+func (p *pass) loadPackageNames(imports []*importInfo) error {
+	var unknown []string
+	for _, imp := range imports {
+		if _, ok := p.knownPackages[imp.importPath]; ok {
+			continue
+		}
+		unknown = append(unknown, imp.importPath)
+	}
+
+	names, err := p.fixEnv.getResolver().loadPackageNames(unknown, p.srcDir)
+	if err != nil {
+		return err
+	}
+
+	for path, name := range names {
+		p.knownPackages[path] = &packageInfo{
+			name:    name,
+			exports: map[string]bool{},
+		}
+	}
+	return nil
+}
+
+// importIdentifier returns the identifier that imp will introduce. It will
+// guess if the package name has not been loaded, e.g. because the source
+// is not available.
+func (p *pass) importIdentifier(imp *importInfo) string {
+	if imp.name != "" {
+		return imp.name
+	}
+	known := p.knownPackages[imp.importPath]
+	if known != nil && known.name != "" {
+		return known.name
+	}
+	return importPathToAssumedName(imp.importPath)
+}
+
+// load reads in everything necessary to run a pass, and reports whether the
+// file already has all the imports it needs. It fills in p.missingRefs with the
+// file's missing symbols, if any, or removes unused imports if not.
+func (p *pass) load() bool {
+	p.knownPackages = map[string]*packageInfo{}
+	p.missingRefs = references{}
+	p.existingImports = map[string]*importInfo{}
+
+	// Load basic information about the file in question.
+	p.allRefs = collectReferences(p.f)
+
+	// Load stuff from other files in the same package:
+	// global variables so we know they don't need resolving, and imports
+	// that we might want to mimic.
+	globals := map[string]bool{}
+	for _, otherFile := range p.otherFiles {
+		// Don't load globals from files that are in the same directory
+		// but a different package. Using them to suggest imports is OK.
+		if p.f.Name.Name == otherFile.Name.Name {
+			addGlobals(otherFile, globals)
+		}
+		p.candidates = append(p.candidates, collectImports(otherFile)...)
+	}
+
+	// Resolve all the import paths we've seen to package names, and store
+	// f's imports by the identifier they introduce.
+	imports := collectImports(p.f)
+	if p.loadRealPackageNames {
+		err := p.loadPackageNames(append(imports, p.candidates...))
+		if err != nil {
+			if Debug {
+				log.Printf("loading package names: %v", err)
+			}
+			return false
+		}
+	}
+	for _, imp := range imports {
+		p.existingImports[p.importIdentifier(imp)] = imp
+	}
+
+	// Find missing references.
+	for left, rights := range p.allRefs {
+		if globals[left] {
+			continue
+		}
+		_, ok := p.existingImports[left]
+		if !ok {
+			p.missingRefs[left] = rights
+			continue
+		}
+	}
+	if len(p.missingRefs) != 0 {
+		return false
+	}
+
+	return p.fix()
+}
+
+// fix attempts to satisfy missing imports using p.candidates. If it finds
+// everything, or if p.lastTry is true, it adds the imports it found,
+// removes anything unused, and returns true.
+func (p *pass) fix() bool {
+	// Find missing imports.
+	var selected []*importInfo
+	for left, rights := range p.missingRefs {
+		if imp := p.findMissingImport(left, rights); imp != nil {
+			selected = append(selected, imp)
+		}
+	}
+
+	if !p.lastTry && len(selected) != len(p.missingRefs) {
+		return false
+	}
+
+	// Found everything, or giving up. Add the new imports and remove any unused.
+	for _, imp := range p.existingImports {
+		// We deliberately ignore globals here, because we can't be sure
+		// they're in the same package. People do things like put multiple
+		// main packages in the same directory, and we don't want to
+		// remove imports if they happen to have the same name as a var in
+		// a different package.
+		if _, ok := p.allRefs[p.importIdentifier(imp)]; !ok {
+			astutil.DeleteNamedImport(p.fset, p.f, imp.name, imp.importPath)
+		}
+	}
+
+	for _, imp := range selected {
+		astutil.AddNamedImport(p.fset, p.f, imp.name, imp.importPath)
+	}
+
+	if p.loadRealPackageNames {
+		for _, imp := range p.f.Imports {
+			if imp.Name != nil {
+				continue
+			}
+			path := strings.Trim(imp.Path.Value, `""`)
+			ident := p.importIdentifier(&importInfo{importPath: path})
+			if ident != importPathToAssumedName(path) {
+				imp.Name = &ast.Ident{Name: ident, NamePos: imp.Pos()}
+			}
+		}
+	}
+
+	return true
+}
+
+// assumeSiblingImportsValid assumes that siblings' use of packages is valid,
+// adding the exports they use.
+func (p *pass) assumeSiblingImportsValid() {
+	for _, f := range p.otherFiles {
+		refs := collectReferences(f)
+		imports := collectImports(f)
+		importsByName := map[string]*importInfo{}
+		for _, imp := range imports {
+			importsByName[p.importIdentifier(imp)] = imp
+		}
+		for left, rights := range refs {
+			if imp, ok := importsByName[left]; ok {
+				if _, ok := stdlib[imp.importPath]; ok {
+					// We have the stdlib in memory; no need to guess.
+					rights = stdlib[imp.importPath]
+				}
+				p.addCandidate(imp, &packageInfo{
+					// no name; we already know it.
+					exports: rights,
+				})
+			}
+		}
+	}
+}
+
+// addCandidate adds a candidate import to p, and merges in the information
+// in pkg.
+func (p *pass) addCandidate(imp *importInfo, pkg *packageInfo) {
+	p.candidates = append(p.candidates, imp)
+	if existing, ok := p.knownPackages[imp.importPath]; ok {
+		if existing.name == "" {
+			existing.name = pkg.name
+		}
+		for export := range pkg.exports {
+			existing.exports[export] = true
+		}
+	} else {
+		p.knownPackages[imp.importPath] = pkg
+	}
+}
+
+// fixImports adds and removes imports from f so that all its references are
+// satisfied and there are no unused imports.
+//
+// This is declared as a variable rather than a function so goimports can
+// easily be extended by adding a file with an init function.
+var fixImports = fixImportsDefault
+
+func fixImportsDefault(fset *token.FileSet, f *ast.File, filename string, env *fixEnv) error {
 	abs, err := filepath.Abs(filename)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	srcDir := filepath.Dir(abs)
 	if Debug {
 		log.Printf("fixImports(filename=%q), abs=%q, srcDir=%q ...", filename, abs, srcDir)
 	}
 
-	var packageInfo *packageInfo
-	var loadedPackageInfo bool
+	// First pass: looking only at f, and using the naive algorithm to
+	// derive package names from import paths, see if the file is already
+	// complete. We can't add any imports yet, because we don't know
+	// if missing references are actually package vars.
+	p := &pass{fset: fset, f: f, srcDir: srcDir}
+	if p.load() {
+		return nil
+	}
 
-	// collect potential uses of packages.
-	var visitor visitFn
-	visitor = visitFn(func(node ast.Node) ast.Visitor {
-		if node == nil {
-			return visitor
-		}
-		switch v := node.(type) {
-		case *ast.ImportSpec:
-			if v.Name != nil {
-				decls[v.Name.Name] = v
-				break
-			}
-			ipath := strings.Trim(v.Path.Value, `"`)
-			if ipath == "C" {
-				break
-			}
-			local := importPathToName(ipath, srcDir)
-			decls[local] = v
-		case *ast.SelectorExpr:
-			xident, ok := v.X.(*ast.Ident)
-			if !ok {
-				break
-			}
-			if xident.Obj != nil {
-				// if the parser can resolve it, it's not a package ref
-				break
-			}
-			pkgName := xident.Name
-			if refs[pkgName] == nil {
-				refs[pkgName] = make(map[string]bool)
-			}
-			if !loadedPackageInfo {
-				loadedPackageInfo = true
-				packageInfo, _ = dirPackageInfo(f.Name.Name, srcDir, filename)
-			}
-			if decls[pkgName] == nil && (packageInfo == nil || !packageInfo.Globals[pkgName]) {
-				refs[pkgName][v.Sel.Name] = true
-			}
-		}
-		return visitor
-	})
-	ast.Walk(visitor, f)
+	otherFiles := parseOtherFiles(fset, srcDir, filename)
 
-	// Nil out any unused ImportSpecs, to be removed in following passes
-	unusedImport := map[string]string{}
-	for pkg, is := range decls {
-		if refs[pkg] == nil && pkg != "_" && pkg != "." {
-			name := ""
-			if is.Name != nil {
-				name = is.Name.Name
-			}
-			unusedImport[strings.Trim(is.Path.Value, `"`)] = name
+	// Second pass: add information from other files in the same package,
+	// like their package vars and imports.
+	p.otherFiles = otherFiles
+	if p.load() {
+		return nil
+	}
+
+	// Now we can try adding imports from the stdlib.
+	p.assumeSiblingImportsValid()
+	addStdlibCandidates(p, p.missingRefs)
+	if p.fix() {
+		return nil
+	}
+
+	// Third pass: get real package names where we had previously used
+	// the naive algorithm. This is the first step that will use the
+	// environment, so we provide it here for the first time.
+	p = &pass{fset: fset, f: f, srcDir: srcDir, fixEnv: env}
+	p.loadRealPackageNames = true
+	p.otherFiles = otherFiles
+	if p.load() {
+		return nil
+	}
+
+	addStdlibCandidates(p, p.missingRefs)
+	p.assumeSiblingImportsValid()
+	if p.fix() {
+		return nil
+	}
+
+	// Go look for candidates in $GOPATH, etc. We don't necessarily load
+	// the real exports of sibling imports, so keep assuming their contents.
+	if err := addExternalCandidates(p, p.missingRefs, filename); err != nil {
+		return err
+	}
+
+	p.lastTry = true
+	p.fix()
+	return nil
+}
+
+// fixEnv contains environment variables and settings that affect the use of
+// the go command, the go/build package, etc.
+type fixEnv struct {
+	// If non-empty, these will be used instead of the
+	// process-wide values.
+	GOPATH, GOROOT, GO111MODULE, GOPROXY, GOFLAGS string
+	WorkingDir                                    string
+
+	// If true, use go/packages regardless of the environment.
+	ForceGoPackages bool
+
+	resolver resolver
+}
+
+func (e *fixEnv) env() []string {
+	env := os.Environ()
+	add := func(k, v string) {
+		if v != "" {
+			env = append(env, k+"="+v)
 		}
 	}
-	for ipath, name := range unusedImport {
-		if ipath == "C" {
-			// Don't remove cgo stuff.
+	add("GOPATH", e.GOPATH)
+	add("GOROOT", e.GOROOT)
+	add("GO111MODULE", e.GO111MODULE)
+	add("GOPROXY", e.GOPROXY)
+	add("GOFLAGS", e.GOFLAGS)
+	if e.WorkingDir != "" {
+		add("PWD", e.WorkingDir)
+	}
+	return env
+}
+
+func (e *fixEnv) getResolver() resolver {
+	if e.resolver != nil {
+		return e.resolver
+	}
+	if e.ForceGoPackages {
+		return &goPackagesResolver{env: e}
+	}
+
+	out, err := e.invokeGo("env", "GOMOD")
+	if err != nil || len(bytes.TrimSpace(out.Bytes())) == 0 {
+		return &gopathResolver{env: e}
+	}
+	return &moduleResolver{env: e}
+}
+
+func (e *fixEnv) newPackagesConfig(mode packages.LoadMode) *packages.Config {
+	return &packages.Config{
+		Mode: mode,
+		Dir:  e.WorkingDir,
+		Env:  e.env(),
+	}
+}
+
+func (e *fixEnv) buildContext() *build.Context {
+	ctx := build.Default
+	ctx.GOROOT = e.GOROOT
+	ctx.GOPATH = e.GOPATH
+	return &ctx
+}
+
+func (e *fixEnv) invokeGo(args ...string) (*bytes.Buffer, error) {
+	cmd := exec.Command("go", args...)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Env = e.env()
+	cmd.Dir = e.WorkingDir
+
+	if Debug {
+		defer func(start time.Time) { log.Printf("%s for %v", time.Since(start), cmdDebugStr(cmd)) }(time.Now())
+	}
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("running go: %v (stderr:\n%s)", err, stderr)
+	}
+	return stdout, nil
+}
+
+func cmdDebugStr(cmd *exec.Cmd) string {
+	env := make(map[string]string)
+	for _, kv := range cmd.Env {
+		split := strings.Split(kv, "=")
+		k, v := split[0], split[1]
+		env[k] = v
+	}
+
+	return fmt.Sprintf("GOROOT=%v GOPATH=%v GO111MODULE=%v GOPROXY=%v PWD=%v go %v", env["GOROOT"], env["GOPATH"], env["GO111MODULE"], env["GOPROXY"], env["PWD"], cmd.Args)
+}
+
+func addStdlibCandidates(pass *pass, refs references) {
+	add := func(pkg string) {
+		pass.addCandidate(
+			&importInfo{importPath: pkg},
+			&packageInfo{name: path.Base(pkg), exports: stdlib[pkg]})
+	}
+	for left := range refs {
+		if left == "rand" {
+			// Make sure we try crypto/rand before math/rand.
+			add("crypto/rand")
+			add("math/rand")
 			continue
 		}
-		astutil.DeleteNamedImport(fset, f, name, ipath)
-	}
-
-	for pkgName, symbols := range refs {
-		if len(symbols) == 0 {
-			// skip over packages already imported
-			delete(refs, pkgName)
+		for importPath := range stdlib {
+			if path.Base(importPath) == left {
+				add(importPath)
+			}
 		}
 	}
+}
 
-	// Fast path, all references already imported.
-	if len(refs) == 0 {
-		return nil, nil
+// A resolver does the build-system-specific parts of goimports.
+type resolver interface {
+	// loadPackageNames loads the package names in importPaths.
+	loadPackageNames(importPaths []string, srcDir string) (map[string]string, error)
+	// scan finds (at least) the packages satisfying refs. The returned slice is unordered.
+	scan(refs references) ([]*pkg, error)
+}
+
+// gopathResolver implements resolver for GOPATH and module workspaces using go/packages.
+type goPackagesResolver struct {
+	env *fixEnv
+}
+
+func (r *goPackagesResolver) loadPackageNames(importPaths []string, srcDir string) (map[string]string, error) {
+	cfg := r.env.newPackagesConfig(packages.LoadFiles)
+	pkgs, err := packages.Load(cfg, importPaths...)
+	if err != nil {
+		return nil, err
+	}
+	names := map[string]string{}
+	for _, pkg := range pkgs {
+		names[VendorlessPath(pkg.PkgPath)] = pkg.Name
+	}
+	// We may not have found all the packages. Guess the rest.
+	for _, path := range importPaths {
+		if _, ok := names[path]; ok {
+			continue
+		}
+		names[path] = importPathToAssumedName(path)
+	}
+	return names, nil
+
+}
+
+func (r *goPackagesResolver) scan(refs references) ([]*pkg, error) {
+	var loadQueries []string
+	for pkgName := range refs {
+		loadQueries = append(loadQueries, "iamashamedtousethedisabledqueryname="+pkgName)
+	}
+	sort.Strings(loadQueries)
+	cfg := r.env.newPackagesConfig(packages.LoadFiles)
+	goPackages, err := packages.Load(cfg, loadQueries...)
+	if err != nil {
+		return nil, err
 	}
 
-	// Can assume this will be necessary in all cases now.
-	if !loadedPackageInfo {
-		packageInfo, _ = dirPackageInfo(f.Name.Name, srcDir, filename)
+	var scan []*pkg
+	for _, goPackage := range goPackages {
+		scan = append(scan, &pkg{
+			dir:             filepath.Dir(goPackage.CompiledGoFiles[0]),
+			importPathShort: VendorlessPath(goPackage.PkgPath),
+			goPackage:       goPackage,
+		})
+	}
+	return scan, nil
+}
+
+func addExternalCandidates(pass *pass, refs references, filename string) error {
+	dirScan, err := pass.fixEnv.getResolver().scan(refs)
+	if err != nil {
+		return err
 	}
 
 	// Search for imports matching potential package references.
 	type result struct {
-		ipath string // import path
-		name  string // optional name to rename import as
+		imp *importInfo
+		pkg *packageInfo
 	}
 	results := make(chan result, len(refs))
 
@@ -311,20 +707,8 @@ func fixImports(fset *token.FileSet, f *ast.File, filename string) (added []stri
 		go func(pkgName string, symbols map[string]bool) {
 			defer wg.Done()
 
-			if packageInfo != nil {
-				sibling := packageInfo.Imports[pkgName]
-				if sibling.Path != "" {
-					refs := packageInfo.Refs[pkgName]
-					for symbol := range symbols {
-						if refs[symbol] {
-							results <- result{ipath: sibling.Path, name: sibling.Alias}
-							return
-						}
-					}
-				}
-			}
+			found, err := findImport(ctx, pass.fixEnv, dirScan, pkgName, symbols, filename)
 
-			ipath, rename, err := findImport(ctx, pkgName, symbols, filename)
 			if err != nil {
 				firstErrOnce.Do(func() {
 					firstErr = err
@@ -333,16 +717,19 @@ func fixImports(fset *token.FileSet, f *ast.File, filename string) (added []stri
 				return
 			}
 
-			if ipath == "" {
+			if found == nil {
 				return // No matching package.
 			}
 
-			r := result{ipath: ipath}
-			if rename {
-				r.name = pkgName
+			imp := &importInfo{
+				importPath: found.importPathShort,
 			}
-			results <- r
-			return
+
+			pkg := &packageInfo{
+				name:    pkgName,
+				exports: symbols,
+			}
+			results <- result{imp, pkg}
 		}(pkgName, symbols)
 	}
 	go func() {
@@ -351,66 +738,82 @@ func fixImports(fset *token.FileSet, f *ast.File, filename string) (added []stri
 	}()
 
 	for result := range results {
-		if result.name != "" {
-			astutil.AddNamedImport(fset, f, result.name, result.ipath)
-		} else {
-			astutil.AddImport(fset, f, result.ipath)
-		}
-		added = append(added, result.ipath)
+		pass.addCandidate(result.imp, result.pkg)
 	}
-
-	if firstErr != nil {
-		return nil, firstErr
-	}
-	return added, nil
+	return firstErr
 }
 
-// importPathToName returns the package name for the given import path.
-var importPathToName func(importPath, srcDir string) (packageName string) = importPathToNameGoPath
+// notIdentifier reports whether ch is an invalid identifier character.
+func notIdentifier(ch rune) bool {
+	return !('a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' ||
+		'0' <= ch && ch <= '9' ||
+		ch == '_' ||
+		ch >= utf8.RuneSelf && (unicode.IsLetter(ch) || unicode.IsDigit(ch)))
+}
 
-// importPathToNameBasic assumes the package name is the base of import path,
-// except that if the path ends in foo/vN, it assumes the package name is foo.
-func importPathToNameBasic(importPath, srcDir string) (packageName string) {
+// importPathToAssumedName returns the assumed package name of an import path.
+// It does this using only string parsing of the import path.
+// It picks the last element of the path that does not look like a major
+// version, and then picks the valid identifier off the start of that element.
+// It is used to determine if a local rename should be added to an import for
+// clarity.
+// This function could be moved to a standard package and exported if we want
+// for use in other tools.
+func importPathToAssumedName(importPath string) string {
 	base := path.Base(importPath)
 	if strings.HasPrefix(base, "v") {
 		if _, err := strconv.Atoi(base[1:]); err == nil {
 			dir := path.Dir(importPath)
 			if dir != "." {
-				return path.Base(dir)
+				base = path.Base(dir)
 			}
 		}
+	}
+	base = strings.TrimPrefix(base, "go-")
+	if i := strings.IndexFunc(base, notIdentifier); i >= 0 {
+		base = base[:i]
 	}
 	return base
 }
 
-// importPathToNameGoPath finds out the actual package name, as declared in its .go files.
-// If there's a problem, it falls back to using importPathToNameBasic.
-func importPathToNameGoPath(importPath, srcDir string) (packageName string) {
-	// Fast path for standard library without going to disk.
-	if pkg, ok := stdImportPackage[importPath]; ok {
-		return pkg
-	}
-
-	pkgName, err := importPathToNameGoPathParse(importPath, srcDir)
-	if Debug {
-		log.Printf("importPathToNameGoPathParse(%q, srcDir=%q) = %q, %v", importPath, srcDir, pkgName, err)
-	}
-	if err == nil {
-		return pkgName
-	}
-	return importPathToNameBasic(importPath, srcDir)
+// gopathResolver implements resolver for GOPATH workspaces.
+type gopathResolver struct {
+	env *fixEnv
 }
 
-// importPathToNameGoPathParse is a faster version of build.Import if
+func (r *gopathResolver) loadPackageNames(importPaths []string, srcDir string) (map[string]string, error) {
+	names := map[string]string{}
+	for _, path := range importPaths {
+		names[path] = importPathToName(r.env, path, srcDir)
+	}
+	return names, nil
+}
+
+// importPathToNameGoPath finds out the actual package name, as declared in its .go files.
+// If there's a problem, it returns "".
+func importPathToName(env *fixEnv, importPath, srcDir string) (packageName string) {
+	// Fast path for standard library without going to disk.
+	if _, ok := stdlib[importPath]; ok {
+		return path.Base(importPath) // stdlib packages always match their paths.
+	}
+
+	buildPkg, err := env.buildContext().Import(importPath, srcDir, build.FindOnly)
+	if err != nil {
+		return ""
+	}
+	pkgName, err := packageDirToName(buildPkg.Dir)
+	if err != nil {
+		return ""
+	}
+	return pkgName
+}
+
+// packageDirToName is a faster version of build.Import if
 // the only thing desired is the package name. It uses build.FindOnly
 // to find the directory and then only parses one file in the package,
 // trusting that the files in the directory are consistent.
-func importPathToNameGoPathParse(importPath, srcDir string) (packageName string, err error) {
-	buildPkg, err := build.Import(importPath, srcDir, build.FindOnly)
-	if err != nil {
-		return "", err
-	}
-	d, err := os.Open(buildPkg.Dir)
+func packageDirToName(dir string) (packageName string, err error) {
+	d, err := os.Open(dir)
 	if err != nil {
 		return "", err
 	}
@@ -430,7 +833,7 @@ func importPathToNameGoPathParse(importPath, srcDir string) (packageName string,
 			continue
 		}
 		nfile++
-		fullFile := filepath.Join(buildPkg.Dir, name)
+		fullFile := filepath.Join(dir, name)
 
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, fullFile, nil, parser.PackageClauseOnly)
@@ -457,36 +860,9 @@ func importPathToNameGoPathParse(importPath, srcDir string) (packageName string,
 	return "", fmt.Errorf("no importable package found in %d Go files", nfile)
 }
 
-var stdImportPackage = map[string]string{} // "net/http" => "http"
-
-func init() {
-	// Nothing in the standard library has a package name not
-	// matching its import base name.
-	for _, pkg := range stdlib {
-		if _, ok := stdImportPackage[pkg]; !ok {
-			stdImportPackage[pkg] = path.Base(pkg)
-		}
-	}
-}
-
-// Directory-scanning state.
-var (
-	// scanGoRootOnce guards calling scanGoRoot (for $GOROOT)
-	scanGoRootOnce sync.Once
-	// scanGoPathOnce guards calling scanGoPath (for $GOPATH)
-	scanGoPathOnce sync.Once
-
-	// populateIgnoreOnce guards calling populateIgnore
-	populateIgnoreOnce sync.Once
-	ignoredDirs        []os.FileInfo
-
-	dirScanMu sync.Mutex
-	dirScan   map[string]*pkg // abs dir path => *pkg
-)
-
 type pkg struct {
+	goPackage       *packages.Package
 	dir             string // absolute file path to pkg directory ("/usr/lib/go/src/net/http")
-	importPath      string // full pkg import path ("net/http", "foo/bar/vendor/a/b")
 	importPathShort string // vendorless import path ("net/http", "a/b")
 }
 
@@ -531,195 +907,28 @@ func distance(basepath, targetpath string) int {
 	return strings.Count(p, string(filepath.Separator)) + 1
 }
 
-// guarded by populateIgnoreOnce; populates ignoredDirs.
-func populateIgnore() {
-	for _, srcDir := range build.Default.SrcDirs() {
-		if srcDir == filepath.Join(build.Default.GOROOT, "src") {
-			continue
-		}
-		populateIgnoredDirs(srcDir)
-	}
-}
+func (r *gopathResolver) scan(_ references) ([]*pkg, error) {
+	dupCheck := make(map[string]bool)
+	var result []*pkg
 
-// populateIgnoredDirs reads an optional config file at <path>/.goimportsignore
-// of relative directories to ignore when scanning for go files.
-// The provided path is one of the $GOPATH entries with "src" appended.
-func populateIgnoredDirs(path string) {
-	file := filepath.Join(path, ".goimportsignore")
-	slurp, err := ioutil.ReadFile(file)
-	if Debug {
-		if err != nil {
-			log.Print(err)
-		} else {
-			log.Printf("Read %s", file)
-		}
-	}
-	if err != nil {
-		return
-	}
-	bs := bufio.NewScanner(bytes.NewReader(slurp))
-	for bs.Scan() {
-		line := strings.TrimSpace(bs.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		full := filepath.Join(path, line)
-		if fi, err := os.Stat(full); err == nil {
-			ignoredDirs = append(ignoredDirs, fi)
-			if Debug {
-				log.Printf("Directory added to ignore list: %s", full)
-			}
-		} else if Debug {
-			log.Printf("Error statting entry in .goimportsignore: %v", err)
-		}
-	}
-}
+	var mu sync.Mutex
 
-func skipDir(fi os.FileInfo) bool {
-	for _, ignoredDir := range ignoredDirs {
-		if os.SameFile(fi, ignoredDir) {
-			return true
+	add := func(root gopathwalk.Root, dir string) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if _, dup := dupCheck[dir]; dup {
+			return
 		}
+		dupCheck[dir] = true
+		importpath := filepath.ToSlash(dir[len(root.Path)+len("/"):])
+		result = append(result, &pkg{
+			importPathShort: VendorlessPath(importpath),
+			dir:             dir,
+		})
 	}
-	return false
-}
-
-// shouldTraverse reports whether the symlink fi, found in dir,
-// should be followed.  It makes sure symlinks were never visited
-// before to avoid symlink loops.
-func shouldTraverse(dir string, fi os.FileInfo) bool {
-	path := filepath.Join(dir, fi.Name())
-	target, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return false
-	}
-	ts, err := os.Stat(target)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return false
-	}
-	if !ts.IsDir() {
-		return false
-	}
-	if skipDir(ts) {
-		return false
-	}
-	// Check for symlink loops by statting each directory component
-	// and seeing if any are the same file as ts.
-	for {
-		parent := filepath.Dir(path)
-		if parent == path {
-			// Made it to the root without seeing a cycle.
-			// Use this symlink.
-			return true
-		}
-		parentInfo, err := os.Stat(parent)
-		if err != nil {
-			return false
-		}
-		if os.SameFile(ts, parentInfo) {
-			// Cycle. Don't traverse.
-			return false
-		}
-		path = parent
-	}
-
-}
-
-var testHookScanDir = func(dir string) {}
-
-type goDirType string
-
-const (
-	goRoot goDirType = "$GOROOT"
-	goPath goDirType = "$GOPATH"
-)
-
-var scanGoRootDone = make(chan struct{}) // closed when scanGoRoot is done
-
-// scanGoDirs populates the dirScan map for the given directory type. It may be
-// called concurrently (and usually is, if both directory types are needed).
-func scanGoDirs(which goDirType) {
-	if Debug {
-		log.Printf("scanning %s", which)
-		defer log.Printf("scanned %s", which)
-	}
-
-	for _, srcDir := range build.Default.SrcDirs() {
-		isGoroot := srcDir == filepath.Join(build.Default.GOROOT, "src")
-		if isGoroot != (which == goRoot) {
-			continue
-		}
-		testHookScanDir(srcDir)
-		srcV := filepath.Join(srcDir, "v")
-		srcMod := filepath.Join(srcDir, "mod")
-		walkFn := func(path string, typ os.FileMode) error {
-			if path == srcV || path == srcMod {
-				return filepath.SkipDir
-			}
-			dir := filepath.Dir(path)
-			if typ.IsRegular() {
-				if dir == srcDir {
-					// Doesn't make sense to have regular files
-					// directly in your $GOPATH/src or $GOROOT/src.
-					return nil
-				}
-				if !strings.HasSuffix(path, ".go") {
-					return nil
-				}
-
-				dirScanMu.Lock()
-				defer dirScanMu.Unlock()
-				if _, dup := dirScan[dir]; dup {
-					return nil
-				}
-				if dirScan == nil {
-					dirScan = make(map[string]*pkg)
-				}
-				importpath := filepath.ToSlash(dir[len(srcDir)+len("/"):])
-				dirScan[dir] = &pkg{
-					importPath:      importpath,
-					importPathShort: VendorlessPath(importpath),
-					dir:             dir,
-				}
-				return nil
-			}
-			if typ == os.ModeDir {
-				base := filepath.Base(path)
-				if base == "" || base[0] == '.' || base[0] == '_' ||
-					base == "testdata" || base == "node_modules" {
-					return filepath.SkipDir
-				}
-				fi, err := os.Lstat(path)
-				if err == nil && skipDir(fi) {
-					if Debug {
-						log.Printf("skipping directory %q under %s", fi.Name(), dir)
-					}
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if typ == os.ModeSymlink {
-				base := filepath.Base(path)
-				if strings.HasPrefix(base, ".#") {
-					// Emacs noise.
-					return nil
-				}
-				fi, err := os.Lstat(path)
-				if err != nil {
-					// Just ignore it.
-					return nil
-				}
-				if shouldTraverse(dir, fi) {
-					return fastwalk.TraverseLink
-				}
-			}
-			return nil
-		}
-		if err := fastwalk.Walk(srcDir, walkFn); err != nil {
-			log.Printf("goimports: scanning directory %v: %v", srcDir, err)
-		}
-	}
+	gopathwalk.Walk(gopathwalk.SrcDirsRoots(r.env.buildContext()), add, gopathwalk.Options{Debug: Debug, ModulesEnabled: false})
+	return result, nil
 }
 
 // VendorlessPath returns the devendorized version of the import path ipath.
@@ -737,42 +946,52 @@ func VendorlessPath(ipath string) string {
 
 // loadExports returns the set of exported symbols in the package at dir.
 // It returns nil on error or if the package name in dir does not match expectPackage.
-var loadExports func(ctx context.Context, expectPackage, dir string) (map[string]bool, error) = loadExportsGoPath
-
-func loadExportsGoPath(ctx context.Context, expectPackage, dir string) (map[string]bool, error) {
+func loadExports(ctx context.Context, env *fixEnv, expectPackage string, pkg *pkg) (map[string]bool, error) {
 	if Debug {
-		log.Printf("loading exports in dir %s (seeking package %s)", dir, expectPackage)
+		log.Printf("loading exports in dir %s (seeking package %s)", pkg.dir, expectPackage)
 	}
-	exports := make(map[string]bool)
-
-	buildCtx := build.Default
-
-	// ReadDir is like ioutil.ReadDir, but only returns *.go files
-	// and filters out _test.go files since they're not relevant
-	// and only slow things down.
-	buildCtx.ReadDir = func(dir string) (notTests []os.FileInfo, err error) {
-		all, err := ioutil.ReadDir(dir)
-		if err != nil {
-			return nil, err
-		}
-		notTests = all[:0]
-		for _, fi := range all {
-			name := fi.Name()
-			if strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go") {
-				notTests = append(notTests, fi)
+	if pkg.goPackage != nil {
+		exports := map[string]bool{}
+		fset := token.NewFileSet()
+		for _, fname := range pkg.goPackage.CompiledGoFiles {
+			f, err := parser.ParseFile(fset, fname, nil, 0)
+			if err != nil {
+				return nil, fmt.Errorf("parsing %s: %v", fname, err)
+			}
+			for name := range f.Scope.Objects {
+				if ast.IsExported(name) {
+					exports[name] = true
+				}
 			}
 		}
-		return notTests, nil
+		return exports, nil
 	}
 
-	files, err := buildCtx.ReadDir(dir)
+	exports := make(map[string]bool)
+
+	// Look for non-test, buildable .go files which could provide exports.
+	all, err := ioutil.ReadDir(pkg.dir)
 	if err != nil {
-		log.Print(err)
 		return nil, err
+	}
+	var files []os.FileInfo
+	for _, fi := range all {
+		name := fi.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		match, err := env.buildContext().MatchFile(pkg.dir, fi.Name())
+		if err != nil || !match {
+			continue
+		}
+		files = append(files, fi)
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("dir %v contains no buildable, non-test .go files", pkg.dir)
 	}
 
 	fset := token.NewFileSet()
-
 	for _, fi := range files {
 		select {
 		case <-ctx.Done():
@@ -780,30 +999,19 @@ func loadExportsGoPath(ctx context.Context, expectPackage, dir string) (map[stri
 		default:
 		}
 
-		match, err := buildCtx.MatchFile(dir, fi.Name())
-		if err != nil || !match {
-			continue
-		}
-		fullFile := filepath.Join(dir, fi.Name())
+		fullFile := filepath.Join(pkg.dir, fi.Name())
 		f, err := parser.ParseFile(fset, fullFile, nil, 0)
 		if err != nil {
-			if Debug {
-				log.Printf("Parsing %s: %v", fullFile, err)
-			}
-			return nil, err
+			return nil, fmt.Errorf("parsing %s: %v", fullFile, err)
 		}
 		pkgName := f.Name.Name
 		if pkgName == "documentation" {
 			// Special case from go/build.ImportDir, not
-			// handled by buildCtx.MatchFile.
+			// handled by MatchFile above.
 			continue
 		}
 		if pkgName != expectPackage {
-			err := fmt.Errorf("scan of dir %v is not expected package %v (actually %v)", dir, expectPackage, pkgName)
-			if Debug {
-				log.Print(err)
-			}
-			return nil, err
+			return nil, fmt.Errorf("scan of dir %v is not expected package %v (actually %v)", pkg.dir, expectPackage, pkgName)
 		}
 		for name := range f.Scope.Objects {
 			if ast.IsExported(name) {
@@ -818,75 +1026,19 @@ func loadExportsGoPath(ctx context.Context, expectPackage, dir string) (map[stri
 			exportList = append(exportList, k)
 		}
 		sort.Strings(exportList)
-		log.Printf("loaded exports in dir %v (package %v): %v", dir, expectPackage, strings.Join(exportList, ", "))
+		log.Printf("loaded exports in dir %v (package %v): %v", pkg.dir, expectPackage, strings.Join(exportList, ", "))
 	}
 	return exports, nil
 }
 
 // findImport searches for a package with the given symbols.
 // If no package is found, findImport returns ("", false, nil)
-//
-// This is declared as a variable rather than a function so goimports
-// can be easily extended by adding a file with an init function.
-//
-// The rename value tells goimports whether to use the package name as
-// a local qualifier in an import. For example, if findImports("pkg",
-// "X") returns ("foo/bar", rename=true), then goimports adds the
-// import line:
-// 	import pkg "foo/bar"
-// to satisfy uses of pkg.X in the file.
-var findImport func(ctx context.Context, pkgName string, symbols map[string]bool, filename string) (foundPkg string, rename bool, err error) = findImportGoPath
-
-// findImportGoPath is the normal implementation of findImport.
-// (Some companies have their own internally.)
-func findImportGoPath(ctx context.Context, pkgName string, symbols map[string]bool, filename string) (foundPkg string, rename bool, err error) {
+func findImport(ctx context.Context, env *fixEnv, dirScan []*pkg, pkgName string, symbols map[string]bool, filename string) (*pkg, error) {
 	pkgDir, err := filepath.Abs(filename)
 	if err != nil {
-		return "", false, err
+		return nil, err
 	}
 	pkgDir = filepath.Dir(pkgDir)
-
-	// Fast path for the standard library.
-	// In the common case we hopefully never have to scan the GOPATH, which can
-	// be slow with moving disks.
-	if pkg, ok := findImportStdlib(pkgName, symbols); ok {
-		return pkg, false, nil
-	}
-	if pkgName == "rand" && symbols["Read"] {
-		// Special-case rand.Read.
-		//
-		// If findImportStdlib didn't find it above, don't go
-		// searching for it, lest it find and pick math/rand
-		// in GOROOT (new as of Go 1.6)
-		//
-		// crypto/rand is the safer choice.
-		return "", false, nil
-	}
-
-	// TODO(sameer): look at the import lines for other Go files in the
-	// local directory, since the user is likely to import the same packages
-	// in the current Go file.  Return rename=true when the other Go files
-	// use a renamed package that's also used in the current file.
-
-	// Read all the $GOPATH/src/.goimportsignore files before scanning directories.
-	populateIgnoreOnce.Do(populateIgnore)
-
-	// Start scanning the $GOROOT asynchronously, then run the
-	// GOPATH scan synchronously if needed, and then wait for the
-	// $GOROOT to finish.
-	//
-	// TODO(bradfitz): run each $GOPATH entry async. But nobody
-	// really has more than one anyway, so low priority.
-	scanGoRootOnce.Do(func() {
-		go func() {
-			scanGoDirs(goRoot)
-			close(scanGoRootDone)
-		}()
-	})
-	if !fileInDir(filename, build.Default.GOROOT) {
-		scanGoPathOnce.Do(func() { scanGoDirs(goPath) })
-	}
-	<-scanGoRootDone
 
 	// Find candidate packages, looking only at their directory names first.
 	var candidates []pkgDistance
@@ -943,8 +1095,11 @@ func findImportGoPath(ctx context.Context, pkgName string, symbols map[string]bo
 					wg.Done()
 				}()
 
-				exports, err := loadExports(ctx, pkgName, c.pkg.dir)
+				exports, err := loadExports(ctx, env, pkgName, c.pkg)
 				if err != nil {
+					if Debug {
+						log.Printf("loading exports in dir %s (seeking package %s): %v", c.pkg.dir, pkgName, err)
+					}
 					resc <- nil
 					return
 				}
@@ -967,12 +1122,9 @@ func findImportGoPath(ctx context.Context, pkgName string, symbols map[string]bo
 		if pkg == nil {
 			continue
 		}
-		// If the package name in the source doesn't match the import path's base,
-		// return true so the rewriter adds a name (import foo "github.com/bar/go-foo")
-		needsRename := path.Base(pkg.importPath) != pkgName
-		return pkg.importPathShort, needsRename, nil
+		return pkg, nil
 	}
-	return "", false, nil
+	return nil, nil
 }
 
 // pkgIsCandidate reports whether pkg is a candidate for satisfying the
@@ -1104,38 +1256,4 @@ type visitFn func(node ast.Node) ast.Visitor
 
 func (fn visitFn) Visit(node ast.Node) ast.Visitor {
 	return fn(node)
-}
-
-func findImportStdlib(shortPkg string, symbols map[string]bool) (importPath string, ok bool) {
-	for symbol := range symbols {
-		key := shortPkg + "." + symbol
-		path := stdlib[key]
-		if path == "" {
-			if key == "rand.Read" {
-				continue
-			}
-			return "", false
-		}
-		if importPath != "" && importPath != path {
-			// Ambiguous. Symbols pointed to different things.
-			return "", false
-		}
-		importPath = path
-	}
-	if importPath == "" && shortPkg == "rand" && symbols["Read"] {
-		return "crypto/rand", true
-	}
-	return importPath, importPath != ""
-}
-
-// fileInDir reports whether the provided file path looks like
-// it's in dir. (without hitting the filesystem)
-func fileInDir(file, dir string) bool {
-	rest := strings.TrimPrefix(file, dir)
-	if len(rest) == len(file) {
-		// dir is not a prefix of file.
-		return false
-	}
-	// Check for boundary: either nothing (file == dir), or a slash.
-	return len(rest) == 0 || rest[0] == '/' || rest[0] == '\\'
 }

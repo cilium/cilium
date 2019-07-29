@@ -84,6 +84,9 @@ type SwapMemoryStat struct {
 	UsedPercent float64 `json:"usedPercent"`
 	Sin         uint64  `json:"sin"`
 	Sout        uint64  `json:"sout"`
+	PgIn        uint64  `json:"pgin"`
+	PgOut       uint64  `json:"pgout"`
+	PgFault     uint64  `json:"pgfault"`
 }
 
 func (m VirtualMemoryStat) String() string {

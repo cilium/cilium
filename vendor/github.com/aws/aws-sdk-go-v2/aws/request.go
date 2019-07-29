@@ -2,6 +2,7 @@ package aws
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -39,26 +40,25 @@ type Request struct {
 	Handlers Handlers
 
 	Retryer
-	Time                   time.Time
-	ExpireTime             time.Duration
-	Operation              *Operation
-	HTTPRequest            *http.Request
-	HTTPResponse           *http.Response
-	Body                   io.ReadSeeker
-	BodyStart              int64 // offset from beginning of Body that the request body starts
-	Params                 interface{}
-	Error                  error
-	Data                   interface{}
-	RequestID              string
-	RetryCount             int
-	Retryable              *bool
-	RetryDelay             time.Duration
-	NotHoist               bool
-	SignedHeaderVals       http.Header
-	LastSignedAt           time.Time
-	DisableFollowRedirects bool
+	Time             time.Time
+	ExpireTime       time.Duration
+	Operation        *Operation
+	HTTPRequest      *http.Request
+	HTTPResponse     *http.Response
+	Body             io.ReadSeeker
+	BodyStart        int64 // offset from beginning of Body that the request body starts
+	Params           interface{}
+	Error            error
+	Data             interface{}
+	RequestID        string
+	RetryCount       int
+	Retryable        *bool
+	RetryDelay       time.Duration
+	NotHoist         bool
+	SignedHeaderVals http.Header
+	LastSignedAt     time.Time
 
-	context Context
+	context context.Context
 
 	built bool
 
@@ -99,7 +99,7 @@ func New(cfg Config, metadata Metadata, handlers Handlers,
 	httpReq, _ := http.NewRequest(method, "", nil)
 
 	// TODO need better way of handling this error... NewRequest should return error.
-	endpoint, err := cfg.EndpointResolver.ResolveEndpoint(metadata.ServiceName, cfg.Region)
+	endpoint, err := cfg.EndpointResolver.ResolveEndpoint(metadata.EndpointsID, cfg.Region)
 	if err == nil {
 		// TODO so ugly
 		metadata.Endpoint = endpoint.URL
@@ -194,12 +194,12 @@ func (r *Request) ApplyOptions(opts ...Option) {
 }
 
 // Context will always returns a non-nil context. If Request does not have a
-// context BackgroundContext will be returned.
-func (r *Request) Context() Context {
+// context the context.Background will be returned.
+func (r *Request) Context() context.Context {
 	if r.context != nil {
 		return r.context
 	}
-	return BackgroundContext()
+	return context.Background()
 }
 
 // SetContext adds a Context to the current request that can be used to cancel
@@ -218,11 +218,11 @@ func (r *Request) Context() Context {
 // The http.Request.WithContext will be used to set the context on the underlying
 // http.Request. This will create a shallow copy of the http.Request. The SDK
 // may create sub contexts in the future for nested requests such as retries.
-func (r *Request) SetContext(ctx Context) {
+func (r *Request) SetContext(ctx context.Context) {
 	if ctx == nil {
 		panic("context cannot be nil")
 	}
-	setRequestContext(r, ctx)
+	setRequestContext(ctx, r)
 }
 
 // WillRetry returns if the request's can be retried.

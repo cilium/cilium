@@ -25,3 +25,9 @@ func DisableObjectArrayTypeCheck(disable bool) Option {
 		svo.DisableObjectArrayTypeCheck = disable
 	}
 }
+
+func (svo SchemaValidatorOptions) Options() []Option {
+	return []Option{
+		DisableObjectArrayTypeCheck(svo.DisableObjectArrayTypeCheck),
+	}
+}

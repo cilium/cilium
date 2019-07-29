@@ -30,7 +30,7 @@ type Provider struct {
 	aws.SafeCredentialsProvider
 
 	// Required EC2Metadata client to use when connecting to EC2 metadata service.
-	Client *ec2metadata.EC2Metadata
+	Client *ec2metadata.Client
 
 	// ExpiryWindow will allow the credentials to trigger refreshing prior to
 	// the credentials actually expiring. This is beneficial so race conditions
@@ -46,7 +46,7 @@ type Provider struct {
 
 // NewProvider returns an initialized Provider value configured to retrieve
 // credentials from EC2 Instance Metadata service.
-func NewProvider(client *ec2metadata.EC2Metadata) *Provider {
+func NewProvider(client *ec2metadata.Client) *Provider {
 	p := &Provider{
 		Client: client,
 	}
@@ -106,7 +106,7 @@ const iamSecurityCredsPath = "/iam/security-credentials"
 
 // requestCredList requests a list of credentials from the EC2 service.
 // If there are no credentials, or there is an error making or receiving the request
-func requestCredList(client *ec2metadata.EC2Metadata) ([]string, error) {
+func requestCredList(client *ec2metadata.Client) ([]string, error) {
 	resp, err := client.GetMetadata(iamSecurityCredsPath)
 	if err != nil {
 		return nil, awserr.New("EC2RoleRequestError", "no EC2 instance role found", err)
@@ -129,7 +129,7 @@ func requestCredList(client *ec2metadata.EC2Metadata) ([]string, error) {
 //
 // If the credentials cannot be found, or there is an error reading the response
 // and error will be returned.
-func requestCred(client *ec2metadata.EC2Metadata, credsName string) (ec2RoleCredRespBody, error) {
+func requestCred(client *ec2metadata.Client, credsName string) (ec2RoleCredRespBody, error) {
 	resp, err := client.GetMetadata(path.Join(iamSecurityCredsPath, credsName))
 	if err != nil {
 		return ec2RoleCredRespBody{},

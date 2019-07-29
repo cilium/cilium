@@ -71,6 +71,12 @@ const logRespErrMsg = `DEBUG ERROR: Response %s/%s:
 
 func logResponse(r *Request) {
 	lw := &logWriter{r.Config.Logger, bytes.NewBuffer(nil)}
+	if r.HTTPResponse.Body == nil {
+		lw.Logger.Log(fmt.Sprintf(logRespErrMsg,
+			r.Metadata.ServiceName, r.Operation.Name, "request's HTTPResponse is nil"))
+		return
+	}
+
 	r.HTTPResponse.Body = &teeReaderCloser{
 		Reader: io.TeeReader(r.HTTPResponse.Body, lw),
 		Source: r.HTTPResponse.Body,

@@ -108,30 +108,21 @@ func (p *Process) ExeWithContext(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	awk_bin, err := exec.LookPath("awk")
+	out, err := invoke.CommandWithContext(ctx, lsof_bin, "-p", strconv.Itoa(int(p.Pid)), "-Fpfn")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("bad call to lsof: %s", err)
 	}
-
-	sed_bin, err := exec.LookPath("sed")
-	if err != nil {
-		return "", err
+	txtFound := 0
+	lines := strings.Split(string(out), "\n")
+	for i := 1; i < len(lines); i += 2 {
+		if lines[i] == "ftxt" {
+			txtFound++
+			if txtFound == 2 {
+				return lines[i-1][1:], nil
+			}
+		}
 	}
-
-	lsof := exec.CommandContext(ctx, lsof_bin, "-p", strconv.Itoa(int(p.Pid)), "-Fpfn")
-	awk := exec.CommandContext(ctx, awk_bin, "NR==5{print}")
-	sed := exec.CommandContext(ctx, sed_bin, "s/n\\//\\//")
-
-	output, _, err := common.Pipeline(lsof, awk, sed)
-
-	if err != nil {
-		return "", err
-	}
-
-	ret := strings.TrimSpace(string(output))
-
-	return ret, nil
+	return "", fmt.Errorf("missing txt data returned by lsof")
 }
 
 // Cmdline returns the command line arguments of the process as a string with

@@ -82,6 +82,7 @@ single Credentials with an AssumeRoleProvider can be shared safely.
 package stscreds
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -247,7 +248,7 @@ func (p *AssumeRoleProvider) retrieveFn() (aws.Credentials, error) {
 	}
 
 	req := p.Client.AssumeRoleRequest(input)
-	resp, err := req.Send()
+	resp, err := req.Send(context.Background())
 	if err != nil {
 		return aws.Credentials{Source: ProviderName}, err
 	}

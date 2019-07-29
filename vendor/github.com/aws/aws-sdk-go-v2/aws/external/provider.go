@@ -316,7 +316,7 @@ func GetMFATokenFunc(configs Configs) (func() (string, error), bool, error) {
 //
 // TODO add this provider to the default config loading?
 type WithEC2MetadataRegion struct {
-	Client *ec2metadata.EC2Metadata
+	Client *ec2metadata.Client
 }
 
 // GetRegion attempts to retreive the region from EC2 Metadata service.

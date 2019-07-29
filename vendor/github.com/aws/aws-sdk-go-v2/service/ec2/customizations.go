@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	initRequest = func(c *EC2, r *request.Request) {
+	initRequest = func(c *Client, r *request.Request) {
 		if r.Operation.Name == opCopySnapshot { // fill the PresignedURL parameter
 			r.Handlers.Build.PushFront(fillPresignedURL)
 		}
@@ -38,7 +38,7 @@ func fillPresignedURL(r *request.Request) {
 	cfgCp.Region = aws.StringValue(origParams.SourceRegion)
 
 	metadata := r.Metadata
-	resolved, err := r.Config.EndpointResolver.ResolveEndpoint(metadata.ServiceName, cfgCp.Region)
+	resolved, err := r.Config.EndpointResolver.ResolveEndpoint(metadata.EndpointsID, cfgCp.Region)
 	if err != nil {
 		r.Error = err
 		return

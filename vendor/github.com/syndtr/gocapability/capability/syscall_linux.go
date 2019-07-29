@@ -13,7 +13,7 @@ import (
 
 type capHeader struct {
 	version uint32
-	pid     int32
+	pid     int
 }
 
 type capData struct {

@@ -73,7 +73,7 @@ type EnvConfig struct {
 	//
 	//	# Secret Access Key
 	//	AWS_SECRET_ACCESS_KEY=SECRET
-	//	AWS_SECRET_KEY=SECRET=SECRET # only read if AWS_SECRET_ACCESS_KEY is not set.
+	//	AWS_SECRET_KEY=SECRET # only read if AWS_SECRET_ACCESS_KEY is not set.
 	//
 	//	# Session Token
 	//	AWS_SESSION_TOKEN=TOKEN

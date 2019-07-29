@@ -15,8 +15,6 @@ import (
 	_ "github.com/lyft/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -66,6 +64,9 @@ type Listener struct {
 	// The unique name by which this listener is known. If no name is provided,
 	// Envoy will allocate an internal UUID for the listener. If the listener is to be dynamically
 	// updated or removed via :ref:`LDS <config_listeners_lds>` a unique name must be provided.
+	// By default, the maximum length of a listener's name is limited to 60 characters. This limit can
+	// be increased by setting the :option:`--max-obj-name-len` command line argument to the desired
+	// value.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The address that the listener should listen on. In general, the address must be unique, though
 	// that is governed by the bind rules of the OS. E.g., multiple listeners can listen on port 0 on
@@ -466,17 +467,6 @@ func (c *listenerDiscoveryServiceClient) FetchListeners(ctx context.Context, in 
 type ListenerDiscoveryServiceServer interface {
 	StreamListeners(ListenerDiscoveryService_StreamListenersServer) error
 	FetchListeners(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
-}
-
-// UnimplementedListenerDiscoveryServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedListenerDiscoveryServiceServer struct {
-}
-
-func (*UnimplementedListenerDiscoveryServiceServer) StreamListeners(srv ListenerDiscoveryService_StreamListenersServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamListeners not implemented")
-}
-func (*UnimplementedListenerDiscoveryServiceServer) FetchListeners(ctx context.Context, req *DiscoveryRequest) (*DiscoveryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchListeners not implemented")
 }
 
 func RegisterListenerDiscoveryServiceServer(s *grpc.Server, srv ListenerDiscoveryServiceServer) {

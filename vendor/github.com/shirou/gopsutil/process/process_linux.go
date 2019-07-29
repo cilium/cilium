@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/internal/common"
 	"github.com/shirou/gopsutil/net"
 	"golang.org/x/sys/unix"
@@ -70,12 +69,8 @@ func (m MemoryMapsStat) String() string {
 // to get more information about the process. An error will be returned
 // if the process does not exist.
 func NewProcess(pid int32) (*Process, error) {
-	p := &Process{
-		Pid: int32(pid),
-	}
-	file, err := os.Open(common.HostProc(strconv.Itoa(int(p.Pid))))
-	defer file.Close()
-	return p, err
+	_, err := os.Stat(common.HostProc(strconv.Itoa(int(pid))))
+	return &Process{Pid: pid}, err
 }
 
 // Ppid returns Parent Process ID of the process.
@@ -1236,7 +1231,7 @@ func (p *Process) fillFromTIDStatWithContext(ctx context.Context, tid int32) (ui
 		System: float64(stime / ClockTicks),
 	}
 
-	bootTime, _ := host.BootTime()
+	bootTime, _ := common.BootTimeWithContext(ctx)
 	t, err := strconv.ParseUint(fields[i+20], 10, 64)
 	if err != nil {
 		return 0, 0, nil, 0, 0, 0, nil, err

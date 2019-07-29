@@ -70,6 +70,96 @@ type FilterStat struct {
 	ConnTrackMax   int64 `json:"conntrackMax"`
 }
 
+// ConntrackStat has conntrack summary info
+type ConntrackStat struct {
+	Entries       uint32 `json:"entries"`        // Number of entries in the conntrack table
+	Searched      uint32 `json:"searched"`       // Number of conntrack table lookups performed
+	Found         uint32 `json:"found"`          // Number of searched entries which were successful
+	New           uint32 `json:"new"`            // Number of entries added which were not expected before
+	Invalid       uint32 `json:"invalid"`        // Number of packets seen which can not be tracked
+	Ignore        uint32 `json:"ignore"`         // Packets seen which are already connected to an entry
+	Delete        uint32 `json:"delete"`         // Number of entries which were removed
+	DeleteList    uint32 `json:"delete_list"`    // Number of entries which were put to dying list
+	Insert        uint32 `json:"insert"`         // Number of entries inserted into the list
+	InsertFailed  uint32 `json:"insert_failed"`  // # insertion attempted but failed (same entry exists)
+	Drop          uint32 `json:"drop"`           // Number of packets dropped due to conntrack failure.
+	EarlyDrop     uint32 `json:"early_drop"`     // Dropped entries to make room for new ones, if maxsize reached
+	IcmpError     uint32 `json:"icmp_error"`     // Subset of invalid. Packets that can't be tracked d/t error
+	ExpectNew     uint32 `json:"expect_new"`     // Entries added after an expectation was already present
+	ExpectCreate  uint32 `json:"expect_create"`  // Expectations added
+	ExpectDelete  uint32 `json:"expect_delete"`  // Expectations deleted
+	SearchRestart uint32 `json:"search_restart"` // Conntrack table lookups restarted due to hashtable resizes
+}
+
+func NewConntrackStat(e uint32, s uint32, f uint32, n uint32, inv uint32, ign uint32, del uint32, dlst uint32, ins uint32, insfail uint32, drop uint32, edrop uint32, ie uint32, en uint32, ec uint32, ed uint32, sr uint32) *ConntrackStat {
+	return &ConntrackStat{
+		Entries:       e,
+		Searched:      s,
+		Found:         f,
+		New:           n,
+		Invalid:       inv,
+		Ignore:        ign,
+		Delete:        del,
+		DeleteList:    dlst,
+		Insert:        ins,
+		InsertFailed:  insfail,
+		Drop:          drop,
+		EarlyDrop:     edrop,
+		IcmpError:     ie,
+		ExpectNew:     en,
+		ExpectCreate:  ec,
+		ExpectDelete:  ed,
+		SearchRestart: sr,
+	}
+}
+
+type ConntrackStatList struct {
+	items []*ConntrackStat
+}
+
+func NewConntrackStatList() *ConntrackStatList {
+	return &ConntrackStatList{
+		items: []*ConntrackStat{},
+	}
+}
+
+func (l *ConntrackStatList) Append(c *ConntrackStat) {
+	l.items = append(l.items, c)
+}
+
+func (l *ConntrackStatList) Items() []ConntrackStat {
+	items := make([]ConntrackStat, len(l.items), len(l.items))
+	for i, el := range l.items {
+		items[i] = *el
+	}
+	return items
+}
+
+// Summary returns a single-element list with totals from all list items.
+func (l *ConntrackStatList) Summary() []ConntrackStat {
+	summary := NewConntrackStat(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	for _, cs := range l.items {
+		summary.Entries += cs.Entries
+		summary.Searched += cs.Searched
+		summary.Found += cs.Found
+		summary.New += cs.New
+		summary.Invalid += cs.Invalid
+		summary.Ignore += cs.Ignore
+		summary.Delete += cs.Delete
+		summary.DeleteList += cs.DeleteList
+		summary.Insert += cs.Insert
+		summary.InsertFailed += cs.InsertFailed
+		summary.Drop += cs.Drop
+		summary.EarlyDrop += cs.EarlyDrop
+		summary.IcmpError += cs.IcmpError
+		summary.ExpectNew += cs.ExpectNew
+		summary.ExpectCreate += cs.ExpectCreate
+		summary.ExpectDelete += cs.ExpectDelete
+		summary.SearchRestart += cs.SearchRestart
+	}
+	return []ConntrackStat{*summary}
+}
+
 var constMap = map[string]int{
 	"unix": syscall.AF_UNIX,
 	"TCP":  syscall.SOCK_STREAM,
@@ -104,6 +194,11 @@ func (n InterfaceStat) String() string {
 }
 
 func (n InterfaceAddr) String() string {
+	s, _ := json.Marshal(n)
+	return string(s)
+}
+
+func (n ConntrackStat) String() string {
 	s, _ := json.Marshal(n)
 	return string(s)
 }

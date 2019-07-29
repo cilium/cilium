@@ -233,6 +233,16 @@ func (s *SIP) Payload() []byte {
 	return s.BaseLayer.Payload
 }
 
+// CanDecode returns the set of layer types that this DecodingLayer can decode
+func (s *SIP) CanDecode() gopacket.LayerClass {
+	return LayerTypeSIP
+}
+
+// NextLayerType returns the layer type contained by this DecodingLayer
+func (s *SIP) NextLayerType() gopacket.LayerType {
+	return gopacket.LayerTypePayload
+}
+
 // DecodeFromBytes decodes the slice into the SIP struct.
 func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 

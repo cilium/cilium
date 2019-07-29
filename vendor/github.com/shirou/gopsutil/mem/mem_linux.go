@@ -177,6 +177,24 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 				continue
 			}
 			ret.Sout = value * 4 * 1024
+		case "pgpgin":
+			value, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			ret.PgIn = value * 4 * 1024
+		case "pgpgout":
+			value, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			ret.PgOut = value * 4 * 1024
+		case "pgfault":
+			value, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			ret.PgFault = value * 4 * 1024
 		}
 	}
 	return ret, nil

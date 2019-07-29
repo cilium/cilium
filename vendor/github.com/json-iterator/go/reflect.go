@@ -120,8 +120,7 @@ func decoderOfType(ctx *ctx, typ reflect2.Type) ValDecoder {
 	for _, extension := range extensions {
 		decoder = extension.DecorateDecoder(typ, decoder)
 	}
-	decoder = ctx.decoderExtension.DecorateDecoder(typ, decoder)
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		decoder = extension.DecorateDecoder(typ, decoder)
 	}
 	return decoder
@@ -223,8 +222,7 @@ func encoderOfType(ctx *ctx, typ reflect2.Type) ValEncoder {
 	for _, extension := range extensions {
 		encoder = extension.DecorateEncoder(typ, encoder)
 	}
-	encoder = ctx.encoderExtension.DecorateEncoder(typ, encoder)
-	for _, extension := range ctx.extraExtensions {
+	for _, extension := range ctx.extensions {
 		encoder = extension.DecorateEncoder(typ, encoder)
 	}
 	return encoder

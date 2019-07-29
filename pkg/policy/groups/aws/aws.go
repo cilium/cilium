@@ -11,9 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package aws
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -96,11 +98,11 @@ func getInstancesIpsFromFilter(filter *api.AWSGroup) ([]net.IP, error) {
 	}
 	svc := ec2.New(*cfg)
 	req := svc.DescribeInstancesRequest(input)
-	result, err := req.Send()
+	result, err := req.Send(context.TODO())
 	if err != nil {
 		return []net.IP{}, fmt.Errorf("Cannot retrieve aws information: %s", err)
 	}
-	return awsDumpIpsFromRequest(result), nil
+	return awsDumpIpsFromRequest(result.DescribeInstancesOutput), nil
 }
 
 // getDefaultRegion returns the given region of the default one.
