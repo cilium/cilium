@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
 	"github.com/spf13/cobra"
@@ -32,6 +33,9 @@ var bpfCtFlushCmd = &cobra.Command{
 	PreRun: requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct flush")
+		if err := bpf.InitSupportedMapTypes(); err != nil {
+			Fatalf(err.Error())
+		}
 		flushCt(args[0])
 	},
 }
