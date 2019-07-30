@@ -582,7 +582,7 @@ func (kub *Kubectl) WaitforDeployReady(namespace, name string, timeout time.Dura
 
 	body := func() bool {
 		deploy := apps_v1.Deployment{}
-		cmdRes := kub.ExecShort(fmt.Sprintf("%s -n %s get deploy %s -o json", KubectlCmd, namespace, name))
+		cmdRes := kub.Exec(fmt.Sprintf("%s -n %s get deploy %s -o json", KubectlCmd, namespace, name))
 		if cmdRes == nil {
 			kub.logger.Infof("kubectl.Exec returned nil result while getting Deployment for %s/%s", namespace, name)
 			return false
@@ -613,7 +613,7 @@ func (kub *Kubectl) WaitforDaemonSetReady(namespace, name string, timeout time.D
 
 	body := func() bool {
 		ds := apps_v1.DaemonSet{}
-		cmdRes := kub.ExecShort(fmt.Sprintf("%s -n %s get daemonset %s -o json", KubectlCmd, namespace, name))
+		cmdRes := kub.Exec(fmt.Sprintf("%s -n %s get daemonset %s -o json", KubectlCmd, namespace, name))
 		if cmdRes == nil {
 			kub.logger.Infof("kubectl.Exec returned nil result while getting DaemonSet for %s/%s", namespace, name)
 			return false
