@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -117,6 +117,8 @@ const (
 	AgentNotifyEndpointRegenerateFail
 	AgentNotifyPolicyUpdated
 	AgentNotifyPolicyDeleted
+	AgentNotifyEndpointCreated
+	AgentNotifyEndpointDeleted
 )
 
 var notifyTable = map[AgentNotification]string{
@@ -124,6 +126,8 @@ var notifyTable = map[AgentNotification]string{
 	AgentNotifyGeneric:                   "Message",
 	AgentNotifyStart:                     "Cilium agent started",
 	AgentNotifyEndpointRegenerateSuccess: "Endpoint regenerated",
+	AgentNotifyEndpointCreated:           "Endpoint created",
+	AgentNotifyEndpointDeleted:           "Endpoint deleted",
 	AgentNotifyEndpointRegenerateFail:    "Failed endpoint regeneration",
 	AgentNotifyPolicyUpdated:             "Policy updated",
 	AgentNotifyPolicyDeleted:             "Policy deleted",
@@ -199,6 +203,52 @@ func EndpointRegenRepr(e notifications.RegenNotificationInfo, err error) (string
 
 	if err != nil {
 		notification.Error = err.Error()
+	}
+
+	repr, err := json.Marshal(notification)
+
+	return string(repr), err
+}
+
+// EndpointCreateNotification structures the endpoint create notification
+type EndpointCreateNotification struct {
+	EndpointRegenNotification
+	PodName   string `json:"pod-name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// EndpointCreateRepr returns string representation of monitor notification
+func EndpointCreateRepr(e notifications.RegenNotificationInfo) (string, error) {
+	notification := EndpointCreateNotification{
+		EndpointRegenNotification: EndpointRegenNotification{
+			ID:     e.GetID(),
+			Labels: e.GetOpLabels(),
+		},
+		PodName:   e.GetK8sPodName(),
+		Namespace: e.GetK8sNamespace(),
+	}
+
+	repr, err := json.Marshal(notification)
+
+	return string(repr), err
+}
+
+// EndpointDeleteNotification structures the an endpoint delete notification
+type EndpointDeleteNotification struct {
+	EndpointRegenNotification
+	PodName   string `json:"pod-name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// EndpointDeleteRepr returns string representation of monitor notification
+func EndpointDeleteRepr(e notifications.RegenNotificationInfo) (string, error) {
+	notification := EndpointDeleteNotification{
+		EndpointRegenNotification: EndpointRegenNotification{
+			ID:     e.GetID(),
+			Labels: e.GetOpLabels(),
+		},
+		PodName:   e.GetK8sPodName(),
+		Namespace: e.GetK8sNamespace(),
 	}
 
 	repr, err := json.Marshal(notification)
