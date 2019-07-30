@@ -427,6 +427,6 @@ Roadmap Ahead
  * Future versions will put an API server before etcd to provide better
    scalability and simplify the installation to support any etcd support
 
- * Introduction of IPSec and use of ESP or utilization of the traffic class
+ * Introduction of IPsec and use of ESP or utilization of the traffic class
    field in the IPv6 header will allow to use more than 8 bits for the
    cluster-id and thus support more than 256 clusters.

@@ -264,7 +264,6 @@ IP
 ipcache
 iproute
 ipsec
-IPSec
 IPsec
 iptables
 IPv

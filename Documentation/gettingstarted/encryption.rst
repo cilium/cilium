@@ -10,11 +10,11 @@
 Transparent Encryption (beta)
 *****************************
 
-This guide explains how to configure Cilium to use IPSec based transparent
-encryption using Kubernetes secrets to distribute the IPSec keys. After this
+This guide explains how to configure Cilium to use IPsec based transparent
+encryption using Kubernetes secrets to distribute the IPsec keys. After this
 configuration is complete all traffic between Cilium
 managed endpoints, as well as Cilium managed host traffic, will be encrypted
-using IPSec. This guide uses Kubernetes secrets to distribute keys. Alternatively,
+using IPsec. This guide uses Kubernetes secrets to distribute keys. Alternatively,
 keys may be manually distributed but that is not shown here.
 
 .. note::
@@ -25,8 +25,8 @@ keys may be manually distributed but that is not shown here.
 Generate & import the PSK
 =========================
 
-First create a Kubernetes secret for the IPSec keys to be stored.
-This will generate the necessary IPSec keys which will be distributed as a
+First create a Kubernetes secret for the IPsec keys to be stored.
+This will generate the necessary IPsec keys which will be distributed as a
 Kubernetes secret called ``cilium-ipsec-keys``. In this example we use
 GMC-128-AES, but any of the supported
 Linux algorithms may be used. To generate use the following
@@ -95,7 +95,7 @@ You can also use your existing definition DaemonSet running in your cluster:
     kubectl -n kube-system get ds cilium -o yaml > cilium-ds.yaml
 
 To enable encryption in Cilium, we use a patch file to update the configuration
-with the required cilium-agent options and included IPSec keys.
+with the required cilium-agent options and included IPsec keys.
 
 .. parsed-literal::
   metadata:
@@ -138,7 +138,7 @@ Finally, apply the file,
 .. parsed-literal::
   kubectl apply -f cilium-ipsec-ds.yaml
 
-At this point the Cilium managed nodes will be using IPSec for all traffic. For further
+At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`arch_guide`.
 
 Validate the Setup
