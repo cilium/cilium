@@ -123,6 +123,14 @@ func (MockEndpoint) GetOpLabels() []string {
 	}.GetModel()
 }
 
+func (MockEndpoint) GetK8sPodName() string {
+	return ""
+}
+
+func (MockEndpoint) GetK8sNamespace() string {
+	return ""
+}
+
 func (s *MonitorAPISuite) TestEndpointRegenRepr(c *C) {
 	e := MockEndpoint{}
 	rerr := RegenError{}
