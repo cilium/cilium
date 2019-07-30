@@ -1522,6 +1522,7 @@ func (c *DaemonConfig) Populate() {
 	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
 	c.Masquerade = viper.GetBool(Masquerade)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
+	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
