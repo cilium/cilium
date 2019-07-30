@@ -120,9 +120,8 @@ var _ = Describe("K8sServicesTest", func() {
 		BeforeEach(func() {
 			res := kubectl.Apply(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
-			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App1, helpers.HelperTimeout)
-			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App2, helpers.HelperTimeout)
-			ExpectDeployReady(kubectl, helpers.DefaultNamespace, helpers.App3, helpers.HelperTimeout)
+			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testds", helpers.HelperTimeout)
+			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testclient", helpers.HelperTimeout)
 		})
 
 		AfterEach(func() {
@@ -157,12 +156,12 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Checks service across nodes", func() {
 
 		var (
-			demoDS = helpers.ManifestGet("demo_ds.yaml")
+			demoYAML = helpers.ManifestGet("demo_ds.yaml")
 		)
 
 		BeforeAll(func() {
-			res := kubectl.Apply(demoDS)
-			res.ExpectSuccess("Unable to apply %s", demoDS)
+			res := kubectl.Apply(demoYAML)
+			res.ExpectSuccess("Unable to apply %s", demoYAML)
 			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testds", helpers.HelperTimeout)
 			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testclient", helpers.HelperTimeout)
 		})
@@ -170,7 +169,7 @@ var _ = Describe("K8sServicesTest", func() {
 		AfterAll(func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
-			_ = kubectl.Delete(demoDS)
+			_ = kubectl.Delete(demoYAML)
 			ExpectAllPodsTerminated(kubectl)
 		})
 

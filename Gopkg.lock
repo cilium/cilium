@@ -1889,7 +1889,6 @@
     "gopkg.in/fsnotify.v1",
     "gopkg.in/natefinch/lumberjack.v2",
     "gopkg.in/yaml.v2",
-    "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/networking/v1",
