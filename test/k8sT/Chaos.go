@@ -55,8 +55,10 @@ var _ = Describe("K8sChaosTest", func() {
 	Context("Connectivity demo application", func() {
 		BeforeEach(func() {
 			kubectl.Apply(demoDSPath).ExpectSuccess("DS deployment cannot be applied")
-			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testds", helpers.HelperTimeout)
-			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testclient", helpers.HelperTimeout)
+
+			err := kubectl.WaitforPods(
+				helpers.DefaultNamespace, fmt.Sprintf("-l zgroup=testDS"), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 		})
 
 		AfterEach(func() {
@@ -113,10 +115,12 @@ var _ = Describe("K8sChaosTest", func() {
 
 		It("Endpoint can still connect while Cilium is not running", func() {
 			By("Waiting for deployed pods to be ready")
-			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testds", helpers.HelperTimeout)
-			ExpectDaemonSetReady(kubectl, helpers.DefaultNamespace, "testclient", helpers.HelperTimeout)
+			err := kubectl.WaitforPods(
+				helpers.DefaultNamespace,
+				fmt.Sprintf("-l zgroup=testDSClient"), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
-			err := kubectl.CiliumEndpointWaitReady()
+			err = kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			By("Checking connectivity before restarting Cilium")
@@ -209,8 +213,9 @@ var _ = Describe("K8sChaosTest", func() {
 			ExpectAllPodsTerminated(kubectl)
 
 			By("Waiting for cilium pods to be ready")
-			err := kubectl.WaitforDaemonSetReady(helpers.KubeSystemNamespace, "cilium", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cilium pods are not ready after timeout")
+			err := kubectl.WaitforPods(
+				helpers.KubeSystemNamespace, fmt.Sprintf("-l %s", ciliumFilter), helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 
 			err = kubectl.CiliumEndpointWaitReady()
 			Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
