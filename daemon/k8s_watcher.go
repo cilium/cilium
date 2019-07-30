@@ -333,6 +333,11 @@ func (d *Daemon) initK8sSubsystem() <-chan struct{} {
 			// being restored to have the right identity.
 			k8sAPIGroupPodV1Core,
 		)
+		// CiliumEndpoint is used to synchronize the ipcache, wait for
+		// it unless it is disabled
+		if !option.Config.DisableCiliumEndpointCRD {
+			d.waitForCacheSync(k8sAPIGroupCiliumEndpointV2)
+		}
 		close(cachesSynced)
 	}()
 

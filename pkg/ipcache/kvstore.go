@@ -343,8 +343,8 @@ func InitIPIdentityWatcher() {
 	})
 }
 
-// WaitForInitialSync waits until the ipcache has been synchronized from the kvstore
-func WaitForInitialSync() {
+// WaitForKVStoreSync waits until the ipcache has been synchronized from the kvstore
+func WaitForKVStoreSync() {
 	<-initialized
 	watcher.waitForInitialSync()
 }
