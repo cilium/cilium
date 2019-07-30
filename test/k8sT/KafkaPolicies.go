@@ -52,6 +52,8 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 		conOutDeathStar   = `-c "./kafka-consume.sh --topic deathstar-plans --from-beginning --max-messages 1"`
 		prodBackAnnounce  = `-c "echo 'Happy 40th Birthday to General Tagge' | ./kafka-produce.sh --topic empire-announce"`
 		prodOutAnnounce   = `-c "echo 'Vader Booed at Empire Karaoke Party' | ./kafka-produce.sh --topic empire-announce"`
+
+		ciliumPodK8s1, ciliumPodK8s2 string
 	)
 
 	AfterFailed(func() {
@@ -144,6 +146,11 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			By("Wait for Kafka broker to be up")
 			err = waitForKafkaBroker(appPods[kafkaApp], createTopicCmd(topicTest))
 			Expect(err).To(BeNil(), "Timeout: Kafka cluster failed to come up correctly")
+
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).To(BeNil(), "Unable to determine cilium pod on %s", helpers.K8s1)
+			ciliumPodK8s2, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).To(BeNil(), "Unable to determine cilium pod on %s", helpers.K8s2)
 		})
 
 		FIt("KafkaPolicies", func() {
@@ -231,8 +238,15 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			Expect(err).To(BeNil(), "CEP not updated with correct policy enforcement")
 
 			By("Testing Kafka L7 policy enforcement status")
+
+			monitorStop1 := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
+				"cilium-monitor-k8s1.log")
+			monitorStop2 := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s2,
+				"cilium-monitor-k8s2.log")
 			err = kubectl.ExecKafkaPodCmd(
 				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
+			monitorStop2()
+			monitorStop1()
 			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
