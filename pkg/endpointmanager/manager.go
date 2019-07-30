@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
@@ -449,7 +450,7 @@ func GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 }
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
-func AddEndpoint(ep *endpoint.Endpoint, reason string) (err error) {
+func AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	ep.SetDesiredIngressPolicyEnabled(alwaysEnforce)
 	ep.SetDesiredEgressPolicyEnabled(alwaysEnforce)
@@ -457,7 +458,17 @@ func AddEndpoint(ep *endpoint.Endpoint, reason string) (err error) {
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
-	return Insert(ep)
+	err = Insert(ep)
+	if err != nil {
+		return err
+	}
+
+	repr, err := monitorAPI.EndpointCreateRepr(ep)
+	// Ignore endpoint creation if EndpointCreateRepr != nil
+	if err == nil {
+		owner.SendNotification(monitorAPI.AgentNotifyEndpointCreated, repr)
+	}
+	return nil
 }
 
 // WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
