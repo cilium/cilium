@@ -498,7 +498,8 @@ func init() {
 	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPSec support")
 	option.BindEnv(option.EnableIPSecName)
 
-	flags.StringVar(&option.Config.IPSecKeyFile, option.IPSecKeyFileName, "", "Path to IPSec key file")
+	flags.String(option.IPSecKeyFileName, "", "Path to IPSec key file")
+	option.BindEnv(option.IPSecKeyFileName)
 
 	flags.Bool(option.ForceLocalPolicyEvalAtSource, defaults.ForceLocalPolicyEvalAtSource, "Force policy evaluation of all local communication at the source endpoint")
 	option.BindEnv(option.ForceLocalPolicyEvalAtSource)
