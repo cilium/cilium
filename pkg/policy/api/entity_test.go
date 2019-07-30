@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,16 +31,19 @@ func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:host", "id:foo")), Equals, true)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(EntityHost.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, true)
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("reserved:none")), Equals, true) // in a white-list model, All trumps None
 	c.Assert(EntityAll.Matches(labels.ParseLabelArray("id=foo")), Equals, true)
 
 	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:init")), Equals, true)
+	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, true)
 	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
 	c.Assert(EntityCluster.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 
@@ -51,12 +54,14 @@ func (s *PolicyAPITestSuite) TestEntityMatches(c *C) {
 
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 	c.Assert(EntityWorld.Matches(labels.ParseLabelArray("id=foo", "id=bar")), Equals, false)
 
 	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:host")), Equals, false)
 	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:world")), Equals, false)
+	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(EntityNone.Matches(labels.ParseLabelArray("reserved:init")), Equals, false)
 	c.Assert(EntityNone.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 	c.Assert(EntityNone.Matches(labels.ParseLabelArray(clusterLabel, "id=foo", "id=bar")), Equals, false)
@@ -69,6 +74,7 @@ func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
 	slice := EntitySlice{EntityHost, EntityWorld}
 	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(slice.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(slice.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 
@@ -76,6 +82,7 @@ func (s *PolicyAPITestSuite) TestEntitySliceMatches(c *C) {
 	selector := slice.GetAsEndpointSelectors()
 	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:host")), Equals, true)
 	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:world")), Equals, true)
+	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:unmanaged")), Equals, false)
 	c.Assert(selector.Matches(labels.ParseLabelArray("reserved:none")), Equals, false)
 	c.Assert(selector.Matches(labels.ParseLabelArray("id=foo")), Equals, false)
 }
