@@ -119,8 +119,10 @@ with the required cilium-agent options and included IPSec keys.
           secret:
             secretName: cilium-ipsec-keys
 
-If direct routing is being used an additional argument to identify the network facing
-interface is needed.
+If direct routing is being used an additional argument can be used to identify the
+network facing interface. If no interface is specified the default route link is
+chosen by inspecting the routing tables. This will work in many cases but depending
+on routing rules users may need to specify the encryption interface as follows.
 
 .. parsed-literal::
   --encrypt-interface=ethX
