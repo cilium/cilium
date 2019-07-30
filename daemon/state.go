@@ -292,7 +292,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 					scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
 					return
 				}
-				ipcache.WaitForInitialSync()
+				if option.Config.KVStore != "" {
+					ipcache.WaitForKVStoreSync()
+				}
 			}
 
 			if err := ep.LockAlive(); err != nil {
