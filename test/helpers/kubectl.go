@@ -82,9 +82,12 @@ var (
 	}
 
 	flannelHelmOverrides = map[string]string{
-		"global.flannel.enabled": "true",
-		"global.ipv6.enabled":    "false",
-		"global.tunnel":          "disabled",
+		"global.flannel.enabled":        "true",
+		"global.ipv6.enabled":           "false",
+		"global.tunnel":                 "disabled",
+		"global.debug.enabled":          "true",
+		"global.debug.verbose":          "flow",
+		"global.bpf.monitorAggregation": "none",
 	}
 )
 
