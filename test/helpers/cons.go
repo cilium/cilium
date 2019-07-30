@@ -245,6 +245,10 @@ const CiliumDefaultPreFlight = "cilium-pre-flight.yaml"
 // CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
 const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
 
+// CiliumConfigMapPatchKvstoreAllocator is equivalent to CiliumConfigMapPatch
+// except it uses the kvstore-based allocator instead of the CRD-based allocator.
+const CiliumConfigMapPatchKvstoreAllocator = "cilium-cm-kvstore-allocator-patch.yaml"
+
 // badLogMessages is a map which key is a part of a log message which indicates
 // a failure if the message does not contain any part from value list.
 var badLogMessages = map[string][]string{

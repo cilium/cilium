@@ -311,7 +311,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		By("Removing Cilium pre-flight check DaemonSet")
 		kubectl.Delete(helpers.GetK8sDescriptor(helpers.CiliumDefaultPreFlight))
 
-		cmPatch := helpers.CiliumConfigMapPatch
+		// Need to run using the kvstore-based allocator because upgrading from
+		// kvstore-based allocator to CRD-based allocator is not currently
+		// supported at this time.
+		By("Installing Cilium using kvstore-based allocator")
+		cmPatch := helpers.CiliumConfigMapPatchKvstoreAllocator
 		err = kubectl.CiliumInstall(helpers.CiliumDefaultDSPatch, cmPatch)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 
