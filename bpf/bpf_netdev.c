@@ -438,29 +438,17 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC) int tail_handle_ipv4
 
 #endif /* ENABLE_IPV4 */
 
-static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
+#ifdef ENABLE_IPSEC
+#ifndef ENCAP_IFINDEX
+static __always_inline int do_netdev_encrypt_pools(struct __sk_buff *skb)
 {
-	__u32 seclabel, tunnel_endpoint = 0;
-
+	int ret = 0;
 #ifdef IP_POOLS
-	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
-	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
+	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
 	struct iphdr *iphdr;
 	__be32 sum;
-	int ret;
-#endif
-#ifdef ENCRYPT_NODE
-	int encrypt_iface = ENCRYPT_IFACE;
-#endif
-	seclabel = get_identity(skb);
-	tunnel_endpoint = skb->cb[4];
-	skb->mark = 0;
-#ifdef ENCAP_IFINDEX
-	bpf_clear_cb(skb);
-	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
-#endif
-#ifdef IP_POOLS
+
 	if (!revalidate_data(skb, &data, &data_end, &iphdr)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -499,14 +487,25 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
 		ret = DROP_CSUM_L3;
 		goto drop_err;
 	}
+drop_err:
+#endif // IP_POOLS
+	return ret;
+}
+
+static __always_inline int do_netdev_encrypt_fib(struct __sk_buff *skb, int *encrypt_iface)
+{
+	int ret = 0;
 
 #ifdef HAVE_FIB_LOOKUP
-	{
+	struct bpf_fib_lookup fib_params = {};
+	void *data, *data_end;
+	struct iphdr *iphdr;
+	__be32 sum;
 	int err;
 
 	if (!revalidate_data(skb, &data, &data_end, &iphdr)) {
 		ret = DROP_INVALID;
-		goto drop_err;
+		goto drop_err_fib;
 	}
 
 	fib_params.family = AF_INET;
@@ -519,31 +518,66 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
 		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
 	if (err != 0) {
 		ret = DROP_NO_FIB;
-		goto drop_err;
+		goto drop_err_fib;
 	}
 	if (eth_store_daddr(skb, fib_params.dmac, 0) < 0) {
 		ret = DROP_WRITE_ERROR;
-		goto drop_err;
+		goto drop_err_fib;
 	}
 	if (eth_store_saddr(skb, fib_params.smac, 0) < 0) {
 		ret = DROP_WRITE_ERROR;
-		goto drop_err;
+		goto drop_err_fib;
 	}
-	encrypt_iface = fib_params.ifindex;
-	}
+	*encrypt_iface = fib_params.ifindex;
+drop_err_fib:
+#endif /* HAVE_FIB_LOOKUP */
+	return ret;
+}
+
+static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
+{
+	int encrypt_iface;
+	int ret = 0;
+
+#ifdef ENCRYPT_NODE
+	encrypt_iface = ENCRYPT_IFACE;
 #endif
-#endif
+
+	ret = do_netdev_encrypt_pools(skb);
+	if (ret)
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
+
+	ret = do_netdev_encrypt_fib(skb, &encrypt_iface);
+	if (ret)
+		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
+
 	bpf_clear_cb(skb);
 #ifdef ENCRYPT_NODE
 	return redirect(encrypt_iface, 0);
 #else
 	return TC_ACT_OK;
 #endif
-#ifdef IP_POOLS
-drop_err:
-	return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
-#endif
 }
+
+#else /* ENCAP_IFINDEX */
+static __always_inline int do_netdev_encrypt_encap(struct __sk_buff *skb)
+{
+	__u32 seclabel, tunnel_endpoint = 0;
+
+	seclabel = get_identity(skb);
+	tunnel_endpoint = skb->cb[4];
+	skb->mark = 0;
+
+	bpf_clear_cb(skb);
+	return __encap_and_redirect_with_nodeid(skb, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
+}
+
+static __always_inline int do_netdev_encrypt(struct __sk_buff *skb)
+{
+	return do_netdev_encrypt_encap(skb);
+}
+#endif /* ENCAP_IFINDEX */
+#endif /* ENABLE_IPSEC */
 
 static __always_inline int do_netdev(struct __sk_buff *skb, __u16 proto)
 {
