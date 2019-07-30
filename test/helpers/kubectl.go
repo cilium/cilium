@@ -1612,41 +1612,6 @@ func (kub *Kubectl) EtcdOperatorReport(ctx context.Context, reportCmds map[strin
 	}
 }
 
-// WaitForEtcdCRDReady inspects the etcdclusters CRD to validate that the etcd
-// pods being started by the etcd-operator are ready.
-func (kub *Kubectl) WaitForEtcdCRDReady(namespace, name string, expectedCount int, timeout time.Duration) error {
-	// Test filter: https://jqplay.org/s/_rqbx7hTmI
-	jqFilter := fmt.Sprintf(`.status.members.ready | length`)
-	cmd := fmt.Sprintf("%s get etcdclusters -n %s %s -o json | jq '%s'",
-		KubectlCmd, namespace, name, jqFilter)
-	kub.logger.Infof("Querying etcdclusters on %s/%s", namespace, name)
-
-	body := func() bool {
-		res := kub.ExecShort(cmd)
-		if !res.WasSuccessful() {
-			kub.logger.WithError(res.GetErr("")).Error("cannot get etcdclusters status")
-			return false
-		}
-
-		var value int
-		if err := res.Unmarshal(&value); err != nil {
-			kub.logger.WithError(err).Error("Cannot unmarshel etcdclusters status json")
-			return false
-		}
-
-		if value != expectedCount {
-			kub.logger.Infof("Only %d/%d pods are ready", value, expectedCount)
-			return false
-		}
-		return true
-	}
-
-	return WithTimeout(
-		body,
-		"etcd pods not ready after timeout",
-		&TimeoutConfig{Timeout: timeout})
-}
-
 // CiliumCheckReport prints a few checks on the Junit output to provide more
 // context to users. The list of checks that prints are the following:
 // - Number of Kubernetes and Cilium policies installed.
