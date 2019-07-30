@@ -82,8 +82,8 @@ hook see :ref:`bpf_guide`.
   as described below.
 
 Combining the above hooks with a virtual interfaces (cilium_host, cilium_net),
-an optional overlay interface (cilium_vxlan) and a userspace proxy (Envoy) Cilium
-creates the following networking objects.
+an optional overlay interface (cilium_vxlan), Linux kernel crypto support and
+a userspace proxy (Envoy) Cilium creates the following networking objects.
 
 * **Prefilter:** The prefilter object runs an XDP program and
   provides a set of prefilter rules used to filter traffic from the network for best performance. Specifically,
@@ -104,6 +104,23 @@ creates the following networking objects.
   configured L3/L4 endpoints. The Service block can be used to implement a
   standalone load balancer on any interface using the TC ingress hook or may
   be integrated in the endpoint policy object.
+
+* **L3 Encryption:** On ingress the L3 Encryption object marks packets for
+  decryption, passes the packets to the Linux xfrm (transform) layer for
+  decryption, and after the packet is decrypted the object receives the packet
+  then passes it up the stack for further processing by other objects. Depending
+  on the mode, direct routing or overlay, this may be a BPF tail call or the
+  Linux routing stack that passes the packet to the next object. The key required
+  for decryption is encoded in the IPsec header so on ingress we do not need to
+  do a map lookup to find the decryption key.
+
+  On egress a map lookup is first performed using the destination IP to determine
+  if a packet should be encrypted and if so what keys are available on the destination
+  node. The most recent key available on both nodes is chosen and the
+  packet is marked for encryption. The packet is then passed to the Linux
+  xfrm layer where it is encrypted. Upon receiving the now encrypted packet
+  it is passed to the next layer either by sending it to the Linux stack for
+  routing or doing a direct tail call if an overlay is in use.
 
 * **Socket Layer Enforcement:** Socket layer enforcement use two
   hooks the socket operations hook and the socket send/recv hook to monitor
@@ -147,7 +164,8 @@ optional overlay network traffic is forwarded out the Linux network interface
 corresponding to the overlay. In the default case the overlay interface is
 named cilium_vxlan. Similar to above, when socket layer enforcement is enabled
 and a L7 proxy is in use we can avoid running the endpoint policy block between
-the endpoint and the L7 Policy for TCP traffic.
+the endpoint and the L7 Policy for TCP traffic. An optional L3 encryption block
+will encrypt the packet if enabled.
 
 .. image:: _static/cilium_bpf_egress.svg
 
@@ -156,7 +174,9 @@ Ingress to Endpoint
 
 Finally we show ingress to local endpoint also with optional overlay network.
 Similar to above socket layer enforcement can be used to avoid a set of
-policy traversals between the proxy and the endpoint socket.
+policy traversals between the proxy and the endpoint socket. If the packet
+is encrypted upon receive it is first decrypted and then handled through
+the normal flow.
 
 .. image:: _static/cilium_bpf_ingress.svg
 

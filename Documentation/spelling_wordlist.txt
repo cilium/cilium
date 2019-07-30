@@ -107,6 +107,7 @@ createtopic
 CreationDate
 cri
 crio
+crypto
 daemonset
 Dangaard
 datacenter
@@ -121,6 +122,7 @@ debuginfo
 decapsulate
 decapsulated
 decapsulation
+decrypted
 deletetopic
 demux
 dep
@@ -263,6 +265,7 @@ ipcache
 iproute
 ipsec
 IPSec
+IPsec
 iptables
 IPv
 ipvlan
@@ -666,6 +669,7 @@ writeable
 xdp
 XDP
 Xenial
+xfrm
 xml
 xor
 xoring
