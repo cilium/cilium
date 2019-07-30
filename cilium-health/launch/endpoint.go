@@ -319,7 +319,7 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 		return nil, fmt.Errorf("Error while configuring routes: %s", err)
 	}
 
-	if err := endpointmanager.AddEndpoint(ep, "Create cilium-health endpoint"); err != nil {
+	if err := endpointmanager.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
