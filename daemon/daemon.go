@@ -717,7 +717,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	authKeySize, err := setupIPSec()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
 
 	mtuConfig := mtu.NewConfiguration(authKeySize, option.Config.EnableIPSec, option.Config.Tunnel != option.TunnelDisabled, configuredMTU)
