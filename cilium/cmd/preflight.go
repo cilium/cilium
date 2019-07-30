@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/spf13/cobra"
@@ -36,6 +37,9 @@ const (
 var (
 	toFQDNsPreCachePath string
 	toFQDNsPreCacheTTL  int
+
+	k8sAPIServer      string
+	k8sKubeConfigPath string
 )
 
 // preflightCmd is the command used to manage preflight tasks for upgrades
@@ -65,6 +69,14 @@ func init() {
 	pollerCmd.Flags().StringVar(&toFQDNsPreCachePath, toFQDNsPreCachePathOption, "", "The path to write serialized ToFQDNs pre-cache information. stdout is the default")
 	pollerCmd.Flags().IntVar(&toFQDNsPreCacheTTL, toFQDNsPreCacheTTLOption, 604800, "TTL, in seconds, to set on generated ToFQDNs pre-cache information")
 	preflightCmd.AddCommand(pollerCmd)
+
+	// From preflight_migrate_crd_identity.go
+	migrateIdentityCmd.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
+	migrateIdentityCmd.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
+	migrateIdentityCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
+	migrateIdentityCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
+	preflightCmd.AddCommand(migrateIdentityCmd)
+
 	rootCmd.AddCommand(preflightCmd)
 }
 
