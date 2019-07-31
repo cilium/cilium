@@ -569,9 +569,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 	// will be processed on its EventQueue, specifically regenerations.
 	ep.EventQueue.WaitToBeDrained()
 
-	// Wait for existing builds to complete and prevent further builds
-	ep.BuildMutex.Lock()
-
 	// Given that we are deleting the endpoint and that no more builds are
 	// going to occur for this endpoint, close the channel which signals whether
 	// the endpoint has its BPF program compiled or not to avoid it persisting
@@ -584,7 +581,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 	// return here. Ignore the request if the endpoint is already
 	// disconnected.
 	if err := ep.LockAlive(); err != nil {
-		ep.BuildMutex.Unlock()
 		return []error{}
 	}
 	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
@@ -641,8 +637,6 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 		option.Config.FlannelUninstallOnExit {
 		ep.DeleteBPFProgramLocked()
 	}
-
-	ep.BuildMutex.Unlock()
 
 	return errs
 }
