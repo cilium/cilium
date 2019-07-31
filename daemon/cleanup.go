@@ -20,8 +20,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
@@ -31,7 +30,30 @@ var (
 	cleanUPSig = make(chan struct{})
 	// cleanUPWg all cleanup operations will be marked as Done() when completed.
 	cleanUPWg = &sync.WaitGroup{}
+
+	cleanupFuncs = &cleanupFuncList{
+		funcs: make([]func(), 0),
+	}
 )
+
+type cleanupFuncList struct {
+	funcs []func()
+	lock  lock.Mutex
+}
+
+func (c *cleanupFuncList) Add(newFunc func()) {
+	c.lock.Lock()
+	c.funcs = append(c.funcs, newFunc)
+	c.lock.Unlock()
+}
+
+func (c *cleanupFuncList) Run() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for k := range c.funcs {
+		c.funcs[k]()
+	}
+}
 
 func registerSigHandler() <-chan struct{} {
 	sig := make(chan os.Signal, 1)
@@ -42,11 +64,7 @@ func registerSigHandler() <-chan struct{} {
 			log.WithField("signal", s).Info("Exiting due to signal")
 			pidfile.Clean()
 			Clean()
-			if option.Config.FlannelUninstallOnExit {
-				for _, ep := range endpointmanager.GetEndpoints() {
-					ep.DeleteBPFProgramLocked()
-				}
-			}
+			cleanupFuncs.Run()
 			break
 		}
 		close(interrupt)
