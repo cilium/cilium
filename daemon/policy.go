@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -71,7 +70,7 @@ func (d *Daemon) policyUpdateTrigger(reasons []string) {
 	reason := strings.Join(reasons, ", ")
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{Reason: reason}
-	endpointmanager.RegenerateAllEndpoints(regenerationMetadata)
+	d.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
 }
 
 // TriggerPolicyUpdates triggers policy updates for every daemon's endpoint.
@@ -328,7 +327,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := endpointmanager.GetPolicyEndpoints()
+	allEndpoints := d.endpointManager.GetPolicyEndpoints()
 
 	// Start with all endpoints to be in set for which we need to bump their
 	// revision.
@@ -377,7 +376,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 	if opts != nil {
 		source = opts.Source
 	}
-	endpointmanager.CallbackForEndpointsAtPolicyRev(context.Background(), newRev, func(now time.Time) {
+	d.endpointManager.CallbackForEndpointsAtPolicyRev(context.Background(), newRev, func(now time.Time) {
 		duration, _ := safetime.TimeSinceSafe(policyAddStartTime, logger)
 		metrics.PolicyImplementationDelay.WithLabelValues(source).Observe(duration.Seconds())
 	})
@@ -566,7 +565,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 
 	// Get all endpoints at the time rules were added / updated so we can figure
 	// out which endpoints to regenerate / bump policy revision.
-	allEndpoints := endpointmanager.GetPolicyEndpoints()
+	allEndpoints := d.endpointManager.GetPolicyEndpoints()
 	// Initially keep all endpoints in set of endpoints which need to have
 	// revision bumped.
 	epsToBumpRevision := policy.NewEndpointSet(allEndpoints)

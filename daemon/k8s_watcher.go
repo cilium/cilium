@@ -27,7 +27,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -1566,7 +1565,7 @@ func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clien
 		NodeName:                    node.GetName(),
 		NodeManager:                 d.nodeDiscovery.Manager,
 		UpdateDuration:              spanstat.Start(),
-		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
+		WaitForEndpointsAtPolicyRev: d.endpointManager.WaitForEndpointsAtPolicyRev,
 	}
 
 	k8sCM.UpdateController(ctrlName,
@@ -1618,7 +1617,7 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 			NodeName:                    node.GetName(),
 			NodeManager:                 d.nodeDiscovery.Manager,
 			UpdateDuration:              spanstat.Start(),
-			WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
+			WaitForEndpointsAtPolicyRev: d.endpointManager.WaitForEndpointsAtPolicyRev,
 		}
 
 		ctrlName := cnp.GetControllerName()
@@ -1817,7 +1816,7 @@ func (d *Daemon) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 
 	podNSName := k8sUtils.GetObjNamespaceName(&newK8sPod.ObjectMeta)
 
-	podEP := endpointmanager.LookupPodName(podNSName)
+	podEP := d.endpointManager.LookupPodName(podNSName)
 	if podEP == nil {
 		log.WithField("pod", podNSName).Debugf("Endpoint not found running for the given pod")
 		return nil
@@ -1887,7 +1886,7 @@ func (d *Daemon) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
 	newIdtyLabels, _ := labels.FilterLabels(newLabels)
 
-	eps := endpointmanager.GetEndpoints()
+	eps := d.endpointManager.GetEndpoints()
 	failed := false
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()

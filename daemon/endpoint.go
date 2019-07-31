@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -49,7 +48,7 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
-	resEPs := getEndpointList(params)
+	resEPs := h.d.getEndpointList(params)
 
 	if params.Labels != nil && len(resEPs) == 0 {
 		return NewGetEndpointNotFound()
@@ -58,7 +57,7 @@ func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	return NewGetEndpointOK().WithPayload(resEPs)
 }
 
-func getEndpointList(params GetEndpointParams) []*models.Endpoint {
+func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	var (
 		epModelsWg, epsAppendWg sync.WaitGroup
 		convertedLabels         labels.Labels
@@ -70,7 +69,7 @@ func getEndpointList(params GetEndpointParams) []*models.Endpoint {
 		convertedLabels = labels.NewLabelsFromModel(params.Labels)
 	}
 
-	eps := endpointmanager.GetEndpoints()
+	eps := d.endpointManager.GetEndpoints()
 	epModelsCh := make(chan *models.Endpoint, len(eps))
 
 	epModelsWg.Add(len(eps))
@@ -112,7 +111,7 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := h.d.endpointManager.Lookup(params.ID)
 
 	if err != nil {
 		return api.Error(GetEndpointIDInvalidCode, err)
@@ -185,12 +184,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
 
-	oldEp := endpointmanager.LookupCiliumID(ep.ID)
+	oldEp := d.endpointManager.LookupCiliumID(ep.ID)
 	if oldEp != nil {
 		return invalidDataError(ep, fmt.Errorf("endpoint ID %d already exists", ep.ID))
 	}
 
-	oldEp = endpointmanager.LookupContainerID(ep.ContainerID)
+	oldEp = d.endpointManager.LookupContainerID(ep.ContainerID)
 	if oldEp != nil {
 		return invalidDataError(ep, fmt.Errorf("endpoint for container %s already exists", ep.ContainerID))
 	}
@@ -206,7 +205,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	for _, id := range checkIDs {
-		oldEp, err := endpointmanager.Lookup(id)
+		oldEp, err := d.endpointManager.Lookup(id)
 		if err != nil {
 			return invalidDataError(ep, err)
 		} else if oldEp != nil {
@@ -251,7 +250,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	err = endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT")
+	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	logger := ep.Logger(daemonSubsys)
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
@@ -423,7 +422,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		validStateTransition = true
 	}
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := h.d.endpointManager.Lookup(params.ID)
 	if err != nil {
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
@@ -518,7 +517,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	endpointmanager.Remove(ep)
+	d.endpointManager.Remove(ep)
 
 	defer func() {
 		repr, err := monitorAPI.EndpointDeleteRepr(ep)
@@ -573,7 +572,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
-	if ep, err := endpointmanager.Lookup(id); err != nil {
+	if ep, err := d.endpointManager.Lookup(id); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
 		return 0, api.New(DeleteEndpointIDNotFoundCode, "endpoint not found")
@@ -610,7 +609,7 @@ func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Resp
 
 // EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
 func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
-	ep, err := endpointmanager.Lookup(id)
+	ep, err := d.endpointManager.Lookup(id)
 	if err != nil {
 		return api.Error(PatchEndpointIDInvalidCode, err)
 	} else if ep == nil {
@@ -630,7 +629,7 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 	if err := ep.RLockAlive(); err != nil {
 		return api.Error(PatchEndpointIDNotFoundCode, err)
 	}
-	endpointmanager.UpdateReferences(ep)
+	d.endpointManager.UpdateReferences(ep)
 	ep.RUnlock()
 
 	return nil
@@ -669,7 +668,7 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := h.daemon.endpointManager.Lookup(params.ID)
 	if err != nil {
 		return api.Error(GetEndpointIDInvalidCode, err)
 	} else if ep == nil {
@@ -700,7 +699,7 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := h.daemon.endpointManager.Lookup(params.ID)
 	if err != nil {
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
@@ -728,7 +727,7 @@ func NewGetEndpointIDLogHandler(d *Daemon) GetEndpointIDLogHandler {
 func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := h.d.endpointManager.Lookup(params.ID)
 
 	if err != nil {
 		return api.Error(GetEndpointIDLogInvalidCode, err)
@@ -750,7 +749,7 @@ func NewGetEndpointIDHealthzHandler(d *Daemon) GetEndpointIDHealthzHandler {
 func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := h.d.endpointManager.Lookup(params.ID)
 
 	if err != nil {
 		return api.Error(GetEndpointIDHealthzInvalidCode, err)
@@ -789,7 +788,7 @@ func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.
 		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
 	}
 
-	ep, err := endpointmanager.Lookup(id)
+	ep, err := d.endpointManager.Lookup(id)
 	if err != nil {
 		return PatchEndpointIDInvalidCode, err
 	}
@@ -822,7 +821,7 @@ func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middlew
 	mod := params.Configuration
 	lbls := labels.NewLabelsFromModel(mod.User)
 
-	ep, err := endpointmanager.Lookup(params.ID)
+	ep, err := d.endpointManager.Lookup(params.ID)
 	if err != nil {
 		return api.Error(PutEndpointIDInvalidCode, err)
 	} else if ep == nil {
