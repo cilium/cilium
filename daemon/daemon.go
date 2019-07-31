@@ -744,6 +744,17 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
+	epMgr := endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
+
+	// Cleanup flannel on exit
+	cleanupFuncs.Add(func() {
+		if option.Config.FlannelUninstallOnExit {
+			for _, ep := range epMgr.GetEndpoints() {
+				ep.DeleteBPFProgramLocked()
+			}
+		}
+	})
+
 	d := Daemon{
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:       k8s.NewServiceCache(),
@@ -758,7 +769,7 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 		iptablesManager:   iptablesManager,
-		endpointManager:   endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{}),
+		endpointManager:   epMgr,
 	}
 
 	endpointmanager.GlobalEndpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
