@@ -40,17 +40,21 @@ type testEPManager struct {
 	removedMappings []int
 }
 
-func (tm *testEPManager) endpointExists(id uint16) bool {
+func (tm *testEPManager) EndpointExists(id uint16) bool {
 	_, exists := tm.endpoints[id]
 	return exists
 }
 
-func (tm *testEPManager) removeDatapathMapping(id uint16) error {
+func (tm *testEPManager) HasGlobalCT() bool {
+	return false
+}
+
+func (tm *testEPManager) RemoveDatapathMapping(id uint16) error {
 	tm.removedMappings = append(tm.removedMappings, int(id))
 	return nil
 }
 
-func (tm *testEPManager) removeMapPath(path string) {
+func (tm *testEPManager) RemoveMapPath(path string) {
 	tm.removedPaths = append(tm.removedPaths, path)
 }
 
@@ -205,7 +209,7 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 	for _, tt := range testCases {
 		c.Log(tt.name)
 		testEPManager := newTestEPManager()
-		sweeper := newMapSweeper(testEPManager)
+		sweeper := NewMapSweeper(testEPManager)
 
 		for _, ep := range tt.endpoints {
 			testEPManager.addEndpoint(ep)
