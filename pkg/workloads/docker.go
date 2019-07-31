@@ -94,7 +94,7 @@ func (c *dockerModule) getConfig() map[string]string {
 }
 
 func (c *dockerModule) newClient(epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
-	return newDockerClient(c.opts)
+	return newDockerClient(c.opts, epMgr)
 }
 
 type dockerClient struct {
@@ -103,7 +103,7 @@ type dockerClient struct {
 	endpointManager *endpointmanager.EndpointManager
 }
 
-func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
+func newDockerClient(opts workloadRuntimeOpts, epMgr *endpointmanager.EndpointManager) (WorkloadRuntime, error) {
 	defaultHeaders := map[string]string{"User-Agent": "cilium"}
 	ep := opts[EpOpt]
 	c, err := client.NewClient(ep.value, "v1.21", nil, defaultHeaders)
@@ -115,7 +115,11 @@ func newDockerClient(opts workloadRuntimeOpts) (WorkloadRuntime, error) {
 		return nil, fmt.Errorf("'%s' option not found", DatapathModeOpt)
 	}
 
-	return &dockerClient{Client: c, datapathMode: dpMode.value}, nil
+	return &dockerClient{
+		Client:          c,
+		datapathMode:    dpMode.value,
+		endpointManager: epMgr,
+	}, nil
 }
 
 func newDockerClientMock(opts workloadRuntimeOpts) (WorkloadRuntime, error) {

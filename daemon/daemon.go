@@ -734,6 +734,15 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	// Must be done before calling policy.NewPolicyRepository() below.
 	identity.InitWellKnownIdentities()
 
+	epMgr := endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
+	flannelCleanupFunc = func() {
+		if option.Config.FlannelUninstallOnExit {
+			for _, ep := range epMgr.GetEndpoints() {
+				ep.DeleteBPFProgramLocked()
+			}
+		}
+	}
+
 	d := Daemon{
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:       k8s.NewServiceCache(),
@@ -747,7 +756,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
-		endpointManager:   endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{}),
+		endpointManager:   epMgr,
 	}
 
 	endpointmanager.GlobalEndpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
@@ -911,7 +920,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
 	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-		option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath)
+		option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
 	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.fqdn.Start()

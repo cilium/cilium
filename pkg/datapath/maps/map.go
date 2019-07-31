@@ -37,6 +37,8 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-maps")
 
 	globalSweeper = newMapSweeper(&realEPManager{})
+
+	realEpMgr *endpointmanager.EndpointManager
 )
 
 // endpointManager checks against its list of the current endpoints to determine
@@ -56,7 +58,7 @@ type endpointManager interface {
 type realEPManager struct{}
 
 func (gw *realEPManager) endpointExists(endpointID uint16) bool {
-	if ep := endpointmanager.LookupCiliumID(endpointID); ep != nil {
+	if ep := realEpMgr.LookupCiliumID(endpointID); ep != nil {
 		return true
 	}
 	return false
@@ -114,7 +116,7 @@ func (ms *mapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 }
 
 func (ms *mapSweeper) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := endpointmanager.HasGlobalCT() || option.Config.EnableNodePort ||
+	globalCTinUse := realEpMgr.HasGlobalCT() || option.Config.EnableNodePort ||
 		!option.Config.InstallIptRules && option.Config.Masquerade
 
 	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
@@ -147,6 +149,10 @@ func (ms *mapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	}
 
 	return nil
+}
+
+func InjectEndpointManager(mgr *endpointmanager.EndpointManager) {
+	realEpMgr = mgr
 }
 
 // CollectStaleMapGarbage cleans up stale content in the BPF maps from the

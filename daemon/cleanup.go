@@ -20,8 +20,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
@@ -31,6 +29,8 @@ var (
 	cleanUPSig = make(chan struct{})
 	// cleanUPWg all cleanup operations will be marked as Done() when completed.
 	cleanUPWg = &sync.WaitGroup{}
+
+	flannelCleanupFunc = func() {}
 )
 
 func registerSigHandler() <-chan struct{} {
@@ -42,11 +42,7 @@ func registerSigHandler() <-chan struct{} {
 			log.WithField("signal", s).Info("Exiting due to signal")
 			pidfile.Clean()
 			Clean()
-			if option.Config.FlannelUninstallOnExit {
-				for _, ep := range endpointmanager.GetEndpoints() {
-					ep.DeleteBPFProgramLocked()
-				}
-			}
+			flannelCleanupFunc()
 			break
 		}
 		close(interrupt)

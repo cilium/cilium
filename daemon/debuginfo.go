@@ -54,7 +54,7 @@ func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Resp
 
 	var p endpoint.GetEndpointParams
 
-	dr.EndpointList = getEndpointList(p)
+	dr.EndpointList = d.getEndpointList(p)
 	dr.Policy = d.policy.GetRulesList()
 	dr.Subsystem = debug.CollectSubsystemStatus()
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())

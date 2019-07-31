@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -77,7 +76,7 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
 	// Check that the endpoint has the reserved:init label.
-	ep, err := endpointmanager.Lookup(endpointid.NewIPPrefixID(net.ParseIP(epTemplate.Addressing.IPV4)))
+	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(net.ParseIP(epTemplate.Addressing.IPV4)))
 	c.Assert(err, IsNil)
 	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 

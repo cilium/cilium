@@ -1397,6 +1397,7 @@ func runDaemon() {
 				<-restoreComplete
 			}
 			d.dnsNameManager.CompleteBootstrap()
+			maps.InjectEndpointManager(d.endpointManager)
 			maps.CollectStaleMapGarbage()
 			maps.RemoveDisabledMaps()
 		}()
