@@ -1332,18 +1332,6 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		e.removeOldRedirects(nil, proxyWaitGroup)
 	}
 
-	if e.policyMap != nil {
-		if err := e.policyMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.policyMap.String(), err))
-		}
-	}
-
-	if e.bpfConfigMap != nil {
-		if err := e.bpfConfigMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.BPFConfigMapPath(), err))
-		}
-	}
-
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
 		identitymanager.Remove(e.SecurityIdentity)
 
