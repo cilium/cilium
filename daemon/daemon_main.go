@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1397,7 +1396,7 @@ func runDaemon() {
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
-	endpointmanager.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
+	d.endpointManager.EnableConntrackGC(option.Config.EnableIPv4, option.Config.EnableIPv6,
 		restoredEndpoints.restored)
 	bootstrapStats.enableConntrack.End(true)
 
