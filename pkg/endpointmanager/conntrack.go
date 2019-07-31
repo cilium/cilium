@@ -35,12 +35,6 @@ import (
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
-	return GlobalEndpointManager.runGC(e, ipv4, ipv6, filter)
-}
-
-// garbage collected and any failures will be logged to the endpoint log.
-// Otherwise it will garbage-collect the global map and use the global log.
 func (epMgr *EndpointManager) runGC(e *endpoint.Endpoint, ipv4, ipv6 bool, filter *ctmap.GCFilter) (mapType bpf.MapType, maxDeleteRatio float64) {
 	var maps []*ctmap.Map
 
@@ -119,16 +113,16 @@ func (epMgr *EndpointManager) EnableConntrackGC(ipv4, ipv6 bool, restoredEndpoin
 	go func() {
 		for {
 			var maxDeleteRatio float64
-			eps := GetEndpoints()
+			eps := epMgr.GetEndpoints()
 			if len(eps) > 0 || initialScan {
-				mapType, maxDeleteRatio = runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
+				mapType, maxDeleteRatio = epMgr.runGC(nil, ipv4, ipv6, createGCFilter(initialScan, restoredEndpoints))
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
+				epMgr.runGC(e, ipv4, ipv6, &ctmap.GCFilter{RemoveExpired: true})
 			}
 
 			if initialScan {

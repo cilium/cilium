@@ -30,7 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -111,6 +113,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+type dummyEpSyncher struct{}
+
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
+
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
@@ -137,6 +143,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
 	ds.OnClearPolicyConsumers = nil
+	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
