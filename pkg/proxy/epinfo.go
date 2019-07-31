@@ -17,7 +17,7 @@ package proxy
 import (
 	"net"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -28,7 +28,13 @@ var (
 	// DefaultEndpointInfoRegistry is the default instance implementing the
 	// EndpointInfoRegistry interface.
 	DefaultEndpointInfoRegistry logger.EndpointInfoRegistry = &defaultEndpointInfoRegistry{}
+	endpointManager             EndpointLookup
 )
+
+// EndpointLookup is any type which maps from IP to the endpoint owning that IP.
+type EndpointLookup interface {
+	LookupIP(ip net.IP) (ep *endpoint.Endpoint)
+}
 
 // defaultEndpointInfoRegistry is the default implementation of the
 // EndpointInfoRegistry interface.
@@ -48,7 +54,7 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByID(id identity.Numer
 }
 
 func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *accesslog.EndpointInfo) bool {
-	ep := endpointmanager.LookupIP(ip)
+	ep := endpointManager.LookupIP(ip)
 	if ep == nil {
 		return false
 	}
