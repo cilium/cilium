@@ -38,9 +38,8 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
-
-	GlobalEndpointManager *EndpointManager
+	log         = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
+	metricsOnce sync.Once
 )
 
 type EndpointManager struct {
@@ -70,20 +69,25 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 		endpointSynchronizer: epSynchronizer,
 	}
 
-	// EndpointCount is a function used to collect this metric. We cannot
-	// increment/decrement a gauge since we invoke Remove gratuitiously and that
-	// would result in negative counts.
-	// It must be thread-safe.
-	metrics.EndpointCount = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: metrics.Namespace,
-		Name:      "endpoint_count",
-		Help:      "Number of endpoints managed by this agent",
-	},
-		func() float64 { return float64(len(mgr.GetEndpoints())) },
-	)
-	metrics.MustRegister(metrics.EndpointCount)
-
 	return &mgr
+}
+
+// InitMetrics hooks the EndpointManager into the metrics subsystem. This can
+// only be done once, globally, otherwise the metrics library will panic.
+func (mgr *EndpointManager) InitMetrics() {
+	metricsOnce.Do(func() { // EndpointCount is a function used to collect this metric. We cannot
+		// increment/decrement a gauge since we invoke Remove gratuitiously and that
+		// would result in negative counts.
+		// It must be thread-safe.
+		metrics.EndpointCount = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Name:      "endpoint_count",
+			Help:      "Number of endpoints managed by this agent",
+		},
+			func() float64 { return float64(len(mgr.GetEndpoints())) },
+		)
+		metrics.MustRegister(metrics.EndpointCount)
+	})
 }
 
 func (mgr *EndpointManager) Insert(ep *endpoint.Endpoint) error {

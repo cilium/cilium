@@ -742,6 +742,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 			}
 		}
 	}
+	epMgr.InitMetrics()
 
 	d := Daemon{
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
@@ -758,8 +759,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 		endpointManager:   epMgr,
 	}
-
-	endpointmanager.GlobalEndpointManager = endpointmanager.NewEndpointManager(&endpointsynchronizer.EndpointSynchronizer{})
 
 	if option.Config.RunMonitorAgent {
 		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)

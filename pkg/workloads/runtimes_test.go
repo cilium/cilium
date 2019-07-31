@@ -21,6 +21,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	. "gopkg.in/check.v1"
 )
 
@@ -32,6 +34,10 @@ func Test(t *testing.T) {
 type WorkloadsTestSuite struct{}
 
 var _ = Suite(&WorkloadsTestSuite{})
+
+type dummyEpSyncher struct{}
+
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
 
 func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 	// backup registered workload since None will unregister them all
@@ -69,7 +75,8 @@ func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if err := setup(nil, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
+		epMgr := endpointmanager.NewEndpointManager(&dummyEpSyncher{})
+		if err := setup(nil, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true, epMgr); (err != nil) != tt.wantErr {
 			c.Errorf("setup() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}
 		setupOnce = sync.Once{}
@@ -105,7 +112,8 @@ func (s *WorkloadsTestSuite) TestSetupWithoutStatusCheck(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		if err := setup(nil, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true); (err != nil) != tt.wantErr {
+		epMgr := endpointmanager.NewEndpointManager(&dummyEpSyncher{})
+		if err := setup(nil, tt.args.containerRuntimes, tt.args.containerRuntimesOpts, true, epMgr); (err != nil) != tt.wantErr {
 			c.Errorf("setup() for %s error = %v, wantErr %v", tt.name, err, tt.wantErr)
 		}
 		setupOnce = sync.Once{}

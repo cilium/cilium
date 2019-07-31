@@ -743,8 +743,8 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 		tt.preTestRun()
 
 		mgr.RemoveAll()
-		c.Assert(len(GlobalEndpointManager.endpoints), Equals, 0, Commentf("Test Name: %s", tt.name))
-		c.Assert(len(GlobalEndpointManager.endpointsAux), Equals, 0, Commentf("Test Name: %s", tt.name))
+		c.Assert(len(mgr.endpoints), Equals, 0, Commentf("Test Name: %s", tt.name))
+		c.Assert(len(mgr.endpointsAux), Equals, 0, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
