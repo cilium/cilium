@@ -238,6 +238,10 @@ func (m *metadataTester) Handler() RequestHandler {
 	}
 }
 
+type dummyEpSyncher struct{}
+
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint) {}
+
 func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	server := NewServer()
 	server.Start()
@@ -264,6 +268,10 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	kafkaRule2 := api.PortRuleKafka{APIKey: "produce", APIVersion: "0", Topic: "allowedTopic"}
 	c.Assert(kafkaRule2.Sanitize(), IsNil)
 
+	// Inject endpointmanager into DefaultEndpointInfoRegistry.
+	epMgr := endpointmanager.NewEndpointManager(&dummyEpSyncher{})
+	endpointManager = epMgr
+
 	// Insert a mock EP to the endpointmanager so that DefaultEndpointInfoRegistry may find
 	// the EP ID by the IP.
 	ep := endpoint.NewEndpointWithState(s, uint16(localEndpointMock.GetID()), endpoint.StateReady)
@@ -271,8 +279,8 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, IsNil)
 	ep.IPv4 = ipv4
 	ep.UpdateLogger(nil)
-	endpointmanager.Insert(ep)
-	defer endpointmanager.Remove(ep)
+	epMgr.Insert(ep)
+	defer epMgr.Remove(ep)
 
 	_, dstPortStr, err := net.SplitHostPort(server.Address())
 	c.Assert(err, IsNil)

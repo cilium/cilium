@@ -112,7 +112,8 @@ type Proxy struct {
 // and access log server.
 func StartProxySupport(minPort uint16, maxPort uint16, stateDir string,
 	accessLogFile string, accessLogNotifier logger.LogRecordNotifier, accessLogMetadata []string,
-	datapathUpdater DatapathUpdater) *Proxy {
+	datapathUpdater DatapathUpdater, mgr EndpointLookup) *Proxy {
+	endpointManager = mgr
 	xdsServer := envoy.StartXDSServer(stateDir)
 
 	if accessLogFile != "" {
