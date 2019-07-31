@@ -32,7 +32,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -334,4 +336,40 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 		return err
 	}
 	return nil
+}
+
+// EndpointMapManager is a wrapper around an endpointmanager as well as the
+// filesystem for removing maps related to endpoints from the filesystem.
+type EndpointMapManager struct {
+	endpointManager *endpointmanager.EndpointManager
+}
+
+// EndpointExists returns whether the endpoint with the specified ID is managed
+// by this Cilium instance.
+func (e *EndpointMapManager) EndpointExists(endpointID uint16) bool {
+	if ep := e.endpointManager.LookupCiliumID(endpointID); ep != nil {
+		return true
+	}
+	return false
+}
+
+// HasGlobalCT returns whether global conntrack maps are being used.s
+func (e *EndpointMapManager) HasGlobalCT() bool {
+	return e.endpointManager.HasGlobalCT()
+}
+
+// RemoveDatapathMapping unlinks the endpointID from the global policy map, preventing
+// packets that arrive on this node from being forwarded to the endpoint that
+// used to exist with the specified ID.
+func (e *EndpointMapManager) RemoveDatapathMapping(endpointID uint16) error {
+	return policymap.RemoveGlobalMapping(uint32(endpointID))
+}
+
+// RemoveMapPath removes the specified path from the filesystem.
+func (e *EndpointMapManager) RemoveMapPath(path string) {
+	if err := os.RemoveAll(path); err != nil {
+		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
+	} else {
+		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
+	}
 }

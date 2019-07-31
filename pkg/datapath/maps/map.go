@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -35,8 +34,6 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-maps")
-
-	globalSweeper = newMapSweeper(&realEPManager{})
 )
 
 // endpointManager checks against its list of the current endpoints to determine
@@ -45,84 +42,57 @@ var (
 // This interface is provided to abstract epmanager/filesystem access for unit
 // testing.
 type endpointManager interface {
-	endpointExists(endpointID uint16) bool
-	removeDatapathMapping(endpointID uint16) error
-	removeMapPath(path string)
+	EndpointExists(endpointID uint16) bool
+	RemoveDatapathMapping(endpointID uint16) error
+	RemoveMapPath(path string)
+	HasGlobalCT() bool
 }
 
-// realEPManager provides an implementation of endpointManager that is backed
-// by the endpointmanager and policymap packages, and when removeMapPath is
-// invoked, it cleans up paths on the actual filesystem.
-type realEPManager struct{}
-
-func (gw *realEPManager) endpointExists(endpointID uint16) bool {
-	if ep := endpointmanager.LookupCiliumID(endpointID); ep != nil {
-		return true
-	}
-	return false
-}
-
-// removeDatapathMapping unlinks the endpointID from the global policy map, preventing
-// packets that arrive on this node from being forwarded to the endpoint that
-// used to exist with the specified ID.
-func (gw *realEPManager) removeDatapathMapping(endpointID uint16) error {
-	return policymap.RemoveGlobalMapping(uint32(endpointID))
-}
-
-// removeMapPath removes the specified path from the filesystem.
-func (gw *realEPManager) removeMapPath(path string) {
-	if err := os.RemoveAll(path); err != nil {
-		log.WithError(err).WithField(logfields.Path, path).Warn("Error while deleting stale map file")
-	} else {
-		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
-	}
-}
-
-// mapSweeper is responsible for checking stale map paths on the filesystem
+// MapSweeper is responsible for checking stale map paths on the filesystem
 // and garbage collecting the endpoint if the corresponding endpoint no longer
 // exists.
-type mapSweeper struct {
+type MapSweeper struct {
 	endpointManager
 }
 
-// newMapSweeper creates an object that walks map paths and garbage-collects
+// NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func newMapSweeper(g endpointManager) *mapSweeper {
-	return &mapSweeper{
+func NewMapSweeper(g endpointManager) *MapSweeper {
+	return &MapSweeper{
 		endpointManager: g,
 	}
 }
 
 // deleteMapIfStale uses the endpointManager implementation to determine for
 // the given path whether it should be deleted, and if so deletes the path.
-func (ms *mapSweeper) deleteMapIfStale(path string, filename string, endpointID string) {
+func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID string) {
 	if tmp, err := strconv.ParseUint(endpointID, 10, 16); err == nil {
 		epID := uint16(tmp)
-		if ms.endpointExists(epID) {
+		if ms.EndpointExists(epID) {
 			prefix := strings.TrimSuffix(filename, endpointID)
 			if filename != bpf.LocalMapName(prefix, epID) {
-				ms.removeMapPath(path)
+				ms.RemoveMapPath(path)
 			}
 		} else {
-			err2 := ms.removeDatapathMapping(epID)
+			err2 := ms.RemoveDatapathMapping(epID)
 			if err2 != nil {
 				log.WithError(err2).Debugf("Failed to remove ID %d from global policy map", tmp)
 			}
-			ms.removeMapPath(path)
+			ms.RemoveMapPath(path)
 		}
 	}
 }
 
-func (ms *mapSweeper) checkStaleGlobalMap(path string, filename string) {
-	globalCTinUse := endpointmanager.HasGlobalCT() || option.Config.EnableNodePort ||
+func (ms *MapSweeper) checkStaleGlobalMap(path string, filename string) {
+	globalCTinUse := ms.HasGlobalCT() || option.Config.EnableNodePort ||
 		!option.Config.InstallIptRules && option.Config.Masquerade
 
 	if !globalCTinUse && ctmap.NameIsGlobal(filename) {
-		ms.removeMapPath(path)
+		ms.RemoveMapPath(path)
 	}
 }
 
-func (ms *mapSweeper) walk(path string, _ os.FileInfo, _ error) error {
+func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
 	mapPrefix := []string{
@@ -151,8 +121,8 @@ func (ms *mapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 
 // CollectStaleMapGarbage cleans up stale content in the BPF maps from the
 // datapath.
-func CollectStaleMapGarbage() {
-	if err := filepath.Walk(bpf.MapPrefixPath(), globalSweeper.walk); err != nil {
+func (ms *MapSweeper) CollectStaleMapGarbage() {
+	if err := filepath.Walk(bpf.MapPrefixPath(), ms.walk); err != nil {
 		log.WithError(err).Warn("Error while scanning for stale maps")
 	}
 }
@@ -160,7 +130,7 @@ func CollectStaleMapGarbage() {
 // RemoveDisabledMaps removes BPF maps in the filesystem for features that have
 // been disabled. The maps may still be in use in which case they will continue
 // to live until the BPF program using them is being replaced.
-func RemoveDisabledMaps() {
+func (ms *MapSweeper) RemoveDisabledMaps() {
 	maps := []string{}
 
 	if !option.Config.EnableIPv6 {
@@ -196,7 +166,7 @@ func RemoveDisabledMaps() {
 	for _, m := range maps {
 		p := path.Join(bpf.MapPrefixPath(), m)
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
-			globalSweeper.removeMapPath(p)
+			ms.RemoveMapPath(p)
 		}
 	}
 }
