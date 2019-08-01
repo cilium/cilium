@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
@@ -113,14 +114,31 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
 
 	cfg.Region = instance.Region
 
-	eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
+	var (
+		ec2Client *ec2shim.Client
+		instances *eni.InstancesManager
+	)
 
-	ec2Client := ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
-	log.Info("Connected to EC2 service API")
-	instances := eni.NewInstancesManager(ec2Client, eniMetrics)
-	nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers)
-	if err != nil {
-		return fmt.Errorf("unable to initialize ENI node manager: %s", err)
+	if enableMetrics {
+		eniMetrics := metrics.NewPrometheusMetrics(metricNamespace, registry)
+		ec2Client = ec2shim.NewClient(ec2.New(cfg), eniMetrics, awsClientQPSLimit, awsClientBurst)
+		log.Info("Connected to EC2 service API")
+		instances = eni.NewInstancesManager(ec2Client, eniMetrics)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, eniMetrics, eniParallelWorkers)
+		if err != nil {
+			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
+		}
+	} else {
+		// Inject dummy metrics operations that do nothing so we don't panic if
+		// metrics aren't enabled
+		noOpMetric := &noOpMetrics{}
+		ec2Client = ec2shim.NewClient(ec2.New(cfg), noOpMetric, awsClientQPSLimit, awsClientBurst)
+		log.Info("Connected to EC2 service API")
+		instances = eni.NewInstancesManager(ec2Client, noOpMetric)
+		nodeManager, err = eni.NewNodeManager(instances, ec2Client, &k8sAPI{}, noOpMetric, eniParallelWorkers)
+		if err != nil {
+			return fmt.Errorf("unable to initialize ENI node manager: %s", err)
+		}
 	}
 
 	// Initial blocking synchronization of all ENIs and subnets
@@ -145,3 +163,35 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
 
 	return nil
 }
+
+// The below are types which fulfill various interfaces which are needed by the
+// eni / ec2 functions we have which do nothing if metrics are disabled.
+
+type noOpMetricsObserver struct{}
+
+// MetricsObserver implementation
+func (m *noOpMetricsObserver) PostRun(callDuration, latency time.Duration, folds int) {}
+func (m *noOpMetricsObserver) QueueEvent(reason string)                               {}
+
+type noOpMetrics struct{}
+
+// eni metricsAPI interface implementation
+func (m *noOpMetrics) IncENIAllocationAttempt(status, subnetID string)  {}
+func (m *noOpMetrics) AddIPAllocation(subnetID string, allocated int64) {}
+func (m *noOpMetrics) SetAllocatedIPs(typ string, allocated int)        {}
+func (m *noOpMetrics) SetAvailableENIs(available int)                   {}
+func (m *noOpMetrics) SetNodes(category string, nodes int)              {}
+func (m *noOpMetrics) IncResyncCount()                                  {}
+func (m *noOpMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
+	return &noOpMetricsObserver{}
+}
+func (m *noOpMetrics) K8sSyncTrigger() trigger.MetricsObserver {
+	return &noOpMetricsObserver{}
+}
+func (m *noOpMetrics) ResyncTrigger() trigger.MetricsObserver {
+	return &noOpMetricsObserver{}
+}
+
+// ec2 metricsAPI interface implementation
+func (m *noOpMetrics) ObserveEC2APICall(call, status string, duration float64)      {}
+func (m *noOpMetrics) ObserveEC2RateLimit(operation string, duration time.Duration) {}
