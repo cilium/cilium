@@ -85,7 +85,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"journalctl -u cilium*",
 		"journalctl -u kubelet",
 		// iptables
-		"iptables-save",
+		"iptables-save -c",
 		"iptables -S",
 		"ip6tables -S",
 		"iptables -L -v",
