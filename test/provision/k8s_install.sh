@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+
 HOST=$(hostname)
 export TOKEN="258062.5d84c017c9b2796c"
 export CILIUM_CONFIG_DIR="/opt/cilium"
@@ -262,22 +263,24 @@ sudo rm -rfv /var/lib/kubelet
 
 #check hostname to know if is kubernetes or runtime test
 if [[ "${HOST}" == "k8s1" ]]; then
+    if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
+      echo "${KUBEADM_CONFIG}" | envtpl > /tmp/config.yaml
 
-    echo "${KUBEADM_CONFIG}" | envtpl > /tmp/config.yaml
+      sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS
 
-    sudo kubeadm init  --config /tmp/config.yaml $KUBEADM_OPTIONS
+      mkdir -p /root/.kube
+      sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
+      sudo chown root:root /root/.kube/config
 
-    mkdir -p /root/.kube
-    sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
-    sudo chown root:root /root/.kube/config
+      sudo -u vagrant mkdir -p /home/vagrant/.kube
+      sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+      sudo chown vagrant:vagrant /home/vagrant/.kube/config
 
-    sudo -u vagrant mkdir -p /home/vagrant/.kube
-    sudo cp -fi /etc/kubernetes/admin.conf /home/vagrant/.kube/config
-    sudo chown vagrant:vagrant /home/vagrant/.kube/config
-
-    sudo cp -f /etc/kubernetes/admin.conf ${CILIUM_CONFIG_DIR}/kubeconfig
-    kubectl taint nodes --all node-role.kubernetes.io/master-
-
+      sudo cp -f /etc/kubernetes/admin.conf ${CILIUM_CONFIG_DIR}/kubeconfig
+      kubectl taint nodes --all node-role.kubernetes.io/master-
+    else
+      echo "SKIPPING K8S INSTALLATION"
+    fi
     sudo systemctl start etcd
 
     # Install custom DNS deployment
@@ -286,8 +289,12 @@ if [[ "${HOST}" == "k8s1" ]]; then
 
     $PROVISIONSRC/compile.sh
 else
-    kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
-        ${KUBEADM_SLAVE_OPTIONS}
+    if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
+      kubeadm join --token=$TOKEN ${KUBEADM_ADDR}:6443 \
+          ${KUBEADM_SLAVE_OPTIONS}
+    else
+      echo "SKIPPING K8S INSTALLATION"
+    fi
     sudo systemctl stop etcd
     docker pull k8s1:5000/cilium/cilium-dev:latest
     # We need this workaround since kube-proxy is not aware of multiple network
