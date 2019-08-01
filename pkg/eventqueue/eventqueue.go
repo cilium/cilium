@@ -69,6 +69,8 @@ type EventQueue struct {
 	name string
 
 	eventsMu lock.RWMutex
+
+	eventsClosed chan struct{}
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
@@ -95,9 +97,10 @@ func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
 	return &EventQueue{
 		name: name,
 		// Up to numBufferedEvents can be Enqueued until Enqueueing blocks.
-		events: make(chan *Event, numBufferedEvents),
-		close:  make(chan struct{}),
-		drain:  make(chan struct{}),
+		events:       make(chan *Event, numBufferedEvents),
+		close:        make(chan struct{}),
+		drain:        make(chan struct{}),
+		eventsClosed: make(chan struct{}),
 	}
 
 }
@@ -243,6 +246,7 @@ func (q *EventQueue) Run() {
 	}
 
 	go q.eventQueueOnce.Do(func() {
+		defer close(q.eventsClosed)
 		for ev := range q.events {
 			select {
 			case <-q.drain:
@@ -302,6 +306,10 @@ func (q *EventQueue) WaitToBeDrained() {
 		return
 	}
 	<-q.close
+
+	// In-flight events may still be running. Wait for them to be completed for
+	// the queue to be fully drained.
+	<-q.eventsClosed
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events
