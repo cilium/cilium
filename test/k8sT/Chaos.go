@@ -224,7 +224,7 @@ var _ = Describe("K8sChaosTest", func() {
 		It("TCP connection is not dropped when cilium restarts", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			res := kubectl.ExecPodCmdContext(
+			res := kubectl.ExecPodCmdBackground(
 				ctx,
 				helpers.DefaultNamespace,
 				netperfClient,
@@ -242,7 +242,7 @@ var _ = Describe("K8sChaosTest", func() {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			res := kubectl.ExecPodCmdContext(
+			res := kubectl.ExecPodCmdBackground(
 				ctx,
 				helpers.DefaultNamespace,
 				netperfClient,
