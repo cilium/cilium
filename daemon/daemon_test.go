@@ -17,7 +17,6 @@
 package main
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -67,7 +66,6 @@ type DaemonSuite struct {
 	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
 	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
 	OnRemoveNetworkPolicy     func(e regeneration.EndpointInfoSource)
-	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnDebugEnabled            func() bool
 	OnGetCompilationLock      func() *lock.RWMutex
@@ -131,7 +129,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnRemoveProxyRedirect = nil
 	ds.OnUpdateNetworkPolicy = nil
 	ds.OnRemoveNetworkPolicy = nil
-	ds.OnQueueEndpointBuild = nil
 	ds.OnRemoveFromEndpointQueue = nil
 	ds.OnDebugEnabled = nil
 	ds.OnGetCompilationLock = nil
@@ -253,13 +250,6 @@ func (ds *DaemonSuite) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {
 		ds.OnRemoveNetworkPolicy(e)
 	}
 	panic("RemoveNetworkPolicy should not have been called")
-}
-
-func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	if ds.OnQueueEndpointBuild != nil {
-		return ds.OnQueueEndpointBuild(ctx, epID)
-	}
-	panic("QueueEndpointBuild should not have been called")
 }
 
 func (ds *DaemonSuite) RemoveFromEndpointQueue(epID uint64) {

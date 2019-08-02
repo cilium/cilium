@@ -34,10 +34,6 @@ type regenerationContext struct {
 	// back to the caller
 	Stats regenerationStatistics
 
-	// DoneFunc must be called when the most resource intensive portion of
-	// the regeneration is done
-	DoneFunc func()
-
 	datapathRegenerationContext *datapathRegenerationContext
 
 	parentContext context.Context

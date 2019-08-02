@@ -17,7 +17,6 @@
 package main
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -25,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
@@ -109,24 +107,6 @@ func (ds *DaemonSuite) generateEPs(baseDir string, epsWanted []*e.Endpoint, epsM
 	}()
 
 	ds.d.compilationMutex = new(lock.RWMutex)
-
-	builders := 0
-	defer func() {
-		if builders != 0 {
-			log.Fatal("Endpoint Build Queue leaks")
-		}
-	}()
-
-	ds.OnQueueEndpointBuild = func(ctx context.Context, epID uint64) (func(), error) {
-		builders++
-		var once sync.Once
-		doneFunc := func() {
-			once.Do(func() {
-				builders--
-			})
-		}
-		return doneFunc, nil
-	}
 
 	ds.OnTracingEnabled = func() bool {
 		return false

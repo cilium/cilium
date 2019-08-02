@@ -15,8 +15,6 @@
 package regeneration
 
 import (
-	"context"
-
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/identity"
@@ -48,12 +46,6 @@ type Owner interface {
 	// RemoveNetworkPolicy removes a network policy from the set published to
 	// L7 proxies.
 	RemoveNetworkPolicy(e EndpointInfoSource)
-
-	// QueueEndpointBuild puts the given endpoint in the processing queue
-	QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error)
-
-	// RemoveFromEndpointQueue removes an endpoint from the working queue
-	RemoveFromEndpointQueue(epID uint64)
 
 	// GetCompilationLock returns the mutex responsible for synchronizing compilation
 	// of BPF programs.

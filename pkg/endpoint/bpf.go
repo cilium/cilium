@@ -430,11 +430,6 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// The endpoint has at least L3/L4 connectivity at this point.
 	e.CloseBPFProgramChannel()
 
-	// Allow another builder to start while we wait for the proxy
-	if regenContext.DoneFunc != nil {
-		regenContext.DoneFunc()
-	}
-
 	stats.proxyWaitForAck.Start()
 	err = e.WaitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)

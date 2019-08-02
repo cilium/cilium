@@ -124,9 +124,6 @@ type Daemon struct {
 	statusResponse     models.StatusResponse
 	statusCollector    *status.Collector
 
-	uniqueIDMU lock.Mutex
-	uniqueID   map[uint64]context.CancelFunc
-
 	monitorAgent *monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
@@ -233,52 +230,6 @@ func (d *Daemon) RemoveNetworkPolicy(e regeneration.EndpointInfoSource) {
 		return
 	}
 	d.l7Proxy.RemoveNetworkPolicy(e)
-}
-
-// QueueEndpointBuild waits for a "build permit" for the endpoint
-// identified by 'epID'. This function blocks until the endpoint can
-// start building.  The returned function must then be called to
-// release the "build permit" when the most resource intensive parts
-// of the build are done. The returned function is idempotent, so it
-// may be called more than once. Returns a nil function if the caller should NOT
-// start building the endpoint. This may happen due to a build being
-// queued for the endpoint already, or due to the wait for the build
-// permit being canceled. The latter case happens when the endpoint is
-// being deleted. Returns an error if the build permit could not be acquired.
-func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {
-	d.uniqueIDMU.Lock()
-	// Skip new build requests if the endpoint is already in the queue
-	// waiting. In this case the queued build will pick up any changes
-	// made so far, so there is no need to queue another build now.
-	if _, queued := d.uniqueID[epID]; queued {
-		d.uniqueIDMU.Unlock()
-		return nil, nil
-	}
-	_, cancel := context.WithCancel(ctx)
-	d.uniqueID[epID] = cancel
-	d.uniqueIDMU.Unlock()
-
-	// Not queueing any more, so remove the cancel func from 'uniqueID' map.
-	// The caller may still cancel the build by calling the cancel func after we
-	// return it. After this point another build may be queued for this
-	// endpoint.
-	d.uniqueIDMU.Lock()
-	delete(d.uniqueID, epID)
-	d.uniqueIDMU.Unlock()
-
-	doneFunc := func() {}
-	return doneFunc, nil
-}
-
-// RemoveFromEndpointQueue removes the endpoint from the "build permit" queue,
-// canceling the wait for the build permit if still waiting.
-func (d *Daemon) RemoveFromEndpointQueue(epID uint64) {
-	d.uniqueIDMU.Lock()
-	if cancel, queued := d.uniqueID[epID]; queued && cancel != nil {
-		delete(d.uniqueID, epID)
-		cancel()
-	}
-	d.uniqueIDMU.Unlock()
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -709,7 +660,6 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		loadBalancer:      loadbalancer.NewLoadBalancer(),
 		k8sSvcCache:       k8s.NewServiceCache(),
 		policy:            policy.NewPolicyRepository(),
-		uniqueID:          map[uint64]context.CancelFunc{},
 		prefixLengths:     createPrefixLengthCounter(),
 		k8sResourceSynced: map[string]chan struct{}{},
 		compilationMutex:  new(lock.RWMutex),
