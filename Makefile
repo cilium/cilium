@@ -31,6 +31,8 @@ BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
 # Level of logs emitted to console during unit test runs
 LOGLEVEL ?= "error"
+SKIP_VET ?= "false"
+SKIP_KVSTORES ?= "false"
 
 JOB_BASE_NAME ?= cilium_test
 
@@ -79,6 +81,7 @@ tests-privileged:
 		$(GO) test $(TEST_LDFLAGS) github.com/cilium/cilium/$(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
 
 start-kvstores:
+ifeq ($(SKIP_KVSTORES),"false")
 	@echo Starting key-value store containers...
 	-$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container" 2> /dev/null
 	$(CONTAINER_ENGINE_FULL) run -d \
@@ -103,11 +106,14 @@ start-kvstores:
 		-v /tmp/cilium-consul-certs:/cilium-consul/ \
 		consul:1.1.0 \
 		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
+endif
 
 stop-kvstores:
+ifeq ($(SKIP_KVSTORES),"false")
 	$(CONTAINER_ENGINE_FULL) rm -f "cilium-etcd-test-container"
 	$(CONTAINER_ENGINE_FULL) rm -f "cilium-consul-test-container"
 	rm -rf /tmp/cilium-consul-certs
+endif
 
 tests: force
 	$(MAKE) unit-tests
@@ -123,7 +129,9 @@ unit-tests: start-kvstores
 	$(QUIET) $(MAKE) -C test/bpf/
 	test/bpf/unit-test
 	$(QUIET) $(MAKE) -C daemon/ check-bindata
+ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
+endif
 	$(QUIET) echo "mode: count" > coverage-all-tmp.out
 	$(QUIET) echo "mode: count" > coverage.out
 	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
