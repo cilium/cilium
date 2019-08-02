@@ -246,11 +246,6 @@ type Endpoint struct {
 	// updated to and that will become effective with the next regenerate
 	nextPolicyRevision uint64
 
-	// forcePolicyCompute full endpoint policy recomputation
-	// Set when endpoint options have been changed. Cleared right before releasing the
-	// endpoint mutex after policy recalculation.
-	forcePolicyCompute bool
-
 	// BuildMutex synchronizes builds of individual endpoints and locks out
 	// deletion during builds
 	//
@@ -967,11 +962,6 @@ func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 	return changed
 }
 
-// ForcePolicyCompute marks the endpoint for forced bpf regeneration.
-func (e *Endpoint) ForcePolicyCompute() {
-	e.forcePolicyCompute = true
-}
-
 // SetDefaultOpts initializes the endpoint Options and configures the specified
 // options.
 func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
@@ -1228,6 +1218,7 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 				stateTransitionSucceeded := e.SetStateLocked(StateWaitingToRegenerate, regenCtx.Reason)
 				if stateTransitionSucceeded {
 					e.Unlock()
+					regenCtx.RevisionToRealize = e.owner.GetPolicyRepository().GetRevision()
 					e.Regenerate(regenCtx)
 					return nil
 				}
@@ -1381,8 +1372,8 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 
 // RegenerateWait should only be called when endpoint's state has successfully
 // been changed to "waiting-to-regenerate"
-func (e *Endpoint) RegenerateWait(reason string) error {
-	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: reason}) {
+func (e *Endpoint) RegenerateWait(ctx *regeneration.ExternalRegenerationMetadata) error {
+	if !<-e.Regenerate(ctx) {
 		return fmt.Errorf("error while regenerating endpoint."+
 			" For more info run: 'cilium endpoint get %d'", e.ID)
 	}
@@ -2079,14 +2070,16 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 		readyToRegenerate = e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
 	}
 
-	// Unconditionally force policy recomputation after a new identity has been
-	// assigned.
-	e.ForcePolicyCompute()
-
 	e.Unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
+		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+			Reason: "updated security labels",
+			// We want to make sure we compute policy after a new identity has
+			// been assigned.
+			ForcePolicyComputation: true,
+			RevisionToRealize:      e.owner.GetPolicyRepository().GetRevision(),
+		})
 	}
 
 	return nil

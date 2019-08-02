@@ -559,7 +559,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	if option.Config.DryMode {
 
 		// Compute policy for this endpoint.
-		if err = e.regeneratePolicy(); err != nil {
+		if err = e.regeneratePolicy(regenContext); err != nil {
 			return fmt.Errorf("Unable to regenerate policy: %s", err)
 		}
 
@@ -610,7 +610,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// this endpoint.
 	if e.SecurityIdentity != nil {
 		stats.policyCalculation.Start()
-		err = e.regeneratePolicy()
+		err = e.regeneratePolicy(regenContext)
 		stats.policyCalculation.End(err == nil)
 		if err != nil {
 			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)

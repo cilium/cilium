@@ -293,8 +293,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// proxy configuration, this code would effectively deadlock addition
 		// of endpoints.
 		ep.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
+			Reason:            "Initial build on endpoint creation",
+			ParentContext:     ctx,
+			RevisionToRealize: d.policy.GetRevision(),
 		})
 	}
 
@@ -494,12 +495,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	reason := ""
 	if changed {
-		// Force policy regeneration as endpoint's configuration was changed.
-		// Other endpoints need not be regenerated as no labels were changed.
-		// Note that we still need to (eventually) regenerate the endpoint for
-		// the changes to take effect.
-		ep.ForcePolicyCompute()
-
 		// Transition to waiting-to-regenerate if ready.
 		if ep.GetStateLocked() == endpoint.StateReady {
 			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
@@ -517,7 +512,15 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	ep.Unlock()
 
 	if reason != "" {
-		if err := ep.RegenerateWait(reason); err != nil {
+		if err := ep.RegenerateWait(&regeneration.ExternalRegenerationMetadata{
+			Reason: reason,
+			// Force policy regeneration as endpoint's configuration was changed.
+			// Other endpoints need not be regenerated as no labels were changed.
+			// Note that we still need to (eventually) regenerate the endpoint for
+			// the changes to take effect.
+			ForcePolicyComputation: true,
+			RevisionToRealize:      h.d.policy.GetRevision(),
+		}); err != nil {
 			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?

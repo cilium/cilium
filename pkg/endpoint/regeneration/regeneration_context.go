@@ -66,4 +66,8 @@ type ExternalRegenerationMetadata struct {
 	RegenerationLevel DatapathRegenerationLevel
 
 	ParentContext context.Context
+
+	RevisionToRealize uint64
+
+	ForcePolicyComputation bool
 }

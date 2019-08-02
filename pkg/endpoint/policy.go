@@ -105,9 +105,7 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
-func (e *Endpoint) regeneratePolicy() (retErr error) {
-	var forceRegeneration bool
-
+func (e *Endpoint) regeneratePolicy(regenContext *regenerationContext) (retErr error) {
 	// No point in calculating policy if endpoint does not have an identity yet.
 	if e.SecurityIdentity == nil {
 		e.getLogger().Warn("Endpoint lacks identity, skipping policy calculation")
@@ -126,7 +124,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 	stats.waitingForPolicyRepository.End(true)
 
 	// Recompute policy for this endpoint only if not already done for this revision.
-	if !e.forcePolicyCompute && e.nextPolicyRevision >= revision {
+	if !regenContext.forcePolicyComputation && e.nextPolicyRevision >= revision {
 		e.getLogger().WithFields(logrus.Fields{
 			"policyRevision.next": e.nextPolicyRevision,
 			"policyRevision.repo": revision,
@@ -162,9 +160,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 	// This marks the e.desiredPolicy different from the previously realized policy
 	e.desiredPolicy = calculatedPolicy
 
-	if e.forcePolicyCompute {
-		forceRegeneration = true     // Options were changed by the caller.
-		e.forcePolicyCompute = false // Policies just computed
+	if regenContext.forcePolicyComputation {
 		e.getLogger().Debug("Forced policy recalculation")
 	}
 
@@ -172,7 +168,7 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 	// repository.
 	e.setNextPolicyRevision(revision)
 
-	e.updatePolicyRegenerationStatistics(stats, forceRegeneration, retErr)
+	e.updatePolicyRegenerationStatistics(stats, regenContext.forcePolicyComputation, retErr)
 
 	return nil
 }
@@ -432,6 +428,7 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 		e.Unlock()
 		if regen {
 			// Regenerate logs status according to the build success/failure
+			regenMetadata.RevisionToRealize = e.owner.GetPolicyRepository().GetRevision()
 			return e.Regenerate(regenMetadata)
 		}
 	}

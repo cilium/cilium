@@ -39,6 +39,10 @@ type regenerationContext struct {
 	parentContext context.Context
 
 	cancelFunc context.CancelFunc
+
+	revisionAtRequestTime uint64
+
+	forcePolicyComputation bool
 }
 
 func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc, e *regeneration.ExternalRegenerationMetadata) *regenerationContext {
@@ -48,8 +52,10 @@ func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc
 			regenerationLevel: e.RegenerationLevel,
 			ctCleaned:         make(chan struct{}),
 		},
-		parentContext: ctx,
-		cancelFunc:    c,
+		parentContext:          ctx,
+		cancelFunc:             c,
+		revisionAtRequestTime:  e.RevisionToRealize,
+		forcePolicyComputation: e.ForcePolicyComputation,
 	}
 }
 

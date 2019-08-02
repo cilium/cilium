@@ -27,7 +27,6 @@ type EndpointRegenerationEvent struct {
 // Handle handles the regeneration event for the endpoint.
 func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	e := ev.ep
-	owner := ev.owner
 
 	err := e.RLockAlive()
 	if err != nil {
@@ -40,8 +39,8 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	}
 	e.RUnlock()
 
-	err = ev.ep.regenerate(ev.owner, ev.regenContext)
-	e.notifyEndpointRegeneration(owner, err)
+	err = ev.ep.regenerate(ev.regenContext)
+	e.notifyEndpointRegeneration(err)
 
 	res <- &EndpointRegenerationResult{
 		err: err,
