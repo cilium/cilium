@@ -178,9 +178,9 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string, conf Configuration) {
 	}()
 
 	if k8s.IsEnabled() {
-		// Creation of the CiliumNode can be done in the background,
-		// nothing depends on the completion of this.
-		go n.createCiliumNodeResource(conf)
+		// Creation or update of the CiliumNode can be done in the
+		// background, nothing depends on the completion of this.
+		go n.UpdateCiliumNodeResource(conf)
 	}
 
 	if option.Config.KVStore != "" {
@@ -205,7 +205,9 @@ func (n *NodeDiscovery) Close() {
 	n.Manager.Close()
 }
 
-func (n *NodeDiscovery) createCiliumNodeResource(conf Configuration) {
+// UpdateCiliumNodeResource updates the CiliumNode resource representing the
+// local node
+func (n *NodeDiscovery) UpdateCiliumNodeResource(conf Configuration) {
 	if !option.Config.AutoCreateCiliumNodeResource {
 		return
 	}
