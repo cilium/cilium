@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,7 +59,8 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.KubeSystemNamespace,
 			"cilium service list",
-			"cilium endpoint list")
+			"cilium endpoint list",
+			"iptables-save -c")
 	})
 
 	AfterAll(func() {
@@ -243,6 +244,11 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 				"cilium-monitor-k8s1.log")
 			monitorStop2 := kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s2,
 				"cilium-monitor-k8s2.log")
+			// Zero iptables counters
+			kubectl.CiliumExec(ciliumPodK8s2, "iptables -t raw -Z")
+			kubectl.CiliumExec(ciliumPodK8s2, "iptables -t mangle -Z")
+			kubectl.CiliumExec(ciliumPodK8s2, "iptables -t nat -Z")
+			kubectl.CiliumExec(ciliumPodK8s2, "iptables -t filter -Z")
 			err = kubectl.ExecKafkaPodCmd(
 				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
 			monitorStop2()
