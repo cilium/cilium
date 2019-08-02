@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
@@ -46,9 +47,6 @@ const (
 	// DeterministicRetriesDefault defines maximum deterministic retries for
 	// resolving port collisions.
 	DeterministicRetriesDefault = 6
-
-	// MaxEntries defines maximum NAT entries.
-	MaxEntries = 524288
 
 	mapCount = 2
 )
@@ -79,7 +77,7 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 }
 
 // NewMap instantiates a Map.
-func NewMap(name string, v4 bool) *Map {
+func NewMap(name string, v4 bool, entries int) *Map {
 	var sizeKey, sizeVal int
 	var mapKey bpf.MapKey
 	var mapValue bpf.MapValue
@@ -103,7 +101,7 @@ func NewMap(name string, v4 bool) *Map {
 			sizeKey,
 			mapValue,
 			sizeVal,
-			MaxEntries,
+			entries,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache(),
@@ -242,11 +240,15 @@ func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 
 // GlobalMaps returns all global NAT maps.
 func GlobalMaps(ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
+	entries := option.Config.NATMapEntriesGlobal
+	if entries == 0 {
+		entries = option.LimitTableMax
+	}
 	if ipv4 {
-		ipv4Map = NewMap(MapNameSnat4Global, true)
+		ipv4Map = NewMap(MapNameSnat4Global, true, entries)
 	}
 	if ipv6 {
-		ipv6Map = NewMap(MapNameSnat6Global, false)
+		ipv6Map = NewMap(MapNameSnat6Global, false, entries)
 	}
 	return
 }
