@@ -1766,11 +1766,16 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 			return
 		}
 
-		reportCmds := map[string]string{}
-		for cmd, logfile := range ciliumKubCLICommands {
-			command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
-			reportCmds[command] = fmt.Sprintf("%s_%s", pod, logfile)
+		genReportCmds := func(cliCmds map[string]string) map[string]string {
+			reportCmds := map[string]string{}
+			for cmd, logfile := range cliCmds {
+				command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
+				reportCmds[command] = fmt.Sprintf("%s_%s", pod, logfile)
+			}
+			return reportCmds
 		}
+
+		reportCmds := genReportCmds(ciliumKubCLICommands)
 		reportMapContext(ctx, testPath, reportCmds, kub.SSHMeta)
 
 		logsPath := filepath.Join(BasePath, testPath)
@@ -1819,6 +1824,19 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 			//Remove bugtool artifact, so it'll be not used if any other fail test
 			_ = kub.ExecPodCmdBackground(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
+
+		// Finally, get kvstore output - this is best effort; we do this last
+		// because if connectivity to the kvstore is broken from a cilium pod,
+		// we don't want the context above to timeout and as a result, get none
+		// of the other logs from the tests.
+
+		// Use a shorter context for kvstore-related commands to avoid having
+		// further log-gathering fail as well if the first Cilium pod fails to
+		// gather kvstore logs.
+		kvstoreCmdCtx, cancel := context.WithTimeout(ctx, MidCommandTimeout)
+		defer cancel()
+		reportCmds = genReportCmds(ciliumKubCLICommandsKVStore)
+		reportMapContext(kvstoreCmdCtx, testPath, reportCmds, kub.SSHMeta)
 	}
 
 	pods, err := kub.GetCiliumPodsContext(ctx, namespace)
