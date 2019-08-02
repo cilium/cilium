@@ -1913,9 +1913,17 @@ func endpointUpdated(endpoint *types.CiliumEndpoint) {
 	}
 
 	if endpoint.Networking != nil {
+		if endpoint.Networking.NodeIP == "" {
+			// When upgrading from an older version, the nodeIP may
+			// not be available yet in the CiliumEndpoint and we
+			// have to wait for it to be propagated
+			return
+		}
+
 		nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
 		if nodeIP == nil {
 			log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
+			return
 		}
 
 		for _, pair := range endpoint.Networking.Addressing {
