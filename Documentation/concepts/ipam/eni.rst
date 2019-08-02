@@ -62,8 +62,8 @@ Configuration
 * In most scenarios, it makes sense to automatically create the
   ``ciliumnodes.cilium.io`` custom resource when the agent starts up on a node
   for the first time. To enable this, specify the option
-  ``--auto-create-ciliumnode-resource`` or  set
-  ``auto-create-ciliumnode-resource: "true"`` in the ConfigMap.
+  ``--auto-create-cilium-node-resource`` or  set
+  ``auto-create-cilium-node-resource: "true"`` in the ConfigMap.
 
 * It is generally a good idea to enable metrics in the Operator as well with
   the option ``--enable-metrics``. See the section :ref:`install_metrics` for
@@ -80,24 +80,24 @@ allocation:
 ``InstanceID``
   The AWS EC2 instance identifier matching the node.
 
-  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
 ``InstanceType``
   The AWS EC2 instance type
 
-  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
 ``spec.eni.vpc-id``
   The VPC identifier used to create ENIs and select AWS subnets for IP
   allocation.
 
-  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
 ``spec.eni.availability-zone``
   The availability zone used to create ENIs and select AWS subnets for IP
   allocation.
 
-  *This field is automatically populated when using ``--auto-create-ciliumnode-resource``*
+  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
 ``spec.eni.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
