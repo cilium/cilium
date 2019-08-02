@@ -42,6 +42,26 @@ func (n *healthNode) PrimaryIP() string {
 	return n.NodeElement.PrimaryAddress.IPV6.IP
 }
 
+// SecondaryIPs return a list of IP addresses corresponding to secondary addresses
+// of the node. If both IPV4 and IPV6 is enabled then primary IPV6 is also
+// returned in the list, since in that case we assume that IPV4 is the primary
+// address of the node, see the above function PrimaryIP().
+func (n *healthNode) SecondaryIPs() []string {
+	var addresses []string
+
+	if n.NodeElement.PrimaryAddress.IPV4.Enabled && n.NodeElement.PrimaryAddress.IPV6.Enabled {
+		addresses = append(addresses, n.NodeElement.PrimaryAddress.IPV6.IP)
+	}
+
+	for _, addr := range n.NodeElement.SecondaryAddresses {
+		if addr.Enabled {
+			addresses = append(addresses, addr.IP)
+		}
+	}
+
+	return addresses
+}
+
 // HealthIP returns the IP address of the health endpoint for the node.
 func (n *healthNode) HealthIP() string {
 	if n.NodeElement.HealthEndpointAddress == nil {
