@@ -95,23 +95,26 @@ func (p *prober) getResults() *healthReport {
 		}
 		primaryIP := node.PrimaryIP()
 		healthIP := node.HealthIP()
+
+		secondaryAddresses := []*models.PathStatus{}
+		for _, ip := range node.SecondaryIPs() {
+			if addr := p.copyResultRLocked(ip); addr != nil {
+				secondaryAddresses = append(secondaryAddresses, addr)
+			}
+		}
+
 		status := &models.NodeStatus{
 			Name: node.Name,
 			Host: &models.HostStatus{
-				PrimaryAddress: p.copyResultRLocked(primaryIP),
+				PrimaryAddress:     p.copyResultRLocked(primaryIP),
+				SecondaryAddresses: secondaryAddresses,
 			},
 		}
+
 		if healthIP != "" {
 			status.Endpoint = p.copyResultRLocked(healthIP)
 		}
-		secondaryResults := []*models.PathStatus{}
-		for _, addr := range node.SecondaryAddresses {
-			if addr.Enabled {
-				secondaryStatus := p.copyResultRLocked(addr.IP)
-				secondaryResults = append(secondaryResults, secondaryStatus)
-			}
-		}
-		status.Host.SecondaryAddresses = secondaryResults
+
 		resultMap[node.Name] = status
 	}
 
