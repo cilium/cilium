@@ -272,14 +272,21 @@ var ciliumCLICommands = map[string]string{
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
 // it'll run inside a container and it does not have sudo support
 var ciliumKubCLICommands = map[string]string{
-	"cilium endpoint list -o json":          "endpoint_list.txt",
-	"cilium service list -o json":           "service_list.txt",
-	"cilium config":                         "config.txt",
-	"cilium bpf lb list":                    "bpf_lb_list.txt",
-	"cilium bpf ct list global":             "bpf_ct_list.txt",
-	"cilium bpf tunnel list":                "bpf_tunnel_list.txt",
-	"cilium policy get":                     "policy_get.txt",
-	"cilium status --all-controllers":       "status.txt",
+	"cilium endpoint list -o json":    "endpoint_list.txt",
+	"cilium service list -o json":     "service_list.txt",
+	"cilium config":                   "config.txt",
+	"cilium bpf lb list":              "bpf_lb_list.txt",
+	"cilium bpf ct list global":       "bpf_ct_list.txt",
+	"cilium bpf tunnel list":          "bpf_tunnel_list.txt",
+	"cilium policy get":               "policy_get.txt",
+	"cilium status --all-controllers": "status.txt",
+}
+
+// ciliumKubCLICommandsKVStore contains commands related to querying the kvstore.
+// It is separate from ciliumKubCLICommands because it has a higher likelihood
+// of timing out in our CI, so we want to run it separately. Otherwise, we might
+// lose out on getting other critical debugging output when a test fails.
+var ciliumKubCLICommandsKVStore = map[string]string{
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 }
 
