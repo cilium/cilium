@@ -384,6 +384,12 @@ const (
 	CTMapEntriesGlobalTCPName    = "bpf-ct-global-tcp-max"
 	CTMapEntriesGlobalAnyName    = "bpf-ct-global-any-max"
 
+	// NATMapEntriesGlobalDefault holds the default size of the NAT map
+	NATMapEntriesGlobalDefault = int((CTMapEntriesGlobalTCPDefault + CTMapEntriesGlobalAnyDefault) * 2 / 3)
+
+	// NATMapEntriesGlobalName configures max entries for BPF NAT table
+	NATMapEntriesGlobalName = "bpf-nat-global-max"
+
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
 
@@ -835,6 +841,10 @@ type DaemonConfig struct {
 	// CTMapEntriesGlobalAny is the maximum number of conntrack entries
 	// allowed in each non-TCP CT table for IPv4/IPv6.
 	CTMapEntriesGlobalAny int
+
+	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
+	// in the BPF NAT table
+	NATMapEntriesGlobal int
 
 	// PolicyMapMaxEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
@@ -1327,15 +1337,32 @@ func (c *DaemonConfig) Validate() error {
 		}
 	}
 
-	ctTableMin := 1 << 10 // 1Ki entries
-	ctTableMax := 1 << 24 // 16Mi entries (~1GiB of entries per map)
-	if c.CTMapEntriesGlobalTCP < ctTableMin || c.CTMapEntriesGlobalAny < ctTableMin {
+	tableMin := 1 << 10 // 1Ki entries
+	tableMax := 1 << 24 // 16Mi entries (~1GiB of entries per map)
+	if c.CTMapEntriesGlobalTCP < tableMin || c.CTMapEntriesGlobalAny < tableMin {
 		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
-			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMin)
+			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, tableMin)
 	}
-	if c.CTMapEntriesGlobalTCP > ctTableMax || c.CTMapEntriesGlobalAny > ctTableMax {
+	if c.CTMapEntriesGlobalTCP > tableMax || c.CTMapEntriesGlobalAny > tableMax {
 		return fmt.Errorf("specified CT tables values %d/%d must not exceed maximum %d",
-			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, ctTableMax)
+			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, tableMax)
+	}
+	if c.NATMapEntriesGlobal < tableMin {
+		return fmt.Errorf("specified NAT table size %d must exceed minimum %d",
+			c.NATMapEntriesGlobal, tableMin)
+	}
+	if c.NATMapEntriesGlobal > tableMax {
+		return fmt.Errorf("specified NAT tables size %d must not exceed maximum %d",
+			c.NATMapEntriesGlobal, tableMax)
+	}
+	if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
+		if c.NATMapEntriesGlobal == NATMapEntriesGlobalDefault {
+			// Auto-size for the case where CT table size was adapted but NAT still on default
+			c.NATMapEntriesGlobal = int((c.CTMapEntriesGlobalTCP + c.CTMapEntriesGlobalAny) * 2 / 3)
+		} else {
+			return fmt.Errorf("specified NAT tables size %d must not exceed maximum CT table size %d",
+				c.NATMapEntriesGlobal, c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny)
+		}
 	}
 
 	policyMapMin := (1 << 8)
@@ -1467,6 +1494,7 @@ func (c *DaemonConfig) Populate() {
 	c.BPFCompilationDebug = viper.GetBool(BPFCompileDebugName)
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
+	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
 	c.BPFRoot = viper.GetString(BPFRoot)
 	c.CGroupRoot = viper.GetString(CGroupRoot)
 	c.ClusterID = viper.GetInt(ClusterIDName)

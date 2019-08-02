@@ -25,6 +25,7 @@ cilium-agent [flags]
       --bpf-compile-debug                          Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                  Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                  Maximum number of entries in TCP CT table (default 1000000)
+      --bpf-nat-global-max int                     Maximum number of entries for the global BPF NAT table (default 841429)
       --bpf-policy-map-max int                     Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                            Path to BPF filesystem
       --cgroup-root string                         Path to Cgroup2 filesystem

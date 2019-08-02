@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
@@ -46,9 +47,6 @@ const (
 	// DeterministicRetriesDefault defines maximum deterministic retries for
 	// resolving port collisions.
 	DeterministicRetriesDefault = 6
-
-	// MaxEntries defines maximum NAT entries.
-	MaxEntries = 524288
 
 	mapCount = 2
 )
@@ -103,7 +101,7 @@ func NewMap(name string, v4 bool) *Map {
 			sizeKey,
 			mapValue,
 			sizeVal,
-			MaxEntries,
+			option.Config.NATMapEntriesGlobal,
 			0, 0,
 			bpf.ConvertKeyValue,
 		).WithCache(),
