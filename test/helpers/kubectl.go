@@ -171,10 +171,21 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options
 	return kub.Exec(command, options...)
 }
 
-// ExecPodCmdContext executes command cmd in background in the specified pod residing
+// ExecPodCmdContext synchronously executes command cmd in the specified pod residing in the
+// specified namespace. It returns a pointer to CmdRes with all the output.
+func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
+	return kub.ExecContext(ctx, command, options...)
+}
+
+// ExecPodCmdBackground executes command cmd in background in the specified pod residing
 // in the specified namespace. It returns a pointer to CmdRes with all the
 // output
-func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
+//
+// To receive the output of this function, the caller must invoke either
+// kub.WaitUntilFinish() or kub.WaitUntilMatch() then subsequently fetch the
+// output out of the result.
+func (kub *Kubectl) ExecPodCmdBackground(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
 	return kub.ExecInBackground(ctx, command, options...)
 }
@@ -1543,14 +1554,21 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	res := kub.ExecContextShort(ctx, fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
+	results := make([]*CmdRes, 0, len(pods)*len(commands))
+	ginkgoext.GinkgoPrint("Fetching command output from pods %s", pods)
 	for _, pod := range pods {
 		for _, cmd := range commands {
-			res = kub.ExecPodCmdContext(ctx, namespace, pod, cmd, ExecOptions{SkipLog: true})
-			ginkgoext.GinkgoPrint(res.GetDebugMessage())
+			res = kub.ExecPodCmdBackground(ctx, namespace, pod, cmd, ExecOptions{SkipLog: true})
+			results = append(results, res)
 		}
 	}
 
 	wg.Wait()
+
+	for _, res := range results {
+		res.WaitUntilFinish()
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+	}
 }
 
 // EtcdOperatorReport dump etcd pods data into the report directory to be able
@@ -1799,7 +1817,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 				continue
 			}
 			//Remove bugtool artifact, so it'll be not used if any other fail test
-			_ = kub.ExecPodCmdContext(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
+			_ = kub.ExecPodCmdBackground(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
 	}
 

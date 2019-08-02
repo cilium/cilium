@@ -271,11 +271,11 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			serverctx := kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, server, ncServer)
+			serverctx := kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, server, ncServer)
 			err = serverctx.WaitUntilMatch(listeningString)
 			Expect(err).To(BeNil(), "netcat server did not start correctly")
 
-			_ = kubectl.ExecPodCmdContext(ctx, helpers.DefaultNamespace, client, ncClient)
+			_ = kubectl.ExecPodCmdBackground(ctx, helpers.DefaultNamespace, client, ncClient)
 
 			testNcConnectivity := func(sleep time.Duration) {
 				helpers.Sleep(sleep)
