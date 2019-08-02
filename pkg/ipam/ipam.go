@@ -66,6 +66,11 @@ type Owner interface {
 	// K8sEventProcessed is called to do metrics accounting for each processed
 	// Kubernetes event
 	K8sEventProcessed(scope string, action string, status bool)
+
+	// UpdateCiliumNodeResource is called to create/update the CiliumNode
+	// resource. The function must block until the custom resource has been
+	// created.
+	UpdateCiliumNodeResource()
 }
 
 // NewIPAM returns a new IP address manager

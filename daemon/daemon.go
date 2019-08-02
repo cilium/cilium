@@ -1123,3 +1123,9 @@ func (d *Daemon) GetNodeSuffix() string {
 func (d *Daemon) GetNetConf() *cnitypes.NetConf {
 	return d.netConf
 }
+
+// UpdateCiliumNodeResource implements nodediscovery.Owner to create/update the
+// CiliumNode resource
+func (d *Daemon) UpdateCiliumNodeResource() {
+	d.nodeDiscovery.UpdateCiliumNodeResource(d)
+}

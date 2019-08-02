@@ -93,6 +93,10 @@ func newNodeStore(nodeName string, owner Owner) *nodeStore {
 	}
 	store.refreshTrigger = t
 
+	// Create the CiliumNode custom resource. This call will block until
+	// the custom resource has been created
+	owner.UpdateCiliumNodeResource()
+
 	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
