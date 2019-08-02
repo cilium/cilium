@@ -172,10 +172,21 @@ func (kub *Kubectl) ExecPodCmd(namespace string, pod string, cmd string, options
 	return kub.Exec(command, options...)
 }
 
-// ExecPodCmdContext executes command cmd in background in the specified pod residing
+// ExecPodCmdContext synchronously executes command cmd in the specified pod residing in the
+// specified namespace. It returns a pointer to CmdRes with all the output.
+func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
+	return kub.ExecContext(ctx, command, options...)
+}
+
+// ExecPodCmdBackground executes command cmd in background in the specified pod residing
 // in the specified namespace. It returns a pointer to CmdRes with all the
 // output
-func (kub *Kubectl) ExecPodCmdContext(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
+//
+// There is no guarantee about timing and whether the program is executed or
+// whether the resulting CmdRes has any output; developers should seriously
+// consider avoiding this function.
+func (kub *Kubectl) ExecPodCmdBackground(ctx context.Context, namespace string, pod string, cmd string, options ...ExecOptions) *CmdRes {
 	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, cmd)
 	return kub.ExecInBackground(ctx, command, options...)
 }
@@ -1541,6 +1552,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	res := kub.ExecContextShort(ctx, fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
+	ginkgoext.GinkgoPrint("Fetching command output from pods %s", pods)
 	for _, pod := range pods {
 		for _, cmd := range commands {
 			res = kub.ExecPodCmdContext(ctx, namespace, pod, cmd, ExecOptions{SkipLog: true})
@@ -1797,7 +1809,7 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 				continue
 			}
 			//Remove bugtool artifact, so it'll be not used if any other fail test
-			_ = kub.ExecPodCmdContext(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
+			_ = kub.ExecPodCmdBackground(ctx, KubeSystemNamespace, pod, fmt.Sprintf("rm /tmp/%s", line))
 		}
 	}
 
