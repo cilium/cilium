@@ -109,7 +109,7 @@ The AWS ENI datapath is enabled by setting the following option:
         ipam: eni
         blacklist-conflicting-routes: "false"
         enable-endpoint-routes: "true"
-        auto-create-ciliumnode-resource: "true"
+        auto-create-cilium-node-resource: "true"
         egress-masquerade-interfaces: eth+
 
 * ``ipam: eni`` Enables the ENI specific IPAM backend and indicates to the
@@ -123,7 +123,7 @@ The AWS ENI datapath is enabled by setting the following option:
 * ``enable-endpoint-routes: "true"`` enables direct routing to the ENI
   veth pairs without requiring to route via the ``cilium_host`` interface.
 
-* ``auto-create-ciliumnode-resource: "true"`` enables the automatic creation of
+* ``auto-create-cilium-node-resource: "true"`` enables the automatic creation of
   the ``CiliumNode`` custom resource with all required ENI parameters. It is
   possible to disable this and provide the custom resource manually.
 
