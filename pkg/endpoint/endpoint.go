@@ -2067,8 +2067,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	// identity is not allocated yet when endpointmanager.AddEndpoint() is
 	// called, the controller calling identityLabelsChanged() will trigger
 	// the regeneration as soon as the identity is known.
+	// Is this even valid anymore...?
 	if e.ID != 0 {
-		readyToRegenerate = e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+		//readyToRegenerate = e.SetStateLocked(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+		readyToRegenerate = true
 	}
 
 	e.Unlock()

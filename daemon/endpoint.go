@@ -272,32 +272,34 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
-	build := ep.GetStateLocked() == endpoint.StateReady
-	if build {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Identity is known at endpoint creation time")
-	}
 	ep.Unlock()
 
-	if build {
-		// Do not synchronously regenerate the endpoint when first creating it.
-		// We have custom logic later for waiting for specific checkpoints to be
-		// reached upon regeneration later (checking for when BPF programs have
-		// been compiled), as opposed to waiting for the entire regeneration to
-		// be complete (including proxies being configured). This is done to
-		// avoid a chicken-and-egg problem with L7 policies are imported which
-		// select the endpoint being generated, as when such policies are
-		// imported, regeneration blocks on waiting for proxies to be
-		// configured. When Cilium is used with Istio, though, the proxy is
-		// started as a sidecar, and is not launched yet when this specific code
-		// is executed; if we waited for regeneration to be complete, including
-		// proxy configuration, this code would effectively deadlock addition
-		// of endpoints.
-		ep.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:            "Initial build on endpoint creation",
-			ParentContext:     ctx,
-			RevisionToRealize: d.policy.GetRevision(),
-		})
-	}
+	//build := ep.GetStateLocked() == endpoint.StateReady
+	//if build {
+	ep.Logger("daemon").Info("Identity is known at endpoint creation time")
+	//}
+	//ep.Unlock()
+
+	//if build {
+	// Do not synchronously regenerate the endpoint when first creating it.
+	// We have custom logic later for waiting for specific checkpoints to be
+	// reached upon regeneration later (checking for when BPF programs have
+	// been compiled), as opposed to waiting for the entire regeneration to
+	// be complete (including proxies being configured). This is done to
+	// avoid a chicken-and-egg problem with L7 policies are imported which
+	// select the endpoint being generated, as when such policies are
+	// imported, regeneration blocks on waiting for proxies to be
+	// configured. When Cilium is used with Istio, though, the proxy is
+	// started as a sidecar, and is not launched yet when this specific code
+	// is executed; if we waited for regeneration to be complete, including
+	// proxy configuration, this code would effectively deadlock addition
+	// of endpoints.
+	ep.Regenerate(&regeneration.ExternalRegenerationMetadata{
+		Reason:            "Initial build on endpoint creation",
+		ParentContext:     ctx,
+		RevisionToRealize: d.policy.GetRevision(),
+	})
+	//}
 
 	// Only used for CRI-O since it does not support events.
 	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
@@ -447,20 +449,6 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		changed = true
 	}
 
-	// Only support transition to waiting-for-identity state, also
-	// if the request is for ready state, as we will check the
-	// existence of the security label below. Other transitions
-	// are always internally managed, but we do not error out for
-	// backwards compatibility.
-	if epTemplate.State != "" &&
-		validPatchTransitionState(epTemplate.State) &&
-		ep.GetStateLocked() != endpoint.StateWaitingForIdentity {
-		// Will not change state if the current state does not allow the transition.
-		if ep.SetStateLocked(endpoint.StateWaitingForIdentity, "Update endpoint from API PATCH") {
-			changed = true
-		}
-	}
-
 	if epTemplate.Mac != "" && bytes.Compare(ep.LXCMAC, newEp.LXCMAC) != 0 {
 		ep.LXCMAC = newEp.LXCMAC
 		changed = true
@@ -486,34 +474,17 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// TODO: Do something with the labels?
 	// addLabels := labels.NewLabelsFromModel(params.Endpoint.Labels)
 
-	// If desired state is waiting-for-identity but identity is already
-	// known, bump it to ready state immediately to force re-generation
-	if ep.GetStateLocked() == endpoint.StateWaitingForIdentity && ep.SecurityIdentity != nil {
-		ep.SetStateLocked(endpoint.StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
+	// Still needed?
+	if ep.SecurityIdentity != nil {
 		changed = true
-	}
-
-	reason := ""
-	if changed {
-		// Transition to waiting-to-regenerate if ready.
-		if ep.GetStateLocked() == endpoint.StateReady {
-			ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
-		}
-
-		switch ep.GetStateLocked() {
-		case endpoint.StateWaitingToRegenerate:
-			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
-		case endpoint.StateWaitingForIdentity:
-			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
-		}
 	}
 
 	ep.UpdateLogger(nil)
 	ep.Unlock()
 
-	if reason != "" {
+	if changed {
 		if err := ep.RegenerateWait(&regeneration.ExternalRegenerationMetadata{
-			Reason: reason,
+			Reason: "Endpoint API patch",
 			// Force policy regeneration as endpoint's configuration was changed.
 			// Other endpoints need not be regenerated as no labels were changed.
 			// Note that we still need to (eventually) regenerate the endpoint for

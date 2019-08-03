@@ -393,9 +393,8 @@ func updateReferences(ep *endpoint.Endpoint) {
 	}
 }
 
-// RegenerateAllEndpoints calls a SetStateLocked for each endpoint and
-// regenerates if state transaction is valid. During this process, the endpoint
-// list is locked and cannot be modified.
+// RegenerateAllEndpoints regenerates all endpoints. During this process, the
+// endpoint list is locked and cannot be modified.
 // Returns a waiting group that can be used to know when all the endpoints are
 // regenerated.
 func RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {

@@ -251,6 +251,9 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		return err
 	}
 
+	// TODO ianvernon uncomment me
+	//e.SetStateLocked(StateWaitingToRegenerate, "dummy")
+
 	// See if we can short-circuit the whole endpoint build by checking the
 	// state of the regeneration context.
 	// If forced policy computation is enabled, then we have to unconditionally
@@ -433,21 +436,10 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
 		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
 	} else {
-		var regen bool
-		state := e.GetStateLocked()
-		switch state {
-		case StateRestoring, StateWaitingToRegenerate:
-			e.SetStateLocked(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
-			regen = false
-		default:
-			regen = e.SetStateLocked(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		}
 		e.Unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			regenMetadata.RevisionToRealize = e.owner.GetPolicyRepository().GetRevision()
-			return e.Regenerate(regenMetadata)
-		}
+		// Regenerate logs status according to the build success/failure
+		regenMetadata.RevisionToRealize = e.owner.GetPolicyRepository().GetRevision()
+		return e.Regenerate(regenMetadata)
 	}
 
 	ch := make(chan bool)
