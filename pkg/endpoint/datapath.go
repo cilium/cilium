@@ -17,15 +17,17 @@ package endpoint
 import (
 	"context"
 
+	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/loader/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 )
 
 type DatapathLoader interface {
 	CallsMapPath(id uint16) string
-	CompileAndLoad(ctx context.Context, ep *EpInfoCache, stats *metrics.SpanStat) error
-	CompileOrLoad(ctx context.Context, ep *EpInfoCache, stats *metrics.SpanStat) error
-	ReloadDatapath(ctx context.Context, ep *EpInfoCache, stats *metrics.SpanStat) error
-	EndpointHash(cfg *Endpoint) (string, error)
+	CompileAndLoad(ctx context.Context, ep config.EndpointConfig, stats *metrics.SpanStat) error
+	CompileOrLoad(ctx context.Context, ep config.EndpointConfig, stats *metrics.SpanStat) error
+	ReloadDatapath(ctx context.Context, ep config.EndpointConfig, stats *metrics.SpanStat) error
+	EndpointHash(cfg datapath.EndpointConfiguration) (string, error)
 	DeleteDatapath(ctx context.Context, ifName, direction string) error
-	Unload(ep *EpInfoCache)
+	Unload(ep config.EndpointConfig)
 }

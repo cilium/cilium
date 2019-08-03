@@ -220,9 +220,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 }
 
 func injectDatapathFields(e *endpoint.Endpoint) {
-	e.DatapathPolicyImpl = &policy2.PolicyMapImplementer{}
 	e.DatapathLoaderImpl = &wrapper.LoaderWrapper{}
-
 }
 
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (restoreComplete chan struct{}) {
