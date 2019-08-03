@@ -252,7 +252,10 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	}
 
 	// TODO ianvernon uncomment me
-	//e.SetStateLocked(StateWaitingToRegenerate, "dummy")
+	if !context.restore {
+		e.getLogger().Info("skipping transition to waiting to regenerate state because restoring")
+		e.SetStateLocked(StateWaitingToRegenerate, "dummy")
+	}
 
 	// See if we can short-circuit the whole endpoint build by checking the
 	// state of the regeneration context.
@@ -266,22 +269,25 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 			"configUpdate":            context.configUpdate,
 			"revisionAtRequestTime":   context.revisionAtRequestTime,
 		}).Info("skipped unnecessary build")
+		e.BuilderSetStateLocked(StateRegenerating, "Skipping regenerating endpoint: "+context.Reason)
 		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
 		e.Unlock()
 		return nil
 	}
 
+	e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason)
+
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
-	if e.GetStateLocked() != StateWaitingForIdentity &&
+	/*if e.GetStateLocked() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.Unlock()
 
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
-	}
+	}*/
 
 	e.Unlock()
 
@@ -614,9 +620,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	e.selectorPolicy = nil
 
 	// Sets endpoint state to ready if was waiting for identity
-	if e.GetStateLocked() == StateWaitingForIdentity {
-		e.SetStateLocked(StateReady, "Set identity for this endpoint")
-	}
+	//if e.GetStateLocked() == StateWaitingForIdentity {
+	//	e.SetStateLocked(StateReady, "Set identity for this endpoint")
+	//}
 
 	// Whenever the identity is updated, propagate change to key-value store
 	// of IP to identity mapping.

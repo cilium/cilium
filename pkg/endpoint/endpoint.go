@@ -1558,7 +1558,7 @@ func (e *Endpoint) SetStateLocked(toState, reason string) bool {
 		}
 	case StateWaitingForIdentity:
 		switch toState {
-		case StateReady, StateDisconnecting:
+		case StateReady, StateDisconnecting, StateWaitingToRegenerate:
 			goto OKState
 		}
 	case StateReady:
@@ -1830,7 +1830,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 		// Mark with StateWaitingForIdentity, it will be set to
 		// StateWaitingToRegenerate after the identity resolution has been
 		// completed
-		e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
+		//e.SetStateLocked(StateWaitingForIdentity, "Triggering identity resolution due to updated identity labels")
 
 		e.identityRevision++
 		rev = e.identityRevision
@@ -1959,9 +1959,9 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
 		// Sets endpoint state to ready if was waiting for identity
-		if e.GetStateLocked() == StateWaitingForIdentity {
-			e.SetStateLocked(StateReady, "Set identity for this endpoint")
-		}
+		//if e.GetStateLocked() == StateWaitingForIdentity {
+		//	e.SetStateLocked(StateReady, "Set identity for this endpoint")
+		//}
 		e.RUnlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
 		return nil

@@ -72,4 +72,6 @@ type ExternalRegenerationMetadata struct {
 	ForcePolicyComputation bool
 
 	ConfigUpdate bool
+
+	Restore bool
 }

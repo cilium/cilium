@@ -359,8 +359,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			ep.Unlock()
 
 			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-				Reason:            "syncing state to host",
+				Reason:            "syncing state from host",
 				RevisionToRealize: d.policy.GetRevision(),
+				Restore:           true,
 			}
 			if buildSuccess := <-ep.Regenerate(regenerationMetadata); !buildSuccess {
 				scopedLog.Warn("Failed while regenerating endpoint")

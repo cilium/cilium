@@ -45,6 +45,7 @@ type regenerationContext struct {
 	forcePolicyComputation bool
 
 	configUpdate bool
+	restore      bool
 }
 
 func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc, e *regeneration.ExternalRegenerationMetadata) *regenerationContext {
@@ -59,6 +60,7 @@ func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc
 		revisionAtRequestTime:  e.RevisionToRealize,
 		forcePolicyComputation: e.ForcePolicyComputation,
 		configUpdate:           e.ConfigUpdate,
+		restore:                e.Restore,
 	}
 }
 
