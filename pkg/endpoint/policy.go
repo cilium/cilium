@@ -251,6 +251,23 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		return err
 	}
 
+	// See if we can short-circuit the whole endpoint build by checking the
+	// state of the regeneration context.
+	// If forced policy computation is enabled, then we have to unconditionally
+	// regenerate. If a configuration update has been performed, then we have
+	// to unconditionally regenerate, because this may have an effect on the
+	// policy(?).
+	if !context.forcePolicyComputation && !context.configUpdate && e.policyRevision > context.revisionAtRequestTime {
+		e.getLogger().WithFields(logrus.Fields{
+			"forcedPolicyComputation": context.forcePolicyComputation,
+			"configUpdate":            context.configUpdate,
+			"revisionAtRequestTime":   context.revisionAtRequestTime,
+		}).Info("skipped unnecessary build")
+		e.BuilderSetStateLocked(StateReady, "Completed endpoint regeneration with no pending regeneration requests")
+		e.Unlock()
+		return nil
+	}
+
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
 	//

@@ -1177,7 +1177,8 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
 	regenCtx := &regeneration.ExternalRegenerationMetadata{
-		Reason: "endpoint was updated via API",
+		Reason:       "endpoint was updated via API",
+		ConfigUpdate: true,
 	}
 
 	// If configuration options are provided, we only regenerate if necessary.

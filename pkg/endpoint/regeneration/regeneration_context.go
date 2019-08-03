@@ -70,4 +70,6 @@ type ExternalRegenerationMetadata struct {
 	RevisionToRealize uint64
 
 	ForcePolicyComputation bool
+
+	ConfigUpdate bool
 }
