@@ -1461,9 +1461,10 @@ func runDaemon() {
 			log.WithError(err).Fatal("Unable to read CNI configuration file")
 		}
 
-		err = ioutil.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644)
-		if err != nil {
+		if err = ioutil.WriteFile(option.Config.WriteCNIConfigurationWhenReady, input, 0644); err != nil {
 			log.WithError(err).Fatalf("Unable to write CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
+		} else {
+			log.Infof("Wrote CNI configuration file to %s", option.Config.WriteCNIConfigurationWhenReady)
 		}
 	}
 
