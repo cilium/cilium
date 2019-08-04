@@ -75,7 +75,7 @@ type IPNetWithOwner struct {
 // IPBlacklist is a structure used to store information related to blacklisted
 // IPs and IPNetworks.
 type IPBlacklist struct {
-	// A hashmap contatining IP and the corresponding owners.
+	// A hashmap containing IP and the corresponding owners.
 	ips map[string]string
 
 	// A list of IPNetwork with owners, for blacklisting subnets.
