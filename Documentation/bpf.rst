@@ -121,12 +121,15 @@ The advantages for pushing these instructions into the kernel include:
   stack instead of bypassing it. BPF can be considered a generic "glue code" to
   kernel facilities for crafting programs to solve specific use cases.
 
-The execution of a BPF program inside the kernel is always event driven! For example,
-a networking device which has a BPF program attached on its ingress path will trigger
-the execution of the program once a packet is received, a kernel address which has a
-kprobes with a BPF program attached will trap once the code at that address gets
-executed, then invoke the kprobes callback function for instrumentation which
-subsequently triggers the execution of the BPF program attached to it.
+The execution of a BPF program inside the kernel is always event-driven! Examples:
+
+* A networking device which has a BPF program attached on its ingress path will
+  trigger the execution of the program once a packet is received.
+
+* A kernel address which has a kprobe with a BPF program attached will trap once
+  the code at that address gets executed, which will then invoke the kprobe's
+  callback function for instrumentation, subsequently triggering the execution
+  of the attached BPF program.
 
 BPF consists of eleven 64 bit registers with 32 bit subregisters, a program counter
 and a 512 byte large BPF stack space. Registers are named ``r0`` - ``r10``. The
