@@ -581,6 +581,10 @@ func init() {
 	flags.Bool(option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
 	option.BindEnv(option.K8sRequireIPv6PodCIDRName)
 
+	flags.Uint(option.K8sServiceCacheSize, defaults.K8sServiceCacheSize, "Cilium service cache size for kubernetes")
+	option.BindEnv(option.K8sServiceCacheSize)
+	flags.MarkHidden(option.K8sServiceCacheSize)
+
 	flags.Bool(option.K8sForceJSONPatch, false, "When set uses JSON Patch to update CNP and CEP status in kube-apiserver")
 	option.BindEnv(option.K8sForceJSONPatch)
 	flags.MarkHidden(option.K8sForceJSONPatch)
