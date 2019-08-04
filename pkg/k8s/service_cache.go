@@ -101,7 +101,7 @@ func NewServiceCache() ServiceCache {
 		endpoints:         map[ServiceID]*Endpoints{},
 		ingresses:         map[ServiceID]*Service{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
-		Events:            make(chan ServiceEvent, 128),
+		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 	}
 }
 
