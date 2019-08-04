@@ -304,6 +304,7 @@ keyspace
 keyspaces
 Kicinski
 kops
+kprobe
 kprobes
 kretprobes
 ksonnet
