@@ -106,12 +106,14 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 
 // DeployCiliumAndDNS deploys DNS and cilium into the kubernetes cluster
 func DeployCiliumAndDNS(vm *helpers.Kubectl) {
-	By("Installing DNS Deployment")
-	_ = vm.Apply(helpers.DNSDeployment())
-
 	By("Installing Cilium")
 	err := vm.CiliumInstall([]string{})
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
+
+	ExpectCiliumReady(vm)
+
+	By("Installing DNS Deployment")
+	_ = vm.Apply(helpers.DNSDeployment())
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
@@ -122,7 +124,6 @@ func DeployCiliumAndDNS(vm *helpers.Kubectl) {
 	}
 
 	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
-	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
 }
