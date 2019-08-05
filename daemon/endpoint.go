@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -246,6 +245,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 		}
 	}
+
+	// TODO find better place to put this!
+	ep.LXCMap = d.lxcMap
 
 	err = endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	logger := ep.Logger(daemonSubsys)
@@ -603,7 +605,7 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 
 	// If dry mode is enabled, no changes to BPF maps are performed
 	if !option.Config.DryMode {
-		if errs2 := lxcmap.DeleteElement(ep); errs2 != nil {
+		if errs2 := d.lxcMap.DeleteElement(ep); errs2 != nil {
 			errs = append(errs, errs2...)
 		}
 
