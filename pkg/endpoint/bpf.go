@@ -357,7 +357,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 // specified endpoint.
 // ReloadDatapath forces the datapath programs to be reloaded. It does
 // not guarantee recompilation of the programs.
-// Must be called with endpoint.Mutex not held and endpoint.BuildMutex held.
+// Must be called with endpoint.Mutex not held and endpoint.buildMutex held.
 // Returns the policy revision number when the regeneration has called, a
 // boolean if the BPF compilation was executed and an error in case of an error.
 func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, compiled bool, reterr error) {
