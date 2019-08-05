@@ -346,17 +346,6 @@ func ManifestGet(manifestFilename string) string {
 	return filepath.Join(BasePath, "k8sT", "manifests", manifestFilename)
 }
 
-// GetK8sDescriptor returns the full path of the given descriptorFilename that
-// exists in the descriptorsPath. If not found, the returned path will be empty.
-func GetK8sDescriptor(descriptorFilename string) string {
-	fullPath := filepath.Join(descriptorsPath, GetCurrentK8SEnv(), descriptorFilename)
-	_, err := os.Stat(fullPath)
-	if err == nil {
-		return filepath.Join(BasePath, fullPath)
-	}
-	return ""
-}
-
 // WriteOrAppendToFile writes data to a file named by filename.
 // If the file does not exist, WriteFile creates it with permissions perm;
 // otherwise WriteFile appends the data to the file
