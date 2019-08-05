@@ -7,7 +7,7 @@ helm template install/kubernetes/cilium \
   --set agent.tag=latest \
   --set operator.image=operator \
   --set operator.tag=latest \
-  --set global.debug=true \
+  --set global.debug.enabled=true \
   --set global.k8s.requireIPv4PodCIDR=true \
   --set global.pprof.enabled=true \
   --set global.logSystemLoad=true \

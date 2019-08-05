@@ -72,7 +72,7 @@ var (
 		"operator.image":                "operator",
 		"operator.tag":                  "latest",
 		"managed-etcd.registry":         "docker.io/cilium",
-		"global.debug":                  "true",
+		"global.debug.enabled":          "true",
 		"global.k8s.requireIPv4PodCIDR": "true",
 		"global.pprof.enabled":          "true",
 		"global.logSystemLoad":          "true",
