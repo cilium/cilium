@@ -34,7 +34,7 @@ cilium-health/cmd/ @cilium/cli
 cilium-health/launch/ @cilium/health
 contrib/packaging/deb/ @eloycoto
 contrib/packaging/docker/ @aanm @ianvernon
-contrib/vagrant @cilium/vagrant
+contrib/vagrant @cilium/ci
 daemon/ @cilium/agent
 daemon/bpf.sha @cilium/bpf
 daemon/endpoint.* @cilium/endpoint
@@ -51,10 +51,10 @@ Documentation/bpf.rst @scanf @borkmann
 Documentation/contributing.rst @cilium/contributing
 envoy/ @cilium/proxy
 examples/ @cilium/docs
-examples/getting-started/Vagrantfile @cilium/vagrant
+examples/getting-started/Vagrantfile @cilium/ci
 examples/kubernetes/ @cilium/kubernetes
 examples/kubernetes-ingress/ @cilium/kubernetes
-examples/mesos/Vagrantfile @cilium/vagrant
+examples/mesos/Vagrantfile @cilium/ci
 examples/minikube/ @cilium/kubernetes
 ginkgo.Jenkinsfile @cilium/ci
 kubernetes-upstream.Jenkinsfile @cilium/ci
@@ -124,10 +124,10 @@ plugins/cilium-docker/ @cilium/docker
 proxylib/ @cilium/proxy
 README.md @cilium/docs
 test/ @cilium/ci
-test/Vagrantfile @cilium/vagrant
+test/Vagrantfile @cilium/ci
 tests/ @cilium/ci
-tests/k8s/Vagrantfile @cilium/vagrant
-Vagrantfile @cilium/vagrant
+tests/k8s/Vagrantfile @cilium/ci
+Vagrantfile @cilium/ci
 vendor/ @cilium/vendor
 */Makefile @cilium/janitors
 */*/Makefile @cilium/janitors
