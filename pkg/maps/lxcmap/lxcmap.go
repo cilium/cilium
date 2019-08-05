@@ -37,8 +37,8 @@ const (
 )
 
 var (
-	// LXCMap represents the BPF map for endpoints
-	LXCMap = bpf.NewMap(MapName,
+	// GlobalLXCMap represents the BPF map for endpoints
+	GlobalLXCMap = bpf.NewMap(MapName,
 		bpf.MapTypeHash,
 		&EndpointKey{},
 		int(unsafe.Sizeof(EndpointKey{})),
@@ -168,7 +168,7 @@ func WriteEndpoint(f EndpointFrontend) error {
 
 	// FIXME: Revert on failure
 	for _, v := range f.GetBPFKeys() {
-		if err := LXCMap.Update(v, info); err != nil {
+		if err := GlobalLXCMap.Update(v, info); err != nil {
 			return err
 		}
 	}
@@ -180,14 +180,14 @@ func WriteEndpoint(f EndpointFrontend) error {
 func AddHostEntry(ip net.IP) error {
 	key := NewEndpointKey(ip)
 	ep := &EndpointInfo{Flags: EndpointFlagHost}
-	return LXCMap.Update(key, ep)
+	return GlobalLXCMap.Update(key, ep)
 }
 
 // SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
 // Returns boolean indicating if a new entry was added and an error.
 func SyncHostEntry(ip net.IP) (bool, error) {
 	key := NewEndpointKey(ip)
-	value, err := LXCMap.Lookup(key)
+	value, err := GlobalLXCMap.Lookup(key)
 	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
 		err = AddHostEntry(ip)
 		if err == nil {
@@ -199,7 +199,7 @@ func SyncHostEntry(ip net.IP) (bool, error) {
 
 // DeleteEntry deletes a single map entry
 func DeleteEntry(ip net.IP) error {
-	return LXCMap.Delete(NewEndpointKey(ip))
+	return GlobalLXCMap.Delete(NewEndpointKey(ip))
 }
 
 // DeleteElement deletes the endpoint using all keys which represent the
@@ -207,7 +207,7 @@ func DeleteEntry(ip net.IP) error {
 func DeleteElement(f EndpointFrontend) []error {
 	var errors []error
 	for _, k := range f.GetBPFKeys() {
-		if err := LXCMap.Delete(k); err != nil {
+		if err := GlobalLXCMap.Delete(k); err != nil {
 			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %s", k, bpf.MapPath(MapName), err))
 		}
 	}
@@ -226,7 +226,7 @@ func DumpToMap() (map[string]*EndpointInfo, error) {
 		}
 	}
 
-	if err := LXCMap.DumpWithCallback(callback); err != nil {
+	if err := GlobalLXCMap.DumpWithCallback(callback); err != nil {
 		return nil, fmt.Errorf("unable to read BPF endpoint list: %s", err)
 	}
 

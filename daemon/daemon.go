@@ -400,7 +400,7 @@ func (d *Daemon) initMaps() error {
 		log.WithError(err).Fatal("Unable to set memory resource limits")
 	}
 
-	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
+	if _, err := lxcmap.GlobalLXCMap.OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -481,7 +481,7 @@ func (d *Daemon) initMaps() error {
 
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap.DeleteAll()
+		lxcmap.GlobalLXCMap.DeleteAll()
 	}
 
 	return nil
