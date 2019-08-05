@@ -255,7 +255,7 @@ IMPORTANT: Changes required before upgrading to 1.6.0
   .. code:: bash
 
      kvstore: etcd
-     kvstore-opt: etcd.config=/var/lib/etcd-config/etcd.config
+     kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
 
   This will preserve the existing behavior of the DaemonSet. Adding the options
   to the `ConfigMap` will not impact the ability to rollback. Cilium 1.5.y and
@@ -263,6 +263,12 @@ IMPORTANT: Changes required before upgrading to 1.6.0
   as both options are defined in the `DaemonSet` definitions for these versions
   which takes precedence over the `ConfigMap`.
 
+* **Downgrade warning:** Be aware that if you want to change the
+  ``identity-allocation-mode`` from ``kvstore`` to ``crd`` in order to no
+  longer depend on the kvstore for identity allocation, then a
+  rollback/downgrade requires you to revert that option and it will result in
+  brief disruptions of all connections as identities are re-created in the
+  kvstore.
 
 Upgrading from >=1.5.0 to 1.6.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
