@@ -483,8 +483,6 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 	var spi uint8
 	var err error
 
-	n.insertNeighbor(newNode)
-
 	if n.nodeConfig.EnableIPv4 && n.nodeConfig.EncryptNode {
 		internalIPv4 := n.nodeAddressing.IPv4().PrimaryExternal()
 		exactMask := net.IPv4Mask(255, 255, 255, 255)
@@ -540,7 +538,7 @@ func neighborLog(spec string, err error, ip *net.IP, hwAddr *net.HardwareAddr, l
 	}
 }
 
-func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
+func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) {
 	if newNode.IsLocal() {
 		return
 	}
@@ -549,11 +547,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 	var hwAddr net.HardwareAddr
 	link := 0
 
-	if option.Config.Tunnel != option.TunnelDisabled {
-		return
-	}
-
-	iface, err := net.InterfaceByName(option.Config.EncryptInterface)
+	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		neighborLog("insertNeightbor InterfaceByName", err, &ciliumIPv4, &hwAddr, link)
 		return
@@ -565,7 +559,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node) {
 		return
 	}
 
-	linkAttr, err := netlink.LinkByName(option.Config.EncryptInterface)
+	linkAttr, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		neighborLog("insertNeightbor LinkByName", err, &ciliumIPv4, &hwAddr, link)
 		return
@@ -663,6 +657,17 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *node.Node, firstAddition
 	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
+	}
+
+	if option.Config.EnableNodePort ||
+		(n.nodeConfig.EnableIPSec && option.Config.Tunnel != option.TunnelDisabled) {
+		var ifaceName string
+		if option.Config.EnableNodePort {
+			ifaceName = option.Config.Device
+		} else {
+			ifaceName = option.Config.EncryptInterface
+		}
+		n.insertNeighbor(newNode, ifaceName)
 	}
 
 	if n.nodeConfig.EnableIPSec {

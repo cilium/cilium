@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/neigh"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -147,19 +146,6 @@ func generateWrrSeq(weights []uint16) (*RRSeqValue, error) {
 	return &svcRRSeq, nil
 }
 
-func neighAddBackends(backends []ServiceValue) error {
-	for _, b := range backends {
-		if b.IsIPv6() {
-			continue
-		}
-		err := neigh.NeighAddAddress(option.Config.Device, b.GetAddress())
-		if err != nil {
-			return fmt.Errorf("Neigh add for backend %s failed: %s", b, err)
-		}
-	}
-	return nil
-}
-
 // UpdateService adds or updates the given service in the bpf maps.
 func UpdateService(fe ServiceKey, backends []ServiceValue,
 	addRevNAT bool, revNATID int,
@@ -170,14 +156,6 @@ func UpdateService(fe ServiceKey, backends []ServiceValue,
 		"frontend": fe,
 		"backends": backends,
 	})
-
-	// Only needed for NodePort, needs to be done outside mutex
-	if option.Config.EnableNodePort {
-		err := neighAddBackends(backends)
-		if err != nil {
-			scopedLog.WithError(err).Warning("Adding ARP neighbour entries failed")
-		}
-	}
 
 	mutex.Lock()
 	defer mutex.Unlock()
