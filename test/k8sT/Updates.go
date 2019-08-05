@@ -117,9 +117,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		kubectl.Delete(l7Policy)
 		kubectl.Delete(demoPath)
 
-		// make sure that Kubedns is deleted correctly
-		_ = kubectl.Delete(helpers.DNSDeployment())
-
 		kubectl.DeleteETCDOperator()
 
 		ExpectAllPodsTerminated(kubectl)
@@ -132,6 +129,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", newVersion)
 		err = kubectl.WaitForCiliumInitContainerToFinish()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be clean up environment", newVersion)
+
+		if res := kubectl.Delete(helpers.DNSDeployment()); !res.WasSuccessful() {
+			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
+		}
 
 		_ = kubectl.DeleteResource(
 			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
