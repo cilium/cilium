@@ -236,8 +236,8 @@ data:
 {{- if .Values.global.encryption.interface }}
   encrypt-interface: {{ .Values.global.encryption.interface }}
 {{- end }}
-{{- if .Values.encryption.nodeEncryption }}
-  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+{{- if .Values.global.encryption.nodeEncryption }}
+  encrypt-node: {{ .Values.global.encryption.nodeEncryption | quote }}
 {{- end }}
 {{- end }}
 
