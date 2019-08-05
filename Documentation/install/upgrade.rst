@@ -110,7 +110,7 @@ deployment. This allows to regenerate the entire YAML from scratch using the
 same option sets as used for the initial deployment while ensuring that all
 Kubernetes resources are updated accordingly to version you are upgrading to:
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../gettingstarted/k8s-install-download-release.rst
 
 Generate the required YAML file and deploy it:
 
@@ -139,7 +139,7 @@ new minor releases may introduce new functionality that require opt-in via the
 `ConfigMap`. Refer to the :ref:`upgrade_version_specifics` for a list of new
 configuration options for each minor version.
 
-.. include:: k8s-install-download-release.rst
+.. include:: ../gettingstarted/k8s-install-download-release.rst
 
 Generate the required YAML file and deploy it:
 
