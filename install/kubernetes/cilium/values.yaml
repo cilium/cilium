@@ -61,7 +61,11 @@ global:
     enabled: false
 
   # debug enables debugging mode
-  debug: false
+  debug:
+    enabled: false
+
+    # verbose allows additional levels of debug/trace messaging
+    #verbose: flow
 
   # prometheus enables
   prometheus: false
