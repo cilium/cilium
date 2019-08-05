@@ -86,6 +86,7 @@ scm_web = githubusercontent + branch
 jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + release[0:3]
 archive_filename = archive_name +'.tar.gz'
 archive_link = 'https://github.com/cilium/cilium/archive/' + archive_filename
+archive_name = 'cilium-' + archive_name
 
 # Store variables in the epilogue so they are globally available.
 rst_epilog = """
