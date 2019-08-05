@@ -134,8 +134,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
 
-		_ = kubectl.DeleteResource(
-			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		if err := kubectl.CiliumUninstall([]string{}); err != nil {
+			log.WithError(err).Warning("Unable to uninstall Cilium")
+		}
 	}
 
 	testfunc := func() {

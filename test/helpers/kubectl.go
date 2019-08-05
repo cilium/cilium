@@ -64,6 +64,25 @@ const (
 	CIIntegrationFlannel = "flannel"
 )
 
+var (
+	defaultHelmOptions = map[string]string{
+		"global.registry":               "k8s1:5000/cilium",
+		"agent.image":                   "cilium-dev",
+		"agent.tag":                     "latest",
+		"operator.image":                "operator",
+		"operator.tag":                  "latest",
+		"managed-etcd.registry":         "docker.io/cilium",
+		"global.debug":                  "true",
+		"global.k8s.requireIPv4PodCIDR": "true",
+		"global.pprof.enabled":          "true",
+		"global.logSystemLoad":          "true",
+		"global.bpf.preallocateMaps":    "true",
+		"global.etcd.leaseTTL":          "30s",
+		"global.ipv4.enabled":           "true",
+		"global.ipv6.enabled":           "true",
+	}
+)
+
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
 func GetCurrentK8SEnv() string { return os.Getenv("K8S_VERSION") }
 
@@ -1013,39 +1032,29 @@ func addIfNotOverwritten(options []string, field, value string) []string {
 	return options
 }
 
-// ciliumInstallHelm installs Cilium with the Helm options provided.  Returns an
-// error if any patch or if any original descriptors files were not found.
-func (kub *Kubectl) ciliumInstallHelm(options []string) error {
-	defaultOptions := map[string]string{
-		"global.registry":               "k8s1:5000/cilium",
-		"agent.image":                   "cilium-dev",
-		"agent.tag":                     "latest",
-		"operator.image":                "operator",
-		"operator.tag":                  "latest",
-		"managed-etcd.registry":         "docker.io/cilium",
-		"global.debug":                  "true",
-		"global.k8s.requireIPv4PodCIDR": "true",
-		"global.pprof.enabled":          "true",
-		"global.logSystemLoad":          "true",
-		"global.bpf.preallocateMaps":    "true",
-		"global.etcd.leaseTTL":          "30s",
-		"global.ipv4.enabled":           "true",
-		"global.ipv6.enabled":           "true",
-	}
-
-	for key, value := range defaultOptions {
+func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error {
+	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
 	}
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
-	res := kub.ExecMiddle(fmt.Sprintf("helm template %s --namespace=kube-system %s > cilium.yaml",
-		HelmTemplate, strings.Join(options, " ")))
+	res := kub.ExecMiddle(fmt.Sprintf("helm template %s --namespace=kube-system %s > %s",
+		HelmTemplate, strings.Join(options, " "), filename))
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to generate YAML")
 	}
 
-	res = kub.Apply("cilium.yaml")
+	return nil
+}
+
+// ciliumInstallHelm installs Cilium with the Helm options provided.
+func (kub *Kubectl) ciliumInstallHelm(options []string) error {
+	if err := kub.generateCiliumYaml(options, "cilium.yaml"); err != nil {
+		return err
+	}
+
+	res := kub.Apply("cilium.yaml")
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
@@ -1053,10 +1062,28 @@ func (kub *Kubectl) ciliumInstallHelm(options []string) error {
 	return nil
 }
 
-// CiliumInstall installs Cilium with the provided Helm options.  Returns an
-// error if any patch or if any original descriptors files were not found.
+// ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
+func (kub *Kubectl) ciliumUninstallHelm(options []string) error {
+	if err := kub.generateCiliumYaml(options, "cilium.yaml"); err != nil {
+		return err
+	}
+
+	res := kub.Delete("cilium.yaml")
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to delete YAML")
+	}
+
+	return nil
+}
+
+// CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(options []string) error {
 	return kub.ciliumInstallHelm(options)
+}
+
+// CiliumUninstall uninstalls Cilium with the provided Helm options.
+func (kub *Kubectl) CiliumUninstall(options []string) error {
+	return kub.ciliumUninstallHelm(options)
 }
 
 // CiliumInstallVersion installs all Cilium descriptors into kubernetes for
