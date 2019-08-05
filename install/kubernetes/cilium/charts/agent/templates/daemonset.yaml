@@ -126,7 +126,7 @@ spec:
           privileged: true
         volumeMounts:
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
-{{- if not (eq .Values.global.containerRuntime "crio") }}
+{{- if not (eq .Values.global.containerRuntime.integration "crio") }}
         - mountPath: /sys/fs/bpf
           name: bpf-maps
 {{- end }}
@@ -136,14 +136,14 @@ spec:
           name: cni-path
         - mountPath: /host/etc/cni/net.d
           name: etc-cni-netd
-{{- if or (eq .Values.global.containerRuntime "docker") (eq .Values.global.containerRuntime "auto") }}
+{{- if or (eq .Values.global.containerRuntime.integration "docker") (eq .Values.global.containerRuntime.integration "auto") }}
         - mountPath: /var/run/docker.sock
           name: docker-socket
           readOnly: true
-{{- else if eq .Values.global.containerRuntime "crio" }}
+{{- else if eq .Values.global.containerRuntime.integration "crio" }}
         - mountPath: /var/run/crio/crio.sock
           name: crio-socket
-{{- else if eq .Values.global.containerRuntime "containerd" }}
+{{- else if eq .Values.global.containerRuntime.integration "containerd" }}
         - mountPath: /var/run/containerd/containerd.sock
           name: containerd-socket
 {{- end }}
@@ -218,7 +218,7 @@ spec:
           privileged: true
         volumeMounts:
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
-{{- if not (eq .Values.global.containerRuntime "crio") }}
+{{- if not (eq .Values.global.containerRuntime.integration "crio") }}
         - mountPath: /sys/fs/bpf
           name: bpf-maps
 {{- end }}
@@ -240,32 +240,40 @@ spec:
           type: DirectoryOrCreate
         name: cilium-run
 {{- /* CRI-O already mounts the BPF filesystem */ -}}
-{{- if not (eq .Values.global.containerRuntime "crio") }}
+{{- if not (eq .Values.global.containerRuntime.integration "crio") }}
         # To keep state between restarts / upgrades for bpf maps
       - hostPath:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
 {{- end }}
-{{- if or (eq .Values.global.containerRuntime "docker") (eq .Values.global.containerRuntime "auto") }}
-        # To read docker events from the node
+{{- if not (eq .Values.global.containerRuntime.integration "none") }}
+      # To read container runtime events from the node
       - hostPath:
+{{- if .Values.global.containerRuntime.socketPath }}
+          path: {{ .Values.global.containerRuntime.socketPath }}
+{{- end }}
+{{- end }}
+{{- if or (eq .Values.global.containerRuntime.integration "docker") (eq .Values.global.containerRuntime.integration "auto") }}
+{{- if not (.Values.global.containerRuntime.socketPath) }}
           path: /var/run/docker.sock
+{{- end }}
           type: Socket
         name: docker-socket
-{{- else if eq .Values.global.containerRuntime "crio" }}
-      - hostPath:
+{{- else if eq .Values.global.containerRuntime.integration "crio" }}
+{{- if not (.Values.global.containerRuntime.socketPath) }}
           path: /var/run/crio/crio.sock
+{{- end }}
           type: Socket
         name: crio-socket
-{{- else if eq .Values.global.containerRuntime "containerd" }}
-      # To read labels from containerD containers running in the host
-      - hostPath:
+{{- else if eq .Values.global.containerRuntime.integration "containerd" }}
+{{- if not (.Values.global.containerRuntime.socketPath) }}
           path: /var/run/containerd/containerd.sock
+{{- end }}
           type: Socket
         name: containerd-socket
 {{- end }}
-        # To install cilium cni plugin in the host
+      # To install cilium cni plugin in the host
       - hostPath:
           path:  {{ .Values.global.cni.binPath }}
           type: DirectoryOrCreate
