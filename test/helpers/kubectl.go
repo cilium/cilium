@@ -2288,20 +2288,38 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 }
 
 // DeleteETCDOperator delete the etcd-operator from the cluster pointed by kub.
-func (kub *Kubectl) DeleteETCDOperator() error {
-	cmdRes := kub.Delete(GetK8sDescriptor(ciliumEtcdOperator))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to delete descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
+func (kub *Kubectl) DeleteETCDOperator() {
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete crd etcdclusters.etcd.database.coreos.com", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete etcdclusters.etcd.database.coreos.com CRD: %s", res.OutputPrettyPrint())
 	}
-	cmdRes = kub.Delete(GetK8sDescriptor(ciliumEtcdOperatorRBAC))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to delete descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
+
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete deployment cilium-etcd-operator", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete cilium-etcd-operator Deployment: %s", res.OutputPrettyPrint())
 	}
-	cmdRes = kub.Delete(GetK8sDescriptor(ciliumEtcdOperatorSA))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to delete descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
+
+	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrolebinding cilium-etcd-operator", KubectlCmd)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete cilium-etcd-operator ClusterRoleBinding: %s", res.OutputPrettyPrint())
 	}
-	return nil
+
+	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrole cilium-etcd-operator", KubectlCmd)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete cilium-etcd-operator ClusterRole: %s", res.OutputPrettyPrint())
+	}
+
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-operator", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete cilium-etcd-operator ServiceAccount: %s", res.OutputPrettyPrint())
+	}
+
+	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrolebinding etcd-operator", KubectlCmd)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete etcd-operator ClusterRoleBinding: %s", res.OutputPrettyPrint())
+	}
+
+	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrole etcd-operator", KubectlCmd)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete etcd-operator ClusterRole: %s", res.OutputPrettyPrint())
+	}
+
+	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-sa", KubectlCmd, KubeSystemNamespace)); !res.WasSuccessful() {
+		log.Warningf("Unable to delete cilium-etcd-sa ServiceAccount: %s", res.OutputPrettyPrint())
+	}
 }
 
 func serviceKey(s v1.Service) string {
