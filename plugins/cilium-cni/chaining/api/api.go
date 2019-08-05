@@ -77,6 +77,10 @@ func Register(name string, p ChainingPlugin) error {
 
 // Lookup searches for a chaining plugin with a given name and returns it
 func Lookup(name string) ChainingPlugin {
+	if name == "cilium" {
+		return nil
+	}
+
 	mutex.RLock()
 	defer mutex.RUnlock()
 
