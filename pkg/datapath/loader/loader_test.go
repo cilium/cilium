@@ -303,7 +303,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	}
 	defer os.RemoveAll(epDir)
 
-	templateCache = newObjectCache(linux.NewDatapath(linux.DatapathConfiguration{}), nil, tmpDir)
+	templateCache = newObjectCache(linux.NewDatapath(linux.DatapathConfiguration{}, nil), nil, tmpDir)
 	if err := CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)
 		time.Sleep(1 * time.Minute)

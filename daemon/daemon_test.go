@@ -116,7 +116,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
-	d, _, err := NewDaemon(fakedatapath.NewDatapath())
+	d, _, err := NewDaemon(fakedatapath.NewDatapath(), nil)
 	c.Assert(err, IsNil)
 	ds.d = d
 

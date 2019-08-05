@@ -16,7 +16,6 @@ package linux
 
 import (
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -30,17 +29,24 @@ type DatapathConfiguration struct {
 	EncryptInterface string
 }
 
+type rulesManager interface {
+	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
+	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+}
+
 type linuxDatapath struct {
 	node           datapath.NodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
+	ruleManager    rulesManager
 }
 
 // NewDatapath creates a new Linux datapath
-func NewDatapath(config DatapathConfiguration) datapath.Datapath {
+func NewDatapath(config DatapathConfiguration, ruleManager rulesManager) datapath.Datapath {
 	dp := &linuxDatapath{
 		nodeAddressing: NewNodeAddressing(),
 		config:         config,
+		ruleManager:    ruleManager,
 	}
 
 	dp.node = NewNodeHandler(config, dp.nodeAddressing)
@@ -66,9 +72,9 @@ func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 }
 
 func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
-	return iptables.InstallProxyRules(proxyPort, ingress, name)
+	return l.ruleManager.InstallProxyRules(proxyPort, ingress, name)
 }
 
 func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
-	return iptables.RemoveProxyRules(proxyPort, ingress, name)
+	return l.ruleManager.RemoveProxyRules(proxyPort, ingress, name)
 }

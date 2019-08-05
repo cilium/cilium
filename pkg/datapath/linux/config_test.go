@@ -82,7 +82,7 @@ func writeConfig(c *C, header string, write writeFn) {
 	}
 	for _, test := range tests {
 		c.Logf("  Testing %s configuration: %s", header, test.description)
-		dp := NewDatapath(DatapathConfiguration{})
+		dp := NewDatapath(DatapathConfiguration{}, nil)
 		c.Assert(write(test.output, dp), test.expResult)
 	}
 }
@@ -106,7 +106,7 @@ func (s *DatapathSuite) TestWriteEndpointConfig(c *C) {
 }
 
 func (s *DatapathSuite) TestWriteStaticData(c *C) {
-	dp := NewDatapath(DatapathConfiguration{}).(*linuxDatapath)
+	dp := NewDatapath(DatapathConfiguration{}, nil).(*linuxDatapath)
 	ep := &dummyEPCfg
 
 	varSub, stringSub := loader.ELFSubstitutions(ep)

@@ -209,7 +209,7 @@ func (ds *DaemonSuite) TestReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.d.datapath = oldDatapath
 	}()
-	ds.d.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{})
+	ds.d.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
 
 	epsWanted, epsMap := ds.createEndpoints()
 	tmpDir, err := ioutil.TempDir("", "cilium-tests")
