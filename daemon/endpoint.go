@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -32,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -538,6 +536,29 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 	return len(errs)
 }
 
+// EndpointMonitorDeleterNotifier is a wrapper around the monitor notification
+// that a specified Endpoint has been deleted.
+type EndpointMonitorDeleterNotifier struct {
+	d *Daemon
+}
+
+// NotifyMonitorDeleted notifies the monitor that an endpoint has been deleted.
+func (emd *EndpointMonitorDeleterNotifier) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
+	repr, err := monitorAPI.EndpointDeleteRepr(ep)
+	// Ignore endpoint deletion if EndpointDeleteRepr != nil
+	if err == nil {
+		emd.d.SendNotification(monitorAPI.AgentNotifyEndpointDeleted, repr)
+	}
+}
+
+// EpManager is a wrapper around the global endpointmanager, which doesn't
+// have a type, so we can pass it around as an interface
+type EpManager struct{}
+
+func (epm *EpManager) Remove(ep *endpoint.Endpoint) <-chan struct{} {
+	return endpointmanager.Remove(ep)
+}
+
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes
 // it from Cilium, releasing all resources associated with it such as its
 // visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
@@ -555,96 +576,9 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 		}
 	}
 
-	errs := []error{}
-
-	// Since the endpoint is being deleted, we no longer need to run events
-	// in its event queue. This is a no-op if the queue has already been
-	// closed elsewhere.
-	ep.EventQueue.Stop()
-
-	// Wait for the queue to be drained in case an event which is currently
-	// running for the endpoint tries to acquire the lock - we cannot be sure
-	// what types of events will be pushed onto the EventQueue for an endpoint
-	// and when they will happen. After this point, no events for the endpoint
-	// will be processed on its EventQueue, specifically regenerations.
-	ep.EventQueue.WaitToBeDrained()
-
-	// Wait for existing builds to complete and prevent further builds
-	ep.BuildMutex.Lock()
-
-	// Given that we are deleting the endpoint and that no more builds are
-	// going to occur for this endpoint, close the channel which signals whether
-	// the endpoint has its BPF program compiled or not to avoid it persisting
-	// if anything is blocking on it. If a delete request has already been
-	// enqueued for this endpoint, this is a no-op.
-	ep.CloseBPFProgramChannel()
-
-	// Lock out any other writers to the endpoint.  In case multiple delete
-	// requests have been enqueued, have all of them except the first
-	// return here. Ignore the request if the endpoint is already
-	// disconnected.
-	if err := ep.LockAlive(); err != nil {
-		ep.BuildMutex.Unlock()
-		return []error{}
-	}
-	ep.SetStateLocked(endpoint.StateDisconnecting, "Deleting endpoint")
-
-	// Remove the endpoint before we clean up. This ensures it is no longer
-	// listed or queued for rebuilds.
-	endpointmanager.Remove(ep)
-
-	defer func() {
-		repr, err := monitorAPI.EndpointDeleteRepr(ep)
-		// Ignore endpoint deletion if EndpointDeleteRepr != nil
-		if err == nil {
-			d.SendNotification(monitorAPI.AgentNotifyEndpointDeleted, repr)
-		}
-	}()
-
-	// If dry mode is enabled, no changes to BPF maps are performed
-	if !option.Config.DryMode {
-		if errs2 := lxcmap.DeleteElement(ep); errs2 != nil {
-			errs = append(errs, errs2...)
-		}
-
-		if errs2 := ep.DeleteMapsLocked(); errs2 != nil {
-			errs = append(errs, errs2...)
-		}
-	}
-
-	if !conf.NoIPRelease {
-		if option.Config.EnableIPv4 {
-			if err := d.ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
-				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
-			}
-		}
-		if option.Config.EnableIPv6 {
-			if err := d.ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
-				errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
-			}
-		}
-	}
-
-	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
-
-	errs = append(errs, ep.LeaveLocked(proxyWaitGroup, conf)...)
-	ep.Unlock()
-
-	err := ep.WaitForProxyCompletions(proxyWaitGroup)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("unable to remove proxy redirects: %s", err))
-	}
-	cancel()
-
-	if option.Config.IsFlannelMasterDeviceSet() &&
-		option.Config.FlannelUninstallOnExit {
-		ep.DeleteBPFProgramLocked()
-	}
-
-	ep.BuildMutex.Unlock()
-
-	return errs
+	emd := &EndpointMonitorDeleterNotifier{d: d}
+	epm := &EpManager{}
+	return ep.Delete(emd, d.ipam, epm, conf)
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
