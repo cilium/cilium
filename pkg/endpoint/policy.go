@@ -244,8 +244,8 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		e.updateRegenerationStatistics(context, retErr)
 	}()
 
-	e.BuildMutex.Lock()
-	defer e.BuildMutex.Unlock()
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
 
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build

@@ -251,12 +251,9 @@ type Endpoint struct {
 	// endpoint mutex after policy recalculation.
 	forcePolicyCompute bool
 
-	// BuildMutex synchronizes builds of individual endpoints and locks out
+	// buildMutex synchronizes builds of individual endpoints and locks out
 	// deletion during builds
-	//
-	// FIXME: Mark private once endpoint deletion can be moved into
-	// `pkg/endpoint`
-	BuildMutex lock.Mutex `json:"-"`
+	buildMutex lock.Mutex
 
 	// logger is a logrus object with fields set to report an endpoints information.
 	// You must hold Endpoint.Mutex to read or write it (but not to log with it).
@@ -382,7 +379,7 @@ func (e *Endpoint) SetDesiredEgressPolicyEnabledLocked(egress bool) {
 }
 
 // WaitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with BuildMutex held.
+// Called with buildMutex held.
 func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	if proxyWaitGroup == nil {
 		return nil
@@ -1313,7 +1310,7 @@ type DeleteConfig struct {
 }
 
 // LeaveLocked removes the endpoint's directory from the system. Must be called
-// with Endpoint's mutex AND BuildMutex locked.
+// with Endpoint's mutex AND buildMutex locked.
 //
 // Note: LeaveLocked() is called indirectly from endpoint restore logic for
 // endpoints which failed to be restored. Any cleanup routine of LeaveLocked()
@@ -1646,7 +1643,7 @@ OKState:
 
 // BuilderSetStateLocked modifies the endpoint's state
 // endpoint.Mutex must be held
-// endpoint BuildMutex must be held!
+// endpoint buildMutex must be held!
 func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
@@ -2239,8 +2236,8 @@ func (e *Endpoint) PinDatapathMap() error {
 }
 
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
-	e.BuildMutex.Lock()
-	defer e.BuildMutex.Unlock()
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
 
 	if err := e.LockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return
