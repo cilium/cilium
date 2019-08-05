@@ -132,6 +132,28 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 	return true;
 }
 
+static inline bool __revalidate_data_first(struct __sk_buff *skb, void **data_,
+				     void **data_end_, void **l3,
+				     size_t l3_len)
+{
+	if (!__revalidate_data(skb, data_, data_end_, l3, l3_len)) {
+		int err = skb_pull_data(skb, ETH_HLEN + l3_len);
+		if (err || !__revalidate_data(skb, data_, data_end_, l3, l3_len))
+			return false;
+	}
+
+	return true;
+}
+
+/* revalidate_data_first() initializes the provided pointers from the skb and
+ * ensures that the data is pulled in for access. Should be used the first
+ * time that the skb data is accessed, subsequent calls can be made to
+ * revalidate_data() which is cheaper.
+ * Returns true if 'skb' is long enough for an IP header of the provided type,
+ * false otherwise. */
+#define revalidate_data_first(skb, data, data_end, ip)			\
+	__revalidate_data_first(skb, data, data_end, (void **)ip, sizeof(**ip))
+
 /* revalidate_data() initializes the provided pointers from the skb.
  * Returns true if 'skb' is long enough for an IP header of the provided type,
  * false otherwise. */
