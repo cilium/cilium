@@ -41,11 +41,6 @@ type LXCMap struct {
 	*bpf.Map
 }
 
-var (
-	// GlobalLXCMap represents the BPF map for endpoints
-	GlobalLXCMap = NewMap(MapName)
-)
-
 func NewMap(path string) *LXCMap {
 	return &LXCMap{
 		Map: bpf.NewMap(path,
@@ -167,39 +162,6 @@ func (v *EndpointInfo) String() string {
 		v.MAC,
 		v.NodeMAC,
 	)
-}
-
-// WriteEndpoint updates the BPF map with the endpoint information and links
-// the endpoint information to all keys provided.
-func WriteEndpoint(f EndpointFrontend) error {
-	return GlobalLXCMap.WriteEndpoint(f)
-}
-
-// AddHostEntry adds a special endpoint which represents the local host
-func AddHostEntry(ip net.IP) error {
-	return GlobalLXCMap.AddHostEntry(ip)
-}
-
-// SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
-// Returns boolean indicating if a new entry was added and an error.
-func SyncHostEntry(ip net.IP) (bool, error) {
-	return GlobalLXCMap.SyncHostEntry(ip)
-}
-
-// DeleteEntry deletes a single map entry
-func DeleteEntry(ip net.IP) error {
-	return GlobalLXCMap.DeleteEntry(ip)
-}
-
-// DeleteElement deletes the endpoint using all keys which represent the
-// endpoint. It returns the number of errors encountered during deletion.
-func DeleteElement(f EndpointFrontend) []error {
-	return GlobalLXCMap.DeleteElement(f)
-}
-
-// DumpToMap dumps the contents of the lxcmap into a map and returns it
-func DumpToMap() (map[string]*EndpointInfo, error) {
-	return GlobalLXCMap.DumpToMap()
 }
 
 // WriteEndpoint updates the BPF map with the endpoint information and links
