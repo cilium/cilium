@@ -331,6 +331,11 @@ Deprecated options
   or later to 1.4.x may result in disruption of connections that connect via
   services.
 
+* ``lb``: The ``--lb`` feature has been deprecated. It has not been in use and
+  was well tested. If you need load-balancing with pickup from a device
+  directly, ping the development team on Slack to discuss options to get the
+  feature fully supported.
+
 Deprecated metrics
 ~~~~~~~~~~~~~~~~~~
 

@@ -204,8 +204,10 @@ const (
 	// LabelPrefixFile is the valid label prefixes file path
 	LabelPrefixFile = "label-prefix-file"
 
-	// LB enables load balancer mode where load balancer bpf program is attached to the given interface
-	LB = "lb"
+	// LBDeprecated is the deprecated option that used to enable load
+	// balancer mode where load balancer bpf program is attached to the
+	// given interface
+	LBDeprecated = "lb"
 
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
@@ -1518,7 +1520,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPAllocationTimeout = viper.GetDuration(IPAllocationTimeout)
 	c.LabelPrefixFile = viper.GetString(LabelPrefixFile)
 	c.Labels = viper.GetStringSlice(Labels)
-	c.LBInterface = viper.GetString(LB)
+	c.LBInterface = viper.GetString(LBDeprecated)
 	c.LibDir = viper.GetString(LibDir)
 	c.LogDriver = viper.GetStringSlice(LogDriver)
 	c.LogSystemLoadConfig = viper.GetBool(LogSystemLoadConfigName)

@@ -623,8 +623,9 @@ func init() {
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(option.Labels)
 
-	flags.String(option.LB, "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
-	option.BindEnv(option.LB)
+	flags.String(option.LBDeprecated, "", "Enables load balancer mode where load balancer bpf program is attached to the given interface")
+	flags.MarkDeprecated(option.LBDeprecated, "Direct device load-balancing will be deprecated in 1.7")
+	option.BindEnv(option.LBDeprecated)
 
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
