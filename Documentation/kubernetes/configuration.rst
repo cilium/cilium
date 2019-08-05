@@ -322,7 +322,7 @@ If you want to use CRIO, generate the YAML using:
 
    helm template cilium \
      --namespace kube-system \
-     --set global.containerRuntime=crio \
+     --set global.containerRuntime.integration=crio \
      > cilium.yaml
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
@@ -365,5 +365,5 @@ the ``cilium-agent`` with the following option.
 
    helm template cilium \
      --namespace kube-system \
-     --set global.containerRuntime=none \
+     --set global.containerRuntime.integration=none \
      > cilium.yaml
