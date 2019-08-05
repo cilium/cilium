@@ -180,6 +180,9 @@ type Daemon struct {
 	ipam *ipam.IPAM
 
 	netConf *cnitypes.NetConf
+
+	// iptablesManager deals with all iptables rules installed in the node
+	iptablesManager rulesManager
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -683,8 +686,13 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter
 }
 
+type rulesManager interface {
+	RemoveRules()
+	InstallRules(ifName string) error
+}
+
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *endpointRestoreState, error) {
 	var (
 		err           error
 		netConf       *cnitypes.NetConf
@@ -744,6 +752,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:         mtuConfig,
 		datapath:          dp,
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+		iptablesManager:   iptablesManager,
 	}
 
 	if option.Config.RunMonitorAgent {
