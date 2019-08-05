@@ -43,10 +43,10 @@ type LXCMap struct {
 
 var (
 	// GlobalLXCMap represents the BPF map for endpoints
-	GlobalLXCMap = newMap(MapName)
+	GlobalLXCMap = NewMap(MapName)
 )
 
-func newMap(path string) *LXCMap {
+func NewMap(path string) *LXCMap {
 	return &LXCMap{
 		Map: bpf.NewMap(path,
 			bpf.MapTypeHash,
