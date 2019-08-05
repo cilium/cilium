@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -200,12 +199,10 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
-	iptablesManager := iptables.IptablesManager{}
-	iptablesManager.Init()
 	// Always remove masquerade rule and then re-add it if required
-	iptablesManager.RemoveRules()
+	d.iptablesManager.RemoveRules()
 	if option.Config.InstallIptRules {
-		if err := iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
+		if err := d.iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
 			return err
 		}
 	}
