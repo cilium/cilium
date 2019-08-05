@@ -33,7 +33,7 @@ var (
 // TesthashDatapath is done in this package just for easy access to dummy
 // configuration objects.
 func (s *LoaderTestSuite) TesthashDatapath(c *C) {
-	dp := linux.NewDatapath(linux.DatapathConfiguration{})
+	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil)
 	h := newDatapathHash()
 	baseHash := h.String()
 

@@ -466,11 +466,11 @@ func iptProxyRules(cmd string, proxyPort uint16, ingress bool, name string) erro
 	return nil
 }
 
-func InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return iptProxyRules("-A", proxyPort, ingress, name)
 }
 
-func RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
+func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return iptProxyRules("-D", proxyPort, ingress, name)
 }
 

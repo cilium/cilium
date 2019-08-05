@@ -39,7 +39,7 @@ type writeFunc func(io.Writer) error
 
 func BenchmarkWriteHeaderfile(b *testing.B) {
 	e := NewEndpointWithState(&suite, 100, StateCreating)
-	dp := linux.NewDatapath(linux.DatapathConfiguration{})
+	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil)
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)
