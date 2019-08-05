@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016-2018 Authors of Cilium
+ *  Copyright (C) 2016-2019 Authors of Cilium
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	bool decrypted;
 
 	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
-	if (!revalidate_data(skb, &data, &data_end, &ip6))
+	/* verifier workaround (dereference of modified ctx ptr) */
+	if (!revalidate_data_first(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	if (!decrypted) {
@@ -133,7 +134,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	int l4_off;
 
 	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
-	if (!revalidate_data(skb, &data, &data_end, &ip4))
+	/* verifier workaround (dereference of modified ctx ptr) */
+	if (!revalidate_data_first(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	/* If packets are decrypted the key has already been pushed into metadata. */
