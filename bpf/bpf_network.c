@@ -44,12 +44,8 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	bool decrypted;
 
 	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
-	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
-		int err = skb_pull_data(skb, ETH_HLEN + sizeof(struct ipv6hdr));
-
-		if (err || !revalidate_data(skb, &data, &data_end, &ip6))
-			return DROP_INVALID;
-	}
+	if (!revalidate_data_first(skb, &data, &data_end, &ip6))
+		return DROP_INVALID;
 
 	if (!decrypted) {
 		/* IPSec is not currently enforce (feature coming soon)
@@ -86,12 +82,8 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	bool decrypted;
 
 	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
-	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
-		int err = skb_pull_data(skb, ETH_HLEN + sizeof(struct iphdr));
-
-		if (err || !revalidate_data(skb, &data, &data_end, &ip4))
-			return DROP_INVALID;
-	}
+	if (!revalidate_data_first(skb, &data, &data_end, &ip4))
+		return DROP_INVALID;
 
 	if (!decrypted) {
 		/* IPSec is not currently enforce (feature coming soon)
