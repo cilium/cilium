@@ -180,6 +180,8 @@ type Daemon struct {
 	ipam *ipam.IPAM
 
 	netConf *cnitypes.NetConf
+
+	lxcMap *lxcmap.LXCMap
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -400,7 +402,8 @@ func (d *Daemon) initMaps() error {
 		log.WithError(err).Fatal("Unable to set memory resource limits")
 	}
 
-	if _, err := lxcmap.GlobalLXCMap.OpenOrCreate(); err != nil {
+	d.lxcMap = lxcmap.NewMap(lxcmap.MapName)
+	if _, err := d.lxcMap.OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -481,7 +484,7 @@ func (d *Daemon) initMaps() error {
 
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.GlobalLXCMap.DeleteAll()
+		d.lxcMap.DeleteAll()
 	}
 
 	return nil
@@ -607,7 +610,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 			})
 	}
 
-	existingEndpoints, err := lxcmap.DumpToMap()
+	existingEndpoints, err := d.lxcMap.DumpToMap()
 	if err != nil {
 		return err
 	}
@@ -616,7 +619,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		hostKey := node.GetIPsecKeyIdentity()
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
 		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
+			added, err := d.lxcMap.SyncHostEntry(ipIDPair.IP)
 			if err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
 			}
@@ -637,7 +640,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 
 	for hostIP, info := range existingEndpoints {
 		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
+			if err := d.lxcMap.DeleteEntry(ip); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr: hostIP,
 				}).Warn("Unable to delete obsolete host IP from BPF map")

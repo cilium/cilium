@@ -136,7 +136,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	)
 
 	if !option.Config.DryMode {
-		existingEndpoints, err = lxcmap.DumpToMap()
+		existingEndpoints, err = d.lxcMap.DumpToMap()
 		if err != nil {
 			log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
 		}
@@ -204,7 +204,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	if existingEndpoints != nil {
 		for hostIP, info := range existingEndpoints {
 			if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
-				if err := lxcmap.DeleteEntry(ip); err != nil {
+				if err := d.lxcMap.DeleteEntry(ip); err != nil {
 					log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
 				} else {
 					log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
@@ -243,6 +243,9 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		if ep.Options.IsEnabled(option.ConntrackLocal) {
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
+
+		// Best place to insert this?
+		ep.LXCMap = d.lxcMap
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
