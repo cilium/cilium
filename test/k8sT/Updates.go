@@ -67,7 +67,6 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterAll(func() {
-		_ = kubectl.Apply(helpers.DNSDeployment())
 		kubectl.CloseSSHClient()
 	})
 
