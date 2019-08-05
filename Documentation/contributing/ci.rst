@@ -318,6 +318,28 @@ Triage process
 * ``CI-Bug, K8sValidatedPolicyTest: Namespaces, pod not ready, #9939``
 * ``Regression, k8s host policy, #1111``
 
+
+Bisect process
+^^^^^^^^^^^^^^
+
+If you are unable to triage the issue, you may try to use bisect job to find when things went awry in Jenkins.
+
+#. Log in to Jenkins
+
+#. Go to https://jenkins.cilium.io/job/bisect-cilium/configure .
+
+#. Under ``Git Bisect`` build step fill in ``Good start revision`` and ``Bad end revision``.
+
+#. Write description of what you are looking for under ``Search Identifier``.
+
+#. Adjust ``Retry number`` and ``Min Successful Runs`` to account for current CI flakiness.
+
+#. Save the configuration.
+
+#. Click "Build Now" in https://jenkins.cilium.io/job/bisect-cilium/ .
+
+#. This may take over a day depending on how many underlying builds will be created. The result will be in ``bisect-cilium`` console output, actual builds will be happening in https://jenkins.cilium.io/job/cilium-revision/ job.
+
 Infrastructure details
 ~~~~~~~~~~~~~~~~~~~~~~
 
