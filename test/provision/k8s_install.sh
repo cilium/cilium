@@ -305,6 +305,8 @@ else
     # This particular workaround is only needed for cilium, running on a pod on host
     # network namespace, to reach out kube-api-server.
     sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.36.12 -j MASQUERADE
+    # Same as above for encryption case the output device is cilium_host
+    sudo iptables -t nat -A POSTROUTING -o cilium_host -s 10.0.2.15 -j SNAT --to 192.168.36.12
 fi
 
 # Create world network

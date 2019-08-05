@@ -118,6 +118,7 @@ ENV["LC_CTYPE"] = "en_US.UTF-8"
 # network namespace, to reach out kube-api-server.
 $kube_proxy_workaround = <<SCRIPT
 sudo iptables -t nat -A POSTROUTING -o enp0s8 ! -s 192.168.34.12 -j MASQUERADE
+sudo iptables -t nat -A POSTROUTING -o cilium_host -s 10.0.2.15 -j SNAT --to 192.168.36.12
 SCRIPT
 
 Vagrant.configure(2) do |config|
