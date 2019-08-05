@@ -132,7 +132,12 @@ global:
   # - docker
   # - none
   # - auto (automatically detect the container runtime)
-  containerRuntime: none
+  containerRuntime:
+    integration: none
+
+    # socketPath can be used to configure the path to the container runtime
+    # control socket, if it is on a non-standard path.
+    #socketPath:
 
   # bpf is the BPF datapath specific configuration
   bpf:

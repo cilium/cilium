@@ -167,13 +167,13 @@ Generate the required YAML file and deploy it:
 
    helm template cilium \
      --namespace kube-system \
-     --set global.containerRuntime=crio \
+     --set global.containerRuntime.integration=crio \
      > cilium.yaml
    kubectl create -f cilium.yaml
 
 .. note::
 
-   If you are using `conatinerd`, set ``global.containerRuntime=containerd``.
+   If you are using `conatinerd`, set ``global.containerRuntime.integration=containerd``.
 
 Validate cilium
 ===============
