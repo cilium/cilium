@@ -43,7 +43,11 @@ data:
   identity-allocation-mode: {{ .Values.global.identityAllocationMode }}
 
   # If you want to run cilium in debug mode change this value to true
-  debug: {{ .Values.global.debug | default false | quote }}
+  debug: {{ .Values.global.debug.enabled | default false | quote }}
+
+{{- if .Values.global.debug.verbose }}
+  debug-verbose: "{{ .Values.global.debug.verbose }}"
+{{- end }}
 
 {{- if .Values.global.prometheus }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
