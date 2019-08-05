@@ -48,7 +48,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data(skb, &data, &data_end, &ip6))
+	if (!revalidate_data_first(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(skb)) {
@@ -157,7 +157,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 	int l4_off;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data(skb, &data, &data_end, &ip4))
+	if (!revalidate_data_first(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(skb)) {
