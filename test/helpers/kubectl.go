@@ -2287,26 +2287,7 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 	return nil
 }
 
-// DeployETCDOperator deploys the etcd-operator k8s descriptors into the cluster
-// pointer by kub.
-func (kub *Kubectl) DeployETCDOperator() error {
-	cmdRes := kub.Apply(GetK8sDescriptor(ciliumEtcdOperatorSA))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to deploy descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
-	}
-	cmdRes = kub.Apply(GetK8sDescriptor(ciliumEtcdOperatorRBAC))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to deploy descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
-	}
-	cmdRes = kub.Apply(GetK8sDescriptor(ciliumEtcdOperator))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
-	}
-	return nil
-}
-
-// DeleteETCDOperator delete the etcd-operator from the cluster pointed by
-// kub.
+// DeleteETCDOperator delete the etcd-operator from the cluster pointed by kub.
 func (kub *Kubectl) DeleteETCDOperator() error {
 	cmdRes := kub.Delete(GetK8sDescriptor(ciliumEtcdOperator))
 	if !cmdRes.WasSuccessful() {
