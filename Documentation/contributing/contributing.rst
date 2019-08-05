@@ -721,16 +721,24 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     $ cd test/
     $ ginkgo . -- --help | grep -A 1 cilium
       -cilium.SSHConfig string
-            Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
+    	    Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
       -cilium.holdEnvironment
-            On failure, hold the environment in its current state
+    	    On failure, hold the environment in its current state
+      -cilium.image string
+        	Specifies which image of cilium to use during tests
+      -cilium.operator-image string
+        	Specifies which image of cilium-operator to use during tests
       -cilium.provision
-            Provision Vagrant boxes and Cilium before running test (default true)
+        	Provision Vagrant boxes and Cilium before running test (default true)
+      -cilium.provision-k8s
+        	Specifies whether Kubernetes should be deployed and installed via kubeadm or not (default true)
       -cilium.showCommands
-            Output which commands are ran to stdout
+        	Output which commands are ran to stdout
+      -cilium.skipLogs
+        	skip gathering logs if a test fails
       -cilium.testScope string
-            Specifies scope of test to be ran (k8s, Nightly, runtime)
-    $ ginkgo --focus "Policies*" -- --cilium.provision=false
+        	Specifies scope of test to be ran (k8s, Nightly, runtime)   
+    
 
 For more information about other built-in options to Ginkgo, consult the
 `Ginkgo documentation <https://onsi.github.io/ginkgo/>`_.
