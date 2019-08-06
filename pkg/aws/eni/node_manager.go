@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/trigger"
 
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -41,11 +40,12 @@ type nodeManagerAPI interface {
 	GetENIs(instanceID string) []*v2.ENI
 	GetSubnet(subnetID string) *types.Subnet
 	FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) *types.Subnet
-	Resync()
+	Resync() time.Time
+	UpdateENI(instanceID string, eni *v2.ENI)
 }
 
 type ec2API interface {
-	CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, error)
+	CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error)
 	DeleteNetworkInterface(eniID string) error
 	AttachNetworkInterface(index int64, instanceID, eniID string) (string, error)
 	ModifyNetworkInterface(eniID, attachmentID string, deleteOnTermination bool) error
@@ -99,8 +99,8 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 		MinInterval:     10 * time.Millisecond,
 		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
-			instancesAPI.Resync()
-			mngr.Resync()
+			syncTime := instancesAPI.Resync()
+			mngr.Resync(syncTime)
 		},
 	})
 	if err != nil {
@@ -232,18 +232,20 @@ type resyncStats struct {
 	nodesInDeficit      int
 }
 
-func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
+func (n *NodeManager) resyncNode(node *Node, stats *resyncStats, syncTime time.Time) {
 	node.mutex.Lock()
 
-	// Resync() is always called after resync of the instance data,
-	// mark node as resynced
-	node.resyncNeeded = false
-	allocationNeeded := node.recalculateLocked()
-	node.loggerLocked().WithFields(logrus.Fields{
-		fieldName:   node.name,
-		"available": node.stats.availableIPs,
-		"used":      node.stats.usedIPs,
-	}).Debug("Recalculated allocation requirements")
+	if syncTime.After(node.resyncNeeded) {
+		node.loggerLocked().Debug("Resetting resyncNeeded")
+		node.resyncNeeded = time.Time{}
+	}
+
+	node.recalculateLocked()
+	allocationNeeded := node.allocationNeeded()
+	if allocationNeeded {
+		node.waitingForAllocation = true
+		node.deficitResolver.Trigger()
+	}
 
 	stats.mutex.Lock()
 	stats.totalUsed += node.stats.usedIPs
@@ -261,10 +263,6 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
 		stats.nodesAtCapacity++
 	}
 	stats.mutex.Unlock()
-
-	if allocationNeeded && node.stats.remainingInterfaces > 0 {
-		node.deficitResolver.Trigger()
-	}
 	node.mutex.Unlock()
 
 	node.k8sSync.Trigger()
@@ -274,14 +272,14 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats) {
 // attendance is defined by the number of IPs needed to reach the configured
 // watermarks. Any updates to the node resource are synchronized to the
 // Kubernetes apiserver.
-func (n *NodeManager) Resync() {
+func (n *NodeManager) Resync(syncTime time.Time) {
 	stats := resyncStats{}
 	sem := semaphore.NewWeighted(n.parallelWorkers)
 
 	for _, node := range n.GetNodesByNeededAddresses() {
 		sem.Acquire(context.TODO(), 1)
 		go func(node *Node, stats *resyncStats) {
-			n.resyncNode(node, stats)
+			n.resyncNode(node, stats, syncTime)
 			sem.Release(1)
 		}(node, &stats)
 	}

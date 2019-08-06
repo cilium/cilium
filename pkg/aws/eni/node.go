@@ -59,17 +59,22 @@ type Node struct {
 	// printed that this node is out of adapters
 	lastMaxAdapterWarning time.Time
 
-	// resyncNeeded is true after changes have been requested via the EC2
-	// APIs but are not yet synced backed into the instances manager and
-	// allocation should be delayed until that has happened.
-	resyncNeeded bool
-
 	// instanceNotRunning is true when the EC2 instance backing the node is
 	// not running. This state is detected based on error messages returned
 	// when modifying instance state
 	instanceNotRunning bool
 
+	// waitingForAllocation is true when the node is subject to an
+	// allocation which must be performed before another allocation can be
+	// attempted
 	waitingForAllocation bool
+
+	// resyncNeeded is set to the current time when a resync with the EC2
+	// API is required. The timestamp is required to ensure that this is
+	// only reset if the resync started after the time stored in
+	// resyncNeeded. This is needed because resyncs and allocations happen
+	// in parallel.
+	resyncNeeded time.Time
 
 	enis map[string]v2.ENI
 
@@ -165,17 +170,18 @@ func (n *Node) updatedResource(resource *v2.CiliumNode) bool {
 		n.instanceNotRunning = false
 	}
 	n.resource = resource
-	allocationNeeded := n.recalculateLocked()
-	n.mutex.Unlock()
-
+	n.recalculateLocked()
+	allocationNeeded := n.allocationNeeded()
 	if allocationNeeded {
+		n.waitingForAllocation = true
 		n.deficitResolver.Trigger()
 	}
+	n.mutex.Unlock()
 
 	return allocationNeeded
 }
 
-func (n *Node) recalculateLocked() bool {
+func (n *Node) recalculateLocked() {
 	n.enis = map[string]v2.ENI{}
 	n.available = map[string]v2.AllocationIP{}
 	for _, e := range n.manager.instancesAPI.GetENIs(n.resource.Spec.ENI.InstanceID) {
@@ -192,22 +198,19 @@ func (n *Node) recalculateLocked() bool {
 	n.stats.usedIPs = len(n.resource.Status.IPAM.Used)
 	n.stats.availableIPs = len(n.available)
 	n.stats.neededIPs = calculateNeededIPs(n.stats.availableIPs, n.stats.usedIPs, n.resource.Spec.ENI.PreAllocate, n.resource.Spec.ENI.MinAllocate)
-	allocationNeeded := !n.resyncNeeded && !n.waitingForAllocation && n.stats.neededIPs > 0
 
 	n.loggerLocked().WithFields(logrus.Fields{
 		"available":            n.stats.availableIPs,
 		"used":                 n.stats.usedIPs,
 		"toAlloc":              n.stats.neededIPs,
-		"resyncNeeded":         n.resyncNeeded,
 		"waitingForAllocation": n.waitingForAllocation,
+		"resyncNeeded":         n.resyncNeeded,
 	}).Debug("Recalculated needed addresses")
+}
 
-	if allocationNeeded {
-		n.waitingForAllocation = true
-		n.resyncNeeded = true
-	}
-
-	return allocationNeeded
+// allocationNeeded returns true if this node requires IPs to be allocated
+func (n *Node) allocationNeeded() bool {
+	return !n.waitingForAllocation && n.resyncNeeded.IsZero() && n.stats.neededIPs > 0
 }
 
 // ENIs returns a copy of all ENIs attached to the node
@@ -319,7 +322,7 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 	scopedLog.Info("No more IPs available, creating new ENI")
 	n.mutex.RUnlock()
 
-	eniID, err := n.manager.ec2API.CreateNetworkInterface(toAllocate, s.ID, desc, securityGroups)
+	eniID, eni, err := n.manager.ec2API.CreateNetworkInterface(toAllocate, s.ID, desc, securityGroups)
 	if err != nil {
 		n.manager.metricsAPI.IncENIAllocationAttempt("ENI creation failed", s.ID)
 		return fmt.Errorf("unable to create ENI: %s", err)
@@ -362,6 +365,8 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 		"index":        index,
 	})
 
+	eni.Number = int(index)
+
 	scopedLog.Info("Attached ENI to instance")
 
 	if nodeResource.Spec.ENI.DeleteOnTermination {
@@ -382,6 +387,9 @@ func (n *Node) allocateENI(s *types.Subnet, a *allocatableResources) error {
 			return fmt.Errorf("unable to mark ENI for deletion on termination: %s", err)
 		}
 	}
+
+	// Add the information of the created ENI to the instances manager
+	n.manager.instancesAPI.UpdateENI(n.resource.Spec.ENI.InstanceID, eni)
 
 	n.manager.metricsAPI.IncENIAllocationAttempt("success", s.ID)
 	n.manager.metricsAPI.AddIPAllocation(s.ID, toAllocate)
@@ -578,6 +586,11 @@ func (n *Node) ResolveIPDeficit() error {
 
 	err := n.resolveIPDeficit()
 	n.mutex.Lock()
+	if err == nil {
+		n.loggerLocked().Debug("Setting resync needed")
+		n.resyncNeeded = time.Now()
+	}
+	n.recalculateLocked()
 	n.waitingForAllocation = false
 	n.mutex.Unlock()
 	n.manager.resyncTrigger.Trigger()

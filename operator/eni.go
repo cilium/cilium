@@ -154,8 +154,8 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int) error {
 			controller.ControllerParams{
 				RunInterval: time.Minute,
 				DoFunc: func(_ context.Context) error {
-					instances.Resync()
-					nodeManager.Resync()
+					syncTime := instances.Resync()
+					nodeManager.Resync(syncTime)
 					return nil
 				},
 			})

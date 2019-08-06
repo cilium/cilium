@@ -35,13 +35,13 @@ type MockSuite struct{}
 var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
-	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}})
+	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
-	eniID1, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID1, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
 
-	eniID2, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	eniID2, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
 
 	_, err = api.AttachNetworkInterface(0, "i-1", eniID1)
@@ -78,13 +78,13 @@ func (e *MockSuite) TestMock(c *check.C) {
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {
-	api := NewAPI([]*types.Subnet{})
+	api := NewAPI([]*types.Subnet{}, []*types.Vpc{})
 	c.Assert(api, check.Not(check.IsNil))
 
 	mockError := errors.New("error")
 
 	api.SetMockError(CreateNetworkInterface, mockError)
-	_, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	_, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(AttachNetworkInterface, mockError)
@@ -105,7 +105,7 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 }
 
 func (e *MockSuite) TestSetDelay(c *check.C) {
-	api := NewAPI([]*types.Subnet{})
+	api := NewAPI([]*types.Subnet{}, []*types.Vpc{})
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetDelay(AllOperations, time.Second)
@@ -117,10 +117,10 @@ func (e *MockSuite) TestSetDelay(c *check.C) {
 }
 
 func (e *MockSuite) TestSetLimiter(c *check.C) {
-	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}})
+	api := NewAPI([]*types.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*types.Vpc{{ID: "v-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)
-	_, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
+	_, _, err := api.CreateNetworkInterface(8, "s-1", "desc", []string{"sg1", "sg2"})
 	c.Assert(err, check.IsNil)
 }
