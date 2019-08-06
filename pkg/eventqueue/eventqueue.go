@@ -17,6 +17,7 @@ package eventqueue
 import (
 	"reflect"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -122,6 +123,10 @@ type Event struct {
 	// stats is a field which contains information about when this event is
 	// enqueued, dequeued, etc.
 	stats eventStatistics
+
+	// enqueued is an atomic boolean that specifies whether this event has
+	// been enqueued on an EventQueue.
+	enqueued int32
 }
 
 type eventStatistics struct {
@@ -166,10 +171,16 @@ func (ev *Event) WasCancelled() bool {
 // Enqueue pushes the given event onto the EventQueue. If the queue has been
 // stopped, the Event will not be enqueued, and its cancel channel will be
 // closed, indicating that the Event was not ran. This function may block if
-// the queue is at its capacity for events.
+// the queue is at its capacity for events. If a single Event has Enqueue
+// called on it multiple times asynchronously, there is no guarantee as to
+// which one will return the channel which passes results back to the caller.
 func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
-
 	if q.notSafeToAccess() || ev == nil {
+		return nil
+	}
+
+	// Events can only be enqueued once.
+	if atomic.AddInt32(&ev.enqueued, 1) > 1 {
 		return nil
 	}
 
