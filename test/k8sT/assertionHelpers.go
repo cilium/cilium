@@ -118,15 +118,18 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	err := vm.CiliumInstall(options)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
+	ExpectCiliumRunning(vm)
+
+	By("Installing DNS Deployment")
+	_ = vm.Apply(helpers.DNSDeployment())
+
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationFlannel:
-		ExpectCiliumRunning(vm)
 		By("Installing Flannel")
 		vm.Apply(helpers.GetFilePath("../examples/kubernetes/addons/flannel/flannel.yaml"))
 	default:
 	}
 
-	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
 	ExpectCiliumReady(vm)
 	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
