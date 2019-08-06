@@ -890,6 +890,13 @@ EOF`, k, v)
 			secondNSclusterIP, _, err = kubectl.GetServiceHostPort(secondNS, app1Service)
 			Expect(err).To(BeNil(), "Cannot get service on %q namespace", secondNS)
 
+			for _, ns := range []string{helpers.DefaultNamespace, secondNS} {
+				By("Waiting for backends to be plumbed for %s in %s namespace", app1Service, ns)
+				err = kubectl.WaitForServiceEndpoints(
+					ns, "", app1Service,
+					helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "Service %q in namespace %q is not ready after timeout", app1Service, ns)
+			}
 		})
 
 		AfterEach(func() {
