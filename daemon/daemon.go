@@ -1132,3 +1132,7 @@ func (d *Daemon) GetNetConf() *cnitypes.NetConf {
 func (d *Daemon) UpdateCiliumNodeResource() {
 	d.nodeDiscovery.UpdateCiliumNodeResource(d)
 }
+
+func (d *Daemon) LXCMap() *lxcmap.LXCMap {
+	return d.lxcMap
+}

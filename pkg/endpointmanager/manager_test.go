@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -50,6 +51,10 @@ var _ = Suite(&EndpointManagerSuite{})
 
 func (s *EndpointManagerSuite) SetUpSuite(c *C) {
 	s.repo = policy.NewPolicyRepository()
+}
+
+func (s *EndpointManagerSuite) LXCMap() *lxcmap.LXCMap {
+	return nil
 }
 
 func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {

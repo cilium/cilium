@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -70,6 +71,8 @@ type Owner interface {
 
 	// UpdateIdentities propagates identity updates to selectors
 	UpdateIdentities(added, deleted cache.IdentityCache)
+
+	LXCMap() *lxcmap.LXCMap
 }
 
 // EndpointInfoSource returns information about an endpoint being proxied.

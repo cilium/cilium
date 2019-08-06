@@ -417,7 +417,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
 	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap)
-	err = e.LXCMap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+	err = e.owner.LXCMap().WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))

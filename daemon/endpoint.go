@@ -246,9 +246,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	// TODO find better place to put this!
-	ep.LXCMap = d.lxcMap
-
 	err = endpointmanager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	logger := ep.Logger(daemonSubsys)
 	if err != nil {

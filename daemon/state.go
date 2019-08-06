@@ -244,9 +244,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
 
-		// Best place to insert this?
-		ep.LXCMap = d.lxcMap
-
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
 		// not in a goroutine) because regenerateRestoredEndpoints must guarantee

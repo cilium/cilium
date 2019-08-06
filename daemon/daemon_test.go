@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -74,6 +75,7 @@ type DaemonSuite struct {
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
 	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
 	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
+	OnLXCMap                  func() *lxcmap.LXCMap
 }
 
 func TestMain(m *testing.M) {
@@ -138,6 +140,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
 	ds.OnClearPolicyConsumers = nil
+	ds.OnLXCMap = nil
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
@@ -307,6 +310,13 @@ func (ds *DaemonSuite) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
 		return ds.OnClearPolicyConsumers(id)
 	}
 	panic("ClearPolicyConsumers should not have been called")
+}
+
+func (ds *DaemonSuite) LXCMap() *lxcmap.LXCMap {
+	if ds.OnLXCMap != nil {
+		return ds.OnLXCMap()
+	}
+	panic("LXCMap should not have been called")
 }
 
 func (ds *DaemonSuite) GetNodeSuffix() string {

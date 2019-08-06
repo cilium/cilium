@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -58,6 +59,10 @@ var _ = Suite(&suite)
 
 func (s *EndpointSuite) SetUpSuite(c *C) {
 	s.repo = policy.NewPolicyRepository()
+}
+
+func (s *EndpointSuite) LXCMap() *lxcmap.LXCMap {
+	return nil
 }
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {

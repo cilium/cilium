@@ -48,7 +48,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
@@ -281,8 +280,6 @@ type Endpoint struct {
 
 	// realizedBPFConfig is the config currently active in the BPF datapath.
 	realizedBPFConfig *bpfconfig.EndpointConfig
-
-	LXCMap *lxcmap.LXCMap `json:"-"`
 
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
