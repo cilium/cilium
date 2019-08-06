@@ -892,6 +892,20 @@ EOF`, k, v)
 
 		})
 
+		waitServiceBackendsPlumbed := func() {
+			for _, ns := range []string{helpers.DefaultNamespace, secondNS} {
+				By("Waiting for backends to be plumbed for %s in %s namespace", app1Service, ns)
+				err = kubectl.WaitForServiceEndpoints(
+					ns, "", app1Service,
+					helpers.HelperTimeout)
+				ExpectWithOffset(1, err).Should(BeNil(), "Service %q in namespace %q is not ready after timeout", app1Service, ns)
+			}
+		}
+
+		BeforeEach(func() {
+			waitServiceBackendsPlumbed()
+		})
+
 		AfterEach(func() {
 			// Explicitly do not check results to avoid incomplete teardown of test.
 			_ = kubectl.Delete(l3l4PolicySecondNS)
@@ -970,6 +984,9 @@ EOF`, k, v)
 			_, err = kubectl.CiliumPolicyAction(
 				secondNS, netpolNsSelector, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy cannot be applied")
+
+			// See GH-8781 for more context on why this is needed
+			waitServiceBackendsPlumbed()
 
 			By("Testing connectivity across namespaces with policy")
 			for _, pod := range []string{helpers.App2, helpers.App3} {
