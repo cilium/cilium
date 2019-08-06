@@ -70,6 +70,8 @@ Generate the required YAML file and deploy it:
      --namespace kube-system \
      --set global.cni.confPath=/var/snap/microk8s/current/args/cni-network \
      --set global.cni.customConf=true \
+     --set global.containerRuntime.integration=containerd \
+     --set global.containerRuntime.socketPath=/var/snap/microk8s/common/run/containerd.sock \
      > cilium.yaml
    kubectl create -f cilium.yaml
 
