@@ -17,6 +17,9 @@ and storage system and can act as a data source for `Grafana
 collectors like statsd, Prometheus requires the collectors to pull metrics from
 each source.
 
+To run Cilium with Prometheus metrics enabled, deploy it with the
+``global.prometheus=true`` Helm value set.
+
 All metrics are exported under the ``cilium`` Prometheus namespace. When
 running and collecting in Kubernetes they will be tagged with a pod name and
 namespace.
@@ -24,8 +27,9 @@ namespace.
 Installation
 ============
 
-All Cilium components already have the annotations to signal Prometheus whether
-to scrape metrics:
+When deployed with the Helm value ``global.prometheus=true``, all Cilium
+components will have the annotations to signal Prometheus whether to scrape
+metrics:
 
 .. code-block:: yaml
 
