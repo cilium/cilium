@@ -28,7 +28,7 @@ You can deploy the "connectivity-check" to test connectivity between pods.
 
 .. parsed-literal::
 
-    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
 
 It will deploy a simple probe and echo server running with multiple replicas.
 The probe will only report readiness while it can successfully reach the echo
