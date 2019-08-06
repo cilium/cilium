@@ -64,7 +64,22 @@ spec:
           volumeMounts:
           - mountPath: /var/run/cilium
             name: cilium-run
+{{- if .Values.global.etcd.enabled }}
+          - mountPath: /var/lib/etcd-config
+            name: etcd-config-path
+            readOnly: true
+{{- if or .Values.global.etcd.ssl .Values.global.etcd.managed }}
+          - mountPath: /var/lib/etcd-secrets
+            name: etcd-secrets
+            readOnly: true
+{{- end }}
+{{- end }}
       hostNetwork: true
+{{- if .Values.global.etcd.managed }}
+      # In managed etcd mode, Cilium must be able to resolve the DNS name of
+      # the etcd service
+      dnsPolicy: ClusterFirstWithHostNet
+{{- end }}
       restartPolicy: Always
       tolerations:
         - effect: NoSchedule
@@ -86,3 +101,22 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
+{{- if .Values.global.etcd.enabled }}
+        # To read the etcd config stored in config maps
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: etcd-config
+            path: etcd.config
+          name: cilium-config
+        name: etcd-config-path
+        # To read the k8s etcd secrets in case the user might want to use TLS
+{{- if or .Values.global.etcd.ssl .Values.global.etcd.managed }}
+      - name: etcd-secrets
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: cilium-etcd-secrets
+{{- end }}
+{{- end }}
+
