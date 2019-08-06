@@ -38,7 +38,6 @@ var bpfEndpointDeleteCmd = &cobra.Command{
 			Fatalf("Unable to parse IP '%s'", args[0])
 		}
 		lxcMap := lxcmap.NewMap(lxcmap.MapName)
-		defer lxcMap.Close()
 		if err := lxcMap.DeleteEntry(ip); err != nil {
 			Fatalf("Unable to delete endpoint entry: %s", err)
 		}

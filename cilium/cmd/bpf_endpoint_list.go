@@ -38,7 +38,6 @@ var bpfEndpointListCmd = &cobra.Command{
 
 		bpfEndpointList := make(map[string][]string)
 		lxcMap := lxcmap.NewMap(lxcmap.MapName)
-		defer lxcMap.Close()
 		if err := lxcMap.Dump(bpfEndpointList); err != nil {
 			os.Exit(1)
 		}
