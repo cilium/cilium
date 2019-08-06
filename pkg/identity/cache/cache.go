@@ -53,7 +53,7 @@ func GetIdentityCache() IdentityCache {
 
 		IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
-				if gi, ok := val.(globalIdentity); ok {
+				if gi, ok := val.(GlobalIdentity); ok {
 					cache[identity.NumericIdentity(id)] = gi.LabelArray
 				} else {
 					log.Warningf("Ignoring unknown identity type '%s': %+v",
@@ -81,7 +81,7 @@ func GetIdentities() IdentitiesModel {
 	identities := IdentitiesModel{}
 
 	IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
-		if gi, ok := val.(globalIdentity); ok {
+		if gi, ok := val.(GlobalIdentity); ok {
 			identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
 			identities = append(identities, identity.GetModel())
 		}
@@ -110,7 +110,7 @@ func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) 
 	id := identity.NumericIdentity(event.ID)
 	// Only create events have the key
 	if event.Typ == kvstore.EventTypeCreate {
-		if gi, ok := event.Key.(globalIdentity); ok {
+		if gi, ok := event.Key.(GlobalIdentity); ok {
 			// Un-delete the added ID if previously
 			// 'deleted' so that collected events can be
 			// processed in any order.
@@ -218,7 +218,7 @@ func LookupIdentity(lbls labels.Labels) *identity.Identity {
 	}
 
 	lblArray := lbls.LabelArray()
-	id, err := IdentityAllocator.Get(context.TODO(), globalIdentity{lblArray})
+	id, err := IdentityAllocator.Get(context.TODO(), GlobalIdentity{lblArray})
 	if err != nil {
 		return nil
 	}
@@ -292,7 +292,7 @@ func LookupIdentityByID(id identity.NumericIdentity) *identity.Identity {
 		return nil
 	}
 
-	if gi, ok := allocatorKey.(globalIdentity); ok {
+	if gi, ok := allocatorKey.(GlobalIdentity); ok {
 		return identity.NewIdentityFromLabelArray(id, gi.LabelArray)
 	}
 
