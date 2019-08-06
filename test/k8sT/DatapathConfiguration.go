@@ -81,7 +81,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	}
 
 	deployCilium := func(options []string) {
-		DeployCiliumAndDNS(kubectl)
+		DeployCiliumOptionsAndDNS(kubectl, options)
 
 		err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 		ExpectWithOffset(1, err).Should(BeNil(), "Pods are not ready after timeout")
