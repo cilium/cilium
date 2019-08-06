@@ -81,6 +81,12 @@ var (
 		"global.ipv4.enabled":           "true",
 		"global.ipv6.enabled":           "true",
 	}
+
+	flannelHelmOverrides = map[string]string{
+		"global.flannel.enabled": "true",
+		"global.ipv6.enabled":    "false",
+		"global.tunnel":          "disabled",
+	}
 )
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -1035,6 +1041,15 @@ func addIfNotOverwritten(options []string, field, value string) []string {
 func (kub *Kubectl) generateCiliumYaml(options []string, filename string) error {
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
+	}
+
+	switch GetCurrentIntegration() {
+	case CIIntegrationFlannel:
+		// Appending the options will override earlier options on CLI.
+		for k, v := range flannelHelmOverrides {
+			options = append(options, fmt.Sprintf("--set %s=%s", k, v))
+		}
+	default:
 	}
 
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
