@@ -20,7 +20,7 @@ spec:
   template:
     metadata:
       annotations:
-{{- if .Values.global.prometheus }} 
+{{- if .Values.global.prometheus }}
         prometheus.io/port: "6942"
         prometheus.io/scrape: "true"
 {{- end }}
@@ -31,6 +31,9 @@ spec:
       containers:
       - args:
         - --debug=$(CILIUM_DEBUG)
+{{- if .Values.global.prometheus }}
+        - --enable-metrics
+{{- end }}
         command:
         - cilium-operator
         env:
@@ -99,7 +102,7 @@ spec:
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
         name: cilium-operator
-{{- if .Values.global.prometheus }} 
+{{- if .Values.global.prometheus }}
         ports:
         - containerPort: 6942
           hostPort: 6942
