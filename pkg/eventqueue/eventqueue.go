@@ -17,6 +17,7 @@ package eventqueue
 import (
 	"reflect"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -123,6 +124,10 @@ type Event struct {
 	// stats is a field which contains information about when this event is
 	// enqueued, dequeued, etc.
 	stats eventStatistics
+
+	// enqueued is an atomic boolean that specifies whether this event has
+	// been enqueued on an EventQueue.
+	enqueued int32
 }
 
 type eventStatistics struct {
@@ -142,12 +147,13 @@ type eventStatistics struct {
 
 // NewEvent returns an Event with all fields initialized.
 func NewEvent(meta EventHandler) *Event {
-	return &Event{
+	ev := Event{
 		Metadata:     meta,
 		eventResults: make(chan interface{}, 1),
 		cancelled:    make(chan struct{}),
 		stats:        eventStatistics{},
 	}
+	return &ev
 }
 
 // WasCancelled returns whether the cancelled channel for the given Event has
@@ -169,8 +175,12 @@ func (ev *Event) WasCancelled() bool {
 // closed, indicating that the Event was not ran. This function may block if
 // the queue is at its capacity for events.
 func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
-
 	if q.notSafeToAccess() || ev == nil {
+		return nil
+	}
+
+	// Events can only be enqueued once.
+	if atomic.AddInt32(&ev.enqueued, 1) > 1 {
 		return nil
 	}
 
