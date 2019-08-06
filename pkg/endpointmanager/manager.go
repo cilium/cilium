@@ -404,7 +404,10 @@ func RegenerateAllEndpoints(regenMetadata *regeneration.ExternalRegenerationMeta
 	eps := GetEndpoints()
 	wg.Add(len(eps))
 
-	log.WithFields(logrus.Fields{"reason": regenMetadata.Reason}).Info("regenerating all endpoints")
+	// Dereference "reason" field outside of logging statement; see
+	// https://github.com/sirupsen/logrus/issues/1003.
+	reason := regenMetadata.Reason
+	log.WithFields(logrus.Fields{"reason": reason}).Info("regenerating all endpoints")
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			<-ep.RegenerateIfAlive(regenMetadata)
