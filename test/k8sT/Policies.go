@@ -971,7 +971,9 @@ EOF`, k, v)
 				secondNS, netpolNsSelector, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Policy cannot be applied")
 
+			By("Testing connectivity across namespaces with policy")
 			for _, pod := range []string{helpers.App2, helpers.App3} {
+				By("Checking that namespace %s cannot connect to %s:%s", helpers.DefaultNamespace, secondNS, pod)
 				// Make sure that the Default namespace can NOT connect to
 				// second namespace.
 				res := kubectl.ExecPodCmd(
@@ -980,6 +982,7 @@ EOF`, k, v)
 				res.ExpectFail("%q can curl to service, policy is not blocking"+
 					"communication to %q namespace", appPods[pod], secondNS)
 
+				By("Checking that pod %s within namespace %s can communicate with each other", pod, secondNS)
 				// Second namespace pods can connect to the same namespace based on policy.
 				res = kubectl.ExecPodCmd(
 					secondNS, appPodsNS[pod],
