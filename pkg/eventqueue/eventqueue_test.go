@@ -183,3 +183,22 @@ func (s *EventQueueSuite) TestDrain(c *C) {
 	// NewHangEvent.
 	c.Assert(nh3.processed, Equals, false)
 }
+
+func (s *EventQueueSuite) TestEnqueueTwice(c *C) {
+	q := NewEventQueue()
+	q.Run()
+
+	ev := NewEvent(&DummyEvent{})
+	res := q.Enqueue(ev)
+	select {
+	case <-res:
+	case <-time.After(5 * time.Second):
+		c.Fail()
+	}
+
+	res = q.Enqueue(ev)
+	c.Assert(res, IsNil)
+
+	q.Stop()
+	q.WaitToBeDrained()
+}
