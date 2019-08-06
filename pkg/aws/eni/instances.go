@@ -16,6 +16,8 @@
 package eni
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -24,9 +26,9 @@ import (
 )
 
 type instanceAPI interface {
-	GetInstances(vpcs VpcMap, subnets SubnetMap) (InstanceMap, error)
-	GetSubnets() (SubnetMap, error)
-	GetVpcs() (VpcMap, error)
+	GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error)
+	GetSubnets() (types.SubnetMap, error)
+	GetVpcs() (types.VpcMap, error)
 }
 
 // instance is the minimal representation of an AWS instance as needed by the
@@ -37,38 +39,13 @@ type instance struct {
 	enis map[string]*v2.ENI
 }
 
-// InstanceMap is the list of all instances indexed by instance ID
-type InstanceMap map[string]*instance
-
-// SubnetMap indexes AWS subnets by subnet ID
-type SubnetMap map[string]*types.Subnet
-
-// VpcMap indexes AWS VPCs by VPC ID
-type VpcMap map[string]*types.Vpc
-
-// Add adds an instance definition to the instance map. instanceMap may not be
-// subject to concurrent access while add() is used.
-func (m InstanceMap) Add(instanceID string, eni *v2.ENI) {
-	i, ok := m[instanceID]
-	if !ok {
-		i = &instance{}
-		m[instanceID] = i
-	}
-
-	if i.enis == nil {
-		i.enis = map[string]*v2.ENI{}
-	}
-
-	i.enis[eni.ID] = eni
-}
-
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
 	mutex      lock.RWMutex
-	instances  InstanceMap
-	subnets    SubnetMap
-	vpcs       VpcMap
+	instances  types.InstanceMap
+	subnets    types.SubnetMap
+	vpcs       types.VpcMap
 	api        instanceAPI
 	metricsAPI metricsAPI
 }
@@ -76,7 +53,7 @@ type InstancesManager struct {
 // NewInstancesManager returns a new instances manager
 func NewInstancesManager(api instanceAPI, metricsAPI metricsAPI) *InstancesManager {
 	return &InstancesManager{
-		instances:  InstanceMap{},
+		instances:  types.InstanceMap{},
 		api:        api,
 		metricsAPI: metricsAPI,
 	}
@@ -112,26 +89,29 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 }
 
 // Resync fetches the list of EC2 instances and subnets and updates the local
-// cache in the instanceManager
-func (m *InstancesManager) Resync() {
+// cache in the instanceManager. It returns the time when the resync has
+// started or time.Time{} if it did not complete.
+func (m *InstancesManager) Resync() time.Time {
 	m.metricsAPI.IncResyncCount()
+
+	resyncStart := time.Now()
 
 	vpcs, err := m.api.GetVpcs()
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize EC2 VPC list")
-		return
+		return time.Time{}
 	}
 
 	subnets, err := m.api.GetSubnets()
 	if err != nil {
 		log.WithError(err).Warning("Unable to retrieve EC2 subnets list")
-		return
+		return time.Time{}
 	}
 
 	instances, err := m.api.GetInstances(vpcs, subnets)
 	if err != nil {
 		log.WithError(err).Warning("Unable to synchronize EC2 interface list")
-		return
+		return time.Time{}
 	}
 
 	log.WithFields(logrus.Fields{
@@ -145,6 +125,8 @@ func (m *InstancesManager) Resync() {
 	m.subnets = subnets
 	m.vpcs = vpcs
 	m.mutex.Unlock()
+
+	return resyncStart
 }
 
 // GetENI returns the ENI of an instance at a particular interface index
@@ -165,16 +147,16 @@ func (m *InstancesManager) GetENIs(instanceID string) []*v2.ENI {
 
 // getENIs returns the list of ENIs associated with a particular instance
 func (m *InstancesManager) getENIs(instanceID string) []*v2.ENI {
-	enis := []*v2.ENI{}
-
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
+	return m.instances.Get(instanceID)
+}
 
-	if i, ok := m.instances[instanceID]; ok {
-		for _, e := range i.enis {
-			enis = append(enis, e.DeepCopy())
-		}
-	}
-
-	return enis
+// UpdateENI updates the ENI definition of an ENI for a particular instance. If
+// the ENI is already known, the definition is updated, otherwise the ENI is
+// added to the instance.
+func (m *InstancesManager) UpdateENI(instanceID string, eni *v2.ENI) {
+	m.mutex.Lock()
+	m.instances.Update(instanceID, eni)
+	m.mutex.Unlock()
 }

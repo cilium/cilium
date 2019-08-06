@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -109,7 +108,7 @@ func (c *Client) describeNetworkInterfaces() ([]ec2.NetworkInterface, error) {
 
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
 // converts it into a v2. ENI object
-func parseENI(iface *ec2.NetworkInterface, vpcs eni.VpcMap, subnets eni.SubnetMap) (instanceID string, eni *v2.ENI, err error) {
+func parseENI(iface *ec2.NetworkInterface, vpcs types.VpcMap, subnets types.SubnetMap) (instanceID string, eni *v2.ENI, err error) {
 	if iface.PrivateIpAddress == nil {
 		err = fmt.Errorf("ENI has no IP address")
 		return
@@ -146,16 +145,20 @@ func parseENI(iface *ec2.NetworkInterface, vpcs eni.VpcMap, subnets eni.SubnetMa
 	if iface.SubnetId != nil {
 		eni.Subnet.ID = *iface.SubnetId
 
-		if subnet, ok := subnets[eni.Subnet.ID]; ok {
-			eni.Subnet.CIDR = subnet.CIDR
+		if subnets != nil {
+			if subnet, ok := subnets[eni.Subnet.ID]; ok {
+				eni.Subnet.CIDR = subnet.CIDR
+			}
 		}
 	}
 
 	if iface.VpcId != nil {
 		eni.VPC.ID = *iface.VpcId
 
-		if vpc, ok := vpcs[eni.VPC.ID]; ok {
-			eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
+		if vpcs != nil {
+			if vpc, ok := vpcs[eni.VPC.ID]; ok {
+				eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
+			}
 		}
 	}
 
@@ -176,8 +179,8 @@ func parseENI(iface *ec2.NetworkInterface, vpcs eni.VpcMap, subnets eni.SubnetMa
 
 // GetInstances returns the list of all instances including their ENIs as
 // instanceMap
-func (c *Client) GetInstances(vpcs eni.VpcMap, subnets eni.SubnetMap) (eni.InstanceMap, error) {
-	instances := eni.InstanceMap{}
+func (c *Client) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+	instances := types.InstanceMap{}
 
 	networkInterfaces, err := c.describeNetworkInterfaces()
 	if err != nil {
@@ -219,8 +222,8 @@ func (c *Client) describeVpcs() ([]ec2.Vpc, error) {
 }
 
 // GetVpcs retrieves and returns all Vpcs
-func (c *Client) GetVpcs() (eni.VpcMap, error) {
-	vpcs := eni.VpcMap{}
+func (c *Client) GetVpcs() (types.VpcMap, error) {
+	vpcs := types.VpcMap{}
 
 	vpcList, err := c.describeVpcs()
 	if err != nil {
@@ -254,8 +257,8 @@ func (c *Client) describeSubnets() ([]ec2.Subnet, error) {
 }
 
 // GetSubnets returns all EC2 subnets as a subnetMap
-func (c *Client) GetSubnets() (eni.SubnetMap, error) {
-	subnets := eni.SubnetMap{}
+func (c *Client) GetSubnets() (types.SubnetMap, error) {
+	subnets := types.SubnetMap{}
 
 	subnetList, err := c.describeSubnets()
 	if err != nil {
@@ -293,7 +296,7 @@ func (c *Client) GetSubnets() (eni.SubnetMap, error) {
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, error) {
+func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
 	createReq := &ec2.CreateNetworkInterfaceInput{
 		Description:                    &desc,
 		SecondaryPrivateIpAddressCount: &toAllocate,
@@ -309,10 +312,21 @@ func (c *Client) CreateNetworkInterface(toAllocate int64, subnetID, desc string,
 	resp, err := create.Send()
 	c.metricsAPI.ObserveEC2APICall("CreateNetworkInterfaceRequest", deriveStatus(create.Request, err), sinceStart.Seconds())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return *resp.NetworkInterface.NetworkInterfaceId, nil
+	_, eni, err := parseENI(resp.NetworkInterface, nil, nil)
+	if err != nil {
+		// The error is ignored on purpose. The allocation itself has
+		// succeeded. The ability to parse and return the ENI
+		// information is optional. Returning the ENI ID is sufficient
+		// to allow for the caller to retrieve the ENI information via
+		// the API or wait for a regular sync to fetch the information.
+		return *resp.NetworkInterface.NetworkInterfaceId, nil, nil
+	}
+
+	return eni.ID, eni, nil
+
 }
 
 // DeleteNetworkInterface deletes an ENI with the specified ID
