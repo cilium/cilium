@@ -48,19 +48,21 @@ type API struct {
 	unattached map[string]*v2.ENI
 	enis       map[string]eniMap
 	subnets    map[string]*types.Subnet
+	vpcs       map[string]*types.Vpc
 	errors     map[Operation]error
 	delays     map[Operation]time.Duration
 	allocator  *ipallocator.Range
 	limiter    *rate.Limiter
 }
 
-func NewAPI(subnets []*types.Subnet) *API {
+func NewAPI(subnets []*types.Subnet, vpcs []*types.Vpc) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
 
 	api := &API{
 		unattached: map[string]*v2.ENI{},
 		enis:       map[string]eniMap{},
 		subnets:    map[string]*types.Subnet{},
+		vpcs:       map[string]*types.Vpc{},
 		allocator:  ipallocator.NewCIDRRange(cidr),
 		errors:     map[Operation]error{},
 		delays:     map[Operation]time.Duration{},
@@ -68,6 +70,10 @@ func NewAPI(subnets []*types.Subnet) *API {
 
 	for _, s := range subnets {
 		api.subnets[s.ID] = s
+	}
+
+	for _, v := range vpcs {
+		api.vpcs[v.ID] = v
 	}
 
 	return api
@@ -122,53 +128,6 @@ func (e *API) rateLimit() {
 	}
 }
 
-func (e *API) GetENI(instanceID string, index int) *v2.ENI {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	for _, eni := range e.enis[instanceID] {
-		if eni.Number == index {
-			return eni
-		}
-	}
-
-	return nil
-}
-
-func (e *API) GetENIs(instanceID string) (enis []*v2.ENI) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	for _, eni := range e.enis[instanceID] {
-		enis = append(enis, eni)
-	}
-	return
-}
-
-func (e *API) GetSubnet(subnetID string) *types.Subnet {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	return e.subnets[subnetID]
-}
-
-func (e *API) FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) (bestSubnet *types.Subnet) {
-	e.mutex.RLock()
-	defer e.mutex.RUnlock()
-
-	for _, s := range e.subnets {
-		if s.VpcID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
-			if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
-				bestSubnet = s
-			}
-		}
-	}
-	return
-}
-
-func (e *API) Resync() {
-}
-
 func (e *API) simulateDelay(op Operation) {
 	e.mutex.RLock()
 	delay, ok := e.delays[op]
@@ -178,7 +137,7 @@ func (e *API) simulateDelay(op Operation) {
 	}
 }
 
-func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, error) {
+func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, groups []string) (string, *v2.ENI, error) {
 	e.rateLimit()
 	e.simulateDelay(CreateNetworkInterface)
 
@@ -186,16 +145,16 @@ func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, gr
 	defer e.mutex.Unlock()
 
 	if err, ok := e.errors[CreateNetworkInterface]; ok {
-		return "", err
+		return "", nil, err
 	}
 
 	subnet, ok := e.subnets[subnetID]
 	if !ok {
-		return "", fmt.Errorf("subnet %s not found", subnetID)
+		return "", nil, fmt.Errorf("subnet %s not found", subnetID)
 	}
 
 	if int(toAllocate) > subnet.AvailableAddresses {
-		return "", fmt.Errorf("subnet %s has not enough addresses available", subnetID)
+		return "", nil, fmt.Errorf("subnet %s has not enough addresses available", subnetID)
 	}
 
 	eniID := uuid.NewUUID().String()
@@ -219,7 +178,7 @@ func (e *API) CreateNetworkInterface(toAllocate int64, subnetID, desc string, gr
 	subnet.AvailableAddresses -= int(toAllocate)
 
 	e.unattached[eniID] = eni
-	return eniID, nil
+	return eniID, eni, nil
 }
 
 func (e *API) DeleteNetworkInterface(eniID string) error {
@@ -320,4 +279,55 @@ func (e *API) AssignPrivateIpAddresses(eniID string, addresses int64) error {
 		}
 	}
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+}
+
+func (e *API) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (types.InstanceMap, error) {
+	instances := types.InstanceMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for instanceID, enis := range e.enis {
+		for _, eni := range enis {
+			if subnets != nil {
+				if subnet, ok := subnets[eni.Subnet.ID]; ok {
+					eni.Subnet.CIDR = subnet.CIDR
+				}
+			}
+
+			if vpcs != nil {
+				if vpc, ok := vpcs[eni.VPC.ID]; ok {
+					eni.VPC.PrimaryCIDR = vpc.PrimaryCIDR
+				}
+			}
+
+			instances.Add(instanceID, eni)
+		}
+	}
+
+	return instances, nil
+}
+
+func (e *API) GetVpcs() (types.VpcMap, error) {
+	vpcs := types.VpcMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for _, v := range e.vpcs {
+		vpcs[v.ID] = v
+	}
+	return vpcs, nil
+}
+
+func (e *API) GetSubnets() (types.SubnetMap, error) {
+	subnets := types.SubnetMap{}
+
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	for _, s := range e.subnets {
+		subnets[s.ID] = s
+	}
+	return subnets, nil
 }
