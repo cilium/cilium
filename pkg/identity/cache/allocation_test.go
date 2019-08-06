@@ -174,7 +174,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 	defer close(watcher.stopChan)
 
 	lbls := labels.NewLabelsFromSortedList("id=foo")
-	key := globalIdentity{lbls.LabelArray()}
+	key := GlobalIdentity{lbls.LabelArray()}
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
