@@ -29,10 +29,10 @@ type instancesApiMock struct {
 	subnetsIteration   int
 }
 
-func (i *instancesApiMock) GetInstances(vpcs VpcMap, subnets SubnetMap) (m InstanceMap, err error) {
+func (i *instancesApiMock) GetInstances(vpcs types.VpcMap, subnets types.SubnetMap) (m types.InstanceMap, err error) {
 	i.instancesIteration++
 
-	m = InstanceMap{}
+	m = types.InstanceMap{}
 
 	m.Add("i-1", &v2.ENI{
 		ID:             "eni-1",
@@ -69,8 +69,8 @@ func (i *instancesApiMock) GetInstances(vpcs VpcMap, subnets SubnetMap) (m Insta
 	return
 }
 
-func (i *instancesApiMock) GetVpcs() (v VpcMap, err error) {
-	v = VpcMap{}
+func (i *instancesApiMock) GetVpcs() (v types.VpcMap, err error) {
+	v = types.VpcMap{}
 
 	v["vpc-0"] = &types.Vpc{
 		ID:          "vpc-0",
@@ -85,10 +85,10 @@ func (i *instancesApiMock) GetVpcs() (v VpcMap, err error) {
 	return
 }
 
-func (i *instancesApiMock) GetSubnets() (s SubnetMap, err error) {
+func (i *instancesApiMock) GetSubnets() (s types.SubnetMap, err error) {
 	i.subnetsIteration++
 
-	s = SubnetMap{}
+	s = types.SubnetMap{}
 
 	s["subnet-1"] = &types.Subnet{
 		ID:                 "subnet-1",
