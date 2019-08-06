@@ -891,13 +891,6 @@ type ENI struct {
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
-
-	// availabilityZone caches the availability zone of the ENI
-	availabilityZone string
-
-	// instanceID caches the instance ID to which this ENI is associated
-	// with
-	instanceID string
 }
 
 // AwsSubnet stores information regarding an AWS subnet
