@@ -139,25 +139,42 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldVersion, newV
 	}
 
 	testfunc := func() {
-		// Making sure that we deleted the  cilium ds. No assert message
-		// because maybe is not present
-		_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+		By("Deleting Cilium, CoreDNS, and etcd-operator...")
+		// Making sure that we deleted the  cilium ds. No assert
+		// message because maybe is not present
+		if res := kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
+			log.Warningf("Unable to delete Cilium DaemonSet: %s", res.OutputPrettyPrint())
+		}
 
-		// Delete kube-dns because if not will be a restore the old endpoints
-		// from master instead of create the new ones.
-		_ = kubectl.Delete(helpers.DNSDeployment())
+		// Delete kube-dns because if not will be a restore the old
+		// endpoints from master instead of create the new ones.
+		if res := kubectl.Delete(helpers.DNSDeployment()); !res.WasSuccessful() {
+			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
+		}
 
-		// Delete all etcd pods otherwise they will be kept running but the bpf
-		// endpoints will be cleaned up when we restart cilium with a clean state
-		// a couple lines bellow
-		_ = kubectl.DeleteResource("pods", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.KubeSystemNamespace))
+		// Delete all etcd pods otherwise they will be kept running but
+		// the bpf endpoints will be cleaned up when we restart cilium
+		// with a clean state a couple lines bellow
+		kubectl.DeleteETCDOperator()
 
+		By("Waiting for pods to be terminated..")
 		ExpectAllPodsTerminated(kubectl)
 
-		By("Installing a clean state of Cilium")
+		By("Cleaning Cilium state")
+		err = kubectl.CiliumInstallVersion(
+			"cilium-ds-clean-only.yaml",
+			"cilium-cm-patch-clean-cilium-state.yaml",
+			oldVersion,
+		)
+		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
+
+		err := kubectl.WaitforPods(helpers.KubeSystemNamespace, "-l k8s-app=cilium", longTimeout)
+		ExpectWithOffset(1, err).Should(BeNil(), "Cleaning state did not complete in time")
+
+		By("Deploying Cilium")
 		err = kubectl.CiliumInstallVersion(
 			helpers.CiliumDefaultDSPatch,
-			"cilium-cm-patch-clean-cilium-state.yaml",
+			"cilium-cm-patch.yaml",
 			oldVersion,
 		)
 		Expect(err).To(BeNil(), "Cilium %q was not able to be deployed", oldVersion)
