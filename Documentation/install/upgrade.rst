@@ -34,7 +34,7 @@ avoids ErrImagePull errors during the rollout.
 .. code:: bash
 
     helm template cilium \
-      --namespace=kubesystem \
+      --namespace=kube-system \
       --set preflight.enabled=true \
       --set agent.enabled=false \
       --set config.enabled=false \
@@ -498,7 +498,7 @@ Generate the latest ConfigMap
 .. code:: bash
 
     helm template cilium \
-      --namespace=kubesystem \
+      --namespace=kube-system \
       --set agent.enabled=false \
       --set config.enabled=true \
       --set operator.enabled=false \
