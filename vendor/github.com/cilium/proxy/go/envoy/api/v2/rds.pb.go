@@ -14,6 +14,8 @@ import (
 	_ "github.com/lyft/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -374,6 +376,20 @@ type RouteDiscoveryServiceServer interface {
 	FetchRoutes(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
 }
 
+// UnimplementedRouteDiscoveryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedRouteDiscoveryServiceServer struct {
+}
+
+func (*UnimplementedRouteDiscoveryServiceServer) StreamRoutes(srv RouteDiscoveryService_StreamRoutesServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamRoutes not implemented")
+}
+func (*UnimplementedRouteDiscoveryServiceServer) DeltaRoutes(srv RouteDiscoveryService_DeltaRoutesServer) error {
+	return status.Errorf(codes.Unimplemented, "method DeltaRoutes not implemented")
+}
+func (*UnimplementedRouteDiscoveryServiceServer) FetchRoutes(ctx context.Context, req *DiscoveryRequest) (*DiscoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchRoutes not implemented")
+}
+
 func RegisterRouteDiscoveryServiceServer(s *grpc.Server, srv RouteDiscoveryServiceServer) {
 	s.RegisterService(&_RouteDiscoveryService_serviceDesc, srv)
 }
@@ -523,6 +539,14 @@ func (x *virtualHostDiscoveryServiceDeltaVirtualHostsClient) Recv() (*DeltaDisco
 // VirtualHostDiscoveryServiceServer is the server API for VirtualHostDiscoveryService service.
 type VirtualHostDiscoveryServiceServer interface {
 	DeltaVirtualHosts(VirtualHostDiscoveryService_DeltaVirtualHostsServer) error
+}
+
+// UnimplementedVirtualHostDiscoveryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedVirtualHostDiscoveryServiceServer struct {
+}
+
+func (*UnimplementedVirtualHostDiscoveryServiceServer) DeltaVirtualHosts(srv VirtualHostDiscoveryService_DeltaVirtualHostsServer) error {
+	return status.Errorf(codes.Unimplemented, "method DeltaVirtualHosts not implemented")
 }
 
 func RegisterVirtualHostDiscoveryServiceServer(s *grpc.Server, srv VirtualHostDiscoveryServiceServer) {
