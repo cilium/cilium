@@ -31,6 +31,7 @@ spec:
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map
+        - --debug-verbose=envoy
         command:
         - cilium-agent
         env:
