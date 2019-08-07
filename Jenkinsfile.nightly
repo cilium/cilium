@@ -100,7 +100,7 @@ pipeline {
             steps {
                 parallel(
                     "Nightly":{
-                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --timeout 450m --failFast=${FAILFAST}'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="Nightly*" -v --failFast=${FAILFAST} -- -cilium.timeout=450m'
                     },
                 )
             }
