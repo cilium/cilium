@@ -187,6 +187,10 @@ func (d *Daemon) compileBase() error {
 		}
 	}
 
+	if option.Config.EnableEndpointRoutes == true {
+		args[initArgMode] = "routed"
+	}
+
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
 	}
