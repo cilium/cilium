@@ -189,10 +189,13 @@ func (ds *DaemonSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	ev2EnqueueCh := make(chan struct{})
 
 	go func() {
-		ep.EventQueue.Enqueue(ev)
-		ep.EventQueue.Enqueue(ev2)
+		_, err := ep.EventQueue.Enqueue(ev)
+		c.Assert(err, IsNil)
+		_, err = ep.EventQueue.Enqueue(ev2)
+		c.Assert(err, IsNil)
 		close(ev2EnqueueCh)
-		ep.EventQueue.Enqueue(ev3)
+		_, err = ep.EventQueue.Enqueue(ev3)
+		c.Assert(err, IsNil)
 	}()
 
 	// Ensure that the second event is enqueued before proceeding further, as
