@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-{{- if .Values.global.prometheus }}
+{{- if and .Values.global.prometheus.enabled (not .Values.global.prometheus.serviceMonitor.enabled) }}
         prometheus.io/port: "9090"
         prometheus.io/scrape: "true"
 {{- end }}
@@ -99,7 +99,7 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         name: cilium-agent
-{{- if .Values.global.prometheus }}
+{{- if .Values.global.prometheus.enabled }}
         ports:
         - containerPort: 9090
           hostPort: 9090

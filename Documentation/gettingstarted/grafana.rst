@@ -44,7 +44,7 @@ Both ``cilium-agent`` and ``cilium-operator`` do not expose metrics by
 default. Enabling metrics for these services will open ports ``9090``
 and ``6942`` on all nodes of your cluster where these components are running.
 
-To deploy Cilium with metrics enabled, set the ``global.prometheus=true`` Helm
+To deploy Cilium with metrics enabled, set the ``global.prometheus.enabled=true`` Helm
 value:
 
 .. include:: k8s-install-download-release.rst
@@ -55,13 +55,13 @@ Generate the required YAML file and deploy it:
 
    helm template cilium \
       --namespace kube-system \
-      --set global.prometheus=true \
+      --set global.prometheus.enabled=true \
       > cilium.yaml
    kubectl create -f cilium.yaml
 
 .. note::
 
-   You can combine the ``global.prometheus=true`` option with any of
+   You can combine the ``global.prometheus.enabled=true`` option with any of
    the other installation guides.
 
 How to access Grafana

@@ -68,7 +68,10 @@ global:
     #verbose: flow
 
   # prometheus enables
-  prometheus: false
+  prometheus:
+    enabled: false
+    serviceMonitor:
+      enabled: false
 
   # installIptablesRules enables installation of iptables rules to allow for
   # TPROXY (L7 proxy injection), itpables based masquerading and compatibility
