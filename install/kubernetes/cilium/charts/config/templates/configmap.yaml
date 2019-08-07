@@ -49,7 +49,7 @@ data:
   debug-verbose: "{{ .Values.global.debug.verbose }}"
 {{- end }}
 
-{{- if .Values.global.prometheus }}
+{{- if .Values.global.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
   # which the Cilium agents will have their metrics exposed.
   # This option deprecates the "prometheus-serve-addr" in the
