@@ -84,8 +84,9 @@ func (s *EventQueueSuite) TestDrained(c *C) {
 
 func (s *EventQueueSuite) TestNilEvent(c *C) {
 	q := NewEventQueue()
-	res := q.Enqueue(nil)
+	res, err := q.Enqueue(nil)
 	c.Assert(res, IsNil)
+	c.Assert(err, Not(IsNil))
 }
 
 func (s *EventQueueSuite) TestNewEvent(c *C) {
@@ -105,14 +106,16 @@ func (s *EventQueueSuite) TestEventCancelAfterQueueClosed(c *C) {
 	q := NewEventQueue()
 	q.Run()
 	ev := NewEvent(&DummyEvent{})
-	q.Enqueue(ev)
+	_, err := q.Enqueue(ev)
+	c.Assert(err, IsNil)
 
 	// Event should not have been cancelled since queue was not closed.
 	c.Assert(ev.WasCancelled(), Equals, false)
 	q.Stop()
 
 	ev = NewEvent(&DummyEvent{})
-	q.Enqueue(ev)
+	_, err = q.Enqueue(ev)
+	c.Assert(err, IsNil)
 	c.Assert(ev.WasCancelled(), Equals, true)
 }
 
@@ -142,19 +145,25 @@ func (s *EventQueueSuite) TestDrain(c *C) {
 	nh3 := CreateHangEvent()
 
 	ev := NewEvent(nh1)
-	q.Enqueue(ev)
+	_, err := q.Enqueue(ev)
+	c.Assert(err, IsNil)
 
 	ev2 := NewEvent(nh2)
 	ev3 := NewEvent(nh3)
 
-	q.Enqueue(ev2)
+	_, err = q.Enqueue(ev2)
+	c.Assert(err, IsNil)
 
-	var rcvChan <-chan interface{}
+	var (
+		rcvChan <-chan interface{}
+		err2    error
+	)
 
 	enq := make(chan struct{})
 
 	go func() {
-		rcvChan = q.Enqueue(ev3)
+		rcvChan, err2 = q.Enqueue(ev3)
+		c.Assert(err2, IsNil)
 		enq <- struct{}{}
 	}()
 
@@ -189,15 +198,17 @@ func (s *EventQueueSuite) TestEnqueueTwice(c *C) {
 	q.Run()
 
 	ev := NewEvent(&DummyEvent{})
-	res := q.Enqueue(ev)
+	res, err := q.Enqueue(ev)
+	c.Assert(err, IsNil)
 	select {
 	case <-res:
 	case <-time.After(5 * time.Second):
 		c.Fail()
 	}
 
-	res = q.Enqueue(ev)
+	res, err = q.Enqueue(ev)
 	c.Assert(res, IsNil)
+	c.Assert(err, Not(IsNil))
 
 	q.Stop()
 	q.WaitToBeDrained()
