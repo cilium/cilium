@@ -752,3 +752,97 @@ Conversion steps - :ref:`DNS Proxy`
 #. Restart the cilium pods with the new ConfigMap. They will restore Endpoint
    policy with DNS information from intercepted DNS requests stored in the
    cache
+
+
+Migrating from kvstore-backed identities to kubernetes CRD-backed identities
+----------------------------------------------------------------------------
+
+Beginning with cilium 1.6, kubernetes CRD-backed security identities can be
+used for smaller clusters. Along with other changes in 1.6 this allows
+kvstore-free operation if desired. It is possible to migrate identities from an
+existing kvstore deployment to CRD-backed identities. This minimizes
+disruptions to traffic as the update rolls out through the cluster.
+
+Affected versions
+~~~~~~~~~~~~~~~~~
+
+* Cilium 1.6 deployments using kvstore-backend identities
+
+Mitigation
+~~~~~~~~~~
+
+When identities change, existing connections can be disrupted while cilium
+initializes and synchronizes with the shared identity store. The disruption
+occurs when new numeric identities are used for existing pods on some instances
+and others are used on others. When converting to CRD-backed identities, it is
+possible to pre-allocate CRD identities so that the numeric identities match
+those in the kvstore. This allows new and old cilium instances in the rollout
+to agree.
+
+The steps below show an example of such a migration. It is safe to re-run the
+command if desired. It will identify already allocated identities or ones that
+cannot be migrated. Note that identity ``34815`` is migrated, ``17003`` is
+already migrated, and ``11730`` has a conflict and a new ID allocated for those
+labels.
+
+The steps below assume a stable cluster with no new identities created during
+the rollout. Once a cilium using CRD-backed identities is running, it may begin
+allocating identities in a way that conflicts with older ones in the kvstore. 
+
+The cilium preflight manifest requires etcd support and can be build with:
+
+.. code:: bash
+
+    helm template cilium \
+      --namespace=kube-system \
+      --set preflight.enabled=true \
+      --set agent.enabled=false \
+      --set config.enabled=false \
+      --set operator.enabled=false \
+      --set global.etcd.enabled=true \
+      --set global.etcd.ssl=true \
+      --set global.etcd.managed=true
+      > cilium-preflight.yaml
+    kubectl create cilium-preflight.yaml
+
+
+Example migration
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: shell-session
+
+      $ kubectl exec -n kube-system cilium-preflight-1234 -- cilium preflight migrate-identity --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml
+      INFO[0000] Setting up kvstore client
+      INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.33.11:2379]" subsys=kvstore
+      INFO[0000] Setting up kubernetes client
+      INFO[0000] Establishing connection to apiserver          host="https://192.168.33.11:6443" subsys=k8s
+      INFO[0000] Connected to apiserver                        subsys=k8s
+      INFO[0000] Got lease ID 29c66c67db8870c8                 subsys=kvstore
+      INFO[0000] Got lock lease ID 29c66c67db8870ca            subsys=kvstore
+      INFO[0000] Successfully verified version of etcd endpoint  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.33.11:2379]" etcdEndpoint="https://192.168.33.11:2379" subsys=kvstore version=3.3.13
+      INFO[0000] CRD (CustomResourceDefinition) is installed and up-to-date  name=CiliumNetworkPolicy/v2 subsys=k8s
+      INFO[0000] Updating CRD (CustomResourceDefinition)...    name=v2.CiliumEndpoint subsys=k8s
+      INFO[0001] CRD (CustomResourceDefinition) is installed and up-to-date  name=v2.CiliumEndpoint subsys=k8s
+      INFO[0001] Updating CRD (CustomResourceDefinition)...    name=v2.CiliumNode subsys=k8s
+      INFO[0002] CRD (CustomResourceDefinition) is installed and up-to-date  name=v2.CiliumNode subsys=k8s
+      INFO[0002] Updating CRD (CustomResourceDefinition)...    name=v2.CiliumIdentity subsys=k8s
+      INFO[0003] CRD (CustomResourceDefinition) is installed and up-to-date  name=v2.CiliumIdentity subsys=k8s
+      INFO[0003] Listing identities in kvstore
+      INFO[0003] Migrating identities to CRD
+      INFO[0003] Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination  labels="map[]" subsys=crd-allocator
+      INFO[0003] Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination  labels="map[]" subsys=crd-allocator
+      INFO[0003] Skipped non-kubernetes labels when labelling ciliumidentity. All labels will still be used in identity determination  labels="map[]" subsys=crd-allocator
+      INFO[0003] Migrated identity                             identity=34815 identityLabels="k8s:class=tiefighter;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=empire;"
+      WARN[0003] ID is allocated to a different key in CRD. A new ID will be allocated for the this key  identityLabels="k8s:class=deathstar;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=empire;" oldIdentity=11730
+      INFO[0003] Reusing existing global key                   key="k8s:class=deathstar;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=empire;" subsys=allocator
+      INFO[0003] New ID allocated for key in CRD               identity=17281 identityLabels="k8s:class=deathstar;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=empire;" oldIdentity=11730
+      INFO[0003] ID was already allocated to this key. It is already migrated  identity=17003 identityLabels="k8s:class=xwing;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=alliance;"
+
+Clearing CRD identities
+~~~~~~~~~~~~~~~~~~~~~~~
+ 
+If a migration has gone wrong, it possible to start with a clean slate. Ensure that no cilium instances are running with identity-allocation-mode crd and execute:
+
+.. code-block:: shell-session
+
+      $ kubectl delete ciliumid --all
