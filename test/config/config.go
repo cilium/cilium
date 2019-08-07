@@ -14,7 +14,10 @@
 
 package config
 
-import "flag"
+import (
+	"flag"
+	"time"
+)
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
@@ -24,6 +27,7 @@ type CiliumTestConfigType struct {
 	ShowCommands     bool
 	TestScope        string
 	SkipLogGathering bool
+	Timeout          time.Duration
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -44,4 +48,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Output which commands are ran to stdout")
 	flag.StringVar(&c.TestScope, "cilium.testScope", "",
 		"Specifies scope of test to be ran (k8s, Nightly, runtime)")
+	flag.DurationVar(&c.Timeout, "cilium.timeout", 24*time.Hour,
+		"Specifies timeout for test run")
 }
