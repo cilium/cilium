@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -61,13 +62,11 @@ type EventQueue struct {
 	// closeOnce is used to ensure that the EventQueue can only be closed once.
 	closeOnce sync.Once
 
-	// closeWaitGroup ensures that the events channel is not closed before all
-	// events have been consumed off of it.
-	closeWaitGroup sync.WaitGroup
-
 	// name is used to differentiate this EventQueue from other EventQueues that
 	// are also running in logs
 	name string
+
+	eventsMu lock.RWMutex
 }
 
 // NewEventQueue returns an EventQueue with a capacity for only one event at
@@ -174,9 +173,10 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 		return nil
 	}
 
-	// Track that event has been Enqueued.
-	q.closeWaitGroup.Add(1)
-	defer q.closeWaitGroup.Done()
+	// Multiple Enqueues can occur at the same time. Ensure that events channel
+	// is not closed while we are enqueueing events.
+	q.eventsMu.RLock()
+	defer q.eventsMu.RUnlock()
 
 	select {
 	// The event should be drained from the queue (e.g., it should not be
@@ -269,18 +269,12 @@ func (q *EventQueue) Stop() {
 		// immediately in Enqueue().
 		close(q.drain)
 
-		// Wait for all events which have been queued to be processed. If
-		// a large amount of events are continuously enqueued at this point,
-		// then this may block. But, in most scenarios, this should exit
-		// fairly quickly.
-		q.closeWaitGroup.Wait()
-
 		// Signal that the queue has been drained.
 		close(q.close)
 
-		// This will cause Run() to receive a nil event.
+		q.eventsMu.Lock()
 		close(q.events)
-
+		q.eventsMu.Unlock()
 	})
 }
 
