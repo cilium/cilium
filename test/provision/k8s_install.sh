@@ -42,9 +42,11 @@ source ${PROVISIONSRC}/helpers.bash
 sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
-retry_function "wget https://get.helm.sh/helm-v2.14.2-linux-amd64.tar.gz"
-tar xzvf helm-v2.14.2-linux-amd64.tar.gz
-mv linux-amd64/helm /usr/local/bin/
+if [[ "${SKIP_K8S_PROVISION}" == "false" ]]; then
+  retry_function "wget https://get.helm.sh/helm-v2.14.2-linux-amd64.tar.gz"
+  tar xzvf helm-v2.14.2-linux-amd64.tar.gz
+  mv linux-amd64/helm /usr/local/bin/
+fi
 
 # Install serial ttyS0 server
 cat <<EOF > /etc/systemd/system/serial-getty@ttyS0.service
