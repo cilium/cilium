@@ -16,6 +16,9 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 // EndpointRegenerationEvent contains all fields necessary to regenerate an endpoint.
@@ -100,6 +103,12 @@ func (ev *EndpointRevisionBumpEvent) Handle(res chan interface{}) {
 // succeeded, or if the event has been cancelled.
 func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 	epBumpEvent := eventqueue.NewEvent(&EndpointRevisionBumpEvent{Rev: rev, ep: e})
-	// Don't care about policy revision event results - it is best effort.
-	_ = e.EventQueue.Enqueue(epBumpEvent)
+	// Don't check policy revision event results - it is best effort.
+	_, err := e.EventQueue.Enqueue(epBumpEvent)
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			logfields.PolicyRevision: rev,
+			logfields.EndpointID:     e.ID,
+		}).Errorf("enqueue of EndpointRevisionBumpEvent failed: %s", err)
+	}
 }
