@@ -237,9 +237,7 @@ data:
   #
   container-runtime: {{ .Values.global.containerRuntime.integration }}
 
-{{- if .Values.global.masquerade }}
   masquerade: {{ .Values.global.masquerade | quote }}
-{{- end }}
 
 {{- if .Values.global.encryption.enabled }}
   enable-ipsec: {{ .Values.global.encryption.enabled | quote }}
