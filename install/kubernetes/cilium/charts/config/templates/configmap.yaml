@@ -238,6 +238,9 @@ data:
   container-runtime: {{ .Values.global.containerRuntime.integration }}
 
   masquerade: {{ .Values.global.masquerade | quote }}
+{{- if .Values.global.egressMasqueradeInterfaces }}
+  egress-masquerade-interfaces: {{ .Values.global.egressMasqueradeInterfaces }}
+{{- end }}
 
 {{- if .Values.global.encryption.enabled }}
   enable-ipsec: {{ .Values.global.encryption.enabled | quote }}
