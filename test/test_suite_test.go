@@ -151,6 +151,14 @@ func reportCreateVMFailure(vm string, err error) {
 }
 
 var _ = BeforeAll(func() {
+	go func() {
+		defer GinkgoRecover()
+		time.Sleep(config.CiliumTestConfig.Timeout)
+		msg := fmt.Sprintf("Test suite timed out after %s", config.CiliumTestConfig.Timeout)
+		By(msg)
+		Fail(msg)
+	}()
+
 	var err error
 
 	logger := log.WithFields(logrus.Fields{"testName": "BeforeAll"})
