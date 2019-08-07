@@ -24,10 +24,18 @@ import (
 )
 
 // startServer starts an api server listening on the given address.
-func startServer(addr string, shutdownSignal <-chan struct{}) {
+func startServer(addr string, shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}) {
 	log.Infof("Starting apiserver on address %s", addr)
 
-	http.HandleFunc("/healthz", healthHandler)
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		// only start serving the real health check once all systems all up and running
+		case <-allSystemsGo:
+			healthHandler(w, r)
+		default:
+			healthHandlerOK(w, r)
+		}
+	})
 
 	srv := &http.Server{Addr: addr}
 
@@ -39,6 +47,13 @@ func startServer(addr string, shutdownSignal <-chan struct{}) {
 	}()
 
 	log.Fatalf("Unable to start status api: %s", srv.ListenAndServe())
+}
+
+func healthHandlerOK(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte("ok")); err != nil {
+		log.WithError(err).Error("Failed to write liveness-probe response")
+	}
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
