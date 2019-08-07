@@ -333,7 +333,6 @@ spec:
         # gets priority scheduling.
         # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
         scheduler.alpha.kubernetes.io/critical-pod: ""
-        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"dedicated","operator":"Equal","value":"master","effect":"NoSchedule"}]'
       labels:
         k8s-app: cilium
         kubernetes.io/cluster-service: "true"
@@ -495,7 +494,7 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
-        # To install cilium cni plugin in the host
+      # To install cilium cni plugin in the host
       - hostPath:
           path:  /opt/cni/bin
           type: DirectoryOrCreate
