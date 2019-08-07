@@ -184,7 +184,8 @@ func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
 	log.Infof("Cilium Operator %s", version.Version)
-	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal)
+	k8sInitDone := make(chan struct{})
+	go startServer(fmt.Sprintf(":%d", apiServerPort), shutdownSignal, k8sInitDone)
 
 	if enableMetrics {
 		registerMetrics()
@@ -197,6 +198,7 @@ func runOperator(cmd *cobra.Command) {
 	if err := k8s.Init(); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
+	close(k8sInitDone)
 
 	ciliumK8sClient = k8s.CiliumClient()
 	k8sversion.Update(k8s.Client())
