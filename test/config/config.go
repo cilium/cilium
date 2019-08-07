@@ -14,7 +14,10 @@
 
 package config
 
-import "flag"
+import (
+	"flag"
+	"time"
+)
 
 // CiliumTestConfigType holds all of the configurable elements of the testsuite
 type CiliumTestConfigType struct {
@@ -27,6 +30,7 @@ type CiliumTestConfigType struct {
 	CiliumImage         string
 	CiliumOperatorImage string
 	ProvisionK8s        bool
+	Timeout             time.Duration
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -53,4 +57,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies which image of cilium-operator to use during tests")
 	flag.BoolVar(&c.ProvisionK8s, "cilium.provision-k8s", true,
 		"Specifies whether Kubernetes should be deployed and installed via kubeadm or not")
+	flag.DurationVar(&c.Timeout, "cilium.timeout", 24*time.Hour,
+		"Specifies timeout for test run")
 }
