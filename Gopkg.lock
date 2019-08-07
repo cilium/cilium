@@ -107,7 +107,7 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
-  digest = "1:a543b6152880cf26adda255cef78a3c87f49be13bc0288a0b71926f0f5b4454b"
+  digest = "1:603699103242f195a508fcd06d9d1affa4f99026ef64fcfed26ecd421becd1b2"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -126,7 +126,7 @@
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "1e6c585a9969fb110c2fb32a73c5196d86213e32"
+  revision = "65d28965559996499584fba97769c8c3bf615fa1"
 
 [[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
@@ -501,7 +501,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:1ed3ce6dc71db5472f4a1944db4430a9abe3c1e63b859b375da6e330148e94bd"
+  digest = "1:9de28de6b4453a6a96cdbb16b86d48f2640397e6739ed2d3d7ee5fd55b93d193"
   name = "github.com/gogo/protobuf"
   packages = [
     "gogoproto",
@@ -511,7 +511,7 @@
     "types",
   ]
   pruneopts = "NUT"
-  revision = "v0.4-3-gc0656ed"
+  revision = "v1.2.1"
 
 [[projects]]
   digest = "1:99d26c39807a3709c762366daaaa7b58805163882d9cea00076327583984f5b1"
@@ -528,7 +528,8 @@
     "ptypes/wrappers",
   ]
   pruneopts = "NUT"
-  revision = "v1.3.1"
+  revision = "b5d812f8a3706043e23a9cd5babf2e5423744d30"
+  version = "v1.3.1"
 
 [[projects]]
   branch = "master"
@@ -738,11 +739,11 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:06fc5328859ae6e2d7bf900483d4489d0f826acab879fb8bc1c8607caf95a9a9"
+  digest = "1:0dbba7d4d4f3eeb01acd81af338ff4a3c4b0bb814d87368ea536e616f383240d"
   name = "github.com/lyft/protoc-gen-validate"
   packages = ["validate"]
   pruneopts = "NUT"
-  revision = "d75a15c1da0f853ca31399f30c49088ca5716b04"
+  revision = "v0.0.13"
 
 [[projects]]
   digest = "1:d244f8666a838fe6ad70ec8fe77f50ebc29fdc3331a2729ba5886bef8435d10d"

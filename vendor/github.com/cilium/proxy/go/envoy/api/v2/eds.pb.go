@@ -14,6 +14,8 @@ import (
 	_ "github.com/lyft/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -365,6 +367,17 @@ type EndpointDiscoveryServiceServer interface {
 	// to subscribe to updates for.
 	StreamEndpoints(EndpointDiscoveryService_StreamEndpointsServer) error
 	FetchEndpoints(context.Context, *DiscoveryRequest) (*DiscoveryResponse, error)
+}
+
+// UnimplementedEndpointDiscoveryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedEndpointDiscoveryServiceServer struct {
+}
+
+func (*UnimplementedEndpointDiscoveryServiceServer) StreamEndpoints(srv EndpointDiscoveryService_StreamEndpointsServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamEndpoints not implemented")
+}
+func (*UnimplementedEndpointDiscoveryServiceServer) FetchEndpoints(ctx context.Context, req *DiscoveryRequest) (*DiscoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchEndpoints not implemented")
 }
 
 func RegisterEndpointDiscoveryServiceServer(s *grpc.Server, srv EndpointDiscoveryServiceServer) {

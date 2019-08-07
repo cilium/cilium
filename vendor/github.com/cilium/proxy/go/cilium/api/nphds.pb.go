@@ -11,6 +11,8 @@ import (
 	_ "github.com/lyft/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -176,6 +178,17 @@ func (c *networkPolicyHostsDiscoveryServiceClient) FetchNetworkPolicyHosts(ctx c
 type NetworkPolicyHostsDiscoveryServiceServer interface {
 	StreamNetworkPolicyHosts(NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error
 	FetchNetworkPolicyHosts(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
+}
+
+// UnimplementedNetworkPolicyHostsDiscoveryServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedNetworkPolicyHostsDiscoveryServiceServer struct {
+}
+
+func (*UnimplementedNetworkPolicyHostsDiscoveryServiceServer) StreamNetworkPolicyHosts(srv NetworkPolicyHostsDiscoveryService_StreamNetworkPolicyHostsServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamNetworkPolicyHosts not implemented")
+}
+func (*UnimplementedNetworkPolicyHostsDiscoveryServiceServer) FetchNetworkPolicyHosts(ctx context.Context, req *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchNetworkPolicyHosts not implemented")
 }
 
 func RegisterNetworkPolicyHostsDiscoveryServiceServer(s *grpc.Server, srv NetworkPolicyHostsDiscoveryServiceServer) {

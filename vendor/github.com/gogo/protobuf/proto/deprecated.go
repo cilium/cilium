@@ -1,7 +1,7 @@
-// Protocol Buffers for Go with Gadgets
+// Go support for Protocol Buffers - Google's data interchange format
 //
-// Copyright (c) 2013, The GoGo Authors. All rights reserved.
-// http://github.com/gogo/protobuf
+// Copyright 2018 The Go Authors.  All rights reserved.
+// https://github.com/golang/protobuf
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -13,6 +13,9 @@
 // copyright notice, this list of conditions and the following disclaimer
 // in the documentation and/or other materials provided with the
 // distribution.
+//     * Neither the name of Google Inc. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -28,6 +31,33 @@
 
 package proto
 
-func NewRequiredNotSetError(field string) *RequiredNotSetError {
-	return &RequiredNotSetError{field}
+import "errors"
+
+// Deprecated: do not use.
+type Stats struct{ Emalloc, Dmalloc, Encode, Decode, Chit, Cmiss, Size uint64 }
+
+// Deprecated: do not use.
+func GetStats() Stats { return Stats{} }
+
+// Deprecated: do not use.
+func MarshalMessageSet(interface{}) ([]byte, error) {
+	return nil, errors.New("proto: not implemented")
 }
+
+// Deprecated: do not use.
+func UnmarshalMessageSet([]byte, interface{}) error {
+	return errors.New("proto: not implemented")
+}
+
+// Deprecated: do not use.
+func MarshalMessageSetJSON(interface{}) ([]byte, error) {
+	return nil, errors.New("proto: not implemented")
+}
+
+// Deprecated: do not use.
+func UnmarshalMessageSetJSON([]byte, interface{}) error {
+	return errors.New("proto: not implemented")
+}
+
+// Deprecated: do not use.
+func RegisterMessageSetType(Message, int32, string) {}
