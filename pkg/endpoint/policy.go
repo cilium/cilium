@@ -468,7 +468,13 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	// This may block if the Endpoint's EventQueue is full. This has to be done
 	// synchronously as some callers depend on the fact that the event is
 	// synchronously enqueued.
-	resChan := e.EventQueue.Enqueue(epEvent)
+	resChan, err := e.EventQueue.Enqueue(epEvent)
+	if err != nil {
+		e.getLogger().Errorf("enqueue of EndpointRegenerationEvent failed: %s", err)
+		done <- false
+		close(done)
+		return done
+	}
 
 	go func() {
 

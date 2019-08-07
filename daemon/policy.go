@@ -242,7 +242,10 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *AddOptions) (newRev uint
 		d:     d,
 	}
 	polAddEvent := eventqueue.NewEvent(p)
-	resChan := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
+	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
+	if err != nil {
+		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %s", err)
+	}
 
 	res, ok := <-resChan
 	if ok {
@@ -423,7 +426,10 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *AddOptions, resCha
 		// This event may block if the RuleReactionQueue is full. We don't care
 		// about when it finishes, just that the work it does is done in a serial
 		// order.
-		d.policy.RuleReactionQueue.Enqueue(ev)
+		_, err := d.policy.RuleReactionQueue.Enqueue(ev)
+		if err != nil {
+			log.WithField(logfields.PolicyRevision, newRev).Errorf("enqueue of RuleReactionEvent failed: %s", err)
+		}
 	} else {
 		// Regenerate all endpoints unconditionally.
 		d.TriggerPolicyUpdates(false, "policy rules added")
@@ -515,7 +521,10 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray) (newRev uint64, err erro
 		d:      d,
 	}
 	policyDeleteEvent := eventqueue.NewEvent(p)
-	resChan := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
+	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
+	if err != nil {
+		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %s", err)
+	}
 
 	res, ok := <-resChan
 	if ok {
@@ -606,7 +615,10 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		// This event may block if the RuleReactionQueue is full. We don't care
 		// about when it finishes, just that the work it does is done in a serial
 		// order.
-		d.policy.RuleReactionQueue.Enqueue(ev)
+		_, err := d.policy.RuleReactionQueue.Enqueue(ev)
+		if err != nil {
+			log.WithField(logfields.PolicyRevision, rev).Errorf("enqueue of RuleReactionEvent failed: %s", err)
+		}
 	} else {
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
 	}

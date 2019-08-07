@@ -15,6 +15,7 @@
 package eventqueue
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -174,14 +175,18 @@ func (ev *Event) WasCancelled() bool {
 // the queue is at its capacity for events. If a single Event has Enqueue
 // called on it multiple times asynchronously, there is no guarantee as to
 // which one will return the channel which passes results back to the caller.
-func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
+// It is up to the caller to check whether the returned channel is nil, as
+// waiting to receive on such a channel will block forever. Returns an error
+// if the Event has been previously enqueued, if the Event is nil, or the queue
+// itself is not initialized properly.
+func (q *EventQueue) Enqueue(ev *Event) (<-chan interface{}, error) {
 	if q.notSafeToAccess() || ev == nil {
-		return nil
+		return nil, fmt.Errorf("unable to Enqueue event")
 	}
 
 	// Events can only be enqueued once.
 	if atomic.AddInt32(&ev.enqueued, 1) > 1 {
-		return nil
+		return nil, fmt.Errorf("unable to Enqueue event; event has already had Enqueue called on it")
 	}
 
 	// Multiple Enqueues can occur at the same time. Ensure that events channel
@@ -197,7 +202,7 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 		close(ev.cancelled)
 		close(ev.eventResults)
 
-		return ev.eventResults
+		return ev.eventResults, nil
 	default:
 		// The events channel may be closed even if an event has been pushed
 		// onto the events channel, as events are consumed off of the events
@@ -208,7 +213,7 @@ func (q *EventQueue) Enqueue(ev *Event) <-chan interface{} {
 		q.events <- ev
 		ev.stats.waitEnqueue.End(true)
 		ev.stats.waitConsumeOffQueue.Start()
-		return ev.eventResults
+		return ev.eventResults, nil
 	}
 }
 
