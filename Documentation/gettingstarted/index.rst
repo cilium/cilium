@@ -51,6 +51,7 @@ Advanced Networking
    :maxdepth: 1
    :glob:
 
+   aws-eni
    kube-router
    clustermesh
    flannel-integration
