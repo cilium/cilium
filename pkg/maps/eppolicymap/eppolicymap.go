@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -126,7 +127,7 @@ func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 // the datapath side can do a lookup from EndpointKey->PolicyMap. Locking is
 // handled in the usual way via Map lock. If sockops is disabled this will be
 // a nop.
-func WriteEndpoint(f lxcmap.EndpointFrontend, pm *policymap.PolicyMap) error {
+func WriteEndpoint(f datapath.EndpointFrontend, pm *policymap.PolicyMap) error {
 	keys := lxcmap.GetBPFKeys(f)
 	return writeEndpoint(keys, pm.GetFd())
 }
