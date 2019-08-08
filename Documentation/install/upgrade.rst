@@ -322,6 +322,12 @@ New ConfigMap Options
     default ConfigMap. Existing deployments will continue to use ``kvstore``
     unless opted into new behavior via the ConfigMap.
 
+  * ``enable-non-local-node-identity`` has been added to enable a new identity
+    for non-local cluster nodes. This allows to treat local and remote cluster
+    nodes differently from a policy perspective. The option is enabled by
+    default for new deployments when generated via Helm and disabled by default
+    for existing deployments.
+
 Deprecated options
 ~~~~~~~~~~~~~~~~~~
 

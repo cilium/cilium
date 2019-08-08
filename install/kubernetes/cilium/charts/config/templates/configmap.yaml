@@ -285,3 +285,4 @@ data:
 {{- if and .Values.global.endpointRoutes .Values.global.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.global.endpointRoutes.enabled | quote }}
 {{- end }}
+  enable-non-local-node-identity: {{ .Values.global.nonLocalNodeIdentity | quote }}
