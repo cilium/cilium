@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 
@@ -50,6 +51,18 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		}
 
 		addresses = append(addresses, addr.IP)
+	}
+
+	if hostDevice, err := netlink.LinkByName(defaults.HostDevice); hostDevice != nil && err == nil {
+		addrs, err = netlink.AddrList(hostDevice, family)
+		if err != nil {
+			return nil, err
+		}
+		for _, addr := range addrs {
+			if addr.Scope == int(netlink.SCOPE_LINK) {
+				addresses = append(addresses, addr.IP)
+			}
+		}
 	}
 
 	return addresses, nil
