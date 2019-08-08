@@ -180,9 +180,10 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 
 	if routerIP == nil {
 		var result *ipam.AllocationResult
-		result, err = d.ipam.AllocateNextFamily(ipam.DeriveFamily(family.PrimaryExternal()), "router")
+		family := ipam.DeriveFamily(family.PrimaryExternal())
+		result, err = d.ipam.AllocateNextFamily(family, "router")
 		if err != nil {
-			err = fmt.Errorf("Unable to allocate IPv4 router IP: %s", err)
+			err = fmt.Errorf("Unable to allocate router IP for family %s: %s", family, err)
 			return
 		}
 		routerIP = result.IP
