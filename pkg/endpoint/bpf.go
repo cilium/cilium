@@ -416,7 +416,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
-	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.policyMap)
+	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache, e.policyMap)
 	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
@@ -858,47 +858,6 @@ func (e *Endpoint) SkipStateClean() {
 	e.UnconditionalLock()
 	e.ctCleaned = true
 	e.Unlock()
-}
-
-// GetBPFKeys returns all keys which should represent this endpoint in the BPF
-// endpoints map
-func (e *Endpoint) GetBPFKeys() []*lxcmap.EndpointKey {
-	keys := []*lxcmap.EndpointKey{}
-	if e.IPv6.IsSet() {
-		keys = append(keys, lxcmap.NewEndpointKey(e.IPv6.IP()))
-	}
-
-	if e.IPv4.IsSet() {
-		keys = append(keys, lxcmap.NewEndpointKey(e.IPv4.IP()))
-	}
-
-	return keys
-}
-
-// GetBPFValue returns the value which should represent this endpoint in the
-// BPF endpoints map
-func (e *Endpoint) GetBPFValue() (*lxcmap.EndpointInfo, error) {
-	mac, err := e.LXCMAC.Uint64()
-	if err != nil {
-		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
-	}
-
-	nodeMAC, err := e.NodeMAC.Uint64()
-	if err != nil {
-		return nil, fmt.Errorf("invalid node MAC: %v", err)
-	}
-
-	info := &lxcmap.EndpointInfo{
-		IfIndex: uint32(e.IfIndex),
-		// Store security identity in network byte order so it can be
-		// written into the packet without an additional byte order
-		// conversion.
-		LxcID:   e.ID,
-		MAC:     lxcmap.MAC(mac),
-		NodeMAC: lxcmap.MAC(nodeMAC),
-	}
-
-	return info, nil
 }
 
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {

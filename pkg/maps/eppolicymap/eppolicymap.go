@@ -126,6 +126,7 @@ func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 // the datapath side can do a lookup from EndpointKey->PolicyMap. Locking is
 // handled in the usual way via Map lock. If sockops is disabled this will be
 // a nop.
-func WriteEndpoint(keys []*lxcmap.EndpointKey, pm *policymap.PolicyMap) error {
+func WriteEndpoint(f lxcmap.EndpointFrontend, pm *policymap.PolicyMap) error {
+	keys := lxcmap.GetBPFKeys(f)
 	return writeEndpoint(keys, pm.GetFd())
 }

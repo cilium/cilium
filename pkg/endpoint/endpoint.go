@@ -307,6 +307,16 @@ func (e *Endpoint) UpdateController(name string, params controller.ControllerPar
 	return e.controllers.UpdateController(name, params)
 }
 
+// GetIfIndex returns the IfIndex for this endpoint.
+func (e *Endpoint) GetIfIndex() int {
+	return e.IfIndex
+}
+
+// LXCMac returns the LXCMac for this endpoint.
+func (e *Endpoint) LXCMac() mac.MAC {
+	return e.LXCMAC
+}
+
 // CloseBPFProgramChannel closes the channel that signals whether the endpoint
 // has had its BPF program compiled. If the channel is already closed, this is
 // a no-op.

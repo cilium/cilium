@@ -19,9 +19,7 @@ import (
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -35,10 +33,6 @@ type epInfoCache struct {
 	// revision is used by the endpoint regeneration code to determine
 	// whether this cache is out-of-date wrt the underlying endpoint.
 	revision uint64
-
-	// For lxcmap.EndpointFrontend
-	keys  []*lxcmap.EndpointKey
-	value *lxcmap.EndpointInfo
 
 	// For datapath.loader.endpoint
 	epdir  string
@@ -58,6 +52,8 @@ type epInfoCache struct {
 	requireEndpointRoute                   bool
 	cidr4PrefixLengths, cidr6PrefixLengths []int
 	options                                *option.IntOptions
+	lxcMAC                                 mac.MAC
+	ifIndex                                int
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -74,13 +70,11 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 
 	ep := &epInfoCache{
 		revision: e.nextPolicyRevision,
-		keys:     e.GetBPFKeys(),
 
-		epdir:  epdir,
-		id:     e.GetID(),
-		ifName: e.IfName,
-		ipvlan: e.HasIpvlanDataPath(),
-
+		epdir:                 epdir,
+		id:                    e.GetID(),
+		ifName:                e.IfName,
+		ipvlan:                e.HasIpvlanDataPath(),
 		identity:              e.GetIdentity(),
 		mac:                   e.GetNodeMAC(),
 		ipv4:                  e.IPv4Address(),
@@ -93,17 +87,20 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		cidr4PrefixLengths:    cidr4,
 		cidr6PrefixLengths:    cidr6,
 		options:               e.Options.DeepCopy(),
+		lxcMAC:                e.LXCMAC,
+		ifIndex:               e.IfIndex,
 
 		endpoint: e,
 	}
-
-	var err error
-	ep.value, err = e.GetBPFValue()
-	if err != nil {
-		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("getBPFValue failed")
-		return nil
-	}
 	return ep
+}
+
+func (ep *epInfoCache) GetIfIndex() int {
+	return ep.ifIndex
+}
+
+func (ep *epInfoCache) LXCMac() mac.MAC {
+	return ep.lxcMAC
 }
 
 // InterfaceName returns the name of the link-layer interface used for
@@ -155,19 +152,6 @@ func (ep *epInfoCache) IPv6Address() addressing.CiliumIPv6 {
 // StateDir returns the directory for the endpoint's (next) state.
 func (ep *epInfoCache) StateDir() string    { return ep.epdir }
 func (ep *epInfoCache) GetNodeMAC() mac.MAC { return ep.mac }
-
-// GetBPFKeys returns all keys which should represent this endpoint in the BPF
-// endpoints map
-func (ep *epInfoCache) GetBPFKeys() []*lxcmap.EndpointKey {
-	return ep.keys
-}
-
-// GetBPFValue returns the value which should represent this endpoint in the
-// BPF endpoints map
-// Must only be called if init() succeeded.
-func (ep *epInfoCache) GetBPFValue() (*lxcmap.EndpointInfo, error) {
-	return ep.value, nil
-}
 
 func (ep *epInfoCache) ConntrackLocalLocked() bool {
 	return ep.conntrackLocal
