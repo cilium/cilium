@@ -118,30 +118,25 @@ static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 
 static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 				     void **data_end_, void **l3,
-				     size_t l3_len)
+				     const size_t l3_len, const bool pull)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
+	const size_t tot_len = ETH_HLEN + l3_len;
+	void *data_end;
+	void *data;
 
-	if (data + ETH_HLEN + l3_len > data_end)
+	/* Verifier workaround, do this unconditionally: invalid size of register spill. */
+	if (pull)
+		skb_pull_data(skb, tot_len);
+	data_end = (void *)(long)skb->data_end;
+	data = (void *)(long)skb->data;
+	if (data + tot_len > data_end)
 		return false;
 
+	/* Verifier workaround: pointer arithmetic on pkt_end prohibited. */
 	*data_ = data;
 	*data_end_ = data_end;
+
 	*l3 = data + ETH_HLEN;
-	return true;
-}
-
-static inline bool __revalidate_data_first(struct __sk_buff *skb, void **data_,
-				     void **data_end_, void **l3,
-				     size_t l3_len)
-{
-	if (!__revalidate_data(skb, data_, data_end_, l3, l3_len)) {
-		int err = skb_pull_data(skb, ETH_HLEN + l3_len);
-		if (err || !__revalidate_data(skb, data_, data_end_, l3, l3_len))
-			return false;
-	}
-
 	return true;
 }
 
@@ -152,13 +147,13 @@ static inline bool __revalidate_data_first(struct __sk_buff *skb, void **data_,
  * Returns true if 'skb' is long enough for an IP header of the provided type,
  * false otherwise. */
 #define revalidate_data_first(skb, data, data_end, ip)			\
-	__revalidate_data_first(skb, data, data_end, (void **)ip, sizeof(**ip))
+	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip), true)
 
 /* revalidate_data() initializes the provided pointers from the skb.
  * Returns true if 'skb' is long enough for an IP header of the provided type,
  * false otherwise. */
-#define revalidate_data(skb, data, data_end, ip)	\
-	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip))
+#define revalidate_data(skb, data, data_end, ip)			\
+	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip), false)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
