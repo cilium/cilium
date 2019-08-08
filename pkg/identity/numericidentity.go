@@ -75,6 +75,10 @@ const (
 	// received any labels yet.
 	ReservedIdentityInit
 
+	// ReservedIdentityNonLocalNode is the identity given to worker nodes
+	// in any connected cluster other than the local node
+	ReservedIdentityNonLocalNode
+
 	// --------------------------------------------------------------
 	// Special identities for well-known cluster components
 
@@ -264,18 +268,20 @@ func InitWellKnownIdentities() {
 
 var (
 	reservedIdentities = map[string]NumericIdentity{
-		labels.IDNameHost:      ReservedIdentityHost,
-		labels.IDNameWorld:     ReservedIdentityWorld,
-		labels.IDNameUnmanaged: ReservedIdentityUnmanaged,
-		labels.IDNameHealth:    ReservedIdentityHealth,
-		labels.IDNameInit:      ReservedIdentityInit,
+		labels.IDNameHost:         ReservedIdentityHost,
+		labels.IDNameWorld:        ReservedIdentityWorld,
+		labels.IDNameUnmanaged:    ReservedIdentityUnmanaged,
+		labels.IDNameHealth:       ReservedIdentityHealth,
+		labels.IDNameInit:         ReservedIdentityInit,
+		labels.IDNameNonLocalNode: ReservedIdentityNonLocalNode,
 	}
 	reservedIdentityNames = map[NumericIdentity]string{
-		ReservedIdentityHost:      labels.IDNameHost,
-		ReservedIdentityWorld:     labels.IDNameWorld,
-		ReservedIdentityUnmanaged: labels.IDNameUnmanaged,
-		ReservedIdentityHealth:    labels.IDNameHealth,
-		ReservedIdentityInit:      labels.IDNameInit,
+		ReservedIdentityHost:         labels.IDNameHost,
+		ReservedIdentityWorld:        labels.IDNameWorld,
+		ReservedIdentityUnmanaged:    labels.IDNameUnmanaged,
+		ReservedIdentityHealth:       labels.IDNameHealth,
+		ReservedIdentityInit:         labels.IDNameInit,
+		ReservedIdentityNonLocalNode: labels.IDNameNonLocalNode,
 	}
 
 	// WellKnown identities stores global state of all well-known identities.

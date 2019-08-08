@@ -34,6 +34,10 @@ const (
 	// IDNameHost is the label used for the hostname ID.
 	IDNameHost = "host"
 
+	// IDNameNonLocalNode is the label used to describe the
+	// ReservedIdentityNonLocalNode
+	IDNameNonLocalNode = "non-local-node"
+
 	// IDNameWorld is the label used for the world ID.
 	IDNameWorld = "world"
 

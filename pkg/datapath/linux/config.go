@@ -119,6 +119,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	cDefinesMap["HEALTH_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHealth))
 	cDefinesMap["UNMANAGED_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameUnmanaged))
 	cDefinesMap["INIT_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameInit))
+	cDefinesMap["NON_LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameNonLocalNode))
 	cDefinesMap["LB_RR_MAX_SEQ"] = fmt.Sprintf("%d", lbmap.MaxSeq)
 	cDefinesMap["CILIUM_LB_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmap.MaxEntries)
 	cDefinesMap["TUNNEL_MAP"] = tunnel.MapName

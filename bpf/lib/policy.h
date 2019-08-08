@@ -72,7 +72,7 @@ static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, 
  */
 static inline bool identity_is_reserved(__u32 identity)
 {
-	return identity < UNMANAGED_ID;
+	return identity < UNMANAGED_ID || identity == NON_LOCAL_NODE_ID;
 }
 
 #ifdef SOCKMAP
