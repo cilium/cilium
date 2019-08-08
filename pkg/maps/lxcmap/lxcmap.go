@@ -257,8 +257,12 @@ func (l *LXCMap) DeleteElement(f datapath.EndpointFrontend) []error {
 }
 
 // DumpToMap dumps the contents of the lxcmap into a map and returns it
-func (l *LXCMap) DumpToMap() (map[string]*EndpointInfo, error) {
-	m := map[string]*EndpointInfo{}
+func (l *LXCMap) DumpToMap() (datapath.ExistingEndpointsState, error) {
+	return l.Dump2()
+}
+
+func (l *LXCMap) Dump2() (Dump, error) {
+	m := Dump{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
 		if info, ok := value.DeepCopyMapValue().(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
@@ -272,4 +276,22 @@ func (l *LXCMap) DumpToMap() (map[string]*EndpointInfo, error) {
 	}
 
 	return m, nil
+}
+
+type Dump map[string]*EndpointInfo
+
+func (c Dump) Delete(s string) {
+	delete(c, s)
+}
+
+func (c Dump) CleanupOldState(deleteFunc func(ip net.IP) error) {
+	for hostIP, info := range c {
+		if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
+			if err := deleteFunc(ip); err != nil {
+				log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
+			} else {
+				log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
+			}
+		}
+	}
 }

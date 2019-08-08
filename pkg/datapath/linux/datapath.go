@@ -15,13 +15,21 @@
 package linux
 
 import (
+	"fmt"
+	"net"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
+	"github.com/sirupsen/logrus"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -94,4 +102,131 @@ func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name st
 
 func (l *linuxDatapath) WriteEndpoint(frontend datapath.EndpointFrontend) error {
 	return l.lxcMap.WriteEndpoint(frontend)
+}
+
+// SyncLXCMap adds local host entries to bpf lxcmap, as well as ipcache, if
+// needed, and also notifies the daemon and network policy hosts cache if
+// changes were made.
+func (l *linuxDatapath) SyncEndpointsAndHostIPs() error {
+	specialIdentities := l.aggregateSpecialIdentities()
+
+	existingEndpoints, err := l.lxcMap.Dump2()
+	if err != nil {
+		return err
+	}
+
+	for _, ipIDPair := range specialIdentities {
+		hostKey := node.GetIPsecKeyIdentity()
+		isHost := ipIDPair.ID == identity.ReservedIdentityHost
+		if isHost {
+			added, err := l.lxcMap.SyncHostEntry(ipIDPair.IP)
+			if err != nil {
+				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+			}
+			if added {
+				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
+			}
+		}
+
+		delete(existingEndpoints, ipIDPair.IP.String())
+
+		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
+		// and we specifically don't want to do so.
+		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, ipcache.Identity{
+			ID:     ipIDPair.ID,
+			Source: source.Local,
+		})
+	}
+
+	for hostIP, info := range existingEndpoints {
+		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
+			if err := l.lxcMap.DeleteEntry(ip); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.IPAddr: hostIP,
+				}).Warn("Unable to delete obsolete host IP from BPF map")
+			} else {
+				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
+			}
+
+			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
+		}
+	}
+
+	return nil
+}
+
+
+func (l *linuxDatapath) aggregateSpecialIdentities()[]identity.IPIdentityPair {
+	specialIdentities := []identity.IPIdentityPair{}
+
+	if option.Config.EnableIPv4 {
+		addrs, err := l.LocalNodeAddressing().IPv4().LocalAddresses()
+		if err != nil {
+			log.WithError(err).Warning("Unable to list local IPv4 addresses")
+		}
+
+		for _, ip := range addrs {
+			if option.Config.IsExcludedLocalAddress(ip) {
+				continue
+			}
+
+			if len(ip) > 0 {
+				specialIdentities = append(specialIdentities,
+					identity.IPIdentityPair{
+						IP: ip,
+						ID: identity.ReservedIdentityHost,
+					})
+			}
+		}
+
+		specialIdentities = append(specialIdentities,
+			identity.IPIdentityPair{
+				IP:   net.IPv4zero,
+				Mask: net.CIDRMask(0, net.IPv4len*8),
+				ID:   identity.ReservedIdentityWorld,
+			})
+	}
+
+	if option.Config.EnableIPv6 {
+		addrs, err := l.LocalNodeAddressing().IPv6().LocalAddresses()
+		if err != nil {
+			log.WithError(err).Warning("Unable to list local IPv4 addresses")
+		}
+
+		addrs = append(addrs, node.GetIPv6Router())
+		for _, ip := range addrs {
+			if option.Config.IsExcludedLocalAddress(ip) {
+				continue
+			}
+
+			if len(ip) > 0 {
+				specialIdentities = append(specialIdentities,
+					identity.IPIdentityPair{
+						IP: ip,
+						ID: identity.ReservedIdentityHost,
+					})
+			}
+		}
+
+		specialIdentities = append(specialIdentities,
+			identity.IPIdentityPair{
+				IP:   net.IPv6zero,
+				Mask: net.CIDRMask(0, net.IPv6len*8),
+				ID:   identity.ReservedIdentityWorld,
+			})
+	}
+	return specialIdentities
+}
+
+
+func (l *linuxDatapath) DeleteElement(frontend datapath.EndpointFrontend) []error {
+	return l.lxcMap.DeleteElement(frontend)
+}
+
+func (l *linuxDatapath) DeleteEntry(ip net.IP) error {
+	return l.lxcMap.DeleteEntry(ip)
+}
+
+func (l *linuxDatapath) DumpToMap() (datapath.ExistingEndpointsState, error) {
+	return l.lxcMap.DumpToMap()
 }

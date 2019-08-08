@@ -18,12 +18,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/workloads"
@@ -131,12 +130,12 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	log.Info("Restoring endpoints...")
 
 	var (
-		existingEndpoints map[string]*lxcmap.EndpointInfo
+		existingEndpoints datapath.ExistingEndpointsState
 		err               error
 	)
 
 	if !option.Config.DryMode {
-		existingEndpoints, err = d.lxcMap.DumpToMap()
+		existingEndpoints, err = d.Datapath().DumpToMap()
 		if err != nil {
 			log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
 		}
@@ -191,8 +190,8 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		state.restored = append(state.restored, ep)
 
 		if existingEndpoints != nil {
-			delete(existingEndpoints, ep.IPv4.String())
-			delete(existingEndpoints, ep.IPv6.String())
+			existingEndpoints.Delete(ep.IPv4.String())
+			existingEndpoints.Delete(ep.IPv6.String())
 		}
 	}
 
@@ -202,15 +201,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 	}).Info("Endpoints restored")
 
 	if existingEndpoints != nil {
-		for hostIP, info := range existingEndpoints {
-			if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
-				if err := d.lxcMap.DeleteEntry(ip); err != nil {
-					log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
-				} else {
-					log.Debugf("Removed outdated endpoint %d from endpoint map", info.LxcID)
-				}
-			}
-		}
+		existingEndpoints.CleanupOldState(d.Datapath().DeleteEntry)
 	}
 
 	return state, nil

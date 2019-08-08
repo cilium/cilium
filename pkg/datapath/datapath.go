@@ -16,6 +16,7 @@ package datapath
 
 import (
 	"io"
+	"net"
 
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/mac"
@@ -25,6 +26,7 @@ import (
 // abstraction allows to implement the datapath requirements with multiple
 // implementations
 type Datapath interface {
+	EndpointMapManager
 	// Node must return the handler for node events
 	Node() NodeHandler
 
@@ -58,7 +60,7 @@ type Datapath interface {
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
 
-	WriteEndpoint(frontend EndpointFrontend) error
+	SyncEndpointsAndHostIPs() error
 }
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -70,4 +72,16 @@ type EndpointFrontend interface {
 	GetID() uint64
 	IPv4Address() addressing.CiliumIPv4
 	IPv6Address() addressing.CiliumIPv6
+}
+
+type EndpointMapManager interface {
+	WriteEndpoint(frontend EndpointFrontend) error
+	DeleteElement(frontend EndpointFrontend) []error
+	DeleteEntry(ip net.IP) error
+	DumpToMap() (ExistingEndpointsState, error)
+}
+
+type ExistingEndpointsState interface {
+	Delete(ipAsString string)
+	CleanupOldState(deleteFunc func(ip net.IP) error)
 }

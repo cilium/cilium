@@ -75,3 +75,7 @@ func (f *fakeDatapath) RemoveProxyRules(uint16, bool, string) error {
 func (f *fakeDatapath) WriteEndpoint(frontend datapath.EndpointFrontend) error {
 	return nil
 }
+
+func (f *fakeDatapath) SyncEndpointsAndHostIPs() error {
+	return nil
+}
