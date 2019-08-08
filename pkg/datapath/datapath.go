@@ -16,6 +16,9 @@ package datapath
 
 import (
 	"io"
+
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 // Datapath is the interface to abstract all datapath interactions. The
@@ -54,4 +57,17 @@ type Datapath interface {
 	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+
+	WriteEndpoint(frontend EndpointFrontend) error
+}
+
+// EndpointFrontend is the interface to implement for an object to synchronize
+// with the endpoint BPF map.
+type EndpointFrontend interface {
+	LXCMac() mac.MAC
+	GetNodeMAC() mac.MAC
+	GetIfIndex() int
+	GetID() uint64
+	IPv4Address() addressing.CiliumIPv4
+	IPv6Address() addressing.CiliumIPv6
 }

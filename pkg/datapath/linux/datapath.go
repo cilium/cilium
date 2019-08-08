@@ -15,10 +15,13 @@
 package linux
 
 import (
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -34,6 +37,7 @@ type linuxDatapath struct {
 	node           datapath.NodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
+	lxcMap         *lxcmap.LXCMap
 }
 
 // NewDatapath creates a new Linux datapath
@@ -44,6 +48,21 @@ func NewDatapath(config DatapathConfiguration) datapath.Datapath {
 	}
 
 	dp.node = NewNodeHandler(config, dp.nodeAddressing)
+
+	if err := bpf.ConfigureResourceLimits(); err != nil {
+		log.WithError(err).Fatal("Unable to set memory resource limits")
+	}
+
+	dp.lxcMap = lxcmap.NewMap(lxcmap.MapName)
+	if _, err := dp.lxcMap.OpenOrCreate(); err != nil {
+		log.WithError(err).Fatal("unable to initialize LXCMap")
+	}
+
+	if !option.Config.RestoreState {
+		// If we are not restoring state, all endpoints can be
+		// deleted. Entries will be re-populated.
+		dp.lxcMap.DeleteAll()
+	}
 
 	if config.EncryptInterface != "" {
 		if err := connector.DisableRpFilter(config.EncryptInterface); err != nil {
@@ -71,4 +90,8 @@ func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name s
 
 func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return iptables.RemoveProxyRules(proxyPort, ingress, name)
+}
+
+func (l *linuxDatapath) WriteEndpoint(frontend datapath.EndpointFrontend) error {
+	return l.lxcMap.WriteEndpoint(frontend)
 }

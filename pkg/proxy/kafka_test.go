@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -65,10 +64,6 @@ func (s *proxyTestSuite) SetUpSuite(c *C) {
 
 func (s *proxyTestSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
-}
-
-func (s *proxyTestSuite) LXCMap() *lxcmap.LXCMap {
-	return nil
 }
 
 func (s *proxyTestSuite) UpdateProxyRedirect(e regeneration.EndpointUpdater, l4 *policy.L4Filter, wg *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc) {

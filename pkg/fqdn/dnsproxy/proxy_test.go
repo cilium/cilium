@@ -54,10 +54,6 @@ func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *DNSProxyTestSuite) LXCMap() *lxcmap.LXCMap {
-	return nil
-}
-
 func (s *DNSProxyTestSuite) GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, error) {
 	return 0, "", nil
 }

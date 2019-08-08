@@ -19,11 +19,10 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lxc")
@@ -90,20 +89,9 @@ const (
 	EndpointFlagHost = 1
 )
 
-// EndpointFrontend is the interface to implement for an object to synchronize
-// with the endpoint BPF map.
-type EndpointFrontend interface {
-	LXCMac() mac.MAC
-	GetNodeMAC() mac.MAC
-	IfIndex() int
-	GetID() uint64
-	IPv4Address() addressing.CiliumIPv4
-	IPv6Address() addressing.CiliumIPv6
-}
-
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
-func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
+func GetBPFKeys(e datapath.EndpointFrontend) []*EndpointKey {
 	keys := []*EndpointKey{}
 	if e.IPv6Address().IsSet() {
 		keys = append(keys, NewEndpointKey(e.IPv6Address().IP()))
@@ -119,7 +107,7 @@ func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
 // GetBPFValue returns the value which should represent this endpoint in the
 // BPF endpoints map
 // Must only be called if init() succeeded.
-func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
+func GetBPFValue(e datapath.EndpointFrontend) (*EndpointInfo, error) {
 	mac, err := e.LXCMac().Uint64()
 
 	if err != nil {
@@ -132,7 +120,7 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	}
 
 	info := &EndpointInfo{
-		IfIndex: uint32(e.IfIndex()),
+		IfIndex: uint32(e.GetIfIndex()),
 		// Store security identity in network byte order so it can be
 		// written into the packet without an additional byte order
 		// conversion.
@@ -213,7 +201,7 @@ func (v *EndpointInfo) String() string {
 
 // WriteEndpoint updates the BPF map with the endpoint information and links
 // the endpoint information to all keys provided.
-func (l *LXCMap) WriteEndpoint(f EndpointFrontend) error {
+func (l *LXCMap) WriteEndpoint(f datapath.EndpointFrontend) error {
 	info, err := GetBPFValue(f)
 	if err != nil {
 		return err
@@ -257,7 +245,7 @@ func (l *LXCMap) DeleteEntry(ip net.IP) error {
 
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
-func (l *LXCMap) DeleteElement(f EndpointFrontend) []error {
+func (l *LXCMap) DeleteElement(f datapath.EndpointFrontend) []error {
 	var errors []error
 	for _, k := range GetBPFKeys(f) {
 		if err := l.Delete(k); err != nil {

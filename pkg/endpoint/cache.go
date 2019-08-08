@@ -95,7 +95,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 	return ep
 }
 
-func (ep *epInfoCache) IfIndex() int {
+func (ep *epInfoCache) GetIfIndex() int {
 	return ep.ifIndex
 }
 

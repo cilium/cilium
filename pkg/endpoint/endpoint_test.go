@@ -61,10 +61,6 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 	s.repo = policy.NewPolicyRepository()
 }
 
-func (s *EndpointSuite) LXCMap() *lxcmap.LXCMap {
-	return nil
-}
-
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }

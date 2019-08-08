@@ -398,15 +398,6 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if err := bpf.ConfigureResourceLimits(); err != nil {
-		log.WithError(err).Fatal("Unable to set memory resource limits")
-	}
-
-	d.lxcMap = lxcmap.NewMap(lxcmap.MapName)
-	if _, err := d.lxcMap.OpenOrCreate(); err != nil {
-		return err
-	}
-
 	// The ipcache is shared between endpoints. Parallel mode needs to be
 	// used to allow existing endpoints that have not been regenerated yet
 	// to continue using the existing ipcache until the endpoint is
@@ -481,10 +472,6 @@ func (d *Daemon) initMaps() error {
 				return err
 			}
 		}
-
-		// If we are not restoring state, all endpoints can be
-		// deleted. Entries will be re-populated.
-		d.lxcMap.DeleteAll()
 	}
 
 	return nil
@@ -1131,8 +1118,4 @@ func (d *Daemon) GetNetConf() *cnitypes.NetConf {
 // CiliumNode resource
 func (d *Daemon) UpdateCiliumNodeResource() {
 	d.nodeDiscovery.UpdateCiliumNodeResource(d)
-}
-
-func (d *Daemon) LXCMap() *lxcmap.LXCMap {
-	return d.lxcMap
 }

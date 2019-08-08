@@ -304,6 +304,14 @@ type Endpoint struct {
 	DatapathConfiguration models.EndpointDatapathConfiguration
 }
 
+func (e *Endpoint) LXCMac() mac.MAC {
+	return e.LXCMAC
+}
+
+func (e *Endpoint) GetIfIndex() int {
+	return e.IfIndex
+}
+
 // UpdateController updates the controller with the specified name with the
 // provided list of parameters in endpoint's list of controllers.
 func (e *Endpoint) UpdateController(name string, params controller.ControllerParams) *controller.Controller {
