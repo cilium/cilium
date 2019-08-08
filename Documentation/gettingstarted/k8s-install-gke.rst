@@ -73,6 +73,7 @@ Generate the required YAML files and deploy them:
       --set nodeinit.removeCbrBridge=true \
       --set global.cni.binPath=/home/kubernetes/bin \
       > cilium.yaml
+    kubectl create namespace cilium
     kubectl create -f cilium.yaml
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
