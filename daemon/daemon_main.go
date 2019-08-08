@@ -443,6 +443,9 @@ func init() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
+	flags.Bool(option.EnableNonLocalNodeIdentity, defaults.EnableNonLocalNodeIdentity, "Enable use of non-local node identity")
+	option.BindEnv(option.EnableNonLocalNodeIdentity)
+
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(option.EncryptInterface)
 

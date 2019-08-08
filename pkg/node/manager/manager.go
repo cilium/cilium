@@ -281,6 +281,11 @@ func (m *Manager) NodeUpdated(n node.Node) {
 	var nodeIP, nodeIP4 net.IP
 	dpUpdate := true
 
+	remoteHostIdentity := identity.ReservedIdentityHost
+	if option.Config.EnableNonLocalNodeIdentity {
+		remoteHostIdentity = identity.ReservedIdentityNonLocalNode
+	}
+
 	for _, address := range n.IPAddresses {
 		// Map the Cilium internal IP to the reachable node IP so it
 		// can be routed via the overlay
@@ -294,7 +299,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 		}
 
 		isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, ipcache.Identity{
-			ID:     identity.ReservedIdentityHost,
+			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
 
@@ -313,7 +318,7 @@ func (m *Manager) NodeUpdated(n node.Node) {
 			}
 
 			isOwning := ipcache.IPIdentityCache.Upsert(address.IP.String(), nodeIP4, n.EncryptionKey, ipcache.Identity{
-				ID:     identity.ReservedIdentityHost,
+				ID:     remoteHostIdentity,
 				Source: n.Source,
 			})
 			if !isOwning {

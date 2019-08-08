@@ -293,4 +293,7 @@ const (
 	// K8sServiceCacheSize is the default value for option.K8sServiceCacheSize
 	// which denotes the value of Cilium's K8s service cache size.
 	K8sServiceCacheSize = 128
+
+	// EnableNonLocalNodeIdentity is the default value for option.EnableNonLocalNodeIdentity
+	EnableNonLocalNodeIdentity = false
 )

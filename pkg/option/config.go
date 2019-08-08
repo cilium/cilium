@@ -575,6 +575,9 @@ const (
 	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
 	// identity allocation
 	IdentityAllocationModeCRD = "crd"
+
+	// EnableNonLocalNodeIdentity enables use of the non-local-node identity
+	EnableNonLocalNodeIdentity = "enable-non-local-node-identity"
 )
 
 // Default string arguments
@@ -1153,6 +1156,9 @@ type DaemonConfig struct {
 	// IdentityAllocationMode specifies what mode to use for identity
 	// allocation
 	IdentityAllocationMode string
+
+	// EnableNonLocalNodeIdentity enables use of the non-local-node identity
+	EnableNonLocalNodeIdentity bool
 }
 
 var (
@@ -1482,6 +1488,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.EnableNonLocalNodeIdentity = viper.GetBool(EnableNonLocalNodeIdentity)
 	c.DockerEndpoint = viper.GetString(Docker)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
