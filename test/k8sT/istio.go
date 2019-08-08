@@ -79,8 +79,6 @@ var _ = Describe("K8sIstioTest", func() {
 	)
 
 	BeforeAll(func() {
-		Skip("Istio test is unstable, disable for now until we find the cause")
-
 		k8sVersion := helpers.GetCurrentK8SEnv()
 		switch k8sVersion {
 		case "1.7", "1.8", "1.9":
