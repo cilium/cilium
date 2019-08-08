@@ -66,28 +66,32 @@ void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 }
 
 static __always_inline __maybe_unused
-__u64 sock_cookie_or_zero(struct bpf_sock_addr *ctx)
+__u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 {
 #ifdef HAVE_GET_SOCK_COOKIE
-	return get_socket_cookie(ctx);
-#else
-	return 0;
-#endif
-}
-
-static __always_inline __maybe_unused
-__u64 sock_cookie_or_rnd(struct bpf_sock_addr *ctx)
-{
-#ifdef HAVE_GET_SOCK_COOKIE
-	return get_socket_cookie(ctx);
-#else
-	/* Given this is for the entire connection, we can pick one
-	 * randomly. If we actually support weighted selection one
-	 * day, this needs slight adjustment. prandom() might break
-	 * down on unconnected UDP depending on the workload, hence
-	 * preference is on socket cookie as selector.
+	/* prandom() breaks down on UDP, hence preference is on
+	 * socket cookie as built-in selector. On older kernels,
+	 * get_socket_cookie() provides a unique per netns cookie
+	 * for the life-time of the socket. For newer kernels this
+	 * is fixed to be a unique system _global_ cookie. Older
+	 * kernels could have a cookie collision when two pods with
+	 * different netns talk to same service backend, but that
+	 * is fine since we always reverse translate to the same
+	 * service IP/port pair. The only case that could happen
+	 * for older kernels is that we have a cookie collision
+	 * where one pod talks to the service IP/port and the
+	 * other pod talks to that same specific backend IP/port
+	 * directly _w/o_ going over service IP/port. Then the
+	 * reverse sock addr is translated to the service IP/port.
+	 * With a global socket cookie this collision cannot take
+	 * place. There, only the even more unlikely case could
+	 * happen where the same UDP socket talks first to the
+	 * service and then to the same selected backend IP/port
+	 * directly which can be considered negligible.
 	 */
-	return get_prandom_u32();
+	return get_socket_cookie(ctx);
+#else
+	return ctx->protocol == IPPROTO_TCP ? get_prandom_u32() : 0;
 #endif
 }
 
@@ -140,7 +144,7 @@ static inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	struct ipv4_revnat_tuple rkey = {};
 	struct ipv4_revnat_entry rval = {};
 
-	rkey.cookie = sock_cookie_or_zero(ctx);
+	rkey.cookie = sock_local_cookie(ctx);
 	rkey.address = backend->address;
 	rkey.port = backend->port;
 
@@ -210,7 +214,7 @@ int sock4_xlate(struct bpf_sock_addr *ctx)
 
 	svc = __lb4_lookup_service_v2(&key);
 	if (svc) {
-		key.slave = (sock_cookie_or_rnd(ctx) % svc->count) + 1;
+		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb4_lookup_slave_v2(&key);
 		if (!slave_svc) {
@@ -253,7 +257,7 @@ int sock4_xlate_snd(struct bpf_sock_addr *ctx)
 
 	svc = __lb4_lookup_service_v2(&lkey);
 	if (svc) {
-		lkey.slave = (sock_cookie_or_rnd(ctx) % svc->count) + 1;
+		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb4_lookup_slave_v2(&lkey);
 		if (!slave_svc) {
@@ -285,7 +289,7 @@ int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
 {
 	struct ipv4_revnat_entry *rval;
 	struct ipv4_revnat_tuple rkey = {
-		.cookie		= sock_cookie_or_zero(ctx),
+		.cookie		= sock_local_cookie(ctx),
 		.address	= ctx->user_ip4,
 		.port		= ctx_get_port(ctx),
 	};
@@ -345,7 +349,7 @@ static inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry rval = {};
 
-	rkey.cookie = sock_cookie_or_zero(ctx);
+	rkey.cookie = sock_local_cookie(ctx);
 	rkey.address = backend->address;
 	rkey.port = backend->port;
 
@@ -435,7 +439,7 @@ int sock6_xlate(struct bpf_sock_addr *ctx)
 
 	svc = __lb6_lookup_service_v2(&key);
 	if (svc) {
-		key.slave = (sock_cookie_or_rnd(ctx) % svc->count) + 1;
+		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb6_lookup_slave_v2(&key);
 		if (!slave_svc) {
@@ -478,7 +482,7 @@ int sock6_xlate_snd(struct bpf_sock_addr *ctx)
 
 	svc = __lb6_lookup_service_v2(&lkey);
 	if (svc) {
-		lkey.slave = (sock_cookie_or_rnd(ctx) % svc->count) + 1;
+		lkey.slave = (sock_local_cookie(ctx) % svc->count) + 1;
 
 		slave_svc = __lb6_lookup_slave_v2(&lkey);
 		if (!slave_svc) {
@@ -511,7 +515,7 @@ int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 	struct ipv6_revnat_tuple rkey = {};
 	struct ipv6_revnat_entry *rval;
 
-	rkey.cookie = sock_cookie_or_zero(ctx);
+	rkey.cookie = sock_local_cookie(ctx);
 	rkey.port = ctx_get_port(ctx);
 	ctx_get_v6_address(ctx, &rkey.address);
 
