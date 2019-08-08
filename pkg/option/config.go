@@ -1300,6 +1300,10 @@ func (c *DaemonConfig) Validate() error {
 		return fmt.Errorf("MTU '%d' cannot be negative", c.MTU)
 	}
 
+	if c.IPAM == IPAMENI && c.EnableIPv6 {
+		return fmt.Errorf("IPv6 cannot be enabled in ENI IPAM mode")
+	}
+
 	switch c.Tunnel {
 	case TunnelVXLAN, TunnelGeneve, "":
 	case TunnelDisabled:
