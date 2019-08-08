@@ -10,6 +10,11 @@
 Setting up Cilium in AWS ENI mode
 *********************************
 
+.. note::
+
+   The AWS ENI integration is still subject to some limitations. See
+   :ref:`eni_limitations` for details.
+
 Create an AWS cluster
 =====================
 
@@ -78,3 +83,13 @@ Scale up the cluster
     [ℹ]  scaling nodegroup, desired capacity from 0 to 2
 
 .. include:: k8s-install-validate.rst
+
+.. _eni_limitations:
+
+Limitations
+===========
+
+* The AWS ENI integration of Cilium is currently only enabled for IPv4.
+* When applying L7 policies at egress, the source identity context is lost as
+  it is currently not carried in the packet. This means that traffic will look
+  like it is coming from outside of the cluster to the receiving pod.
