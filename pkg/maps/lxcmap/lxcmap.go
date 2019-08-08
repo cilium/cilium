@@ -19,9 +19,11 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lxc")
@@ -83,13 +85,58 @@ const (
 )
 
 // EndpointFrontend is the interface to implement for an object to synchronize
-// with the endpoint BPF map
+// with the endpoint BPF map.
 type EndpointFrontend interface {
-	// GetBPFKeys must return a slice of EndpointKey which all represent the endpoint
-	GetBPFKeys() []*EndpointKey
+	LXCMac() mac.MAC
+	GetNodeMAC() mac.MAC
+	GetIfIndex() int
+	GetID() uint64
+	IPv4Address() addressing.CiliumIPv4
+	IPv6Address() addressing.CiliumIPv6
+}
 
-	// GetBPFValue must return an EndpointInfo structure representing the frontend
-	GetBPFValue() (*EndpointInfo, error)
+// GetBPFKeys returns all keys which should represent this endpoint in the BPF
+// endpoints map
+func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
+	keys := []*EndpointKey{}
+	if e.IPv6Address().IsSet() {
+		keys = append(keys, NewEndpointKey(e.IPv6Address().IP()))
+	}
+
+	if e.IPv4Address().IsSet() {
+		keys = append(keys, NewEndpointKey(e.IPv4Address().IP()))
+	}
+
+	return keys
+}
+
+// GetBPFValue returns the value which should represent this endpoint in the
+// BPF endpoints map
+// Must only be called if init() succeeded.
+func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
+	mac, err := e.LXCMac().Uint64()
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
+	}
+
+	nodeMAC, err := e.GetNodeMAC().Uint64()
+	if err != nil {
+		return nil, fmt.Errorf("invalid node MAC: %v", err)
+	}
+
+	info := &EndpointInfo{
+		IfIndex: uint32(e.GetIfIndex()),
+		// Store security identity in network byte order so it can be
+		// written into the packet without an additional byte order
+		// conversion.
+		LxcID:   uint16(e.GetID()),
+		MAC:     MAC(mac),
+		NodeMAC: MAC(nodeMAC),
+	}
+
+	return info, nil
+
 }
 
 type pad4uint32 [4]uint32
@@ -161,13 +208,13 @@ func (v *EndpointInfo) String() string {
 // WriteEndpoint updates the BPF map with the endpoint information and links
 // the endpoint information to all keys provided.
 func WriteEndpoint(f EndpointFrontend) error {
-	info, err := f.GetBPFValue()
+	info, err := GetBPFValue(f)
 	if err != nil {
 		return err
 	}
 
 	// FIXME: Revert on failure
-	for _, v := range f.GetBPFKeys() {
+	for _, v := range GetBPFKeys(f) {
 		if err := LXCMap.Update(v, info); err != nil {
 			return err
 		}
@@ -206,7 +253,7 @@ func DeleteEntry(ip net.IP) error {
 // endpoint. It returns the number of errors encountered during deletion.
 func DeleteElement(f EndpointFrontend) []error {
 	var errors []error
-	for _, k := range f.GetBPFKeys() {
+	for _, k := range GetBPFKeys(f) {
 		if err := LXCMap.Delete(k); err != nil {
 			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %s", k, bpf.MapPath(MapName), err))
 		}
