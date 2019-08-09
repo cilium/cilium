@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -54,7 +53,7 @@ func (d *Daemon) compileBase() error {
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
-	loader.Init(d.datapath, &d.nodeDiscovery.LocalConfig)
+	d.datapath.Loader().Init(d.datapath, &d.nodeDiscovery.LocalConfig)
 
 	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
 	if option.Config.DevicePreFilter != "undefined" {
