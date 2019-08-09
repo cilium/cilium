@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/logging"
@@ -168,18 +169,18 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep endpoint, dirs *director
 	return nil
 }
 
-func (l *Loader) compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *SpanStat) error {
+func (l *Loader) compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *metrics.SpanStat) error {
 	debug := option.Config.BPFCompilationDebug
-	stats.bpfCompilation.Start()
+	stats.BpfCompilation.Start()
 	err := compileDatapath(ctx, dirs, debug, ep.Logger(Subsystem))
-	stats.bpfCompilation.End(err == nil)
+	stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return err
 	}
 
-	stats.bpfLoadProg.Start()
+	stats.BpfLoadProg.Start()
 	err = l.reloadDatapath(ctx, ep, dirs)
-	stats.bpfLoadProg.End(err == nil)
+	stats.BpfLoadProg.End(err == nil)
 	return err
 }
 
@@ -187,7 +188,7 @@ func (l *Loader) compileAndLoad(ctx context.Context, ep endpoint, dirs *director
 // and loads it onto the interface associated with the endpoint.
 //
 // Expects the caller to have created the directory at the path ep.StateDir().
-func (l *Loader) CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func (l *Loader) CompileAndLoad(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	if ep == nil {
 		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
 	}
@@ -214,7 +215,7 @@ func (l *Loader) CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanSta
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func (l *Loader) CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func (l *Loader) CompileOrLoad(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	templatePath, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
@@ -250,29 +251,29 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat
 		}
 	}
 
-	stats.bpfWriteELF.Start()
+	stats.BpfWriteELF.Start()
 	dstPath := path.Join(ep.StateDir(), endpointObj)
 	opts, strings := ELFSubstitutions(ep)
 	if err = template.Write(dstPath, opts, strings); err != nil {
-		stats.bpfWriteELF.End(err == nil)
+		stats.BpfWriteELF.End(err == nil)
 		return err
 	}
-	stats.bpfWriteELF.End(err == nil)
+	stats.BpfWriteELF.End(err == nil)
 
 	return l.ReloadDatapath(ctx, ep, stats)
 }
 
 // ReloadDatapath reloads the BPF datapath pgorams for the specified endpoint.
-func (l *Loader) ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err error) {
+func (l *Loader) ReloadDatapath(ctx context.Context, ep endpoint, stats *metrics.SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
-	stats.bpfLoadProg.Start()
+	stats.BpfLoadProg.Start()
 	err = l.reloadDatapath(ctx, ep, &dirs)
-	stats.bpfLoadProg.End(err == nil)
+	stats.BpfLoadProg.End(err == nil)
 	return err
 }
 
@@ -308,19 +309,19 @@ func Init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
 // CompileAndLoad compiles the BPF datapath programs for the specified endpoint
 // and loads it onto the interface associated with the endpoint via the
 // globalLoader.
-func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func CompileAndLoad(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	return globalLoader.CompileAndLoad(ctx, ep, stats)
 }
 
 // CompileOrLoad loads the BPF datapath programs for the specified endpoint via
 // the globalLoader.
-func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func CompileOrLoad(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	return globalLoader.CompileOrLoad(ctx, ep, stats)
 }
 
 // ReloadDatapath reloads the BPF datapath pgorams for the specified endpoint
 // via the globalLoader.
-func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func ReloadDatapath(ctx context.Context, ep endpoint, stats *metrics.SpanStat) error {
 	return globalLoader.ReloadDatapath(ctx, ep, stats)
 }
 
