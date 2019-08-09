@@ -119,6 +119,4 @@ spec:
           secretName: cilium-etcd-secrets
 {{- end }}
 {{- end }}
-      serviceAccount: cilium-preflight-check
-      serviceAccountName: cilium-preflight-check
 
