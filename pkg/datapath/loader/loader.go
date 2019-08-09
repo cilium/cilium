@@ -20,7 +20,9 @@ import (
 	"net"
 	"os"
 	"path"
+	"sync"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -45,6 +47,36 @@ const (
 	dirIngress = "ingress"
 	dirEgress  = "egress"
 )
+
+var (
+	globalLoader *Loader
+)
+
+// Loader is a wrapper structure around operations related to compiling,
+// loading, and reloading datapath programs.
+type Loader struct {
+	once sync.Once
+
+	// templateCache is the cache of pre-compiled datapaths.
+	templateCache *objectCache
+}
+
+// Init initializes the datapath cache with base program hashes derived from
+// the LocalNodeConfiguration.
+func (l *Loader) Init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
+	l.once.Do(func() {
+		l.templateCache = NewObjectCache(dp, nodeCfg)
+		ignorePrefixes := ignoredELFPrefixes
+		if !option.Config.EnableIPv4 {
+			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
+		}
+		if !option.Config.EnableIPv6 {
+			ignorePrefixes = append(ignorePrefixes, "LXC_IP_")
+		}
+		elf.IgnoreSymbolPrefixes(ignorePrefixes)
+	})
+	l.templateCache.Update(nodeCfg)
+}
 
 // endpoint provides access to endpoint information that is necessary to
 // compile and load the datapath.
@@ -75,7 +107,7 @@ func removeEndpointRoute(ep endpoint, ip net.IPNet) error {
 	})
 }
 
-func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
+func (l *Loader) reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error {
 	// Replace the current program
 	objPath := path.Join(dirs.Output, endpointObj)
 	if ep.HasIpvlanDataPath() {
@@ -92,7 +124,7 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 			return err
 		}
 	} else {
-		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
+		if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
 				logfields.Veth: ep.InterfaceName(),
@@ -107,7 +139,7 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 		}
 
 		if ep.RequireEgressProg() {
-			if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress); err != nil {
+			if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress); err != nil {
 				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 					logfields.Path: objPath,
 					logfields.Veth: ep.InterfaceName(),
@@ -136,7 +168,7 @@ func reloadDatapath(ctx context.Context, ep endpoint, dirs *directoryInfo) error
 	return nil
 }
 
-func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *SpanStat) error {
+func (l *Loader) compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats *SpanStat) error {
 	debug := option.Config.BPFCompilationDebug
 	stats.bpfCompilation.Start()
 	err := compileDatapath(ctx, dirs, debug, ep.Logger(Subsystem))
@@ -146,7 +178,7 @@ func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats
 	}
 
 	stats.bpfLoadProg.Start()
-	err = reloadDatapath(ctx, ep, dirs)
+	err = l.reloadDatapath(ctx, ep, dirs)
 	stats.bpfLoadProg.End(err == nil)
 	return err
 }
@@ -155,7 +187,7 @@ func compileAndLoad(ctx context.Context, ep endpoint, dirs *directoryInfo, stats
 // and loads it onto the interface associated with the endpoint.
 //
 // Expects the caller to have created the directory at the path ep.StateDir().
-func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+func (l *Loader) CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 	if ep == nil {
 		log.Fatalf("LoadBPF() doesn't support non-endpoint load")
 	}
@@ -166,7 +198,7 @@ func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 		State:   ep.StateDir(),
 		Output:  ep.StateDir(),
 	}
-	return compileAndLoad(ctx, ep, &dirs, stats)
+	return l.compileAndLoad(ctx, ep, &dirs, stats)
 }
 
 // CompileOrLoad loads the BPF datapath programs for the specified endpoint.
@@ -182,8 +214,8 @@ func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 // CompileOrLoad with the same configuration parameters. When the first
 // goroutine completes compilation of the template, all other CompileOrLoad
 // invocations will be released.
-func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
-	templatePath, _, err := templateCache.fetchOrCompile(ctx, ep, stats)
+func (l *Loader) CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+	templatePath, _, err := l.templateCache.fetchOrCompile(ctx, ep, stats)
 	if err != nil {
 		return err
 	}
@@ -227,10 +259,11 @@ func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
 	}
 	stats.bpfWriteELF.End(err == nil)
 
-	return ReloadDatapath(ctx, ep, stats)
+	return l.ReloadDatapath(ctx, ep, stats)
 }
 
-func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err error) {
+// ReloadDatapath reloads the BPF datapath pgorams for the specified endpoint.
+func (l *Loader) ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err error) {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -238,13 +271,13 @@ func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) (err erro
 		Output:  ep.StateDir(),
 	}
 	stats.bpfLoadProg.Start()
-	err = reloadDatapath(ctx, ep, &dirs)
+	err = l.reloadDatapath(ctx, ep, &dirs)
 	stats.bpfLoadProg.End(err == nil)
 	return err
 }
 
 // Unload removes the datapath specific program aspects
-func Unload(ep endpoint) {
+func (l *Loader) Unload(ep endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsSet() {
 			removeEndpointRoute(ep, *ip.IPNet(32))
@@ -254,4 +287,51 @@ func Unload(ep endpoint) {
 			removeEndpointRoute(ep, *ip.IPNet(128))
 		}
 	}
+}
+
+// EndpointHash hashes the specified endpoint configuration with the current
+// datapath hash cache and returns the hash as string.
+func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+	return l.templateCache.baseHash.sumEndpoint(l.templateCache, cfg, true)
+}
+
+// CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
+func (l *Loader) CallsMapPath(id uint16) string {
+	return bpf.LocalMapPath(CallsMapName, id)
+}
+
+// Init initializes the globalLoader.
+func Init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
+	globalLoader.Init(dp, nodeCfg)
+}
+
+// CompileAndLoad compiles the BPF datapath programs for the specified endpoint
+// and loads it onto the interface associated with the endpoint via the
+// globalLoader.
+func CompileAndLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+	return globalLoader.CompileAndLoad(ctx, ep, stats)
+}
+
+// CompileOrLoad loads the BPF datapath programs for the specified endpoint via
+// the globalLoader.
+func CompileOrLoad(ctx context.Context, ep endpoint, stats *SpanStat) error {
+	return globalLoader.CompileOrLoad(ctx, ep, stats)
+}
+
+// ReloadDatapath reloads the BPF datapath pgorams for the specified endpoint
+// via the globalLoader.
+func ReloadDatapath(ctx context.Context, ep endpoint, stats *SpanStat) error {
+	return globalLoader.ReloadDatapath(ctx, ep, stats)
+}
+
+// Unload removes the datapath specific program aspects for the package-level
+// globalLoader.
+func Unload(ep endpoint) {
+	globalLoader.Unload(ep)
+}
+
+// EndpointHash hashes the specified endpoint configuration with the current
+// datapath hash cache and returns the hash as string via the globalLoader.
+func EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
+	return globalLoader.EndpointHash(cfg)
 }

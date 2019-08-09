@@ -54,7 +54,7 @@ func replaceQdisc(ifName string) error {
 }
 
 // replaceDatapath the qdisc and BPF program for a endpoint
-func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string) error {
+func (l *Loader) replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirection string) error {
 	err := replaceQdisc(ifName)
 	if err != nil {
 		return fmt.Errorf("Failed to replace Qdisc for %s: %s", ifName, err)
@@ -131,7 +131,7 @@ func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error 
 }
 
 // DeleteDatapath filter from the given ifName
-func DeleteDatapath(ctx context.Context, ifName, direction string) error {
+func (l *Loader) DeleteDatapath(ctx context.Context, ifName, direction string) error {
 	args := []string{"filter", "delete", "dev", ifName, direction, "pref", "1", "handle", "1", "bpf"}
 	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
 	_, err := cmd.CombinedOutput(log, true)
@@ -140,4 +140,9 @@ func DeleteDatapath(ctx context.Context, ifName, direction string) error {
 	}
 
 	return nil
+}
+
+// DeleteDatapath filter from the given ifName via the globalLoader
+func DeleteDatapath(ctx context.Context, ifName, direction string) error {
+	return globalLoader.DeleteDatapath(ctx, ifName, direction)
 }

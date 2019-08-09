@@ -19,13 +19,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,10 +34,6 @@ import (
 )
 
 var (
-	once sync.Once
-
-	// templateCache is the cache of pre-compiled datapaths.
-	templateCache            *objectCache
 	templateWatcherQueueSize = 10
 
 	ignoredELFPrefixes = []string{
@@ -64,23 +58,6 @@ var (
 		"to-container",          // Prog name
 	}
 )
-
-// Init initializes the datapath cache with base program hashes derived from
-// the LocalNodeConfiguration.
-func Init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
-	once.Do(func() {
-		templateCache = NewObjectCache(dp, nodeCfg)
-		ignorePrefixes := ignoredELFPrefixes
-		if !option.Config.EnableIPv4 {
-			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
-		}
-		if !option.Config.EnableIPv6 {
-			ignorePrefixes = append(ignorePrefixes, "LXC_IP_")
-		}
-		elf.IgnoreSymbolPrefixes(ignorePrefixes)
-	})
-	templateCache.Update(nodeCfg)
-}
 
 // RestoreTemplates populates the object cache from templates on the filesystem
 // at the specified path.
@@ -353,10 +330,4 @@ func (o *objectCache) watchTemplatesDirectory(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-}
-
-// EndpointHash hashes the specified endpoint configuration with the current
-// datapath hash cache and returns the hash as string.
-func EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
-	return templateCache.baseHash.sumEndpoint(templateCache, cfg, true)
 }
