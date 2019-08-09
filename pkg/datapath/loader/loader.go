@@ -49,10 +49,6 @@ const (
 	dirEgress  = "egress"
 )
 
-var (
-	globalLoader *Loader
-)
-
 // Loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type Loader struct {
@@ -289,40 +285,4 @@ func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *Loader) CallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(CallsMapName, id)
-}
-
-// Init initializes the globalLoader.
-func Init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
-	globalLoader.Init(dp, nodeCfg)
-}
-
-// CompileAndLoad compiles the BPF datapath programs for the specified endpoint
-// and loads it onto the interface associated with the endpoint via the
-// globalLoader.
-func CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	return globalLoader.CompileAndLoad(ctx, ep, stats)
-}
-
-// CompileOrLoad loads the BPF datapath programs for the specified endpoint via
-// the globalLoader.
-func CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	return globalLoader.CompileOrLoad(ctx, ep, stats)
-}
-
-// ReloadDatapath reloads the BPF datapath pgorams for the specified endpoint
-// via the globalLoader.
-func ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
-	return globalLoader.ReloadDatapath(ctx, ep, stats)
-}
-
-// Unload removes the datapath specific program aspects for the package-level
-// globalLoader.
-func Unload(ep datapath.Endpoint) {
-	globalLoader.Unload(ep)
-}
-
-// EndpointHash hashes the specified endpoint configuration with the current
-// datapath hash cache and returns the hash as string via the globalLoader.
-func EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
-	return globalLoader.EndpointHash(cfg)
 }

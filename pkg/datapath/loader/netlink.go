@@ -141,8 +141,3 @@ func (l *Loader) DeleteDatapath(ctx context.Context, ifName, direction string) e
 
 	return nil
 }
-
-// DeleteDatapath filter from the given ifName via the globalLoader
-func DeleteDatapath(ctx context.Context, ifName, direction string) error {
-	return globalLoader.DeleteDatapath(ctx, ifName, direction)
-}
