@@ -251,15 +251,17 @@ func getKVStoreIdentities(ctx context.Context, kvstoreBackend allocator.Backend)
 	identities = make(map[idpool.ID]allocator.AllocatorKey)
 	stopChan := make(chan struct{})
 
-	kvstoreBackend.ListAndWatch(kvstoreListHandler{
+	go kvstoreBackend.ListAndWatch(kvstoreListHandler{
 		onAdd: func(id idpool.ID, key allocator.AllocatorKey) {
 			log.Debugf("kvstore listed ID: %+v -> %+v", id, key)
 			identities[id] = key
 		},
 		onListDone: func() {
-			close(stopChan) // This makes the ListAndWatch exit after the initial listing
+			close(stopChan)
 		},
 	}, stopChan)
+	// This makes the ListAndWatch exit after the initial listing or on a timeout
+	// that exits this function
 
 	// Wait for the listing to complete
 	select {
