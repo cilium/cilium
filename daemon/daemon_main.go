@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1389,7 +1388,7 @@ func runDaemon() {
 	if option.Config.IsFlannelMasterDeviceSet() && option.Config.FlannelUninstallOnExit {
 		cleanup.DeferTerminationCleanupFunction(cleanUPWg, cleanUPSig, func() {
 			d.compilationMutex.Lock()
-			loader.DeleteDatapath(context.Background(), option.FlannelMasterDevice, "egress")
+			d.Datapath().Loader().DeleteDatapath(context.Background(), option.FlannelMasterDevice, "egress")
 			d.compilationMutex.Unlock()
 		})
 	}

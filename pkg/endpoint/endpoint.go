@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -957,7 +956,7 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	errors := []error{}
 
 	if !option.Config.DryMode {
-		loader.Unload(e.createEpInfoCache(""))
+		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
 	}
 
 	e.owner.RemoveFromEndpointQueue(uint64(e.ID))
