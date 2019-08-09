@@ -41,7 +41,7 @@ const (
 	MaxPortSnatDefault = 65535
 
 	// CollisionRetriesDefault defines maximum retries for resolving port collisions.
-	CollisionRetriesDefault = 16
+	CollisionRetriesDefault = 20
 
 	// DeterministicRetriesDefault defines maximum deterministic retries for
 	// resolving port collisions.
