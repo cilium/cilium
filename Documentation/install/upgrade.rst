@@ -801,7 +801,7 @@ The cilium preflight manifest requires etcd support and can be built with:
       --set operator.enabled=false \
       --set global.etcd.enabled=true \
       --set global.etcd.ssl=true \
-      --set global.etcd.managed=true
+      --set global.etcd.managed=true \
       > cilium-preflight.yaml
     kubectl create cilium-preflight.yaml
 
