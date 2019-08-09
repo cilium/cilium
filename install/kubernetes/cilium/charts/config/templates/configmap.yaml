@@ -254,8 +254,10 @@ data:
 {{- end }}
 
 {{- if .Values.global.hostServices.enabled }}
-  host-reachable-services: "true"
+  enable-host-reachable-services: "true"
+{{- if ne .Values.global.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.global.hostServices.protocols }}
+{{- end }}
 {{- end }}
 
 {{- if and .Values.global.ipvlan .Values.global.ipvlan.enabled }}
