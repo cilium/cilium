@@ -33,12 +33,12 @@ Generate the required YAML file and deploy it:
 
    helm template cilium \
      --namespace kube-system \
-     --set global.nodeport.enabled=true \
+     --set global.nodePort.enabled=true \
      > cilium.yaml
 
 By default, a NodePort service will be accessible via an IP address of a native
 device which has a default route on the host. To change a device, set its name
-in the ``device`` option.
+in the ``global.nodePort.device`` option.
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service
 can be accessed from a host or a Pod within a cluster via it's public,
@@ -68,6 +68,6 @@ Limitations
       are currently not supported.
     * NodePort services are currently exposed through the native device which has
       the default route on the host or a user specified device. In tunneling mode,
-      they are additionally exposed through the tunnel interface (cilium_vxlan or
-      cilium_geneve). Exposing services through multiple native devices will be
-      supported in upcoming Cilium versions.
+      they are additionally exposed through the tunnel interface (``cilium_vxlan``
+      or ``cilium_geneve``). Exposing services through multiple native devices
+      will be supported in upcoming Cilium versions.
