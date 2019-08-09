@@ -128,9 +128,9 @@ func CreateClient(config *rest.Config) (*kubernetes.Clientset, error) {
 	return cs, err
 }
 
-// isConnReady returns the err for the controller-manager status
+// isConnReady returns the err for the kube-system namespace get
 func isConnReady(c *kubernetes.Clientset) error {
-	_, err := c.CoreV1().ComponentStatuses().Get("controller-manager", metav1.GetOptions{})
+	_, err := c.CoreV1().Namespaces().Get("kube-system", metav1.GetOptions{})
 	return err
 }
 
