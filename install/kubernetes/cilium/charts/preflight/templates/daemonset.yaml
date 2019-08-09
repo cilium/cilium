@@ -81,6 +81,8 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
 {{- end }}
       restartPolicy: Always
+      serviceAccount: cilium
+      serviceAccountName: cilium
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready
