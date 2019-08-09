@@ -384,6 +384,7 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	for _, subnet := range subnets {
 		c.Assert(metricsapi.ENIAllocationAttempts("success", subnet.ID), check.Not(check.Equals), 0)
 		c.Assert(metricsapi.IPAllocations(subnet.ID), check.Not(check.Equals), 0)
+		c.Assert(metricsapi.AvailableIPsPerSubnet(subnet.ID, subnet.AvailabilityZone), check.Equals, 0)
 	}
 
 	c.Assert(metricsapi.ResyncCount(), check.Not(check.Equals), 0)

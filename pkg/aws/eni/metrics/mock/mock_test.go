@@ -51,4 +51,5 @@ func (e *MockSuite) TestMock(c *check.C) {
 	c.Assert(api.EC2RateLimit("DescribeNetworkInterfaces"), check.Equals, 2*time.Second)
 	api.IncResyncCount()
 	c.Assert(api.ResyncCount(), check.Equals, int64(1))
+	api.SetAvailableIPsPerSubnet("s-1", "az-1", 150)
 }

@@ -23,15 +23,16 @@ import (
 )
 
 type mockMetrics struct {
-	mutex              lock.RWMutex
-	allocationAttempts map[string]int64
-	ipAllocations      map[string]int64
-	allocatedIPs       map[string]int
-	availableENIs      int
-	nodes              map[string]int
-	ec2ApiCall         map[string]float64
-	ec2RateLimit       map[string]time.Duration
-	resyncCount        int64
+	mutex                 lock.RWMutex
+	allocationAttempts    map[string]int64
+	ipAllocations         map[string]int64
+	allocatedIPs          map[string]int
+	availableENIs         int
+	availableIPsPerSubnet map[string]int
+	nodes                 map[string]int
+	ec2ApiCall            map[string]float64
+	ec2RateLimit          map[string]time.Duration
+	resyncCount           int64
 }
 
 // NewMockMetrics returns a new metrics implementation with a mocked backend
@@ -127,6 +128,18 @@ func (m *mockMetrics) EC2RateLimit(operation string) time.Duration {
 func (m *mockMetrics) ObserveEC2RateLimit(operation string, delay time.Duration) {
 	m.mutex.Lock()
 	m.ec2RateLimit[operation] += delay
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) AvailableIPsPerSubnet(subnetID, availabilityZone string) int {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.availableIPsPerSubnet[fmt.Sprintf("subnetId=%s, availabilityZone=%s", subnetID, availabilityZone)]
+}
+
+func (m *mockMetrics) SetAvailableIPsPerSubnet(subnetID, availabilityZone string, available int) {
+	m.mutex.Lock()
+	m.availableIPsPerSubnet[fmt.Sprintf("subnetId=%s, availabilityZone=%s", subnetID, availabilityZone)] = available
 	m.mutex.Unlock()
 }
 

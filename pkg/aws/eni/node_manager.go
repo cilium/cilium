@@ -39,6 +39,7 @@ type nodeManagerAPI interface {
 	GetENI(instanceID string, index int) *v2.ENI
 	GetENIs(instanceID string) []*v2.ENI
 	GetSubnet(subnetID string) *types.Subnet
+	GetSubnets() types.SubnetMap
 	FindSubnetByTags(vpcID, availabilityZone string, required types.Tags) *types.Subnet
 	Resync() time.Time
 	UpdateENI(instanceID string, eni *v2.ENI)
@@ -57,6 +58,7 @@ type metricsAPI interface {
 	AddIPAllocation(subnetID string, allocated int64)
 	SetAllocatedIPs(typ string, allocated int)
 	SetAvailableENIs(available int)
+	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
 	DeficitResolverTrigger() trigger.MetricsObserver
@@ -262,6 +264,11 @@ func (n *NodeManager) resyncNode(node *Node, stats *resyncStats, syncTime time.T
 	if node.stats.remainingInterfaces == 0 && availableOnNode == 0 {
 		stats.nodesAtCapacity++
 	}
+
+	for subnetID, subnet := range n.instancesAPI.GetSubnets() {
+		n.metricsAPI.SetAvailableIPsPerSubnet(subnetID, subnet.AvailabilityZone, subnet.AvailableAddresses)
+	}
+
 	stats.mutex.Unlock()
 	node.mutex.Unlock()
 
