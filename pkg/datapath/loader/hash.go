@@ -48,18 +48,18 @@ func newDatapathHash() *datapathHash {
 // The endpoint's static data is NOT included in this hash, for that perform:
 //	hash := hashDatapath(dp, nodeCfg, netdevCfg, ep)
 //	hashStr := hash.sumEndpoint(ep)
-func hashDatapath(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration, netdevCfg datapath.DeviceConfiguration, epCfg datapath.EndpointConfiguration) *datapathHash {
+func hashDatapath(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, netdevCfg datapath.DeviceConfiguration, epCfg datapath.EndpointConfiguration) *datapathHash {
 	d := newDatapathHash()
 
 	// Writes won't fail; it's an in-memory hash.
 	if nodeCfg != nil {
-		_ = dp.WriteNodeConfig(d, nodeCfg)
+		_ = c.WriteNodeConfig(d, nodeCfg)
 	}
 	if netdevCfg != nil {
-		_ = dp.WriteNetdevConfig(d, netdevCfg)
+		_ = c.WriteNetdevConfig(d, netdevCfg)
 	}
 	if epCfg != nil {
-		_ = dp.WriteTemplateConfig(d, epCfg)
+		_ = c.WriteTemplateConfig(d, epCfg)
 	}
 
 	return d
@@ -67,15 +67,15 @@ func hashDatapath(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration
 
 // sumEndpoint returns the hash of the complete datapath for an endpoint.
 // It does not change the underlying hash state.
-func (d *datapathHash) sumEndpoint(dp datapath.Datapath, epCfg datapath.EndpointConfiguration, staticData bool) (string, error) {
+func (d *datapathHash) sumEndpoint(c datapath.ConfigWriter, epCfg datapath.EndpointConfiguration, staticData bool) (string, error) {
 	result, err := d.Copy()
 	if err != nil {
 		return "", err
 	}
 	if staticData {
-		dp.WriteEndpointConfig(result, epCfg)
+		c.WriteEndpointConfig(result, epCfg)
 	} else {
-		dp.WriteTemplateConfig(result, epCfg)
+		c.WriteTemplateConfig(result, epCfg)
 	}
 	return result.String(), nil
 }

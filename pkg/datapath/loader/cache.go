@@ -103,7 +103,7 @@ func RestoreTemplates(stateDir string) error {
 // filesystem where its corresponding BPF object file exists.
 type objectCache struct {
 	lock.Mutex
-	datapath.Datapath
+	datapath.ConfigWriter
 
 	workingDirectory string
 	baseHash         *datapathHash
@@ -120,9 +120,9 @@ type objectCache struct {
 	compileQueue map[string]*serializer.FunctionQueue
 }
 
-func newObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
+func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
 	oc := &objectCache{
-		Datapath:            dp,
+		ConfigWriter:        c,
 		workingDirectory:    workingDir,
 		newTemplates:        make(chan string, templateWatcherQueueSize),
 		templateWatcherDone: make(chan struct{}),
@@ -141,14 +141,14 @@ func newObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfigurati
 
 // NewObjectCache creates a new cache for datapath objects, basing the hash
 // upon the configuration of the datapath and the specified node configuration.
-func NewObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) *objectCache {
-	return newObjectCache(dp, nodeCfg, option.Config.StateDir)
+func NewObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) *objectCache {
+	return newObjectCache(c, nodeCfg, option.Config.StateDir)
 }
 
 // Update may be called to update the base hash for configuration of datapath
 // configuration that applies across the node.
 func (o *objectCache) Update(nodeCfg *datapath.LocalNodeConfiguration) {
-	newHash := hashDatapath(o.Datapath, nodeCfg, nil, nil)
+	newHash := hashDatapath(o.ConfigWriter, nodeCfg, nil, nil)
 
 	o.Lock()
 	defer o.Unlock()
@@ -227,7 +227,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 		}
 	}
 
-	if err = o.Datapath.WriteEndpointConfig(f, cfg); err != nil {
+	if err = o.ConfigWriter.WriteEndpointConfig(f, cfg); err != nil {
 		return &os.PathError{
 			Op:   "failed to write template header",
 			Path: headerPath,
