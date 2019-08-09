@@ -98,6 +98,10 @@ const (
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
+
+	// fatalSleep is the duration Cilium should sleep before existing in case
+	// of a log.Fatal is issued or a CLI flag is specified but does not exist.
+	fatalSleep = 2 * time.Second
 )
 
 var (
@@ -119,6 +123,17 @@ var (
 
 	bootstrapStats = bootstrapStatistics{}
 )
+
+func init() {
+	RootCmd.SetFlagErrorFunc(func(_ *cobra.Command, e error) error {
+		time.Sleep(fatalSleep)
+		return e
+	})
+	logrus.RegisterExitHandler(func() {
+		time.Sleep(fatalSleep)
+	},
+	)
+}
 
 func daemonMain() {
 	bootstrapStats.overall.Start()
