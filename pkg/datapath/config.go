@@ -15,6 +15,8 @@
 package datapath
 
 import (
+	"io"
+
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -72,4 +74,26 @@ type EndpointConfiguration interface {
 	// per endpoint route installed in the host's routing table to point to
 	// the endpoint's interface
 	RequireEndpointRoute() bool
+}
+
+// ConfigWriter is anything which writes the configuration for various datapath
+// program types.
+type ConfigWriter interface {
+	// WriteNodeConfig writes the implementation-specific configuration of
+	// node-wide options into the specified writer.
+	WriteNodeConfig(io.Writer, *LocalNodeConfiguration) error
+
+	// WriteNetdevConfig writes the implementation-specific configuration
+	// of configurable options to the specified writer. Options specified
+	// here will apply to base programs and not to endpoints, though
+	// endpoints may have equivalent configurable options.
+	WriteNetdevConfig(io.Writer, DeviceConfiguration) error
+
+	// WriteTemplateConfig writes the implementation-specific configuration
+	// of configurable options for BPF templates to the specified writer.
+	WriteTemplateConfig(w io.Writer, cfg EndpointConfiguration) error
+
+	// WriteEndpointConfig writes the implementation-specific configuration
+	// of configurable options for the endpoint to the specified writer.
+	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
 }
