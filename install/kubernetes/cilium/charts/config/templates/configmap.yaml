@@ -268,8 +268,12 @@ data:
 {{- if .Values.global.nodePort }}
   enable-node-port: {{ .Values.global.nodePort.enabled | default false | quote }}
 {{- if .Values.global.nodePort.range }}
-  node-port-range: {{ .Values.global.nodePort.range }}
+  node-port-range: {{ .Values.global.nodePort.range | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.device }}
+  device: {{ .Values.global.nodePort.device | quote }}
+{{- end }}
+
 {{- end }}
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
   pprof: {{ .Values.global.pprof.enabled | quote }}
