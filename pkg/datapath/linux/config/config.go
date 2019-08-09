@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package linux
+package config
 
 import (
 	"bufio"
@@ -47,12 +47,16 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+// HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
+// It manages writing of configuration of datapath program headerfiles.
+type HeaderfileWriter struct{}
+
 func writeIncludes(w io.Writer) (int, error) {
 	return fmt.Fprintf(w, "#include \"lib/utils.h\"\n\n")
 }
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
-func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
 	extraMacrosMap := make(map[string]string)
 	cDefinesMap := make(map[string]string)
 
@@ -283,7 +287,7 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 	return fw.Flush()
 }
 
-func (l *linuxDatapath) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
+func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) {
 	fmt.Fprint(w, cfg.GetOptions().GetFmtList())
 	if option.Config.IsFlannelMasterDeviceSet() {
 		fmt.Fprint(w, "#define HOST_REDIRECT_TO_INGRESS 1\n")
@@ -308,15 +312,15 @@ func (l *linuxDatapath) writeNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 }
 
 // WriteNetdevConfig writes the BPF configuration for the endpoint to a writer.
-func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) error {
+func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) error {
 	fw := bufio.NewWriter(w)
-	l.writeNetdevConfig(fw, cfg)
+	h.writeNetdevConfig(fw, cfg)
 	return fw.Flush()
 }
 
 // writeStaticData writes the endpoint-specific static data defines to the
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
-func (l *linuxDatapath) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
+func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
 	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
 	fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
 
@@ -334,16 +338,16 @@ func (l *linuxDatapath) writeStaticData(fw io.Writer, e datapath.EndpointConfigu
 }
 
 // WriteEndpointConfig writes the BPF configuration for the endpoint to a writer.
-func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
-	l.writeStaticData(fw, e)
+	h.writeStaticData(fw, e)
 
-	return l.writeTemplateConfig(fw, e)
+	return h.writeTemplateConfig(fw, e)
 }
 
-func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.EndpointConfiguration) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -382,13 +386,13 @@ func (l *linuxDatapath) writeTemplateConfig(fw *bufio.Writer, e datapath.Endpoin
 	// Local delivery metrics should always be set for endpoint programs.
 	fmt.Fprint(fw, "#define LOCAL_DELIVERY_METRICS 1\n")
 
-	l.writeNetdevConfig(fw, e)
+	h.writeNetdevConfig(fw, e)
 
 	return fw.Flush()
 }
 
 // WriteEndpointConfig writes the BPF configuration for the template to a writer.
-func (l *linuxDatapath) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
-	return l.writeTemplateConfig(fw, e)
+	return h.writeTemplateConfig(fw, e)
 }
