@@ -14,13 +14,14 @@
 
 // +build privileged_tests
 
-package linux
+package config
 
 import (
 	"bytes"
 	"errors"
 	"io"
 	"strings"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -31,10 +32,14 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-type DatapathSuite struct{}
+type ConfigSuite struct{}
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 var (
-	_ = Suite(&DatapathSuite{})
+	_ = Suite(&ConfigSuite{})
 
 	dummyNodeCfg  = datapath.LocalNodeConfiguration{}
 	dummyDevCfg   = testutils.NewTestEndpoint()
@@ -42,7 +47,7 @@ var (
 	ipv4DummyAddr = []byte{192, 0, 2, 3}
 )
 
-func (s *DatapathSuite) SetUpTest(c *C) {
+func (s *ConfigSuite) SetUpTest(c *C) {
 	err := bpf.ConfigureResourceLimits()
 	c.Assert(err, IsNil)
 	node.InitDefaultPrefix("")
@@ -50,7 +55,7 @@ func (s *DatapathSuite) SetUpTest(c *C) {
 	node.SetIPv4Loopback(ipv4DummyAddr)
 }
 
-func (s *DatapathSuite) TearDownTest(c *C) {
+func (s *ConfigSuite) TearDownTest(c *C) {
 	node.SetInternalIPv4(nil)
 	node.SetIPv4Loopback(nil)
 }
@@ -61,7 +66,7 @@ func (b *badWriter) Write(p []byte) (int, error) {
 	return 0, errors.New("bad write :(")
 }
 
-type writeFn func(io.Writer, datapath.Datapath) error
+type writeFn func(io.Writer, datapath.ConfigWriter) error
 
 func writeConfig(c *C, header string, write writeFn) {
 	tests := []struct {
@@ -82,37 +87,37 @@ func writeConfig(c *C, header string, write writeFn) {
 	}
 	for _, test := range tests {
 		c.Logf("  Testing %s configuration: %s", header, test.description)
-		dp := NewDatapath(DatapathConfiguration{}, nil)
-		c.Assert(write(test.output, dp), test.expResult)
+		cfg := &HeaderfileWriter{}
+		c.Assert(write(test.output, cfg), test.expResult)
 	}
 }
 
-func (s *DatapathSuite) TestWriteNodeConfig(c *C) {
-	writeConfig(c, "node", func(w io.Writer, dp datapath.Datapath) error {
+func (s *ConfigSuite) TestWriteNodeConfig(c *C) {
+	writeConfig(c, "node", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNodeConfig(w, &dummyNodeCfg)
 	})
 }
 
-func (s *DatapathSuite) TestWriteNetdevConfig(c *C) {
-	writeConfig(c, "netdev", func(w io.Writer, dp datapath.Datapath) error {
+func (s *ConfigSuite) TestWriteNetdevConfig(c *C) {
+	writeConfig(c, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteNetdevConfig(w, &dummyDevCfg)
 	})
 }
 
-func (s *DatapathSuite) TestWriteEndpointConfig(c *C) {
-	writeConfig(c, "endpoint", func(w io.Writer, dp datapath.Datapath) error {
+func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
+	writeConfig(c, "endpoint", func(w io.Writer, dp datapath.ConfigWriter) error {
 		return dp.WriteEndpointConfig(w, &dummyEPCfg)
 	})
 }
 
-func (s *DatapathSuite) TestWriteStaticData(c *C) {
-	dp := NewDatapath(DatapathConfiguration{}, nil).(*linuxDatapath)
+func (s *ConfigSuite) TestWriteStaticData(c *C) {
+	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg
 
 	varSub, stringSub := loader.ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
-	dp.writeStaticData(&buf, ep)
+	cfg.writeStaticData(&buf, ep)
 	b := buf.Bytes()
 	for k := range varSub {
 		for _, suffix := range []string{"_1", "_2", "_3", "_4"} {

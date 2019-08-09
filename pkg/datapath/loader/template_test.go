@@ -20,7 +20,7 @@ import (
 	"bytes"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
@@ -34,12 +34,12 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 
 	realEP := testutils.NewTestEndpoint()
 	template := wrap(&realEP, nil)
-	dp := linux.NewDatapath(linux.DatapathConfiguration{}, nil)
+	cfg := &config.HeaderfileWriter{}
 
 	// Write the configuration that should be the same, and verify it is.
-	err := dp.WriteTemplateConfig(&realEPBuffer, &realEP)
+	err := cfg.WriteTemplateConfig(&realEPBuffer, &realEP)
 	c.Assert(err, IsNil)
-	err = dp.WriteTemplateConfig(&templateBuffer, template)
+	err = cfg.WriteTemplateConfig(&templateBuffer, template)
 	c.Assert(err, IsNil)
 	c.Assert(realEPBuffer.String(), checker.DeepEquals, templateBuffer.String())
 
@@ -49,9 +49,9 @@ func (s *LoaderTestSuite) TestWrap(c *C) {
 	// define every bit of static data differently in the templates.
 	realEPBuffer.Reset()
 	templateBuffer.Reset()
-	err = dp.WriteEndpointConfig(&realEPBuffer, &realEP)
+	err = cfg.WriteEndpointConfig(&realEPBuffer, &realEP)
 	c.Assert(err, IsNil)
-	err = dp.WriteEndpointConfig(&templateBuffer, template)
+	err = cfg.WriteEndpointConfig(&templateBuffer, template)
 	c.Assert(err, IsNil)
 	c.Assert(realEPBuffer.String(), Not(Equals), templateBuffer.String())
 }

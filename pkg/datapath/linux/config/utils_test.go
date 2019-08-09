@@ -14,24 +14,30 @@
 
 // +build !privileged_tests
 
-package linux
+package config
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
 
-type DatapathSuite struct{}
+type ConfigSuite struct{}
 
 var (
-	_ = Suite(&DatapathSuite{})
+	_ = Suite(&ConfigSuite{})
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 type formatTestCase struct {
 	input  []byte
 	output string
 }
 
-func (s *DatapathSuite) TestGoArray2C(c *C) {
+func (s *ConfigSuite) TestGoArray2C(c *C) {
 	tests := []formatTestCase{
 		{
 			input:  []byte{0, 0x01, 0x02, 0x03},
@@ -60,7 +66,7 @@ func (s *DatapathSuite) TestGoArray2C(c *C) {
 	}
 }
 
-func (s *DatapathSuite) TestdefineIPv6(c *C) {
+func (s *ConfigSuite) TestdefineIPv6(c *C) {
 	tests := []formatTestCase{
 		{
 			input:  nil,
@@ -85,7 +91,7 @@ func (s *DatapathSuite) TestdefineIPv6(c *C) {
 	}
 }
 
-func (s *DatapathSuite) TestdefineMAC(c *C) {
+func (s *ConfigSuite) TestdefineMAC(c *C) {
 	tests := []formatTestCase{
 		{
 			input:  nil,

@@ -15,7 +15,10 @@
 package linux
 
 import (
+	"io"
+
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -38,22 +41,24 @@ type linuxDatapath struct {
 	node           datapath.NodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
+	configWriter   *config.HeaderfileWriter
 	ruleManager    rulesManager
 }
 
 // NewDatapath creates a new Linux datapath
-func NewDatapath(config DatapathConfiguration, ruleManager rulesManager) datapath.Datapath {
+func NewDatapath(cfg DatapathConfiguration, ruleManager rulesManager) datapath.Datapath {
 	dp := &linuxDatapath{
 		nodeAddressing: NewNodeAddressing(),
-		config:         config,
+		config:         cfg,
+		configWriter:   &config.HeaderfileWriter{},
 		ruleManager:    ruleManager,
 	}
 
-	dp.node = NewNodeHandler(config, dp.nodeAddressing)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing)
 
-	if config.EncryptInterface != "" {
-		if err := connector.DisableRpFilter(config.EncryptInterface); err != nil {
-			log.WithField(logfields.Interface, config.EncryptInterface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
+	if cfg.EncryptInterface != "" {
+		if err := connector.DisableRpFilter(cfg.EncryptInterface); err != nil {
+			log.WithField(logfields.Interface, cfg.EncryptInterface).Warn("Rpfilter could not be disabled, node to node encryption may fail")
 		}
 	}
 
@@ -77,4 +82,20 @@ func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name s
 
 func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return l.ruleManager.RemoveProxyRules(proxyPort, ingress, name)
+}
+
+func (l *linuxDatapath) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+	return l.configWriter.WriteTemplateConfig(w, e)
+}
+
+func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
+	return l.configWriter.WriteEndpointConfig(w, e)
+}
+
+func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) error {
+	return l.configWriter.WriteNetdevConfig(w, cfg)
+}
+
+func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+	return l.configWriter.WriteNodeConfig(w, cfg)
 }

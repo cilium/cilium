@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
@@ -37,7 +37,7 @@ func (s *LoaderTestSuite) TestobjectCache(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	cache := newObjectCache(linux.NewDatapath(linux.DatapathConfiguration{}, nil), nil, tmpDir)
+	cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 	realEP := testutils.NewTestEndpoint()
 
 	// First run should compile and generate the object.
@@ -116,7 +116,7 @@ func (s *LoaderTestSuite) TestobjectCacheParallel(c *C) {
 		c.Logf("  %s", t.description)
 
 		results := make(chan buildResult, t.builds)
-		cache := newObjectCache(linux.NewDatapath(linux.DatapathConfiguration{}, nil), nil, tmpDir)
+		cache := newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 		for i := 0; i < t.builds; i++ {
 			go func(i int) {
 				ep := testutils.NewTestEndpoint()
