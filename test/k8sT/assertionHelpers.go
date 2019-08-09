@@ -128,7 +128,6 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, options []string) {
 	default:
 	}
 
-	Expect(vm.WaitKubeDNS()).To(BeNil(), "KubeDNS is not ready after timeout")
 	ExpectCiliumOperatorReady(vm)
 	ExpectKubeDNSReady(vm)
 }
