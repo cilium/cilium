@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/loader"
+	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -62,7 +62,7 @@ type regenerationStatistics struct {
 	proxyConfiguration     spanstat.SpanStat
 	proxyPolicyCalculation spanstat.SpanStat
 	proxyWaitForAck        spanstat.SpanStat
-	datapathRealization    loader.SpanStat
+	datapathRealization    loaderMetrics.SpanStat
 	mapSync                spanstat.SpanStat
 	prepareBuild           spanstat.SpanStat
 }
