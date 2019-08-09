@@ -28,7 +28,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/elf"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -168,7 +167,8 @@ func (s *LoaderTestSuite) TestCompileAndLoad(c *C) {
 	defer cancel()
 	stats := &SpanStat{}
 
-	err := compileAndLoad(ctx, &ep, dirInfo, stats)
+	l := &Loader{}
+	err := l.compileAndLoad(ctx, &ep, dirInfo, stats)
 	c.Assert(err, IsNil)
 }
 
@@ -181,10 +181,11 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress)
+	l := &Loader{}
+	err = l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress)
 	c.Assert(err, IsNil)
 
-	err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress)
+	err = l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress)
 	c.Assert(err, IsNil)
 }
 
@@ -205,11 +206,12 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 		}
 	}()
 
+	l := &Loader{}
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = compileAndLoad(ctx, &ep, dirInfo, stats)
+		err = l.compileAndLoad(ctx, &ep, dirInfo, stats)
 	}
 	c.Assert(err, NotNil)
 }
@@ -234,9 +236,11 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
+	l := &Loader{}
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := compileAndLoad(ctx, &ep, dirInfo, stats); err != nil {
+		if err := l.compileAndLoad(ctx, &ep, dirInfo, stats); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -251,10 +255,12 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
 		b.Fatal(err)
 	}
+
+	l := &Loader{}
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
+		if err := l.replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -306,14 +312,14 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 
 	l := &Loader{}
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
-	if err := CompileOrLoad(ctx, &ep, nil); err != nil {
+	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)
 		time.Sleep(1 * time.Minute)
 		b.Fatal(err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := CompileOrLoad(ctx, &ep, nil); err != nil {
+		if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
