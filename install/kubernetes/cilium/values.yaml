@@ -199,7 +199,10 @@ global:
     enabled: false
 
     # range is the port range to use for NodePort
-    # range: 
+    # range:
+
+    # device is the name of the device handling NodePort requests
+    # device:
 
   # flannel is the flannel specific configuration
   flannel:
