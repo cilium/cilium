@@ -789,7 +789,7 @@ The steps below assume a stable cluster with no new identities created during
 the rollout. Once a cilium using CRD-backed identities is running, it may begin
 allocating identities in a way that conflicts with older ones in the kvstore. 
 
-The cilium preflight manifest requires etcd support and can be build with:
+The cilium preflight manifest requires etcd support and can be built with:
 
 .. code:: bash
 
@@ -811,7 +811,7 @@ Example migration
 
 .. code-block:: shell-session
 
-      $ kubectl exec -n kube-system cilium-preflight-1234 -- cilium preflight migrate-identity --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml
+      $ kubectl exec -n kube-system cilium-preflight-1234 -- cilium preflight migrate-identity
       INFO[0000] Setting up kvstore client
       INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.33.11:2379]" subsys=kvstore
       INFO[0000] Setting up kubernetes client
@@ -837,6 +837,16 @@ Example migration
       INFO[0003] Reusing existing global key                   key="k8s:class=deathstar;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=empire;" subsys=allocator
       INFO[0003] New ID allocated for key in CRD               identity=17281 identityLabels="k8s:class=deathstar;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=empire;" oldIdentity=11730
       INFO[0003] ID was already allocated to this key. It is already migrated  identity=17003 identityLabels="k8s:class=xwing;k8s:io.cilium.k8s.policy.cluster=default;k8s:io.cilium.k8s.policy.serviceaccount=default;k8s:io.kubernetes.pod.namespace=default;k8s:org=alliance;"
+
+.. note::
+
+    It is also possible to use the `--k8s-kubeconfig-path`  and `--kvstore-opt`
+    ``cilium`` CLI options with the preflight command. The default is to derive the
+    configuration as cilium-agent does.
+
+  .. parsed-literal::
+
+        cilium preflight migrate-identity --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml
 
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~
