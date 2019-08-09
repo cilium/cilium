@@ -10,7 +10,8 @@ Portmap (HostPort)
 
 If you want to use the Kubernetes HostPort feature, you must enable CNI
 chaining with the portmap plugin which implements HostPort. This guide
-documents how to do so.  For more information about HostPort, check the
+documents how to do so.  For more information about the Kubernetes HostPort
+feature , check out the upstream documentation:
 `Kubernetes hostPort-CNI plugin documentation
 <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-hostport>`_.
 
@@ -30,7 +31,7 @@ Generate the required YAML file and deploy it:
 .. code:: bash
 
     helm template cilium \
-      --namespace=kube-sysetm \
+      --namespace=kube-system \
       --set global.cni.chainingMode=portmap \
       > cilium.yaml
     kubectl create -f cilium.yaml
@@ -52,5 +53,5 @@ The new CNI chaining configuration will *not* apply to any pod that is already
 running the cluster. Existing pods will be reachable and Cilium will
 load-balance to them but policy enforcement will not apply to them and
 load-balancing is not performed for traffic originating from existing pods.
-You must restart these pods in order to invoke the
-chaining configuration on them.
+You must restart these pods in order to invoke the chaining configuration on
+them.
