@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -42,6 +43,7 @@ type linuxDatapath struct {
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
 	configWriter   *config.HeaderfileWriter
+	loader         *loader.Loader
 	ruleManager    rulesManager
 }
 
@@ -51,6 +53,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager rulesManager) datapath.D
 		nodeAddressing: NewNodeAddressing(),
 		config:         cfg,
 		configWriter:   &config.HeaderfileWriter{},
+		loader:         &loader.Loader{},
 		ruleManager:    ruleManager,
 	}
 
@@ -98,4 +101,8 @@ func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfig
 
 func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
 	return l.configWriter.WriteNodeConfig(w, cfg)
+}
+
+func (l *linuxDatapath) Loader() datapath.Loader {
+	return l.loader
 }

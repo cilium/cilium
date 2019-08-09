@@ -34,4 +34,8 @@ type Datapath interface {
 	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+
+	// Loader must return the implementation of the loader, which is responsible
+	// for loading, reloading, and compiling datapath programs.
+	Loader() Loader
 }
