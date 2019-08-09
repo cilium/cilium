@@ -416,7 +416,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 	stats.mapSync.Start()
-	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.PolicyMap)
+	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache.keys, e.policyMap)
 	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 	stats.mapSync.End(err == nil)
 	if epErr != nil {
@@ -584,14 +584,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		return nil
 	}
 
-	if e.PolicyMap == nil {
-		e.PolicyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
+	if e.policyMap == nil {
+		e.policyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
 		if err != nil {
 			return err
 		}
 		// Clean up map contents
 		e.getLogger().Debug("flushing old PolicyMap")
-		err = e.PolicyMap.DeleteAll()
+		err = e.policyMap.DeleteAll()
 		if err != nil {
 			return err
 		}
@@ -618,7 +618,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		err = e.regeneratePolicy()
 		stats.policyCalculation.End(err == nil)
 		if err != nil {
-			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.PolicyMap.String(), err)
+			return fmt.Errorf("unable to regenerate policy for '%s': %s", e.policyMap.String(), err)
 		}
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
@@ -916,7 +916,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 	// In other cases we only delete entries that exist, but even in that case it
 	// is better to not error out if somebody else has deleted the map entry in the
 	// meanwhile.
-	err, errno := e.PolicyMap.DeleteKeyWithErrno(policymapKey)
+	err, errno := e.policyMap.DeleteKeyWithErrno(policymapKey)
 	if err != nil && errno != syscall.ENOENT {
 		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
 		return false
@@ -942,7 +942,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 		TrafficDirection: keyToAdd.TrafficDirection,
 	}
 
-	err := e.PolicyMap.AllowKey(policymapKey, entry.ProxyPort)
+	err := e.policyMap.AllowKey(policymapKey, entry.ProxyPort)
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{
 			logfields.BPFMapKey: policymapKey,
@@ -1079,11 +1079,11 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		e.desiredPolicy.PolicyMapState = make(policy.MapState)
 	}
 
-	if e.PolicyMap == nil {
+	if e.policyMap == nil {
 		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
 	}
 
-	currentMapContents, err := e.PolicyMap.DumpToSlice()
+	currentMapContents, err := e.policyMap.DumpToSlice()
 
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
@@ -1093,18 +1093,18 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		// Close to avoid leaking of file descriptors, but still continue in case
 		// Close() does not succeed, because otherwise the map will never be
 		// opened again unless the agent is restarted.
-		err := e.PolicyMap.Close()
+		err := e.policyMap.Close()
 		if err != nil {
 			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
-		e.PolicyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
+		e.policyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
 		}
 
 		// Try to dump again, fail if error occurs.
-		currentMapContents, err = e.PolicyMap.DumpToSlice()
+		currentMapContents, err = e.policyMap.DumpToSlice()
 		if err != nil {
 			return err
 		}

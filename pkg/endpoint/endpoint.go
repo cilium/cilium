@@ -190,9 +190,9 @@ type Endpoint struct {
 	// TODO: Currently this applies only to HTTP L7 rules. Kafka L7 rules are still enforced by Cilium's node-wide Kafka proxy.
 	hasSidecarProxy bool
 
-	// PolicyMap is the policy related state of the datapath including
+	// policyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
-	PolicyMap *policymap.PolicyMap `json:"-"`
+	policyMap *policymap.PolicyMap
 
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
@@ -1332,9 +1332,9 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		e.removeOldRedirects(nil, proxyWaitGroup)
 	}
 
-	if e.PolicyMap != nil {
-		if err := e.PolicyMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.PolicyMap.String(), err))
+	if e.policyMap != nil {
+		if err := e.policyMap.Close(); err != nil {
+			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.policyMap.String(), err))
 		}
 	}
 
