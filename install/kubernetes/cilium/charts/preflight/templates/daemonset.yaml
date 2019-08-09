@@ -75,11 +75,12 @@ spec:
 {{- end }}
 {{- end }}
       hostNetwork: true
-{{- if .Values.global.etcd.managed }}
-      # In managed etcd mode, Cilium must be able to resolve the DNS name of
-      # the etcd service
+      # This is here to seamlessly allow migrate-identity to work with
+      # etcd-operator setups. The assumption is that other cases would also
+      # work since the cluster DNS would forward the request on.
+      # This differs from the cilium-agent daemonset, where this is only
+      # enabled when global.etcd.managed=true
       dnsPolicy: ClusterFirstWithHostNet
-{{- end }}
       restartPolicy: Always
       serviceAccount: cilium
       serviceAccountName: cilium
