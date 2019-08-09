@@ -28,9 +28,11 @@ var longTimeout = 10 * time.Minute
 // ExpectKubeDNSReady is a wrapper around helpers/WaitKubeDNS. It asserts that
 // the error returned by that function is nil.
 func ExpectKubeDNSReady(vm *helpers.Kubectl) {
+	By("Waiting for kube-dns to be ready")
 	err := vm.WaitKubeDNS()
 	ExpectWithOffset(1, err).Should(BeNil(), "kube-dns was not able to get into ready state")
 
+	By("Running kube-dns preflight check")
 	err = vm.KubeDNSPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "kube-dns service not ready")
 }
@@ -48,6 +50,7 @@ func ExpectCiliumReady(vm *helpers.Kubectl) {
 // ExpectCiliumOperatorReady is a wrapper around helpers/WaitForPods. It asserts that
 // the error returned by that function is nil.
 func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
+	By("Waiting for cilium-operator to be ready")
 	err := vm.WaitforPods(helpers.KubeSystemNamespace, "-l name=cilium-operator", longTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
 }
