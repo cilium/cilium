@@ -131,7 +131,7 @@ func wrap(cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) *template
 // elfMapSubstitutions returns the set of map substitutions that must occur in
 // an ELF template object file to update map references for the specified
 // endpoint.
-func elfMapSubstitutions(ep endpoint) map[string]string {
+func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 	result := make(map[string]string)
 
 	epID := uint16(ep.GetID())
@@ -181,7 +181,7 @@ func sliceToBe32(input []byte) uint32 {
 // elfVariableSubstitutions returns the set of data substitutions that must
 // occur in an ELF template object file to update static data for the specified
 // endpoint.
-func elfVariableSubstitutions(ep endpoint) map[string]uint32 {
+func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	result := make(map[string]uint32)
 
 	if ipv6 := ep.IPv6Address(); ipv6 != nil {
@@ -210,6 +210,6 @@ func elfVariableSubstitutions(ep endpoint) map[string]uint32 {
 // ELFSubstitutions fetches the set of variable and map substitutions that
 // must be implemented against an ELF template to configure the datapath for
 // the specified endpoint.
-func ELFSubstitutions(ep endpoint) (map[string]uint32, map[string]string) {
+func ELFSubstitutions(ep datapath.Endpoint) (map[string]uint32, map[string]string) {
 	return elfVariableSubstitutions(ep), elfMapSubstitutions(ep)
 }
