@@ -31,7 +31,7 @@ spec:
 {{- else }}
           image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
-          imagePullPolicy: {{ .Values.pullPolicy }}
+          imagePullPolicy: {{ .Values.global.pullPolicy }}
           command: ["/bin/echo"]
           args:
           - "hello"
