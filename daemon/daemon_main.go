@@ -1144,11 +1144,6 @@ func initEnv(cmd *cobra.Command) {
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
 
-	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
-		log.WithField(logfields.Tunnel, option.Config.Tunnel).
-			Fatal("Currently ipsec with tunneling disabled requires option \"encrypt-interface\".")
-	}
-
 	// BPF masquerade specified, rejecting unsupported options for this mode.
 	if !option.Config.InstallIptRules && option.Config.Masquerade {
 		if option.Config.DatapathMode != option.DatapathModeIpvlan {
