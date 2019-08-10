@@ -444,10 +444,14 @@ static __always_inline int do_netdev_encrypt_pools(struct __sk_buff *skb)
 {
 	int ret = 0;
 #ifdef IP_POOLS
+	__u32 tunnel_endpoint = 0;
 	void *data, *data_end;
 	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
 	struct iphdr *iphdr;
 	__be32 sum;
+
+	tunnel_endpoint = skb->cb[4];
+	skb->mark = 0;
 
 	if (!revalidate_data(skb, &data, &data_end, &iphdr)) {
 		ret = DROP_INVALID;
