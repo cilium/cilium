@@ -25,18 +25,19 @@ import (
 const eniSubsystem = "eni"
 
 type prometheusMetrics struct {
-	registry        *prometheus.Registry
-	AllocateEniOps  *prometheus.CounterVec
-	AllocateIpOps   *prometheus.CounterVec
-	IPsAllocated    *prometheus.GaugeVec
-	Available       prometheus.Gauge
-	Nodes           *prometheus.GaugeVec
-	Resync          prometheus.Counter
-	EC2ApiDuration  *prometheus.HistogramVec
-	EC2RateLimit    *prometheus.HistogramVec
-	deficitResolver *triggerMetrics
-	k8sSync         *triggerMetrics
-	resync          *triggerMetrics
+	registry              *prometheus.Registry
+	AllocateEniOps        *prometheus.CounterVec
+	AllocateIpOps         *prometheus.CounterVec
+	IPsAllocated          *prometheus.GaugeVec
+	AvailableENIs         prometheus.Gauge
+	AvailableIPsPerSubnet *prometheus.GaugeVec
+	Nodes                 *prometheus.GaugeVec
+	Resync                prometheus.Counter
+	EC2ApiDuration        *prometheus.HistogramVec
+	EC2RateLimit          *prometheus.HistogramVec
+	deficitResolver       *triggerMetrics
+	k8sSync               *triggerMetrics
+	resync                *triggerMetrics
 }
 
 // NewPrometheusMetrics returns a new ENI metrics implementation backed by
@@ -67,12 +68,19 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Help:      "Number of ENIs allocated",
 	}, []string{"subnetId", "status"})
 
-	m.Available = prometheus.NewGauge(prometheus.GaugeOpts{
+	m.AvailableENIs = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: eniSubsystem,
 		Name:      "available",
 		Help:      "Number of ENIs with addresses available",
 	})
+
+	m.AvailableIPsPerSubnet = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: eniSubsystem,
+		Name:      "available_ips_per_subnet",
+		Help:      "Number of available IPs per subnet ID",
+	}, []string{"subnetId", "availabilityZone"})
 
 	m.Nodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -109,7 +117,8 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	registry.MustRegister(m.IPsAllocated)
 	registry.MustRegister(m.AllocateIpOps)
 	registry.MustRegister(m.AllocateEniOps)
-	registry.MustRegister(m.Available)
+	registry.MustRegister(m.AvailableENIs)
+	registry.MustRegister(m.AvailableIPsPerSubnet)
 	registry.MustRegister(m.Nodes)
 	registry.MustRegister(m.Resync)
 	registry.MustRegister(m.EC2ApiDuration)
@@ -146,7 +155,11 @@ func (p *prometheusMetrics) SetAllocatedIPs(typ string, allocated int) {
 }
 
 func (p *prometheusMetrics) SetAvailableENIs(available int) {
-	p.Available.Set(float64(available))
+	p.AvailableENIs.Set(float64(available))
+}
+
+func (p *prometheusMetrics) SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int) {
+	p.AvailableIPsPerSubnet.WithLabelValues(subnetID, availabilityZone).Set(float64(available))
 }
 
 func (p *prometheusMetrics) SetNodes(label string, nodes int) {
