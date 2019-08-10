@@ -1161,8 +1161,11 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
-		log.WithField(logfields.Tunnel, option.Config.Tunnel).
-			Fatal("Currently ipsec with tunneling disabled requires option \"encrypt-interface\".")
+		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			log.Fatal("Ipsec enabled without tunneling but option \"encrypt-interface\" not set and unable to get link for default interface ")
+		}
+		option.Config.EncryptInterface = link
 	}
 
 	// BPF masquerade specified, rejecting unsupported options for this mode.
