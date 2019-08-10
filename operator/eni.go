@@ -176,12 +176,13 @@ func (m *noOpMetricsObserver) QueueEvent(reason string)                         
 type noOpMetrics struct{}
 
 // eni metricsAPI interface implementation
-func (m *noOpMetrics) IncENIAllocationAttempt(status, subnetID string)  {}
-func (m *noOpMetrics) AddIPAllocation(subnetID string, allocated int64) {}
-func (m *noOpMetrics) SetAllocatedIPs(typ string, allocated int)        {}
-func (m *noOpMetrics) SetAvailableENIs(available int)                   {}
-func (m *noOpMetrics) SetNodes(category string, nodes int)              {}
-func (m *noOpMetrics) IncResyncCount()                                  {}
+func (m *noOpMetrics) IncENIAllocationAttempt(status, subnetID string)                           {}
+func (m *noOpMetrics) AddIPAllocation(subnetID string, allocated int64)                          {}
+func (m *noOpMetrics) SetAllocatedIPs(typ string, allocated int)                                 {}
+func (m *noOpMetrics) SetAvailableENIs(available int)                                            {}
+func (m *noOpMetrics) SetAvailableIPsPerSubnet(subnetID, availabilityZone string, available int) {}
+func (m *noOpMetrics) SetNodes(category string, nodes int)                                       {}
+func (m *noOpMetrics) IncResyncCount()                                                           {}
 func (m *noOpMetrics) DeficitResolverTrigger() trigger.MetricsObserver {
 	return &noOpMetricsObserver{}
 }

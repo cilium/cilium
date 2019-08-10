@@ -69,6 +69,21 @@ func (m *InstancesManager) GetSubnet(subnetID string) *types.Subnet {
 	return m.subnets[subnetID]
 }
 
+// GetSubnets returns all the tracked subnets
+//
+// The returned subnetMap is immutable so it can be safely accessed
+func (m *InstancesManager) GetSubnets() types.SubnetMap {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	subnetsCopy := make(types.SubnetMap)
+	for k, v := range m.subnets {
+		subnetsCopy[k] = v
+	}
+
+	return subnetsCopy
+}
+
 // FindSubnetByTags returns the subnet with the most addresses matching VPC ID,
 // availability zone and all required tags
 //
