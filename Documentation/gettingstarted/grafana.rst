@@ -51,7 +51,7 @@ value:
 
 Generate the required YAML file and deploy it:
 
-.. parsed-literal::
+.. code:: bash
 
    helm template cilium \
       --namespace kube-system \
