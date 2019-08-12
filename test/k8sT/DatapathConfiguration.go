@@ -15,15 +15,12 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("K8sDatapathConfig", func() {
@@ -37,9 +34,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		demoDSPath = helpers.ManifestGet("demo_ds.yaml")
 		ipsecDSPath = helpers.ManifestGet("ipsec_ds.yaml")
 
-		kubectl.Exec("kubectl -n kube-system delete ds cilium")
-
-		Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
+		deleteCiliumDS(kubectl)
 	})
 
 	BeforeEach(func() {
@@ -53,11 +48,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		kubectl.Delete(ipsecDSPath)
 		ExpectAllPodsTerminated(kubectl)
 
-		// Do not assert on success in AfterEach intentionally to avoid
-		// incomplete teardown.
-		_ = kubectl.DeleteResource(
-			"ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
-		Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
+		deleteCiliumDS(kubectl)
 	})
 
 	AfterFailed(func() {
@@ -233,33 +224,4 @@ func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
 	Expect(err).Should(BeNil(), "Failure to retrieve IP of pod %s", pods[1])
 	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
 	return res.WasSuccessful()
-}
-
-func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
-	var (
-		pods []string
-		err  error
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), helpers.HelperTimeout)
-	defer cancel()
-
-	status := 1
-	for status > 0 {
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
-		default:
-		}
-
-		pods, err = kubectl.GetCiliumPodsContext(ctx, helpers.KubeSystemNamespace)
-		status := len(pods)
-		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
-		if status == 0 {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return nil
 }
