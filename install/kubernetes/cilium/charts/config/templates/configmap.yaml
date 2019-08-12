@@ -292,3 +292,7 @@ data:
 {{- if and .Values.global.endpointRoutes .Values.global.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.global.endpointRoutes.enabled | quote }}
 {{- end }}
+{{- if .Values.global.cni.configMap }}
+  read-cni-conf: {{ .Values.global.cni.confFileMountPath }}/{{ .Values.global.cni.configMapKey }}
+  write-cni-conf-when-ready: {{ .Values.global.cni.hostConfDirMountPath }}/05-cilium.conflist
+{{- end }}
