@@ -146,6 +146,14 @@ func SkipIfFlannel() {
 	}
 }
 
+// skipIfDoesNotRunOnNetNext will skip the test if it's not running on
+// the {net,bpf}-next kernel (=ubuntu-next VM).
+func skipIfDoesNotRunOnNetNext() {
+	if !helpers.RunsOnNetNext() {
+		Skip("Test requires to be run on net-next. Skipping test.")
+	}
+}
+
 func deleteCiliumDS(kubectl *helpers.Kubectl) {
 	// Do not assert on success in AfterEach intentionally to avoid
 	// incomplete teardown.
