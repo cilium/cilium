@@ -133,7 +133,7 @@ spec:
           name: cilium-run
         - mountPath: /host/opt/cni/bin
           name: cni-path
-        - mountPath: /host/etc/cni/net.d
+        - mountPath: {{ .Values.global.cni.hostConfDirMountPath }}
           name: etc-cni-netd
 {{- if or (eq .Values.global.containerRuntime.integration "docker") (eq .Values.global.containerRuntime.integration "auto") }}
         - mountPath: /var/run/docker.sock
@@ -162,6 +162,11 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
+{{- if .Values.global.cni.configMap }}
+        - mountPath: {{ .Values.global.cni.confFileMountPath }}
+          name: cni-configuration
+          readOnly: true
+{{- end }}
           # Needed to be able to load kernel modules
         - mountPath: /lib/modules
           name: lib-modules
@@ -325,6 +330,11 @@ spec:
       - name: cilium-ipsec-secrets
         secret:
           secretName: {{ .Values.global.encryption.secretName }}
+{{- end }}
+{{- if .Values.global.cni.configMap }}
+      - name: cni-configuration
+        configMap:
+          name: {{ .Values.global.cni.configMap }}
 {{- end }}
   updateStrategy:
     rollingUpdate:
