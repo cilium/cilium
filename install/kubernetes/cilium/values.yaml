@@ -112,6 +112,23 @@ global:
     # binPath si the path to the CNI binary directory on the host
     binPath: /opt/cni/bin
 
+    # configMap when defined, will mount the provided value as ConfigMap  and
+    # interpret the cniConf variable as CNI configuration file and write it
+    # when the agent starts up
+    # configMap: cni-configuration
+
+    # configMapKey is the key in the CNI ConfigMap to read the contents of the
+    # CNI configuration from
+    configMapKey: cni-config
+
+    # confFileMountPath is the path to where to mount the ConfigMap inside the
+    # pod
+    confFileMountPath: /tmp/cni-configuration
+
+    # hostConfDirMountPath is the path to where the CNI configuration directory
+    # is mounted inside the  pod
+    hostConfDirMountPath: /host/etc/cni/net.d
+
   # cluster is the clustermesh related configuration
   cluster:
     # name is the human readable name of the cluster when setting up
