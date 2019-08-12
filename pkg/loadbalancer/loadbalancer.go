@@ -79,9 +79,10 @@ func (lbbe *LBBackEnd) String() string {
 
 // LBSVC is essentially used for the REST API.
 type LBSVC struct {
-	Sha256 string
-	FE     L3n4AddrID
-	BES    []LBBackEnd
+	Sha256   string
+	FE       L3n4AddrID
+	BES      []LBBackEnd
+	NodePort bool
 }
 
 type backendPlacement struct {
@@ -99,6 +100,9 @@ func (s *LBSVC) GetModel() *models.Service {
 		ID:               id,
 		FrontendAddress:  s.FE.GetModel(),
 		BackendAddresses: make([]*models.BackendAddress, len(s.BES)),
+		Flags: &models.ServiceSpecFlags{
+			NodePort: s.NodePort,
+		},
 	}
 
 	placements := make([]backendPlacement, len(s.BES))
