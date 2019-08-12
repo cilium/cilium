@@ -1353,9 +1353,18 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 			fePort.ID = loadbalancer.ServiceID(feAddrID.ID)
 		}
 
-		frontends := []*loadbalancer.L3n4AddrID{}
-		frontends = append(frontends, loadbalancer.NewL3n4AddrID(
-			fePort.Protocol, svc.FrontendIP, fePort.Port, loadbalancer.ID(fePort.ID)))
+		type frontend struct {
+			addr     *loadbalancer.L3n4AddrID
+			nodePort bool
+		}
+
+		frontends := []frontend{}
+		frontends = append(frontends,
+			frontend{
+				addr: loadbalancer.NewL3n4AddrID(fePort.Protocol, svc.FrontendIP,
+					fePort.Port, loadbalancer.ID(fePort.ID)),
+				nodePort: false,
+			})
 
 		for _, nodePortFE := range svc.NodePorts[fePortName] {
 			if nodePortFE.ID == 0 {
@@ -1372,7 +1381,10 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 				}
 				nodePortFE.ID = feAddrID.ID
 			}
-			frontends = append(frontends, nodePortFE)
+			frontends = append(frontends, frontend{
+				addr:     nodePortFE,
+				nodePort: true,
+			})
 		}
 
 		besValues := []loadbalancer.LBBackEnd{}
@@ -1386,7 +1398,7 @@ func (d *Daemon) addK8sSVCs(svcID k8s.ServiceID, svc *k8s.Service, endpoints *k8
 		}
 
 		for _, fe := range frontends {
-			if _, err := d.svcAdd(*fe, besValues, true); err != nil {
+			if _, err := d.svcAdd(*fe.addr, besValues, true, fe.nodePort); err != nil {
 				scopedLog.WithError(err).Error("Error while inserting service in LB map")
 			}
 		}
