@@ -22,11 +22,11 @@ var _ = Describe("K8sUpdates", func() {
 	// This test runs 8 steps as following:
 	// 1 - delete all pods. Clean cilium, this can be, and should be achieved by
 	// `clean-cilium-state: "true"` option that we have in configmap
-	// 2 - install cilium `cilium:v1.4`
+	// 2 - install cilium `cilium:v${LATEST_STABLE}`
 	// 3 - make endpoints talk with each other with policy
 	// 4 - upgrade cilium to `k8s1:5000/cilium/cilium-dev:latest`
 	// 5 - make endpoints talk with each other with policy
-	// 6 - downgrade cilium to `cilium:v1.4`
+	// 6 - downgrade cilium to `cilium:v${LATEST_STABLE}`
 	// 7 - make endpoints talk with each other with policy
 	// 8 - delete all pods. Clean cilium, this can be, and should be achieved by
 	// `clean-cilium-state: "true"` option that we have in configmap.
