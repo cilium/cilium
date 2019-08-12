@@ -89,7 +89,7 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 		return false, fmt.Errorf("service ID %d is already registered to L3n4Addr %s, please choose a different ID", feL3n4Addr.ID, feAddr.String())
 	}
 
-	return d.svcAdd(feL3n4Addr, be, addRevNAT)
+	return d.svcAdd(feL3n4Addr, be, addRevNAT, false)
 }
 
 // svcAdd adds a service from the given feL3n4Addr (frontend) and LBBackEnd (backends).
@@ -99,7 +99,10 @@ func (d *Daemon) SVCAdd(feL3n4Addr loadbalancer.L3n4AddrID, be []loadbalancer.LB
 // entry fails while updating the LB map, the frontend won't be inserted in the LB map
 // therefore there won't be any traffic going to the given backends.
 // All of the backends added will be DeepCopied to the internal load balancer map.
-func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd, addRevNAT bool) (bool, error) {
+func (d *Daemon) svcAdd(
+	feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.LBBackEnd,
+	addRevNAT, nodePort bool) (bool, error) {
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceID: feL3n4Addr.String(),
 		logfields.Object:    logfields.Repr(bes),
@@ -114,9 +117,10 @@ func (d *Daemon) svcAdd(feL3n4Addr loadbalancer.L3n4AddrID, bes []loadbalancer.L
 	}
 
 	svc := loadbalancer.LBSVC{
-		FE:     feL3n4Addr,
-		BES:    beCpy,
-		Sha256: feL3n4Addr.L3n4Addr.SHA256Sum(),
+		FE:       feL3n4Addr,
+		BES:      beCpy,
+		Sha256:   feL3n4Addr.L3n4Addr.SHA256Sum(),
+		NodePort: nodePort,
 	}
 
 	fe, besValues, err := lbmap.LBSVC2ServiceKeynValue(svc)
