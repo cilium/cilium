@@ -181,38 +181,57 @@ var _ = Describe("K8sServicesTest", func() {
 			testHTTPRequest(url)
 		})
 
-		testNodePort := func() {
+		testNodePort := func(bpfNodePort bool) {
+			var data v1.Service
+			getURL := func(host string, port int32) string {
+				return fmt.Sprintf("http://%s",
+					net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+			}
+			doRequests := func(url string, count int) {
+				for i := 1; i <= count; i++ {
+					res := kubectl.Exec(helpers.CurlFail(url))
+					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+						"k8s1 host can not connect to service %q", url)
+				}
+			}
+
 			waitPodsDs()
 
-			var data v1.Service
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
-			url := fmt.Sprintf("http://%s",
-				net.JoinHostPort(data.Spec.ClusterIP, fmt.Sprintf("%d", data.Spec.Ports[0].Port)))
+			url := getURL(data.Spec.ClusterIP, data.Spec.Ports[0].Port)
 			testHTTPRequest(url)
 
 			// From host via localhost IP
 			// TODO: IPv6
-			url = fmt.Sprintf("http://%s",
-				net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
-			By("Making ten HTTP requests from k8s1 to %q", url)
-			for i := 1; i <= 10; i++ {
-				res := kubectl.Exec(helpers.CurlFail(url))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"k8s1 host can not connect to service %q", url)
-			}
+			count := 10
+			url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
+			By("Making %d HTTP requests from k8s1 to %q", count, url)
+			doRequests(url, count)
+
+			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
+			By("Making %d HTTP requests from k8s1 to %q", count, url)
+			doRequests(url, count)
+
+			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
+			By("Making %d HTTP requests from k8s1 to %q", count, url)
+			doRequests(url, count)
 
 			// From pod via node IPs
-			url = fmt.Sprintf("http://%s",
-				net.JoinHostPort(helpers.K8s1Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+			url = getURL(helpers.K8s1Ip, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(url)
-			url = fmt.Sprintf("http://%s",
-				net.JoinHostPort(helpers.K8s2Ip, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)))
+			url = getURL(helpers.K8s2Ip, data.Spec.Ports[0].NodePort)
 			testHTTPRequest(url)
+
+			// From pod via loopback (host reachable services)
+			if bpfNodePort {
+				url = getURL("127.0.0.1", data.Spec.Ports[0].NodePort)
+				testHTTPRequest(url)
+			}
 		}
 
-		It("Tests NodePort", func() {
-			testNodePort()
+		It("Tests NodePort (kube-proxy)", func() {
+			testNodePort(false)
 		})
 
 		Context("with L7 policy", func() {
@@ -228,7 +247,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			It("Tests NodePort with L7 Policy", func() {
 				applyPolicy(demoPolicy)
-				testNodePort()
+				testNodePort(false)
 			})
 		})
 	})
