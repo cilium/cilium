@@ -143,6 +143,9 @@ type ServiceSpecFlags struct {
 
 	// Perform direct server return
 	DirectServerReturn bool `json:"direct-server-return,omitempty"`
+
+	// Service is of Nodeport type
+	NodePort bool `json:"node-port,omitempty"`
 }
 
 // Validate validates this service spec flags

@@ -2684,6 +2684,10 @@ func init() {
             "direct-server-return": {
               "description": "Perform direct server return",
               "type": "boolean"
+            },
+            "node-port": {
+              "description": "Service is of Nodeport type",
+              "type": "boolean"
             }
           }
         },
@@ -5760,6 +5764,10 @@ func init() {
             },
             "direct-server-return": {
               "description": "Perform direct server return",
+              "type": "boolean"
+            },
+            "node-port": {
+              "description": "Service is of Nodeport type",
               "type": "boolean"
             }
           }
