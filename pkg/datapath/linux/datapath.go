@@ -155,8 +155,7 @@ func (l *linuxDatapath) SyncEndpointsAndHostIPs() error {
 	return nil
 }
 
-
-func (l *linuxDatapath) aggregateSpecialIdentities()[]identity.IPIdentityPair {
+func (l *linuxDatapath) aggregateSpecialIdentities() []identity.IPIdentityPair {
 	specialIdentities := []identity.IPIdentityPair{}
 
 	if option.Config.EnableIPv4 {
@@ -217,7 +216,6 @@ func (l *linuxDatapath) aggregateSpecialIdentities()[]identity.IPIdentityPair {
 	}
 	return specialIdentities
 }
-
 
 func (l *linuxDatapath) DeleteElement(frontend datapath.EndpointFrontend) []error {
 	return l.lxcMap.DeleteElement(frontend)
