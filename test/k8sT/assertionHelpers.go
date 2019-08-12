@@ -15,12 +15,14 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 )
 
 var longTimeout = 10 * time.Minute
@@ -142,4 +144,40 @@ func SkipIfFlannel() {
 			"This feature is not supported in Cilium %q mode. Skipping test.",
 			helpers.CIIntegrationFlannel))
 	}
+}
+
+func deleteCiliumDS(kubectl *helpers.Kubectl) {
+	// Do not assert on success in AfterEach intentionally to avoid
+	// incomplete teardown.
+	_ = kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.KubeSystemNamespace))
+	Expect(waitToDeleteCilium(kubectl, logger)).To(BeNil(), "timed out deleting Cilium pods")
+}
+
+func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
+	var (
+		pods []string
+		err  error
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), helpers.HelperTimeout)
+	defer cancel()
+
+	status := 1
+	for status > 0 {
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
+		default:
+		}
+
+		pods, err = kubectl.GetCiliumPodsContext(ctx, helpers.KubeSystemNamespace)
+		status := len(pods)
+		logger.Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		if status == 0 {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return nil
 }
