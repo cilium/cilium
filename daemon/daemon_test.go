@@ -108,7 +108,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
 
-	d, _, err := NewDaemon(fakedatapath.NewDatapath())
+	d, _, err := NewDaemon(fakedatapath.NewDatapath(), nil)
 	c.Assert(err, IsNil)
 	ds.d = d
 
