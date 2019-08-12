@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -121,16 +120,8 @@ func (d *Daemon) compileBase() error {
 		args[initArgHostReachableServicesUDP] = "false"
 	}
 
-	if option.Config.EnableIPSec {
-		if option.Config.EncryptInterface != "" {
-			args[initArgEncryptInterface] = option.Config.EncryptInterface
-		} else {
-			link, err := route.NodeDeviceWithDefaultRoute()
-			if err != nil {
-				return fmt.Errorf("EncryptInterface not set and unable to get default interface")
-			}
-			args[initArgEncryptInterface] = link.Attrs().Name
-		}
+	if option.Config.EncryptInterface != "" {
+		args[initArgEncryptInterface] = option.Config.EncryptInterface
 	}
 
 	if option.Config.Device != "undefined" {

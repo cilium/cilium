@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -1145,6 +1144,14 @@ func initEnv(cmd *cobra.Command) {
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
 
+	if option.Config.EnableIPSec && option.Config.Tunnel == option.TunnelDisabled && option.Config.EncryptInterface == "" {
+		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			log.Fatal("Ipsec enabled without tunneling but option \"encrypt-interface\" not set and unable to get link for default interface ")
+		}
+		option.Config.EncryptInterface = link
+	}
+
 	// BPF masquerade specified, rejecting unsupported options for this mode.
 	if !option.Config.InstallIptRules && option.Config.Masquerade {
 		if option.Config.DatapathMode != option.DatapathModeIpvlan {
@@ -1319,25 +1326,9 @@ func (d *Daemon) initKVStore() {
 }
 
 func runDaemon() {
-	var eif string
-
-	if option.Config.EnableIPSec {
-		if option.Config.EncryptInterface != "" {
-			eif = option.Config.EncryptInterface
-		} else {
-			link, err := route.NodeDeviceWithDefaultRoute()
-			if err != nil {
-				log.WithError(err).Error("unable to get default interface")
-				return
-			}
-
-			eif = link.Attrs().Name
-		}
-	}
-
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice:       option.Config.HostDevice,
-		EncryptInterface: eif,
+		EncryptInterface: option.Config.EncryptInterface,
 	}
 
 	log.Info("Initializing daemon")

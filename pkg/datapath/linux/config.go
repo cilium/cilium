@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
@@ -184,16 +183,8 @@ func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConf
 		}
 	}
 
-	if option.Config.EnableIPSec {
-		var link netlink.Link
-		var err error
-
-		if option.Config.EncryptInterface != "" {
-			link, err = netlink.LinkByName(option.Config.EncryptInterface)
-		} else {
-			link, err = route.NodeDeviceWithDefaultRoute()
-		}
-
+	if option.Config.EncryptInterface != "" {
+		link, err := netlink.LinkByName(option.Config.EncryptInterface)
 		if err == nil {
 			cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 
