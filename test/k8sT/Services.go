@@ -30,15 +30,16 @@ import (
 
 var _ = Describe("K8sServicesTest", func() {
 	var (
-		kubectl          *helpers.Kubectl
-		serviceName      = "app1-service"
-		microscopeErr    error
-		microscopeCancel                    = func() error { return nil }
-		backgroundCancel context.CancelFunc = func() { return }
-		backgroundError  error
-		ciliumPodK8s1    string
-		testDSClient     = "zgroup=testDSClient"
-		testDS           = "zgroup=testDS"
+		kubectl                *helpers.Kubectl
+		serviceName            = "app1-service"
+		microscopeErr          error
+		microscopeCancel                          = func() error { return nil }
+		backgroundCancel       context.CancelFunc = func() { return }
+		backgroundError        error
+		enableBackgroundReport = true
+		ciliumPodK8s1          string
+		testDSClient           = "zgroup=testDSClient"
+		testDS                 = "zgroup=testDS"
 	)
 
 	applyPolicy := func(path string) {
@@ -66,8 +67,10 @@ var _ = Describe("K8sServicesTest", func() {
 	JustBeforeEach(func() {
 		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
 		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
-		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
-		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
+		if enableBackgroundReport {
+			backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+			Expect(backgroundError).To(BeNil(), "Cannot start background report process")
+		}
 	})
 
 	JustAfterEach(func() {
@@ -250,6 +253,60 @@ var _ = Describe("K8sServicesTest", func() {
 				testNodePort(false)
 			})
 		})
+
+		Context("Tests NodePort BPF", func() {
+			// TODO(brb) Add with L7 policy test cases after GH#8864 has been merged
+
+			nativeDev := "enp0s8"
+
+			BeforeEach(func() {
+				skipIfDoesNotRunOnNetNext()
+			})
+
+			BeforeAll(func() {
+				enableBackgroundReport = false
+			})
+
+			AfterAll(func() {
+				enableBackgroundReport = true
+				// Remove NodePort programs (GH#8873)
+				pods, err := kubectl.GetCiliumPods(helpers.KubeSystemNamespace)
+				Expect(err).To(BeNil(), "Cannot retrieve Cilium pods")
+				for _, pod := range pods {
+					ret := kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" ingress")
+					Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove ingress bpf_netdev on %s", pod)
+					ret = kubectl.CiliumExec(pod, "tc filter del dev "+nativeDev+" egress")
+					Expect(ret.WasSuccessful()).Should(BeTrue(), "Cannot remove egress bpf_netdev on %s", pod)
+				}
+				deleteCiliumDS(kubectl)
+				// Deploy Cilium as the next test expects it to be up and running
+				DeployCiliumAndDNS(kubectl)
+			})
+
+			It("Tests with vxlan", func() {
+				deleteCiliumDS(kubectl)
+
+				DeployCiliumOptionsAndDNS(kubectl, []string{
+					"--set global.nodePort.enabled=true",
+					"--set global.nodePort.device=" + nativeDev,
+				})
+
+				testNodePort(true)
+			})
+
+			It("Tests with direct routing", func() {
+				deleteCiliumDS(kubectl)
+				DeployCiliumOptionsAndDNS(kubectl, []string{
+					"--set global.nodePort.enabled=true",
+					"--set global.nodePort.device=" + nativeDev,
+					"--set global.tunnel=disabled",
+					"--set global.autoDirectNodeRoutes=true",
+				})
+
+				testNodePort(true)
+			})
+		})
+
 	})
 
 	//TODO: Check service with IPV6
@@ -620,6 +677,9 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).Should(BeNil(), "Error creating policy %q", policyPath)
 
 			By("Checking that policies were correctly imported into Cilium")
+
+			ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 			res := kubectl.ExecPodCmd(helpers.KubeSystemNamespace, ciliumPodK8s1, policyCmd)
 			res.ExpectSuccess("Policy %s is not imported", policyCmd)
 
