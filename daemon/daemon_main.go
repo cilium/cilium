@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/cleanup"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/maps"
@@ -1163,7 +1164,10 @@ func runDaemon() {
 		}
 	}
 
-	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig))
+	iptablesManager := &iptables.IptablesManager{}
+	iptablesManager.Init()
+
+	d, restoredEndpoints, err := NewDaemon(linuxdatapath.NewDatapath(datapathConfig), iptablesManager)
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return

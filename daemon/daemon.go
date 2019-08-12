@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	bpfIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
@@ -182,6 +181,9 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
+
+	// iptablesManager deals with all iptables rules installed in the node
+	iptablesManager rulesManager
 }
 
 // Datapath returns a reference to the datapath implementation.
@@ -556,12 +558,10 @@ func (d *Daemon) compileBase() error {
 	}
 
 	if option.Config.EnableIPv4 {
-		iptablesManager := iptables.IptablesManager{}
-		iptablesManager.Init()
 		// Always remove masquerade rule and then re-add it if required
-		iptablesManager.RemoveRules()
+		d.iptablesManager.RemoveRules()
 		if option.Config.InstallIptRules {
-			if err := iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
+			if err := d.iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
 				return err
 			}
 		}
@@ -889,6 +889,11 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 	return counter
 }
 
+type rulesManager interface {
+	RemoveRules()
+	InstallRules(ifName string) error
+}
+
 func deleteHostDevice() {
 	link, err := netlink.LinkByName(option.Config.HostDevice)
 	if err != nil {
@@ -944,7 +949,7 @@ func (d *Daemon) prepareAllocationCIDR(family datapath.NodeAddressingFamily) (ro
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *endpointRestoreState, error) {
 	var authKeySize int
 
 	bootstrapStats.daemonInit.Start()
@@ -996,6 +1001,7 @@ func NewDaemon(dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 		mtuConfig:        mtuConfig,
 		datapath:         dp,
 		nodeDiscovery:    nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
+		iptablesManager:  iptablesManager,
 	}
 	bootstrapStats.daemonInit.End(true)
 
