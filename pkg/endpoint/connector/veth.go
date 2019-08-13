@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 
@@ -132,6 +133,20 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 
 	if err = netlink.LinkSetUp(veth); err != nil {
 		return nil, nil, fmt.Errorf("unable to bring up veth pair: %s", err)
+	}
+
+	if ep.Addressing.IPV4 != "" {
+		if err = sysctl.Enable(fmt.Sprintf("net.ipv4.conf.%s.forwarding", lxcIfName)); err != nil {
+			return nil, nil, fmt.Errorf(
+				"unable to enable forwarding for veth pair: %s", err)
+		}
+	}
+
+	if ep.Addressing.IPV6 != "" {
+		if err = sysctl.Enable(fmt.Sprintf("net.ipv6.conf.%s.forwarding", lxcIfName)); err != nil {
+			return nil, nil, fmt.Errorf(
+				"unable to enable forwarding for veth pair: %s", err)
+		}
 	}
 
 	ep.Mac = peer.Attrs().HardwareAddr.String()
