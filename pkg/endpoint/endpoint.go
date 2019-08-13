@@ -98,9 +98,6 @@ const (
 
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
-
-	// HealthCEPPrefix is the prefix used to name the cilium health endpoints' CEP
-	HealthCEPPrefix = "cilium-health-"
 )
 
 // compile time interface check
