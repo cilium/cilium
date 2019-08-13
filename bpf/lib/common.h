@@ -620,19 +620,6 @@ struct ct_state {
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
 
-/* ep_config corresponds to the EndpointConfig object in pkg/maps/configmap. */
-struct ep_config {
-	__u32 flags; /* enum ep_cfg_flag */
-	__be32 ipv4Addr;
-	union v6addr ipv6Addr;
-	mac_t node_mac;
-	__u16 lxc_id;
-	__be16 lxc_id_nb;
-	__u32 identity;
-	__be32 identity_nb;
-	__u32 pad;
-} __attribute__((packed));
-
 /**
  * relax_verifier is a dummy helper call to introduce a pruning checkpoing to
  * help relax the verifier to avoid reaching complexity limits on older

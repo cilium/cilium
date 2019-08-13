@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -256,15 +255,6 @@ type Endpoint struct {
 	// proxy port number.
 	// You must hold Endpoint.Mutex to read or write it.
 	realizedRedirects map[string]uint16
-
-	// BPFConfigMap provides access to the endpoint's BPF configuration.
-	bpfConfigMap *bpfconfig.EndpointConfigMap
-
-	// desiredBPFConfig is the BPF Configuration computed from the endpoint.
-	desiredBPFConfig *bpfconfig.EndpointConfig
-
-	// realizedBPFConfig is the config currently active in the BPF datapath.
-	realizedBPFConfig *bpfconfig.EndpointConfig
 
 	// ctCleaned indicates whether the conntrack table has already been
 	// cleaned when this endpoint was first created
@@ -972,12 +962,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	if e.policyMap != nil {
 		if err := e.policyMap.Close(); err != nil {
 			errors = append(errors, fmt.Errorf("unable to close policymap %s: %s", e.policyMap.String(), err))
-		}
-	}
-
-	if e.bpfConfigMap != nil {
-		if err := e.bpfConfigMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.bpfConfigMapPath(), err))
 		}
 	}
 

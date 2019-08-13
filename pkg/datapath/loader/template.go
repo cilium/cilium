@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
-	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
@@ -41,7 +40,6 @@ var (
 	elfMapPrefixes = []string{
 		policymap.MapName,
 		CallsMapName,
-		bpfconfig.MapNamePrefix,
 	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,

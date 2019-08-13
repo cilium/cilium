@@ -50,7 +50,6 @@ DEFINE_U32(SECLABEL_NB, 0xfffff);
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
-#define CONFIG_MAP test_cilium_ep_config_65535
 
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of

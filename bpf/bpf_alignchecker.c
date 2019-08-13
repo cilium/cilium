@@ -58,7 +58,6 @@ int main() {
     DECLARE_STRUCT(metrics_key, iter);
     DECLARE_STRUCT(metrics_value, iter);
     DECLARE_STRUCT(sock_key, iter);
-    DECLARE_STRUCT(ep_config, iter);
     DECLARE_STRUCT(policy_key, iter);
     DECLARE_STRUCT(policy_entry, iter);
     DECLARE_STRUCT(ipv4_nat_entry, iter);

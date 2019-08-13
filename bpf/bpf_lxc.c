@@ -742,7 +742,7 @@ out:
 
 #ifdef ENABLE_IPV6
 static inline int __inline__
-ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, struct ep_config *cfg)
+ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -819,11 +819,8 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 			return ret2;
 	}
 
-	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
-		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-				tuple.nexthdr, false);
-	else
-		verdict = TC_ACT_OK;
+	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+			tuple.nexthdr, false);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -877,13 +874,9 @@ int tail_ipv6_policy(struct __sk_buff *skb)
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	__u8 reason = 0;
 
-	struct ep_config *cfg = lookup_ep_config();
 
 	skb->cb[CB_SRC_LABEL] = 0;
-	if (cfg)
-		ret = ipv6_policy(skb, ifindex, src_label, &reason, cfg);
-	else
-		ret = DROP_NO_CONFIG;
+	ret = ipv6_policy(skb, ifindex, src_label, &reason);
 
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
@@ -897,7 +890,6 @@ declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CIL
 int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 {
 	__u32 src_identity = skb->cb[CB_SRC_LABEL];
-	struct ep_config *cfg = lookup_ep_config();
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u8 reason;
@@ -905,11 +897,6 @@ int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 
 	if (!revalidate_data(skb, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
-		goto out;
-	}
-
-	if (cfg == NULL) {
-		ret = DROP_NO_CONFIG;
 		goto out;
 	}
 
@@ -945,7 +932,7 @@ int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 #endif
 
 	skb->cb[CB_SRC_LABEL] = 0;
-	ret = ipv6_policy(skb, 0, src_identity, &reason, cfg);
+	ret = ipv6_policy(skb, 0, src_identity, &reason);
 
 out:
 	if (IS_ERR(ret))
@@ -959,7 +946,7 @@ out:
 
 #ifdef ENABLE_IPV4
 static inline int __inline__
-ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, struct ep_config *cfg, __u16 *proxy_port)
+ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, __u16 *proxy_port)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1025,12 +1012,9 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 			return ret2;
 	}
 
-	if (!(cfg->flags & EP_F_SKIP_POLICY_INGRESS))
-		verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
-						    tuple.nexthdr,
-						    is_fragment);
-	else
-		verdict = TC_ACT_OK;
+	verdict = policy_can_access_ingress(skb, src_label, tuple.dport,
+					    tuple.nexthdr,
+					    is_fragment);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -1081,17 +1065,13 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 int tail_ipv4_policy(struct __sk_buff *skb)
 {
-	struct ep_config *cfg = lookup_ep_config();
 	int ret, ifindex = skb->cb[CB_IFINDEX];
 	__u32 src_label = skb->cb[CB_SRC_LABEL];
 	__u16 proxy_port = 0;
 	__u8 reason = 0;
 
 	skb->cb[CB_SRC_LABEL] = 0;
-	if (cfg)
-		ret = ipv4_policy(skb, ifindex, src_label, &reason, cfg, &proxy_port);
-	else
-		ret = DROP_NO_CONFIG;
+	ret = ipv4_policy(skb, ifindex, src_label, &reason, &proxy_port);
 	if (IS_ERR(ret))
 		return send_drop_notify(skb, src_label, SECLABEL, LXC_ID,
 					ret, TC_ACT_SHOT, METRIC_INGRESS);
@@ -1108,7 +1088,6 @@ declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CIL
 int tail_ipv4_to_endpoint(struct __sk_buff *skb)
 {
 	__u32 src_identity = skb->cb[CB_SRC_LABEL];
-	struct ep_config *cfg = lookup_ep_config();
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proxy_port = 0;
@@ -1117,11 +1096,6 @@ int tail_ipv4_to_endpoint(struct __sk_buff *skb)
 
 	if (!revalidate_data(skb, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
-		goto out;
-	}
-
-	if (cfg == NULL) {
-		ret = DROP_NO_CONFIG;
 		goto out;
 	}
 
@@ -1156,7 +1130,7 @@ int tail_ipv4_to_endpoint(struct __sk_buff *skb)
 #endif
 
 	skb->cb[CB_SRC_LABEL] = 0;
-	ret = ipv4_policy(skb, 0, src_identity, &reason, cfg, &proxy_port);
+	ret = ipv4_policy(skb, 0, src_identity, &reason, &proxy_port);
 
 	if (proxy_port != 0) {
 		ret = skb_redirect_to_proxy_hairpin(skb, proxy_port);
