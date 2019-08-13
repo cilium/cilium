@@ -99,7 +99,6 @@ skb_redirect_to_proxy(struct __sk_buff *skb, __be16 proxy_port)
 {
 	skb->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
-
 #ifdef HOST_REDIRECT_TO_INGRESS
 	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_PRE, proxy_port);
 	/* In this case, the DBG_CAPTURE_PROXY_POST will be sent from the
@@ -107,7 +106,7 @@ skb_redirect_to_proxy(struct __sk_buff *skb, __be16 proxy_port)
 	return redirect(HOST_IFINDEX, BPF_F_INGRESS);
 #else
 	cilium_dbg_capture(skb, DBG_CAPTURE_PROXY_POST, proxy_port);
-	skb_change_type(skb, PACKET_HOST); // Required ingress packets from overlay
+	skb_change_type(skb, PACKET_HOST); // Required for ingress packets from overlay
 	return TC_ACT_OK;
 #endif
 }
@@ -142,16 +141,30 @@ skb_redirect_to_proxy_hairpin(struct __sk_buff *skb, __be16 proxy_port)
 }
 
 /**
- * tc_index_is_from_proxy - returns true if packet originates from ingress proxy
+ * tc_index_skip_ingress_proxy - returns true if packet originates from ingress proxy
  */
-static inline bool __inline__ tc_index_skip_proxy(struct __sk_buff *skb)
+static inline bool __inline__ tc_index_skip_ingress_proxy(struct __sk_buff *skb)
 {
 	volatile __u32 tc_index = skb->tc_index;
 #ifdef DEBUG
-	if (tc_index & TC_INDEX_F_SKIP_PROXY)
+	if (tc_index & TC_INDEX_F_SKIP_INGRESS_PROXY)
 		cilium_dbg(skb, DBG_SKIP_PROXY, tc_index, 0);
 #endif
 
-	return tc_index & TC_INDEX_F_SKIP_PROXY;
+	return tc_index & TC_INDEX_F_SKIP_INGRESS_PROXY;
+}
+
+/**
+ * tc_index_skip_egress_proxy - returns true if packet originates from egress proxy
+ */
+static inline bool __inline__ tc_index_skip_egress_proxy(struct __sk_buff *skb)
+{
+	volatile __u32 tc_index = skb->tc_index;
+#ifdef DEBUG
+	if (tc_index & TC_INDEX_F_SKIP_EGRESS_PROXY)
+		cilium_dbg(skb, DBG_SKIP_PROXY, tc_index, 0);
+#endif
+
+	return tc_index & TC_INDEX_F_SKIP_EGRESS_PROXY;
 }
 #endif /* __LIB_LXC_H_ */

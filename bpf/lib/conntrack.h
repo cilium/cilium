@@ -231,6 +231,7 @@ static inline __u8 __inline__ __ct_lookup(void *map, struct __sk_buff *skb,
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
 			ct_state->node_port = entry->node_port;
+			ct_state->proxy_redirect = entry->proxy_redirect;
 			/* To support seamless upgrade from an earlier service
 			 * implementation, we store references to the backend
 			 * in the "ct_entry.rx_bytes" field.
@@ -647,13 +648,16 @@ ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
 /* Offset must point to IPv6 */
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool proxy_redirect)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
+	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
+	entry.proxy_redirect = proxy_redirect;
+	
 	/* See the ct_create4 comments re the rx_bytes hack */
 	if (dir == CT_SERVICE) {
 		entry.backend_id = 0;
@@ -737,13 +741,16 @@ ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool proxy_redirect)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
+	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
+	entry.proxy_redirect = proxy_redirect;
+	
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
 
@@ -859,7 +866,7 @@ ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
 
 static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool from_proxy)
 {
 	return 0;
 }
@@ -878,7 +885,7 @@ ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
 
 static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 					struct __sk_buff *skb, int dir,
-					struct ct_state *ct_state)
+					struct ct_state *ct_state, bool from_proxy)
 {
 	return 0;
 }

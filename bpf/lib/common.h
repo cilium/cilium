@@ -426,8 +426,9 @@ static inline void __inline__ set_encrypt_key_cb(struct __sk_buff *skb, __u8 key
  * cilium_host @egress
  *   bpf_host -> bpf_lxc
  */
-#define TC_INDEX_F_SKIP_PROXY		1
-#define TC_INDEX_F_SKIP_NODEPORT	2
+#define TC_INDEX_F_SKIP_INGRESS_PROXY	1
+#define TC_INDEX_F_SKIP_EGRESS_PROXY	2
+#define TC_INDEX_F_SKIP_NODEPORT	3
 
 /* skb->cb[] usage: */
 enum {
@@ -506,7 +507,8 @@ struct ct_entry {
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
-	      reserve:10;
+	      proxy_redirect:1, // Connection is redirected to a proxy
+	      reserved:9;
 	__u16 rev_nat_index;
 	__u16 backend_id; /* Populated only in v1.6+ BPF code. */
 
@@ -608,7 +610,8 @@ struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
 	      node_port:1,
-	      reserved:14;
+	      proxy_redirect:1, // Connection is redirected to a proxy
+	      reserved:13;
 	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;

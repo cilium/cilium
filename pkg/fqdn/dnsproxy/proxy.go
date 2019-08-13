@@ -22,15 +22,19 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/regexpmap"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
@@ -83,14 +87,6 @@ type DNSProxy struct {
 	// UDPServer, TCPServer are the miekg/dns server instances. They handle DNS
 	// parsing etc. for us.
 	UDPServer, TCPServer *dns.Server
-
-	// UDPClient, TCPClient are the miekg/dns client instances. Forwarded
-	// requests are made with these clients but are sent to the originally
-	// intended DNS server.
-	// Note: The DNS request ID is randomized but when seeing a lot of traffic we
-	// may still exhaust the 16-bit ID space for our (source IP, source Port) and
-	// this may cause DNS disruption. A client pool may be better.
-	UDPClient, TCPClient *dns.Client
 
 	// lookupTargetDNSServer extracts the originally intended target of a DNS
 	// query. It is always set to lookupTargetDNSServer in
@@ -214,12 +210,6 @@ func StartDNSProxy(address string, port uint16, lookupEPFunc LookupEndpointIDByI
 		}(s)
 	}
 
-	// Bind the DNS forwarding clients on UDP and TCP
-	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
-	// retries into the previous lookup, suppressing them.
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-
 	return p, nil
 }
 
@@ -338,14 +328,58 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
 	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, true, stat)
 
+	// Dialer specific to the current request, in order to set the original source address.
+	dialer := &net.Dialer{
+		Timeout: ProxyForwardTimeout,
+		Control: func(network, address string, c syscall.RawConn) error {
+			var opErr, v6Err, v4Err error
+			err := c.Control(func(fd uintptr) {
+				scopedLog := log.WithFields(logrus.Fields{
+					logfields.EndpointID: ep.StringID(),
+				})
+
+				if option.Config.EnableIPv6 {
+					v6Err = unix.SetsockoptInt(int(fd), unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
+				}
+				if option.Config.EnableIPv4 {
+					v4Err = unix.SetsockoptInt(int(fd), unix.SOL_IP, unix.IP_TRANSPARENT, 1)
+				}
+				if v4Err != nil && v6Err != nil {
+					opErr = v4Err
+					flowdebug.Log(scopedLog.WithError(opErr), "dnsproxy: Setting IP(V6)_TRANSPARENT failed")
+				} else {
+					// Mark the upstream socket with source ep's identity. 'false' == egress.
+					mark := linux_defaults.GetMagicProxyMark(false, int(ep.GetIdentity()))
+					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+					if flowdebug.Enabled() {
+						if opErr == nil {
+							flowdebug.Log(scopedLog.WithField("SO_MARK", fmt.Sprintf("%#08x", mark)), "dnsproxy: Set transparent & socket mark options")
+						} else {
+							flowdebug.Log(scopedLog.WithError(opErr).WithField("SO_MARK", fmt.Sprintf("%#08x", mark)), "dnsproxy: Setting SO_MARK failed")
+						}
+					}
+				}
+			})
+			if err != nil {
+				return err
+			}
+
+			return opErr
+		},
+		LocalAddr: w.RemoteAddr(),
+	}
+
+	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
+	// retries into the previous lookup, suppressing them.
+	client := &dns.Client{Dialer: dialer, Timeout: ProxyForwardTimeout, SingleInflight: false}
+
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
 	// requests that were too large for UDP.
-	var client *dns.Client
 	switch protocol {
 	case "udp":
-		client = p.UDPClient
+		client.Net = "udp"
 	case "tcp":
-		client = p.TCPClient
+		client.Net = "tcp"
 	default:
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
 		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %s", err)
