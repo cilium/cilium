@@ -104,15 +104,6 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
-//
-//
-// WARNING - STABLE API
-// This structure is written as JSON to StateDir/{ID}/lxc_config.h to allow to
-// restore endpoints when the agent is being restarted. The restore operation
-// will read the file and re-create all endpoints with all fields which are not
-// marked as private to JSON marshal. Do NOT modify this structure in ways which
-// is not JSON forward compatible.
-//
 type Endpoint struct {
 	owner regeneration.Owner
 
@@ -657,7 +648,8 @@ func (e *Endpoint) base64() (string, error) {
 		err       error
 	)
 
-	jsonBytes, err = json.Marshal(e)
+	processedEp := e.toRestoredEndpoint()
+	jsonBytes, err = json.Marshal(processedEp)
 	if err != nil {
 		return "", err
 	}
@@ -670,7 +662,20 @@ func parseBase64ToEndpoint(str string, ep *Endpoint) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(jsonBytes, ep)
+
+	// We may have to populate structures in the Endpoint manually to do the
+	// translation from restoredEndpoint --> Endpoint.
+	log.Info("parsing restoredEndpoint marshaled into headerfile")
+	restoredEp := &restoredEndpoint{
+		OpLabels:   pkgLabels.NewOpLabels(),
+		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+	}
+	if err := json.Unmarshal(jsonBytes, restoredEp); err != nil {
+		return fmt.Errorf("error unmarshaling restoredEndpoint from base64 representation: %s", err)
+	}
+
+	restoredEp.populateEndpoint(ep)
+	return nil
 }
 
 // FilterEPDir returns a list of directories' names that possible belong to an endpoint.
@@ -699,12 +704,11 @@ func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", strEp)
 	}
 	ep := Endpoint{
-		owner:      owner,
-		OpLabels:   pkgLabels.NewOpLabels(),
-		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		owner: owner,
 	}
+
 	if err := parseBase64ToEndpoint(strEpSlice[1], &ep); err != nil {
-		return nil, fmt.Errorf("failed to parse base64toendpoint: %s", err)
+		return nil, fmt.Errorf("failed to parse restored endpoint: %s", err)
 	}
 
 	// Validate the options that were parsed

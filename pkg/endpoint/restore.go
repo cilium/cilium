@@ -22,14 +22,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -223,4 +229,136 @@ func (e *Endpoint) restoreIdentity() error {
 	e.Unlock()
 
 	return nil
+}
+
+// toRestoredEndpoint converts the Endpoint to its corresponding
+// restoredEndpoint, which contains all of the fields that are needed upon
+// restoring an Endpoint after cilium-agent restarts.
+func (e *Endpoint) toRestoredEndpoint() *restoredEndpoint {
+
+	return &restoredEndpoint{
+		ID:                    e.ID,
+		ContainerName:         e.ContainerName,
+		ContainerID:           e.ContainerID,
+		DockerNetworkID:       e.DockerNetworkID,
+		DockerEndpointID:      e.DockerEndpointID,
+		DatapathMapID:         e.DatapathMapID,
+		IfName:                e.IfName,
+		IfIndex:               e.IfIndex,
+		OpLabels:              e.OpLabels,
+		LXCMAC:                e.LXCMAC,
+		IPv6:                  e.IPv6,
+		IPv4:                  e.IPv4,
+		NodeMAC:               e.NodeMAC,
+		SecurityIdentity:      e.SecurityIdentity,
+		Options:               e.Options,
+		DNSHistory:            e.DNSHistory,
+		K8sPodName:            e.K8sPodName,
+		K8sNamespace:          e.K8sNamespace,
+		DatapathConfiguration: e.DatapathConfiguration,
+	}
+}
+
+// restoredEndpoint contains the fields from an Endpoint which are needed to be
+// restored if cilium-agent restarts.
+//
+//
+// WARNING - STABLE API
+// This structure is written as JSON to StateDir/{ID}/lxc_config.h to allow to
+// restore endpoints when the agent is being restarted. The restore operation
+// will read the file and re-create all endpoints with all fields which are not
+// marked as private to JSON marshal. Do NOT modify this structure in ways which
+// is not JSON forward compatible.
+//
+type restoredEndpoint struct {
+	// ID of the endpoint, unique in the scope of the node
+	ID uint16
+
+	// ContainerName is the name given to the endpoint by the container runtime
+	ContainerName string
+
+	// ContainerID is the container ID that docker has assigned to the endpoint
+	// Note: The JSON tag was kept for backward compatibility.
+	ContainerID string `json:"dockerID,omitempty"`
+
+	// DockerNetworkID is the network ID of the libnetwork network if the
+	// endpoint is a docker managed container which uses libnetwork
+	DockerNetworkID string
+
+	// DockerEndpointID is the Docker network endpoint ID if managed by
+	// libnetwork
+	DockerEndpointID string
+
+	// Corresponding BPF map identifier for tail call map of ipvlan datapath
+	DatapathMapID int
+
+	// IfName is the name of the host facing interface (veth pair) which
+	// connects into the endpoint
+	IfName string
+
+	// IfIndex is the interface index of the host face interface (veth pair)
+	IfIndex int
+
+	// OpLabels is the endpoint's label configuration
+	//
+	// FIXME: Rename this field to Labels
+	OpLabels labels.OpLabels
+
+	// LXCMAC is the MAC address of the endpoint
+	//
+	// FIXME: Rename this field to MAC
+	LXCMAC mac.MAC // Container MAC address.
+
+	// IPv6 is the IPv6 address of the endpoint
+	IPv6 addressing.CiliumIPv6
+
+	// IPv4 is the IPv4 address of the endpoint
+	IPv4 addressing.CiliumIPv4
+
+	// NodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
+	NodeMAC mac.MAC
+
+	// SecurityIdentity is the security identity of this endpoint. This is computed from
+	// the endpoint's labels.
+	SecurityIdentity *identity.Identity `json:"SecLabel"`
+
+	// Options determine the datapath configuration of the endpoint.
+	Options *option.IntOptions
+	// DNSHistory is the collection of still-valid DNS responses intercepted for
+	// this endpoint.
+	DNSHistory *fqdn.DNSCache
+
+	// K8sPodName is the Kubernetes pod name of the endpoint
+	K8sPodName string
+
+	// K8sNamespace is the Kubernetes namespace of the endpoint
+	K8sNamespace string
+
+	// DatapathConfiguration is the endpoint's datapath configuration as
+	// passed in via the plugin that created the endpoint, e.g. the CNI
+	// plugin which performed the plumbing will enable certain datapath
+	// features according to the mode selected.
+	DatapathConfiguration models.EndpointDatapathConfiguration
+}
+
+func (r *restoredEndpoint) populateEndpoint(ep *Endpoint) {
+	ep.ID = r.ID
+	ep.ContainerName = r.ContainerName
+	ep.ContainerID = r.ContainerID
+	ep.DockerNetworkID = r.DockerNetworkID
+	ep.DockerEndpointID = r.DockerEndpointID
+	ep.DatapathMapID = r.DatapathMapID
+	ep.IfName = r.IfName
+	ep.IfIndex = r.IfIndex
+	ep.OpLabels = r.OpLabels
+	ep.LXCMAC = r.LXCMAC
+	ep.IPv6 = r.IPv6
+	ep.IPv4 = r.IPv4
+	ep.NodeMAC = r.NodeMAC
+	ep.SecurityIdentity = r.SecurityIdentity
+	ep.DNSHistory = r.DNSHistory
+	ep.K8sPodName = r.K8sPodName
+	ep.K8sNamespace = r.K8sNamespace
+	ep.DatapathConfiguration = r.DatapathConfiguration
+	ep.Options = r.Options
 }
