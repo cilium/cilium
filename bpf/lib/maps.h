@@ -77,16 +77,6 @@ struct bpf_elf_map __section_maps POLICY_MAP = {
 };
 #endif
 
-#ifdef CONFIG_MAP
-struct bpf_elf_map __section_maps CONFIG_MAP = {
-	.type		= BPF_MAP_TYPE_ARRAY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(struct ep_config),
-	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= 1,
-};
-#endif
-
 #ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {

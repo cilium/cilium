@@ -363,8 +363,6 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		e.syncPolicyMapController()
 	}
 
-	e.realizedBPFConfig = e.desiredBPFConfig
-
 	// Set realized state to desired state.
 	e.realizedPolicy = e.desiredPolicy
 

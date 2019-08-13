@@ -135,19 +135,4 @@ LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
 #define lookup_ip4_remote_endpoint(addr) \
 	ipcache_lookup4(&IPCACHE_MAP, addr, V4_CACHE_KEY_LEN)
 #endif /* HAVE_LPM_MAP_TYPE */
-
-enum ep_cfg_flag {
-	EP_F_SKIP_POLICY_INGRESS = 1<<0,
-	EP_F_SKIP_POLICY_EGRESS = 1<<1,
-};
-
-#ifdef CONFIG_MAP
-static __always_inline struct ep_config *
-lookup_ep_config(void)
-{
-	__u32 key = 0;
-	return map_lookup_elem(&CONFIG_MAP, &key);
-}
-#endif /* CONFIG_MAP */
-
 #endif /* __LIB_EPS_H_ */

@@ -68,7 +68,7 @@ var errors = map[uint8]string{
 	162: "Policy denied (CIDR)",           // Unused
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
-	165: "No configuration available to perform policy decision",
+	165: "No configuration available to perform policy decision", // Unused
 	166: "Unsupported L2 protocol",
 	167: "No mapping for NAT masquerade",
 	168: "Unsupported protocol for NAT masquerade",

@@ -19,7 +19,6 @@ import (
 
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -63,7 +62,6 @@ func CheckStructAlignments(path string) error {
 		"policy_key":           {reflect.TypeOf(policymap.PolicyKey{})},
 		"policy_entry":         {reflect.TypeOf(policymap.PolicyEntry{})},
 		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
-		"ep_config":            {reflect.TypeOf(configmap.EndpointConfig{})},
 		// TODO: alignchecker does not support nested structs yet.
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
