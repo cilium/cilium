@@ -20,6 +20,17 @@ This Cilium integration with Flannel was performed with Flannel 0.10.0 and
 Kubernetes >= 1.9. If you find any issues with previous Flannel versions please
 feel free to reach out to us to help you.
 
+.. note::
+
+    This is a beta feature. Please provide feedback and file a GitHub issue if
+    you experience any problems.
+
+    The feature lacks support of the following, which will be resolved in
+    upcoming Cilium releases:
+
+    - L7 policy enforcement
+
+
 Flannel installation
 --------------------
 
