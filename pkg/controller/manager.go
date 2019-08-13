@@ -55,7 +55,11 @@ func GetGlobalStatus() models.ControllerStatuses {
 // controller. Updating a controller will cause the DoFunc to be run
 // immediately regardless of any previous conditions. It will also cause any
 // statistics to be reset.
-func (m *Manager) UpdateController(name string, params ControllerParams) *Controller {
+func (m *Manager) UpdateController(name string, params ControllerParams) {
+	m.updateController(name, params)
+}
+
+func (m *Manager) updateController(name string, params ControllerParams) *Controller {
 	start := time.Now()
 
 	// ensure the callbacks are valid

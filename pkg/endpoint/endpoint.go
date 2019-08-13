@@ -303,8 +303,8 @@ type Endpoint struct {
 
 // UpdateController updates the controller with the specified name with the
 // provided list of parameters in endpoint's list of controllers.
-func (e *Endpoint) UpdateController(name string, params controller.ControllerParams) *controller.Controller {
-	return e.controllers.UpdateController(name, params)
+func (e *Endpoint) UpdateController(name string, params controller.ControllerParams) {
+	e.controllers.UpdateController(name, params)
 }
 
 // GetIfIndex returns the IfIndex for this endpoint.
