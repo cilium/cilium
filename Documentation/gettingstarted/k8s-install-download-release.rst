@@ -1,4 +1,4 @@
-Download the Cilium release tarball:
+Download the Cilium release tarball and change to the kubernetes install directory:
 
 .. parsed-literal::
 
