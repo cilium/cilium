@@ -144,6 +144,12 @@ skip_service_lookup:
 
 	reason = ret;
 
+	// Check it this is return traffic to an ingress proxy.
+	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
+		// Stack will do a socket match and deliver locally
+		return skb_redirect_to_proxy(skb, 0);
+	}
+
 	if (!revalidate_data(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
@@ -186,7 +192,7 @@ ct_recreate6:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
-		ret = ct_create6(get_ct_map6(tuple), tuple, skb, CT_EGRESS, &ct_state_new);
+		ret = ct_create6(get_ct_map6(tuple), tuple, skb, CT_EGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 		monitor = TRACE_PAYLOAD_LEN;
@@ -460,6 +466,12 @@ skip_service_lookup:
 
 	reason = ret;
 
+	// Check it this is return traffic to an ingress proxy.
+	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
+		// Stack will do a socket match and deliver locally
+		return skb_redirect_to_proxy(skb, 0);
+	}
+
 	/* Determine the destination category for policy fallback. */
 	if (1) {
 		struct remote_endpoint_info *info;
@@ -500,7 +512,7 @@ ct_recreate4:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_EGRESS,
-				 &ct_state_new);
+				 &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -739,7 +751,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 	int ret, l4_off, verdict, hdrlen;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool skip_proxy = false;
+	bool skip_ingress_proxy = false;
 	union v6addr orig_dip = {};
 	__u32 monitor = 0;
 
@@ -755,7 +767,7 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the ingress proxy as we would loop forever. */
-	skip_proxy = tc_index_skip_proxy(skb);
+	skip_ingress_proxy = tc_index_skip_ingress_proxy(skb);
 
 	hdrlen = ipv6_hdrlen(skb, ETH_HLEN, &tuple.nexthdr);
 	if (hdrlen < 0)
@@ -790,6 +802,14 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 
 	*reason = ret;
 
+	// Check it this is return traffic to an egress proxy.
+	// Do not redirect again if the packet is coming from the egress proxy.
+	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
+	    !tc_index_skip_egress_proxy(skb)) {
+		// Stack will do a socket match and deliver locally
+		return skb_redirect_to_proxy(skb, 0);
+	}
+
 	if (unlikely(ct_state.rev_nat_index)) {
 		int ret2;
 
@@ -816,14 +836,14 @@ ipv6_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 		return verdict;
 	}
 
-	if (skip_proxy)
+	if (skip_ingress_proxy)
 		verdict = 0;
 
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
+		ret = ct_create6(get_ct_map6(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -948,7 +968,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 	int ret, verdict, l3_off = ETH_HLEN, l4_off;
 	struct ct_state ct_state = {};
 	struct ct_state ct_state_new = {};
-	bool skip_proxy = false;
+	bool skip_ingress_proxy = false;
 	__be32 orig_dip, orig_sip;
 	bool is_fragment = false;
 	__u32 monitor = 0;
@@ -961,7 +981,7 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 
 	/* If packet is coming from the ingress proxy we have to skip
 	 * redirection to the inggress proxy as we would loop forever. */
-	skip_proxy = tc_index_skip_proxy(skb);
+	skip_ingress_proxy = tc_index_skip_ingress_proxy(skb);
 
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
@@ -978,6 +998,14 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 		return ret;
 
 	*reason = ret;
+
+	// Check it this is return traffic to an egress proxy.
+	// Do not redirect again if the packet is coming from the egress proxy.
+	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
+	    !tc_index_skip_egress_proxy(skb)) {
+		// Stack will do a socket match and deliver locally
+		return skb_redirect_to_proxy(skb, 0);
+	}
 
 #ifdef ENABLE_NAT46
 	if (skb->cb[CB_NAT46_STATE] == NAT46) {
@@ -1015,14 +1043,14 @@ ipv4_policy(struct __sk_buff *skb, int ifindex, __u32 src_label, __u8 *reason, s
 		return verdict;
 	}
 
-	if (skip_proxy)
+	if (skip_ingress_proxy)
 		verdict = 0;
 
 	if (ret == CT_NEW) {
 		ct_state_new.orig_dport = tuple.dport;
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
-		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new);
+		ret = ct_create4(get_ct_map4(&tuple), &tuple, skb, CT_INGRESS, &ct_state_new, verdict > 0);
 		if (IS_ERR(ret))
 			return ret;
 
