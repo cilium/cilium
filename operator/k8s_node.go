@@ -46,7 +46,9 @@ import (
 
 var (
 	// kvNodeGCInterval duration for which the nodes are GC in the KVStore.
-	kvNodeGCInterval time.Duration
+	kvNodeGCInterval              time.Duration
+	enableCNPNodeStatusGC         bool
+	ciliumCNPNodeStatusGCInterval time.Duration
 )
 
 func runNodeWatcher() error {
@@ -161,6 +163,9 @@ func runNodeWatcher() error {
 	}()
 
 	go func() {
+		if !enableCNPNodeStatusGC {
+			return
+		}
 		parallelRequests := 4
 		removeNodeFromCNP := make(chan func(), 50)
 		for i := 0; i < parallelRequests; i++ {
@@ -172,7 +177,7 @@ func runNodeWatcher() error {
 		}
 		controller.NewManager().UpdateController("cnp-node-gc",
 			controller.ControllerParams{
-				RunInterval: kvNodeGCInterval,
+				RunInterval: ciliumCNPNodeStatusGCInterval,
 				DoFunc: func(ctx context.Context) error {
 					lastRun := time.Now().Add(-kvNodeGCInterval)
 					k8sCapabilities := k8sversion.Capabilities()

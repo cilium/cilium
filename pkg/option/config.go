@@ -586,6 +586,10 @@ const (
 	// IdentityAllocationModeCRD enables use of Kubernetes CRDs for
 	// identity allocation
 	IdentityAllocationModeCRD = "crd"
+
+	// DisableCNPStatusUpdates disables updating of CNP NodeStatus in the CNP
+	// CRD.
+	DisableCNPStatusUpdates = "disable-cnp-status-updates"
 )
 
 // Default string arguments
@@ -1168,6 +1172,10 @@ type DaemonConfig struct {
 	// IdentityAllocationMode specifies what mode to use for identity
 	// allocation
 	IdentityAllocationMode string
+
+	// DisableCNPStatusUpdates disables updating of CNP NodeStatus in the CNP
+	// CRD.
+	DisableCNPStatusUpdates bool
 }
 
 var (
@@ -1758,6 +1766,7 @@ func (c *DaemonConfig) Populate() {
 	c.EndpointQueueSize = sanitizeIntParam(EndpointQueueSize, defaults.EndpointQueueSize)
 	c.SelectiveRegeneration = viper.GetBool(SelectiveRegeneration)
 	c.SkipCRDCreation = viper.GetBool(SkipCRDCreation)
+	c.DisableCNPStatusUpdates = viper.GetBool(DisableCNPStatusUpdates)
 }
 
 func sanitizeIntParam(paramName string, paramDefault int) int {
