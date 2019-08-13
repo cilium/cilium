@@ -6,6 +6,7 @@ include ../Makefile.quiet
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = Cilium
+IGNOREDWARNINGS := -e "tabs assets" -e "misspelled words" -e "RemovedInSphinx20Warning"
 SOURCEDIR     = .
 BUILDDIR      = _build
 CMDREFDIR     = cmdref
@@ -51,8 +52,13 @@ cmdref:
 # Finally, fail out if we can't remove the file that marks success.
 check-build: check-requirements
 	@$(ECHO_CHECK) documentation build...
-	$(QUIET)! ($(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" -q -E $(SPHINXOPTS) && touch $@.ok) \
-		| grep -v -e "tabs assets" -e "misspelled words"
+	@mkdir -p $(BUILDDIR)
+	$(QUIET)($(SPHINXBUILD) -b spelling -d "$(BUILDDIR)/doctrees" "$(SOURCEDIR)" "$(BUILDDIR)/spelling" -q -E $(SPHINXOPTS) 2>&1 && touch $@.ok) > $(BUILDDIR)/warnings.txt
+	@if grep -q -v $(IGNOREDWARNINGS) $(BUILDDIR)/warnings.txt; then \
+		echo "Please fix the following documentation warnings:"; \
+		grep -v $(IGNOREDWARNINGS) "$(BUILDDIR)/warnings.txt"; \
+		exit 1; \
+	fi
 	@if [ "$$(wc -l < "$(BUILDDIR)/spelling/output.txt")" -ne "0" ]; then \
 		echo "Please fix the following spelling mistakes:"; \
 		sed 's/^/* Documentation\//' $(BUILDDIR)/spelling/output.txt; \
