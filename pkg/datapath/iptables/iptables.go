@@ -378,6 +378,26 @@ func (m *IptablesManager) ingressProxyRule(cmd, l4Match, markMatch, mark, port, 
 		"--on-port", port)
 }
 
+func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
+	// Mark host proxy transparent connections to be routed to the local stack.
+	// This comes before the TPROXY rules in the chain, and setting the mark
+	// without the proxy port number will make the TPROXY rule to not match,
+	// as we do not want to try to tproxy packets that are going to the stack
+	// already.
+	// This rule is needed for couple of reasons:
+	// 1. route return traffic to the proxy
+	// 2. route original direction traffic that would otherwise be intercepted
+	//    by ip_early_demux
+	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	return append(m.waitArgs,
+		"-t", "mangle",
+		cmd, ciliumPreMangleChain,
+		"-m", "socket", "--transparent", "--nowildcard",
+		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
+		"-j", "MARK",
+		"--set-mark", toProxyMark)
+}
+
 func (m *IptablesManager) iptIngressProxyRule(cmd string, l4proto string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork(proxyPort).(uint16)) << 16
@@ -438,7 +458,7 @@ func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPo
 	return err
 }
 
-func (m *IptablesManager) installProxyNotrackRules() error {
+func (m *IptablesManager) installStaticProxyRules() error {
 	// match traffic to a proxy (upper 16 bits has the proxy port, which is masked out)
 	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	// proxy return traffic has 0 ID in the mask
@@ -468,6 +488,10 @@ func (m *IptablesManager) installProxyNotrackRules() error {
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
 		}
+		if err == nil {
+			// Direct inbound TPROXYed traffic towards the socket
+			err = runProg("iptables", m.inboundProxyRedirectRule("-A"), false)
+		}
 	}
 	if err == nil && option.Config.EnableIPv6 {
 		// No conntrack for traffic to ingress proxy
@@ -491,6 +515,10 @@ func (m *IptablesManager) installProxyNotrackRules() error {
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
+		}
+		if err == nil {
+			// Direct inbound TPROXYed traffic towards the socket
+			err = runProg("ip6tables", m.inboundProxyRedirectRule("-A"), false)
 		}
 	}
 	return err
@@ -613,8 +641,8 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		}
 	}
 
-	if err := m.installProxyNotrackRules(); err != nil {
-		return fmt.Errorf("cannot add proxy NOTRACK rules: %s", err)
+	if err := m.installStaticProxyRules(); err != nil {
+		return fmt.Errorf("cannot add static proxy rules: %s", err)
 	}
 
 	if err := m.addCiliumAcceptXfrmRules(); err != nil {
