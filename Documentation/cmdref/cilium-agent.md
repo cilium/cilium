@@ -41,6 +41,7 @@ cilium-agent [flags]
   -D, --debug                                      Enable debugging mode
       --debug-verbose strings                      List of enabled verbose debug groups
   -d, --device string                              Device facing cluster/external network for direct L3 (non-overlay mode) (default "undefined")
+      --disable-cnp-status-updates                 Do not send CNP NodeStatus updates to the Kubernetes api-server
       --disable-conntrack                          Disable connection tracking
       --disable-endpoint-crd                       Disable use of CiliumEndpoint CRD
       --disable-k8s-services                       Disable east-west K8s load balancing by cilium
