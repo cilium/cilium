@@ -163,6 +163,26 @@ func (kub *Kubectl) GetNumNodes() int {
 	return len(strings.Split(res.SingleOut(), " "))
 }
 
+func (kub *Kubectl) GetNodeAddresses() (IPv4, IPv6 map[string]string, err error) {
+	jsonFilter := `{range .items[*]}{@.metadata.annotations.io\.cilium\.network\.ipv4-cilium-host}{"="}{@.metadata.name}{"\n"}{end}`
+	getNodesCmd := fmt.Sprintf("%s get nodes -o jsonpath='%s'", KubectlCmd, jsonFilter)
+	res := kub.ExecShort(getNodesCmd)
+	if !res.WasSuccessful() {
+		return nil, nil, fmt.Errorf("Could not get nodes: %s", res.GetStdErr())
+	}
+	IPv4 = res.KVOutput()
+
+	jsonFilter = `{range .items[*]}{@.metadata.annotations.io\.cilium\.network\.ipv6-cilium-host}{"="}{@.metadata.name}{"\n"}{end}`
+	getNodesCmd = fmt.Sprintf("%s get nodes -o jsonpath='%s'", KubectlCmd, jsonFilter)
+	res = kub.ExecShort(getNodesCmd)
+	if !res.WasSuccessful() {
+		return nil, nil, fmt.Errorf("Could not get nodes: %s", res.GetStdErr())
+	}
+	IPv6 = res.KVOutput()
+
+	return IPv4, IPv6, nil
+}
+
 // ExecKafkaPodCmd executes shell command with arguments arg in the specified pod residing in the specified
 // namespace. It returns the stdout of the command that was executed.
 // The kafka producer and consumer scripts do not return error if command

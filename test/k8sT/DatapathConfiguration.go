@@ -118,7 +118,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.encryption.enabled=true",
 			})
 			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with IPsec between nodes failed")
 			cleanService()
 		}, 600)
 
@@ -128,7 +128,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.sockops.enabled=true",
 			})
 			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with sockops & vxlan between nodes failed")
 			cleanService()
 		}, 600)
 
@@ -137,7 +137,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.tunnel=vxlan",
 			})
 			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with vxlan between nodes failed")
 			cleanService()
 		}, 600)
 
@@ -146,7 +146,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.tunnel=geneve",
 			})
 			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with geneve between nodes failed")
 			cleanService()
 		})
 	})
@@ -159,7 +159,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.tunnel=disabled",
 				"--set global.autoDirectNodeRoutes=true",
 			})
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with direct routing between nodes failed")
 			cleanService()
 		})
 	})
@@ -174,7 +174,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.encryption.enabled=true",
 				"--set global.encryption.interface=enp0s8",
 			})
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with transparent encyrption & direct routing between nodes failed")
 			cleanService()
 		})
 	})
@@ -188,7 +188,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.ipv4.enabled=true",
 				"--set global.ipv6.enabled=false",
 			})
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, false, "Connectivity test with IPv4 only between nodes failed")
 			cleanService()
 		})
 	})
@@ -201,7 +201,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium([]string{
 				"--set global.endpointRoutes.enabled=true",
 			})
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, false, false, "Connectivity test between nodes failed")
 			cleanService()
 		})
 	})
@@ -212,27 +212,54 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"--set global.etcd.enabled=true",
 				"--set global.etcd.managed=true",
 			})
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			testPodConnectivityAcrossNodes(kubectl, true, true, "Connectivity test with managed etcd only between nodes failed")
 			cleanService()
 		})
 	})
 })
 
-func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl) bool {
+func testPodConnectivityAcrossNodes(kubectl *helpers.Kubectl, checkNodeIPv4, checkNodeIPv6 bool, desc string) {
 	By("Checking pod connectivity between nodes")
 
 	filter := "zgroup=testDS"
 
 	err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", filter), helpers.HelperTimeout)
-	ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for connectivity test pods to start")
+	ExpectWithOffset(1, err).Should(BeNil(), "%s: Failure while waiting for connectivity test pods to start", desc)
+
 	pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
-	Expect(err).Should(BeNil(), "Failure while retrieving pod name for %s", filter)
+	Expect(err).Should(BeNil(), "%s: Failure while retrieving pod name for %s", desc, filter)
 	podIP, err := kubectl.Get(
 		helpers.DefaultNamespace,
 		fmt.Sprintf("pod %s -o json", pods[1])).Filter("{.status.podIP}")
-	Expect(err).Should(BeNil(), "Failure to retrieve IP of pod %s", pods[1])
+	Expect(err).Should(BeNil(), "%s: Failure to retrieve IP of pod %s", desc, pods[1])
+
 	res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pods[0], helpers.Ping(podIP.String()))
-	return res.WasSuccessful()
+	res.ExpectSuccess("%s: Pod %s cannot ping to pod %s(%s)", desc, pods[0], pods[1], podIP)
+
+	// short-circuit node IP connectivity checks if not requested
+	if !(checkNodeIPv4 || checkNodeIPv6) {
+		return
+	}
+
+	// for each pod
+	//   ping each node
+	ipv4Addr, ipv6Addr, err := kubectl.GetNodeAddresses()
+	Expect(err).Should(BeNil(), "%s: Failure while retrieving nodes %s", desc, filter)
+	for _, pod := range pods {
+		if checkNodeIPv4 {
+			for nodeIP := range ipv4Addr {
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, helpers.Ping(nodeIP))
+				res.ExpectSuccess("%s: Pod %s cannot ping to Node IP %s", desc, pod, nodeIP)
+			}
+		}
+
+		if checkNodeIPv6 {
+			for nodeIP := range ipv6Addr {
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, helpers.Ping6(nodeIP))
+				res.ExpectSuccess("%s: Pod %s cannot ping to Node IP %s", desc, pod, nodeIP)
+			}
+		}
+	}
 }
 
 func waitToDeleteCilium(kubectl *helpers.Kubectl, logger *logrus.Entry) error {
