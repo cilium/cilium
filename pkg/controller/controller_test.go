@@ -121,7 +121,7 @@ func (b *ControllerSuite) TestRunController(c *C) {
 	mngr := NewManager()
 	o := &testObj{}
 
-	ctrl := mngr.UpdateController("test", ControllerParams{
+	ctrl := mngr.updateController("test", ControllerParams{
 		DoFunc: func(ctx context.Context) error {
 			// after two failed attempts, start succeeding
 			if o.cnt >= 2 {
