@@ -1,6 +1,7 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
+Adrien Trouillaud                       adrienjt@users.noreply.github.com
 Alban Crequy                            alban@kinvolk.io
 Alexander Alemayhu                      alexander@alemayhu.com
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
@@ -10,15 +11,23 @@ Andrew Sy Kim                           kim.andrewsy@gmail.com
 André Martins                           andre@cilium.io
 Anit Gandhi                             anitgandhi@gmail.com
 Arvind Soni                             arvindsoni@gmail.com
+Archana Shinde                          archana.m.shinde@intel.com
 Ashwin Paranjpe                         ashwin@covalent.io
+Brian Topping                           brian@coglative.com
+Charles-Henri GUÉRIN                    charles-henri.guerin@zenika.com
 Christopher Biscardi                    chris@christopherbiscardi.com
 Craig Box                               craig.box@gmail.com
 Cynthia Thomas                          cynthia@covalent.io
+Dan Sexton                              dan.b.sexton@gmail.com
 Dan Wendlandt                           dan@covalent.io
 Daniel Borkmann                         daniel@iogearbox.net
 Daniel Dao                              dqminh89@gmail.com
 Daniel Qian                             qsj.daniel@gmail.com
+Daniel T. Lee                           danieltimlee@gmail.com
+David Birks                             davidebirks@gmail.com
+Deepesh Pathak                          deepshpathak@gmail.com
 Diego Casati                            diego.casati@gmail.com
+Dmitry Kharitonov                       geakstr@me.com
 Dom Del Nano                            ddelnano@gmail.com
 Eloy Coto                               eloy.coto@gmail.com
 Eohyung Lee                             liquidnuker@gmail.com
@@ -28,6 +37,7 @@ Florian Koch                            f0@users.noreply.github.com
 Fred Hsu                                fredlhsu@gmail.com
 Fulvio Risso                            fulvio.risso@polito.it
 Gianluca Arbezzano                      gianarb92@gmail.com
+Glib Smaga                              code@gsmaga.com
 Ian Vernon                              ian@cilium.io
 Ifeanyi Ubah                            ify1992@yahoo.com
 Ivar Lazzaro                            ivarlazzaro@gmail.com
@@ -38,42 +48,56 @@ Jess Frazelle                           acidburn@microsoft.com
 Jiong Wang                              jiong.wang@netronome.com
 Joe Farrell                             joe2farrell@gmail.com
 Joe Stringer                            joe@cilium.io
+Johannes Liebermann                     johanan.liebermann@gmail.com
 John Fastabend                          john.fastabend@gmail.com
 Jon Davies                              jpds@protonmail.com
 Jonathan Davies                         jpds@protonmail.com
 Julien Kassar                           github@kassisol.com
 Junli Ou                                oujunli306@gmail.com
 Katarzyna Borkmann                      kasia@iogearbox.net
+Kevin Burke                             kevin@burke.dev
 Kiran Bondalapati                       kiran@bondalapati.com
-Maciej Kwiek                            maciej.iai@gmail.com
+Koichiro Den                            den@klaipeden.com
+Laurent Bernaille                       laurent.bernaille@datadoghq.com
+Maciej Kwiek                            maciej@isovalent.com
 Madhu Challa                            madhu@cilium.io
 Manali Bhutiyani                        manali@covalent.io
 Marcin Skarbek                          git@skarbek.name
 Marius Gerling                          marius.gerling@uniberg.com
 Mark deVilliers                         markdevilliers@gmail.com
 Martin Charles                          martincharles07@gmail.com
-Martynas Pumputis                       martynas@covalent.io
+Martynas Pumputis                       m@lambda.lt
 Matt Layher                             mdlayher@gmail.com
 Matthew Gumport                         me@gum.pt
 Michael Schubert                        michael@kinvolk.io
-Michal Rostecki                         mrostecki@suse.de
-Michi Mutsuzaki                         michi@covalent.io
+Michael Vorburger ⛑️                    vorburger@redhat.com
+Michal Rostecki                         mrostecki@opensuse.org
+Michi Mutsuzaki                         michi@isovalent.com
+Moritz Johner                           beller.moritz@googlemail.com
+Moshe Immerman                          moshe.immerman@vitalitygroup.com
 Nathan Taylor                           ntaylor1781@gmail.com
 Nirmoy Das                              ndas@suse.de
 Patrice Peterson                        patrice.peterson@mailbox.org
+Paweł Prażak                            pawelprazak@users.noreply.github.com
 Peiqi Shi                               uestc.shi@gmail.com
 Peter Slovak                            slovak.peto@gmail.com
+Pierre-Yves Aillet                      pyaillet@users.noreply.github.com
 Raghu Gyambavantha                      raghug@bld-ml-loan4.olympus.f5net.com
-Ray Bejjani                             ray@covalent.io
+Ray Bejjani                             ray@isovalent.com
 Romain Lenglet                          romain@covalent.io
+Ronald van Zantvoort                    the.loeki@gmail.com
 Ross Guarino                            rssguar@gmail.com
 Rui Gu                                  rui@covalent.io
 Russell Bryant                          russell@russellbryant.net
+Ryan McNamara                           rmcnamara@palantir.com
 Scott Albertson                         ascottalbertson@gmail.com
+Sebastian Wicki                         sebastian@isovalent.com
 Sergey Generalov                        sergey@genbit.ru
 Shantanu Deshpande                      shantanud106@gmail.com
 Simon Pasquier                          spasquier@mirantis.com
+Stephen Martin                          lockwood@opperline.com
 Steven Ceuppens                         steven.ceuppens@icloud.com
+Steven Normore                          snormore@digitalocean.com
 Strukov Anton                           anstrukov@luxoft.com
 Taeung Song                             treeze.taeung@gmail.com
 Tasdik Rahman                           prodicus@outlook.com
@@ -82,9 +106,17 @@ Thomas Graf                             thomas@cilium.io
 Tobias Klauser                          tklauser@distanz.ch
 Tony Lambiris                           tony@criticalstack.com
 Trevor Roberts Jr                       Trevor.Roberts.Jr@gmail.com
+Umesh Keerthy B S                       umesh.freelance@gmail.com
+Vlad Ungureanu                          vladu@palantir.com
 Zhu Yan                                 hackzhuyan@gmail.com
 Zinin D.A                               admin@kami-no.ru
+arikachen                               eaglesora@gmail.com
+bob                                     bob.bouteillier@datadoghq.com
+darshanime                              deathbullet@gmail.com
 detailyang                              detailyang@gmail.com
+hui.kong                                hui.kong@qunar.com
+jomenxiao                               jomenxiao@gmail.com
+刘群                                      qunliu@zyhx-group.com
 
 The following additional people are mentioned in commit logs as having provided
 helpful bug reports, suggestions or have otherwise provided value to the
