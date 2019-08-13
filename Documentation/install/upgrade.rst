@@ -839,7 +839,7 @@ Example migration
 
 .. note::
 
-    It is also possible to use the `--k8s-kubeconfig-path`  and `--kvstore-opt`
+    It is also possible to use the ``--k8s-kubeconfig-path``  and ``--kvstore-opt``
     ``cilium`` CLI options with the preflight command. The default is to derive the
     configuration as cilium-agent does.
 

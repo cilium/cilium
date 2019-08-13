@@ -173,7 +173,7 @@ Generate the required YAML file and deploy it:
 
 .. note::
 
-   If you are using `containerd`, set ``global.containerRuntime.integration=containerd``.
+   If you are using ``containerd``, set ``global.containerRuntime.integration=containerd``.
 
 Validate cilium
 ===============
