@@ -1533,6 +1533,7 @@ func (d *Daemon) deleteIngressV1beta1(ingress *types.Ingress) error {
 }
 
 func (d *Daemon) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) {
+
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
 		logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
@@ -1598,23 +1599,26 @@ func (d *Daemon) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ci
 	// is populated by the time updateCiliumNetworkPolicyV2 is invoked.
 	importMetadataCache.upsert(cnp, rev, policyImportErr)
 
-	updateContext := &k8s.CNPStatusUpdateContext{
-		CiliumNPClient:              ciliumNPClient,
-		CiliumV2Store:               ciliumV2Store,
-		NodeName:                    node.GetName(),
-		NodeManager:                 d.nodeDiscovery.Manager,
-		UpdateDuration:              spanstat.Start(),
-		WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
+	if !option.Config.DisableCNPStatusUpdates {
+		updateContext := &k8s.CNPStatusUpdateContext{
+			CiliumNPClient:              ciliumNPClient,
+			CiliumV2Store:               ciliumV2Store,
+			NodeName:                    node.GetName(),
+			NodeManager:                 d.nodeDiscovery.Manager,
+			UpdateDuration:              spanstat.Start(),
+			WaitForEndpointsAtPolicyRev: endpointmanager.WaitForEndpointsAtPolicyRev,
+		}
+
+		ctrlName := cnp.GetControllerName()
+		k8sCM.UpdateController(ctrlName,
+			controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
+					return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
+				},
+			},
+		)
 	}
 
-	ctrlName := cnp.GetControllerName()
-	k8sCM.UpdateController(ctrlName,
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) error {
-				return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
-			},
-		},
-	)
 	return policyImportErr
 }
 
@@ -1671,27 +1675,29 @@ func (d *Daemon) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface,
 	}).Debug("Modified CiliumNetworkPolicy")
 
 	// Do not add rule into policy repository if the spec remains unchanged.
-	if oldRuleCpy.SpecEquals(newRuleCpy.CiliumNetworkPolicy) {
-		if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
+	if !option.Config.DisableCNPStatusUpdates {
+		if oldRuleCpy.SpecEquals(newRuleCpy.CiliumNetworkPolicy) {
+			if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
 
-			// Update annotations within a controller so the status of the update
-			// is trackable from the list of running controllers, and so we do
-			// not block subsequent policy lifecycle operations from Kubernetes
-			// until the update is complete.
-			oldCtrlName := oldRuleCpy.GetControllerName()
-			newCtrlName := newRuleCpy.GetControllerName()
+				// Update annotations within a controller so the status of the update
+				// is trackable from the list of running controllers, and so we do
+				// not block subsequent policy lifecycle operations from Kubernetes
+				// until the update is complete.
+				oldCtrlName := oldRuleCpy.GetControllerName()
+				newCtrlName := newRuleCpy.GetControllerName()
 
-			// In case the controller name changes between copies of rules,
-			// remove old controller so we do not leak goroutines.
-			if oldCtrlName != newCtrlName {
-				err := k8sCM.RemoveController(oldCtrlName)
-				if err != nil {
-					log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
+				// In case the controller name changes between copies of rules,
+				// remove old controller so we do not leak goroutines.
+				if oldCtrlName != newCtrlName {
+					err := k8sCM.RemoveController(oldCtrlName)
+					if err != nil {
+						log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
+					}
 				}
+				d.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
 			}
-			d.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
+			return nil
 		}
-		return nil
 	}
 
 	return d.addCiliumNetworkPolicyV2(ciliumNPClient, ciliumV2Store, newRuleCpy)

@@ -829,6 +829,10 @@ func init() {
 	flags.MarkHidden(option.PolicyTriggerInterval)
 	option.BindEnv(option.PolicyTriggerInterval)
 
+	flags.Bool(option.DisableCNPStatusUpdates, false, "do not send CNP NodeStatus updates")
+	flags.MarkHidden(option.DisableCNPStatusUpdates)
+	option.BindEnv(option.DisableCNPStatusUpdates)
+
 	viper.BindPFlags(flags)
 }
 
