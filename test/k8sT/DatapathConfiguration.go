@@ -193,6 +193,21 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
+	Context("IPv6Only", func() {
+		It("Check connectivity with IPv4 disabled", func() {
+			// Flannel always disables IPv6, this test is a no-op in that case.
+			SkipIfFlannel()
+
+			deployCilium([]string{
+				"--set global.ipv4.enabled=false",
+				"--set global.ipv6.enabled=true",
+				"--set global.tunnel=vxlan",
+			})
+			testPodConnectivityAcrossNodes(kubectl, false, true, "Connectivity test with IPv6 only between nodes failed")
+			cleanService()
+		})
+	})
+
 	Context("PerEndpointRoute", func() {
 		It("Check connectivity with per endpoint routes", func() {
 			// Flannel always disables IPv6, this test is a no-op in that case.
