@@ -1,0 +1,15 @@
+---
+metadata:
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - image: docker.io/cilium/operator:v1.5.5
+        imagePullPolicy: IfNotPresent
+        name: cilium-operator
+      volumes:
+      - name: etcd-secrets
+        secret:
+          secretName: cilium-etcd-client-tls
