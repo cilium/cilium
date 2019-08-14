@@ -41,13 +41,13 @@ Generate the required YAML file and deploy it:
    helm template cilium \
      --namespace kube-system \
      --set global.datapathMode=ipvlan \
-     --set global.ipvlan.primaryDevice=eth0 \
+     --set global.ipvlan.masterDevice=eth0 \
      --set global.tunnel=disabled \
      > cilium.yaml
 
-It is required to specify the primary ipvlan device which typically points to a
+It is required to specify the master ipvlan device which typically points to a
 networking device that is facing the external network. This is done through
-setting ``global.ipvlan.primaryDevice`` to the name of the networking device
+setting ``global.ipvlan.masterDevice`` to the name of the networking device
 such as ``"eth0"`` or ``"bond0"``, for example. Be aware this option will be
 used by all nodes, so it is required this device name is consistent on all
 nodes where you are going to deploy Cilium.
@@ -89,7 +89,7 @@ Example ConfigMap extract for ipvlan in pure L3 mode:
    helm template ciliumn \
      --namespace kube-system \
      --set global.datapathMode=ipvlan \
-     --set global.ipvlan.primaryDevice=bond0 \
+     --set global.ipvlan.masterDevice=bond0 \
      --set global.tunnel=disabled \
      --set global.installIptablesRules=false \
      --set global.autoDirectNodeRoutes=true \
@@ -103,7 +103,7 @@ masquerading all traffic leaving the node:
    helm template cilium \
      --namespace kube-system \
      --set global.datapathMode=ipvlan \
-     --set global.ipvlan.primaryDevice=bond0 \
+     --set global.ipvlan.masterDevice=bond0 \
      --set global.tunnel=disabled \
      --set global.masquerade=true \
      --set global.autoDirectNodeRoutes=true \
@@ -117,7 +117,7 @@ BPF-based masquerading instead of iptables-based:
    helm template cilium \
      --namespace kube-system \
      --set global.datapathMode=ipvlan \
-     --set global.ipvlan.primaryDevice=bond0 \
+     --set global.ipvlan.masterDevice=bond0 \
      --set global.tunnel=disabled \
      --set global.masquerade=true \
      --set global.installIptablesRules=false \
