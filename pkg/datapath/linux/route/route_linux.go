@@ -259,7 +259,7 @@ func Upsert(route Route, mtuConfig *mtu.Configuration) (bool, error) {
 	routeSpec := route.getNetlinkRoute()
 	routeSpec.LinkIndex = link.Attrs().Index
 
-	if routeSpec.MTU != 0 && mtuConfig != nil {
+	if mtuConfig != nil {
 		// If the route includes the local address, then the route is for
 		// local containers and we can use a high MTU for transmit. Otherwise,
 		// it needs to be able to fit within the MTU of tunnel devices.
