@@ -128,6 +128,7 @@ data:
   # - auto (automatically detect the container runtime)
   #
   container-runtime: none
+
   masquerade: "true"
 
   install-iptables-rules: "true"
@@ -441,6 +442,8 @@ spec:
         - mountPath: /lib/modules
           name: lib-modules
           readOnly: true
+        - mountPath: /run/xtables.lock
+          name: xtables-lock
       hostNetwork: true
       initContainers:
       - command:
@@ -508,6 +511,11 @@ spec:
       - hostPath:
           path: /lib/modules
         name: lib-modules
+        # To access iptables concurrently with other processes (e.g. kube-proxy)
+      - hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate
+        name: xtables-lock
         # To read the clustermesh configuration
       - name: clustermesh-secrets
         secret:
@@ -597,6 +605,18 @@ spec:
               key: disable-endpoint-crd
               name: cilium-config
               optional: true
+        - name: CILIUM_KVSTORE
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore
+              name: cilium-config
+              optional: true
+        - name: CILIUM_KVSTORE_OPT
+          valueFrom:
+            configMapKeyRef:
+              key: kvstore-opt
+              name: cilium-config
+              optional: true
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -630,4 +650,16 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
+
+---
+# Source: cilium/charts/agent/templates/servicemonitor.yaml
+
+---
+# Source: cilium/charts/agent/templates/svc.yaml
+
+---
+# Source: cilium/charts/operator/templates/servicemonitor.yaml
+
+---
+# Source: cilium/charts/operator/templates/svc.yaml
 
