@@ -260,9 +260,11 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if and .Values.global.ipvlan .Values.global.ipvlan.enabled }}
+{{- if .Values.global.datapathMode }}
+{{- if eq .Values.global.datapathMode "ipvlan" }}
   datapath-mode: ipvlan
-  ipvlan-master-device: {{ .Values.global.ipvlan.primaryDevice }}
+  ipvlan-master-device: {{ .Values.global.ipvlan.masterDevice }}
+{{- end }}
 {{- end }}
 
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
