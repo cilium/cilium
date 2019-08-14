@@ -105,8 +105,10 @@ func init() {
 	flags.BoolP("debug", "D", false, "Enable debugging mode")
 	flags.StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
 	flags.StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
-	flags.StringVar(&kvStore, "kvstore", "", "Key-value store type")
-	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options")
+	flags.String(option.KVStore, "", "Key-value store type")
+	option.BindEnv(option.KVStore)
+	flags.Var(option.NewNamedMapOptions(option.KVStoreOpt, &kvStoreOpts, nil), option.KVStoreOpt, "Key-value store options")
+	option.BindEnv(option.KVStoreOpt)
 	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
 	flags.String(option.IPAM, "", "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
@@ -171,7 +173,7 @@ func initConfig() {
 }
 
 func kvstoreEnabled() bool {
-	if option.Config.KVStore == "" {
+	if kvStore == "" {
 		return false
 	}
 
@@ -193,6 +195,8 @@ func runOperator(cmd *cobra.Command) {
 
 	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
 	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
+	kvStore = viper.GetString(option.KVStore)
+	kvStoreOpts = viper.GetStringMapString(option.KVStoreOpt)
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 	if err := k8s.Init(); err != nil {
