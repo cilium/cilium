@@ -94,6 +94,10 @@ global:
 
   # cni is the CNI configuration
   cni:
+    # install determines whether to install the CNI configuration and binary
+    # files into the filesystem.
+    install: true
+
     # chainingMode enables chaining on top of other CNI plugins. Possible
     # values:
     #  - none
