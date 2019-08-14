@@ -251,6 +251,14 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 		ip4Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
 	}
 
+	if option.Config.EnableEndpointRoutes {
+		dpConfig := &models.EndpointDatapathConfiguration{
+			InstallEndpointRoute: true,
+			RequireEgressProg:    true,
+		}
+		info.DatapathConfiguration = dpConfig
+	}
+
 	netNS, err := netns.ReplaceNetNSWithName(netNSName)
 	if err != nil {
 		return nil, err
