@@ -75,6 +75,7 @@ spec:
         image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
+{{- if .Values.global.cni.install }}
         lifecycle:
           postStart:
             exec:
@@ -84,6 +85,7 @@ spec:
             exec:
               command:
               - /cni-uninstall.sh
+{{- end }}
         livenessProbe:
           exec:
             command:
