@@ -199,10 +199,17 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
+	if option.Config.InstallIptRules {
+		if err := d.iptablesManager.TransientRulesStart(option.Config.HostDevice); err != nil {
+			return err
+		}
+	}
 	// Always remove masquerade rule and then re-add it if required
 	d.iptablesManager.RemoveRules()
 	if option.Config.InstallIptRules {
-		if err := d.iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
+		err := d.iptablesManager.InstallRules(option.Config.HostDevice)
+		d.iptablesManager.TransientRulesEnd()
+		if err != nil {
 			return err
 		}
 	}
