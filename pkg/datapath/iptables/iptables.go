@@ -36,19 +36,21 @@ import (
 )
 
 const (
-	ciliumInputChain       = "CILIUM_INPUT"
-	ciliumOutputChain      = "CILIUM_OUTPUT"
-	ciliumOutputRawChain   = "CILIUM_OUTPUT_raw"
-	ciliumPostNatKubeChain = "CILIUM_POST_KUBE"
-	ciliumPostNatChain     = "CILIUM_POST_nat"
-	ciliumOutputNatChain   = "CILIUM_OUTPUT_nat"
-	ciliumPreNatChain      = "CILIUM_PRE_nat"
-	ciliumPostMangleChain  = "CILIUM_POST_mangle"
-	ciliumPreMangleChain   = "CILIUM_PRE_mangle"
-	ciliumPreRawChain      = "CILIUM_PRE_raw"
-	ciliumForwardChain     = "CILIUM_FORWARD"
-	feederDescription      = "cilium-feeder:"
-	xfrmDescription        = "cilium-xfrm-notrack:"
+	ciliumPrefix                = "CILIUM_"
+	ciliumInputChain            = "CILIUM_INPUT"
+	ciliumOutputChain           = "CILIUM_OUTPUT"
+	ciliumOutputRawChain        = "CILIUM_OUTPUT_raw"
+	ciliumPostNatKubeChain      = "CILIUM_POST_KUBE"
+	ciliumPostNatChain          = "CILIUM_POST_nat"
+	ciliumOutputNatChain        = "CILIUM_OUTPUT_nat"
+	ciliumPreNatChain           = "CILIUM_PRE_nat"
+	ciliumPostMangleChain       = "CILIUM_POST_mangle"
+	ciliumPreMangleChain        = "CILIUM_PRE_mangle"
+	ciliumPreRawChain           = "CILIUM_PRE_raw"
+	ciliumForwardChain          = "CILIUM_FORWARD"
+	ciliumTransientForwardChain = "CILIUM_TRANSIENT_FORWARD"
+	feederDescription           = "cilium-feeder:"
+	xfrmDescription             = "cilium-xfrm-notrack:"
 )
 
 // Minimum iptables versions supporting the -w and -w<seconds> flags
@@ -128,7 +130,7 @@ func reverseRule(rule string) ([]string, error) {
 	return []string{}, nil
 }
 
-func (m *IptablesManager) removeCiliumRules(table, prog string) {
+func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 	args := append(m.waitArgs, "-t", table, "-S")
 
 	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, true)
@@ -140,12 +142,15 @@ func (m *IptablesManager) removeCiliumRules(table, prog string) {
 	for scanner.Scan() {
 		rule := scanner.Text()
 		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering removing %s rule", prog)
+		if match != ciliumTransientForwardChain && strings.Contains(rule, ciliumTransientForwardChain) {
+			continue
+		}
 
 		// All rules installed by cilium either belong to a chain with
 		// the name CILIUM_ or call a chain with the name CILIUM_:
 		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
 		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
-		if strings.Contains(rule, "CILIUM_") {
+		if strings.Contains(rule, match) {
 			reversedRule, err := reverseRule(rule)
 			if err != nil {
 				log.WithError(err).WithField(logfields.Object, rule).Warnf("Unable to parse %s rule into slice. Leaving rule behind.", prog)
@@ -278,6 +283,13 @@ var ciliumChains = []customChain{
 	},
 }
 
+var transientChain = customChain{
+	name:       ciliumTransientForwardChain,
+	table:      "filter",
+	hook:       "FORWARD",
+	feederArgs: []string{""},
+}
+
 // IptablesManager manages the iptables-related configuration for Cilium.
 type IptablesManager struct {
 	ip6tables bool
@@ -327,19 +339,70 @@ func (m *IptablesManager) RemoveRules() {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
-		m.removeCiliumRules(t, "iptables")
+		m.removeCiliumRules(t, "iptables", ciliumPrefix)
 	}
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.ip6tables {
 		tables6 := []string{"nat", "mangle", "raw"}
 		for _, t := range tables6 {
-			m.removeCiliumRules(t, "ip6tables")
+			m.removeCiliumRules(t, "ip6tables", ciliumPrefix)
 		}
 	}
 
 	for _, c := range ciliumChains {
 		c.remove(m.waitArgs)
+	}
+}
+
+// TransientRulesStart installs iptables rules for Cilium that need to be
+// kept in-tact during agent restart which removes/installs its main rules.
+// Transient rules are then removed once iptables rule update cycle has
+// completed. This is mainly due to interactions with kube-proxy.
+func (m *IptablesManager) TransientRulesStart(ifName string) error {
+	if option.Config.EnableIPv4 {
+		m.TransientRulesEnd()
+
+		if err := transientChain.add(m.waitArgs); err != nil {
+			return fmt.Errorf("cannot add custom chain %s: %s", transientChain.name, err)
+		}
+		// While kube-proxy does change the policy of the iptables FORWARD chain
+		// it doesn't seem to handle all cases, e.g. host network pods that use
+		// the node IP which would still end up in default DENY. Similarly, for
+		// plain Docker setup, we would otherwise hit default DENY in FORWARD chain.
+		// Also, k8s 1.15 introduced "-m conntrack --ctstate INVALID -j DROP" which
+		// in the direct routing case can drop EP replies.
+		// Therefore, add both rules below to avoid having a user to manually opt-in.
+		// See also: https://github.com/kubernetes/kubernetes/issues/39823
+		// In here can only be basic ACCEPT rules, nothing more complicated.
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", ciliumTransientForwardChain,
+			"-o", ifName,
+			"-m", "comment", "--comment", "cilium (transient): any->cluster on "+ifName+" forward accept",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", ciliumTransientForwardChain,
+			"-i", "lxc+",
+			"-m", "comment", "--comment", "cilium (transient): cluster->any on lxc+ forward accept",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
+		if err := transientChain.installFeeder(m.waitArgs); err != nil {
+			return fmt.Errorf("cannot install feeder rule %s: %s", transientChain.feederArgs, err)
+		}
+	}
+	return nil
+}
+
+// TransientRulesEnd removes Cilium related rules installed from TransientRulesStart.
+func (m *IptablesManager) TransientRulesEnd() {
+	if option.Config.EnableIPv4 {
+		m.removeCiliumRules("filter", "iptables", ciliumTransientForwardChain)
+		transientChain.remove(m.waitArgs)
 	}
 }
 
@@ -373,16 +436,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			return err
 		}
 
-		// kube-proxy does not change the default policy of the FORWARD chain
-		// which means that while packets to services are properly DNAT'ed,
-		// they are later dropped in the FORWARD chain. The issue has been
-		// resolved in #52569 and will be fixed in k8s >= 1.8. The following is
-		// a workaround for earlier Kubernetes versions.
-		//
-		// Accept all packets in FORWARD chain that are going to ifName.
-		// It is safe to ignore the destination IP here as the pre-requisite
-		// for a packet being routed to ifName is that a route exists
-		// which is only installed for known node IP CIDR ranges.
+		// See kube-proxy comment in TransientRules().
 		if err := runProg("iptables", append(
 			m.waitArgs,
 			"-A", ciliumForwardChain,

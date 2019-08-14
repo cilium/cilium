@@ -557,11 +557,19 @@ func (d *Daemon) compileBase() error {
 		return err
 	}
 
+	if option.Config.InstallIptRules {
+		if err := d.iptablesManager.TransientRulesStart(option.Config.HostDevice); err != nil {
+			return err
+		}
+	}
+
 	if option.Config.EnableIPv4 {
 		// Always remove masquerade rule and then re-add it if required
 		d.iptablesManager.RemoveRules()
 		if option.Config.InstallIptRules {
-			if err := d.iptablesManager.InstallRules(option.Config.HostDevice); err != nil {
+			err := d.iptablesManager.InstallRules(option.Config.HostDevice)
+			d.iptablesManager.TransientRulesEnd()
+			if err != nil {
 				return err
 			}
 		}
@@ -892,6 +900,8 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 type rulesManager interface {
 	RemoveRules()
 	InstallRules(ifName string) error
+	TransientRulesStart(ifName string) error
+	TransientRulesEnd()
 }
 
 func deleteHostDevice() {
