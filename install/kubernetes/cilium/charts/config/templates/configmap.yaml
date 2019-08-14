@@ -43,7 +43,7 @@ data:
   identity-allocation-mode: {{ .Values.global.identityAllocationMode }}
 
   # If you want to run cilium in debug mode change this value to true
-  debug: {{ .Values.global.debug.enabled | default false | quote }}
+  debug: {{ .Values.global.debug.enabled | quote }}
 
 {{- if .Values.global.debug.verbose }}
   debug-verbose: "{{ .Values.global.debug.verbose }}"
@@ -62,13 +62,13 @@ data:
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
   # address.
 {{- if .Values.global.ipv4 }}
-  enable-ipv4: {{ .Values.global.ipv4.enabled | default true | quote }}
+  enable-ipv4: {{ .Values.global.ipv4.enabled | quote }}
 {{- end }}
 
   # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
   # address.
 {{- if .Values.global.ipv6 }}
-  enable-ipv6: {{ .Values.global.ipv6.enabled | default false | quote }}
+  enable-ipv6: {{ .Values.global.ipv6.enabled | quote }}
 {{- end }}
 
 {{- if .Values.global.cleanState }}
@@ -265,10 +265,10 @@ data:
   ipvlan-master-device: {{ .Values.global.ipvlan.primaryDevice }}
 {{- end }}
 
-  install-iptables-rules: {{ .Values.global.installIptablesRules | default true | quote }}
-  auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | default false | quote }}
+  install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
+  auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
 {{- if .Values.global.nodePort }}
-  enable-node-port: {{ .Values.global.nodePort.enabled | default false | quote }}
+  enable-node-port: {{ .Values.global.nodePort.enabled | quote }}
 {{- if .Values.global.nodePort.range }}
   node-port-range: {{ .Values.global.nodePort.range | quote }}
 {{- end }}
