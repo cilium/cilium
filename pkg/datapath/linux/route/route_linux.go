@@ -255,15 +255,13 @@ func Upsert(route Route, mtuConfig mtu.Configuration) (bool, error) {
 	routeSpec := route.getNetlinkRoute()
 	routeSpec.LinkIndex = link.Attrs().Index
 
-	if routeSpec.MTU != 0 {
-		// If the route includes the local address, then the route is for
-		// local containers and we can use a high MTU for transmit. Otherwise,
-		// it needs to be able to fit within the MTU of tunnel devices.
-		if route.Prefix.Contains(route.Local) {
-			routeSpec.MTU = mtuConfig.GetDeviceMTU()
-		} else {
-			routeSpec.MTU = mtuConfig.GetRouteMTU()
-		}
+	// If the route includes the local address, then the route is for
+	// local containers and we can use a high MTU for transmit. Otherwise,
+	// it needs to be able to fit within the MTU of tunnel devices.
+	if route.Prefix.Contains(route.Local) {
+		routeSpec.MTU = mtuConfig.GetDeviceMTU()
+	} else {
+		routeSpec.MTU = mtuConfig.GetRouteMTU()
 	}
 
 	err = fmt.Errorf("routeReplace not called yet")
