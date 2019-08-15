@@ -2,7 +2,90 @@
 NEWS
 ******
 
+v1.5.6
+======
 
+::
+
+    André Martins (12):
+          update golang to 1.12.7 for cilium-{operator,docker-plugin}
+          test: update k8s testing versions to v1.12.10, v1.13.8 and v1.14.4
+          update to golang 1.12.7
+          operator: restart non-managed kube-dns pods before connecting to etcd
+          pkg/{kvstore,node}: delay node delete event in kvstore
+          pkg/kvstore: wait for node delete delay in unit tests
+          Gopkg: update k8s dependencies to v1.15.1
+          test: update k8s test version to v1.15.1
+          examples/kubernetes: update k8s dev VM to v1.15.1
+          daemon: register warning_error metric after parsing CLI options
+          Gopkg: update cilium/proxy
+          datapath/iptables: wait until acquisition xtables lock is done
+    
+    Daniel Borkmann (3):
+          cilium: remove old probe content before restoring assets
+          bpf: fix verifier error due to repulling of skb->data/end
+          cilium: install transient rules during agent restart
+    
+    Ian Vernon (15):
+          endpoint: do not log warning for specific state transition
+          test: add `ExecMiddle` function
+          test: move creation of Istio resources into `It`
+          test: misc. runtime policy test fixes
+          endpoint: change transition from restore state
+          endpoint: fix deadlock when endpoint EventQueue is full
+          test: be sure to close SSH client after a given Describe completes
+          daemon: get list of frontends from ServiceCache before acquiring BPFMapMu
+          eventqueue: use mutex to synchronize access to events channel
+          eventqueue: protect against enqueueing same Event twice
+          eventqueue: return error if Enqueue fails
+          examples/kubernetes: mount xtables.lock
+          use iptables-manager to manage iptables executions
+          update cilium-docker-plugin, cilium-operator to golang 1.12.8
+          dockerfiles: update golang versions to 1.12.8
+    
+    Jarno Rajahalme (17):
+          proxy: Perform dnsproxy Close() in the returned finalizeFunc
+          endpoint: Create redirects before bpf map updates.
+          proxy: Do not error out if reading of open ports fails.
+          CI: Change Kafka runtime tests to use local conntrack maps.
+          Dockerfile: Update proxy dependency
+          Envoy: Use an image with proxylib injection fix.
+          envoy: Use LPM ipcache instead of xDS when available.
+          Envoy: Update to the latest proxy build, use latest API
+          Dockerfile: Use cilium-envoy with reduced logging.
+          istio: Update to 1.1.7
+          envoy: Istio 1.2.0 update
+          istio: Update to 1.2.2
+          test: provide capability for tests to run in their own namespace
+          envoy: Add SO_MARK option to listener config
+          Dockerfile: Use proxy with legacy fix
+          envoy: Use patched image
+          Istio: Update to 1.2.4
+    
+    Joe Stringer (6):
+          docs: Fix up unparsed SCM_WEB literals
+          test: Specify protocol during policy trace
+          docs: Fix warnings
+          bpf: Introduce revalidate_data_first()
+          bpf: Attempt pulling skb->data if it is not pulled
+          endpoint: Fix proxy port leak on endpoint delete
+    
+    John Fastabend (2):
+          cilium: encryption, ensure 0x*d00 and 0x*e00 marks dont cause conflicts
+          cilium: add skb_pull_data to bpf_network to avoid revalidate error
+    
+    Maciej Kwiek (2):
+          Add timeout to ginkgo calls
+          Fix seds in microk8s docs
+    
+    Martynas Pumputis (3):
+          datapath: Do not fail if route contains gw equal to dst
+          daemon: Remove svc from cache in syncLBMapsWithK8s
+          daemon: Fix removal of non-existing SVCs in syncLBMapsWithK8s
+    
+    bob (1):
+          [daemon] - Change MTU source for cilium_host (Use the Route one)
+    
 v1.5.5
 ======
 
