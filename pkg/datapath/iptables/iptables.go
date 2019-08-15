@@ -621,7 +621,41 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		return err
 	}
 
+	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+
+	if option.Config.EnableIPv6 {
+		// Mark host proxy transparent connections to be routed to the local stack.
+		// This comes before the TPROXY rules in the chain, and setting the mark
+		// without the proxy port number will make the TPROXY rule to not match,
+		// as we do not want to try to tproxy packets that are going to the stack
+		// already.
+		// This rule is needed for couple of reasons:
+		// 1. route return traffic to the proxy
+		// 2. route original direction traffic that would otherwise be intercepted
+		//    by ip_early_demux
+		if err := runProg("ip6tables", append(
+			m.waitArgs,
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-m", "socket", "--transparent", "--nowildcard",
+			"-m", "comment", "--comment", "cilium: mark transparent proxy traffic to be routed locally",
+			"-j", "MARK", "--set-mark", toProxyMark), false); err != nil {
+			return err
+		}
+	}
+
 	if option.Config.EnableIPv4 {
+		// See comment above for the IPv6 case.
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-t", "mangle",
+			"-A", ciliumPreMangleChain,
+			"-m", "socket", "--transparent", "--nowildcard",
+			"-m", "comment", "--comment", "cilium: mark transparent proxy traffic to be routed locally",
+			"-j", "MARK", "--set-mark", toProxyMark), false); err != nil {
+			return err
+		}
+
 		// Clear the Kubernetes masquerading mark bit to skip source PAT
 		// performed by kube-proxy for all packets destined for Cilium. Cilium
 		// installs a dedicated rule which does the source PAT to the right
@@ -634,7 +668,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			"-o", localDeliveryInterface,
 			"-m", "mark", "!", "--mark", matchFromIPSecDecrypt, // Don't match ipsec traffic
 			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
-			"-m", "comment", "--comment", "cilium: clear masq bit for pkts to "+ifName,
+			"-m", "comment", "--comment", "cilium: clear masq bit for pkts to "+localDeliveryInterface,
 			"-j", "MARK", "--set-xmark", clearMasqBit), false); err != nil {
 			return err
 		}
