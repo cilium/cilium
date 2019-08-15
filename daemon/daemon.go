@@ -915,8 +915,12 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 
 	bootstrapStats.proxyStart.Start()
 	// FIXME: Make the port range configurable.
-	d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-		option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath)
+	if option.Config.InstallIptRules {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath)
+	} else {
+		log.Warning("L7 proxies not supported when --install-iptables-rules=\"false\"")
+	}
 	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.fqdn.Start()
