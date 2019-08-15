@@ -14,6 +14,7 @@ CILIUMDIR     = ../cilium
 AGENTDIR      = ../daemon
 BUGTOOLDIR    = ../bugtool
 HEALTHDIR     = ../cilium-health
+OPERATORDIR   = ../operator
 SPELLING_LIST = spelling_wordlist.txt
 
 # Put it first so that "make" without argument is like "make help".
@@ -44,6 +45,8 @@ cmdref:
 	$(QUIET) ${AGENTDIR}/cilium-agent --cmdref $(CMDREFDIR)
 	@$(ECHO_GEN)cmdref/cilium-health
 	$(QUIET) ${HEALTHDIR}/cilium-health --cmdref $(CMDREFDIR)
+	@$(ECHO_GEN)cmdref/cilium-operator
+	$(QUIET) ${OPERATORDIR}/cilium-operator --cmdref $(CMDREFDIR)
 
 # Touch "$@.ok" if the docs build succeeds. Fail if there are errors
 # or output other than those including the following phrases:
