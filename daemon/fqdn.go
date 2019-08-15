@@ -218,10 +218,10 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 		}
 	}
 
-	// Do not start the proxy in dry mode. The proxy would not get any traffic in the
-	// dry mode anyway, and some of the socket operations require privileges not available
-	// in all unit tests.
-	if option.Config.DryMode {
+	// Do not start the proxy in dry mode or if iptables rules should not be installed.
+	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
+	// operations require privileges not available in all unit tests.
+	if option.Config.DryMode || !option.Config.InstallIptRules {
 		return nil
 	}
 
