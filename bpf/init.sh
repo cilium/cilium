@@ -279,6 +279,14 @@ function xdp_load()
 	return $RETCODE
 }
 
+function bpf_unload()
+{
+	DEV=$1
+	WHERE=$2
+
+	tc filter del dev $DEV $WHERE 2> /dev/null || true
+}
+
 function bpf_load()
 {
 	DEV=$1
@@ -288,7 +296,6 @@ function bpf_load()
 	OUT=$5
 	SEC=$6
 	CALLS_MAP=$7
-	SKIP=$8
 
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
@@ -301,14 +308,11 @@ function bpf_load()
 
 	OPTS="${OPTS} ${OPTS_DIR} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
-	if [ "$SKIP" != "no_qdisc_reset" ]; then
-		tc qdisc del dev $DEV clsact 2> /dev/null || true
-		tc qdisc add dev $DEV clsact
-	fi
+	tc qdisc replace dev $DEV clsact || true
+	[ -z "$(tc filter show dev $DEV $WHERE | grep -v 'pref 1 bpf chain 0 $\|pref 1 bpf chain 0 handle 0x1')" ] || tc filter del dev $DEV $WHERE
 	cilium-map-migrate -s $OUT
 	set +e
-	tc filter del dev $DEV $WHERE 2> /dev/null || true
-	tc filter add dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
+	tc filter replace dev $DEV $WHERE prio 1 handle 1 bpf da obj $OUT sec $SEC
 	RETCODE=$?
 	set -e
 	cilium-map-migrate -e $OUT -r $RETCODE
@@ -499,7 +503,9 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	fi
 	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	if [ "$NODE_PORT" = "true" ]; then
-		bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP} "no_qdisc_reset"
+		bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
+	else
+		bpf_unload $ENCAP_DEV "egress"
 	fi
 else
 	# Remove eventual existing encapsulation device from previous run
@@ -524,7 +530,9 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ]
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
 		if [ "$MASQ" = "true" ] || [ "$NODE_PORT" = "true" ]; then
-		    bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP "no_qdisc_reset"
+			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
+		else
+			bpf_unload $NATIVE_DEV "egress"
 		fi
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
@@ -540,6 +548,7 @@ elif [ "$MODE" = "lb" ]; then
 		CALLS_MAP="cilium_calls_lb"
 		COPTS="-DLB_L3 -DLB_L4"
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_lb.c bpf_lb.o from-netdev $CALLS_MAP
+		bpf_unload $NATIVE_DEV "egress"
 
 		echo "$NATIVE_DEV" > $RUNDIR/device.state
 	fi
@@ -597,18 +606,16 @@ if [ "$MODE" == "ipvlan" ]; then
 	COPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi
 bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
-bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP "no_qdisc_reset"
-
-IPSEC_LOAD_OPT=""
-if [ "$HOST_DEV1" == "$HOST_DEV2" ]; then
-	IPSEC_LOAD_OPT="no_qdisc_reset"
-fi
+bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP
 # bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
-bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP $IPSEC_LOAD_OPT
+bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
 if [ "$IPSEC" == "true" ]; then
 	if [ $ENCRYPT_DEV != "" ]; then
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
 	fi
+fi
+if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
+	bpf_unload $HOST_DEV2 "egress"
 fi
 
 if [ -n "$XDP_DEV" ]; then
