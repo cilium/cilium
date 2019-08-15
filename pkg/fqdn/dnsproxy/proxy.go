@@ -289,7 +289,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
-	ep, err := p.LookupEndpointIDByIP(net.ParseIP(addr))
+	sourceIp := net.ParseIP(addr)
+	ep, err := p.LookupEndpointIDByIP(sourceIp)
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %s", err)
@@ -348,14 +349,20 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 					opErr = v4Err
 					flowdebug.Log(scopedLog.WithError(opErr), "dnsproxy: Setting IP(V6)_TRANSPARENT failed")
 				} else {
-					// Mark the upstream socket with source ep's identity. 'false' == egress.
-					mark := linux_defaults.GetMagicProxyMark(false, int(ep.GetIdentity()))
-					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark)
-					if flowdebug.Enabled() {
-						if opErr == nil {
-							flowdebug.Log(scopedLog.WithField("SO_MARK", fmt.Sprintf("%#08x", mark)), "dnsproxy: Set transparent & socket mark options")
-						} else {
-							flowdebug.Log(scopedLog.WithError(opErr).WithField("SO_MARK", fmt.Sprintf("%#08x", mark)), "dnsproxy: Setting SO_MARK failed")
+					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+					if opErr != nil {
+						flowdebug.Log(scopedLog.WithError(opErr), "dnsproxy: Setting SO_REUSEADDR failed")
+
+					} else {
+						// Mark the upstream socket with source ep's identity. 'false' == egress.
+						mark := linux_defaults.GetMagicProxyMark(false, int(ep.GetIdentity()))
+						opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+						if flowdebug.Enabled() {
+							if opErr == nil {
+								flowdebug.Log(scopedLog.WithField("SO_MARK", fmt.Sprintf("%#08x", mark)), "dnsproxy: Set transparent & socket mark options")
+							} else {
+								flowdebug.Log(scopedLog.WithError(opErr).WithField("SO_MARK", fmt.Sprintf("%#08x", mark)), "dnsproxy: Setting SO_MARK failed")
+							}
 						}
 					}
 				}
@@ -367,6 +374,11 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 			return opErr
 		},
 		LocalAddr: w.RemoteAddr(),
+	}
+
+	// Never use the original loopback address as the the source address
+	if sourceIp.IsLoopback() {
+		dialer.LocalAddr = nil
 	}
 
 	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
