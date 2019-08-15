@@ -2,6 +2,69 @@
 NEWS
 ******
 
+v1.4.7
+======
+
+::
+
+    André Martins (3):
+          proxylib: fix go vet warnings
+          test: fix go vet warnings
+          Makefile: run govet on unit tests
+    
+    Eloy Coto (1):
+          Test/SSH: fix typos
+    
+    Ian Vernon (4):
+          test: move creation of Istio resources into `It`
+          test: be sure to close SSH client after a given Describe completes
+          dockerfiles: update golang versions to 1.12.8
+          update cilium-docker-plugin, cilium-operator to golang 1.12.8
+    
+    Jarno Rajahalme (20):
+          proxy: Do not error out if reading of open ports fails.
+          endpoint: Create redirects before bpf map updates.
+          bpf: Add dummy bpf_alignchecker.c
+          istio: Update to release 1.1.3
+          CI: Change Kafka runtime tests to use local conntrack maps.
+          envoy: Update to release 1.10
+          Dockerfile: Update proxy dependency
+          Envoy: Use an image with proxylib injection fix.
+          envoy: Use LPM ipcache instead of xDS when available.
+          Gopkg: update cilium/proxy
+          Envoy: Update to the latest proxy build, use latest API
+          Dockerfile: Use cilium-envoy with reduced logging.
+          istio: Update to 1.1.7
+          envoy: Istio 1.2.0 update
+          istio: Update to 1.2.2
+          test: provide capability for tests to run in their own namespace
+          envoy: Add SO_MARK option to listener config
+          Dockerfile: Use proxy with legacy fix
+          envoy: Use patched image
+          Istio: Update to 1.2.4
+    
+    Joe Stringer (7:
+          Makefile: Add microk8s make target
+          alignchecker: Streamline tests
+          daemon: Refactor alignchecker datapath refs to datapath/
+          alignchecker: Support multiple references to the same structs
+          test: Specify protocol during policy trace
+          docs: Fix warnings
+          endpoint: Fix proxy port leak on endpoint delete
+    
+    John Fastabend (2):
+          cilium: fix Error -> Errorf errors
+          cilium: docker.go ineffectual assignment
+    
+    Maciej Kwiek (1):
+          Add timeout to ginkgo calls
+    
+    Martynas Pumputis (4):
+          daemon: Remove svc from cache in syncLBMapsWithK8s
+          daemon: Fix removal of non-existing SVCs in syncLBMapsWithK8s
+          alignchecker: Refactor C and Go structs alignment checker
+          daemon: Make alignment check optional
+    
 v1.4.6
 ======
 
