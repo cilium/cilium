@@ -1337,7 +1337,9 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
 		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
-		finalize()
+		if finalize != nil {
+			finalize()
+		}
 	}
 
 	if e.policyMap != nil {
