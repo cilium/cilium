@@ -287,7 +287,7 @@ static __always_inline int snat_v4_track_local(struct __sk_buff *skb,
 		return ret;
 	} else if (ret == CT_NEW) {
 		ret = ct_create4(get_ct_map4(&tmp), &tmp, skb, where,
-				 &ct_state);
+				 &ct_state, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -707,7 +707,7 @@ static __always_inline int snat_v6_track_local(struct __sk_buff *skb,
 		return ret;
 	} else if (ret == CT_NEW) {
 		ret = ct_create6(get_ct_map6(&tmp), &tmp, skb, where,
-				 &ct_state);
+				 &ct_state, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
