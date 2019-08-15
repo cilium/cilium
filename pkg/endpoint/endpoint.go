@@ -1303,7 +1303,10 @@ func (e *Endpoint) LeaveLocked(owner Owner, proxyWaitGroup *completion.WaitGroup
 	owner.RemoveFromEndpointQueue(uint64(e.ID))
 	if e.SecurityIdentity != nil && e.realizedPolicy != nil && e.realizedPolicy.L4Policy != nil {
 		// Passing a new map of nil will purge all redirects
-		e.removeOldRedirects(owner, nil, proxyWaitGroup)
+		finalize, _ := e.removeOldRedirects(owner, nil, proxyWaitGroup)
+		if finalize != nil {
+			finalize()
+		}
 	}
 
 	if e.PolicyMap != nil {
