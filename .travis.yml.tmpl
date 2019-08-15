@@ -1,0 +1,22 @@
+language: go
+
+dist: trusty
+sudo: required
+
+go:
+ - TRAVIS_GO_VERSION
+
+if: branch = master OR type = pull_request
+
+addons:
+  apt:
+    packages:
+      - kernel-package libc6-dev-i386
+
+before_install: ./.travis/prepare.sh
+
+before_script:
+  - export PATH=/usr/local/clang/bin:$PATH
+  - export GO=/home/travis/.gimme/versions/goTRAVIS_GO_VERSION.linux.amd64/bin/go
+
+script: ./.travis/build.sh
