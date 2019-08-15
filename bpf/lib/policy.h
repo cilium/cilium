@@ -30,13 +30,17 @@ static inline bool __inline__ inherit_identity_from_host(struct __sk_buff *skb, 
 
 	/* Packets from the ingress proxy must skip the proxy when the
 	 * destination endpoint evaluates the policy. As the packet
-	 * would loop otherwise. */
+	 * would loop and/or the connection be reset otherwise. */
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
 		*identity = get_identity(skb);
-		skb->tc_index |= TC_INDEX_F_SKIP_PROXY;
+		skb->tc_index |= TC_INDEX_F_SKIP_INGRESS_PROXY;
 		from_proxy = true;
+	/* (Return) packets from the egress proxy must skip the
+	 * redirection to the proxy, as the packet would loop and/or
+	 * the connection be reset otherwise. */
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
 		*identity = get_identity(skb);
+		skb->tc_index |= TC_INDEX_F_SKIP_EGRESS_PROXY;
 		from_proxy = true;
 	} else if (magic == MARK_MAGIC_IDENTITY) {
 		*identity = get_identity(skb);
