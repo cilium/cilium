@@ -27,6 +27,7 @@ if echo $(hostname) | grep "k8s" -q;
 then
     # Only need to build on one host, since we can pull from the other host.
     if [[ "$(hostname)" == "k8s1" ]]; then
+      ./test/provision/container-images.sh cilium_images .
       if [[ "${CILIUM_IMAGE}" == "" && "${CILIUM_OPERATOR_IMAGE}" == "" ]]; then
         echo "building cilium/cilium container image..."
         make LOCKDEBUG=1 docker-image-no-clean
@@ -78,3 +79,6 @@ else
     echo "running \"sudo adduser vagrant cilium\" "
     sudo adduser vagrant cilium
 fi
+
+# Download all images needed for tests.
+./test/provision/container-images.sh test_images .
