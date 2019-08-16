@@ -11,9 +11,6 @@ redirect_debug_logs ${LOGS_DIR}
 
 set -ex
 
-log "${TEST_NAME} has been deprecated and replaced by test/runtime/lb.go:Services Policies"
-exit 0
-
 function cleanup {
   monitor_stop
   cilium service delete --all 2> /dev/null || true
@@ -22,7 +19,7 @@ function cleanup {
 }
 
 function finish_test {
-  gather_files ${TEST_NAME} ${TEST_SUITE}
+#  gather_files ${TEST_NAME} ${TEST_SUITE}
   cleanup
 }
 
@@ -89,7 +86,6 @@ function proxy_init {
 }
 
 function policy_single_egress {
-  cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
@@ -117,7 +113,6 @@ EOF
 }
 
 function policy_many_egress {
-  cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
@@ -147,7 +142,6 @@ EOF
 }
 
 function policy_single_ingress {
-  cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
@@ -171,7 +165,6 @@ EOF
 }
 
 function policy_many_ingress {
-  cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
@@ -196,7 +189,6 @@ EOF
 }
 
 function policy_service_and_proxy_egress {
-  cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
@@ -224,7 +216,6 @@ EOF
 }
 
 function policy_egress_and_ingress {
-  cilium policy delete --all
   cat <<EOF | policy_import_and_wait -
 [{
     "endpointSelector": {"matchLabels":{"id.server":""}},
@@ -314,16 +305,22 @@ for state in "false" "true"; do
       log "Testing with Policy=$policy, Service=$service, Conntrack=$state"
       log "+----------------------------------------------------------------------+"
 
+      cilium policy delete --all
       case $policy in
         "many_egress")
+          policy_many_egress
           policy_many_egress;;
         "egress")
+          policy_single_egress
           policy_single_egress;;
         "many_ingress")
+          policy_many_ingress
           policy_many_ingress;;
         "ingress")
+          policy_single_ingress
           policy_single_ingress;;
         "egress_and_ingress")
+          policy_egress_and_ingress
           policy_egress_and_ingress;;
       esac
 
