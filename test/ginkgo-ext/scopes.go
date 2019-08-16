@@ -536,3 +536,15 @@ func FailWithToggle(message string, callerSkip ...int) {
 		ginkgo.Fail(message, callerSkip...)
 	}
 }
+
+// SkipContextIf is a wrapper for the Context block which is being executed
+// if the given condition is NOT met.
+func SkipContextIf(condition func() bool, text string, body func()) bool {
+	if condition() {
+		return It(text, func() {
+			Skip("skipping due to unmet condition")
+		})
+	}
+
+	return Context(text, body)
+}
