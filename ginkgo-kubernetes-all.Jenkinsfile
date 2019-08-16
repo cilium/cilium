@@ -202,7 +202,7 @@ pipeline {
             }
         }
 
-        stage('Copy code and boot VMs 1.{13,15}'){
+        stage('Copy code and boot VMs 1.{13,14}'){
 
             options {
                 timeout(time: 60, unit: 'MINUTES')
