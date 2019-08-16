@@ -19,14 +19,15 @@ cilium monitor [flags]
 ### Options
 
 ```
-      --from []uint16         Filter by source endpoint id
-  -h, --help                  help for monitor
-      --hex                   Do not dissect, print payload in HEX
-  -j, --json                  Enable json output. Shadows -v flag
-      --related-to []uint16   Filter by either source or destination endpoint id
-      --to []uint16           Filter by destination endpoint id
-  -t, --type []string         Filter by event types [agent capture debug drop l7 trace]
-  -v, --verbose               Enable verbose output
+      --from []uint16           Filter by source endpoint id
+  -h, --help                    help for monitor
+      --hex                     Do not dissect, print payload in HEX
+  -j, --json                    Enable json output. Shadows -v flag
+      --monitor-socket string   Configure monitor socket path
+      --related-to []uint16     Filter by either source or destination endpoint id
+      --to []uint16             Filter by destination endpoint id
+  -t, --type []string           Filter by event types [agent capture debug drop l7 trace]
+  -v, --verbose                 Enable verbose output
 ```
 
 ### Options inherited from parent commands

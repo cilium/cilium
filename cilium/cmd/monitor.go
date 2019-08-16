@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/payload"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -52,7 +53,8 @@ programs attached to endpoints and devices. This includes:
 			runMonitor(args)
 		},
 	}
-	printer = format.NewMonitorFormatter(format.INFO)
+	printer    = format.NewMonitorFormatter(format.INFO)
+	socketPath = ""
 )
 
 func init() {
@@ -64,6 +66,9 @@ func init() {
 	monitorCmd.Flags().Var(&printer.Related, "related-to", "Filter by either source or destination endpoint id")
 	monitorCmd.Flags().BoolVarP(&printer.Verbose, "verbose", "v", false, "Enable verbose output")
 	monitorCmd.Flags().BoolVarP(&printer.JSONOutput, "json", "j", false, "Enable json output. Shadows -v flag")
+	monitorCmd.Flags().StringVar(&socketPath, "monitor-socket", "", "Configure monitor socket path")
+	viper.BindEnv("monitor-socket", "CILIUM_MONITOR_SOCK")
+	viper.BindPFlags(monitorCmd.Flags())
 }
 
 func setVerbosity() {
@@ -89,8 +94,21 @@ func setupSigHandler() {
 
 // openMonitorSock attempts to open a version specific monitor socket It
 // returns a connection, with a version, or an error.
-func openMonitorSock() (conn net.Conn, version listener.Version, err error) {
+func openMonitorSock(path string) (conn net.Conn, version listener.Version, err error) {
 	errors := make([]string, 0)
+
+	// try the user-provided socket
+	if path != "" {
+		conn, err = net.Dial("unix", path)
+		if err == nil {
+			version = listener.Version1_2
+			if strings.HasSuffix(path, "monitor.sock") {
+				version = listener.Version1_0
+			}
+			return conn, version, nil
+		}
+		errors = append(errors, path+": "+err.Error())
+	}
 
 	// try the 1.2 socket
 	conn, err = net.Dial("unix", defaults.MonitorSockPath1_2)
@@ -257,7 +275,7 @@ func runMonitor(args []string) {
 	// On other errors, exit
 	// always wait connTimeout when retrying
 	for ; ; time.Sleep(connTimeout) {
-		conn, version, err := openMonitorSock()
+		conn, version, err := openMonitorSock(viper.GetString("monitor-socket"))
 		if err != nil {
 			log.WithError(err).Error("Cannot open monitor socket")
 			return
