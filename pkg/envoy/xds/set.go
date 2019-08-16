@@ -54,7 +54,7 @@ type VersionedResources struct {
 
 	// Resources is the list of protobuf-encoded resources.
 	// May be empty. Must be of the same length as ResourceNames.
-	Resources []proto.Message
+	Resources []VersionedResource
 }
 
 // ResourceMutatorRevertFunc is a function which reverts the effects of an update on a

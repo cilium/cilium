@@ -914,7 +914,7 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 	}
 	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.Resources))
 	for _, res := range resources.Resources {
-		networkPolicy := res.(*cilium.NetworkPolicy)
+		networkPolicy := res.Resource.(*cilium.NetworkPolicy)
 		networkPolicies[networkPolicy.Name] = networkPolicy
 	}
 	return networkPolicies, nil

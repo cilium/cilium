@@ -39,7 +39,7 @@ type Cache struct {
 	typeURL string
 
 	// resources is the map of cached resource name to resource entry.
-	resources map[string]cacheValue
+	resources map[string]VersionedResource
 
 	// version is the current version of the resources in the cache.
 	// valid version numbers start at 1, which is the version of a cache
@@ -47,14 +47,14 @@ type Cache struct {
 	version uint64
 }
 
-// cacheValue is a cached resource.
-type cacheValue struct {
-	// resource is the resource in this cache entry.
-	resource proto.Message
+// VersionedResource is a cached resource.
+type VersionedResource struct {
+	// Resource is the resource in this cache entry.
+	Resource proto.Message
 
-	// lastModifiedVersion is the version when this resource entry was last
+	// LastModifiedVersion is the version when this resource entry was last
 	// modified.
-	lastModifiedVersion uint64
+	LastModifiedVersion uint64
 }
 
 // NewCache creates a new, empty cache with 0 as its current version.
@@ -62,7 +62,7 @@ func NewCache(typeURL string) *Cache {
 	return &Cache{
 		BaseObservableResourceSource: NewBaseObservableResourceSource(),
 		typeURL:                      typeURL,
-		resources:                    make(map[string]cacheValue),
+		resources:                    make(map[string]VersionedResource),
 		version:                      1,
 	}
 }
@@ -90,23 +90,23 @@ func (c *Cache) tx(upsertedResources map[string]proto.Message, deletedNames []st
 	var revertUpsertedResources map[string]proto.Message
 	var revertDeletedNames []string
 
-	v := cacheValue{
-		lastModifiedVersion: newVersion,
+	v := VersionedResource{
+		LastModifiedVersion: newVersion,
 	}
 
 	for name, value := range upsertedResources {
 		oldV, found := c.resources[name]
 		// If the value is unchanged, don't update the entry, to preserve its
-		// lastModifiedVersion. This allows minimizing the frequency of
+		// LastModifiedVersion. This allows minimizing the frequency of
 		// responses in GetResources.
-		if !found || !proto.Equal(oldV.resource, value) {
+		if !found || !proto.Equal(oldV.Resource, value) {
 			if found {
 				cacheLog.WithField(logfields.XDSResourceName, name).Debug("updating resource in cache")
 
 				if revertUpsertedResources == nil {
 					revertUpsertedResources = make(map[string]proto.Message, len(upsertedResources)+len(deletedNames))
 				}
-				revertUpsertedResources[name] = oldV.resource
+				revertUpsertedResources[name] = oldV.Resource
 			} else {
 				cacheLog.WithField(logfields.XDSResourceName, name).Debug("inserting resource into cache")
 
@@ -116,7 +116,7 @@ func (c *Cache) tx(upsertedResources map[string]proto.Message, deletedNames []st
 				revertDeletedNames = append(revertDeletedNames, name)
 			}
 			cacheIsUpdated = true
-			v.resource = value
+			v.Resource = value
 			c.resources[name] = v
 		}
 		if force {
@@ -133,7 +133,7 @@ func (c *Cache) tx(upsertedResources map[string]proto.Message, deletedNames []st
 			if revertUpsertedResources == nil {
 				revertUpsertedResources = make(map[string]proto.Message, len(upsertedResources)+len(deletedNames))
 			}
-			revertUpsertedResources[name] = oldV.resource
+			revertUpsertedResources[name] = oldV.Resource
 
 			cacheIsUpdated = true
 			delete(c.resources, name)
@@ -217,11 +217,11 @@ func (c *Cache) GetResources(ctx context.Context, lastVersion uint64,
 	// Return all resources.
 	if len(resourceNames) == 0 {
 		res.ResourceNames = make([]string, 0, len(c.resources))
-		res.Resources = make([]proto.Message, 0, len(c.resources))
+		res.Resources = make([]VersionedResource, 0, len(c.resources))
 		cacheLog.Debugf("no resource names requested, returning all %d resources", len(c.resources))
 		for name, v := range c.resources {
 			res.ResourceNames = append(res.ResourceNames, name)
-			res.Resources = append(res.Resources, v.resource)
+			res.Resources = append(res.Resources, v)
 		}
 		return res, nil
 	}
@@ -235,7 +235,7 @@ func (c *Cache) GetResources(ctx context.Context, lastVersion uint64,
 	// after the lastVersion, so we can't optimize in this case.
 
 	res.ResourceNames = make([]string, 0, len(resourceNames))
-	res.Resources = make([]proto.Message, 0, len(resourceNames))
+	res.Resources = make([]VersionedResource, 0, len(resourceNames))
 
 	allResourcesFound := true
 	updatedSinceLastVersion := false
@@ -246,12 +246,12 @@ func (c *Cache) GetResources(ctx context.Context, lastVersion uint64,
 		v, found := c.resources[name]
 		if found {
 			cacheLog.WithField(logfields.XDSResourceName, name).
-				Debugf("resource found, last modified in version %d", v.lastModifiedVersion)
-			if lastVersion == 0 || (lastVersion < v.lastModifiedVersion) {
+				Debugf("resource found, last modified in version %d", v.LastModifiedVersion)
+			if lastVersion == 0 || (lastVersion < v.LastModifiedVersion) {
 				updatedSinceLastVersion = true
 			}
 			res.ResourceNames = append(res.ResourceNames, name)
-			res.Resources = append(res.Resources, v.resource)
+			res.Resources = append(res.Resources, v)
 		} else {
 			cacheLog.WithField(logfields.XDSResourceName, name).Debug("resource not found")
 			allResourcesFound = false
@@ -293,5 +293,5 @@ func (c *Cache) Lookup(resourceName string) (proto.Message, error) {
 	if err != nil || res == nil || len(res.Resources) == 0 {
 		return nil, err
 	}
-	return res.Resources[0], nil
+	return res.Resources[0].Resource, nil
 }

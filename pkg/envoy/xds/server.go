@@ -386,7 +386,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			// Marshall the resources into protobuf's Any type.
 			for i, res := range resp.Resources {
-				data, err := proto.Marshal(res)
+				data, err := proto.Marshal(res.Resource)
 				if err != nil {
 					responseLog.WithError(err).Errorf("error marshalling xDS response (%d resources)", len(resp.Resources))
 					return err
