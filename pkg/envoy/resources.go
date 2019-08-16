@@ -97,11 +97,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 
 	// Look up the current resources for the specified Identity.
 	resourceName := newID.StringID()
-	msg, err := cache.Lookup(resourceName)
-	if err != nil {
-		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
-		return
-	}
+	msg := cache.Lookup(resourceName)
 
 	switch modType {
 	case ipcache.Upsert:

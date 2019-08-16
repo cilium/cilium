@@ -286,12 +286,10 @@ func (c *Cache) EnsureVersion(version uint64) {
 }
 
 // Lookup finds the resource corresponding to the specified resourceName,
-// if available, and returns it. Otherwise, returns nil. If an error occurs while
-// fetching the resource, also returns the error.
-func (c *Cache) Lookup(resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(context.Background(), 0, nil, []string{resourceName})
-	if err != nil || res == nil || len(res.Resources) == 0 {
-		return nil, err
-	}
-	return res.Resources[0].Resource, nil
+// if available, and returns it. Otherwise, returns nil.
+func (c *Cache) Lookup(resourceName string) proto.Message {
+	c.locker.RLock()
+	defer c.locker.RUnlock()
+
+	return c.resources[resourceName].Resource
 }

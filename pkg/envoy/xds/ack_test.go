@@ -275,24 +275,20 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 	// Insert another resource.
 	_ = acker.Upsert(resources[2].Name, resources[2], []string{node0}, nil)
 
-	res, err := cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res := cache.Lookup(resources[0].Name)
 	c.Assert(res, Equals, resources[0])
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 
 	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
-	res, err = cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[0].Name)
 	c.Assert(res, IsNil)
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 }
 
@@ -312,31 +308,26 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 	// Insert another resource.
 	_ = acker.Upsert(resources[2].Name, resources[2], []string{node0}, nil)
 
-	res, err := cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res := cache.Lookup(resources[0].Name)
 	c.Assert(res, Equals, resources[0])
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 
 	// Update.
 	revert := acker.Upsert(resources[0].Name, resources[1], []string{node0}, nil)
 
-	res, err = cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[0].Name)
 	c.Assert(res, Equals, resources[1])
 
 	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
-	res, err = cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[0].Name)
 	c.Assert(res, Equals, resources[0])
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 }
 
@@ -356,34 +347,28 @@ func (s *AckSuite) TestRevertDelete(c *C) {
 	// Insert another resource.
 	_ = acker.Upsert(resources[2].Name, resources[2], []string{node0}, nil)
 
-	res, err := cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res := cache.Lookup(resources[0].Name)
 	c.Assert(res, Equals, resources[0])
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 
 	// Delete.
 	revert := acker.Delete(resources[0].Name, []string{node0}, nil)
 
-	res, err = cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[0].Name)
 	c.Assert(res, IsNil)
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 
 	comp := wg.AddCompletion()
 	defer comp.Complete(nil)
 	revert(comp)
 
-	res, err = cache.Lookup(resources[0].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[0].Name)
 	c.Assert(res, Equals, resources[0])
 
-	res, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	res = cache.Lookup(resources[2].Name)
 	c.Assert(res, Equals, resources[2])
 }

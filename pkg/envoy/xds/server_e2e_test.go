@@ -544,12 +544,10 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 	c.Assert(resp, ResponseMatches, "6", []proto.Message{resources[2]}, false, typeURL)
 
 	// Resource 1 has been deleted; Resource 2 exists. Confirm using Lookup().
-	rsrc, err := cache.Lookup(resources[1].Name)
-	c.Assert(err, IsNil)
+	rsrc := cache.Lookup(resources[1].Name)
 	c.Assert(rsrc, IsNil)
 
-	rsrc, err = cache.Lookup(resources[2].Name)
-	c.Assert(err, IsNil)
+	rsrc = cache.Lookup(resources[2].Name)
 	c.Assert(rsrc, Not(IsNil))
 	c.Assert(rsrc.(*envoy_api_v2.RouteConfiguration), checker.DeepEquals, resources[2])
 
