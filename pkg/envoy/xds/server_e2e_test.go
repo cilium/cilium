@@ -594,11 +594,11 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 
 	// Create version 2 with resources 0 and 1.
 	time.Sleep(CacheUpdateDelay)
-	v, mod, _ = cache.tx(map[string]proto.Message{
-		resources[0].Name: resources[0],
-		resources[1].Name: resources[1],
-	}, nil, false)
+	v, mod, _ = cache.Upsert(resources[0].Name, resources[0], false)
 	c.Assert(v, Equals, uint64(2))
+	c.Assert(mod, Equals, true)
+	v, mod, _ = cache.Upsert(resources[1].Name, resources[1], false)
+	c.Assert(v, Equals, uint64(3))
 	c.Assert(mod, Equals, true)
 
 	// Request resource 1.
@@ -616,7 +616,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 	resp, err = stream.RecvResponse()
 	c.Assert(err, IsNil)
 	c.Assert(resp.Nonce, Equals, resp.VersionInfo)
-	c.Assert(resp, ResponseMatches, "2", []proto.Message{resources[1]}, false, typeURL)
+	c.Assert(resp, ResponseMatches, "3", []proto.Message{resources[1]}, false, typeURL)
 
 	// Request the next version of resource 1.
 	req = &envoy_api_v2.DiscoveryRequest{
@@ -629,13 +629,13 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 	err = stream.SendRequest(req)
 	c.Assert(err, IsNil)
 
-	// Create version 3 with resource 0, 1 and 2.
+	// Create version 4 with resource 0, 1 and 2.
 	time.Sleep(CacheUpdateDelay)
 	v, mod, _ = cache.Upsert(resources[2].Name, resources[2], false)
-	c.Assert(v, Equals, uint64(3))
+	c.Assert(v, Equals, uint64(4))
 	c.Assert(mod, Equals, true)
 
-	// Not expecting any response since resource 1 didn't change in version 3.
+	// Not expecting any response since resource 1 didn't change in version 4.
 
 	// Send an updated request for both resource 1 and 2.
 	req = &envoy_api_v2.DiscoveryRequest{
@@ -652,7 +652,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 	resp, err = stream.RecvResponse()
 	c.Assert(err, IsNil)
 	c.Assert(resp.Nonce, Equals, resp.VersionInfo)
-	c.Assert(resp, ResponseMatches, "3", []proto.Message{resources[1], resources[2]}, false, typeURL)
+	c.Assert(resp, ResponseMatches, "4", []proto.Message{resources[1], resources[2]}, false, typeURL)
 
 	// Close the stream.
 	closeStream()
