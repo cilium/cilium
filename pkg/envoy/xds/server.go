@@ -105,7 +105,7 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
-		w := NewResourceWatcher(typeURL, resType.Source, resourceAccessTimeout)
+		w := NewResourceWatcher(resType.Source, resourceAccessTimeout)
 		resType.Source.AddResourceVersionObserver(w)
 		watchers[typeURL] = w
 
@@ -327,7 +327,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				// ACK versions up to the received versionInfo
 				if ackObserver != nil {
 					requestLog.Debug("notifying observers of ACKs")
-					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, typeURL, detail)
+					ackObserver.HandleResourceVersionAck(versionInfo, nonce, req.GetNode(), state.resourceNames, detail)
 				} else {
 					requestLog.Debug("ACK received but no observers are waiting for ACKs")
 				}
@@ -354,7 +354,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				state.pendingWatchCancel = cancel
 
 				requestLog.Debugf("starting watch on %d resources", len(req.GetResourceNames()))
-				go s.watchers[typeURL].WatchResources(ctx, typeURL, versionInfo,
+				go s.watchers[typeURL].WatchResources(ctx, versionInfo,
 					req.GetNode(), req.GetResourceNames(), respCh)
 			} else {
 				requestLog.Debug("received invalid nonce in xDS request; ignoring request")

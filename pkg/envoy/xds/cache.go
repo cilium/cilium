@@ -31,26 +31,20 @@ import (
 // Cache implements the ObservableResourceSet interface.
 // This cache implementation ignores the proxy node identifiers, i.e. the same
 // resources are available under the same names to all nodes.
+// Each cache contains resources of one type only.
 type Cache struct {
 	*BaseObservableResourceSource
 
+	// typeURL is the type of resources in this cache
+	typeURL string
+
 	// resources is the map of cached resource name to resource entry.
-	resources map[cacheKey]cacheValue
+	resources map[string]cacheValue
 
 	// version is the current version of the resources in the cache.
 	// valid version numbers start at 1, which is the version of a cache
 	// before any modifications have been made
 	version uint64
-}
-
-// cacheKey uniquely identifies a resource.
-type cacheKey struct {
-	// typeURL is the URL that uniquely identifies the resource's type.
-	typeURL string
-
-	// resourceName is the name of the resource, unique among all the resources
-	// of this type.
-	resourceName string
 }
 
 // cacheValue is a cached resource.
@@ -64,10 +58,11 @@ type cacheValue struct {
 }
 
 // NewCache creates a new, empty cache with 0 as its current version.
-func NewCache() *Cache {
+func NewCache(typeURL string) *Cache {
 	return &Cache{
 		BaseObservableResourceSource: NewBaseObservableResourceSource(),
-		resources:                    make(map[cacheKey]cacheValue),
+		typeURL:                      typeURL,
+		resources:                    make(map[string]cacheValue),
 		version:                      1,
 	}
 }
@@ -76,7 +71,7 @@ func NewCache() *Cache {
 // increases the cache's version number atomically if the cache is actually
 // changed.
 // The version after updating the set is returned.
-func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+func (c *Cache) tx(upsertedResources map[string]proto.Message, deletedNames []string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
@@ -84,7 +79,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSTypeURL:     c.typeURL,
 		logfields.XDSVersionInfo: newVersion,
 	})
 
@@ -95,17 +90,12 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	var revertUpsertedResources map[string]proto.Message
 	var revertDeletedNames []string
 
-	k := cacheKey{
-		typeURL: typeURL,
-	}
-
 	v := cacheValue{
 		lastModifiedVersion: newVersion,
 	}
 
 	for name, value := range upsertedResources {
-		k.resourceName = name
-		oldV, found := c.resources[k]
+		oldV, found := c.resources[name]
 		// If the value is unchanged, don't update the entry, to preserve its
 		// lastModifiedVersion. This allows minimizing the frequency of
 		// responses in GetResources.
@@ -127,7 +117,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 			}
 			cacheIsUpdated = true
 			v.resource = value
-			c.resources[k] = v
+			c.resources[name] = v
 		}
 		if force {
 			cacheIsUpdated = true
@@ -135,8 +125,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	}
 
 	for _, name := range deletedNames {
-		k.resourceName = name
-		oldV, found := c.resources[k]
+		oldV, found := c.resources[name]
 		if found {
 			cacheLog.WithField(logfields.XDSResourceName, name).
 				Debug("deleting resource from cache")
@@ -147,7 +136,7 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 			revertUpsertedResources[name] = oldV.resource
 
 			cacheIsUpdated = true
-			delete(c.resources, k)
+			delete(c.resources, name)
 		}
 		if force {
 			cacheIsUpdated = true
@@ -157,28 +146,28 @@ func (c *Cache) tx(typeURL string, upsertedResources map[string]proto.Message, d
 	if cacheIsUpdated {
 		cacheLog.Debug("committing cache transaction and notifying of new version")
 		c.version = newVersion
-		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+		c.NotifyNewResourceVersionRLocked(c.version)
 	} else {
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
 
 	revertFunc := func(force bool) (version uint64, updated bool) {
-		version, updated, _ = c.tx(typeURL, revertUpsertedResources, revertDeletedNames, force)
+		version, updated, _ = c.tx(revertUpsertedResources, revertDeletedNames, force)
 		return
 	}
 
 	return c.version, cacheIsUpdated, revertFunc
 }
 
-func (c *Cache) Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
-	return c.tx(typeURL, map[string]proto.Message{resourceName: resource}, nil, force)
+func (c *Cache) Upsert(resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+	return c.tx(map[string]proto.Message{resourceName: resource}, nil, force)
 }
 
-func (c *Cache) Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
-	return c.tx(typeURL, nil, []string{resourceName}, force)
+func (c *Cache) Delete(resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+	return c.tx(nil, []string{resourceName}, force)
 }
 
-func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool) {
+func (c *Cache) Clear(force bool) (version uint64, updated bool) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
@@ -186,25 +175,23 @@ func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool)
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSTypeURL:     c.typeURL,
 		logfields.XDSVersionInfo: newVersion,
 	})
 
 	cacheLog.Debug("preparing new cache transaction: deleting all entries")
 
-	for k := range c.resources {
-		if k.typeURL == typeURL {
-			cacheLog.WithField(logfields.XDSResourceName, k.resourceName).
-				Debug("deleting resource from cache")
-			cacheIsUpdated = true
-			delete(c.resources, k)
-		}
+	for name := range c.resources {
+		cacheLog.WithField(logfields.XDSResourceName, name).
+			Debug("deleting resource from cache")
+		cacheIsUpdated = true
+		delete(c.resources, name)
 	}
 
 	if cacheIsUpdated {
 		cacheLog.Debug("committing cache transaction and notifying of new version")
 		c.version = newVersion
-		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+		c.NotifyNewResourceVersionRLocked(c.version)
 	} else {
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
@@ -212,7 +199,7 @@ func (c *Cache) Clear(typeURL string, force bool) (version uint64, updated bool)
 	return c.version, cacheIsUpdated
 }
 
-func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64,
+func (c *Cache) GetResources(ctx context.Context, lastVersion uint64,
 	node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
@@ -220,7 +207,7 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	cacheLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: lastVersion,
 		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
+		logfields.XDSTypeURL:     c.typeURL,
 	})
 
 	res := &VersionedResources{
@@ -233,8 +220,8 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 		res.ResourceNames = make([]string, 0, len(c.resources))
 		res.Resources = make([]proto.Message, 0, len(c.resources))
 		cacheLog.Debugf("no resource names requested, returning all %d resources", len(c.resources))
-		for k, v := range c.resources {
-			res.ResourceNames = append(res.ResourceNames, k.resourceName)
+		for name, v := range c.resources {
+			res.ResourceNames = append(res.ResourceNames, name)
 			res.Resources = append(res.Resources, v.resource)
 		}
 		return res, nil
@@ -251,16 +238,13 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	res.ResourceNames = make([]string, 0, len(resourceNames))
 	res.Resources = make([]proto.Message, 0, len(resourceNames))
 
-	k := cacheKey{typeURL: typeURL}
-
 	allResourcesFound := true
 	updatedSinceLastVersion := false
 
 	cacheLog.Debugf("%d resource names requested, filtering resources", len(resourceNames))
 
 	for _, name := range resourceNames {
-		k.resourceName = name
-		v, found := c.resources[k]
+		v, found := c.resources[name]
 		if found {
 			cacheLog.WithField(logfields.XDSResourceName, name).
 				Debugf("resource found, last modified in version %d", v.lastModifiedVersion)
@@ -286,27 +270,27 @@ func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion ui
 	return res, nil
 }
 
-func (c *Cache) EnsureVersion(typeURL string, version uint64) {
+func (c *Cache) EnsureVersion(version uint64) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
 	if c.version < version {
 		cacheLog := log.WithFields(logrus.Fields{
-			logfields.XDSTypeURL:     typeURL,
+			logfields.XDSTypeURL:     c.typeURL,
 			logfields.XDSVersionInfo: version,
 		})
 		cacheLog.Debug("increasing version to match client and notifying of new version")
 
 		c.version = version
-		c.NotifyNewResourceVersionRLocked(typeURL, c.version)
+		c.NotifyNewResourceVersionRLocked(c.version)
 	}
 }
 
-// Lookup finds the resource corresponding to the specified typeURL and resourceName,
+// Lookup finds the resource corresponding to the specified resourceName,
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
-func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(context.Background(), typeURL, 0, nil, []string{resourceName})
+func (c *Cache) Lookup(resourceName string) (proto.Message, error) {
+	res, err := c.GetResources(context.Background(), 0, nil, []string{resourceName})
 	if err != nil || res == nil || len(res.Resources) == 0 {
 		return nil, err
 	}

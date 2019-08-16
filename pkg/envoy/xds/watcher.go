@@ -32,9 +32,6 @@ import (
 // ResourceWatcher implements ResourceVersionObserver to get notified when new
 // resource versions are available in the set.
 type ResourceWatcher struct {
-	// typeURL is the URL that uniquely identifies the resource type.
-	typeURL string
-
 	// resourceSet is the set of resources to watch.
 	resourceSet ResourceSource
 
@@ -58,10 +55,9 @@ type ResourceWatcher struct {
 
 // NewResourceWatcher creates a new ResourceWatcher backed by the given
 // resource set.
-func NewResourceWatcher(typeURL string, resourceSet ResourceSource, resourceAccessTimeout time.Duration) *ResourceWatcher {
+func NewResourceWatcher(resourceSet ResourceSource, resourceAccessTimeout time.Duration) *ResourceWatcher {
 	w := &ResourceWatcher{
 		version:               1,
-		typeURL:               typeURL,
 		resourceSet:           resourceSet,
 		resourceAccessTimeout: resourceAccessTimeout,
 	}
@@ -69,20 +65,15 @@ func NewResourceWatcher(typeURL string, resourceSet ResourceSource, resourceAcce
 	return w
 }
 
-func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint64) {
+func (w *ResourceWatcher) HandleNewResourceVersion(version uint64) {
 	w.versionLocker.Lock()
 	defer w.versionLocker.Unlock()
 
-	if typeURL != w.typeURL {
-		return
-	}
-
 	if version < w.version {
 		log.WithFields(logrus.Fields{
-			logfields.XDSVersionInfo: version,
-			logfields.XDSTypeURL:     typeURL,
-		}).Panicf(fmt.Sprintf("decreasing version number found for resources of type %s: %d < %d",
-			typeURL, version, w.version))
+			logfields.XDSVersionInfo:               version,
+			"Previous " + logfields.XDSVersionInfo: w.version,
+		}).Panicf(fmt.Sprintf("decreasing version number found"))
 	}
 	w.version = version
 
@@ -99,14 +90,13 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 // lastVersion is the last version successfully applied by the
 // client; nil if this is the first request for resources.
 // This method call must always close the out channel.
-func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, lastVersion uint64, node *envoy_api_v2_core.Node,
+func (w *ResourceWatcher) WatchResources(ctx context.Context, lastVersion uint64, node *envoy_api_v2_core.Node,
 	resourceNames []string, out chan<- *VersionedResources) {
 	defer close(out)
 
 	watchLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: lastVersion,
 		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
 	})
 
 	var res *VersionedResources
@@ -133,7 +123,7 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 			// deadlock, temporarily unlock w.versionLocker.
 			// The w.HandleNewResourceVersion callback will update w.version to
 			// the new resource set version.
-			w.resourceSet.EnsureVersion(typeURL, waitVersion+1)
+			w.resourceSet.EnsureVersion(waitVersion + 1)
 			w.versionLocker.Lock()
 		}
 
@@ -156,7 +146,7 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 		subCtx, cancel := context.WithTimeout(ctx, w.resourceAccessTimeout)
 		var err error
 		watchLog.Debugf("getting %d resources from set", len(resourceNames))
-		res, err = w.resourceSet.GetResources(subCtx, typeURL, lastVersion, node, resourceNames)
+		res, err = w.resourceSet.GetResources(subCtx, lastVersion, node, resourceNames)
 		cancel()
 
 		if err != nil {

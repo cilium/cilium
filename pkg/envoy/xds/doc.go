@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018,2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@
 // Server is parameterized by a map of supported resource type URLs to resource
 // sets, e.g. to support the LDS and RDS protocols:
 //
-//    ldsCache := xds.NewCache()
+//    ldsCache := xds.NewCache("type.googleapis.com/envoy.api.v2.Listener")
 //    lds := xds.NewAckingResourceMutatorWrapper(ldsCache, xds.IstioNodeToIP)
-//    rdsCache := xds.NewCache()
+//    rdsCache := xds.NewCache("type.googleapis.com/envoy.api.v2.RouteConfiguration")
 //    rds := xds.NewAckingResourceMutatorWrapper(rdsCache, xds.IstioNodeToIP)
 //
 //    resTypes := map[string]xds.ResourceTypeConfiguration{
@@ -46,7 +46,7 @@
 // access to resources of one or multiple resource types:
 //
 //    type ResourceSource interface {
-//        GetResources(ctx context.Context, typeURL string, lastVersion *uint64,
+//        GetResources(ctx context.Context, lastVersion *uint64,
 //            node *api.Node, resourceNames []string) (*VersionedResources, error)
 //    }
 //
@@ -58,9 +58,9 @@
 // Cache is an efficient, ready-to-use implementation of ResourceSet:
 //
 //    typeURL := "type.googleapis.com/envoy.api.v2.Listener"
-//    ldsCache := xds.NewCache()
-//    ldsCache.Upsert(typeURL, "listener123", listenerA, false)
-//    ldsCache.Delete(typeURL, "listener456", false)
+//    ldsCache := xds.NewCache(typeURL)
+//    ldsCache.Upsert("listener123", listenerA, false)
+//    ldsCache.Delete("listener456", false)
 //
 // In order to wait for acknowledgements of updates by Envoy nodes,
 // each resource set should be wrapped into an AckingResourceMutatorWrapper,
@@ -69,14 +69,14 @@
 // Completions to notify of ACKs.
 //
 //    typeURL := "type.googleapis.com/envoy.api.v2.Listener"
-//    ldsCache := xds.NewCache()
+//    ldsCache := xds.NewCache(typeURL)
 //    lds := xds.NewAckingResourceMutatorWrapper(ldsCache, IstioNodeToIP)
 //
 //    ctx, cancel := context.WithTimeout(..., 5*time.Second)
 //    wg := completion.NewWaitGroup(ctx)
 //    nodes := []string{"10.0.0.1"} // Nodes to wait an ACK from.
-//    lds.Upsert(typeURL, "listener123", listenerA, nodes, wg.AddCompletion())
-//    lds.Delete(typeURL, "listener456", nodes, wg.AddCompletion())
+//    lds.Upsert("listener123", listenerA, nodes, wg.AddCompletion())
+//    lds.Delete("listener456", nodes, wg.AddCompletion())
 //    wg.Wait()
 //    cancel()
 package xds

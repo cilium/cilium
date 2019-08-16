@@ -151,14 +151,14 @@ func StartXDSServer(stateDir string) *XDSServer {
 		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsPath)
 	}
 
-	ldsCache := xds.NewCache()
+	ldsCache := xds.NewCache(ListenerTypeURL)
 	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache, xds.IstioNodeToIP)
 	ldsConfig := &xds.ResourceTypeConfiguration{
 		Source:      ldsCache,
 		AckObserver: ldsMutator,
 	}
 
-	npdsCache := xds.NewCache()
+	npdsCache := xds.NewCache(NetworkPolicyTypeURL)
 	npdsMutator := xds.NewAckingResourceMutatorWrapper(npdsCache, xds.IstioNodeToIP)
 	npdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      npdsCache,
@@ -386,7 +386,7 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"},
+	s.listenerMutator.Upsert(name, listenerConf, []string{"127.0.0.1"},
 		wg.AddCompletionWithCallback(func(err error) {
 			// listener might have already been removed, so we can't look again
 			// but we still need to complete all the completions in case
@@ -421,7 +421,7 @@ func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.Ac
 		listener.count--
 		if listener.count == 0 {
 			delete(s.listeners, name)
-			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg.AddCompletion())
+			listenerRevertFunc = s.listenerMutator.Delete(name, []string{"127.0.0.1"}, wg.AddCompletion())
 		}
 	} else {
 		// Bail out if this listener does not exist
@@ -847,7 +847,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		} else {
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
-		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, p.Name, p, nodeIDs, c))
+		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(p.Name, p, nodeIDs, c))
 		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
 		s.networkPolicyEndpoints[p.Name] = ep
 	}
@@ -887,12 +887,12 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 
 	if ep.GetIPv6Address() != "" {
 		name := ep.GetIPv6Address()
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+		s.networkPolicyCache.Delete(name, false)
 		delete(s.networkPolicyEndpoints, name)
 	}
 	if ep.GetIPv4Address() != "" {
 		name := ep.GetIPv4Address()
-		s.networkPolicyCache.Delete(NetworkPolicyTypeURL, name, false)
+		s.networkPolicyCache.Delete(name, false)
 		delete(s.networkPolicyEndpoints, name)
 	}
 }
@@ -900,14 +900,15 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 // RemoveAllNetworkPolicies removes all network policies from the set published
 // to L7 proxies.
 func (s *XDSServer) RemoveAllNetworkPolicies() {
-	s.networkPolicyCache.Clear(NetworkPolicyTypeURL, false)
+	s.networkPolicyCache.Clear(false)
 }
 
 // GetNetworkPolicies returns the current version of the network policies with
 // the given names.
 // If resourceNames is empty, all resources are returned.
+// NOTE: Only used for testing (daemon/policy_test.go)
 func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
-	resources, err := s.networkPolicyCache.GetResources(context.Background(), NetworkPolicyTypeURL, 0, nil, resourceNames)
+	resources, err := s.networkPolicyCache.GetResources(context.Background(), 0, nil, resourceNames)
 	if err != nil {
 		return nil, err
 	}

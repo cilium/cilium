@@ -48,7 +48,7 @@ type ResourceVersionAckObserver interface {
 	// HandleResourceVersionAck notifies that the node with the given Node ID
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
-	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string)
+	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, detail string)
 }
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
@@ -67,7 +67,7 @@ type AckingResourceMutator interface {
 	// ACKed by the Envoy nodes which IDs are given in nodeIDs.
 	// A call to the returned revert function reverts the effects of this
 	// method call.
-	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
+	Upsert(resourceName string, resource proto.Message, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
 
 	// Delete deletes a resource from this set by name and increases the cache's
 	// version number atomically if the resource is actually deleted.
@@ -75,7 +75,7 @@ type AckingResourceMutator interface {
 	// ACKed by the Envoy nodes which IDs are given in nodeIDs.
 	// A call to the returned revert function reverts the effects of this
 	// method call.
-	Delete(typeURL string, resourceName string, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
+	Delete(resourceName string, nodeIDs []string, completion *completion.Completion) AckingResourceMutatorRevertFunc
 }
 
 // AckingResourceMutatorWrapper is an AckingResourceMutator which wraps a
@@ -104,9 +104,6 @@ type pendingCompletion struct {
 	// version is the version to be ACKed.
 	version uint64
 
-	// typeURL is the type URL of the resources to be ACKed.
-	typeURL string
-
 	// remainingNodesResources maps each pending node ID to pending resource
 	// name.
 	remainingNodesResources map[string]map[string]struct{}
@@ -123,10 +120,9 @@ func NewAckingResourceMutatorWrapper(mutator ResourceMutator, nodeToID NodeToIDF
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) addDeleteCompletion(typeURL string, version uint64, nodeIDs []string, c *completion.Completion) {
+func (m *AckingResourceMutatorWrapper) addDeleteCompletion(version uint64, nodeIDs []string, c *completion.Completion) {
 	comp := &pendingCompletion{
 		version:                 version,
-		typeURL:                 typeURL,
 		remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
 	}
 	for _, nodeID := range nodeIDs {
@@ -135,23 +131,21 @@ func (m *AckingResourceMutatorWrapper) addDeleteCompletion(typeURL string, versi
 	m.pendingCompletions[c] = comp
 }
 
-func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, c *completion.Completion) AckingResourceMutatorRevertFunc {
+func (m *AckingResourceMutatorWrapper) Upsert(resourceName string, resource proto.Message, nodeIDs []string, c *completion.Completion) AckingResourceMutatorRevertFunc {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	version, _, revert := m.mutator.Upsert(typeURL, resourceName, resource, true)
+	version, _, revert := m.mutator.Upsert(resourceName, resource, true)
 
 	if c != nil {
 		if _, found := m.pendingCompletions[c]; found {
 			log.WithFields(logrus.Fields{
-				logfields.XDSTypeURL:      typeURL,
 				logfields.XDSResourceName: resourceName,
 			}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
 		}
 
 		comp := &pendingCompletion{
 			version:                 version,
-			typeURL:                 typeURL,
 			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
 		}
 		for _, nodeID := range nodeIDs {
@@ -171,12 +165,12 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 			// We don't know whether the revert did an Upsert or a Delete, so as a
 			// best effort, just wait for any ACK for the version and type URL,
 			// and ignore the ACKed resource names, like for a Delete.
-			m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+			m.addDeleteCompletion(version, nodeIDs, completion)
 		}
 	}
 }
 
-func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, c *completion.Completion) AckingResourceMutatorRevertFunc {
+func (m *AckingResourceMutatorWrapper) Delete(resourceName string, nodeIDs []string, c *completion.Completion) AckingResourceMutatorRevertFunc {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
@@ -188,17 +182,16 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	// As a best effort, just wait for any ACK for the version and type URL,
 	// and ignore the ACKed resource names.
 
-	version, _, revert := m.mutator.Delete(typeURL, resourceName, true)
+	version, _, revert := m.mutator.Delete(resourceName, true)
 
 	if c != nil {
 		if _, found := m.pendingCompletions[c]; found {
 			log.WithFields(logrus.Fields{
-				logfields.XDSTypeURL:      typeURL,
 				logfields.XDSResourceName: resourceName,
 			}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
 		}
 
-		m.addDeleteCompletion(typeURL, version, nodeIDs, c)
+		m.addDeleteCompletion(version, nodeIDs, c)
 	}
 
 	return func(completion *completion.Completion) {
@@ -211,18 +204,17 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 			// We don't know whether the revert had any effect at all, so as a
 			// best effort, just wait for any ACK for the version and type URL,
 			// and ignore the ACKed resource names, like for a Delete.
-			m.addDeleteCompletion(typeURL, version, nodeIDs, completion)
+			m.addDeleteCompletion(version, nodeIDs, completion)
 		}
 	}
 }
 
 // 'ackVersion' is the last version that was acked. 'nackVersion', if greater than 'nackVersion', is the last version that was NACKed.
-func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
+func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, detail string) {
 	ackLog := log.WithFields(logrus.Fields{
 		logfields.XDSVersionInfo: ackVersion,
 		logfields.XDSNonce:       nackVersion,
 		logfields.XDSClientNode:  node,
-		logfields.XDSTypeURL:     typeURL,
 	})
 
 	nodeID, err := m.nodeToID(node)
@@ -246,29 +238,27 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(ackVersion uint6
 			continue
 		}
 
-		if pending.typeURL == typeURL {
-			if pending.version <= nackVersion {
-				// Get the set of resource names we are still waiting for the node
-				// to ACK.
-				remainingResourceNames, found := pending.remainingNodesResources[nodeID]
-				if found {
-					for _, name := range resourceNames {
-						delete(remainingResourceNames, name)
+		if pending.version <= nackVersion {
+			// Get the set of resource names we are still waiting for the node
+			// to ACK.
+			remainingResourceNames, found := pending.remainingNodesResources[nodeID]
+			if found {
+				for _, name := range resourceNames {
+					delete(remainingResourceNames, name)
+				}
+				if len(remainingResourceNames) == 0 {
+					delete(pending.remainingNodesResources, nodeID)
+				}
+				if len(pending.remainingNodesResources) == 0 {
+					// Completed. Notify and remove from pending list.
+					if pending.version <= ackVersion {
+						ackLog.Debugf("completing ACK: %v", pending)
+						comp.Complete(nil)
+					} else {
+						ackLog.Debugf("completing NACK: %v", pending)
+						comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
 					}
-					if len(remainingResourceNames) == 0 {
-						delete(pending.remainingNodesResources, nodeID)
-					}
-					if len(pending.remainingNodesResources) == 0 {
-						// Completed. Notify and remove from pending list.
-						if pending.version <= ackVersion {
-							ackLog.Debugf("completing ACK: %v", pending)
-							comp.Complete(nil)
-						} else {
-							ackLog.Debugf("completing NACK: %v", pending)
-							comp.Complete(&ProxyError{Err: ErrNackReceived, Detail: detail})
-						}
-						continue
-					}
+					continue
 				}
 			}
 		}

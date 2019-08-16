@@ -66,7 +66,7 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 		}
 	})
 
-	s.NetworkPolicyMutator.Upsert(envoy.NetworkPolicyTypeURL, p.Name, p, []string{"127.0.0.1"}, comp)
+	s.NetworkPolicyMutator.Upsert(p.Name, p, []string{"127.0.0.1"}, comp)
 }
 
 type updater struct{}

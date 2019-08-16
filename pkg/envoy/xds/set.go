@@ -33,13 +33,13 @@ type ResourceSource interface {
 	// changed since lastVersion, nil is returned.
 	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
-	GetResources(ctx context.Context, typeURL string, lastVersion uint64,
+	GetResources(ctx context.Context, lastVersion uint64,
 		node *envoy_api_v2_core.Node, resourceNames []string) (*VersionedResources, error)
 
 	// EnsureVersion increases this resource set's version to be at least the
 	// given version. If the current version is already higher than the
 	// given version, this has no effect.
-	EnsureVersion(typeURL string, version uint64)
+	EnsureVersion(version uint64)
 }
 
 // VersionedResources is a set of protobuf-encoded resources along with their
@@ -79,7 +79,7 @@ type ResourceMutator interface {
 	// The returned version value is the set's version after update.
 	// A call to the returned revert function reverts the effects of this
 	// method call.
-	Upsert(typeURL string, resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
+	Upsert(resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
 
 	// Delete deletes a resource from this set by name.
 	// If force is true and/or the set is actually modified (the resource is
@@ -90,7 +90,7 @@ type ResourceMutator interface {
 	// The returned version value is the set's version after update.
 	// A call to the returned revert function reverts the effects of this
 	// method call.
-	Delete(typeURL string, resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
+	Delete(resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc)
 
 	// Clear deletes all the resources of the given type from this set.
 	// If force is true and/or the set is actually modified (at least one
@@ -100,7 +100,7 @@ type ResourceMutator interface {
 	// value is false.
 	// The returned version value is the set's version after update.
 	// This method call cannot be reverted.
-	Clear(typeURL string, force bool) (version uint64, updated bool)
+	Clear(force bool) (version uint64, updated bool)
 }
 
 // ResourceSet provides read-write access to a versioned set of resources.
@@ -137,7 +137,7 @@ type ObservableResourceSet interface {
 type ResourceVersionObserver interface {
 	// HandleNewResourceVersion notifies of a new version of the resources of
 	// the given type.
-	HandleNewResourceVersion(typeURL string, version uint64)
+	HandleNewResourceVersion(version uint64)
 }
 
 // BaseObservableResourceSource implements the AddResourceVersionObserver and
@@ -180,8 +180,8 @@ func (s *BaseObservableResourceSource) RemoveResourceVersionObserver(observer Re
 // NotifyNewResourceVersionRLocked notifies registered observers that a new version of
 // the resources of the given type is available.
 // This function MUST be called with locker's lock acquired.
-func (s *BaseObservableResourceSource) NotifyNewResourceVersionRLocked(typeURL string, version uint64) {
+func (s *BaseObservableResourceSource) NotifyNewResourceVersionRLocked(version uint64) {
 	for o := range s.observers {
-		o.HandleNewResourceVersion(typeURL, version)
+		o.HandleNewResourceVersion(version)
 	}
 }

@@ -47,7 +47,7 @@ type NPHDSCache struct {
 }
 
 func newNPHDSCache() NPHDSCache {
-	return NPHDSCache{Cache: xds.NewCache()}
+	return NPHDSCache{Cache: xds.NewCache(NetworkPolicyHostsTypeURL)}
 }
 
 var (
@@ -60,7 +60,7 @@ var (
 )
 
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
-func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, typeURL string, detail string) {
+func (cache *NPHDSCache) HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, node *envoy_api_v2_core.Node, resourceNames []string, detail string) {
 	// Start caching for IP/ID mappings on the first indication someone wants them
 	observerOnce.Do(func() {
 		ipcache.IPIdentityCache.AddListener(cache)
@@ -97,7 +97,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 
 	// Look up the current resources for the specified Identity.
 	resourceName := newID.StringID()
-	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
+	msg, err := cache.Lookup(resourceName)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
 		return
@@ -128,7 +128,7 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 			}).Warning("Could not validate NPHDS resource update on upsert")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, resourceName, &newNpHost, false)
+		cache.Upsert(resourceName, &newNpHost, false)
 	case ipcache.Delete:
 		if msg == nil {
 			// Doesn't exist; already deleted.
@@ -161,7 +161,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 	// If removing this host would result in empty list, delete it.
 	// Otherwise, update to a list that doesn't contain the target IP
 	if len(npHost.HostAddresses) <= 1 {
-		cache.Delete(NetworkPolicyHostsTypeURL, peerIdentity, false)
+		cache.Delete(peerIdentity, false)
 	} else {
 		// If the resource is to be updated, create a copy of it before
 		// removing the IP address from its HostAddresses list.
@@ -181,6 +181,6 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 			scopedLog.WithError(err).Warning("Could not validate NPHDS resource update on delete")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, &newNpHost, false)
+		cache.Upsert(peerIdentity, &newNpHost, false)
 	}
 }
