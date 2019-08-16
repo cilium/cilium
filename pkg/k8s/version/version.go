@@ -55,7 +55,7 @@ var (
 
 	// MinimalVersionConstraint is the minimal version required to run
 	// Cilium
-	MinimalVersionConstraint = versioncheck.MustCompile(">= 1.8.0")
+	MinimalVersionConstraint = versioncheck.MustCompile(">= 1.11.0")
 )
 
 // Version returns the version of the Kubernetes apiserver
