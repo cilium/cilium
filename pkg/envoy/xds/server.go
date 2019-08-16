@@ -378,7 +378,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			responseLog := streamLog.WithFields(logrus.Fields{
 				logfields.XDSVersionInfo: resp.Version,
-				logfields.XDSCanary:      resp.Canary,
 				logfields.XDSTypeURL:     state.typeURL,
 				logfields.XDSNonce:       resp.Version,
 			})
@@ -404,7 +403,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			out := &envoy_api_v2.DiscoveryResponse{
 				VersionInfo: versionStr,
 				Resources:   resources,
-				Canary:      resp.Canary,
+				Canary:      false,
 				TypeUrl:     state.typeURL,
 				Nonce:       versionStr,
 			}

@@ -212,7 +212,6 @@ func (c *Cache) GetResources(ctx context.Context, lastVersion uint64,
 
 	res := &VersionedResources{
 		Version: c.version,
-		Canary:  false,
 	}
 
 	// Return all resources.
