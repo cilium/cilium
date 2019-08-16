@@ -254,14 +254,10 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 		})
 
-		Context("Tests NodePort BPF", func() {
+		SkipContextIf(helpers.DoesNotRunOnNetNext, "Tests NodePort BPF", func() {
 			// TODO(brb) Add with L7 policy test cases after GH#8864 has been merged
 
 			nativeDev := "enp0s8"
-
-			BeforeEach(func() {
-				skipIfDoesNotRunOnNetNext()
-			})
 
 			BeforeAll(func() {
 				enableBackgroundReport = false
