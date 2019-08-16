@@ -461,3 +461,8 @@ func failIfContainsBadLogMsg(logs string) {
 func RunsOnNetNext() bool {
 	return os.Getenv("NETNEXT") == "true"
 }
+
+// DoesNotRunOnNetNext is the inverse function of RunsOnNetNext.
+func DoesNotRunOnNetNext() bool {
+	return !RunsOnNetNext()
+}
