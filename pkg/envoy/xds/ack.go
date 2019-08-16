@@ -135,37 +135,47 @@ func (m *AckingResourceMutatorWrapper) Upsert(resourceName string, resource prot
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	version, _, revert := m.mutator.Upsert(resourceName, resource, true)
+	version, updated, revert := m.mutator.Upsert(resourceName, resource, false)
 
 	if c != nil {
-		if _, found := m.pendingCompletions[c]; found {
-			log.WithFields(logrus.Fields{
-				logfields.XDSResourceName: resourceName,
-			}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
-		}
+		if updated {
+			if _, found := m.pendingCompletions[c]; found {
+				log.WithFields(logrus.Fields{
+					logfields.XDSResourceName: resourceName,
+				}).Fatalf("attempt to reuse completion to upsert xDS resource: %v", c)
+			}
 
-		comp := &pendingCompletion{
-			version:                 version,
-			remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+			comp := &pendingCompletion{
+				version:                 version,
+				remainingNodesResources: make(map[string]map[string]struct{}, len(nodeIDs)),
+			}
+			for _, nodeID := range nodeIDs {
+				comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
+				comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
+			}
+			m.pendingCompletions[c] = comp
+		} else {
+			// ack immediately
+			c.Complete(nil)
 		}
-		for _, nodeID := range nodeIDs {
-			comp.remainingNodesResources[nodeID] = make(map[string]struct{}, 1)
-			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
-		}
-		m.pendingCompletions[c] = comp
 	}
 
 	return func(completion *completion.Completion) {
 		m.locker.Lock()
 		defer m.locker.Unlock()
 
-		version, _ := revert(true)
+		version, updated := revert(false)
 
 		if completion != nil {
-			// We don't know whether the revert did an Upsert or a Delete, so as a
-			// best effort, just wait for any ACK for the version and type URL,
-			// and ignore the ACKed resource names, like for a Delete.
-			m.addDeleteCompletion(version, nodeIDs, completion)
+			if updated {
+				// We don't know whether the revert did an Upsert or a Delete, so as a
+				// best effort, just wait for any ACK for the version and type URL,
+				// and ignore the ACKed resource names, like for a Delete.
+				m.addDeleteCompletion(version, nodeIDs, completion)
+			} else {
+				// ack immediately
+				completion.Complete(nil)
+			}
 		}
 	}
 }
@@ -182,29 +192,37 @@ func (m *AckingResourceMutatorWrapper) Delete(resourceName string, nodeIDs []str
 	// As a best effort, just wait for any ACK for the version and type URL,
 	// and ignore the ACKed resource names.
 
-	version, _, revert := m.mutator.Delete(resourceName, true)
+	version, deleted, revert := m.mutator.Delete(resourceName, false)
 
 	if c != nil {
-		if _, found := m.pendingCompletions[c]; found {
-			log.WithFields(logrus.Fields{
-				logfields.XDSResourceName: resourceName,
-			}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
+		if deleted {
+			if _, found := m.pendingCompletions[c]; found {
+				log.WithFields(logrus.Fields{
+					logfields.XDSResourceName: resourceName,
+				}).Fatalf("attempt to reuse completion to delete xDS resource: %v", c)
+			}
+			m.addDeleteCompletion(version, nodeIDs, c)
+		} else {
+			// nothing changed, ack immediately
+			c.Complete(nil)
 		}
-
-		m.addDeleteCompletion(version, nodeIDs, c)
 	}
 
 	return func(completion *completion.Completion) {
 		m.locker.Lock()
 		defer m.locker.Unlock()
 
-		version, _ := revert(true)
+		version, updated := revert(false)
 
 		if completion != nil {
-			// We don't know whether the revert had any effect at all, so as a
-			// best effort, just wait for any ACK for the version and type URL,
-			// and ignore the ACKed resource names, like for a Delete.
-			m.addDeleteCompletion(version, nodeIDs, completion)
+			if updated {
+				// Wait for any ACK for the version,
+				// and ignore the ACKed resource names, like for a Delete.
+				m.addDeleteCompletion(version, nodeIDs, completion)
+			} else {
+				// ack immediately
+				completion.Complete(nil)
+			}
 		}
 	}
 }
