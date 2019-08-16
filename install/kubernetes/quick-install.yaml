@@ -381,8 +381,8 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:latest"
-        imagePullPolicy: Always
+        image: "docker.io/cilium/cilium:v1.6.0"
+        imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
             exec:
@@ -468,8 +468,8 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:latest"
-        imagePullPolicy: Always
+        image: "docker.io/cilium/cilium:v1.6.0"
+        imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
           capabilities:
@@ -498,7 +498,7 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
         name: bpf-maps
-        # To install cilium cni plugin in the host
+      # To install cilium cni plugin in the host
       - hostPath:
           path:  /opt/cni/bin
           type: DirectoryOrCreate
@@ -636,8 +636,8 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: "docker.io/cilium/operator:latest"
-        imagePullPolicy: Always
+        image: "docker.io/cilium/operator:v1.6.0"
+        imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
           httpGet:
