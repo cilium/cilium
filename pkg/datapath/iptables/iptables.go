@@ -386,8 +386,8 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 		if err := runProg("iptables", append(
 			m.waitArgs,
 			"-A", ciliumTransientForwardChain,
-			"-i", "lxc+",
-			"-m", "comment", "--comment", "cilium (transient): cluster->any on lxc+ forward accept",
+			"-s", node.GetIPv4AllocRange().String(),
+			"-m", "comment", "--comment", "cilium (transient): cluster->any forward accept",
 			"-j", "ACCEPT"), false); err != nil {
 			return err
 		}
