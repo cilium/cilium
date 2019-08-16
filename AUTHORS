@@ -7,23 +7,25 @@ Alexander Alemayhu                      alexander@alemayhu.com
 Alexei Starovoitov                      alexei.starovoitov@gmail.com
 Amey Bhide                              amey@covalent.io
 Amre Shakimov                           amre@covalent.io
-Andrew Sy Kim                           kim.andrewsy@gmail.com
 André Martins                           andre@cilium.io
+Andrew Sy Kim                           kim.andrewsy@gmail.com
 Anit Gandhi                             anitgandhi@gmail.com
-Arvind Soni                             arvindsoni@gmail.com
 Archana Shinde                          archana.m.shinde@intel.com
+Arika Chen                              eaglesora@gmail.com
+Arvind Soni                             arvind@covalent.io
 Ashwin Paranjpe                         ashwin@covalent.io
+Bob Bouteillier                         bob.bouteillier@datadoghq.com
 Brian Topping                           brian@coglative.com
 Charles-Henri GUÉRIN                    charles-henri.guerin@zenika.com
 Christopher Biscardi                    chris@christopherbiscardi.com
 Craig Box                               craig.box@gmail.com
 Cynthia Thomas                          cynthia@covalent.io
-Dan Sexton                              dan.b.sexton@gmail.com
-Dan Wendlandt                           dan@covalent.io
 Daniel Borkmann                         daniel@iogearbox.net
 Daniel Dao                              dqminh89@gmail.com
 Daniel Qian                             qsj.daniel@gmail.com
 Daniel T. Lee                           danieltimlee@gmail.com
+Dan Sexton                              dan.b.sexton@gmail.com
+Dan Wendlandt                           dan@covalent.io
 David Birks                             davidebirks@gmail.com
 Deepesh Pathak                          deepshpathak@gmail.com
 Diego Casati                            diego.casati@gmail.com
@@ -38,6 +40,7 @@ Fred Hsu                                fredlhsu@gmail.com
 Fulvio Risso                            fulvio.risso@polito.it
 Gianluca Arbezzano                      gianarb92@gmail.com
 Glib Smaga                              code@gsmaga.com
+Hui Kong                                hui.kong@qunar.com
 Ian Vernon                              ian@cilium.io
 Ifeanyi Ubah                            ify1992@yahoo.com
 Ivar Lazzaro                            ivarlazzaro@gmail.com
@@ -50,12 +53,11 @@ Joe Farrell                             joe2farrell@gmail.com
 Joe Stringer                            joe@cilium.io
 Johannes Liebermann                     johanan.liebermann@gmail.com
 John Fastabend                          john.fastabend@gmail.com
-Jon Davies                              jpds@protonmail.com
 Jonathan Davies                         jpds@protonmail.com
+Jon Davies                              jpds@protonmail.com
 Julien Kassar                           github@kassisol.com
 Junli Ou                                oujunli306@gmail.com
 Katarzyna Borkmann                      kasia@iogearbox.net
-Kevin Burke                             kevin@burke.dev
 Kiran Bondalapati                       kiran@bondalapati.com
 Koichiro Den                            den@klaipeden.com
 Laurent Bernaille                       laurent.bernaille@datadoghq.com
@@ -67,8 +69,8 @@ Marius Gerling                          marius.gerling@uniberg.com
 Mark deVilliers                         markdevilliers@gmail.com
 Martin Charles                          martincharles07@gmail.com
 Martynas Pumputis                       m@lambda.lt
-Matt Layher                             mdlayher@gmail.com
 Matthew Gumport                         me@gum.pt
+Matt Layher                             mdlayher@gmail.com
 Michael Schubert                        michael@kinvolk.io
 Michael Vorburger ⛑️                    vorburger@redhat.com
 Michal Rostecki                         mrostecki@opensuse.org
@@ -110,11 +112,8 @@ Umesh Keerthy B S                       umesh.freelance@gmail.com
 Vlad Ungureanu                          vladu@palantir.com
 Zhu Yan                                 hackzhuyan@gmail.com
 Zinin D.A                               admin@kami-no.ru
-arikachen                               eaglesora@gmail.com
-bob                                     bob.bouteillier@datadoghq.com
 darshanime                              deathbullet@gmail.com
 detailyang                              detailyang@gmail.com
-hui.kong                                hui.kong@qunar.com
 jomenxiao                               jomenxiao@gmail.com
 刘群                                      qunliu@zyhx-group.com
 
