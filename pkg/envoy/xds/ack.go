@@ -135,7 +135,7 @@ func (m *AckingResourceMutatorWrapper) Upsert(resourceName string, resource prot
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
-	version, updated, revert := m.mutator.Upsert(resourceName, resource, false)
+	version, updated, revert := m.mutator.Upsert(resourceName, resource)
 
 	if c != nil {
 		if updated {
@@ -155,27 +155,27 @@ func (m *AckingResourceMutatorWrapper) Upsert(resourceName string, resource prot
 			}
 			m.pendingCompletions[c] = comp
 		} else {
-			// ack immediately
+			// Complete immediately if nothing changed
 			c.Complete(nil)
 		}
 	}
 
 	return func(completion *completion.Completion) {
-		m.locker.Lock()
-		defer m.locker.Unlock()
-
-		version, updated := revert(false)
-
-		if completion != nil {
-			if updated {
+		if revert != nil {
+			version, updated := revert()
+			if updated && completion != nil {
 				// We don't know whether the revert did an Upsert or a Delete, so as a
 				// best effort, just wait for any ACK for the version and type URL,
 				// and ignore the ACKed resource names, like for a Delete.
+				m.locker.Lock()
 				m.addDeleteCompletion(version, nodeIDs, completion)
-			} else {
-				// ack immediately
-				completion.Complete(nil)
+				m.locker.Unlock()
+				completion = nil
 			}
+		}
+		if completion != nil {
+			// Complete immediately if nothing changed
+			completion.Complete(nil)
 		}
 	}
 }
@@ -192,7 +192,7 @@ func (m *AckingResourceMutatorWrapper) Delete(resourceName string, nodeIDs []str
 	// As a best effort, just wait for any ACK for the version and type URL,
 	// and ignore the ACKed resource names.
 
-	version, deleted, revert := m.mutator.Delete(resourceName, false)
+	version, deleted, revert := m.mutator.Delete(resourceName)
 
 	if c != nil {
 		if deleted {
@@ -203,26 +203,27 @@ func (m *AckingResourceMutatorWrapper) Delete(resourceName string, nodeIDs []str
 			}
 			m.addDeleteCompletion(version, nodeIDs, c)
 		} else {
-			// nothing changed, ack immediately
+			// Complete immediately if nothing changed
 			c.Complete(nil)
 		}
 	}
 
 	return func(completion *completion.Completion) {
-		m.locker.Lock()
-		defer m.locker.Unlock()
-
-		version, updated := revert(false)
-
-		if completion != nil {
-			if updated {
+		if revert != nil {
+			version, updated := revert()
+			if updated && completion != nil {
 				// Wait for any ACK for the version,
 				// and ignore the ACKed resource names, like for a Delete.
+				m.locker.Lock()
 				m.addDeleteCompletion(version, nodeIDs, completion)
-			} else {
-				// ack immediately
-				completion.Complete(nil)
+				m.locker.Unlock()
+				completion = nil
 			}
+		}
+
+		if completion != nil {
+			// Complete immediately if nothing changed
+			completion.Complete(nil)
 		}
 	}
 }

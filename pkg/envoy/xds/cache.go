@@ -67,7 +67,7 @@ func NewCache(typeURL string) *Cache {
 	}
 }
 
-func (c *Cache) Upsert(resourceName string, resource proto.Message, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+func (c *Cache) Upsert(resourceName string, resource proto.Message) (version uint64, updated bool, revertFunc ResourceMutatorRevertFunc) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
@@ -88,44 +88,34 @@ func (c *Cache) Upsert(resourceName string, resource proto.Message, force bool) 
 	if !found || !proto.Equal(oldV.Resource, resource) {
 		if found {
 			cacheLog.WithField(logfields.XDSResourceName, resourceName).Debug("updating resource in cache")
+			revertFunc = func() (version uint64, updated bool) {
+				version, updated, _ = c.Upsert(resourceName, oldV.Resource)
+				return
+			}
 		} else {
 			cacheLog.WithField(logfields.XDSResourceName, resourceName).Debug("inserting resource into cache")
+			revertFunc = func() (version uint64, updated bool) {
+				version, updated, _ = c.Delete(resourceName)
+				return
+			}
 		}
 		cacheIsUpdated = true
 		c.resources[resourceName] = VersionedResource{
 			LastModifiedVersion: newVersion,
 			Resource:            resource,
 		}
-	} else {
-		// no change, do not notify about this resource
-	}
-
-	if cacheIsUpdated || force {
 		cacheLog.Debug("committing cache transaction and notifying of new version")
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(c.version)
+
 	} else {
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
 
-	revertFunc := func(force bool) (version uint64, updated bool) {
-		version, updated = c.version, false
-		if cacheIsUpdated {
-			if found {
-				// Add previous resource back
-				version, updated, _ = c.Upsert(resourceName, oldV.Resource, force)
-			} else {
-				// Delete inserted resource
-				version, updated, _ = c.Delete(resourceName, force)
-			}
-		}
-		return
-	}
-
-	return c.version, cacheIsUpdated || force, revertFunc
+	return c.version, cacheIsUpdated, revertFunc
 }
 
-func (c *Cache) Delete(resourceName string, force bool) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
+func (c *Cache) Delete(resourceName string) (version uint64, updated bool, revert ResourceMutatorRevertFunc) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
@@ -144,7 +134,7 @@ func (c *Cache) Delete(resourceName string, force bool) (version uint64, updated
 		delete(c.resources, resourceName)
 	}
 
-	if found || force {
+	if found {
 		cacheLog.Debug("committing cache transaction and notifying of new version")
 		c.version = newVersion
 		c.NotifyNewResourceVersionRLocked(c.version)
@@ -152,23 +142,23 @@ func (c *Cache) Delete(resourceName string, force bool) (version uint64, updated
 		cacheLog.Debug("cache unmodified by transaction; aborting")
 	}
 
-	revertFunc := func(force bool) (version uint64, updated bool) {
+	revertFunc := func() (version uint64, updated bool) {
 		version, updated = c.version, false
 		if found {
 			// Add previous resource back
-			version, updated, _ = c.Upsert(resourceName, oldV.Resource, force)
+			version, updated, _ = c.Upsert(resourceName, oldV.Resource)
 		}
 		return
 	}
 
-	return c.version, found || force, revertFunc
+	return c.version, found, revertFunc
 }
 
-func (c *Cache) Clear(force bool) (version uint64, updated bool) {
+func (c *Cache) Clear() (version uint64, updated bool) {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
-	cacheIsUpdated := force
+	cacheIsUpdated := false
 	newVersion := c.version + 1
 
 	cacheLog := log.WithFields(logrus.Fields{

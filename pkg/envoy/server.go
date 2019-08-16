@@ -847,7 +847,10 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		} else {
 			nodeIDs = append(nodeIDs, "127.0.0.1")
 		}
-		revertFuncs = append(revertFuncs, s.NetworkPolicyMutator.Upsert(p.Name, p, nodeIDs, c))
+		revertFunc := s.NetworkPolicyMutator.Upsert(p.Name, p, nodeIDs, c)
+		if revertFunc != nil {
+			revertFuncs = append(revertFuncs, revertFunc)
+		}
 		revertUpdatedNetworkPolicyEndpoints[p.Name] = s.networkPolicyEndpoints[p.Name]
 		s.networkPolicyEndpoints[p.Name] = ep
 	}
@@ -869,7 +872,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		// Don't wait for an ACK for the reverted xDS updates.
 		// This is best-effort.
 		for _, revertFunc := range revertFuncs {
-			revertFunc(completion.NewCompletion(nil, nil))
+			revertFunc(nil)
 		}
 
 		log.Debug("Finished reverting xDS network policy update")
@@ -887,12 +890,12 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 
 	if ep.GetIPv6Address() != "" {
 		name := ep.GetIPv6Address()
-		s.networkPolicyCache.Delete(name, false)
+		s.networkPolicyCache.Delete(name)
 		delete(s.networkPolicyEndpoints, name)
 	}
 	if ep.GetIPv4Address() != "" {
 		name := ep.GetIPv4Address()
-		s.networkPolicyCache.Delete(name, false)
+		s.networkPolicyCache.Delete(name)
 		delete(s.networkPolicyEndpoints, name)
 	}
 }
@@ -900,7 +903,7 @@ func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
 // RemoveAllNetworkPolicies removes all network policies from the set published
 // to L7 proxies.
 func (s *XDSServer) RemoveAllNetworkPolicies() {
-	s.networkPolicyCache.Clear(false)
+	s.networkPolicyCache.Clear()
 }
 
 // GetNetworkPolicies returns the current version of the network policies with
