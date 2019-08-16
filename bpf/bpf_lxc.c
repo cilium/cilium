@@ -913,6 +913,12 @@ int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 		goto out;
 	}
 
+	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
+		int ret = icmp6_handle(skb, ETH_HLEN, ip6, METRIC_INGRESS);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
 		union v6addr *src = (union v6addr *) &ip6->saddr;
