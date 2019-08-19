@@ -475,6 +475,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				"-A", ciliumPostNatKubeChain,
 				"-d", node.GetIPv4AllocRange().String(),
 				"-o", ifName,
+				"-m", "addrtype", "--src-type", "local",
 				"-m", "comment", "--comment", "cilium: host->service(cluster ip)->local-endpoint on "+ifName+" src address fix",
 				"-j", "SNAT", "--to-source", node.GetHostMasqueradeIPv4().String()), false); err != nil {
 				return err
@@ -487,6 +488,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 				"-A", ciliumPostNatKubeChain,
 				"-d", node.GetIPv6AllocRange().String(),
 				"-o", ifName,
+				"-m", "addrtype", "--src-type", "local",
 				"-m", "comment", "--comment", "cilium: host->service(cluster ip)->local-endpoint on "+ifName+" src address fix",
 				"-j", "SNAT", "--to-source", node.GetIPv6().String()), false); err != nil {
 				return err
