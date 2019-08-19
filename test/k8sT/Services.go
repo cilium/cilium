@@ -205,6 +205,18 @@ var _ = Describe("K8sServicesTest", func() {
 			url := getURL(data.Spec.ClusterIP, data.Spec.Ports[0].Port)
 			testHTTPRequest(url)
 
+			// DBG BEGIN
+			filter := "zgroup=testDS"
+			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, filter)
+			Expect(err).Should(BeNil(), "Failure while retrieving pod name for %s", filter)
+			for _, pod := range pods {
+				podIP, err := kubectl.Get(helpers.DefaultNamespace,
+					fmt.Sprintf("pod %s -o json", pod)).Filter("{.status.podIP}")
+				Expect(err).Should(BeNil(), "Failure to retrieve IP of pod %s", pod)
+				testHTTPRequest(fmt.Sprintf("http://%s:80", podIP))
+			}
+			// DBG END
+
 			// From host via localhost IP
 			// TODO: IPv6
 			count := 10
