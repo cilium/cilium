@@ -260,6 +260,72 @@ endpoints:
 			// config file with everything setup
 			want: true,
 		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address":  "foo-bar.kube-system.svc",
+					"etcd.operator": "true",
+				},
+				k8sNamespace: "kube-system",
+			},
+			want: true,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address":  "foo-bar.kube-system.svc",
+					"etcd.operator": "false",
+				},
+				k8sNamespace: "kube-system",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address": "foo-bar.kube-system.svc",
+				},
+				k8sNamespace: "kube-system",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address":  "foo-bar.kube-system.svc",
+					"etcd.operator": "foo-bar",
+				},
+				k8sNamespace: "kube-system",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.address":  "https://cilium-etcd-client.kube-system.svc",
+					"etcd.operator": "foo-bar",
+				},
+				k8sNamespace: "kube-system",
+			},
+			want: true,
+		},
+		{
+			args: args{
+				backend: EtcdBackendName,
+				opts: map[string]string{
+					"etcd.config":   etcdTempFile,
+					"etcd.operator": "foo-bar",
+				},
+				k8sNamespace: "kube-system",
+			},
+			// config file with everything setup
+			want: true,
+		},
 	}
 	for i, tt := range tests {
 		got := IsEtcdOperator(tt.args.backend, tt.args.opts, tt.args.k8sNamespace)
