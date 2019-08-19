@@ -1368,6 +1368,10 @@ func runDaemon() {
 
 	option.Config.RunMonitorAgent = true
 
+	if err := enableIPForwarding(); err != nil {
+		log.WithError(err).Fatal("Error when enabling sysctl parameters")
+	}
+
 	iptablesManager := &iptables.IptablesManager{}
 	iptablesManager.Init()
 
