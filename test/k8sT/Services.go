@@ -38,8 +38,10 @@ var _ = Describe("K8sServicesTest", func() {
 		backgroundError        error
 		enableBackgroundReport = true
 		ciliumPodK8s1          string
+		ciliumPodK8s2          string
 		testDSClient           = "zgroup=testDSClient"
 		testDS                 = "zgroup=testDS"
+		err                    error
 	)
 
 	applyPolicy := func(path string) {
@@ -259,6 +261,11 @@ var _ = Describe("K8sServicesTest", func() {
 
 			nativeDev := "enp0s8"
 
+			var (
+				monitorStop1 func() error
+				monitorStop2 func() error
+			)
+
 			BeforeAll(func() {
 				enableBackgroundReport = false
 			})
@@ -279,6 +286,15 @@ var _ = Describe("K8sServicesTest", func() {
 				DeployCiliumAndDNS(kubectl)
 			})
 
+			JustAfterEach(func() {
+				if monitorStop1 != nil {
+					monitorStop1()
+				}
+				if monitorStop2 != nil {
+					monitorStop2()
+				}
+			})
+
 			It("Tests with vxlan", func() {
 				deleteCiliumDS(kubectl)
 
@@ -287,6 +303,14 @@ var _ = Describe("K8sServicesTest", func() {
 					"--set global.nodePort.device=" + nativeDev,
 				})
 
+				ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				ciliumPodK8s2, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+				monitorStop1 = kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
+					"vxlan-k8s1.log")
+				monitorStop2 = kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s2,
+					"vxlan-k8s2.log")
 				testNodePort(true)
 			})
 
@@ -299,6 +323,14 @@ var _ = Describe("K8sServicesTest", func() {
 					"--set global.autoDirectNodeRoutes=true",
 				})
 
+				ciliumPodK8s1, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				ciliumPodK8s2, err = kubectl.GetCiliumPodOnNode(helpers.KubeSystemNamespace, helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+				monitorStop1 = kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s1,
+					"dr-k8s1.log")
+				monitorStop2 = kubectl.MonitorStart(helpers.KubeSystemNamespace, ciliumPodK8s2,
+					"dr-k8s2.log")
 				testNodePort(true)
 			})
 		})
