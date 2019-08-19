@@ -45,8 +45,9 @@ const (
 	// EtcdBackendName is the backend name fo etcd
 	EtcdBackendName = "etcd"
 
-	addrOption       = "etcd.address"
-	EtcdOptionConfig = "etcd.config"
+	addrOption           = "etcd.address"
+	isEtcdOperatorOption = "etcd.operator"
+	EtcdOptionConfig     = "etcd.config"
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
@@ -1333,6 +1334,11 @@ func (e *etcdClient) ListAndWatch(name, prefix string, chanSize int) *Watcher {
 func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace string) bool {
 	if selectedBackend != EtcdBackendName {
 		return false
+	}
+
+	isEtcdOperator := opts[isEtcdOperatorOption]
+	if strings.ToLower(isEtcdOperator) == "true" {
+		return true
 	}
 
 	fqdnIsEtcdOperator := func(address string) bool {
