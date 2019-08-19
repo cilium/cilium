@@ -889,7 +889,8 @@ static __always_inline int snat_v6_process(struct __sk_buff *skb, int dir,
 		if (skb_load_bytes(skb, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
 		/* Letting neighbor solicitation / advertisement pass through. */
-		if (icmp6hdr.icmp6_type == 135 || icmp6hdr.icmp6_type == 136)
+		if (icmp6hdr.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
+		    icmp6hdr.icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT)
 			return TC_ACT_OK;
 		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
 		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)

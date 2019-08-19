@@ -24,6 +24,9 @@
 #include "eth.h"
 #include "drop.h"
 
+#define NDISC_NEIGHBOUR_SOLICITATION	135
+#define NDISC_NEIGHBOUR_ADVERTISEMENT	136
+
 #define ICMP6_TYPE_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type))
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))
 #define ICMP6_ND_TARGET_OFFSET (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr))
@@ -414,7 +417,7 @@ static inline int icmp6_handle_router(struct __sk_buff *skb, int nh_off,
 	BPF_V6(router_ip, ROUTER_IP);
 
 	switch(type) {
-	case 135:
+	case NDISC_NEIGHBOUR_SOLICITATION:
 		return icmp6_handle_ns(skb, nh_off, direction);
 	case ICMPV6_ECHO_REQUEST:
 		if (!ipv6_addrcmp((union v6addr *) &ip6->daddr, &router_ip))
