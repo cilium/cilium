@@ -369,7 +369,7 @@ static inline int __inline__ handle_ipv6(struct __sk_buff *skb, __u32 *dstID)
 			return DROP_INVALID;
 		}
 
-		ret = icmp6_handle(skb, ETH_HLEN, ip6, METRIC_EGRESS);
+		ret = icmp6_handle_router(skb, ETH_HLEN, ip6, METRIC_EGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}

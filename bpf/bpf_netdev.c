@@ -138,7 +138,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		int ret = icmp6_handle(skb, ETH_HLEN, ip6, METRIC_INGRESS);
+		int ret = icmp6_handle_router(skb, ETH_HLEN, ip6, METRIC_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}

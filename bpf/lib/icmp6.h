@@ -393,8 +393,19 @@ static inline int icmp6_handle_ns(struct __sk_buff *skb, int nh_off, __u8 direct
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int icmp6_handle(struct __sk_buff *skb, int nh_off,
-			       struct ipv6hdr *ip6, __u8 direction)
+/*
+ * icmp6_handle_router
+ * @skb:	socket buffer
+ * @nh_off:	offset to the IPv6 header
+ * @direction:  direction of packet(ingress or egress)
+ *
+ * Handle ICMPv6 messages directed towards the router IP (from the endpoint,
+ * or towards the endpoint from the local stack when endpoint routes mode is
+ * disabled). If the traffic not directed to the router IP and is not one of
+ * the supported ICMPv6 types, returns 0.
+ */
+static inline int icmp6_handle_router(struct __sk_buff *skb, int nh_off,
+				      struct ipv6hdr *ip6, __u8 direction)
 {
 	union v6addr router_ip;
 	__u8 type = icmp6_load_type(skb, nh_off);
