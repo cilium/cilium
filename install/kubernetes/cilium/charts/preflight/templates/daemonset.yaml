@@ -84,6 +84,7 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium
       serviceAccountName: cilium
+      terminationGracePeriodSeconds: 1
       tolerations:
         - effect: NoSchedule
           key: node.kubernetes.io/not-ready
