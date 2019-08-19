@@ -240,16 +240,15 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if n.IPv4HealthIP != nil {
-		healthIP = n.IPv4HealthIP
-		info.Addressing.IPV4 = healthIP.String()
-		ip4Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
-	}
-
 	if n.IPv6HealthIP != nil {
 		healthIP = n.IPv6HealthIP
 		info.Addressing.IPV6 = healthIP.String()
 		ip6Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv6Mask}
+	}
+	if n.IPv4HealthIP != nil {
+		healthIP = n.IPv4HealthIP
+		info.Addressing.IPV4 = healthIP.String()
+		ip4Address = &net.IPNet{IP: healthIP, Mask: defaults.ContainerIPv4Mask}
 	}
 
 	netNS, err := netns.ReplaceNetNSWithName(netNSName)
