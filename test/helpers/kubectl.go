@@ -557,7 +557,7 @@ func (kub *Kubectl) MicroscopeStart(microscopeOptions ...string) (error, func() 
 // MonitorStart runs cilium monitor in the background and dumps the contents
 // into a log file for later debugging
 func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
-	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -v", KubectlCmd, namespace, pod)
+	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -D -v", KubectlCmd, namespace, pod)
 	ctx, cancel := context.WithCancel(context.Background())
 	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
