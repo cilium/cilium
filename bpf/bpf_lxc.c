@@ -914,9 +914,9 @@ int tail_ipv6_to_endpoint(struct __sk_buff *skb)
 	}
 
 	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
-		int ret = icmp6_handle(skb, ETH_HLEN, ip6, METRIC_INGRESS);
+		ret = icmp6_handle_to_lxc(skb, ETH_HLEN, ip6);
 		if (IS_ERR(ret))
-			return ret;
+			goto out;
 	}
 
 	/* Packets from the proxy will already have a real identity. */

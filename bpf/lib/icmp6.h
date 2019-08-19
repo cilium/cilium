@@ -342,26 +342,30 @@ static inline int icmp6_send_time_exceeded(struct __sk_buff *skb, int nh_off, __
 	return DROP_MISSED_TAIL_CALL;
 }
 
-static inline int __icmp6_handle_ns(struct __sk_buff *skb, int nh_off)
-{
-	union v6addr target, router;
-
-	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
-			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
-		return DROP_INVALID;
-
-	cilium_dbg(skb, DBG_ICMP6_NS, target.p3, target.p4);
-
-	BPF_V6(router, ROUTER_IP);
-	if (ipv6_addrcmp(&target, &router) == 0) {
-		union macaddr router_mac = NODE_MAC;
-
-		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);
-	} else {
-		/* Unknown target address, drop */
-		return ACTION_UNKNOWN_ICMP6_NS;
-	}
+#define ICMP6_NEIGHBOUR_FUNC(NAME, IP, MAC)				\
+static inline int NAME(struct __sk_buff *skb, int nh_off)	\
+{									\
+	union v6addr target, router;					\
+									\
+	if (skb_load_bytes(skb, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,	\
+			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)	\
+		return DROP_INVALID;					\
+									\
+	cilium_dbg(skb, DBG_ICMP6_NS, target.p3, target.p4);		\
+									\
+	BPF_V6(router, ROUTER_IP);					\
+	if (ipv6_addrcmp(&target, &router) == 0) {			\
+		union macaddr router_mac = NODE_MAC;			\
+									\
+		return send_icmp6_ndisc_adv(skb, nh_off, &router_mac);	\
+	} else {							\
+		/* Unknown target address, drop */			\
+		return ACTION_UNKNOWN_ICMP6_NS;				\
+	}								\
 }
+ICMP6_NEIGHBOUR_FUNC(__icmp6_handle_ns, ROUTER_IP, NODE_MAC)
+ICMP6_NEIGHBOUR_FUNC(__icmp6_handle_ns_to_lxc, LXC_IP, NODE_MAC)
+#undef ICMP6_NEIGHBOUR_FUNC
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS) int tail_icmp6_handle_ns(struct __sk_buff *skb)
 {
@@ -428,6 +432,18 @@ static inline int icmp6_handle_router(struct __sk_buff *skb, int nh_off,
 	/* All branching above will have issued a tail call, all
 	 * remaining traffic is subject to forwarding to containers.
 	 */
+	return 0;
+}
+
+static inline int icmp6_handle_to_lxc(struct __sk_buff *skb, int nh_off,
+				      struct ipv6hdr *ip6)
+{
+	__u8 type = icmp6_load_type(skb, nh_off);
+
+	cilium_dbg(skb, DBG_ICMP6_HANDLE, type, 0);
+
+	if (type == NDISC_NEIGHBOUR_SOLICITATION)
+		return __icmp6_handle_ns_to_lxc(skb, nh_off);
 	return 0;
 }
 
