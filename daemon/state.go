@@ -21,15 +21,10 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -259,118 +254,10 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 
 	for _, ep := range state.restored {
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RLockAlive(); err != nil {
-				ep.LogDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
+			if err := ep.RegenerateAfterRestore(); err != nil {
 				epRegenerated <- false
 				return
 			}
-			scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-			// Filter the restored labels with the new daemon's filter
-			l, _ := labels.FilterLabels(ep.OpLabels.AllLabels())
-			ep.RUnlock()
-
-			allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-			defer cancel()
-			identity, _, err := cache.AllocateIdentity(allocateCtx, d, l)
-
-			if err != nil {
-				scopedLog.WithError(err).Warn("Unable to restore endpoint")
-				epRegenerated <- false
-				return
-			}
-
-			// Wait for initial identities and ipcache from the
-			// kvstore before doing any policy calculation for
-			// endpoints that don't have a fixed identity or are
-			// not well known.
-			if !identity.IsFixed() && !identity.IsWellKnown() {
-				identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-				defer cancel()
-
-				err = cache.WaitForInitialGlobalIdentities(identityCtx)
-				if err != nil {
-					scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
-					return
-				}
-				if option.Config.KVStore != "" {
-					ipcache.WaitForKVStoreSync()
-				}
-			}
-
-			if err := ep.LockAlive(); err != nil {
-				scopedLog.Warn("Endpoint to restore has been deleted")
-				epRegenerated <- false
-				return
-			}
-
-			ep.SetStateLocked(endpoint.StateRestoring, "Synchronizing endpoint labels with KVStore")
-
-			if ep.SecurityIdentity != nil {
-				if oldSecID := ep.SecurityIdentity.ID; identity.ID != oldSecID {
-					log.WithFields(logrus.Fields{
-						logfields.EndpointID:              ep.ID,
-						logfields.IdentityLabels + ".old": oldSecID,
-						logfields.IdentityLabels + ".new": identity.ID,
-					}).Info("Security identity for endpoint is different from the security identity restored for the endpoint")
-
-					// The identity of the endpoint being
-					// restored has changed. This can be
-					// caused by two main reasons:
-					//
-					// 1) Cilium has been upgraded,
-					// downgraded or the configuration has
-					// changed and the new version or
-					// configuration causes different
-					// labels to be considered security
-					// relevant for this endpoint.
-					//
-					// Immediately using the identity may
-					// cause connectivity problems if this
-					// is the first endpoint in the cluster
-					// to use the new identity. All other
-					// nodes will not have had a chance to
-					// adjust the security policies for
-					// their endpoints. Hence, apply a
-					// grace period to allow for the
-					// update. It is not required to check
-					// any local endpoints for potential
-					// outdated security rules, the
-					// notification of the new security
-					// identity will have been received and
-					// will trigger the necessary
-					// recalculation of all local
-					// endpoints.
-					//
-					// 2) The identity is outdated as the
-					// state in the kvstore has changed.
-					// This reason would justify an
-					// immediate use of the new identity
-					// but given the current identity is
-					// already in place, it is also correct
-					// to continue using it for the
-					// duration of a grace period.
-					time.Sleep(defaults.IdentityChangeGracePeriod)
-				}
-			}
-			// The identity of a freshly restored endpoint is incomplete due to some
-			// parts of the identity not being marshaled to JSON. Hence we must set
-			// the identity even if has not changed.
-			ep.SetIdentity(identity, true)
-			ep.Unlock()
-
-			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-				Reason: "syncing state to host",
-			}
-			if buildSuccess := <-ep.Regenerate(regenerationMetadata); !buildSuccess {
-				scopedLog.Warn("Failed while regenerating endpoint")
-				epRegenerated <- false
-				return
-			}
-
-			// NOTE: UnconditionalRLock is used here because it's used only for logging an already restored endpoint
-			ep.UnconditionalRLock()
-			scopedLog.WithField(logfields.IPAddr, []string{ep.IPv4.String(), ep.IPv6.String()}).Info("Restored endpoint")
-			ep.RUnlock()
 			epRegenerated <- true
 		}(ep, epRegenerated)
 	}
