@@ -603,8 +603,9 @@ func (e *Endpoint) applyOptsLocked(opts option.OptionMap) bool {
 	return changed
 }
 
-// ForcePolicyCompute marks the endpoint for forced bpf regeneration.
-func (e *Endpoint) ForcePolicyCompute() {
+// forcePolicyComputation ensures that upon the next policy calculation for this
+// Endpoint, that no short-circuiting of said operation occurs.
+func (e *Endpoint) forcePolicyComputation() {
 	e.forcePolicyCompute = true
 }
 
@@ -1721,7 +1722,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 	// Unconditionally force policy recomputation after a new identity has been
 	// assigned.
-	e.ForcePolicyCompute()
+	e.forcePolicyComputation()
 
 	e.Unlock()
 
