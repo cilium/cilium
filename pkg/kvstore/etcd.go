@@ -1341,6 +1341,10 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 		return true
 	}
 
+	//as its not set to true, we can delete it as we dont need it anymore
+	//if we do not delete it, it cause failure when reading config file
+	delete(opts, isEtcdOperatorOption)
+
 	fqdnIsEtcdOperator := func(address string) bool {
 		u, err := url.Parse(address)
 		if err != nil {

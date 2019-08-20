@@ -321,7 +321,8 @@ endpoints:
 			args: args{
 				backend: EtcdBackendName,
 				opts: map[string]string{
-					"etcd.config": etcdTempFile,
+					"etcd.config":   etcdTempFile,
+					"etcd.operator": "foo-bar",
 				},
 				k8sNamespace: "kube-system",
 			},
