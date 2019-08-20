@@ -133,13 +133,13 @@ func createTailCallMap() (int, int, error) {
 	return int(fd), int(info.MapID), nil
 }
 
-// SetupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
+// setupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
 // the target netns and attaches a BPF program to it on egress path which
 // then jumps into the tail call map index 0.
 //
 // NB: Do not close the returned mapFd before it has been pinned. Otherwise,
 // the map will be destroyed.
-func SetupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
+func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, error) {
 	rl := unix.Rlimit{
 		Cur: math.MaxUint64,
 		Max: math.MaxUint64,
@@ -298,7 +298,7 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 
 // CreateAndSetupIpvlanSlave creates an ipvlan slave device for the given
 // master device, moves it to the given network namespace, and finally
-// initializes it (see SetupIpvlanInRemoteNs).
+// initializes it (see setupIpvlanInRemoteNs).
 func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mtu int, masterDev int, mode string, ep *models.EndpointChangeRequest) (int, error) {
 	var tmpIfName string
 
@@ -317,7 +317,7 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 		return 0, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
 	}
 
-	mapFD, mapID, err := SetupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
+	mapFD, mapID, err := setupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
 	if err != nil {
 		return 0, fmt.Errorf("unable to setup ipvlan slave in remote netns: %s", err)
 	}
@@ -368,7 +368,7 @@ func (d *DockerNetNSConfigurer) ConfigureNetNSForIPVLAN(netNsPath string) (mapFD
 		return 0, 0, fmt.Errorf("Unable to find ipvlan slave in container netns: %s", err)
 	}
 
-	mapFD, mapID, err = SetupIpvlanInRemoteNs(netNs,
+	mapFD, mapID, err = setupIpvlanInRemoteNs(netNs,
 		ipvlanIface, ipvlanIface)
 	if err != nil {
 		return 0, 0, fmt.Errorf("Unable to setup ipvlan slave: %s", err)
