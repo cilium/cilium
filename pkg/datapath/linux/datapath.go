@@ -15,8 +15,6 @@
 package linux
 
 import (
-	"io"
-
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader"
@@ -39,6 +37,7 @@ type rulesManager interface {
 }
 
 type linuxDatapath struct {
+	datapath.ConfigWriter
 	node           datapath.NodeHandler
 	nodeAddressing datapath.NodeAddressing
 	config         DatapathConfiguration
@@ -52,7 +51,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager rulesManager) datapath.D
 	dp := &linuxDatapath{
 		nodeAddressing: NewNodeAddressing(),
 		config:         cfg,
-		configWriter:   &config.HeaderfileWriter{},
+		ConfigWriter:   &config.HeaderfileWriter{},
 		loader:         &loader.Loader{},
 		ruleManager:    ruleManager,
 	}
@@ -85,22 +84,6 @@ func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name s
 
 func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return l.ruleManager.RemoveProxyRules(proxyPort, ingress, name)
-}
-
-func (l *linuxDatapath) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
-	return l.configWriter.WriteTemplateConfig(w, e)
-}
-
-func (l *linuxDatapath) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
-	return l.configWriter.WriteEndpointConfig(w, e)
-}
-
-func (l *linuxDatapath) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceConfiguration) error {
-	return l.configWriter.WriteNetdevConfig(w, cfg)
-}
-
-func (l *linuxDatapath) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
-	return l.configWriter.WriteNodeConfig(w, cfg)
 }
 
 func (l *linuxDatapath) Loader() datapath.Loader {
