@@ -111,7 +111,10 @@ func DeployCiliumAndDNS(vm *helpers.Kubectl) {
 	By("Installing DNS Deployment")
 	_ = vm.Apply(helpers.DNSDeployment())
 
-	DeployCiliumOptionsAndDNS(vm, []string{})
+	DeployCiliumOptionsAndDNS(vm, []string{
+		"--set", "global.tag=latest",
+		"--set", "agent.image=cilium-dev",
+	})
 }
 
 // DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
