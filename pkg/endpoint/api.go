@@ -425,6 +425,9 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	return policyEnabled
 }
 
+// ValidPatchTransitionState checks whether the state to which the provided
+// model specifies is one to which an Endpoint can transition as part of a
+// call to PATCH on an Endpoint.
 func ValidPatchTransitionState(state models.EndpointState) bool {
 	switch string(state) {
 	case "", StateWaitingForIdentity, StateReady:
@@ -510,7 +513,7 @@ func (e *Endpoint) ProcessChangeRequest(epTemplate *models.EndpointChangeRequest
 		// Other endpoints need not be regenerated as no labels were changed.
 		// Note that we still need to (eventually) regenerate the endpoint for
 		// the changes to take effect.
-		e.ForcePolicyCompute()
+		e.forcePolicyComputation()
 
 		// Transition to waiting-to-regenerate if ready.
 		if e.GetStateLocked() == StateReady {
