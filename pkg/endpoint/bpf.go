@@ -41,7 +41,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
+
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -1132,5 +1134,67 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 			return fmt.Errorf("interface %s could not be found", e.ifName)
 		}
 	}
+	return nil
+}
+
+type netNSManager interface {
+	ConfigureNetNSForIPVLAN(netNsPath string) (mapFD, mapID int, err error)
+}
+
+// FinishIPVLANInit finishes configuring ipvlan slave device of the given endpoint.
+//
+// Unfortunately, Docker libnetwork itself moves a netdev to netns of a container
+// after the Cilium libnetwork plugin driver has responded to a `JoinEndpoint`
+// request. During the move, the netdev qdisc's get flushed by the kernel. Therefore,
+// we need to configure the ipvlan slave device in two stages.
+//
+// Because the function can be called many times for the same container in parallel,
+// we need to make the function idempotent. This is achieved by checking
+// whether the datapath map has been pinned, which indicates previous
+// successful invocation of the function for the same container, before executing
+// the configuration stages.
+//
+// FIXME: Because of the libnetwork limitation mentioned above, we cannot enforce
+// policies for an ipvlan slave before a process of a container has started. So,
+// this enables a window between the two stages during which ALL container traffic
+// is allowed.
+func (e *Endpoint) FinishIPVLANInit(mgr netNSManager, netNsPath string) error {
+	if netNsPath == "" {
+		return fmt.Errorf("netNsPath is empty")
+	}
+
+	// Just ignore if the endpoint is dying
+	if err := e.LockAlive(); err != nil {
+		return nil
+	}
+	defer e.Unlock()
+
+	// No need to finish IPVLAN initialization for Docker if the endpoint isn't
+	// running with Docker.
+	if e.DockerNetworkID == "" {
+		return nil
+	}
+
+	if e.IsDatapathMapPinnedLocked() {
+		// The datapath map is pinned which implies that the post-initialization
+		// for the ipvlan slave has been successfully performed
+		return nil
+	}
+
+	mapFD, mapID, err := mgr.ConfigureNetNSForIPVLAN(netNsPath)
+	if err != nil {
+		return fmt.Errorf("Unable to setup ipvlan slave: %s", err)
+	}
+
+	// Do not close the fd too early, as the subsequent pinning would
+	// fail due to the map being removed by the kernel
+	defer func() {
+		unix.Close(mapFD)
+	}()
+
+	if err = e.SetDatapathMapIDAndPinMapLocked(mapID); err != nil {
+		return fmt.Errorf("Unable to pin datapath map: %s", err)
+	}
+
 	return nil
 }
