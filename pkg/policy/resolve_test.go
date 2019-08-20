@@ -53,18 +53,11 @@ func (d *dummyEndpoint) GetID16() uint16 {
 	return d.ID
 }
 
-func (d *dummyEndpoint) GetSecurityIdentity() *identity.Identity {
-	return d.SecurityIdentity
+func (d *dummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
+	return d.SecurityIdentity, nil
 }
 
 func (d *dummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
-}
-
-func (d *dummyEndpoint) RLockAlive() error {
-	return nil
-}
-
-func (d *dummyEndpoint) RUnlock() {
 }
 
 func GenerateNumIdentities(numIdentities int) {
@@ -178,10 +171,6 @@ type DummyOwner struct{}
 
 func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 	return 0
-}
-
-func (d DummyOwner) GetSecurityIdentity() *identity.Identity {
-	return fooIdentity
 }
 
 func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {

@@ -822,8 +822,12 @@ func (e *Endpoint) GetLabels() []string {
 
 // GetSecurityIdentity returns the security identity of the endpoint. It assumes
 // the endpoint's mutex is held.
-func (e *Endpoint) GetSecurityIdentity() *identityPkg.Identity {
-	return e.SecurityIdentity
+func (e *Endpoint) GetSecurityIdentity() (*identityPkg.Identity, error) {
+	if err := e.RLockAlive(); err != nil {
+		return nil, err
+	}
+	defer e.RUnlock()
+	return e.SecurityIdentity, nil
 }
 
 // GetID16 returns the endpoint's ID as a 16-bit unsigned integer.
