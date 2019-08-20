@@ -105,7 +105,7 @@ func (e *Endpoint) ProcessChangeRequest(epTemplate *models.EndpointChangeRequest
 		// Other endpoints need not be regenerated as no labels were changed.
 		// Note that we still need to (eventually) regenerate the endpoint for
 		// the changes to take effect.
-		e.ForcePolicyCompute()
+		e.forcePolicyComputation()
 
 		// Transition to waiting-to-regenerate if ready.
 		if e.GetStateLocked() == StateReady {
