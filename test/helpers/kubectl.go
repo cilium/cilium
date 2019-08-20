@@ -68,9 +68,8 @@ var (
 	defaultHelmOptions = map[string]string{
 		"global.registry":               "k8s1:5000/cilium",
 		"agent.image":                   "cilium-dev",
-		"agent.tag":                     "latest",
+		"global.tag":                    "latest",
 		"operator.image":                "operator",
-		"operator.tag":                  "latest",
 		"managed-etcd.registry":         "docker.io/cilium",
 		"global.debug.enabled":          "true",
 		"global.k8s.requireIPv4PodCIDR": "true",
