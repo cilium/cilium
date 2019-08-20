@@ -145,7 +145,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		return
 	}
 
-	var enabled = true
+	var disabled = false
 	ep := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: vethIP,
@@ -174,7 +174,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			ExternalIPAM: true,
 
 			// All routing is performed by the Linux stack
-			RequireRouting: &enabled,
+			RequireRouting: &disabled,
 		},
 	}
 
