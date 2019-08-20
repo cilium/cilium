@@ -1166,14 +1166,14 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return e.DockerNetworkID
 }
 
-// SetDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
-func (e *Endpoint) SetDatapathMapIDAndPinMapLocked(id int) error {
+// setDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
+func (e *Endpoint) setDatapathMapIDAndPinMapLocked(id int) error {
 	e.datapathMapID = id
 	return e.PinDatapathMap()
 }
 
-// IsDatapathMapPinnedLocked returns whether the endpoint's datapath map has been pinned
-func (e *Endpoint) IsDatapathMapPinnedLocked() bool {
+// isDatapathMapPinnedLocked returns whether the endpoint's datapath map has been pinned
+func (e *Endpoint) isDatapathMapPinnedLocked() bool {
 	return e.isDatapathMapPinned
 }
 
