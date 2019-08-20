@@ -17,13 +17,13 @@ package connector
 import (
 	"fmt"
 	"math"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/containernetworking/plugins/pkg/ns"
 
 	"github.com/vishvananda/netlink"
@@ -325,4 +325,54 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 	ep.DatapathMapID = int64(mapID)
 
 	return mapFD, nil
+}
+
+// DockerNetNSConfigurer is a wrapper around the configuration of a network
+// namespace for IPVLAN integration.
+type DockerNetNSConfigurer struct{}
+
+// ConfigureNetNSForIPVLAN sets up IPVLAN in the specified network namespace.
+// Returns the file descriptor for the tail call map / ID, and an error if
+// any operation while configuring said namespace fails.
+func (d *DockerNetNSConfigurer) ConfigureNetNSForIPVLAN(netNsPath string) (mapFD, mapID int, err error) {
+	var ipvlanIface string
+	// To access the netns, `/var/run/docker/netns` has to
+	// be bind mounted into the cilium-agent container with
+	// the `rshared` option to prevent from leaking netns
+	netNs, err := ns.GetNS(netNsPath)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Unable to open container netns %s: %s", netNsPath, err)
+	}
+
+	// Docker doesn't report about interfaces used to connect to
+	// container network, so we need to scan all to find the ipvlan slave
+	err = netNs.Do(func(ns.NetNS) error {
+		links, err := netlink.LinkList()
+		if err != nil {
+			return err
+		}
+		for _, link := range links {
+			if link.Type() == "ipvlan" &&
+				strings.HasPrefix(link.Attrs().Name,
+					ContainerInterfacePrefix) {
+				ipvlanIface = link.Attrs().Name
+				break
+			}
+		}
+		if ipvlanIface == "" {
+			return fmt.Errorf("ipvlan slave link not found")
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("Unable to find ipvlan slave in container netns: %s", err)
+	}
+
+	mapFD, mapID, err = SetupIpvlanInRemoteNs(netNs,
+		ipvlanIface, ipvlanIface)
+	if err != nil {
+		return 0, 0, fmt.Errorf("Unable to setup ipvlan slave: %s", err)
+	}
+
+	return mapFD, mapID, nil
 }

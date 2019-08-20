@@ -42,11 +42,6 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-docker-driver")
 
-const (
-	// ContainerInterfacePrefix is the container's internal interface name prefix.
-	ContainerInterfacePrefix = "cilium"
-)
-
 // Driver interface that listens for docker requests.
 type Driver interface {
 	Listen(string) error
@@ -415,7 +410,7 @@ func (driver *driver) joinEndpoint(w http.ResponseWriter, r *http.Request) {
 	res := &api.JoinResponse{
 		InterfaceName: &api.InterfaceName{
 			SrcName:   connector.Endpoint2TempIfName(j.EndpointID),
-			DstPrefix: ContainerInterfacePrefix,
+			DstPrefix: connector.ContainerInterfacePrefix,
 		},
 		StaticRoutes:          driver.routes,
 		DisableGatewayService: true,

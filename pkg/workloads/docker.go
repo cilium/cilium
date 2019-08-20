@@ -38,17 +38,12 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/plugins/cilium-docker/driver"
-
-	"github.com/containernetworking/plugins/pkg/ns"
 	dTypes "github.com/docker/docker/api/types"
 	dTypesEvents "github.com/docker/docker/api/types/events"
 	dNetwork "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	ctx "golang.org/x/net/context"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -471,8 +466,8 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 		ep.SetContainerName(strings.Trim(containerName, "/"))
 
 		// Finish ipvlan initialization if endpoint is connected via Docker libnetwork (cilium-docker)
-		if ep.GetDockerNetworkID() != "" && d.datapathMode == option.DatapathModeIpvlan {
-			if err := finishIpvlanInit(ep, sandboxKey); err != nil {
+		if d.datapathMode == option.DatapathModeIpvlan {
+			if err := ep.FinishIPVLANInit(&connector.DockerNetNSConfigurer{}, sandboxKey); err != nil {
 				retryLog.WithError(err).Warn("Cannot finish ipvlan initialization")
 				continue
 			}
@@ -567,90 +562,4 @@ func (d *dockerClient) GetAllInfraContainersPID() (map[string]int, error) {
 	}
 
 	return pids, nil
-}
-
-// finishIpvlanInit finishes configuring ipvlan slave device of the given endpoint.
-//
-// Unfortunately, Docker libnetwork itself moves a netdev to netns of a container
-// after the Cilium libnetwork plugin driver has responded to a `JoinEndpoint`
-// request. During the move, the netdev qdisc's get flushed by the kernel. Therefore,
-// we need to configure the ipvlan slave device in two stages.
-//
-// Because the function can be called many times for the same container in parallel,
-// we need to make the function idempotent. This is achieved by checking
-// whether the datapath map has been pinned, which indicates previous
-// successful invocation of the function for the same container, before executing
-// the configuration stages.
-//
-// FIXME: Because of the libnetwork limitation mentioned above, we cannot enforce
-// policies for an ipvlan slave before a process of a container has started. So,
-// this enables a window between the two stages during which ALL container traffic
-// is allowed.
-func finishIpvlanInit(ep *endpoint.Endpoint, netNsPath string) error {
-	var ipvlanIface string
-
-	if netNsPath == "" {
-		return fmt.Errorf("netNsPath is empty")
-	}
-
-	// Just ignore if the endpoint is dying
-	if err := ep.LockAlive(); err != nil {
-		return nil
-	}
-	defer ep.Unlock()
-
-	if ep.IsDatapathMapPinnedLocked() {
-		// The datapath map is pinned which implies that the post-initialization
-		// for the ipvlan slave has been successfully performed
-		return nil
-	}
-
-	// To access the netns, `/var/run/docker/netns` has to
-	// be bind mounted into the cilium-agent container with
-	// the `rshared` option to prevent from leaking netns
-	netNs, err := ns.GetNS(netNsPath)
-	if err != nil {
-		return fmt.Errorf("Unable to open container netns %s: %s", netNsPath, err)
-	}
-
-	// Docker doesn't report about interfaces used to connect to
-	// container network, so we need to scan all to find the ipvlan slave
-	err = netNs.Do(func(ns.NetNS) error {
-		links, err := netlink.LinkList()
-		if err != nil {
-			return err
-		}
-		for _, link := range links {
-			if link.Type() == "ipvlan" &&
-				strings.HasPrefix(link.Attrs().Name,
-					driver.ContainerInterfacePrefix) {
-				ipvlanIface = link.Attrs().Name
-				break
-			}
-		}
-		if ipvlanIface == "" {
-			return fmt.Errorf("ipvlan slave link not found")
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("Unable to find ipvlan slave in container netns: %s", err)
-	}
-
-	mapFD, mapID, err := connector.SetupIpvlanInRemoteNs(netNs,
-		ipvlanIface, ipvlanIface)
-	if err != nil {
-		return fmt.Errorf("Unable to setup ipvlan slave: %s", err)
-	}
-	// Do not close the fd too early, as the subsequent pinning would
-	// fail due to the map being removed by the kernel
-	defer func() {
-		unix.Close(mapFD)
-	}()
-
-	if err = ep.SetDatapathMapIDAndPinMapLocked(mapID); err != nil {
-		return fmt.Errorf("Unable to pin datapath map: %s", err)
-	}
-
-	return nil
 }
