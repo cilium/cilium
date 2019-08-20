@@ -97,6 +97,9 @@ func EtcdDummyAddress() string {
 func newEtcdModule() backendModule {
 	return &etcdModule{
 		opts: backendOptions{
+			isEtcdOperatorOption: &backendOption{
+				description: "if the configuration is setting up an etcd-operator",
+			},
 			addrOption: &backendOption{
 				description: "Addresses of etcd cluster",
 			},
@@ -1340,10 +1343,6 @@ func IsEtcdOperator(selectedBackend string, opts map[string]string, k8sNamespace
 	if strings.ToLower(isEtcdOperator) == "true" {
 		return true
 	}
-
-	//as its not set to true, we can delete it as we dont need it anymore
-	//if we do not delete it, it cause failure when reading config file
-	delete(opts, isEtcdOperatorOption)
 
 	fqdnIsEtcdOperator := func(address string) bool {
 		u, err := url.Parse(address)
