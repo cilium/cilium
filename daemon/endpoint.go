@@ -784,25 +784,13 @@ func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middlewar
 		return NewGetEndpointIDLabelsNotFound()
 	}
 
-	if err := ep.RLockAlive(); err != nil {
+	cfg, err := ep.GetLabelsModel()
+
+	if err != nil {
 		return api.Error(GetEndpointIDInvalidCode, err)
 	}
-	spec := &models.LabelConfigurationSpec{
-		User: ep.OpLabels.Custom.GetModel(),
-	}
 
-	cfg := models.LabelConfiguration{
-		Spec: spec,
-		Status: &models.LabelConfigurationStatus{
-			Realized:         spec,
-			SecurityRelevant: ep.OpLabels.OrchestrationIdentity.GetModel(),
-			Derived:          ep.OpLabels.OrchestrationInfo.GetModel(),
-			Disabled:         ep.OpLabels.Disabled.GetModel(),
-		},
-	}
-	ep.RUnlock()
-
-	return NewGetEndpointIDLabelsOK().WithPayload(&cfg)
+	return NewGetEndpointIDLabelsOK().WithPayload(cfg)
 }
 
 type getEndpointIDLog struct {
