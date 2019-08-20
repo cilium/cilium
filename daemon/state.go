@@ -179,9 +179,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 
 		if !option.Config.KeepConfig {
 			ep.SetDefaultOpts(option.Config.Opts)
-			alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-			ep.SetDesiredIngressPolicyEnabledLocked(alwaysEnforce)
-			ep.SetDesiredEgressPolicyEnabledLocked(alwaysEnforce)
+			ep.SetPolicyEnforcement(policy.GetPolicyEnabled() == option.AlwaysEnforce)
 		}
 
 		ep.Unlock()

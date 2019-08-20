@@ -43,6 +43,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SetPolicyEnforcement sets whether policy enforcement is enabled at both
+// ingress and egress for the given endpoint to the value of alwaysEnforce.
+func (e *Endpoint) SetPolicyEnforcement(alwaysEnforce bool) {
+	e.UnconditionalLock()
+	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+	e.Unlock()
+}
+
 // ProxyID returns a unique string to identify a proxy mapping.
 func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyIDFromFilter(e.ID, l4)

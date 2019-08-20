@@ -454,9 +454,7 @@ func GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
-	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	ep.SetDesiredIngressPolicyEnabled(alwaysEnforce)
-	ep.SetDesiredEgressPolicyEnabled(alwaysEnforce)
+	ep.SetPolicyEnforcement(policy.GetPolicyEnabled() == option.AlwaysEnforce)
 
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
