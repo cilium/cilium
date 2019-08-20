@@ -298,3 +298,6 @@ data:
   read-cni-conf: {{ .Values.global.cni.confFileMountPath }}/{{ .Values.global.cni.configMapKey }}
   write-cni-conf-when-ready: {{ .Values.global.cni.hostConfDirMountPath }}/05-cilium.conflist
 {{- end }}
+{{- if .Values.global.kubeConfigPath }}
+  k8s-kubeconfig-path: {{ .Values.global.kubeConfigPath | quote }}
+{{- end }}

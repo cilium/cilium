@@ -34,6 +34,9 @@ spec:
 {{- if .Values.global.prometheus.enabled }}
         - --enable-metrics
 {{- end }}
+{{- if .Values.global.kubeConfigPath }}
+        - --k8s-kubeconfig-path={{ .Values.global.kubeConfigPath }}
+{{- end }}
         command:
         - cilium-operator
         env:
@@ -129,8 +132,10 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
-{{- if .Values.global.etcd.enabled }}
+{{- if or .Values.global.etcd.enabled .Values.global.kubeConfigPath }}
         volumeMounts:
+{{- end }}
+{{- if .Values.global.etcd.enabled }}
         - mountPath: /var/lib/etcd-config
           name: etcd-config-path
           readOnly: true
@@ -140,6 +145,12 @@ spec:
           readOnly: true
 {{- end }}
 {{- end }}
+{{- if .Values.global.kubeConfigPath }}
+        - mountPath: {{ .Values.global.kubeConfigPath }}
+          name: kube-config
+          readOnly: true
+{{- end}}
+
       hostNetwork: true
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
@@ -149,8 +160,10 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
-{{- if .Values.global.etcd.enabled }}
+{{- if or .Values.global.etcd.enabled .Values.global.kubeConfigPath }}
       volumes:
+{{- end }}
+{{- if .Values.global.etcd.enabled }}
       # To read the etcd config stored in config maps
       - configMap:
           defaultMode: 420
@@ -167,4 +180,10 @@ spec:
           optional: true
           secretName: cilium-etcd-secrets
 {{- end }}
+{{- end }}
+{{- if .Values.global.kubeConfigPath }}
+      - hostPath:
+          path: {{ .Values.global.kubeConfigPath }}
+          type: FileOrCreate
+        name: kube-config
 {{- end }}
