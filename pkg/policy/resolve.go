@@ -15,7 +15,6 @@
 package policy
 
 import (
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -77,7 +76,6 @@ type EndpointPolicy struct {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	LookupRedirectPort(l4 *L4Filter) uint16
-	GetSecurityIdentity() *identity.Identity
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.

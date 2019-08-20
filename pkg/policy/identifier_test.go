@@ -32,8 +32,8 @@ func (d *DummyEndpoint) GetID16() uint16 {
 	return 0
 }
 
-func (d *DummyEndpoint) GetSecurityIdentity() *identity.Identity {
-	return nil
+func (d *DummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
+	return nil, nil
 }
 
 func (d *DummyEndpoint) PolicyRevisionBumpEvent(rev uint64) {
