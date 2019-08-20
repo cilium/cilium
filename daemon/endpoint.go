@@ -174,6 +174,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		// program is needed on that device at egress as BPF program on
 		// cilium_host interface is bypassed
 		epTemplate.DatapathConfiguration.RequireEgressProg = true
+
+		// Delegate routing to the Linux stack rather than tail-calling
+		// between BPF programs.
+		disabled := false
+		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
 
 	ep, err := endpoint.NewEndpointFromChangeModel(d, epTemplate)
