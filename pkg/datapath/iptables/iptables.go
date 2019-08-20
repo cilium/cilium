@@ -33,6 +33,7 @@ import (
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/mattn/go-shellwords"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -459,6 +460,9 @@ func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPo
 }
 
 func (m *IptablesManager) installStaticProxyRules() error {
+	xtSocketWarningFormat := "Failed to configure inbound proxy rule likely due to missing 'xt_socket' module"
+	xtSocketDirectRoutingWarning := "Traffic to endpoints with L7 ingress policy may be dropped unexpectedly"
+
 	// match traffic to a proxy (upper 16 bits has the proxy port, which is masked out)
 	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	// proxy return traffic has 0 ID in the mask
@@ -488,8 +492,21 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
 		}
-		// Direct inbound TPROXYed traffic towards the socket
-		err := runProg("iptables", m.inboundProxyRedirectRule("-A"), false)
+		if err == nil {
+			// Direct inbound TPROXYed traffic towards the socket
+			args := m.inboundProxyRedirectRule("-A")
+			if err2 := runProg("iptables", args, false); err2 != nil {
+				scopedLog := log.WithFields(logrus.Fields{
+					"cmd":            args,
+					logfields.Family: logfields.IPv4,
+				})
+				if option.Config.Tunnel == option.TunnelDisabled {
+					scopedLog.Warningf("%s. %s", xtSocketWarningFormat, xtSocketDirectRoutingWarning)
+				} else {
+					scopedLog.Info(xtSocketWarningFormat)
+				}
+			}
+		}
 	}
 	if err == nil && option.Config.EnableIPv6 {
 		// No conntrack for traffic to ingress proxy
@@ -514,8 +531,21 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
 		}
-		// Direct inbound TPROXYed traffic towards the socket
-		err = runProg("ip6tables", m.inboundProxyRedirectRule("-A"), false)
+		if err == nil {
+			// Direct inbound TPROXYed traffic towards the socket
+			args := m.inboundProxyRedirectRule("-A")
+			if err2 := runProg("ip6tables", args, false); err2 != nil {
+				scopedLog := log.WithFields(logrus.Fields{
+					"cmd":            args,
+					logfields.Family: logfields.IPv6,
+				})
+				if option.Config.Tunnel == option.TunnelDisabled {
+					scopedLog.Warningf("%s. %s", xtSocketWarningFormat, xtSocketDirectRoutingWarning)
+				} else {
+					scopedLog.Info(xtSocketWarningFormat)
+				}
+			}
+		}
 	}
 	return err
 }
