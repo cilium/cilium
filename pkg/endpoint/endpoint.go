@@ -104,6 +104,9 @@ var _ notifications.RegenNotificationInfo = &Endpoint{}
 // Endpoint represents a container or similar which can be individually
 // addresses on L3 with its own IP addresses. This structured is managed by the
 // endpoint manager in pkg/endpointmanager.
+//
+// The representation of the Endpoint which is serialized to disk for restore
+// purposes is the serializableEndpoint type in this package.
 type Endpoint struct {
 	owner regeneration.Owner
 
