@@ -120,7 +120,7 @@ func (c *containerDClient) IsRunning(ep *endpoint.Endpoint) bool {
 // Status returns the status of the workload runtime
 func (c *containerDClient) Status() *models.Status {
 	if c == nil {
-		return &models.Status{State: models.StatusStateDisabled}
+		return workloadStatusDisabled
 	}
 
 	criStatus := c.cri.Status()

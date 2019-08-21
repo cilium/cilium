@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ func IsRunning(ep *endpoint.Endpoint) bool {
 // Status returns the status of the workload runtime
 func Status() *models.Status {
 	if Client() == nil {
-		return &models.Status{State: models.StatusStateDisabled}
+		return workloadStatusDisabled
 	}
 	return Client().Status()
 }

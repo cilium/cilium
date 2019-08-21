@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
 package workloads
 
 import (
@@ -94,7 +94,7 @@ func (c *criOClient) IsRunning(ep *endpoint.Endpoint) bool {
 // Status returns the status of the workload runtime
 func (c *criOClient) Status() *models.Status {
 	if c == nil {
-		return &models.Status{State: models.StatusStateDisabled}
+		return workloadStatusDisabled
 	}
 
 	criStatus := c.cri.Status()
