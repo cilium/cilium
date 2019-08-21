@@ -59,6 +59,7 @@ Advanced Networking
    encryption
    host-services
    nodeport
+   kubeproxy-free
    kata-gce
    ipam
 
