@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file contains functions related to conversion of information about
+// an Endpoint to its corresponding Cilium API representation.
+
 package endpoint
 
 import (
