@@ -15,7 +15,20 @@
 package endpoint
 
 import (
+	"sort"
+
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/model"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 // GetLabelsModel returns the labels of the endpoint in their representation
@@ -39,4 +52,374 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 	}
 	e.RUnlock()
 	return &cfg, nil
+}
+
+// NewEndpointFromChangeModel creates a new endpoint from a request
+func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointChangeRequest) (*Endpoint, error) {
+	if base == nil {
+		return nil, nil
+	}
+
+	ep := &Endpoint{
+		owner:            owner,
+		ID:               uint16(base.ID),
+		ContainerName:    base.ContainerName,
+		ContainerID:      base.ContainerID,
+		DockerNetworkID:  base.DockerNetworkID,
+		DockerEndpointID: base.DockerEndpointID,
+		IfName:           base.InterfaceName,
+		K8sPodName:       base.K8sPodName,
+		K8sNamespace:     base.K8sNamespace,
+		DatapathMapID:    int(base.DatapathMapID),
+		IfIndex:          int(base.InterfaceIndex),
+		OpLabels:         labels.NewOpLabels(),
+		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		state:            "",
+		Status:           NewEndpointStatus(),
+		hasBPFProgram:    make(chan struct{}, 0),
+		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		controllers:      controller.NewManager(),
+	}
+	ep.realizedPolicy = ep.desiredPolicy
+
+	if base.Mac != "" {
+		m, err := mac.ParseMAC(base.Mac)
+		if err != nil {
+			return nil, err
+		}
+		ep.LXCMAC = m
+	}
+
+	if base.HostMac != "" {
+		m, err := mac.ParseMAC(base.HostMac)
+		if err != nil {
+			return nil, err
+		}
+		ep.NodeMAC = m
+	}
+
+	if base.Addressing != nil {
+		if ip := base.Addressing.IPV6; ip != "" {
+			ip6, err := addressing.NewCiliumIPv6(ip)
+			if err != nil {
+				return nil, err
+			}
+			ep.IPv6 = ip6
+		}
+
+		if ip := base.Addressing.IPV4; ip != "" {
+			ip4, err := addressing.NewCiliumIPv4(ip)
+			if err != nil {
+				return nil, err
+			}
+			ep.IPv4 = ip4
+		}
+	}
+
+	if base.DatapathConfiguration != nil {
+		ep.DatapathConfiguration = *base.DatapathConfiguration
+	}
+
+	ep.SetDefaultOpts(option.Config.Opts)
+
+	ep.UpdateLogger(nil)
+	ep.SetStateLocked(string(base.State), "Endpoint creation")
+
+	return ep, nil
+}
+
+// GetModelRLocked returns the API model of endpoint e.
+// e.mutex must be RLocked.
+func (e *Endpoint) GetModelRLocked() *models.Endpoint {
+	if e == nil {
+		return nil
+	}
+
+	currentState := models.EndpointState(e.state)
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+		currentState = models.EndpointStateNotReady
+	}
+
+	// This returns the most recent log entry for this endpoint. It is backwards
+	// compatible with the json from before we added `cilium endpoint log` but it
+	// only returns 1 entry.
+	statusLog := e.Status.GetModel()
+	if len(statusLog) > 0 {
+		statusLog = statusLog[:1]
+	}
+
+	lblMdl := model.NewModel(&e.OpLabels)
+
+	// Sort these slices since they come out in random orders. This allows
+	// reflect.DeepEqual to succeed.
+	sort.StringSlice(lblMdl.Realized.User).Sort()
+	sort.StringSlice(lblMdl.Disabled).Sort()
+	sort.StringSlice(lblMdl.SecurityRelevant).Sort()
+	sort.StringSlice(lblMdl.Derived).Sort()
+
+	controllerMdl := e.controllers.GetStatusModel()
+	sort.Slice(controllerMdl, func(i, j int) bool { return controllerMdl[i].Name < controllerMdl[j].Name })
+
+	spec := &models.EndpointConfigurationSpec{
+		LabelConfiguration: lblMdl.Realized,
+	}
+
+	if e.Options != nil {
+		spec.Options = *e.Options.GetMutableModel()
+	}
+
+	mdl := &models.Endpoint{
+		ID:   int64(e.ID),
+		Spec: spec,
+		Status: &models.EndpointStatus{
+			// FIXME GH-3280 When we begin implementing revision numbers this will
+			// diverge from models.Endpoint.Spec to reflect the in-datapath config
+			Realized: spec,
+			Identity: e.SecurityIdentity.GetModel(),
+			Labels:   lblMdl,
+			Networking: &models.EndpointNetworking{
+				Addressing: []*models.AddressPair{{
+					IPV4: e.IPv4.String(),
+					IPV6: e.IPv6.String(),
+				}},
+				InterfaceIndex: int64(e.IfIndex),
+				InterfaceName:  e.IfName,
+				Mac:            e.LXCMAC.String(),
+				HostMac:        e.NodeMAC.String(),
+			},
+			ExternalIdentifiers: &models.EndpointIdentifiers{
+				ContainerID:      e.ContainerID,
+				ContainerName:    e.ContainerName,
+				DockerEndpointID: e.DockerEndpointID,
+				DockerNetworkID:  e.DockerNetworkID,
+				PodName:          e.GetK8sNamespaceAndPodNameLocked(),
+			},
+			// FIXME GH-3280 When we begin returning endpoint revisions this should
+			// change to return the configured and in-datapath policies.
+			Policy:      e.GetPolicyModel(),
+			Log:         statusLog,
+			Controllers: controllerMdl,
+			State:       currentState, // TODO: Validate
+			Health:      e.getHealthModel(),
+		},
+	}
+
+	return mdl
+}
+
+// GetHealthModel returns the endpoint's health object.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) getHealthModel() *models.EndpointHealth {
+	// Duplicated from GetModelRLocked.
+	currentState := models.EndpointState(e.state)
+	if currentState == models.EndpointStateReady && e.Status.CurrentStatus() != OK {
+		currentState = models.EndpointStateNotReady
+	}
+
+	h := models.EndpointHealth{
+		Bpf:           models.EndpointHealthStatusDisabled,
+		Policy:        models.EndpointHealthStatusDisabled,
+		Connected:     false,
+		OverallHealth: models.EndpointHealthStatusDisabled,
+	}
+	switch currentState {
+	case models.EndpointStateRegenerating, models.EndpointStateWaitingToRegenerate, models.EndpointStateDisconnecting:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusPending,
+			Policy:        models.EndpointHealthStatusPending,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusPending,
+		}
+	case models.EndpointStateCreating:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusBootstrap,
+			Policy:        models.EndpointHealthStatusDisabled,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateWaitingForIdentity:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusDisabled,
+			Policy:        models.EndpointHealthStatusBootstrap,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateNotReady:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusWarning,
+			Policy:        models.EndpointHealthStatusWarning,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusWarning,
+		}
+	case models.EndpointStateDisconnected:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusDisabled,
+			Policy:        models.EndpointHealthStatusDisabled,
+			Connected:     false,
+			OverallHealth: models.EndpointHealthStatusDisabled,
+		}
+	case models.EndpointStateReady:
+		h = models.EndpointHealth{
+			Bpf:           models.EndpointHealthStatusOK,
+			Policy:        models.EndpointHealthStatusOK,
+			Connected:     true,
+			OverallHealth: models.EndpointHealthStatusOK,
+		}
+	}
+
+	return &h
+}
+
+// GetHealthModel returns the endpoint's health object.
+func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
+	// NOTE: Using rlock on mutex directly because getHealthModel handles removed endpoint properly
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.getHealthModel()
+}
+
+// GetModel returns the API model of endpoint e.
+func (e *Endpoint) GetModel() *models.Endpoint {
+	if e == nil {
+		return nil
+	}
+	// NOTE: Using rlock on mutex directly because GetModelRLocked handles removed endpoint properly
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	return e.GetModelRLocked()
+}
+
+// GetPolicyModel returns the endpoint's policy as an API model.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
+	if e == nil {
+		return nil
+	}
+
+	if e.SecurityIdentity == nil {
+		return nil
+	}
+
+	realizedIngressIdentities := make([]int64, 0)
+	realizedEgressIdentities := make([]int64, 0)
+
+	for policyMapKey := range e.realizedPolicy.PolicyMapState {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the Key no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
+		case trafficdirection.Ingress:
+			realizedIngressIdentities = append(realizedIngressIdentities, int64(policyMapKey.Identity))
+		case trafficdirection.Egress:
+			realizedEgressIdentities = append(realizedEgressIdentities, int64(policyMapKey.Identity))
+		default:
+			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in realized PolicyMap state for endpoint")
+		}
+	}
+
+	desiredIngressIdentities := make([]int64, 0)
+	desiredEgressIdentities := make([]int64, 0)
+
+	for policyMapKey := range e.desiredPolicy.PolicyMapState {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the Key no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
+		case trafficdirection.Ingress:
+			desiredIngressIdentities = append(desiredIngressIdentities, int64(policyMapKey.Identity))
+		case trafficdirection.Egress:
+			desiredEgressIdentities = append(desiredEgressIdentities, int64(policyMapKey.Identity))
+		default:
+			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in desired PolicyMap state for endpoint")
+		}
+	}
+
+	policyEnabled := e.policyStatus()
+
+	e.proxyStatisticsMutex.RLock()
+	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
+	for _, stats := range e.proxyStatistics {
+		proxyStats = append(proxyStats, stats.DeepCopy())
+	}
+	e.proxyStatisticsMutex.RUnlock()
+	sortProxyStats(proxyStats)
+
+	var (
+		realizedCIDRPolicy *policy.CIDRPolicy
+		realizedL4Policy   *policy.L4Policy
+	)
+	if e.realizedPolicy != nil {
+		realizedL4Policy = e.realizedPolicy.L4Policy
+		realizedCIDRPolicy = e.realizedPolicy.CIDRPolicy
+	}
+
+	mdl := &models.EndpointPolicy{
+		ID: int64(e.SecurityIdentity.ID),
+		// This field should be removed.
+		Build:                    int64(e.policyRevision),
+		PolicyRevision:           int64(e.policyRevision),
+		AllowedIngressIdentities: realizedIngressIdentities,
+		AllowedEgressIdentities:  realizedEgressIdentities,
+		CidrPolicy:               realizedCIDRPolicy.GetModel(),
+		L4:                       realizedL4Policy.GetModel(),
+		PolicyEnabled:            policyEnabled,
+	}
+
+	var (
+		desiredCIDRPolicy *policy.CIDRPolicy
+		desiredL4Policy   *policy.L4Policy
+	)
+	if e.desiredPolicy != nil {
+		desiredCIDRPolicy = e.desiredPolicy.CIDRPolicy
+		desiredL4Policy = e.desiredPolicy.L4Policy
+	}
+
+	desiredMdl := &models.EndpointPolicy{
+		ID: int64(e.SecurityIdentity.ID),
+		// This field should be removed.
+		Build:                    int64(e.nextPolicyRevision),
+		PolicyRevision:           int64(e.nextPolicyRevision),
+		AllowedIngressIdentities: desiredIngressIdentities,
+		AllowedEgressIdentities:  desiredEgressIdentities,
+		CidrPolicy:               desiredCIDRPolicy.GetModel(),
+		L4:                       desiredL4Policy.GetModel(),
+		PolicyEnabled:            policyEnabled,
+	}
+	// FIXME GH-3280 Once we start returning revisions Realized should be the
+	// policy implemented in the data path
+	return &models.EndpointPolicyStatus{
+		Spec:                desiredMdl,
+		Realized:            mdl,
+		ProxyPolicyRevision: int64(e.proxyPolicyRevision),
+		ProxyStatistics:     proxyStats,
+	}
+}
+
+// policyStatus returns the endpoint's policy status
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
+	policyEnabled := models.EndpointPolicyEnabledNone
+	switch {
+	case e.realizedPolicy.IngressPolicyEnabled && e.realizedPolicy.EgressPolicyEnabled:
+		policyEnabled = models.EndpointPolicyEnabledBoth
+	case e.realizedPolicy.IngressPolicyEnabled:
+		policyEnabled = models.EndpointPolicyEnabledIngress
+	case e.realizedPolicy.EgressPolicyEnabled:
+		policyEnabled = models.EndpointPolicyEnabledEgress
+	}
+	return policyEnabled
 }
