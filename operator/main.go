@@ -213,7 +213,9 @@ func runOperator(cmd *cobra.Command) {
 	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
 	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
 	kvStore = viper.GetString(option.KVStore)
-	kvStoreOpts = viper.GetStringMapString(option.KVStoreOpt)
+	if m := viper.GetStringMapString(option.KVStoreOpt); len(m) > 0 {
+		kvStoreOpts = m
+	}
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 	if err := k8s.Init(); err != nil {
