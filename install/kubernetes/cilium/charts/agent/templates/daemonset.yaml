@@ -69,6 +69,14 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
+{{- if .Values.global.k8sServiceHost }}
+        - name: KUBERNETES_SERVICE_HOST
+          value: {{ .Values.global.k8sServiceHost | quote }}
+{{- end }}
+{{- if .Values.global.k8sServicePort }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ .Values.global.k8sServicePort | quote }}
+{{- end }}
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
