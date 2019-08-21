@@ -664,14 +664,14 @@ func parseBase64ToEndpoint(str string, ep *Endpoint) error {
 	}
 
 	// We may have to populate structures in the Endpoint manually to do the
-	// translation from restoredEndpoint --> Endpoint.
-	log.Info("parsing restoredEndpoint marshaled into headerfile")
-	restoredEp := &restoredEndpoint{
+	// translation from serializableEndpoint --> Endpoint.
+	log.Info("parsing serializableEndpoint marshaled into headerfile")
+	restoredEp := &serializableEndpoint{
 		OpLabels:   pkgLabels.NewOpLabels(),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 	}
 	if err := json.Unmarshal(jsonBytes, restoredEp); err != nil {
-		return fmt.Errorf("error unmarshaling restoredEndpoint from base64 representation: %s", err)
+		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
 	}
 
 	restoredEp.populateEndpoint(ep)
