@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -34,6 +35,70 @@ func getStarWarsResourceLink(file string) string {
 	// https:// and results in a malformed URL.
 	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
 }
+
+var _ = Describe("K8sCiliumOperator", func() {
+	var (
+		kubectl          *helpers.Kubectl
+		microscopeErr    error
+		microscopeCancel = func() error { return nil }
+
+		backgroundCancel context.CancelFunc = func() { return }
+		backgroundError  error
+	)
+
+	BeforeAll(func() {
+		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		DeployCiliumAndDNS(kubectl)
+	})
+
+	AfterFailed(func() {
+		kubectl.CiliumReport(helpers.KubeSystemNamespace,
+			"cilium endpoint list",
+			"cilium service list")
+	})
+
+	JustBeforeEach(func() {
+		microscopeErr, microscopeCancel = kubectl.MicroscopeStart()
+		Expect(microscopeErr).To(BeNil(), "Microscope cannot be started")
+
+		backgroundCancel, backgroundError = kubectl.BackgroundReport("uptime")
+		Expect(backgroundError).To(BeNil(), "Cannot start background report process")
+	})
+
+	JustAfterEach(func() {
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		Expect(microscopeCancel()).To(BeNil(), "cannot stop microscope")
+		backgroundCancel()
+	})
+
+	It("Tests CiliumOperator", func() {
+		for i := 0; i < 100; i++ {
+			deleteCiliumDS(kubectl)
+			command := "kubectl delete -n kube-system deploy cilium-operator"
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			kubectl.ExecContext(ctx, command).ExpectSuccess("Cannot delete cilium operator")
+			cancel()
+
+			DeployCiliumAndDNS(kubectl)
+
+			start := time.Now()
+			ctxStart, cancelStart := context.WithTimeout(context.Background(), time.Minute)
+			ExpectCiliumOperatorReady(kubectl)
+			select {
+			case <-ctxStart.Done():
+				By(fmt.Sprintf("cilium-operator was slow, took %s", time.Since(start)))
+				Expect(false).To(BeTrue(), "5min timeout happened")
+				cancelStart()
+				return
+
+			default:
+				// ok
+				By(fmt.Sprintf("cilium-operator was quick, took %s", time.Since(start)))
+				cancelStart()
+			}
+		}
+	})
+})
 
 var _ = Describe("K8sDemosTest", func() {
 
