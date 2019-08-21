@@ -28,7 +28,7 @@ resource "packet_device" "test" {
     count            = "${var.nodes}"
     hostname         = "test-${count.index}"
     plan             = "${var.packet_plan}"
-    facility         = "${var.packet_location}"
+    facilities       = ["${var.packet_location}"]
     operating_system = "ubuntu_18_04"
     billing_cycle    = "hourly"
     project_id       = "${var.packet_project_id}"
