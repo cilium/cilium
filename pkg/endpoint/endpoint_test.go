@@ -19,6 +19,7 @@ package endpoint
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,13 +29,14 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/revert"
 
 	. "gopkg.in/check.v1"
@@ -49,7 +51,27 @@ var (
 func Test(t *testing.T) { TestingT(t) }
 
 type EndpointSuite struct {
-	repo *policy.Repository
+	regeneration.Owner
+	repo             *policy.Repository
+	compilationMutex *lock.RWMutex
+	datapath         datapath.Datapath
+
+	// Owners interface mock
+	OnTracingEnabled          func() bool
+	OnAlwaysAllowLocalhost    func() bool
+	OnGetCachedLabelList      func(id identity.NumericIdentity) (pkgLabels.LabelArray, error)
+	OnGetPolicyRepository     func() *policy.Repository
+	OnUpdateProxyRedirect     func(e regeneration.EndpointUpdater, l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (uint16, error, revert.FinalizeFunc, revert.RevertFunc)
+	OnRemoveProxyRedirect     func(e regeneration.EndpointInfoSource, id string, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+	OnUpdateNetworkPolicy     func(e regeneration.EndpointUpdater, policy *policy.L4Policy, proxyWaitGroup *completion.WaitGroup) (error, revert.RevertFunc)
+	OnRemoveNetworkPolicy     func(e regeneration.EndpointInfoSource)
+	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
+	OnRemoveFromEndpointQueue func(epID uint64)
+	OnDebugEnabled            func() bool
+	OnGetCompilationLock      func() *lock.RWMutex
+	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
+	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
+	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
@@ -94,7 +116,7 @@ func (s *EndpointSuite) SendNotification(typ monitorAPI.AgentNotification, text 
 }
 
 func (s *EndpointSuite) Datapath() datapath.Datapath {
-	return nil
+	return s.datapath
 }
 
 func (s *EndpointSuite) GetNodeSuffix() string {

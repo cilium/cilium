@@ -1,0 +1,165 @@
+// Copyright 2016-2019 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// +build !privileged_tests
+
+package endpoint
+
+import (
+	"encoding/binary"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
+	"sort"
+
+	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/checker"
+	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/mac"
+	. "gopkg.in/check.v1"
+)
+
+func (ds *EndpointSuite) createEndpoints() ([]*Endpoint, map[uint16]*Endpoint) {
+	epsWanted := []*Endpoint{
+		ds.endpointCreator(256, identity.NumericIdentity(1256)),
+		ds.endpointCreator(257, identity.NumericIdentity(1257)),
+		ds.endpointCreator(258, identity.NumericIdentity(1258)),
+		ds.endpointCreator(259, identity.NumericIdentity(1259)),
+	}
+	epsMap := map[uint16]*Endpoint{
+		epsWanted[0].ID: epsWanted[0],
+		epsWanted[1].ID: epsWanted[1],
+		epsWanted[2].ID: epsWanted[2],
+		epsWanted[3].ID: epsWanted[3],
+	}
+	return epsWanted, epsMap
+}
+
+func getStrID(id uint16) string {
+	return fmt.Sprintf("%05d", id)
+}
+
+func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentity) *Endpoint {
+	strID := getStrID(id)
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, id)
+
+	identity := &identity.Identity{
+		ID: secID,
+		Labels: labels.Labels{
+			"foo" + strID: labels.NewLabel("foo"+strID, "", ""),
+		},
+	}
+	identity.Sanitize()
+
+	repo := ds.GetPolicyRepository()
+	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
+
+	ep := NewEndpointWithState(ds, id, StateReady)
+	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
+	ep.DockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
+	ep.DockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
+	ep.IfName = "lxc" + strID
+	ep.LXCMAC = mac.MAC([]byte{0x01, 0xff, 0xf2, 0x12, b[0], b[1]})
+	ep.IPv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
+	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
+	ep.IfIndex = 1
+	ep.SetNodeMACLocked(mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}))
+	ep.SecurityIdentity = identity
+	ep.OpLabels = labels.NewOpLabels()
+	return ep
+}
+
+var (
+	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
+		Reason: "test",
+	}
+)
+
+func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
+	// For this test, the real linux datapath is necessary to properly
+	// serialize config files to disk and test the restore.
+	oldDatapath := ds.datapath
+	defer func() {
+		ds.datapath = oldDatapath
+	}()
+	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
+
+	epsWanted, _ := ds.createEndpoints()
+	tmpDir, err := ioutil.TempDir("", "cilium-tests")
+	defer func() {
+		os.RemoveAll(tmpDir)
+	}()
+
+	os.Chdir(tmpDir)
+	c.Assert(err, IsNil)
+	epsNames := []string{}
+	c.Assert(err, IsNil)
+	for _, ep := range epsWanted {
+		c.Assert(ep, NotNil)
+
+		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+		err := os.MkdirAll(fullDirName, 0777)
+		c.Assert(err, IsNil)
+
+		err = ep.writeHeaderfile(fullDirName)
+		c.Assert(err, IsNil)
+
+		switch ep.ID {
+		case 256, 257:
+			failedDir := filepath.Join(tmpDir, ep.FailedDirectoryPath())
+			err := os.Rename(fullDirName, failedDir)
+			c.Assert(err, IsNil)
+			epsNames = append(epsNames, ep.FailedDirectoryPath())
+
+			// create one failed and the other non failed directory for ep 256.
+			if ep.ID == 256 {
+				// Change endpoint a little bit so we know which endpoint is in
+				// "256_next_fail" and with one is in the "256" directory.
+				ep.NodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
+				err = ep.writeHeaderfile(failedDir)
+				c.Assert(err, IsNil)
+				epsNames = append(epsNames, ep.DirectoryPath())
+			}
+		default:
+			epsNames = append(epsNames, ep.DirectoryPath())
+		}
+	}
+	eps := ReadEPsFromDirNames(ds, tmpDir, epsNames)
+	c.Assert(len(eps), Equals, len(epsWanted))
+
+	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
+	var restoredEPs []*Endpoint
+	for _, ep := range eps {
+		restoredEPs = append(restoredEPs, ep)
+	}
+	sort.Slice(restoredEPs, func(i, j int) bool { return restoredEPs[i].ID < restoredEPs[j].ID })
+
+	c.Assert(len(restoredEPs), Equals, len(epsWanted))
+	for i, restoredEP := range restoredEPs {
+		// We probably shouldn't modify these, but the status will
+		// naturally differ between the wanted endpoint and the version
+		// that's restored, because the restored version has log
+		// messages relating to the restore.
+		restoredEP.Status = nil
+		wanted := epsWanted[i]
+		wanted.Status = nil
+		c.Assert(restoredEP.String(), checker.DeepEquals, wanted.String())
+	}
+}
