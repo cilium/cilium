@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -231,10 +232,10 @@ func (e *Endpoint) restoreIdentity() error {
 	return nil
 }
 
-// toRestoredEndpoint converts the Endpoint to its corresponding
+// toSerializedEndpoint converts the Endpoint to its corresponding
 // serializableEndpoint, which contains all of the fields that are needed upon
 // restoring an Endpoint after cilium-agent restarts.
-func (e *Endpoint) toRestoredEndpoint() *serializableEndpoint {
+func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 
 	return &serializableEndpoint{
 		ID:                    e.ID,
@@ -339,6 +340,29 @@ type serializableEndpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
+}
+
+// UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
+// which is then converted into an Endpoint.
+func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
+	// We may have to populate structures in the Endpoint manually to do the
+	// translation from serializableEndpoint --> Endpoint.
+	log.Info("parsing serializableEndpoint marshaled into headerfile")
+	restoredEp := &serializableEndpoint{
+		OpLabels:   labels.NewOpLabels(),
+		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+	}
+	if err := json.Unmarshal(raw, restoredEp); err != nil {
+		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
+	}
+
+	ep.fromSerializedEndpoint(restoredEp)
+	return nil
+}
+
+// MarshalJSON marshals the Endpoint as its serializableEndpoint representation.
+func (ep *Endpoint) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ep.toSerializedEndpoint())
 }
 
 func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
