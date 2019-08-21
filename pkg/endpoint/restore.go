@@ -232,11 +232,11 @@ func (e *Endpoint) restoreIdentity() error {
 }
 
 // toRestoredEndpoint converts the Endpoint to its corresponding
-// restoredEndpoint, which contains all of the fields that are needed upon
+// serializableEndpoint, which contains all of the fields that are needed upon
 // restoring an Endpoint after cilium-agent restarts.
-func (e *Endpoint) toRestoredEndpoint() *restoredEndpoint {
+func (e *Endpoint) toRestoredEndpoint() *serializableEndpoint {
 
-	return &restoredEndpoint{
+	return &serializableEndpoint{
 		ID:                    e.ID,
 		ContainerName:         e.ContainerName,
 		ContainerID:           e.ContainerID,
@@ -259,7 +259,7 @@ func (e *Endpoint) toRestoredEndpoint() *restoredEndpoint {
 	}
 }
 
-// restoredEndpoint contains the fields from an Endpoint which are needed to be
+// serializableEndpoint contains the fields from an Endpoint which are needed to be
 // restored if cilium-agent restarts.
 //
 //
@@ -270,7 +270,7 @@ func (e *Endpoint) toRestoredEndpoint() *restoredEndpoint {
 // marked as private to JSON marshal. Do NOT modify this structure in ways which
 // is not JSON forward compatible.
 //
-type restoredEndpoint struct {
+type serializableEndpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
@@ -341,7 +341,7 @@ type restoredEndpoint struct {
 	DatapathConfiguration models.EndpointDatapathConfiguration
 }
 
-func (r *restoredEndpoint) populateEndpoint(ep *Endpoint) {
+func (r *serializableEndpoint) populateEndpoint(ep *Endpoint) {
 	ep.ID = r.ID
 	ep.ContainerName = r.ContainerName
 	ep.ContainerID = r.ContainerID
