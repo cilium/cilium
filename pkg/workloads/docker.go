@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -252,7 +252,7 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 // Status returns the status of the workload runtime
 func (d *dockerClient) Status() *models.Status {
 	if d == nil {
-		return &models.Status{State: models.StatusStateDisabled}
+		return workloadStatusDisabled
 	}
 
 	if _, err := d.Info(ctx.Background()); err != nil {
