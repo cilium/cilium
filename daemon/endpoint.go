@@ -389,6 +389,17 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 	return &patchEndpointID{d: d}
 }
 
+// validPatchTransitionState checks whether the state to which the provided
+// model specifies is one to which an Endpoint can transition as part of a
+// call to PATCH on an Endpoint.
+func validPatchTransitionState(state models.EndpointState) bool {
+	switch string(state) {
+	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
+		return true
+	}
+	return false
+}
+
 func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Responder {
 	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
 	scopedLog.Debug("PATCH /endpoint/{id} request")
@@ -402,10 +413,14 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 		return api.Error(PutEndpointIDInvalidCode, err2)
 	}
 
+	var validStateTransition bool
+
 	// Log invalid state transitions, but do not error out for backwards
 	// compatibility.
-	if !endpoint.ValidPatchTransitionState(epTemplate.State) {
+	if !validPatchTransitionState(epTemplate.State) {
 		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", epTemplate.State)
+	} else {
+		validStateTransition = true
 	}
 
 	ep, err := endpointmanager.Lookup(params.ID)
@@ -425,7 +440,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	//  - docker endpoint id
 	//
 	//  Support arbitrary changes? Support only if unset?
-	reason, err := ep.ProcessChangeRequest(epTemplate, newEp)
+	reason, err := ep.ProcessChangeRequest(newEp, validStateTransition)
 	if err != nil {
 		return NewPatchEndpointIDNotFound()
 	}

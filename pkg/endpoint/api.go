@@ -43,23 +43,12 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 	return &cfg, nil
 }
 
-// ValidPatchTransitionState checks whether the state to which the provided
-// model specifies is one to which an Endpoint can transition as part of a
-// call to PATCH on an Endpoint.
-func ValidPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
-	case "", StateWaitingForIdentity, StateReady:
-		return true
-	}
-	return false
-}
-
 // ProcessChangeRequest handles the update logic for performing a PATCH operation
 // on a given Endpoint. Returns the reason which will be used for informational
 // purposes should a caller choose to try to regenerate this endpoint, as well
 // as an error if the Endpoint is being deleted, since there is no point in
 // changing an Endpoint if it is going to be deleted.
-func (e *Endpoint) ProcessChangeRequest(epTemplate *models.EndpointChangeRequest, newEp *Endpoint) (string, error) {
+func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionState bool) (string, error) {
 	var (
 		changed bool
 		reason  string
@@ -70,12 +59,12 @@ func (e *Endpoint) ProcessChangeRequest(epTemplate *models.EndpointChangeRequest
 	}
 	defer e.Unlock()
 
-	if epTemplate.InterfaceIndex != 0 && e.IfIndex != newEp.IfIndex {
+	if newEp.IfIndex != 0 && e.IfIndex != newEp.IfIndex {
 		e.IfIndex = newEp.IfIndex
 		changed = true
 	}
 
-	if epTemplate.InterfaceName != "" && e.IfName != newEp.IfName {
+	if newEp.IfName != "" && e.IfName != newEp.IfName {
 		e.IfName = newEp.IfName
 		changed = true
 	}
@@ -85,8 +74,8 @@ func (e *Endpoint) ProcessChangeRequest(epTemplate *models.EndpointChangeRequest
 	// existence of the security label below. Other transitions
 	// are always internally managed, but we do not error out for
 	// backwards compatibility.
-	if epTemplate.State != "" &&
-		ValidPatchTransitionState(epTemplate.State) &&
+	if newEp.state != "" &&
+		validPatchTransitionState &&
 		e.GetStateLocked() != StateWaitingForIdentity {
 		// Will not change state if the current state does not allow the transition.
 		if e.SetStateLocked(StateWaitingForIdentity, "Update endpoint from API PATCH") {
@@ -94,26 +83,24 @@ func (e *Endpoint) ProcessChangeRequest(epTemplate *models.EndpointChangeRequest
 		}
 	}
 
-	if epTemplate.Mac != "" && bytes.Compare(e.LXCMAC, newEp.LXCMAC) != 0 {
+	if len(newEp.LXCMAC) != 0 && bytes.Compare(e.LXCMAC, newEp.LXCMAC) != 0 {
 		e.LXCMAC = newEp.LXCMAC
 		changed = true
 	}
 
-	if epTemplate.HostMac != "" && bytes.Compare(e.GetNodeMAC(), newEp.NodeMAC) != 0 {
+	if len(newEp.NodeMAC) != 0 && bytes.Compare(e.GetNodeMAC(), newEp.NodeMAC) != 0 {
 		e.SetNodeMACLocked(newEp.NodeMAC)
 		changed = true
 	}
 
-	if epTemplate.Addressing != nil {
-		if ip := epTemplate.Addressing.IPV6; ip != "" && bytes.Compare(e.IPv6, newEp.IPv6) != 0 {
-			e.IPv6 = newEp.IPv6
-			changed = true
-		}
+	if ip := newEp.IPv6; len(ip) != 0 && bytes.Compare(e.IPv6, newEp.IPv6) != 0 {
+		e.IPv6 = newEp.IPv6
+		changed = true
+	}
 
-		if ip := epTemplate.Addressing.IPV4; ip != "" && bytes.Compare(e.IPv4, newEp.IPv4) != 0 {
-			e.IPv4 = newEp.IPv4
-			changed = true
-		}
+	if ip := newEp.IPv4; len(ip) != 0 && bytes.Compare(e.IPv4, newEp.IPv4) != 0 {
+		e.IPv4 = newEp.IPv4
+		changed = true
 	}
 
 	// TODO: Do something with the labels?
