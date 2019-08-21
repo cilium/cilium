@@ -341,7 +341,7 @@ type serializableEndpoint struct {
 	DatapathConfiguration models.EndpointDatapathConfiguration
 }
 
-func (r *serializableEndpoint) populateEndpoint(ep *Endpoint) {
+func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
 	ep.ContainerName = r.ContainerName
 	ep.ContainerID = r.ContainerID
