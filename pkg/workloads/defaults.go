@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2019 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -30,6 +31,13 @@ const (
 	// EndpointCorrelationMaxRetries is the number of retries to correlate
 	// a workload start event with an existing endpoint before giving up.
 	EndpointCorrelationMaxRetries = 20
+)
+
+var (
+	workloadStatusDisabled = &models.Status{
+		State: models.StatusStateOk,
+		Msg:   models.StatusStateDisabled,
+	}
 )
 
 // EndpointCorrelationSleepTime returns the sleep time between correlation

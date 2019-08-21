@@ -102,7 +102,7 @@ func (c *criClient) IsRunning(ep *endpoint.Endpoint) bool {
 // Status returns the status of the workload runtime
 func (c *criClient) Status() *models.Status {
 	if c == nil {
-		return &models.Status{State: models.StatusStateDisabled}
+		return workloadStatusDisabled
 	}
 
 	sreq := &criRuntime.StatusRequest{
