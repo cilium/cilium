@@ -677,7 +677,7 @@ func parseBase64ToEndpoint(str string, ep *Endpoint) error {
 		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
 	}
 
-	restoredEp.populateEndpoint(ep)
+	ep.fromSerializedEndpoint(restoredEp)
 	return nil
 }
 
