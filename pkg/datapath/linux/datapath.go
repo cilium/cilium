@@ -81,5 +81,5 @@ func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name st
 }
 
 func (l *linuxDatapath) SupportsOriginalSourceAddr() bool {
-	return l.ruleManager.SupportsOriginalSourceAddr()
+	return false // l.ruleManager.SupportsOriginalSourceAddr()
 }
