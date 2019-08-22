@@ -250,7 +250,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		LXCMAC:                e.mac,
 		IPv6:                  e.IPv6,
 		IPv4:                  e.IPv4,
-		NodeMAC:               e.NodeMAC,
+		NodeMAC:               e.nodeMAC,
 		SecurityIdentity:      e.SecurityIdentity,
 		Options:               e.Options,
 		DNSHistory:            e.DNSHistory,
@@ -316,7 +316,7 @@ type serializableEndpoint struct {
 	// IPv4 is the IPv4 address of the endpoint
 	IPv4 addressing.CiliumIPv4
 
-	// NodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
+	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	NodeMAC mac.MAC
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
@@ -378,7 +378,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
 	ep.IPv4 = r.IPv4
-	ep.NodeMAC = r.NodeMAC
+	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
 	ep.DNSHistory = r.DNSHistory
 	ep.K8sPodName = r.K8sPodName

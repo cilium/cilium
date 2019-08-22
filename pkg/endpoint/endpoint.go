@@ -164,8 +164,8 @@ type Endpoint struct {
 	// IPv4 is the IPv4 address of the endpoint
 	IPv4 addressing.CiliumIPv4
 
-	// NodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
-	NodeMAC mac.MAC
+	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
+	nodeMAC mac.MAC
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
@@ -519,12 +519,12 @@ func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
 
 // GetNodeMAC returns the MAC address of the node from this endpoint's perspective.
 func (e *Endpoint) GetNodeMAC() mac.MAC {
-	return e.NodeMAC
+	return e.nodeMAC
 }
 
 // SetNodeMACLocked updates the node MAC inside the endpoint.
 func (e *Endpoint) SetNodeMACLocked(m mac.MAC) {
-	e.NodeMAC = m
+	e.nodeMAC = m
 }
 
 func (e *Endpoint) HasSidecarProxy() bool {
