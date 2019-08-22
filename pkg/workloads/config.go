@@ -98,11 +98,11 @@ type allocatorInterface interface {
 
 // Setup sets up the workload runtime specified in workloadRuntime and configures it
 // with the options provided in opts
-func Setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, epMgr *endpointmanager.EndpointManager) error {
-	return setup(a, workloadRuntimes, opts, false, epMgr)
+func Setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string) error {
+	return setup(a, epMgr, workloadRuntimes, opts, false)
 }
 
-func setup(a allocatorInterface, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool, epMgr *endpointmanager.EndpointManager) error {
+func setup(a allocatorInterface, epMgr *endpointmanager.EndpointManager, workloadRuntimes []string, opts map[WorkloadRuntimeType]map[string]string, bypassStatusCheck bool) error {
 	var (
 		st  *models.Status
 		err error

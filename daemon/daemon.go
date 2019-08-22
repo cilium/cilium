@@ -1020,7 +1020,7 @@ func (d *Daemon) bootstrapWorkloads() error {
 
 		// Workloads must be initialized after IPAM has started as it requires
 		// to allocate IPs.
-		if err := workloads.Setup(d.ipam, option.Config.Workloads, opts, d.endpointManager); err != nil {
+		if err := workloads.Setup(d.ipam, d.endpointManager, option.Config.Workloads, opts); err != nil {
 			return fmt.Errorf("unable to setup workload: %s", err)
 		}
 
