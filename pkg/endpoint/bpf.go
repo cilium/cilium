@@ -43,7 +43,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -1145,4 +1144,23 @@ func (e *Endpoint) RequireRouting() (required bool) {
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route
 func (e *Endpoint) RequireEndpointRoute() bool {
 	return e.DatapathConfiguration.InstallEndpointRoute
+}
+
+type linkCheckerFunc func(string) error
+
+// ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed
+// depending on if it is conected via veth or IPVLAN.
+func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error {
+	if e.HasIpvlanDataPath() {
+		// FIXME: We cannot check whether ipvlan slave netdev exists,
+		// because it requires entering container netns which is not
+		// always accessible (e.g. in k8s case "/proc" has to be bind
+		// mounted). Instead, we check whether the tail call map exists.
+		if _, err := os.Stat(e.BPFIpvlanMapPath()); err != nil {
+			return fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
+		}
+	} else if err := linkChecker(e.IfName); err != nil {
+		return fmt.Errorf("interface %s could not be found", e.IfName)
+	}
+	return nil
 }

@@ -141,3 +141,9 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.Endpoin
 
 	return veth, &peer, nil
 }
+
+// CheckLink returns an error if a link with linkName does not exist.
+func CheckLink(linkName string) error {
+	_, err := netlink.LinkByName(linkName)
+	return err
+}

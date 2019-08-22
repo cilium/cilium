@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/connector"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -34,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/workloads"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -76,16 +76,8 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		}
 	}
 
-	if ep.HasIpvlanDataPath() {
-		// FIXME: We cannot check whether ipvlan slave netdev exists,
-		// because it requires entering container netns which is not
-		// always accessible (e.g. in k8s case "/proc" has to be bind
-		// mounted). Instead, we check whether the tail call map exists.
-		if _, err := os.Stat(ep.BPFIpvlanMapPath()); err != nil {
-			return false, fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
-		}
-	} else if _, err := netlink.LinkByName(ep.IfName); err != nil {
-		return false, fmt.Errorf("interface %s could not be found", ep.IfName)
+	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {
+		return false, err
 	}
 
 	if option.Config.WorkloadsEnabled() && !workloads.IsRunning(ep) {
