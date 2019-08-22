@@ -1028,6 +1028,13 @@ func (e *Endpoint) RegenerateWait(reason string) error {
 	return nil
 }
 
+// GetContainerName returns the name of the container for the endpoint.
+func (e *Endpoint) GetContainerName() string {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+	return e.ContainerName
+}
+
 // SetContainerName modifies the endpoint's container name
 func (e *Endpoint) SetContainerName(name string) {
 	e.UnconditionalLock()
