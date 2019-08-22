@@ -19,12 +19,11 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"os"
-	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/sysctl"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -78,32 +77,9 @@ func truncateString(epID string, maxLen uint) string {
 	return epID
 }
 
-// WriteSysConfig tries to emulate a sysctl call by writing directly to the
-// given fileName the given value.
-func WriteSysConfig(fileName, value string) error {
-	f, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		return fmt.Errorf("unable to open configuration file: %s", err)
-	}
-	_, err = f.WriteString(value)
-	if err != nil {
-		f.Close()
-		return fmt.Errorf("unable to write value: %s", err)
-	}
-	err = f.Close()
-	if err != nil {
-		return fmt.Errorf("unable to close configuration file: %s", err)
-	}
-	return nil
-}
-
 // DisableRpFilter tries to disable rpfilter on specified interface
 func DisableRpFilter(ifName string) error {
-	rpFilterPath := filepath.Join("/proc", "sys", "net", "ipv4", "conf", ifName, "rp_filter")
-	if err := WriteSysConfig(rpFilterPath, "0\n"); err != nil {
-		return fmt.Errorf("unable to disable %s: %s", rpFilterPath, err)
-	}
-	return nil
+	return sysctl.Disable(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName))
 }
 
 // GetNetInfoFromPID returns the index of the interface parent, the MAC address
