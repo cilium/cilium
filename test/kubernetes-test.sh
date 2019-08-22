@@ -3,10 +3,9 @@
 helm template install/kubernetes/cilium \
   --namespace=kube-system \
   --set global.registry=k8s1:5000/cilium \
+  --set global.tag=latest \
   --set agent.image=cilium-dev \
-  --set agent.tag=latest \
   --set operator.image=operator \
-  --set operator.tag=latest \
   --set global.debug.enabled=true \
   --set global.k8s.requireIPv4PodCIDR=true \
   --set global.pprof.enabled=true \
