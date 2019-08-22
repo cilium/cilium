@@ -467,7 +467,7 @@ func (d *dockerClient) handleCreateWorkload(id string, retry bool) {
 
 		// Finish ipvlan initialization if endpoint is connected via Docker libnetwork (cilium-docker)
 		if d.datapathMode == option.DatapathModeIpvlan {
-			if err := ep.FinishIPVLANInit(&connector.DockerNetNSConfigurer{}, sandboxKey); err != nil {
+			if err := ep.FinishIPVLANInit(connector.ConfigureNetNSForIPVLAN, sandboxKey); err != nil {
 				retryLog.WithError(err).Warn("Cannot finish ipvlan initialization")
 				continue
 			}
