@@ -54,3 +54,8 @@ func Disable(name string) error {
 func Enable(name string) error {
 	return writeSysctl(name, "1")
 }
+
+// Write writes the given sysctl parameter.
+func Write(name string, val string) error {
+	return writeSysctl(name, val)
+}
