@@ -336,7 +336,7 @@ func (m *IptablesManager) Init() {
 	}
 	m.haveIp6tables = ip6tables
 
-	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
+	if err := modulesManager.FindOrLoadModules("xt_socket"); err == nil {
 		log.WithError(err).Warning("xt_socket kernel module could not be loaded")
 		if option.Config.Tunnel == option.TunnelDisabled {
 			log.Warning("Traffic to endpoints with L7 ingress policy may be dropped unexpectedly")
