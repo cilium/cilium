@@ -948,11 +948,6 @@ func setupIPSec() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if option.Config.EnableIPv6 {
-		if err := ipsec.EnableIPv6Forwarding(); err != nil {
-			return 0, err
-		}
-	}
 	node.SetIPsecKeyIdentity(spi)
 	if option.Config.EncryptNode == false {
 		ipsec.DeleteIPsecEncryptRoute()

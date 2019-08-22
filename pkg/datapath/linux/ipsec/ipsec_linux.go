@@ -21,10 +21,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -32,9 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
-	"github.com/vishvananda/netlink"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 )
 
 type IPSecDir string
@@ -454,16 +452,6 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	}
 	encrypt.MapUpdateContext(0, spi)
 	return keyLen, spi, nil
-}
-
-// EnableIPv6Forwarding sets proc file to enable IPv6 forwarding
-func EnableIPv6Forwarding() error {
-	ip6ConfPath := "/proc/sys/net/ipv6/conf/"
-	device := "all"
-	forwarding := "forwarding"
-	forwardingOn := "1"
-	path := filepath.Join(ip6ConfPath, device, forwarding)
-	return ioutil.WriteFile(path, []byte(forwardingOn), 0644)
 }
 
 // DeleteIPsecEncryptRoute removes nodes in main routing table by walking
