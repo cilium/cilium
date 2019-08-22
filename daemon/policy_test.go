@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -547,8 +548,26 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 
 type dummyManager struct{}
 
-func (d *dummyManager) Remove(ep *endpoint.Endpoint) <-chan struct{} {
-	return nil
+func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
+	return uint16(1), nil
+}
+
+func (d *dummyManager) RunK8sCiliumEndpointSync(*endpoint.Endpoint) {
+}
+
+func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *endpoint.Endpoint) {
+}
+
+func (d *dummyManager) UpdateIDReference(*endpoint.Endpoint) {
+}
+
+func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
+}
+
+func (d *dummyManager) RemoveID(uint16) {
+}
+
+func (d *dummyManager) ReleaseID(*endpoint.Endpoint) {
 }
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {

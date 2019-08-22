@@ -69,7 +69,7 @@ func processCreateWorkload(ep *endpoint.Endpoint, containerID string, allLabels 
 
 	// Update map allowing to lookup endpoint by endpoint
 	// attributes with new attributes set on endpoint
-	epMgr.UpdateReferences(ep)
+	ep.UpdateReferences(epMgr)
 
 	identityLabels, informationLabels := getFilteredLabels(containerID, allLabels)
 	ep.UpdateLabels(context.Background(), identityLabels, informationLabels, false)
