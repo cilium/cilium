@@ -799,7 +799,7 @@ func (e *Endpoint) DeleteMapsLocked() []error {
 // veth interface.
 func (e *Endpoint) DeleteBPFProgramLocked() error {
 	e.getLogger().Debug("deleting bpf program from endpoint")
-	return loader.DeleteDatapath(context.TODO(), e.IfName, "ingress")
+	return loader.DeleteDatapath(context.TODO(), e.ifName, "ingress")
 }
 
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
@@ -1159,8 +1159,8 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 		if _, err := os.Stat(e.BPFIpvlanMapPath()); err != nil {
 			return fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
 		}
-	} else if err := linkChecker(e.IfName); err != nil {
-		return fmt.Errorf("interface %s could not be found", e.IfName)
+	} else if err := linkChecker(e.ifName); err != nil {
+		return fmt.Errorf("interface %s could not be found", e.ifName)
 	}
 	return nil
 }

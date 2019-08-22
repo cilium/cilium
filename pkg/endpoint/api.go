@@ -71,7 +71,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		ContainerID:      base.ContainerID,
 		DockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
-		IfName:           base.InterfaceName,
+		ifName:           base.InterfaceName,
 		K8sPodName:       base.K8sPodName,
 		K8sNamespace:     base.K8sNamespace,
 		DatapathMapID:    int(base.DatapathMapID),
@@ -187,7 +187,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 					IPV6: e.IPv6.String(),
 				}},
 				InterfaceIndex: int64(e.IfIndex),
-				InterfaceName:  e.IfName,
+				InterfaceName:  e.ifName,
 				Mac:            e.LXCMAC.String(),
 				HostMac:        e.NodeMAC.String(),
 			},
@@ -460,8 +460,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		changed = true
 	}
 
-	if newEp.IfName != "" && e.IfName != newEp.IfName {
-		e.IfName = newEp.IfName
+	if newEp.ifName != "" && e.ifName != newEp.ifName {
+		e.ifName = newEp.ifName
 		changed = true
 	}
 

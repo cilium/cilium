@@ -138,9 +138,9 @@ type Endpoint struct {
 	// isDatapathMapPinned denotes whether the datapath map has been pinned.
 	isDatapathMapPinned bool
 
-	// IfName is the name of the host facing interface (veth pair) which
+	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
-	IfName string
+	ifName string
 
 	// IfIndex is the interface index of the host face interface (veth pair)
 	IfIndex int
