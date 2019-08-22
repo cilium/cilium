@@ -75,7 +75,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		K8sPodName:       base.K8sPodName,
 		K8sNamespace:     base.K8sNamespace,
 		DatapathMapID:    int(base.DatapathMapID),
-		IfIndex:          int(base.InterfaceIndex),
+		ifIndex:          int(base.InterfaceIndex),
 		OpLabels:         labels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
@@ -186,7 +186,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 					IPV4: e.IPv4.String(),
 					IPV6: e.IPv6.String(),
 				}},
-				InterfaceIndex: int64(e.IfIndex),
+				InterfaceIndex: int64(e.ifIndex),
 				InterfaceName:  e.ifName,
 				Mac:            e.LXCMAC.String(),
 				HostMac:        e.NodeMAC.String(),
@@ -455,8 +455,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	}
 	defer e.Unlock()
 
-	if newEp.IfIndex != 0 && e.IfIndex != newEp.IfIndex {
-		e.IfIndex = newEp.IfIndex
+	if newEp.ifIndex != 0 && e.ifIndex != newEp.ifIndex {
+		e.ifIndex = newEp.ifIndex
 		changed = true
 	}
 

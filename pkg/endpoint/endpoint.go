@@ -142,8 +142,8 @@ type Endpoint struct {
 	// connects into the endpoint
 	ifName string
 
-	// IfIndex is the interface index of the host face interface (veth pair)
-	IfIndex int
+	// ifIndex is the interface index of the host face interface (veth pair)
+	ifIndex int
 
 	// OpLabels is the endpoint's label configuration
 	//
@@ -296,9 +296,9 @@ func (e *Endpoint) UpdateController(name string, params controller.ControllerPar
 	e.controllers.UpdateController(name, params)
 }
 
-// GetIfIndex returns the IfIndex for this endpoint.
+// GetIfIndex returns the ifIndex for this endpoint.
 func (e *Endpoint) GetIfIndex() int {
-	return e.IfIndex
+	return e.ifIndex
 }
 
 // LXCMac returns the LXCMac for this endpoint.

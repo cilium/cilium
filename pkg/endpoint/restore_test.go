@@ -79,7 +79,7 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	ep.LXCMAC = mac.MAC([]byte{0x01, 0xff, 0xf2, 0x12, b[0], b[1]})
 	ep.IPv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
 	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
-	ep.IfIndex = 1
+	ep.ifIndex = 1
 	ep.SetNodeMACLocked(mac.MAC([]byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}))
 	ep.SecurityIdentity = identity
 	ep.OpLabels = labels.NewOpLabels()
