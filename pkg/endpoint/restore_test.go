@@ -132,7 +132,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 			if ep.ID == 256 {
 				// Change endpoint a little bit so we know which endpoint is in
 				// "256_next_fail" and with one is in the "256" directory.
-				ep.NodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
+				ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 				err = ep.writeHeaderfile(failedDir)
 				c.Assert(err, IsNil)
 				epsNames = append(epsNames, ep.DirectoryPath())

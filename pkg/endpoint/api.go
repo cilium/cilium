@@ -99,7 +99,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		if err != nil {
 			return nil, err
 		}
-		ep.NodeMAC = m
+		ep.nodeMAC = m
 	}
 
 	if base.Addressing != nil {
@@ -189,7 +189,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 				InterfaceIndex: int64(e.ifIndex),
 				InterfaceName:  e.ifName,
 				Mac:            e.mac.String(),
-				HostMac:        e.NodeMAC.String(),
+				HostMac:        e.nodeMAC.String(),
 			},
 			ExternalIdentifiers: &models.EndpointIdentifiers{
 				ContainerID:      e.ContainerID,
@@ -484,8 +484,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		changed = true
 	}
 
-	if len(newEp.NodeMAC) != 0 && bytes.Compare(e.GetNodeMAC(), newEp.NodeMAC) != 0 {
-		e.SetNodeMACLocked(newEp.NodeMAC)
+	if len(newEp.nodeMAC) != 0 && bytes.Compare(e.GetNodeMAC(), newEp.nodeMAC) != 0 {
+		e.SetNodeMACLocked(newEp.nodeMAC)
 		changed = true
 	}
 
