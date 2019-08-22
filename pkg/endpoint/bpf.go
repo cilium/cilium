@@ -110,7 +110,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		" */\n\n",
 		e.IPv6.String(), e.IPv4.String(),
 		e.GetIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
-		e.NodeMAC)
+		e.nodeMAC)
 
 	fw.WriteString("/*\n")
 	fw.WriteString(" * Labels:\n")
