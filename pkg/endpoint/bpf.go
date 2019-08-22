@@ -1148,9 +1148,7 @@ func (e *Endpoint) RequireEndpointRoute() bool {
 	return e.DatapathConfiguration.InstallEndpointRoute
 }
 
-type netNSManager interface {
-	ConfigureNetNSForIPVLAN(netNsPath string) (mapFD, mapID int, err error)
-}
+type netNSIPVLANConfigFunc func(netNsPath string) (mapFD, mapID int, err error)
 
 // FinishIPVLANInit finishes configuring ipvlan slave device of the given endpoint.
 //
@@ -1169,7 +1167,7 @@ type netNSManager interface {
 // policies for an ipvlan slave before a process of a container has started. So,
 // this enables a window between the two stages during which ALL container traffic
 // is allowed.
-func (e *Endpoint) FinishIPVLANInit(mgr netNSManager, netNsPath string) error {
+func (e *Endpoint) FinishIPVLANInit(netNSIPVLANConfigFunc netNSIPVLANConfigFunc, netNsPath string) error {
 	if netNsPath == "" {
 		return fmt.Errorf("netNsPath is empty")
 	}
@@ -1192,7 +1190,7 @@ func (e *Endpoint) FinishIPVLANInit(mgr netNSManager, netNsPath string) error {
 		return nil
 	}
 
-	mapFD, mapID, err := mgr.ConfigureNetNSForIPVLAN(netNsPath)
+	mapFD, mapID, err := netNSIPVLANConfigFunc(netNsPath)
 	if err != nil {
 		return fmt.Errorf("Unable to setup ipvlan slave: %s", err)
 	}

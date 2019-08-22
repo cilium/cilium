@@ -327,14 +327,10 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 	return mapFD, nil
 }
 
-// DockerNetNSConfigurer is a wrapper around the configuration of a network
-// namespace for IPVLAN integration.
-type DockerNetNSConfigurer struct{}
-
 // ConfigureNetNSForIPVLAN sets up IPVLAN in the specified network namespace.
 // Returns the file descriptor for the tail call map / ID, and an error if
 // any operation while configuring said namespace fails.
-func (d *DockerNetNSConfigurer) ConfigureNetNSForIPVLAN(netNsPath string) (mapFD, mapID int, err error) {
+func ConfigureNetNSForIPVLAN(netNsPath string) (mapFD, mapID int, err error) {
 	var ipvlanIface string
 	// To access the netns, `/var/run/docker/netns` has to
 	// be bind mounted into the cilium-agent container with
