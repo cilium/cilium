@@ -61,6 +61,9 @@ Generate the required YAML file and deploy it:
 Set ``global.flannel.uninstallOnExit=true`` if you want Cilium to uninstall
 itself when the Cilium pod is stopped.
 
+If the Flannel bridge has a different name than ``cni0``, you must specify
+the name by setting ``global.flannel.masterDevice=...``.
+
 *Optional step:*
 If your cluster has already pods being managed by Flannel, there is also
 an option available that allows Cilium to start managing those pods without
