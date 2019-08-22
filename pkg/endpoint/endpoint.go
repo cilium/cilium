@@ -154,10 +154,9 @@ type Endpoint struct {
 	// information of the endpoint has changed
 	identityRevision int
 
-	// LXCMAC is the MAC address of the endpoint
+	// mac is the MAC address of the endpoint
 	//
-	// FIXME: Rename this field to MAC
-	LXCMAC mac.MAC // Container MAC address.
+	mac mac.MAC // Container MAC address.
 
 	// IPv6 is the IPv6 address of the endpoint
 	IPv6 addressing.CiliumIPv6
@@ -303,7 +302,7 @@ func (e *Endpoint) GetIfIndex() int {
 
 // LXCMac returns the LXCMac for this endpoint.
 func (e *Endpoint) LXCMac() mac.MAC {
-	return e.LXCMAC
+	return e.mac
 }
 
 // CloseBPFProgramChannel closes the channel that signals whether the endpoint
