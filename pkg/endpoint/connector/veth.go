@@ -41,7 +41,7 @@ func SetupVethRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (int, int, e
 }
 
 // SetupVeth sets up the net interface, the temporary interface and fills up some endpoint
-// fields such as LXCMAC, NodeMac, ifIndex and ifName. Returns a pointer for the created
+// fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
 func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, *netlink.Link, string, error) {
@@ -57,7 +57,7 @@ func SetupVeth(id string, mtu int, ep *models.EndpointChangeRequest) (*netlink.V
 }
 
 // SetupVethWithNames sets up the net interface, the temporary interface and fills up some endpoint
-// fields such as LXCMAC, NodeMac, ifIndex and ifName. Returns a pointer for the created
+// fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
 func SetupVethWithNames(lxcIfName, tmpIfName string, mtu int, ep *models.EndpointChangeRequest) (*netlink.Veth, *netlink.Link, error) {

@@ -87,7 +87,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		cidr4PrefixLengths:    cidr4,
 		cidr6PrefixLengths:    cidr6,
 		options:               e.Options.DeepCopy(),
-		lxcMAC:                e.LXCMAC,
+		lxcMAC:                e.mac,
 		ifIndex:               e.ifIndex,
 
 		endpoint: e,
