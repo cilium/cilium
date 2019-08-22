@@ -279,8 +279,8 @@ func (s *proxyTestSuite) TestKafkaRedirect(c *C) {
 	c.Assert(err, IsNil)
 	ep.IPv4 = ipv4
 	ep.UpdateLogger(nil)
-	epMgr.Insert(ep)
-	defer epMgr.Remove(ep)
+	ep.Expose(epMgr)
+	defer ep.Unexpose(epMgr)
 
 	_, dstPortStr, err := net.SplitHostPort(server.Address())
 	c.Assert(err, IsNil)
