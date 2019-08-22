@@ -415,7 +415,9 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		got := mgr.LookupCiliumID(args.id)
+		exists := mgr.EndpointExists(args.id)
 		c.Assert(got, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
+		c.Assert(exists, checker.Equals, want.ep != nil, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }

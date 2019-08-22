@@ -341,21 +341,7 @@ func (d *Daemon) writeNetdevHeader(dir string) error {
 // EndpointMapManager is a wrapper around an endpointmanager as well as the
 // filesystem for removing maps related to endpoints from the filesystem.
 type EndpointMapManager struct {
-	endpointManager *endpointmanager.EndpointManager
-}
-
-// EndpointExists returns whether the endpoint with the specified ID is managed
-// by this Cilium instance.
-func (e *EndpointMapManager) EndpointExists(endpointID uint16) bool {
-	if ep := e.endpointManager.LookupCiliumID(endpointID); ep != nil {
-		return true
-	}
-	return false
-}
-
-// HasGlobalCT returns whether global conntrack maps are being used.s
-func (e *EndpointMapManager) HasGlobalCT() bool {
-	return e.endpointManager.HasGlobalCT()
+	*endpointmanager.EndpointManager
 }
 
 // RemoveDatapathMapping unlinks the endpointID from the global policy map, preventing

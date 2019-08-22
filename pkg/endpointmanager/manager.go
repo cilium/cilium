@@ -185,7 +185,7 @@ func (mgr *EndpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	}
 }
 
-// LookupCiliumID looks up endpoint by endpoint ID
+// EndpointExists looks up endpoint by endpoint ID
 func (mgr *EndpointManager) LookupCiliumID(id uint16) *endpoint.Endpoint {
 	mgr.mutex.RLock()
 	ep := mgr.lookupCiliumID(id)
@@ -524,4 +524,9 @@ func (mgr *EndpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 		eps[i].WaitForPolicyRevision(ctx, rev, done)
 	}
 	return nil
+}
+
+// EndpointExists returns whether the endpoint with id exists.
+func (mgr *EndpointManager) EndpointExists(id uint16) bool {
+	return mgr.LookupCiliumID(id) != nil
 }
