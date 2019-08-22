@@ -234,13 +234,14 @@ var ciliumChains = []customChain{
 		table:      "filter",
 		hook:       "INPUT",
 		feederArgs: []string{""},
+		ipv6:       true,
 	},
-
 	{
 		name:       ciliumOutputChain,
 		table:      "filter",
 		hook:       "OUTPUT",
 		feederArgs: []string{""},
+		ipv6:       true,
 	},
 	{
 		name:       ciliumOutputRawChain,
@@ -356,7 +357,7 @@ func (m *IptablesManager) RemoveRules() {
 
 	// Set of tables that have had ip6tables rules in any Cilium version
 	if m.ip6tables {
-		tables6 := []string{"mangle", "raw"}
+		tables6 := []string{"mangle", "raw", "filter"}
 		for _, t := range tables6 {
 			m.removeCiliumRules(t, "ip6tables", ciliumPrefix)
 		}
@@ -481,6 +482,19 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
 			"-j", "NOTRACK"), false)
 		if err == nil {
+			// Explicit ACCEPT for the proxy traffic. Needed when the INPUT defaults to DROP.
+			// Matching needs to be the same as for the NOTRACK rule above.
+			err = runProg("iptables", append(
+				m.waitArgs,
+				"-t", "filter",
+				"-A", ciliumInputChain,
+				// Destination is a local node POD address
+				"!", "-d", node.GetInternalIPv4().String(),
+				"-m", "mark", "--mark", matchToProxy,
+				"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
+				"-j", "ACCEPT"), false)
+		}
+		if err == nil {
 			// No conntrack for proxy return traffic
 			err = runProg("iptables", append(
 				m.waitArgs,
@@ -491,6 +505,19 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
+		}
+		if err == nil {
+			// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
+			// Matching needs to be the same as for the NOTRACK rule above.
+			err = runProg("iptables", append(
+				m.waitArgs,
+				"-t", "filter",
+				"-A", ciliumOutputChain,
+				// Return traffic is from a local node POD address
+				"!", "-s", node.GetInternalIPv4().String(),
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+				"-j", "ACCEPT"), false)
 		}
 		if err == nil {
 			// Direct inbound TPROXYed traffic towards the socket
@@ -520,6 +547,19 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			"-m", "comment", "--comment", "cilium: NOTRACK for proxy traffic",
 			"-j", "NOTRACK"), false)
 		if err == nil {
+			// Explicit ACCEPT for the proxy traffic. Needed when the INPUT defaults to DROP.
+			// Matching needs to be the same as for the NOTRACK rule above.
+			err = runProg("ip6tables", append(
+				m.waitArgs,
+				"-t", "filter",
+				"-A", ciliumInputChain,
+				// Destination is a local node POD address
+				"!", "-d", node.GetIPv6().String(),
+				"-m", "mark", "--mark", matchToProxy,
+				"-m", "comment", "--comment", "cilium: ACCEPT for proxy traffic",
+				"-j", "ACCEPT"), false)
+		}
+		if err == nil {
 			// No conntrack for proxy return traffic
 			err = runProg("ip6tables", append(
 				m.waitArgs,
@@ -530,6 +570,19 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
+		}
+		if err == nil {
+			// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
+			// Matching needs to be the same as for the NOTRACK rule above.
+			err = runProg("ip6tables", append(
+				m.waitArgs,
+				"-t", "filter",
+				"-A", ciliumOutputChain,
+				// Return traffic is from a local node POD address
+				"!", "-s", node.GetIPv6().String(),
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
+				"-j", "ACCEPT"), false)
 		}
 		if err == nil {
 			// Direct inbound TPROXYed traffic towards the socket
