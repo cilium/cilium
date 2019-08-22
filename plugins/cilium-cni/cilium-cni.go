@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"syscall"
@@ -36,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
@@ -486,9 +486,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	var macAddrStr string
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		allInterfacesPath := filepath.Join("/proc", "sys", "net", "ipv6", "conf", "all", "disable_ipv6")
-		err = connector.WriteSysConfig(allInterfacesPath, "0\n")
-		if err != nil {
+		if err := sysctl.Disable("net.ipv6.conf.all.disable_ipv6"); err != nil {
 			logger.WithError(err).Warn("unable to enable ipv6 on all interfaces")
 		}
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
