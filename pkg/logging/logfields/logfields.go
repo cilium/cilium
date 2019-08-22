@@ -374,4 +374,10 @@ const (
 
 	// Key is the identity of the encryption key
 	Key = "key"
+
+	// SysParamName is the name of the kernel parameter (sysctl)
+	SysParamName = "sysParamName"
+
+	// SysParamValue is the value of the kernel parameter (sysctl)
+	SysParamValue = "sysParamValue"
 )

@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/common"
@@ -36,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 )
 
 func (d *Daemon) compileBase() error {
@@ -43,7 +45,19 @@ func (d *Daemon) compileBase() error {
 	var mode string
 	var ret error
 
+	type setting struct {
+		name      string
+		val       string
+		ignoreErr bool
+	}
+
 	args = make([]string, initArgMax)
+
+	sysSettings := []setting{
+		{"net.core.bpf_jit_enable", "1", true},
+		{"net.ipv4.conf.all.rp_filter", "0", false},
+		{"kernel.unprivileged_bpf_disabled", "1", true},
+	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	d.compilationMutex.Lock()
@@ -90,6 +104,11 @@ func (d *Daemon) compileBase() error {
 
 	if option.Config.EnableIPv6 {
 		args[initArgIPv6NodeIP] = node.GetIPv6().String()
+		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
+		// interface (https://github.com/docker/libnetwork/issues/1720)
+		// Enable IPv6 for now
+		sysSettings = append(sysSettings,
+			setting{"net.ipv6.conf.all.disable_ipv6", "0", false})
 	} else {
 		args[initArgIPv6NodeIP] = "<nil>"
 	}
@@ -174,6 +193,19 @@ func (d *Daemon) compileBase() error {
 
 	log.Info("Setting up base BPF datapath")
 
+	for _, s := range sysSettings {
+		log.Infof("Setting sysctl %s=%s", s.name, s.val)
+		if err := sysctl.Write(s.name, s.val); err != nil {
+			if !s.ignoreErr {
+				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.name, s.val, err)
+			}
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.SysParamName:  s.name,
+				logfields.SysParamValue: s.val,
+			}).Warning("Failed to sysctl -w")
+		}
+	}
+
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.ExecTimeout)
 	defer cancel()
@@ -218,10 +250,6 @@ func (d *Daemon) compileBase() error {
 	if d.l7Proxy != nil {
 		d.l7Proxy.ReinstallRules()
 	}
-
-	log.Info("Setting sysctl net.core.bpf_jit_enable=1")
-	log.Info("Setting sysctl net.ipv4.conf.all.rp_filter=0")
-	log.Info("Setting sysctl net.ipv6.conf.all.disable_ipv6=0")
 
 	return nil
 }

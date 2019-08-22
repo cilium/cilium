@@ -53,22 +53,6 @@ fi
 # Remove old legacy files
 rm $RUNDIR/encap.state 2> /dev/null || true
 
-# Enable JIT if compiled into kernel
-echo 1 > /proc/sys/net/core/bpf_jit_enable || true
-
-# Disable rp_filter
-echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
-
-# Disable unprivileged BPF
-echo 1 > /proc/sys/kernel/unprivileged_bpf_disabled || true
-
-if [ "$IP6_HOST" != "<nil>" ]; then
-# Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
-# interface (https://github.com/docker/libnetwork/issues/1720)
-# Enable IPv6 for now
-	echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6 || true
-fi
-
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
 
