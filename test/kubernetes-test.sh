@@ -3,10 +3,9 @@
 helm template install/kubernetes/cilium \
   --namespace=kube-system \
   --set global.registry=k8s1:5000/cilium \
+  --set global.tag=latest \
   --set agent.image=cilium-dev \
-  --set agent.tag=latest \
   --set operator.image=operator \
-  --set operator.tag=latest \
   --set global.debug.enabled=true \
   --set global.k8s.requireIPv4PodCIDR=true \
   --set global.pprof.enabled=true \
@@ -20,14 +19,16 @@ helm template install/kubernetes/cilium \
 kubectl apply -f cilium.yaml
 
 while true; do
+    sleep 10
     result=$(kubectl -n kube-system get pods -l k8s-app=cilium | grep "Running" -c)
     echo "Running pods ${result}"
     if [ "${result}" == "2" ]; then
-
         echo "result match, continue with kubernetes"
         break
     fi
-    sleep 1
+    kubectl -n kube-system get pods -o wide
+    docker image inspect k8s1:5000/cilium/cilium-dev:latest
+    kubectl describe pods -l k8s-app=cilium -n kube-system
 done
 
 set -e
