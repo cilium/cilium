@@ -38,7 +38,7 @@ var envoyOnce sync.Once
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) (RedirectImplementation, error) {
+func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	envoyOnce.Do(func() {
 		// Start Envoy on first invocation
 		envoyProxy = envoy.StartEnvoy(stateDir, option.Config.EnvoyLogPath, 0)
@@ -50,8 +50,12 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 			listenerName: fmt.Sprintf("%s:%d", l.name, l.proxyPort),
 			xdsServer:    xdsServer,
 		}
-
-		xdsServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress, wg)
+		// Only use original source address for egress
+		if l.ingress {
+			mayUseOriginalSourceAddr = false
+		}
+		xdsServer.AddListener(redir.listenerName, l.parserType, l.proxyPort, l.ingress,
+			mayUseOriginalSourceAddr, wg)
 
 		return redir, nil
 	}

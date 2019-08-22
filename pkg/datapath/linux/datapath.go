@@ -32,6 +32,7 @@ type DatapathConfiguration struct {
 type rulesManager interface {
 	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
 	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+	SupportsOriginalSourceAddr() bool
 }
 
 type linuxDatapath struct {
@@ -77,4 +78,8 @@ func (l *linuxDatapath) InstallProxyRules(proxyPort uint16, ingress bool, name s
 
 func (l *linuxDatapath) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
 	return l.ruleManager.RemoveProxyRules(proxyPort, ingress, name)
+}
+
+func (l *linuxDatapath) SupportsOriginalSourceAddr() bool {
+	return l.ruleManager.SupportsOriginalSourceAddr()
 }
