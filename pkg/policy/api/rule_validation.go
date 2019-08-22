@@ -349,11 +349,6 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 		if len(ports) == 0 {
 			return fmt.Errorf("Port 53 must be specified for DNS rules")
 		}
-		for _, port := range ports {
-			if port.Port != "53" {
-				return fmt.Errorf("DNS rules are only allowed on port 53")
-			}
-		}
 
 		nTypes++
 		for i := range pr.DNS {
