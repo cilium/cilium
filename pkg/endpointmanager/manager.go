@@ -525,3 +525,8 @@ func (mgr *EndpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 	}
 	return nil
 }
+
+// EndpointExists returns whether the endpoint with id exists.
+func (mgr *EndpointManager) EndpointExists(id uint16) bool {
+	return mgr.LookupCiliumID(id) != nil
+}
