@@ -91,7 +91,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		if err != nil {
 			return nil, err
 		}
-		ep.LXCMAC = m
+		ep.mac = m
 	}
 
 	if base.HostMac != "" {
@@ -188,7 +188,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 				}},
 				InterfaceIndex: int64(e.ifIndex),
 				InterfaceName:  e.ifName,
-				Mac:            e.LXCMAC.String(),
+				Mac:            e.mac.String(),
 				HostMac:        e.NodeMAC.String(),
 			},
 			ExternalIdentifiers: &models.EndpointIdentifiers{
@@ -479,8 +479,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		}
 	}
 
-	if len(newEp.LXCMAC) != 0 && bytes.Compare(e.LXCMAC, newEp.LXCMAC) != 0 {
-		e.LXCMAC = newEp.LXCMAC
+	if len(newEp.mac) != 0 && bytes.Compare(e.mac, newEp.mac) != 0 {
+		e.mac = newEp.mac
 		changed = true
 	}
 

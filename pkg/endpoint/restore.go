@@ -247,7 +247,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		IfName:                e.ifName,
 		IfIndex:               e.ifIndex,
 		OpLabels:              e.OpLabels,
-		LXCMAC:                e.LXCMAC,
+		LXCMAC:                e.mac,
 		IPv6:                  e.IPv6,
 		IPv4:                  e.IPv4,
 		NodeMAC:               e.NodeMAC,
@@ -305,7 +305,7 @@ type serializableEndpoint struct {
 	// FIXME: Rename this field to Labels
 	OpLabels labels.OpLabels
 
-	// LXCMAC is the MAC address of the endpoint
+	// mac is the MAC address of the endpoint
 	//
 	// FIXME: Rename this field to MAC
 	LXCMAC mac.MAC // Container MAC address.
@@ -375,7 +375,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
 	ep.OpLabels = r.OpLabels
-	ep.LXCMAC = r.LXCMAC
+	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
 	ep.IPv4 = r.IPv4
 	ep.NodeMAC = r.NodeMAC
