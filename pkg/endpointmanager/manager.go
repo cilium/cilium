@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -55,7 +54,7 @@ type EndpointManager struct {
 
 	// EndpointSynchronizer updates external resources (e.g., Kubernetes) with
 	// up-to-date information about endpoints managed by the endpoint manager.
-	endpointSynchronizer EndpointResourceSynchronizer
+	EndpointResourceSynchronizer
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -67,9 +66,9 @@ type EndpointResourceSynchronizer interface {
 // NewEndpointManager creates a new EndpointManager.
 func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointManager {
 	mgr := EndpointManager{
-		endpoints:            make(map[uint16]*endpoint.Endpoint),
-		endpointsAux:         make(map[string]*endpoint.Endpoint),
-		endpointSynchronizer: epSynchronizer,
+		endpoints:                    make(map[uint16]*endpoint.Endpoint),
+		endpointsAux:                 make(map[string]*endpoint.Endpoint),
+		EndpointResourceSynchronizer: epSynchronizer,
 	}
 
 	return &mgr
@@ -96,49 +95,32 @@ func (mgr *EndpointManager) InitMetrics() {
 	})
 }
 
-// Insert inserts the endpoint into the maps in the EndpointManager.
-func (mgr *EndpointManager) Insert(ep *endpoint.Endpoint) error {
-	if ep.ID != 0 {
-		if err := endpointid.Reuse(ep.ID); err != nil {
-			return fmt.Errorf("unable to reuse endpoint ID: %s", err)
+// AllocateID checks if the ID can be reused. If it cannot, returns an error.
+// If an ID of 0 is provided, a new ID is allocated. If a new ID cannot be
+// allocated, returns an error.
+func (mgr *EndpointManager) AllocateID(currID uint16) (uint16, error) {
+	var newID uint16
+	if currID != 0 {
+		if err := endpointid.Reuse(currID); err != nil {
+			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
 		}
+		newID = currID
 	} else {
 		id := endpointid.Allocate()
 		if id == uint16(0) {
-			return fmt.Errorf("no more endpoint IDs available")
+			return 0, fmt.Errorf("no more endpoint IDs available")
 		}
-		ep.ID = id
-
-		ep.UpdateLogger(map[string]interface{}{
-			logfields.EndpointID: ep.ID,
-		})
+		newID = id
 	}
 
-	// No need to check liveness as an endpoint can only be deleted via the
-	// API after it has been inserted into the manager.
-	ep.UnconditionalRLock()
+	return newID, nil
+}
+
+// RemoveID removes the id from the endpoints map in the EndpointManager.
+func (mgr *EndpointManager) RemoveID(currID uint16) {
 	mgr.mutex.Lock()
-
-	// Now that the endpoint has its ID, it can be created with a name based on
-	// its ID, and its eventqueue can be safely started. Ensure that it is only
-	// started once it is exposed to the endpointmanager so that it will be
-	// stopped when the endpoint is removed from the endpointmanager.
-	ep.EventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ep.ID), option.Config.EndpointQueueSize)
-	ep.EventQueue.Run()
-
-	mgr.endpoints[ep.ID] = ep
-	mgr.updateReferences(ep)
-
-	mgr.mutex.Unlock()
-	ep.RUnlock()
-
-	if mgr.endpointSynchronizer != nil {
-		mgr.endpointSynchronizer.RunK8sCiliumEndpointSync(ep)
-	}
-
-	ep.InsertEvent()
-
-	return nil
+	defer mgr.mutex.Unlock()
+	delete(mgr.endpoints, currID)
 }
 
 // Lookup looks up the endpoint by prefix id
@@ -238,16 +220,9 @@ func (mgr *EndpointManager) LookupPodName(name string) *endpoint.Endpoint {
 	return ep
 }
 
-// UpdateReferences makes an endpoint available by all possible reference
-// fields as available for this endpoint (containerID, IPv4 address, ...)
-// Must be called with ep.Mutex.RLock held.
-func (mgr *EndpointManager) UpdateReferences(ep *endpoint.Endpoint) {
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-	mgr.updateReferences(ep)
-}
-
-func (mgr *EndpointManager) releaseID(ep *endpoint.Endpoint) {
+// ReleaseID releases the ID of the specified endpoint from the EndpointManager.
+// Returns an error if the ID cannot be released.
+func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) {
 	if err := endpointid.Release(ep.ID); err != nil {
 		// While restoring, endpoint IDs may not have been reused yet.
 		// Failure to release means that the endpoint ID was not reused
@@ -266,66 +241,7 @@ func (mgr *EndpointManager) releaseID(ep *endpoint.Endpoint) {
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
-	select {
-	case <-mgr.Remove(ep):
-		return
-	}
-}
-
-// Remove removes the endpoint from the global maps and releases the node-local
-// ID allocated for the endpoint.
-// Must be called with ep.Mutex.RLock held. Releasing of the ID of the endpoint
-// is done asynchronously. Once the ID of the endpoint is released, the returned
-// channel is closed.
-func (mgr *EndpointManager) Remove(ep *endpoint.Endpoint) <-chan struct{} {
-
-	epRemoved := make(chan struct{})
-
-	mgr.mutex.Lock()
-	defer mgr.mutex.Unlock()
-
-	// This must be done before the ID is released for the endpoint!
-	delete(mgr.endpoints, ep.ID)
-
-	go func(ep *endpoint.Endpoint) {
-
-		// The endpoint's EventQueue may not be stopped yet (depending on whether
-		// the caller of the EventQueue has stopped it or not). Call it here
-		// to be safe so that ep.WaitToBeDrained() does not hang forever.
-		ep.EventQueue.Stop()
-
-		// Wait for no more events (primarily regenerations) to be occurring for
-		// this endpoint.
-		ep.EventQueue.WaitToBeDrained()
-
-		mgr.releaseID(ep)
-		close(epRemoved)
-	}(ep)
-
-	if ep.ContainerID != "" {
-		delete(mgr.endpointsAux, endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID))
-	}
-
-	if ep.DockerEndpointID != "" {
-		delete(mgr.endpointsAux, endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID))
-	}
-
-	if ep.IPv4.IsSet() {
-		delete(mgr.endpointsAux, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
-	}
-
-	if ep.IPv6.IsSet() {
-		delete(mgr.endpointsAux, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
-	}
-
-	if ep.ContainerName != "" {
-		delete(mgr.endpointsAux, endpointid.NewID(endpointid.ContainerNamePrefix, ep.ContainerName))
-	}
-
-	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
-		delete(mgr.endpointsAux, endpointid.NewID(endpointid.PodNamePrefix, podName))
-	}
-	return epRemoved
+	<-ep.Unexpose(mgr)
 }
 
 // RemoveAll removes all endpoints from the global maps.
@@ -387,31 +303,36 @@ func (mgr *EndpointManager) lookupContainerID(id string) *endpoint.Endpoint {
 	return nil
 }
 
-// UpdateReferences updates the mappings of various values to their corresponding
-// endpoints, such as ContainerID, Docker Container Name, Pod Name, etc.
-func (mgr *EndpointManager) updateReferences(ep *endpoint.Endpoint) {
-	if ep.ContainerID != "" {
-		mgr.endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, ep.ContainerID)] = ep
+// UpdateIDReference updates the endpoints map in the EndpointManager for
+// the given Endpoint.
+func (mgr *EndpointManager) UpdateIDReference(ep *endpoint.Endpoint) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+	if ep == nil {
+		return
 	}
+	mgr.endpoints[ep.ID] = ep
+}
 
-	if ep.DockerEndpointID != "" {
-		mgr.endpointsAux[endpointid.NewID(endpointid.DockerEndpointPrefix, ep.DockerEndpointID)] = ep
+// UpdateReferences updates maps the contents of mappings to the specified
+// endpoint.
+func (mgr *EndpointManager) UpdateReferences(mappings map[endpointid.PrefixType]string, ep *endpoint.Endpoint) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+	for k := range mappings {
+		id := endpointid.NewID(k, mappings[k])
+		mgr.endpointsAux[id] = ep
+
 	}
+}
 
-	if ep.IPv4.IsSet() {
-		mgr.endpointsAux[endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String())] = ep
-	}
-
-	if ep.IPv6.IsSet() {
-		mgr.endpointsAux[endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String())] = ep
-	}
-
-	if ep.ContainerName != "" {
-		mgr.endpointsAux[endpointid.NewID(endpointid.ContainerNamePrefix, ep.ContainerName)] = ep
-	}
-
-	if podName := ep.GetK8sNamespaceAndPodNameLocked(); podName != "" {
-		mgr.endpointsAux[endpointid.NewID(endpointid.PodNamePrefix, podName)] = ep
+// RemoveReferences removes the mappings from the endpointmanager.
+func (mgr *EndpointManager) RemoveReferences(mappings map[endpointid.PrefixType]string) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+	for prefix := range mappings {
+		id := endpointid.NewID(prefix, mappings[prefix])
+		delete(mgr.endpointsAux, id)
 	}
 }
 
@@ -483,7 +404,7 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
-	err = mgr.Insert(ep)
+	err = ep.Expose(mgr)
 	if err != nil {
 		return err
 	}

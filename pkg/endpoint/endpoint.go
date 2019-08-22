@@ -1933,10 +1933,6 @@ type monitorOwner interface {
 	NotifyMonitorDeleted(e *Endpoint)
 }
 
-type EndpointRemover interface {
-	Remove(ep *Endpoint) <-chan struct{}
-}
-
 // Delete cleans up all resources associated with this endpoint, including the
 // following:
 // * all goroutines managed by this Endpoint (EventQueue, Controllers)
@@ -1945,7 +1941,7 @@ type EndpointRemover interface {
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
 // * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager EndpointRemover, conf DeleteConfig) []error {
+func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, conf DeleteConfig) []error {
 	errs := []error{}
 
 	// Since the endpoint is being deleted, we no longer need to run events
@@ -1978,7 +1974,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager Endpoin
 
 	// Remove the endpoint before we clean up. This ensures it is no longer
 	// listed or queued for rebuilds.
-	manager.Remove(e)
+	e.Unexpose(manager)
 
 	defer func() {
 		monitor.NotifyMonitorDeleted(e)

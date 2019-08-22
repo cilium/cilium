@@ -548,11 +548,9 @@ func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec
 			return api.Error(PatchEndpointIDConfigFailedCode, err)
 		}
 	}
-	if err := ep.RLockAlive(); err != nil {
+	if err := ep.UpdateReferences(d.endpointManager); err != nil {
 		return api.Error(PatchEndpointIDNotFoundCode, err)
 	}
-	d.endpointManager.UpdateReferences(ep)
-	ep.RUnlock()
 
 	return nil
 }

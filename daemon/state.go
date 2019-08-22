@@ -236,7 +236,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		// upon returning that endpoints are exposed to other subsystems via
 		// endpointmanager.
 
-		if err := d.endpointManager.Insert(ep); err != nil {
+		if err := ep.Expose(d.endpointManager); err != nil {
 			log.WithError(err).Warning("Unable to restore endpoint")
 			// remove endpoint from slice of endpoints to restore
 			state.restored = append(state.restored[:i], state.restored[i+1:]...)
