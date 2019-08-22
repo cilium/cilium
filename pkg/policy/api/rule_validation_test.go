@@ -55,30 +55,7 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	err := validPortRule.Sanitize()
 	c.Assert(err, IsNil)
 
-	// Rule is invalid because port is not 53 for DNS proxy rule.
-	validPortRule = Rule{
-		EndpointSelector: WildcardEndpointSelector,
-		Egress: []EgressRule{
-			{
-				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
-				ToPorts: []PortRule{{
-					Ports: []PortProtocol{
-						{Port: "80", Protocol: ProtoTCP},
-					},
-					Rules: &L7Rules{
-						DNS: []PortRuleDNS{
-							{MatchName: "domain.com"},
-						},
-					},
-				}},
-			},
-		},
-	}
-
-	err = validPortRule.Sanitize()
-	c.Assert(err, Not(IsNil), Commentf("Port 80 should not be allowed for DNS"))
-
-	// Rule is invalid because port is not 53 for DNS proxy rule.
+	// Rule is invalid because no port is specified for DNS proxy rule.
 	validPortRule = Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
