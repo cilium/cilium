@@ -243,7 +243,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ContainerID:           e.ContainerID,
 		DockerNetworkID:       e.DockerNetworkID,
 		DockerEndpointID:      e.DockerEndpointID,
-		DatapathMapID:         e.DatapathMapID,
+		DatapathMapID:         e.datapathMapID,
 		IfName:                e.ifName,
 		IfIndex:               e.ifIndex,
 		OpLabels:              e.OpLabels,
@@ -371,7 +371,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ContainerID = r.ContainerID
 	ep.DockerNetworkID = r.DockerNetworkID
 	ep.DockerEndpointID = r.DockerEndpointID
-	ep.DatapathMapID = r.DatapathMapID
+	ep.datapathMapID = r.DatapathMapID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
 	ep.OpLabels = r.OpLabels

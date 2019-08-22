@@ -74,7 +74,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		ifName:           base.InterfaceName,
 		K8sPodName:       base.K8sPodName,
 		K8sNamespace:     base.K8sNamespace,
-		DatapathMapID:    int(base.DatapathMapID),
+		datapathMapID:    int(base.DatapathMapID),
 		ifIndex:          int(base.InterfaceIndex),
 		OpLabels:         labels.NewOpLabels(),
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
