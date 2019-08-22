@@ -13,3 +13,44 @@
 // limitations under the License.
 
 package sysctl
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	prefixDir = "/proc/sys"
+)
+
+func fullPath(name string) string {
+	return filepath.Join(prefixDir, strings.Replace(name, ".", "/", -1))
+}
+
+func writeSysctl(name string, value string) error {
+	fPath := fullPath(name)
+	f, err := os.OpenFile(fPath, os.O_RDWR, 0644)
+	if err != nil {
+		return fmt.Errorf("could not open the sysctl file %s: %s",
+			fPath, err)
+	}
+	defer f.Close()
+	if _, err := io.WriteString(f, value); err != nil {
+		return fmt.Errorf("could not write to the systctl file %s: %s",
+			fPath, err)
+	}
+	return nil
+}
+
+// Disable disables the given sysctl parameter.
+func Disable(name string) error {
+	return writeSysctl(name, "0")
+}
+
+// Enable enables the given sysctl parameter.
+func Enable(name string) error {
+	return writeSysctl(name, "1")
+}
