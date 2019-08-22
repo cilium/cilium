@@ -230,7 +230,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		{
 			name: "endpoint by container name",
 			preTestRun: func() {
-				ep.ContainerName = "foo"
+				ep.SetContainerName("foo")
 				Insert(ep)
 			},
 			setupArgs: func() args {
@@ -247,7 +247,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			postTestRun: func() {
 				WaitEndpointRemoved(ep)
-				ep.ContainerName = ""
+				ep.SetContainerName("")
 			},
 		},
 		{
@@ -687,7 +687,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		ep = LookupIPv4(want.ep.IPv4.String())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
-		ep = lookupDockerContainerName(want.ep.ContainerName)
+		ep = lookupDockerContainerName(want.ep.GetContainerName())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		want.ep.UnconditionalRLock()
