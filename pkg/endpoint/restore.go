@@ -244,7 +244,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		DockerNetworkID:       e.DockerNetworkID,
 		DockerEndpointID:      e.DockerEndpointID,
 		DatapathMapID:         e.DatapathMapID,
-		IfName:                e.IfName,
+		IfName:                e.ifName,
 		IfIndex:               e.IfIndex,
 		OpLabels:              e.OpLabels,
 		LXCMAC:                e.LXCMAC,
@@ -293,7 +293,7 @@ type serializableEndpoint struct {
 	// Corresponding BPF map identifier for tail call map of ipvlan datapath
 	DatapathMapID int
 
-	// IfName is the name of the host facing interface (veth pair) which
+	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
 	IfName string
 
@@ -372,7 +372,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.DockerNetworkID = r.DockerNetworkID
 	ep.DockerEndpointID = r.DockerEndpointID
 	ep.DatapathMapID = r.DatapathMapID
-	ep.IfName = r.IfName
+	ep.ifName = r.IfName
 	ep.IfIndex = r.IfIndex
 	ep.OpLabels = r.OpLabels
 	ep.LXCMAC = r.LXCMAC
