@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -41,10 +40,8 @@ import (
 )
 
 var (
-	QAHardAddr      = mac.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}
 	QAIPv6Addr, _   = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
 	QAIPv4Addr, _   = addressing.NewCiliumIPv4("10.11.12.13")
-	ProdHardAddr    = mac.MAC{0x01, 0x07, 0x08, 0x09, 0x0a, 0x0b}
 	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
 	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
 
@@ -132,13 +129,9 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	if qa {
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr
-		e.LXCMAC = QAHardAddr
-		e.SetNodeMACLocked(QAHardAddr)
 	} else {
 		e.IPv6 = ProdIPv6Addr
 		e.IPv4 = ProdIPv4Addr
-		e.LXCMAC = ProdHardAddr
-		e.SetNodeMACLocked(ProdHardAddr)
 	}
 	e.SetIdentity(identity, true)
 
