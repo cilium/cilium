@@ -102,10 +102,9 @@ This is typically achieved using two methods:
   combination with the ``--allocate-node-cidrs`` option then this is configured
   automatically for IPv4 prefixes.
 
-.. note:: Use of direct routing mode currently only offers identity based
-          security policy enforcement for IPv6 where the security identity is
-          stored in the flowlabel. IPv4 is currently not supported and thus
-          security must be enforced using CIDR policy rules.
+.. note:: Use of direct routing mode with advanced policy use cases such as
+          L7 policies is currently beta. Please provide feedback and file a
+          GitHub issue if you experience any problems.
 
 
 .. _AWS VPC Route Tables: http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Route_Tables.html
