@@ -1990,7 +1990,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager Endpoin
 			errs = append(errs, errs2...)
 		}
 
-		if errs2 := e.DeleteMapsLocked(); errs2 != nil {
+		if errs2 := e.deleteMapsLocked(); errs2 != nil {
 			errs = append(errs, errs2...)
 		}
 	}
