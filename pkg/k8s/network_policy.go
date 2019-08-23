@@ -160,11 +160,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
-			all := api.NewESFromLabels(
-				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
-			)
 			ingress := api.IngressRule{}
-			ingress.FromEndpoints = append(ingress.FromEndpoints, all)
+			ingress.FromEndpoints = append(ingress.FromEndpoints, api.WildcardEndpointSelector)
 
 			fromRules = append(fromRules, ingress)
 		}
@@ -206,11 +203,8 @@ func ParseNetworkPolicy(np *networkingv1.NetworkPolicy) (api.Rules, error) {
 			//   To []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   destinations (traffic not restricted by destination)
-			all := api.NewESFromLabels(
-				labels.NewLabel(labels.IDNameAll, "", labels.LabelSourceReserved),
-			)
 			egress := api.EgressRule{}
-			egress.ToEndpoints = append(egress.ToEndpoints, all)
+			egress.ToEndpoints = append(egress.ToEndpoints, api.WildcardEndpointSelector)
 
 			toRules = append(toRules, egress)
 		}
