@@ -42,6 +42,7 @@ resource "packet_device" "test" {
     project_id       = "${var.packet_project_id}"
 
     connection {
+        host = self.access_public_ipv4
         type = "ssh"
         user = "root"
         private_key = var.shared_key ? "${file("${var.private_key_path}")}" : ""
