@@ -751,14 +751,14 @@ func (e *Endpoint) finalizeProxyState(regenContext *regenerationContext, err err
 	}
 }
 
-// deleteMapsLocked releases references to all BPF maps associated with this
+// deleteMaps releases references to all BPF maps associated with this
 // endpoint.
 //
 // For each error that occurs while releasing these references, an error is
 // added to the resulting error slice which is returned.
 //
 // Returns nil on success.
-func (e *Endpoint) deleteMapsLocked() []error {
+func (e *Endpoint) deleteMaps() []error {
 	var errors []error
 
 	maps := map[string]string{
