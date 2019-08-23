@@ -55,8 +55,8 @@ func (e *Endpoint) policyMapPath() string {
 	return bpf.LocalMapPath(policymap.MapName, e.ID)
 }
 
-// CallsMapPathLocked returns the path to cilium tail calls map of an endpoint.
-func (e *Endpoint) CallsMapPathLocked() string {
+// callsMapPath returns the path to cilium tail calls map of an endpoint.
+func (e *Endpoint) callsMapPath() string {
 	return e.owner.Datapath().Loader().CallsMapPath(e.ID)
 }
 
@@ -764,7 +764,7 @@ func (e *Endpoint) deleteMapsLocked() []error {
 	maps := map[string]string{
 		"config": e.BPFConfigMapPath(),
 		"policy": e.policyMapPath(),
-		"calls":  e.CallsMapPathLocked(),
+		"calls":  e.callsMapPath(),
 		"egress": e.BPFIpvlanMapPath(),
 	}
 	for name, path := range maps {
