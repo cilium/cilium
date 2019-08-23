@@ -205,6 +205,19 @@ spec:
       hostPID: true
 {{- end }}
       initContainers:
+{{- if and .Values.global.nodeinit.enabled (not (eq .Values.global.nodeinit.bootstrapFile "")) }}
+      - name: wait-for-node-init
+        command: ['sh', '-c', 'until stat {{ .Values.global.nodeinit.bootstrapFile }} > /dev/null 2>&1; do echo "Waiting on node-init to run..."; sleep 1; done']
+{{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+        imagePullPolicy: {{ .Values.global.pullPolicy }}
+        volumeMounts:
+        - mountPath: {{ .Values.global.nodeinit.bootstrapFile }}
+          name: cilium-bootstrap-file
+{{- end }}
       - command:
         - /init-container.sh
         env:
@@ -319,6 +332,12 @@ spec:
           path: {{ .Values.global.kubeConfigPath }}
           type: FileOrCreate
         name: kube-config
+{{- end }}
+{{- if and .Values.global.nodeinit.enabled (not (eq .Values.global.nodeinit.bootstrapFile "")) }}
+      - hostPath:
+          path: {{ .Values.global.nodeinit.bootstrapFile }}
+          type: FileOrCreate
+        name: cilium-bootstrap-file
 {{- end }}
 {{- if .Values.global.etcd.enabled }}
         # To read the etcd config stored in config maps

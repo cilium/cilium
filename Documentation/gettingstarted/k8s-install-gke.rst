@@ -68,7 +68,7 @@ Generate the required YAML files and deploy them:
 
     helm template cilium \
       --namespace cilium \
-      --set nodeinit.enabled=true \
+      --set global.nodeinit.enabled=true \
       --set nodeinit.reconfigureKubelet=true \
       --set nodeinit.removeCbrBridge=true \
       --set global.cni.binPath=/home/kubernetes/bin \
