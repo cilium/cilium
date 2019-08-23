@@ -426,7 +426,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Signal that BPF program has been generated.
 	// The endpoint has at least L3/L4 connectivity at this point.
-	e.CloseBPFProgramChannel()
+	e.closeBPFProgramChannel()
 
 	// Allow another builder to start while we wait for the proxy
 	if regenContext.DoneFunc != nil {

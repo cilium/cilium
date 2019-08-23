@@ -305,10 +305,10 @@ func (e *Endpoint) LXCMac() mac.MAC {
 	return e.mac
 }
 
-// CloseBPFProgramChannel closes the channel that signals whether the endpoint
+// closeBPFProgramChannel closes the channel that signals whether the endpoint
 // has had its BPF program compiled. If the channel is already closed, this is
 // a no-op.
-func (e *Endpoint) CloseBPFProgramChannel() {
+func (e *Endpoint) closeBPFProgramChannel() {
 	select {
 	case <-e.hasBPFProgram:
 	default:
@@ -1965,7 +1965,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager Endpoin
 	// the endpoint has its BPF program compiled or not to avoid it persisting
 	// if anything is blocking on it. If a delete request has already been
 	// enqueued for this endpoint, this is a no-op.
-	e.CloseBPFProgramChannel()
+	e.closeBPFProgramChannel()
 
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first
