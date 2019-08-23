@@ -33,11 +33,15 @@ var _ = Suite(&PolicyAPITestSuite{})
 
 func (s *PolicyAPITestSuite) TestSelectsAllEndpoints(c *C) {
 
-	// Empty endpoint selector slice equates to a wildcard.
+	// Empty endpoint selector slice does NOT equate to a wildcard.
 	selectorSlice := EndpointSelectorSlice{}
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, false)
 
 	selectorSlice = EndpointSelectorSlice{WildcardEndpointSelector}
+	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
+
+	// Entity "reserved:all" maps to WildcardEndpointSelector
+	selectorSlice = EntitySlice{EntityAll}.GetAsEndpointSelectors()
 	c.Assert(selectorSlice.SelectsAllEndpoints(), Equals, true)
 
 	// Slice that contains wildcard and other selectors still selects all endpoints.
