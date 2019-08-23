@@ -81,9 +81,6 @@ data:
   # Name of the cluster. Only relevant when building a mesh of clusters.
   cluster-name: default
 
-  # Unique ID of the cluster. Must be unique across all conneted clusters and
-  # in the range of 1 and 255. Only relevant when building a mesh of clusters.
-
   # DNS Polling periodically issues a DNS lookup for each `matchName` from
   # cilium-agent. The result is used to regenerate endpoint policy.
   # DNS lookups are repeated with an interval of 5 seconds, and are made for
