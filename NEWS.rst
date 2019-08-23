@@ -2,6 +2,28 @@
 NEWS
 ******
 
+v1.5.7
+======
+
+::
+
+    Daniel Borkmann (2):
+          cilium: fix transient rules to use allocation cidr
+          bpf: try to atomically replace filters when possible
+    
+    John Fastabend (2):
+          cilium: encryption, fix getting started guides create secrects command
+          cilium: route mtu not set unless route.Spec set MTU
+    
+    Michal Rostecki (1):
+          Revert "[daemon] - Change MTU source for cilium_host (Use the Route one)"
+    
+    Rajat Jindal (1):
+          cilium: update IsEtcdCluster to return true if etcd.operator="true" kv option is set
+    
+    Thomas Graf (1):
+          datapath: Limit host->service IP SNAT to local traffic
+    
 v1.5.6
 ======
 
