@@ -64,6 +64,11 @@ spec:
                 echo "Installed sys-fs-bpf.mount to /lib/systemd/system/"
               fi
 
+              # Azure specific:
+              if [ -f /var/run/azure-vnet.json ]; then
+                sed -i 's/"Mode": "bridge",/"Mode": "transparent",/g' /var/run/azure-vnet.json
+              fi
+
               # Ensure that filesystem gets mounted on next reboot
               systemctl enable sys-fs-bpf.mount
               systemctl start sys-fs-bpf.mount
