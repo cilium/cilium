@@ -8,7 +8,7 @@ variable "packet_project_id" {
 }
 
 variable "packet_plan" {
-    default="baremetal_0"
+    default="t1.small.x86"
 }
 
 variable "packet_location" {
