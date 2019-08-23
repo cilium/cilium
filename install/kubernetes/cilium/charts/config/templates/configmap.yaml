@@ -148,9 +148,9 @@ data:
   # Name of the cluster. Only relevant when building a mesh of clusters.
   cluster-name: {{ .Values.global.cluster.name }}
 
+{{- if .Values.global.cluster.id }}
   # Unique ID of the cluster. Must be unique across all conneted clusters and
   # in the range of 1 and 255. Only relevant when building a mesh of clusters.
-{{- if .Values.global.cluster.id }}
   cluster-id: "{{ .Values.global.cluster.id }}"
 {{- end }}
 
