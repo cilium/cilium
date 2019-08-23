@@ -77,7 +77,10 @@ func NewAgent(ctx context.Context, npages int) (a *Agent, err error) {
 		return
 	}
 
-	a.monitor = NewMonitor(ctx, npages, a.server1_2)
+	a.monitor, err = NewMonitor(ctx, npages, a.server1_2)
+	if err != nil {
+		return
+	}
 
 	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
 
