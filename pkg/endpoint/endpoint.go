@@ -946,14 +946,14 @@ type DeleteConfig struct {
 	NoIdentityRelease bool
 }
 
-// LeaveLocked removes the endpoint's directory from the system. Must be called
+// leaveLocked removes the endpoint's directory from the system. Must be called
 // with Endpoint's mutex AND buildMutex locked.
 //
-// Note: LeaveLocked() is called indirectly from endpoint restore logic for
-// endpoints which failed to be restored. Any cleanup routine of LeaveLocked()
+// Note: leaveLocked() is called indirectly from endpoint restore logic for
+// endpoints which failed to be restored. Any cleanup routine of leaveLocked()
 // which depends on kvstore connectivity must be protected by a flag in
 // DeleteConfig and the restore logic must opt-out of it.
-func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
+func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
 	if !option.Config.DryMode {
@@ -2011,7 +2011,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager Endpoin
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
-	errs = append(errs, e.LeaveLocked(proxyWaitGroup, conf)...)
+	errs = append(errs, e.leaveLocked(proxyWaitGroup, conf)...)
 	e.Unlock()
 
 	err := e.WaitForProxyCompletions(proxyWaitGroup)
