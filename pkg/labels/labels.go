@@ -28,9 +28,6 @@ const (
 	// PathDelimiter is the delimiter used in the labels paths.
 	PathDelimiter = "."
 
-	// IDNameAll is a special label which matches all labels.
-	IDNameAll = "all"
-
 	// IDNameHost is the label used for the hostname ID.
 	IDNameHost = "host"
 
@@ -227,11 +224,6 @@ func (l *Label) Equals(b *Label) bool {
 	return l.Key == b.Key && l.Value == b.Value
 }
 
-// IsAllLabel returns true if the label is reserved and matches with IDNameAll.
-func (l *Label) IsAllLabel() bool {
-	return l.Source == LabelSourceReserved && l.Key == "all"
-}
-
 // IsAnySource return if the label was set with source "any".
 func (l *Label) IsAnySource() bool {
 	return l.Source == LabelSourceAny
@@ -244,7 +236,7 @@ func (l *Label) IsReservedSource() bool {
 
 // matches returns true if l matches the target
 func (l *Label) matches(target *Label) bool {
-	return l.IsAllLabel() || l.Equals(target)
+	return l.Equals(target)
 }
 
 // String returns the string representation of Label in the for of Source:Key=Value or

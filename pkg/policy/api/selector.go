@@ -290,7 +290,6 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 // Returns always true if the endpoint selector contains the reserved label for
 // "all".
 func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
-
 	// Try to update cached requirements for this EndpointSelector if possible.
 	if n.requirements == nil {
 		n.requirements = labelSelectorToRequirements(n.LabelSelector)
@@ -301,13 +300,6 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 			return false
 		}
 	}
-
-	for k := range n.MatchLabels {
-		if k == labels.LabelSourceReservedKeyPrefix+labels.IDNameAll {
-			return true
-		}
-	}
-
 	for _, req := range *n.requirements {
 		if !req.Matches(lblsToMatch) {
 			return false
