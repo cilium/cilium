@@ -96,7 +96,7 @@ func (ls LabelArray) Contains(needed LabelArray) bool {
 nextLabel:
 	for i := range needed {
 		for l := range ls {
-			if needed[i].Matches(&ls[l]) {
+			if needed[i].matches(&ls[l]) {
 				continue nextLabel
 			}
 		}
@@ -113,7 +113,7 @@ func (ls LabelArray) Lacks(needed LabelArray) LabelArray {
 nextLabel:
 	for i := range needed {
 		for l := range ls {
-			if needed[i].Matches(&ls[l]) {
+			if needed[i].matches(&ls[l]) {
 				continue nextLabel
 			}
 		}

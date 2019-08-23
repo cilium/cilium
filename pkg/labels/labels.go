@@ -219,7 +219,7 @@ func NewLabel(key string, value string, source string) Label {
 	}
 }
 
-// Equals returns true if source, AbsoluteKey() and Value are equal and false otherwise.
+// Equals returns true if source, Key and Value are equal and false otherwise.
 func (l *Label) Equals(b *Label) bool {
 	if !l.IsAnySource() && l.Source != b.Source {
 		return false
@@ -242,8 +242,8 @@ func (l *Label) IsReservedSource() bool {
 	return l.Source == LabelSourceReserved
 }
 
-// Matches returns true if l matches the target
-func (l *Label) Matches(target *Label) bool {
+// matches returns true if l matches the target
+func (l *Label) matches(target *Label) bool {
 	return l.IsAllLabel() || l.Equals(target)
 }
 
