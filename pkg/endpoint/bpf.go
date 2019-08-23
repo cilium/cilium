@@ -62,8 +62,8 @@ func (e *Endpoint) callsMapPath() string {
 	return bpf.LocalMapPath(loader.CallsMapName, e.ID)
 }
 
-// BPFConfigMapPath returns the path to the BPF config map of endpoint.
-func (e *Endpoint) BPFConfigMapPath() string {
+// bpfConfigMapPath returns the path to the BPF config map of endpoint.
+func (e *Endpoint) bpfConfigMapPath() string {
 	return bpf.LocalMapPath(bpfconfig.MapNamePrefix, e.ID)
 }
 
@@ -602,7 +602,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	if e.bpfConfigMap == nil {
-		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.BPFConfigMapPath())
+		e.bpfConfigMap, _, err = bpfconfig.OpenMapWithName(e.bpfConfigMapPath())
 		if err != nil {
 			return err
 		}
@@ -764,7 +764,7 @@ func (e *Endpoint) deleteMapsLocked() []error {
 	var errors []error
 
 	maps := map[string]string{
-		"config": e.BPFConfigMapPath(),
+		"config": e.bpfConfigMapPath(),
 		"policy": e.policyMapPath(),
 		"calls":  e.callsMapPath(),
 		"egress": e.BPFIpvlanMapPath(),
