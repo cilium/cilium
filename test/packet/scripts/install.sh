@@ -84,7 +84,7 @@ install_docker() {
 
 main() {
     install_vagrant
-    preload_vagrant
+    preload_vagrant || true
     install_packer
     configure_kernel
     install_golang
