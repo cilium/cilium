@@ -114,7 +114,6 @@ pipeline {
                         TESTED_SUITE="k8s-1.10"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -139,6 +138,7 @@ pipeline {
                         TESTED_SUITE="k8s-1.15"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        NETNEXT="true"
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -200,7 +200,6 @@ pipeline {
                         TESTED_SUITE="k8s-1.10"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
                     }
                     steps {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.10 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
@@ -227,6 +226,7 @@ pipeline {
                         TESTED_SUITE="k8s-1.15"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
+                        NETNEXT="true"
                     }
                     steps {
                         sh 'cd ${TESTDIR}; K8S_VERSION=1.15 ginkgo --focus=" K8s*" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
