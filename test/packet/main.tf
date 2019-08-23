@@ -2,6 +2,11 @@ variable "private_key_path" {
     description = "If sharing a private key for packet access, specify the path"
 }
 
+variable "shared_key" {
+    description = "If set to true, use a shared key"
+    type        = bool
+}
+
 variable "packet_token" {
     description = "Packet.net user token for authentication"
 }
@@ -39,8 +44,8 @@ resource "packet_device" "test" {
     connection {
         type = "ssh"
         user = "root"
-        private_key = "${file("${var.private_key_path}")}"
-        agent = false
+        private_key = var.shared_key ? "${file("${var.private_key_path}")}" : ""
+        agent = var.shared_key ? false : true
     }
 
     provisioner "file" {
