@@ -110,4 +110,7 @@ spec:
               systemctl restart kubelet
 {{- end }}
 
+{{- if not (eq .Values.global.nodeinit.bootstrapFile "") }}
+              date > {{ .Values.global.nodeinit.bootstrapFile }}
+{{- end }}
               echo "Node initialization complete"

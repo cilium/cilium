@@ -84,7 +84,7 @@ Generate the required YAML file and deploy it:
      --set global.cni.chainingMode=aws-cni \
      --set global.masquerade=false \
      --set global.tunnel=disabled \
-     --set nodeinit.enabled=true \
+     --set global.nodeinit.enabled=true \
      > cilium.yaml
    kubectl create -f cilium.yaml
 

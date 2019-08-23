@@ -14,10 +14,6 @@ operator:
 preflight:
   enabled: false
 
-# Include the node-init DaemonSet
-nodeinit:
-  enabled: false
-
 # global groups all configuration options that have effect on all sub-charts
 global:
   # registry is the address of the registry and orgnization for all container images
@@ -283,3 +279,11 @@ global:
   #
   # WARNING: Use with care!
   cleanBpfState: false
+
+  nodeinit:
+    # enabled enables inclusion of the nodeinit DaemonSet
+    enabled: false
+
+    # bootstrapFile is the location of the file where the bootstrap timestamp is
+    # written by the node-init DaemonSet
+    bootstrapFile: "/tmp/cilium-bootstrap-time"
