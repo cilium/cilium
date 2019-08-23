@@ -18,6 +18,7 @@ import (
 	"context"
 	"io/ioutil"
 	"net"
+	"os"
 	"path"
 	"syscall"
 	"time"
@@ -49,6 +50,13 @@ func isCtxDone(ctx context.Context) bool {
 	}
 }
 
+func getPerfConfig(nPages int) *bpf.PerfEventConfig {
+	// configure BPF perf buffer reader
+	c := bpf.DefaultPerfEventConfig()
+	c.NumPages = nPages
+	return c
+}
+
 // Monitor structure for centralizing the responsibilities of the main events
 // reader.
 // There is some racey-ness around perfReaderCancel since it replaces on every
@@ -73,7 +81,7 @@ type Monitor struct {
 // handling.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Monitor) {
+func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Monitor, err error) {
 	m = &Monitor{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
@@ -81,10 +89,20 @@ func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Mon
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
 	}
 
+	// assert that we can actually connect the monitor
+	c := getPerfConfig(nPages)
+	mapPath := c.MapName
+	if !path.IsAbs(mapPath) {
+		mapPath = bpf.MapPath(mapPath)
+	}
+	if _, err := os.Stat(mapPath); os.IsNotExist(err) {
+		return nil, err
+	}
+
 	// start new MonitorListener handler
 	go m.connectionHandler1_2(ctx, server1_2)
 
-	return
+	return m, nil
 }
 
 // registerNewListener adds the new MonitorListener to the global list. It also spawns
@@ -151,10 +169,7 @@ func (m *Monitor) perfEventReader(stopCtx context.Context, nPages int) {
 	scopedLog.Info("Beginning to read perf buffer")
 	defer scopedLog.Info("Stopped reading perf buffer")
 
-	// configure BPF perf buffer reader
-	c := bpf.DefaultPerfEventConfig()
-	c.NumPages = nPages
-
+	c := getPerfConfig(nPages)
 	monitorEvents, err := bpf.NewPerCpuEvents(c)
 	if err != nil {
 		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
