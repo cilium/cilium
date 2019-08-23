@@ -227,11 +227,6 @@ const (
 var NightlyStableUpgradesFrom = []string{"v1.3"}
 
 var (
-	CiliumV1_0 = versioncheck.MustCompile(">=v1.0,<v1.1")
-	CiliumV1_1 = versioncheck.MustCompile(">=v1.1,<v1.2")
-	CiliumV1_2 = versioncheck.MustCompile(">=v1.2,<v1.3")
-	CiliumV1_3 = versioncheck.MustCompile(">=v1.2.90,<v1.4")
-	CiliumV1_4 = versioncheck.MustCompile(">=v1.3.90,<v1.5")
 	CiliumV1_5 = versioncheck.MustCompile(">=v1.4.90,<v1.6")
 	CiliumV1_6 = versioncheck.MustCompile(">=v1.5.90,<v1.7")
 )
