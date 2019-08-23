@@ -977,7 +977,7 @@ func (e *Endpoint) LeaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 
 	if e.bpfConfigMap != nil {
 		if err := e.bpfConfigMap.Close(); err != nil {
-			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.BPFConfigMapPath(), err))
+			errors = append(errors, fmt.Errorf("unable to close configmap %s: %s", e.bpfConfigMapPath(), err))
 		}
 	}
 
