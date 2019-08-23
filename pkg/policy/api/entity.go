@@ -81,26 +81,6 @@ var (
 // EntitySlice is a slice of entities
 type EntitySlice []Entity
 
-// Matches returns true if the entity matches the labels
-func (e Entity) Matches(ctx labels.LabelArray) bool {
-	if selectors, ok := EntitySelectorMapping[e]; ok {
-		return selectors.Matches(ctx)
-	}
-
-	return false
-}
-
-// Matches returns true if any of the entities in the slice match the labels
-func (s EntitySlice) Matches(ctx labels.LabelArray) bool {
-	for _, entity := range s {
-		if entity.Matches(ctx) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // GetAsEndpointSelectors returns the provided entity slice as a slice of
 // endpoint selectors
 func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
