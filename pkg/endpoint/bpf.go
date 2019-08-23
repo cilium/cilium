@@ -52,8 +52,8 @@ const (
 	EndpointGenerationTimeout = 330 * time.Second
 )
 
-// PolicyMapPathLocked returns the path to the policy map of endpoint.
-func (e *Endpoint) PolicyMapPathLocked() string {
+// policyMapPath returns the path to the policy map of endpoint.
+func (e *Endpoint) policyMapPath() string {
 	return bpf.LocalMapPath(policymap.MapName, e.ID)
 }
 
@@ -585,7 +585,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	if e.policyMap == nil {
-		e.policyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
+		e.policyMap, _, err = policymap.OpenOrCreate(e.policyMapPath())
 		if err != nil {
 			return err
 		}
@@ -765,7 +765,7 @@ func (e *Endpoint) deleteMapsLocked() []error {
 
 	maps := map[string]string{
 		"config": e.BPFConfigMapPath(),
-		"policy": e.PolicyMapPathLocked(),
+		"policy": e.policyMapPath(),
 		"calls":  e.CallsMapPathLocked(),
 		"egress": e.BPFIpvlanMapPath(),
 	}
@@ -1057,7 +1057,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 			e.getLogger().WithError(err).Error("unable to close PolicyMap which was not able to be dumped")
 		}
 
-		e.policyMap, _, err = policymap.OpenOrCreate(e.PolicyMapPathLocked())
+		e.policyMap, _, err = policymap.OpenOrCreate(e.policyMapPath())
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %s", err)
 		}
