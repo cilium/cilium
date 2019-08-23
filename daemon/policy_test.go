@@ -538,13 +538,17 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
 
 	// Delete the endpoint.
-	e.UnconditionalLock()
-	e.LeaveLocked(nil, endpoint.DeleteConfig{})
-	e.Unlock()
+	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
 	c.Assert(networkPolicies, HasLen, 0)
+}
+
+type dummyManager struct{}
+
+func (d *dummyManager) Remove(ep *endpoint.Endpoint) <-chan struct{} {
+	return nil
 }
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
@@ -640,9 +644,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	c.Assert(qaBarNetworkPolicy.IngressPerPortPolicies[0].Rules[0].RemotePolicies[0], Equals, uint64(qaFooID.ID))
 
 	// Delete the endpoint.
-	e.UnconditionalLock()
-	e.LeaveLocked(nil, endpoint.DeleteConfig{})
-	e.Unlock()
+	e.Delete(ds.d, ds.d.ipam, &dummyManager{}, endpoint.DeleteConfig{})
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(c, nil)
