@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	bpfconfig "github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/notifications"
@@ -1922,4 +1923,107 @@ func (e *Endpoint) SyncEndpointHeaderFile() error {
 	}
 	e.dnsHistoryTrigger.Trigger()
 	return nil
+}
+
+type ipReleaser interface {
+	ReleaseIP(net.IP) error
+}
+
+type monitorOwner interface {
+	NotifyMonitorDeleted(e *Endpoint)
+}
+
+type EndpointRemover interface {
+	Remove(ep *Endpoint) <-chan struct{}
+}
+
+// Delete cleans up all resources associated with this endpoint, including the
+// following:
+// * all goroutines managed by this Endpoint (EventQueue, Controllers)
+// * removal from the endpointmanager, resulting in new events not taking effect
+// on this endpoint
+// * cleanup of datapath state (BPF maps, proxy configuration, directories)
+// * releasing IP addresses allocated for the endpoint
+// * releasing of the reference to its allocated security identity
+func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager EndpointRemover, conf DeleteConfig) []error {
+	errs := []error{}
+
+	// Since the endpoint is being deleted, we no longer need to run events
+	// in its event queue. This is a no-op if the queue has already been
+	// closed elsewhere.
+	e.EventQueue.Stop()
+
+	// Wait for the queue to be drained in case an event which is currently
+	// running for the endpoint tries to acquire the lock - we cannot be sure
+	// what types of events will be pushed onto the EventQueue for an endpoint
+	// and when they will happen. After this point, no events for the endpoint
+	// will be processed on its EventQueue, specifically regenerations.
+	e.EventQueue.WaitToBeDrained()
+
+	// Given that we are deleting the endpoint and that no more builds are
+	// going to occur for this endpoint, close the channel which signals whether
+	// the endpoint has its BPF program compiled or not to avoid it persisting
+	// if anything is blocking on it. If a delete request has already been
+	// enqueued for this endpoint, this is a no-op.
+	e.CloseBPFProgramChannel()
+
+	// Lock out any other writers to the endpoint.  In case multiple delete
+	// requests have been enqueued, have all of them except the first
+	// return here. Ignore the request if the endpoint is already
+	// disconnected.
+	if err := e.LockAlive(); err != nil {
+		return []error{}
+	}
+	e.SetStateLocked(StateDisconnecting, "Deleting endpoint")
+
+	// Remove the endpoint before we clean up. This ensures it is no longer
+	// listed or queued for rebuilds.
+	manager.Remove(e)
+
+	defer func() {
+		monitor.NotifyMonitorDeleted(e)
+	}()
+
+	// If dry mode is enabled, no changes to BPF maps are performed
+	if !option.Config.DryMode {
+		if errs2 := lxcmap.DeleteElement(e); errs2 != nil {
+			errs = append(errs, errs2...)
+		}
+
+		if errs2 := e.DeleteMapsLocked(); errs2 != nil {
+			errs = append(errs, errs2...)
+		}
+	}
+
+	if !conf.NoIPRelease {
+		if option.Config.EnableIPv4 {
+			if err := ipam.ReleaseIP(e.IPv4.IP()); err != nil {
+				errs = append(errs, fmt.Errorf("unable to release ipv4 address: %s", err))
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if err := ipam.ReleaseIP(e.IPv6.IP()); err != nil {
+				errs = append(errs, fmt.Errorf("unable to release ipv6 address: %s", err))
+			}
+		}
+	}
+
+	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
+
+	errs = append(errs, e.LeaveLocked(proxyWaitGroup, conf)...)
+	e.Unlock()
+
+	err := e.WaitForProxyCompletions(proxyWaitGroup)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("unable to remove proxy redirects: %s", err))
+	}
+	cancel()
+
+	if option.Config.IsFlannelMasterDeviceSet() &&
+		option.Config.FlannelUninstallOnExit {
+		e.DeleteBPFProgramLocked()
+	}
+
+	return errs
 }
