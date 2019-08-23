@@ -756,14 +756,6 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		nodeDiscovery:     nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig),
 		iptablesManager:   iptablesManager,
 	}
-
-	if option.Config.RunMonitorAgent {
-		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
-		if err != nil {
-			return nil, nil, err
-		}
-		d.monitorAgent = monitorAgent
-	}
 	bootstrapStats.daemonInit.End(true)
 
 	// Open or create BPF maps.
@@ -898,6 +890,14 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
+	// We can only start monitor agent once cilium_event has been set up.
+	if option.Config.RunMonitorAgent {
+		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
+		if err != nil {
+			return nil, nil, err
+		}
+		d.monitorAgent = monitorAgent
+	}
 	bootstrapStats.bpfBase.EndError(err)
 	if err != nil {
 		log.WithError(err).Error("Error while initializing daemon")
