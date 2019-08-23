@@ -1159,8 +1159,14 @@ func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error 
 		if _, err := os.Stat(e.BPFIpvlanMapPath()); err != nil {
 			return fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
 		}
-	} else if err := linkChecker(e.ifName); err != nil {
-		return fmt.Errorf("interface %s could not be found", e.ifName)
+	} else {
+		if linkChecker == nil {
+			return fmt.Errorf("cannot check state of datapath; link checker is nil")
+		}
+		err := linkChecker(e.ifName)
+		if err != nil {
+			return fmt.Errorf("interface %s could not be found", e.ifName)
+		}
 	}
 	return nil
 }
