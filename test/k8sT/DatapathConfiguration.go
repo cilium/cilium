@@ -143,13 +143,25 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	Context("DirectRouting", func() {
+		directRoutingOptions := []string{
+			"--set global.tunnel=disabled",
+			"--set global.autoDirectNodeRoutes=true",
+		}
+
 		It("Check connectivity with automatic direct nodes routes", func() {
 			SkipIfFlannel()
 
-			deployCilium([]string{
-				"--set global.tunnel=disabled",
-				"--set global.autoDirectNodeRoutes=true",
-			})
+			deployCilium(directRoutingOptions)
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			cleanService()
+		})
+
+		It("Check direct connectivity with per endpoint routes", func() {
+			SkipIfFlannel()
+
+			deployCilium(append(directRoutingOptions,
+				"--set global.endpointRoutes.enabled=true",
+			))
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
 		})
@@ -178,19 +190,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium([]string{
 				"--set global.ipv4.enabled=true",
 				"--set global.ipv6.enabled=false",
-			})
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			cleanService()
-		})
-	})
-
-	Context("PerEndpointRoute", func() {
-		It("Check connectivity with per endpoint routes", func() {
-			// Flannel always disables IPv6, this test is a no-op in that case.
-			SkipIfFlannel()
-
-			deployCilium([]string{
-				"--set global.endpointRoutes.enabled=true",
 			})
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 			cleanService()
