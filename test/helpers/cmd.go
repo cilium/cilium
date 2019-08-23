@@ -314,7 +314,7 @@ func (res *CmdRes) GetErr(context string) error {
 	if res.WasSuccessful() {
 		return nil
 	}
-	return &cmdError{fmt.Sprintf("%s output: %s", context, res.GetDebugMessage())}
+	return &cmdError{fmt.Sprintf("%s (%s) output: %s", context, res.err, res.GetDebugMessage())}
 }
 
 // GetError returns the error for this CmdRes.
