@@ -46,7 +46,7 @@ Generate the required YAML file and deploy it:
      --set global.eni=true \
      --set global.egressMasqueradeInterfaces=eth0 \
      --set global.tunnel=disabled \
-     --set nodeinit.enabled=true \
+     --set global.nodeinit.enabled=true \
      > cilium.yaml
    kubectl create -f cilium.yaml
 

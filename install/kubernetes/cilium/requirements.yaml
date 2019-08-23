@@ -16,4 +16,4 @@ dependencies:
     condition: preflight.enabled
   - name: nodeinit
     version: 1.6.0
-    condition: nodeinit.enabled
+    condition: global.nodeinit.enabled
