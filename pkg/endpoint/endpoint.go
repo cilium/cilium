@@ -119,9 +119,8 @@ type Endpoint struct {
 	// containerName is the name given to the endpoint by the container runtime
 	containerName string
 
-	// ContainerID is the container ID that docker has assigned to the endpoint
-	// Note: The JSON tag was kept for backward compatibility.
-	ContainerID string `json:"dockerID,omitempty"`
+	// containerID is the container ID that docker has assigned to the endpoint
+	containerID string
 
 	// DockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
@@ -1080,7 +1079,7 @@ func (e *Endpoint) SetK8sPodName(name string) {
 // SetContainerID modifies the endpoint's container ID
 func (e *Endpoint) SetContainerID(id string) {
 	e.unconditionalLock()
-	e.ContainerID = id
+	e.containerID = id
 	e.UpdateLogger(map[string]interface{}{
 		logfields.ContainerID: e.getShortContainerID(),
 	})
@@ -1090,7 +1089,7 @@ func (e *Endpoint) SetContainerID(id string) {
 // GetContainerID returns the endpoint's container ID
 func (e *Endpoint) GetContainerID() string {
 	e.unconditionalRLock()
-	cID := e.ContainerID
+	cID := e.containerID
 	e.runlock()
 	return cID
 }
@@ -1109,11 +1108,11 @@ func (e *Endpoint) getShortContainerID() string {
 	}
 
 	caplen := 10
-	if len(e.ContainerID) <= caplen {
-		return e.ContainerID
+	if len(e.containerID) <= caplen {
+		return e.containerID
 	}
 
-	return e.ContainerID[:caplen]
+	return e.containerID[:caplen]
 
 }
 
