@@ -6,8 +6,8 @@ package v2
 import (
 	fmt "fmt"
 	core "github.com/cilium/proxy/go/envoy/api/v2/core"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	math "math"
 )
 
