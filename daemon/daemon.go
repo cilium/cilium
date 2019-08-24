@@ -399,10 +399,6 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if err := bpf.ConfigureResourceLimits(); err != nil {
-		log.WithError(err).Fatal("Unable to set memory resource limits")
-	}
-
 	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
 		return err
 	}
@@ -724,6 +720,12 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapMaxEntries)
+
+	if option.Config.DryMode == false {
+		if err := bpf.ConfigureResourceLimits(); err != nil {
+			log.WithError(err).Fatal("Unable to set memory resource limits")
+		}
+	}
 
 	authKeySize, err := setupIPSec()
 	if err != nil {
