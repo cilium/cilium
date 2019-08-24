@@ -524,9 +524,10 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 
 }
 
-func neighborLog(spec string, err error, ip *net.IP, hwAddr *net.HardwareAddr, link int) {
+func neighborLog(spec, iface string, err error, ip *net.IP, hwAddr *net.HardwareAddr, link int) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.Reason: spec,
+		"Interface":      iface,
 		"IP":             ip,
 		"HardwareAddr":   hwAddr,
 		"LinkIndex":      link,
@@ -550,19 +551,19 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) 
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		neighborLog("insertNeightbor InterfaceByName", err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("insertNeightbor InterfaceByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		return
 	}
 
 	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
 	if err != nil {
-		neighborLog("insertNeightbor IP not L2 reachable", nil, &ciliumIPv4, &hwAddr, link)
+		neighborLog("insertNeightbor IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
 		return
 	}
 
 	linkAttr, err := netlink.LinkByName(ifaceName)
 	if err != nil {
-		neighborLog("insertNeightbor LinkByName", err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("insertNeightbor LinkByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		return
 	}
 	link = linkAttr.Attrs().Index
@@ -575,9 +576,9 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *node.Node, ifaceName string) 
 			State:        netlink.NUD_PERMANENT,
 		}
 		err := netlink.NeighSet(&neigh)
-		neighborLog("insertNeighbor NeighSet", err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("insertNeighbor NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 	} else {
-		neighborLog("insertNeighbor arping failed", err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("insertNeighbor arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 	}
 }
 
