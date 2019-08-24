@@ -125,21 +125,21 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 }
 
 func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa bool) *endpoint.Endpoint {
-	e := endpoint.NewEndpointWithState(ds.d, ds.d.l7Proxy, testEndpointID, endpoint.StateWaitingForIdentity)
+	var (
+		ipv6 addressing.CiliumIPv6
+		ipv4 addressing.CiliumIPv4
+	)
 	if qa {
-		e.IPv6 = QAIPv6Addr
-		e.IPv4 = QAIPv4Addr
+		ipv6 = QAIPv6Addr
+		ipv4 = QAIPv4Addr
 	} else {
-		e.IPv6 = ProdIPv6Addr
-		e.IPv4 = ProdIPv4Addr
+		ipv6 = ProdIPv6Addr
+		ipv4 = ProdIPv4Addr
 	}
-	e.SetIdentity(identity, true)
 
-	ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
-	c.Assert(ready, Equals, true)
+	e := endpoint.PrepareEndpointForTesting(ds.d, ds.d.l7Proxy, testEndpointID, identity, ipv4, ipv6)
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
 	c.Assert(buildSuccess, Equals, true)
-
 	return e
 }
 
