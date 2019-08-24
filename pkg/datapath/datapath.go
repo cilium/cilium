@@ -54,4 +54,9 @@ type Datapath interface {
 	// RemoveProxyRules creates the necessary datapath config (e.g., iptables
 	// rules for redirecting host proxy traffic on a specific ProxyPort)
 	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+
+	// SupportsOriginalSourceAddr tells if the datapath supports
+	// use of original source addresses in proxy upstream
+	// connections.
+	SupportsOriginalSourceAddr() bool
 }

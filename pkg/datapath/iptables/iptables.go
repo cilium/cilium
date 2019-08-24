@@ -33,7 +33,6 @@ import (
 
 	go_version "github.com/hashicorp/go-version"
 	"github.com/mattn/go-shellwords"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -305,8 +304,9 @@ var transientChain = customChain{
 
 // IptablesManager manages the iptables-related configuration for Cilium.
 type IptablesManager struct {
-	ip6tables bool
-	waitArgs  []string
+	haveIp6tables   bool
+	haveSocketMatch bool
+	waitArgs        []string
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
@@ -325,7 +325,7 @@ func (m *IptablesManager) Init() {
 			"iptables modules could not be initialized. It probably means that iptables is not available on this system")
 	}
 	if err := modulesManager.FindOrLoadModules(
-		"ip6_tables", "ip6table_mangle", "ip6table_raw"); err != nil {
+		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter"); err != nil {
 		if option.Config.EnableIPv6 {
 			log.WithError(err).Warning(
 				"IPv6 is enabled and ip6tables modules could not be initialized")
@@ -334,7 +334,16 @@ func (m *IptablesManager) Init() {
 			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
 		ip6tables = false
 	}
-	m.ip6tables = ip6tables
+	m.haveIp6tables = ip6tables
+
+	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
+		log.WithError(err).Warning("xt_socket kernel module could not be loaded")
+		if option.Config.Tunnel == option.TunnelDisabled {
+			log.Warning("Traffic to endpoints with L7 ingress policy may be dropped unexpectedly")
+		}
+	} else {
+		m.haveSocketMatch = true
+	}
 
 	v, err := getVersion("iptables")
 	if err == nil {
@@ -347,6 +356,10 @@ func (m *IptablesManager) Init() {
 	}
 }
 
+func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
+	return m.haveSocketMatch
+}
+
 // RemoveRules removes iptables rules installed by Cilium.
 func (m *IptablesManager) RemoveRules() {
 	// Set of tables that have had iptables rules in any Cilium version
@@ -356,7 +369,7 @@ func (m *IptablesManager) RemoveRules() {
 	}
 
 	// Set of tables that have had ip6tables rules in any Cilium version
-	if m.ip6tables {
+	if m.haveIp6tables {
 		tables6 := []string{"mangle", "raw", "filter"}
 		for _, t := range tables6 {
 			m.removeCiliumRules(t, "ip6tables", ciliumPrefix)
@@ -461,9 +474,6 @@ func (m *IptablesManager) iptEgressProxyRule(cmd string, l4proto string, proxyPo
 }
 
 func (m *IptablesManager) installStaticProxyRules() error {
-	xtSocketWarningFormat := "Failed to configure inbound proxy rule likely due to missing 'xt_socket' module"
-	xtSocketDirectRoutingWarning := "Traffic to endpoints with L7 ingress policy may be dropped unexpectedly"
-
 	// match traffic to a proxy (upper 16 bits has the proxy port, which is masked out)
 	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	// proxy return traffic has 0 ID in the mask
@@ -519,20 +529,9 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
 				"-j", "ACCEPT"), false)
 		}
-		if err == nil {
+		if err == nil && m.haveSocketMatch {
 			// Direct inbound TPROXYed traffic towards the socket
-			args := m.inboundProxyRedirectRule("-A")
-			if err2 := runProg("iptables", args, false); err2 != nil {
-				scopedLog := log.WithFields(logrus.Fields{
-					"cmd":            args,
-					logfields.Family: logfields.IPv4,
-				})
-				if option.Config.Tunnel == option.TunnelDisabled {
-					scopedLog.Warningf("%s. %s", xtSocketWarningFormat, xtSocketDirectRoutingWarning)
-				} else {
-					scopedLog.Info(xtSocketWarningFormat)
-				}
-			}
+			err = runProg("iptables", m.inboundProxyRedirectRule("-A"), false)
 		}
 	}
 	if err == nil && option.Config.EnableIPv6 {
@@ -584,20 +583,9 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-m", "comment", "--comment", "cilium: ACCEPT for proxy return traffic",
 				"-j", "ACCEPT"), false)
 		}
-		if err == nil {
+		if err == nil && m.haveSocketMatch {
 			// Direct inbound TPROXYed traffic towards the socket
-			args := m.inboundProxyRedirectRule("-A")
-			if err2 := runProg("ip6tables", args, false); err2 != nil {
-				scopedLog := log.WithFields(logrus.Fields{
-					"cmd":            args,
-					logfields.Family: logfields.IPv6,
-				})
-				if option.Config.Tunnel == option.TunnelDisabled {
-					scopedLog.Warningf("%s. %s", xtSocketWarningFormat, xtSocketDirectRoutingWarning)
-				} else {
-					scopedLog.Info(xtSocketWarningFormat)
-				}
-			}
+			err = runProg("ip6tables", m.inboundProxyRedirectRule("-A"), false)
 		}
 	}
 	return err
