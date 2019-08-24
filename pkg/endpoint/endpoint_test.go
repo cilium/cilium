@@ -720,5 +720,6 @@ func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
 func (d *dummyManager) RemoveID(uint16) {
 }
 
-func (d *dummyManager) ReleaseID(*Endpoint) {
+func (d *dummyManager) ReleaseID(*Endpoint) error {
+	return nil
 }

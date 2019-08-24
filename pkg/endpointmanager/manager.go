@@ -222,20 +222,8 @@ func (mgr *EndpointManager) LookupPodName(name string) *endpoint.Endpoint {
 
 // ReleaseID releases the ID of the specified endpoint from the EndpointManager.
 // Returns an error if the ID cannot be released.
-func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) {
-	if err := endpointid.Release(ep.ID); err != nil {
-		// While restoring, endpoint IDs may not have been reused yet.
-		// Failure to release means that the endpoint ID was not reused
-		// yet.
-		//
-		// While endpoint is disconnecting, ID is already available in ID cache.
-		//
-		// Avoid irritating warning messages.
-		state := ep.GetStateLocked()
-		if state != endpoint.StateRestoring && state != endpoint.StateDisconnecting {
-			log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
-		}
-	}
+func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
+	return endpointid.Release(ep.ID)
 }
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
