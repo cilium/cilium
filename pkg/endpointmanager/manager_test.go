@@ -188,7 +188,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		{
 			name: "endpoint by container ID",
 			preTestRun: func() {
-				ep.ContainerID = "1234"
+				ep.SetContainerID("1234")
 				ep.Expose(mgr)
 			},
 			setupArgs: func() args {
@@ -205,7 +205,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep.ContainerID = ""
+				ep.SetContainerID("")
 			},
 		},
 		{

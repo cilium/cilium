@@ -185,9 +185,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return invalidDataError(ep, fmt.Errorf("endpoint ID %d already exists", ep.ID))
 	}
 
-	oldEp = d.endpointManager.LookupContainerID(ep.ContainerID)
+	oldEp = d.endpointManager.LookupContainerID(ep.GetContainerID())
 	if oldEp != nil {
-		return invalidDataError(ep, fmt.Errorf("endpoint for container %s already exists", ep.ContainerID))
+		return invalidDataError(ep, fmt.Errorf("endpoint for container %s already exists", ep.GetContainerID()))
 	}
 
 	var checkIDs []string

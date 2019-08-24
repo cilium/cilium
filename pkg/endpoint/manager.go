@@ -85,8 +85,8 @@ func (e *Endpoint) updateReferences(mgr endpointManager) {
 
 func (e *Endpoint) generateReferences() map[id.PrefixType]string {
 	refs := make(map[id.PrefixType]string, 6)
-	if e.ContainerID != "" {
-		refs[id.ContainerIdPrefix] = e.ContainerID
+	if e.containerID != "" {
+		refs[id.ContainerIdPrefix] = e.containerID
 	}
 
 	if e.DockerEndpointID != "" {
