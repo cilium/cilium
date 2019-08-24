@@ -6,13 +6,13 @@ package core
 import (
 	fmt "fmt"
 	_type "github.com/cilium/proxy/go/envoy/type"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/golang/protobuf/proto"
 	any "github.com/golang/protobuf/ptypes/any"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	_struct "github.com/golang/protobuf/ptypes/struct"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	math "math"
 )
 
