@@ -259,18 +259,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	default:
 	}
 
-	if err := ep.LockAlive(); err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("endpoint was deleted while processing the request"))
-	}
-
 	// Now that we have ep.ID we can pin the map from this point. This
 	// also has to happen before the first build took place.
 	if err = ep.PinDatapathMap(); err != nil {
-		ep.Unlock()
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
-
-	ep.Unlock()
 
 	cfunc := func() {
 		// Only used for CRI-O since it does not support events.

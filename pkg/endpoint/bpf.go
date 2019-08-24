@@ -1171,7 +1171,7 @@ func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 		return nil
 	}
 
-	if e.isDatapathMapPinnedLocked() {
+	if e.isDatapathMapPinned {
 		// The datapath map is pinned which implies that the post-initialization
 		// for the ipvlan slave has been successfully performed
 		return nil
@@ -1188,7 +1188,7 @@ func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 		unix.Close(mapFD)
 	}()
 
-	if err = e.setDatapathMapIDAndPinMapLocked(mapID); err != nil {
+	if err = e.setDatapathMapIDAndPinMap(mapID); err != nil {
 		return fmt.Errorf("Unable to pin datapath map: %s", err)
 	}
 
