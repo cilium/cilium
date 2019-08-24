@@ -5,13 +5,13 @@ package core
 
 import (
 	fmt "fmt"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/golang/protobuf/proto"
 	any "github.com/golang/protobuf/ptypes/any"
 	duration "github.com/golang/protobuf/ptypes/duration"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	_struct "github.com/golang/protobuf/ptypes/struct"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	math "math"
 )
 

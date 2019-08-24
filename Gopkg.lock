@@ -107,7 +107,18 @@
   revision = "0010a05ce49fde7f50669bc7ecda7d41dd6ab824"
 
 [[projects]]
-  digest = "1:813b38ef06b8eea9552d7a0e4961efb0f731d8d2a0fee3059cb2c76d73e2fa8c"
+  digest = "1:530196e273d778fb94ad0481a801ae1d9a79f2ff40b8040413c33a1fb46505a1"
+  name = "github.com/census-instrumentation/opencensus-proto"
+  packages = [
+    "gen-go/resource/v1",
+    "gen-go/trace/v1",
+  ]
+  pruneopts = "NUT"
+  revision = "d89fa54de508111353cb0b06403c00569be780d8"
+  version = "v0.2.1"
+
+[[projects]]
+  digest = "1:2b404b091881f73038d4a98ad226e525e48dcb18a5088b313efd19de44916cc2"
   name = "github.com/cilium/proxy"
   packages = [
     "go/cilium/api",
@@ -126,7 +137,7 @@
     "go/envoy/type/matcher",
   ]
   pruneopts = "NUT"
-  revision = "74a21763dce81def53aef3a76ccc794bd9a062ad"
+  revision = "b7a919ebdca3d3bbc6aae51357e78e9c603450ae"
 
 [[projects]]
   digest = "1:7d39d7f6f0947a8ecbce768541e6737ae71bf756d6d3ed0bd78b1c0290a59c8d"
@@ -346,6 +357,14 @@
   pruneopts = "NUT"
   revision = "7275750c56535517a5a7cb7603d40ffcfd0aa144"
   version = "v0.5.1"
+
+[[projects]]
+  digest = "1:d67a21c8d55d69afb0ac5b7fb150406a30bf0e607930fd9cf980cca5006a657a"
+  name = "github.com/envoyproxy/protoc-gen-validate"
+  packages = ["validate"]
+  pruneopts = "NUT"
+  revision = "9eff07ddfcb4001aa1aab280648153f46e1a8ddc"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:32598368f409bbee79deb9d43569fcd92b9fb27f39155f5e166b3371217f051f"
@@ -737,13 +756,6 @@
   pruneopts = "NUT"
   revision = "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f"
   version = "v0.1.0"
-
-[[projects]]
-  digest = "1:0dbba7d4d4f3eeb01acd81af338ff4a3c4b0bb814d87368ea536e616f383240d"
-  name = "github.com/lyft/protoc-gen-validate"
-  packages = ["validate"]
-  pruneopts = "NUT"
-  revision = "v0.0.13"
 
 [[projects]]
   digest = "1:d244f8666a838fe6ad70ec8fe77f50ebc29fdc3331a2729ba5886bef8435d10d"
