@@ -78,6 +78,10 @@ type xdsGRPCServer xds.Server
 //	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
 //}
 
+func (s *xdsGRPCServer) DeltaListeners(stream envoy_api_v2.ListenerDiscoveryService_DeltaListenersServer) error {
+	return ErrNotImplemented
+}
+
 func (s *xdsGRPCServer) StreamListeners(stream envoy_api_v2.ListenerDiscoveryService_StreamListenersServer) error {
 	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, ListenerTypeURL)
 }
