@@ -7,11 +7,11 @@ import (
 	fmt "fmt"
 	core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	matcher "github.com/cilium/proxy/go/envoy/type/matcher"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
 	any "github.com/golang/protobuf/ptypes/any"
 	_struct "github.com/golang/protobuf/ptypes/struct"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	math "math"
 )
 
