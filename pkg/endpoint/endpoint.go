@@ -116,8 +116,8 @@ type Endpoint struct {
 	// for the logger field which has its own mutex
 	mutex lock.RWMutex
 
-	// ContainerName is the name given to the endpoint by the container runtime
-	ContainerName string
+	// containerName is the name given to the endpoint by the container runtime
+	containerName string
 
 	// ContainerID is the container ID that docker has assigned to the endpoint
 	// Note: The JSON tag was kept for backward compatibility.
@@ -998,13 +998,13 @@ func (e *Endpoint) RegenerateWait(reason string) error {
 func (e *Endpoint) GetContainerName() string {
 	e.unconditionalRLock()
 	defer e.runlock()
-	return e.ContainerName
+	return e.containerName
 }
 
 // SetContainerName modifies the endpoint's container name
 func (e *Endpoint) SetContainerName(name string) {
 	e.unconditionalLock()
-	e.ContainerName = name
+	e.containerName = name
 	e.unlock()
 }
 
