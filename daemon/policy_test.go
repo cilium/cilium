@@ -563,7 +563,8 @@ func (d *dummyManager) RemoveReferences(map[id.PrefixType]string) {
 func (d *dummyManager) RemoveID(uint16) {
 }
 
-func (d *dummyManager) ReleaseID(*endpoint.Endpoint) {
+func (d *dummyManager) ReleaseID(*endpoint.Endpoint) error {
+	return nil
 }
 
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {

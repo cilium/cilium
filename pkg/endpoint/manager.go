@@ -30,7 +30,7 @@ type endpointManager interface {
 	UpdateIDReference(*Endpoint)
 	RemoveReferences(map[id.PrefixType]string)
 	RemoveID(uint16)
-	ReleaseID(*Endpoint)
+	ReleaseID(*Endpoint) error
 }
 
 // Expose exposes the endpoint to the endpointmanager. After this function
@@ -135,7 +135,21 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 		// this endpoint.
 		ep.eventQueue.WaitToBeDrained()
 
-		mgr.ReleaseID(ep)
+		err := mgr.ReleaseID(ep)
+		if err != nil {
+			// While restoring, endpoint IDs may not have been reused yet.
+			// Failure to release means that the endpoint ID was not reused
+			// yet.
+			//
+			// While endpoint is disconnecting, ID is already available in ID cache.
+			//
+			// Avoid irritating warning messages.
+			state := ep.GetStateLocked()
+			if state != StateRestoring && state != StateDisconnecting {
+				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
+			}
+		}
+
 		close(epRemoved)
 	}(e)
 	e.removeReferences(mgr)
