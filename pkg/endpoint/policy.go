@@ -259,7 +259,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	// the state remains unchanged
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
-	if e.GetStateLocked() != StateWaitingForIdentity &&
+	if e.getState() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.unlock()
@@ -419,7 +419,7 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
 	} else {
 		var regen bool
-		state := e.GetStateLocked()
+		state := e.getState()
 		switch state {
 		case StateRestoring, StateWaitingToRegenerate:
 			e.setState(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
@@ -612,7 +612,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	e.selectorPolicy = nil
 
 	// Sets endpoint state to ready if was waiting for identity
-	if e.GetStateLocked() == StateWaitingForIdentity {
+	if e.getState() == StateWaitingForIdentity {
 		e.setState(StateReady, "Set identity for this endpoint")
 	}
 
