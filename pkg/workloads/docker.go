@@ -210,6 +210,7 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 
 	networkID := ep.GetDockerNetworkID()
 	containerID := ep.GetContainerID()
+	dockerEndpointID := ep.GetDockerEndpointID()
 
 	if networkID != "" {
 		nls, err := d.NetworkInspect(ctx.Background(), networkID, dTypes.NetworkInspectOptions{})
@@ -221,7 +222,7 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 			runtimeRunning = true
 			found := false
 			for _, v := range nls.Containers {
-				if v.EndpointID == ep.DockerEndpointID {
+				if v.EndpointID == dockerEndpointID {
 					found = true
 					break
 				}

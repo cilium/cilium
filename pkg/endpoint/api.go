@@ -70,7 +70,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		containerName:    base.ContainerName,
 		containerID:      base.ContainerID,
 		dockerNetworkID:  base.DockerNetworkID,
-		DockerEndpointID: base.DockerEndpointID,
+		dockerEndpointID: base.DockerEndpointID,
 		ifName:           base.InterfaceName,
 		K8sPodName:       base.K8sPodName,
 		K8sNamespace:     base.K8sNamespace,
@@ -194,7 +194,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			ExternalIdentifiers: &models.EndpointIdentifiers{
 				ContainerID:      e.containerID,
 				ContainerName:    e.containerName,
-				DockerEndpointID: e.DockerEndpointID,
+				DockerEndpointID: e.dockerEndpointID,
 				DockerNetworkID:  e.dockerNetworkID,
 				PodName:          e.getK8sNamespaceAndPodName(),
 			},
