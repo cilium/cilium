@@ -61,9 +61,9 @@ func PrepareEndpointForTesting(owner regeneration.Owner, proxy EndpointProxy, id
 }
 
 func (e *Endpoint) RegenerateEndpointTest(c *C, regenMetadata *regeneration.ExternalRegenerationMetadata) {
-	e.UnconditionalLock()
-	ready := e.SetStateLocked(StateWaitingToRegenerate, "test")
-	e.Unlock()
+	e.unconditionalLock()
+	ready := e.setState(StateWaitingToRegenerate, "test")
+	e.unlock()
 	c.Assert(ready, Equals, true)
 	buildSuccess := <-e.Regenerate(regenMetadata)
 	c.Assert(buildSuccess, Equals, true)

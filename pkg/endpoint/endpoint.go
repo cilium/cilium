@@ -1175,15 +1175,9 @@ func (e *Endpoint) GetState() string {
 	return e.getState()
 }
 
-// SetState modifies the endpoint's state. Returns true only if endpoints state
-// was changed as requested
-func (e *Endpoint) SetState(toState, reason string) bool {
-	e.unconditionalLock()
-	defer e.unlock()
-
-	return e.setState(toState, reason)
-}
-
+// setState modifies the endpoint's state
+// endpoint.Mutex must be held
+// Returns true only if endpoints state was changed as requested
 func (e *Endpoint) setState(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
