@@ -101,8 +101,8 @@ func (e *Endpoint) generateReferences() map[id.PrefixType]string {
 		refs[id.IPv6Prefix] = e.IPv6.String()
 	}
 
-	if e.ContainerName != "" {
-		refs[id.ContainerNamePrefix] = e.ContainerName
+	if e.containerName != "" {
+		refs[id.ContainerNamePrefix] = e.containerName
 	}
 
 	if podName := e.getK8sNamespaceAndPodName(); podName != "" {
