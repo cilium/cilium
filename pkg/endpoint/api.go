@@ -472,7 +472,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	// backwards compatibility.
 	if newEp.state != "" &&
 		validPatchTransitionState &&
-		e.GetStateLocked() != StateWaitingForIdentity {
+		e.getState() != StateWaitingForIdentity {
 		// Will not change state if the current state does not allow the transition.
 		if e.setState(StateWaitingForIdentity, "Update endpoint from API PATCH") {
 			changed = true
@@ -504,7 +504,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 
 	// If desired state is waiting-for-identity but identity is already
 	// known, bump it to ready state immediately to force re-generation
-	if e.GetStateLocked() == StateWaitingForIdentity && e.SecurityIdentity != nil {
+	if e.getState() == StateWaitingForIdentity && e.SecurityIdentity != nil {
 		e.setState(StateReady, "Preparing to force endpoint regeneration because identity is known while handling API PATCH")
 		changed = true
 	}
@@ -517,11 +517,11 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		e.forcePolicyComputation()
 
 		// Transition to waiting-to-regenerate if ready.
-		if e.GetStateLocked() == StateReady {
+		if e.getState() == StateReady {
 			e.setState(StateWaitingToRegenerate, "Forcing endpoint regeneration because identity is known while handling API PATCH")
 		}
 
-		switch e.GetStateLocked() {
+		switch e.getState() {
 		case StateWaitingToRegenerate:
 			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
 		case StateWaitingForIdentity:

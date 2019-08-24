@@ -144,7 +144,7 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 			// While endpoint is disconnecting, ID is already available in ID cache.
 			//
 			// Avoid irritating warning messages.
-			state := ep.GetStateLocked()
+			state := ep.getState()
 			if state != StateRestoring && state != StateDisconnecting {
 				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 			}
