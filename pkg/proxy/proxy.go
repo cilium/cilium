@@ -56,6 +56,7 @@ const (
 type DatapathUpdater interface {
 	InstallProxyRules(proxyPort uint16, ingress bool, name string) error
 	RemoveProxyRules(proxyPort uint16, ingress bool, name string) error
+	SupportsOriginalSourceAddr() bool
 }
 
 type ProxyPort struct {
@@ -484,9 +485,9 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
 
 		case policy.ParserTypeHTTP:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
+			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
 		default:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, wg)
+			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
 		}
 
 		if err == nil {

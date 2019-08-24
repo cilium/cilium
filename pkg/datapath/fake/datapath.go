@@ -72,6 +72,10 @@ func (f *fakeDatapath) RemoveProxyRules(uint16, bool, string) error {
 	return nil
 }
 
+func (f *fakeDatapath) SupportsOriginalSourceAddr() bool {
+	return false
+}
+
 func (f *fakeDatapath) Loader() datapath.Loader {
 	return nil
 }
