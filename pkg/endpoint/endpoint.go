@@ -688,11 +688,11 @@ func FilterEPDir(dirFiles []os.FileInfo) []string {
 	return eptsID
 }
 
-// ParseEndpoint parses the given strEp which is in the form of:
+// parseEndpoint parses the given strEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func ParseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
+func parseEndpoint(owner regeneration.Owner, strEp string) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	strEpSlice := strings.Split(strEp, ":")
