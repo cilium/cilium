@@ -942,6 +942,10 @@ func NewDaemon(dp datapath.Datapath, iptablesManager rulesManager) (*Daemon, *en
 }
 
 func setupIPSec() (int, error) {
+	if option.Config.EncryptNode == false {
+		ipsec.DeleteIPsecEncryptRoute()
+	}
+
 	if !option.Config.EnableIPSec {
 		return 0, nil
 	}
@@ -956,10 +960,6 @@ func setupIPSec() (int, error) {
 		}
 	}
 	node.SetIPsecKeyIdentity(spi)
-	if option.Config.EncryptNode == false {
-		ipsec.DeleteIPsecEncryptRoute()
-	}
-
 	return authKeySize, nil
 }
 
