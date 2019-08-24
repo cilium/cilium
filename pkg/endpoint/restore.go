@@ -239,7 +239,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 
 	return &serializableEndpoint{
 		ID:                    e.ID,
-		ContainerName:         e.ContainerName,
+		ContainerName:         e.containerName,
 		ContainerID:           e.ContainerID,
 		DockerNetworkID:       e.DockerNetworkID,
 		DockerEndpointID:      e.DockerEndpointID,
@@ -275,7 +275,7 @@ type serializableEndpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
-	// ContainerName is the name given to the endpoint by the container runtime
+	// containerName is the name given to the endpoint by the container runtime
 	ContainerName string
 
 	// ContainerID is the container ID that docker has assigned to the endpoint
@@ -367,7 +367,7 @@ func (ep *Endpoint) MarshalJSON() ([]byte, error) {
 
 func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
-	ep.ContainerName = r.ContainerName
+	ep.containerName = r.ContainerName
 	ep.ContainerID = r.ContainerID
 	ep.DockerNetworkID = r.DockerNetworkID
 	ep.DockerEndpointID = r.DockerEndpointID
