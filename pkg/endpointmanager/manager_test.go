@@ -212,7 +212,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		{
 			name: "endpoint by docker endpoint ID",
 			preTestRun: func() {
-				ep.DockerEndpointID = "1234"
+				ep.SetDockerEndpointID("1234")
 				ep.Expose(mgr)
 			},
 			setupArgs: func() args {
@@ -229,7 +229,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep.DockerEndpointID = ""
+				ep.SetDockerEndpointID("")
 			},
 		},
 		{
@@ -693,7 +693,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		ep = mgr.LookupContainerID(want.ep.GetContainerID())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
-		ep = mgr.lookupDockerEndpoint(want.ep.DockerEndpointID)
+		ep = mgr.lookupDockerEndpoint(want.ep.GetDockerEndpointID())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		ep = mgr.LookupIPv4(want.ep.IPv4.String())

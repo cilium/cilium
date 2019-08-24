@@ -89,8 +89,8 @@ func (e *Endpoint) generateReferences() map[id.PrefixType]string {
 		refs[id.ContainerIdPrefix] = e.containerID
 	}
 
-	if e.DockerEndpointID != "" {
-		refs[id.DockerEndpointPrefix] = e.DockerEndpointID
+	if e.dockerEndpointID != "" {
+		refs[id.DockerEndpointPrefix] = e.dockerEndpointID
 	}
 
 	if e.IPv4.IsSet() {

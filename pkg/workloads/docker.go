@@ -221,7 +221,7 @@ func (d *dockerClient) IsRunning(ep *endpoint.Endpoint) bool {
 			runtimeRunning = true
 			found := false
 			for _, v := range nls.Containers {
-				if v.EndpointID == ep.DockerEndpointID {
+				if v.EndpointID == ep.GetDockerEndpointID() {
 					found = true
 					break
 				}
