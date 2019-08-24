@@ -413,9 +413,9 @@ func (e *Endpoint) GetID16() uint16 {
 	return e.ID
 }
 
-// GetK8sPodLabels returns all labels that exist in the endpoint and were
+// getK8sPodLabels returns all labels that exist in the endpoint and were
 // derived from k8s pod.
-func (e *Endpoint) GetK8sPodLabels() pkgLabels.Labels {
+func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
 	e.unconditionalRLock()
 	defer e.runlock()
 	allLabels := e.OpLabels.AllLabels()

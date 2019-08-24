@@ -557,8 +557,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 				mutex:    lock.RWMutex{},
 				OpLabels: tt.fields.OpLabels,
 			}
-			if got := e.GetK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Endpoint.GetK8sPodLabels() = %v, want %v", got, tt.want)
+			if got := e.getK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Endpoint.getK8sPodLabels() = %v, want %v", got, tt.want)
 			}
 		})
 	}
