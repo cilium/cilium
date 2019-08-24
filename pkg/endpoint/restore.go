@@ -241,7 +241,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ID:                    e.ID,
 		ContainerName:         e.containerName,
 		ContainerID:           e.containerID,
-		DockerNetworkID:       e.DockerNetworkID,
+		DockerNetworkID:       e.dockerNetworkID,
 		DockerEndpointID:      e.DockerEndpointID,
 		DatapathMapID:         e.datapathMapID,
 		IfName:                e.ifName,
@@ -282,7 +282,7 @@ type serializableEndpoint struct {
 	// Note: The JSON tag was kept for backward compatibility.
 	ContainerID string `json:"dockerID,omitempty"`
 
-	// DockerNetworkID is the network ID of the libnetwork network if the
+	// dockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
 	DockerNetworkID string
 
@@ -369,7 +369,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
 	ep.containerName = r.ContainerName
 	ep.containerID = r.ContainerID
-	ep.DockerNetworkID = r.DockerNetworkID
+	ep.dockerNetworkID = r.DockerNetworkID
 	ep.DockerEndpointID = r.DockerEndpointID
 	ep.datapathMapID = r.DatapathMapID
 	ep.ifName = r.IfName
