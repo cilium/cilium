@@ -512,11 +512,6 @@ func (e *Endpoint) GetNodeMAC() mac.MAC {
 	return e.nodeMAC
 }
 
-// SetNodeMACLocked updates the node MAC inside the endpoint.
-func (e *Endpoint) SetNodeMACLocked(m mac.MAC) {
-	e.nodeMAC = m
-}
-
 func (e *Endpoint) HasSidecarProxy() bool {
 	return e.hasSidecarProxy
 }
