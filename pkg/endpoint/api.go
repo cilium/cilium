@@ -69,7 +69,7 @@ func NewEndpointFromChangeModel(owner regeneration.Owner, base *models.EndpointC
 		ID:               uint16(base.ID),
 		containerName:    base.ContainerName,
 		containerID:      base.ContainerID,
-		DockerNetworkID:  base.DockerNetworkID,
+		dockerNetworkID:  base.DockerNetworkID,
 		DockerEndpointID: base.DockerEndpointID,
 		ifName:           base.InterfaceName,
 		K8sPodName:       base.K8sPodName,
@@ -195,7 +195,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 				ContainerID:      e.containerID,
 				ContainerName:    e.containerName,
 				DockerEndpointID: e.DockerEndpointID,
-				DockerNetworkID:  e.DockerNetworkID,
+				DockerNetworkID:  e.dockerNetworkID,
 				PodName:          e.getK8sNamespaceAndPodName(),
 			},
 			// FIXME GH-3280 When we begin returning endpoint revisions this should

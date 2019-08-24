@@ -90,7 +90,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	}
 
 	if e.containerID == "" {
-		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.DockerNetworkID)
+		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.dockerNetworkID)
 		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.DockerEndpointID)
 	} else {
 		fmt.Fprintf(fw, " * Container ID: %s\n", e.containerID)
@@ -1167,7 +1167,7 @@ func (e *Endpoint) FinishIPVLANInit(netNsPath string) error {
 
 	// No need to finish IPVLAN initialization for Docker if the endpoint isn't
 	// running with Docker.
-	if e.DockerNetworkID == "" {
+	if e.dockerNetworkID == "" {
 		return nil
 	}
 
