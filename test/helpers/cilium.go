@@ -610,7 +610,7 @@ func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
 		_, exists := endpoints[containerID]
 		if !exists {
 
-			return fmt.Errorf("ContainerID %s is not present in the endpoint list", containerID)
+			return fmt.Errorf("containerID %s is not present in the endpoint list", containerID)
 		}
 	}
 	return nil

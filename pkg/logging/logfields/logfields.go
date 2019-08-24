@@ -38,7 +38,7 @@ const (
 	// EventUUID is an event unique identifier
 	EventUUID = "eventID"
 
-	// ContainerID is the container identifier
+	// containerID is the container identifier
 	ContainerID = "containerID"
 
 	// IdentityLabels are the labels relevant for the security identity

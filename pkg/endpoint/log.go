@@ -34,14 +34,14 @@ const (
 	fieldRegenLevel = "regeneration-level"
 )
 
-// getLogger returns a logrus object with EndpointID, ContainerID and the Endpoint
+// getLogger returns a logrus object with EndpointID, containerID and the Endpoint
 // revision fields.
 func (e *Endpoint) getLogger() *logrus.Entry {
 	v := atomic.LoadPointer(&e.logger)
 	return (*logrus.Entry)(v)
 }
 
-// Logger returns a logrus object with EndpointID, ContainerID and the Endpoint
+// Logger returns a logrus object with EndpointID, containerID and the Endpoint
 // revision fields. The caller must specify their subsystem.
 func (e *Endpoint) Logger(subsystem string) *logrus.Entry {
 	if e == nil {
@@ -68,7 +68,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// We need to update if
 	// - e.logger is nil (this happens on the first ever call to UpdateLogger via
 	//   Logger above). This clause has to come first to guard the others.
-	// - If any of EndpointID, ContainerID or policyRevision are different on the
+	// - If any of EndpointID, containerID or policyRevision are different on the
 	//   endpoint from the logger.
 	// - The debug option on the endpoint is true, and the logger is not debug,
 	//   or vice versa.

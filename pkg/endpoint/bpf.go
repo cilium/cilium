@@ -89,11 +89,11 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
-	if e.ContainerID == "" {
+	if e.containerID == "" {
 		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.DockerNetworkID)
 		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.DockerEndpointID)
 	} else {
-		fmt.Fprintf(fw, " * Container ID: %s\n", e.ContainerID)
+		fmt.Fprintf(fw, " * Container ID: %s\n", e.containerID)
 	}
 
 	fmt.Fprintf(fw, ""+
