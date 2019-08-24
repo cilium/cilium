@@ -126,9 +126,9 @@ type Endpoint struct {
 	// endpoint is a docker managed container which uses libnetwork
 	dockerNetworkID string
 
-	// DockerEndpointID is the Docker network endpoint ID if managed by
+	// dockerEndpointID is the Docker network endpoint ID if managed by
 	// libnetwork
-	DockerEndpointID string
+	dockerEndpointID string
 
 	// Corresponding BPF map identifier for tail call map of ipvlan datapath
 	datapathMapID int
@@ -1119,8 +1119,14 @@ func (e *Endpoint) getShortContainerID() string {
 // SetDockerEndpointID modifies the endpoint's Docker Endpoint ID
 func (e *Endpoint) SetDockerEndpointID(id string) {
 	e.unconditionalLock()
-	e.DockerEndpointID = id
+	e.dockerEndpointID = id
 	e.unlock()
+}
+
+func (e *Endpoint) GetDockerEndpointID() string {
+	e.unconditionalRLock()
+	defer e.runlock()
+	return e.dockerEndpointID
 }
 
 // SetDockerNetworkID modifies the endpoint's Docker Endpoint ID
