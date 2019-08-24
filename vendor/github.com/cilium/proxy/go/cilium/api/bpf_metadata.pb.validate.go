@@ -45,6 +45,8 @@ func (m *BpfMetadata) Validate() error {
 
 	// no validation rules for IsIngress
 
+	// no validation rules for MayUseOriginalSourceAddress
+
 	return nil
 }
 

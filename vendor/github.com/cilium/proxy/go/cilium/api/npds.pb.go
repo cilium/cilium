@@ -9,12 +9,10 @@ import (
 	v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	route "github.com/cilium/proxy/go/envoy/api/v2/route"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	math "math"
 )
 
@@ -753,17 +751,6 @@ func (c *networkPolicyDiscoveryServiceClient) FetchNetworkPolicies(ctx context.C
 type NetworkPolicyDiscoveryServiceServer interface {
 	StreamNetworkPolicies(NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error
 	FetchNetworkPolicies(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
-}
-
-// UnimplementedNetworkPolicyDiscoveryServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedNetworkPolicyDiscoveryServiceServer struct {
-}
-
-func (*UnimplementedNetworkPolicyDiscoveryServiceServer) StreamNetworkPolicies(srv NetworkPolicyDiscoveryService_StreamNetworkPoliciesServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamNetworkPolicies not implemented")
-}
-func (*UnimplementedNetworkPolicyDiscoveryServiceServer) FetchNetworkPolicies(ctx context.Context, req *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FetchNetworkPolicies not implemented")
 }
 
 func RegisterNetworkPolicyDiscoveryServiceServer(s *grpc.Server, srv NetworkPolicyDiscoveryServiceServer) {

@@ -6,8 +6,8 @@ package matcher
 import (
 	fmt "fmt"
 	_type "github.com/cilium/proxy/go/envoy/type"
+	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	proto "github.com/golang/protobuf/proto"
-	_ "github.com/lyft/protoc-gen-validate/validate"
 	math "math"
 )
 
