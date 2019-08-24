@@ -366,9 +366,9 @@ func (e *Endpoint) SetDesiredEgressPolicyEnabledLocked(egress bool) {
 	e.desiredPolicy.EgressPolicyEnabled = egress
 }
 
-// WaitForProxyCompletions blocks until all proxy changes have been completed.
+// waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
-func (e *Endpoint) WaitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
@@ -1994,7 +1994,7 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	errs = append(errs, e.leaveLocked(proxyWaitGroup, conf)...)
 	e.Unlock()
 
-	err := e.WaitForProxyCompletions(proxyWaitGroup)
+	err := e.waitForProxyCompletions(proxyWaitGroup)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("unable to remove proxy redirects: %s", err))
 	}
