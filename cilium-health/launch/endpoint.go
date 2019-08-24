@@ -334,11 +334,9 @@ func LaunchAsEndpoint(baseCtx context.Context, owner regeneration.Owner, n *node
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
-	if err := ep.LockAlive(); err != nil {
+	if err := ep.PinDatapathMap(); err != nil {
 		return nil, err
 	}
-	ep.PinDatapathMap()
-	ep.Unlock()
 
 	// Give the endpoint a security identity
 	ctx, cancel := context.WithTimeout(baseCtx, LaunchTime)

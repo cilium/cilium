@@ -1132,15 +1132,10 @@ func (e *Endpoint) GetDockerNetworkID() string {
 	return e.DockerNetworkID
 }
 
-// setDatapathMapIDAndPinMapLocked modifies the endpoint's datapath map ID
-func (e *Endpoint) setDatapathMapIDAndPinMapLocked(id int) error {
+// setDatapathMapIDAndPinMap modifies the endpoint's datapath map ID
+func (e *Endpoint) setDatapathMapIDAndPinMap(id int) error {
 	e.datapathMapID = id
-	return e.PinDatapathMap()
-}
-
-// isDatapathMapPinnedLocked returns whether the endpoint's datapath map has been pinned
-func (e *Endpoint) isDatapathMapPinnedLocked() bool {
-	return e.isDatapathMapPinned
+	return e.pinDatapathMap()
 }
 
 // GetState returns the endpoint's state
@@ -1824,6 +1819,16 @@ func (e *Endpoint) IsDisconnecting() bool {
 // PinDatapathMap retrieves a file descriptor from the map ID from the API call
 // and pins the corresponding map into the BPF file system.
 func (e *Endpoint) PinDatapathMap() error {
+	if err := e.LockAlive(); err != nil {
+		return err
+	}
+	defer e.Unlock()
+	return e.pinDatapathMap()
+}
+
+// PinDatapathMap retrieves a file descriptor from the map ID from the API call
+// and pins the corresponding map into the BPF file system.
+func (e *Endpoint) pinDatapathMap() error {
 	if e.datapathMapID == 0 {
 		return nil
 	}
