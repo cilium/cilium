@@ -968,6 +968,30 @@ func (n *linuxNodeHandler) deleteNodeIPSecOutRoute(ip *net.IPNet) {
 	}
 }
 
+func (n *linuxNodeHandler) deleteNodeExternalIPSecOutRoute(ip *net.IPNet) {
+	if ip == nil {
+		return
+	}
+
+	if ip.IP.To4() != nil {
+		if !n.nodeConfig.EnableIPv4 {
+			return
+		}
+	} else {
+		if !n.nodeConfig.EnableIPv6 {
+			return
+		}
+	}
+
+	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, true)); err != nil {
+		log.WithError(err).Error("Unable to delete the IPsec route External OUT from the ipsec routing table")
+	}
+
+	if err := route.Delete(n.createNodeExternalIPSecOutRoute(ip, false)); err != nil {
+		log.WithError(err).Error("Unable to delete the IPsec route External OUT from the host routing table")
+	}
+}
+
 // replaceNodeIPSecoInRoute replace the in IPSec routes in the host routing table
 // with the new route. If no route exists the route is installed on the host.
 func (n *linuxNodeHandler) replaceNodeIPSecInRoute(ip *net.IPNet) {
@@ -998,6 +1022,13 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *node.Node) {
 		old4RouteNet := &net.IPNet{IP: oldNode.IPv4AllocCIDR.IP, Mask: oldNode.IPv4AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old4RouteNet)
 		ipsec.DeleteIPsecEndpoint(old4Net)
+		if n.nodeConfig.EncryptNode {
+			if remoteIPv4 := oldNode.GetNodeIP(false); remoteIPv4 != nil {
+				exactMask := net.IPv4Mask(255, 255, 255, 255)
+				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: exactMask}
+				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
+			}
+		}
 	}
 
 	if n.nodeConfig.EnableIPv6 && oldNode.IPv6AllocCIDR != nil {
@@ -1006,6 +1037,13 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *node.Node) {
 		old6RouteNet := &net.IPNet{IP: oldNode.IPv6AllocCIDR.IP, Mask: oldNode.IPv6AllocCIDR.Mask}
 		n.deleteNodeIPSecOutRoute(old6RouteNet)
 		ipsec.DeleteIPsecEndpoint(old6Net)
+		if n.nodeConfig.EncryptNode {
+			if remoteIPv6 := oldNode.GetNodeIP(true); remoteIPv6 != nil {
+				exactMask := net.CIDRMask(128, 128)
+				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: exactMask}
+				n.deleteNodeExternalIPSecOutRoute(ipsecRemote)
+			}
+		}
 	}
 }
 
