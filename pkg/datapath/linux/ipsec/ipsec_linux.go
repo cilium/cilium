@@ -348,7 +348,9 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		"spi": spi,
 	})
 
-	encrypt.MapCreate()
+	if err := encrypt.MapCreate(); err != nil {
+		return 0, 0, fmt.Errorf("Encrypt map create failed: %v", err)
+	}
 
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
