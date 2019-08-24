@@ -452,7 +452,10 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 			}()
 		}
 	}
-	encrypt.MapUpdateContext(0, spi)
+	if err := encrypt.MapUpdateContext(0, spi); err != nil {
+		scopedLog.WithError(err).Warn("cilium_encrypt_state map updated failed:")
+		return 0, 0, err
+	}
 	return keyLen, spi, nil
 }
 
