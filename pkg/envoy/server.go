@@ -196,8 +196,9 @@ func StartXDSServer(stateDir string) *XDSServer {
 			Name: "cilium.bpf_metadata",
 			ConfigType: &envoy_api_v2_listener.ListenerFilter_Config{
 				Config: &structpb.Struct{Fields: map[string]*structpb.Value{
-					"is_ingress": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
-					"bpf_root":   {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
+					"is_ingress":                      {Kind: &structpb.Value_BoolValue{BoolValue: false}},
+					"may_use_original_source_address": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
+					"bpf_root":                        {Kind: &structpb.Value_StringValue{StringValue: bpf.GetMapRoot()}},
 				}},
 			},
 		}},
@@ -330,8 +331,8 @@ func StartXDSServer(stateDir string) *XDSServer {
 }
 
 // AddListener adds a listener to a running Envoy proxy.
-func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, wg *completion.WaitGroup) {
-	log.Debugf("Envoy: %s AddListener %s", kind, name)
+func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) {
+	log.Debugf("Envoy: %s AddListener %s (mayUseOriginalSourceAddr: %v)", kind, name, mayUseOriginalSourceAddr)
 
 	s.mutex.Lock()
 	listener := s.listeners[name]
@@ -384,6 +385,9 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	if isIngress {
 		listenerConf.SocketOptions[0].Value.(*envoy_api_v2_core.SocketOption_IntValue).IntValue = 0xA00 // Ingress socket mark
 		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["is_ingress"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
+	}
+	if mayUseOriginalSourceAddr {
+		listenerConf.ListenerFilters[0].ConfigType.(*envoy_api_v2_listener.ListenerFilter_Config).Config.Fields["may_use_original_source_address"].GetKind().(*structpb.Value_BoolValue).BoolValue = true
 	}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"},
