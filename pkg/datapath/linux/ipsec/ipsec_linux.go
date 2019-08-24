@@ -146,7 +146,7 @@ func ipSecReplacePolicyInFwd(src, dst *net.IPNet, dir netlink.Dir) error {
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
+func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) error {
 	var spiWide uint32
 
 	key := getIPSecKeys(dst.IP)
@@ -169,7 +169,11 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, dir IPSecDir) error {
 		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, true)
+	if tmplSrc != nil && tmplDst != nil {
+		ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true)
+	} else {
+		ipSecAttachPolicyTempl(policy, key, src.IP, dst.IP, true)
+	}
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -306,7 +310,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 				}
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, dir); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote, nil, nil, dir); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %s", err)
 				}
@@ -314,6 +318,17 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, dir IPSecDir) (uint8, error) 
 		}
 	}
 	return spi, nil
+}
+
+// UpsertIPsecEndpointPolicy adds a policy to the xfrm rules. Used to add a policy when the state
+// rule is already available.
+func UpsertIPsecEndpointPolicy(local, remote, localT, remoteT *net.IPNet, dir IPSecDir) error {
+	if err := ipSecReplacePolicyOut(local, remote, localT, remoteT, dir); err != nil {
+		if !os.IsExist(err) {
+			return fmt.Errorf("unable to replace templated policy out: %s", err)
+		}
+	}
+	return nil
 }
 
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address

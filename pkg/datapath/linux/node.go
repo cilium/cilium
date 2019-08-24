@@ -500,6 +500,19 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOutNode)
 				upsertIPsecLog(err, "EncryptNode IPv4", ipsecLocal, ipsecRemote, spi)
 			}
+			if remoteIPv4 := newNode.GetCiliumInternalIP(false); remoteIPv4 != nil {
+				mask := newNode.IPv4AllocCIDR.Mask
+				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv4.Mask(mask), Mask: mask}
+				ipsecRemote := &net.IPNet{IP: remoteIPv4, Mask: mask}
+				ipsecWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
+
+				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
+				if remoteIPv4T := newNode.GetNodeIP(false); remoteIPv4T != nil {
+					ipsecRemoteT := &net.IPNet{IP: remoteIPv4T, Mask: exactMask}
+					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, ipsecLocal, ipsecRemoteT, ipsec.IPSecDirOutNode)
+				}
+				upsertIPsecLog(err, "EncryptNode Cilium IPv4", ipsecWildcard, ipsecRemote, spi)
+			}
 		}
 	}
 
@@ -518,6 +531,19 @@ func (n *linuxNodeHandler) encryptNode(newNode *node.Node) {
 				n.replaceNodeExternalIPSecOutRoute(ipsecRemote)
 				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsec.IPSecDirOut)
 				upsertIPsecLog(err, "EncryptNode IPv6", ipsecLocal, ipsecRemote, spi)
+			}
+			if remoteIPv6 := newNode.GetCiliumInternalIP(true); remoteIPv6 != nil {
+				mask := newNode.IPv6AllocCIDR.Mask
+				ipsecRemoteRoute := &net.IPNet{IP: remoteIPv6.Mask(mask), Mask: mask}
+				ipsecRemote := &net.IPNet{IP: remoteIPv6, Mask: mask}
+				ipsecWildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
+
+				n.replaceNodeExternalIPSecOutRoute(ipsecRemoteRoute)
+				if remoteIPv6T := newNode.GetNodeIP(true); remoteIPv6T != nil {
+					ipsecRemoteT := &net.IPNet{IP: remoteIPv6T, Mask: exactMask}
+					err = ipsec.UpsertIPsecEndpointPolicy(ipsecWildcard, ipsecRemote, ipsecLocal, ipsecRemoteT, ipsec.IPSecDirOutNode)
+				}
+				upsertIPsecLog(err, "EncryptNode Cilium IPv6", ipsecWildcard, ipsecRemote, spi)
 			}
 		}
 	}
