@@ -88,8 +88,9 @@ var (
 )
 
 // MapCreate will create an encrypt map
-func MapCreate() {
-	encryptMap.OpenOrCreate()
+func MapCreate() error {
+	_, err := encryptMap.OpenOrCreate()
+	return err
 }
 
 // MapUpdateContext updates the encrypt state with ctxID to use the new keyID
