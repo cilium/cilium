@@ -143,13 +143,6 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	return e
 }
 
-func (ds *DaemonSuite) regenerateEndpoint(c *C, e *endpoint.Endpoint) {
-	ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
-	c.Assert(ready, Equals, true)
-	buildSuccess := <-e.Regenerate(regenerationMetadata)
-	c.Assert(buildSuccess, Equals, true)
-}
-
 func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 	rules := api.Rules{
 		{
@@ -645,7 +638,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	defer cache.Release(context.Background(), ds.d, qaFooID)
 
 	// Regenerate endpoint
-	ds.regenerateEndpoint(c, e)
+	e.RegenerateEndpointTest(c, regenerationMetadata)
 
 	// Check that the policy has been updated in the xDS cache for the L7
 	// proxies.
