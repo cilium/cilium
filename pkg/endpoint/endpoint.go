@@ -2007,3 +2007,106 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 
 	return errs
 }
+
+type ContainerStartFunc func()
+
+// Create handles the creation of an endpoint. Returns an error if the endpoint
+// was unable to be created, or if the specified context's deadline is reached.
+// If syncBuild is true, this function waits for specific conditions until
+// returning:
+// * if the endpoint has a sidecar proxy, it waits for the endpoint's BPF
+// program to be generated for the first time.
+// * otherwise, waits for the endpoint to complete its first full regeneration.
+func (e *Endpoint) Create(ctx context.Context, cfunc ContainerStartFunc, syncBuild bool) error {
+	if err := e.LockAlive(); err != nil {
+		return fmt.Errorf("endpoint was deleted while processing the request")
+	}
+
+	build := e.GetStateLocked() == StateReady
+	if build {
+		e.SetStateLocked(StateWaitingToRegenerate, "Identity is known at endpoint creation time")
+	}
+	e.Unlock()
+
+	if build {
+		// Do not synchronously regenerate the endpoint when first creating it.
+		// We have custom logic later for waiting for specific checkpoints to be
+		// reached upon regeneration later (checking for when BPF programs have
+		// been compiled), as opposed to waiting for the entire regeneration to
+		// be complete (including proxies being configured). This is done to
+		// avoid a chicken-and-egg problem with L7 policies are imported which
+		// select the endpoint being generated, as when such policies are
+		// imported, regeneration blocks on waiting for proxies to be
+		// configured. When Cilium is used with Istio, though, the proxy is
+		// started as a sidecar, and is not launched yet when this specific code
+		// is executed; if we waited for regeneration to be complete, including
+		// proxy configuration, this code would effectively deadlock addition
+		// of endpoints.
+		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
+			Reason:        "Initial build on endpoint creation",
+			ParentContext: ctx,
+		})
+	}
+
+	cfunc()
+
+	// Wait for endpoint to be in "ready" state if specified in API call.
+	if !syncBuild {
+		return nil
+	}
+
+	return e.waitForFirstRegeneration(ctx)
+}
+
+func (e *Endpoint) waitForFirstRegeneration(ctx context.Context) error {
+	e.getLogger().Info("Waiting for endpoint to be generated")
+
+	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
+	// in this function a bit below that timeout. If the timeout for clients
+	// in API is below this value, they will get a message containing
+	// "context deadline exceeded" if the operation takes longer than the
+	// client's configured timeout value.
+	ctx, cancel := context.WithTimeout(ctx, EndpointGenerationTimeout)
+
+	// Check the endpoint's state and labels periodically.
+	ticker := time.NewTicker(1 * time.Second)
+	defer func() {
+		cancel()
+		ticker.Stop()
+	}()
+
+	// Wait for any successful BPF regeneration, which is indicated by any
+	// positive policy revision (>0). As long as at least one BPF
+	// regeneration is successful, the endpoint has network connectivity
+	// so we can return from the creation API call.
+	revCh := e.WaitForPolicyRevision(ctx, 1, nil)
+
+	for {
+		select {
+		case <-revCh:
+			if ctx.Err() == nil {
+				// At least one BPF regeneration has successfully completed.
+				return nil
+			}
+
+		case <-ctx.Done():
+		case <-ticker.C:
+			if err := e.RLockAlive(); err != nil {
+				return fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete")
+			}
+			hasSidecarProxy := e.HasSidecarProxy()
+			e.RUnlock()
+			if hasSidecarProxy && e.HasBPFProgram() {
+				// If the endpoint is determined to have a sidecar proxy,
+				// return immediately to let the sidecar container start,
+				// in case it is required to enforce L7 rules.
+				e.getLogger().Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
+				return nil
+			}
+		}
+
+		if ctx.Err() != nil {
+			return fmt.Errorf("timeout while waiting for initial endpoint generation to complete")
+		}
+	}
+}
