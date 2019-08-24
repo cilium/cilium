@@ -18,14 +18,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -249,7 +247,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
-	logger := ep.Logger(daemonSubsys)
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
@@ -273,95 +270,22 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
-	build := ep.GetStateLocked() == endpoint.StateReady
-	if build {
-		ep.SetStateLocked(endpoint.StateWaitingToRegenerate, "Identity is known at endpoint creation time")
-	}
 	ep.Unlock()
 
-	if build {
-		// Do not synchronously regenerate the endpoint when first creating it.
-		// We have custom logic later for waiting for specific checkpoints to be
-		// reached upon regeneration later (checking for when BPF programs have
-		// been compiled), as opposed to waiting for the entire regeneration to
-		// be complete (including proxies being configured). This is done to
-		// avoid a chicken-and-egg problem with L7 policies are imported which
-		// select the endpoint being generated, as when such policies are
-		// imported, regeneration blocks on waiting for proxies to be
-		// configured. When Cilium is used with Istio, though, the proxy is
-		// started as a sidecar, and is not launched yet when this specific code
-		// is executed; if we waited for regeneration to be complete, including
-		// proxy configuration, this code would effectively deadlock addition
-		// of endpoints.
-		ep.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
-		})
-	}
-
-	// Only used for CRI-O since it does not support events.
-	if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
-		d.workloadsEventsCh <- &workloads.EventMessage{
-			WorkloadID: ep.GetContainerID(),
-			EventType:  workloads.EventTypeStart,
-		}
-	}
-
-	// Wait for endpoint to be in "ready" state if specified in API call.
-	if !epTemplate.SyncBuildEndpoint {
-		return ep, 0, nil
-	}
-
-	logger.Info("Waiting for endpoint to be generated")
-
-	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout
-	// in this function a bit below that timeout. If the timeout for clients
-	// in API is below this value, they will get a message containing
-	// "context deadline exceeded" if the operation takes longer than the
-	// client's configured timeout value.
-	ctx, cancel := context.WithTimeout(ctx, endpoint.EndpointGenerationTimeout)
-
-	// Check the endpoint's state and labels periodically.
-	ticker := time.NewTicker(1 * time.Second)
-	defer func() {
-		cancel()
-		ticker.Stop()
-	}()
-
-	// Wait for any successful BPF regeneration, which is indicated by any
-	// positive policy revision (>0). As long as at least one BPF
-	// regeneration is successful, the endpoint has network connectivity
-	// so we can return from the creation API call.
-	revCh := ep.WaitForPolicyRevision(ctx, 1, nil)
-
-	for {
-		select {
-		case <-revCh:
-			if ctx.Err() == nil {
-				// At least one BPF regeneration has successfully completed.
-				return ep, 0, nil
-			}
-
-		case <-ctx.Done():
-		case <-ticker.C:
-			if err := ep.RLockAlive(); err != nil {
-				return d.errorDuringCreation(ep, fmt.Errorf("endpoint was deleted while waiting for initial endpoint generation to complete"))
-			}
-			hasSidecarProxy := ep.HasSidecarProxy()
-			ep.RUnlock()
-			if hasSidecarProxy && ep.HasBPFProgram() {
-				// If the endpoint is determined to have a sidecar proxy,
-				// return immediately to let the sidecar container start,
-				// in case it is required to enforce L7 rules.
-				logger.Info("Endpoint has sidecar proxy, returning from synchronous creation request before regeneration has succeeded")
-				return ep, 0, nil
+	cfunc := func() {
+		// Only used for CRI-O since it does not support events.
+		if d.workloadsEventsCh != nil && ep.GetContainerID() != "" {
+			d.workloadsEventsCh <- &workloads.EventMessage{
+				WorkloadID: ep.GetContainerID(),
+				EventType:  workloads.EventTypeStart,
 			}
 		}
-
-		if ctx.Err() != nil {
-			return d.errorDuringCreation(ep, fmt.Errorf("timeout while waiting for initial endpoint generation to complete"))
-		}
 	}
+
+	if err := ep.RegenerateAfterCreation(ctx, cfunc, epTemplate.SyncBuildEndpoint); err != nil {
+		return d.errorDuringCreation(ep, err)
+	}
+	return ep, 0, nil
 }
 
 func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder {
